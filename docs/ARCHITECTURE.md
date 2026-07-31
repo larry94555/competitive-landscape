@@ -380,12 +380,63 @@ Escape hatch: if in-process ever becomes worth it (e.g. embedding a tiny reranke
 
 ### 4.2 Model selection
 
-Two model roles, both llama.cpp/GGUF:
+**The launch host is Oracle Cloud Always Free: one Ampere A1 instance, 4 OCPU
+(Neoverse N1, aarch64), 24GB RAM, network-attached block storage, no GPU.** Every choice in
+this section is anchored to that budget. See §4.4 for the rung ladder beyond it.
 
-| Role | Requirement | Recommended | Alternates |
+**Memory budget — the number that actually constrains model choice is not 24GB.**
+The same box runs everything else:
+
+| Component | Budget |
+|---|---|
+| OS + kernel page cache headroom | ~2.0 GB |
+| Postgres (`shared_buffers` 1GB, tuned small) | ~1.5 GB |
+| Redis | ~0.3 GB |
+| SearXNG (Python) | ~0.7 GB |
+| `landscape` binary (api + worker) | ~0.4 GB |
+| Caddy | ~0.1 GB |
+| Safety margin (never OOM the box) | ~2.0 GB |
+| **Available to `llama-server` (weights + KV + compute buffers)** | **≈ 17 GB** |
+
+Three model roles, all llama.cpp/GGUF, **all resident simultaneously** — a 24GB box can hold
+several small models at once, and that is strictly better than swapping one large model in and
+out, which would thrash network block storage.
+
+| Role | Job | Rung 0 (Oracle Free) | Requirement |
 |---|---|---|---|
-| **Extractor** (per-source structured reading, high volume, must be fast) | Strong instruction-following on short contexts, reliable JSON under grammar | **Qwen3-4B** or **Qwen3-8B**, Q4_K_M | Llama 3.1 8B, Gemma 3 4B/12B |
-| **Synthesizer** (final report prose, one call per analysis, quality-critical) | Long context (32k+), good summarization, low hallucination when grounded | **Qwen3-14B** Q4_K_M *(GPU)* / **Qwen3-8B** Q4_K_M *(CPU-only)* | Mistral Small 3.x 24B, Gemma 3 27B, Qwen3-30B-A3B (MoE — very strong tok/s if VRAM allows) |
+| **Router** | Subject resolution, clarify-or-not classification, KB thread matching, alert importance scoring | **Qwen3-1.7B** Q4_K_M (~1.1 GB) | Fast, reliable under grammar. Outputs are enums and short strings. |
+| **Extractor** | Per-source structured reading — the high-volume role | **Qwen3-4B** Q4_K_M (~2.5 GB) | Strong instruction-following on *short* contexts; faithful span selection. |
+| **Synthesizer** | Report prose, sentiment themes, SWOT — quality-critical, one pass | **Qwen3-8B** Q4_K_M (~5.0 GB) | Grounded summarization, low invention. Q3-free. |
+
+Resident total ≈ **8.6 GB of weights**, leaving ~8 GB for KV caches and compute buffers
+across all three. Comfortable, with room to promote the synthesizer to **Qwen3-14B**
+(~9 GB, total ~12.6 GB) **if and only if Phase 0 shows the latency is affordable** — on
+4 ARM cores it probably is not. That is a measurement, not a preference.
+
+**Why not a 30B MoE on this box.** Qwen3-30B-A3B is the quality-per-token bargain and the
+roadmap previously called it the sleeper pick — but at Q4_K_M it is ~18.6 GB of weights
+*alone*, which does not fit in a ~17 GB budget once KV cache and compute buffers are
+counted. IQ4_XS (~16.5 GB) technically fits and leaves nothing for anything else. It is
+Rung 1's first upgrade, not Rung 0's baseline.
+
+**Why not stream experts from disk.** The technique of keeping the shared core resident and
+paging per-token MoE experts from storage is real and works well on Apple Silicon with local
+NVMe. It does not transfer here: Oracle Free storage is network-attached block, where
+per-token random reads are orders of magnitude worse than local NVMe, and the box has no GPU
+to pair it with. It also solves the wrong problem — see §4.4, where the binding constraint is
+compute and memory bandwidth, not capacity.
+
+Selection principles, unchanged:
+
+- **Licensing gate first.** Apache-2.0 / permissive preferred (Qwen3, Mistral Small).
+  Read the license before the benchmark — Llama and Gemma carry use restrictions that
+  matter for a commercial SaaS.
+- **Long-context faithfulness** matters more than raw MMLU. The job is "read this page, do not
+  invent." Evaluate on *our* golden set (see Quality doc), never on leaderboards.
+- **Model choice is a config value**, not a code change. `MODEL_SYNTH=...gguf`. Swapping
+  models must be a one-line change plus an eval run.
+- **Re-bake-off quarterly.** Small open models improve faster than any other input to this
+  product. A model chosen in Phase 0 is very likely wrong by Phase 5.
 
 Selection principles, not brand loyalty:
 
@@ -411,47 +462,133 @@ Selection principles, not brand loyalty:
 
 Keep **KV cache at F16** initially. `q8_0` KV quantization roughly halves KV memory and is
 usually acceptable, but it must be validated against the golden set before shipping — KV
-quantization damage shows up precisely in long-context faithfulness.
+quantization damage shows up precisely in long-context faithfulness. On Rung 0 the case for
+`q8_0` KV is stronger than usual because three models share ~8 GB of cache budget; validate
+it in Phase 0 rather than deferring.
 
-### 4.4 Hardware assumptions & latency budget
+**aarch64-specific: benchmark `Q4_0` against `Q4_K_M`.** llama.cpp repacks `Q4_0` weights at
+load time to use ARM `dotprod` / `i8mm` instructions, which on Neoverse N1 can make it
+materially faster than K-quants despite `Q4_0` being the lower-quality format. This is a
+genuine quality-versus-latency trade that only exists on ARM, and on a box this slow it may
+be worth taking for the Router and Extractor roles while keeping `Q4_K_M` for the
+Synthesizer. Phase 0 measures both on the golden set; ship whichever passes the quality
+gates fastest.
 
-Three deployment rungs. The product ships on Rung 1 and is *designed* for Rung 2.
+### 4.4 Hardware rungs & latency budget
 
-**Rung 0 — dev laptop.** Apple Silicon (M-series, ≥24GB) via Metal, or any dev box.
-Fine for building; not a latency reference.
+The product **launches on Rung 0 at €0/month** and climbs only when revenue pays for the
+next step. Full revenue triggers are in [ROADMAP.md](ROADMAP.md) §6.
 
-**Rung 1 — CPU-only VPS/dedicated (launch, €50–70/mo).**
-Hetzner AX52-class: Ryzen 7 7700 (8c/16t), 64GB DDR5, NVMe.
-Expected order of magnitude (validate in Phase 0):
-- Qwen3-8B Q4_K_M: prompt processing ~120–250 tok/s, generation ~9–14 tok/s.
-- A 1,200-token synthesis = **85–130s**. Too slow for the 15–25s SLO on its own.
+#### The binding constraint is not memory
 
-Therefore Rung 1 ships with these compensations, all of which are permanent
-architecture improvements, not hacks:
-1. **Map-reduce with tiny outputs.** Per-source extraction emits ~120–200 tokens of
-   structured JSON, not prose. These run concurrently across slots.
-2. **Extractive-first synthesis.** The final call assembles mostly-already-written
-   fragments; target ~500–700 generated tokens, not 1,500.
-3. **Section-parallel generation.** Independent sections (Pricing, Features, Sentiment)
-   are separate small grammar-constrained calls across slots, not one monolith.
-4. **Streaming UX** so time-to-first-content is 4–8s.
-5. Extractor role uses **Qwen3-4B** on Rung 1.
-6. Honest queue-position display under load.
+On Oracle Free the intuition that "a bigger model needs more RAM" is a distraction. 24 GB
+holds far more model than 4 Neoverse N1 cores can *run*. Two costs dominate, and both scale
+with model size:
 
-**Rung 2 — single GPU box (target, €180–250/mo).**
-Hetzner GEX44 (RTX 4000 SFF Ada, 20GB) or an RTX 4090/5090 dedicated.
-- Qwen3-14B Q4_K_M fully offloaded: generation ~45–75 tok/s, prompt ~2,000+ tok/s.
-- 1,200-token synthesis ≈ **16–27s** single-stream; with section parallelism across
-  4 slots, **p50 well inside the 15–25s target**.
-- Flash attention (`-fa`), `--cont-batching`, `--parallel 4`, and optional
-  **speculative decoding** (`-md` with a 0.5–1.5B draft model) for another 1.3–2×.
+- **Generation** is memory-bandwidth-bound: tokens/second ≈ (bandwidth) ÷ (bytes read per
+  token). A 4-core slice of a shared Ampere Altra has modest effective bandwidth.
+- **Prompt processing (prefill)** is compute-bound, and on 4 cores it is the larger problem.
+  **Prefill, not generation, is what makes a naive design unusable here** — 16,000 tokens of
+  source context at ARM CPU prefill rates is minutes, not seconds.
 
-**Rung 3 — scale-out.** Multiple GPU workers behind the same Postgres job queue; the
-Rust API is already stateless with respect to inference. Add a second box, register it in
-a `inference_nodes` table, and route by least-loaded slots.
+Every design decision below follows from that second sentence.
 
-**Move to Rung 2 when** p95 analysis latency exceeds 45s for two consecutive days, or
-queue depth regularly exceeds 3. Not before — €120/mo matters at zero revenue.
+#### Rung 0 — Oracle Cloud Always Free (launch, €0/mo)
+
+One Ampere A1: 4 OCPU (Neoverse N1, aarch64), 24 GB RAM, 200 GB network block storage, no GPU.
+Models per §4.2. **Order-of-magnitude estimates only — Phase 0 replaces every number here
+with a measurement, and the whole latency plan is contingent on them:**
+
+| Model (Q4_K_M) | Prefill | Generation |
+|---|---|---|
+| Qwen3-1.7B | ~80–200 tok/s | ~12–25 tok/s |
+| Qwen3-4B | ~40–100 tok/s | ~6–12 tok/s |
+| Qwen3-8B | ~20–60 tok/s | ~3–7 tok/s |
+
+Continuous batching helps more than it looks: on a memory-bound CPU, running 4 sequences
+concurrently reads the weights **once** and applies them to all four, so aggregate throughput
+is far better than 4× a single stream would suggest. This is why `--parallel` matters more on
+CPU than on GPU.
+
+**Honest latency target for Rung 0: first content in 20–40s, complete report in 90–180s.**
+That is not the 15–25s product goal, and the documents should not pretend otherwise. The
+15–25s target is a **Rung 2** figure. What Rung 0 must deliver instead is *visible, honest
+progress* and *content worth waiting for* — see [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §2.1.
+
+#### The seven Rung-0 compensations
+
+All are permanent architecture improvements that also raise quality. None is a hack.
+
+1. **Deterministic-first extraction (§5.4).** Prices, dates, tier names, changelog entries and
+   version numbers are parsed by *code*, not by a model. This is the single biggest lever: it
+   removes most prefill, and parsed values are more accurate than generated ones.
+2. **Span pre-selection before the model sees anything.** Heuristics (heading structure,
+   table detection, keyword windows) reduce each source from ~2,500 tokens to a ~400-token
+   candidate window. Eight sources then cost ~3,200 prefill tokens instead of ~20,000.
+3. **Tiny structured outputs.** Per-source extraction emits ~80–120 tokens of grammar-constrained
+   JSON, never prose.
+4. **Section-parallel generation.** Independent sections are separate small calls across
+   slots, batched, not one monolith.
+5. **Total generation budget ≤ 900 tokens** per analysis on Rung 0 (versus 2,500 on GPU).
+6. **Cache everything (§6).** The per-source extraction cache means the second analysis of a
+   popular competitor costs almost nothing. On free-tier hardware, cache hit rate *is* the
+   capacity plan.
+7. **Honest queue display.** "3 ahead of you, about 4 minutes" beats a spinner, and beats a
+   lie.
+
+**Capacity estimate:** ~60–120 analyses/day before queueing becomes user-visible, heavily
+dependent on cache hit rate. Enough for validation and early users; not enough for a
+successful launch, which is why Rung 1 is triggered by demand, not by taste.
+
+#### Rung 1 — split tiers (~€50–70/mo)
+
+Oracle Free keeps the web tier (Rust API, Postgres, Redis, SearXNG, Caddy) — which it handles
+comfortably and which stays free forever. Add **one Hetzner AX52-class dedicated box**
+(Ryzen 7 7700, 8c/16t, 64 GB DDR5, local NVMe) running only `llama-server`.
+
+This is the most capital-efficient step available: it puts the entire first spend on the
+actual bottleneck and nothing else.
+
+- Unlocks **Qwen3-30B-A3B** (MoE, ~18.6 GB at Q4_K_M, ~3B active/token) — a large quality
+  jump at CPU-friendly speed, because MoE reads only the active experts per token.
+- Estimated: 1,200-token synthesis in **60–90s**; p50 report ~45–70s.
+- Backend change required: **none**. `LLAMA_BASE_URL` points at the new host over a private
+  network or WireGuard tunnel.
+
+#### Rung 2 — single GPU box (~€180–250/mo)
+
+Hetzner GEX44 (RTX 4000 SFF Ada, 20 GB VRAM) or an RTX 4090-class dedicated.
+
+- Qwen3-14B or Qwen3-30B-A3B Q4_K_M fully offloaded: generation ~45–75 tok/s, prefill
+  ~2,000+ tok/s.
+- **This is the rung at which the 15–25s product target becomes real.**
+- Flash attention (`-fa`), `--cont-batching`, `--parallel 4–8`, and optional **speculative
+  decoding** (`-md` with a 0.5–1.5B draft) for another 1.3–2×.
+- The Rung-0 compensations all still apply and now buy headroom instead of survival.
+
+#### Rung 3 — large-model GPU (~€600–1,200/mo)
+
+48–80 GB VRAM (RTX 6000 Ada, L40S, A100 80GB). Unlocks 70B-class dense models or large MoEs
+such as gpt-oss-120b (~5B active) at Q4. Meaningful quality gain on synthesis and SWOT.
+
+#### Rung 4 — frontier open weights (€3,000+/mo)
+
+Worth stating plainly because it is a common planning error: **Kimi K2-class models are not a
+"when revenue comes in" upgrade for a bootstrapped product.** K2 is ~1T total parameters
+(~32B active); at 4-bit that is roughly 550–600 GB of weights, requiring a multi-GPU server
+(8×H100-class) — on the order of €3,000–6,000/month, or €40–70k/year. At the roadmap's
+"infrastructure ≤ 20% of MRR" rule that implies ~$200k+ ARR. It is a real destination, but it
+sits well beyond the bootstrapped horizon, and the ladder should not be planned around it.
+The realistic quality ceiling for the next two years of this product is Rung 3.
+
+#### Rung 5 — scale-out
+
+Multiple inference nodes behind the same Postgres job queue; the Rust API is already stateless
+with respect to inference. Register nodes in an `inference_nodes` table and route by
+least-loaded slots.
+
+**Promotion triggers are revenue-gated, not latency-gated** — see [ROADMAP.md](ROADMAP.md) §6.
+Latency alone cannot justify a spend that has no income behind it.
 
 ### 4.5 Constrained decoding (non-negotiable)
 
@@ -494,21 +631,45 @@ not sit in the request path.
 - Few-shot examples are versioned artifacts (`prompts/v3/synthesize.md`) with the version
   recorded on every `analyses` row, so quality regressions are attributable.
 
-### 4.7 Queueing & batching
+### 4.7 Process topology, queueing & batching
+
+**`llama-server` serves exactly one model per process.** Three roles therefore means three
+supervised processes on Rung 0:
+
+| Process | Model | Port | `--threads` | `--parallel` |
+|---|---|---|---|---|
+| `llama-router` | Qwen3-1.7B | 8081 | 2 | 2 |
+| `llama-extract` | Qwen3-4B | 8082 | 4 | 4 |
+| `llama-synth` | Qwen3-8B | 8083 | 4 | 2 |
+
+Thread counts deliberately over-subscribe 4 cores, because the pipeline is **phase-ordered** —
+the router is idle while synthesis runs, and vice versa. Overlap is bounded in Rust instead:
 
 ```
-request → global Semaphore(N_SLOTS) → llama-server slot
-              ↑ fair-ish: paid tier gets a reserved slot subset
+call → global Semaphore(2–3 in-flight, all servers) → per-server slot
+          ↑ paid tier holds a reserved permit
 ```
 
-- `--parallel 4` on Rung 1, `--parallel 4..8` on Rung 2.
-- Extraction calls are naturally batchable and dominate slot demand; they are issued as a
-  `FuturesUnordered` bounded by the semaphore.
-- Reserve **one slot** exclusively for interactive traffic so watch-checking never starves
-  a live user analysis. Watch jobs run at low priority and off-peak.
-- Deadlines: extraction 6s, section synthesis 20s, importance scoring 4s. On expiry the
-  call is cancelled and the section degrades gracefully to "could not be summarized in
-  time" rather than blocking the report.
+- A single **global** semaphore across all three servers, not one per server. On 4 cores you
+  cannot usefully run two models' forward passes at once; the semaphore is what prevents
+  concurrent analyses from thrashing. Sized 2–3 on Rung 0, tuned in Phase 0.
+- Within a server, `--parallel` gives **continuous batching**, which on memory-bound CPU
+  inference is the single largest throughput win: weights are read once and applied to every
+  sequence in the batch. Extraction calls are issued as a `FuturesUnordered` and batch
+  naturally.
+- Reserve one permit for interactive traffic so watch-checking never starves a live user
+  analysis. Watch jobs run at low priority and off-peak.
+- Deadlines (Rung 0): router 5s, extraction 20s, section synthesis 60s. On expiry the call is
+  cancelled and that section degrades to "could not be completed within the time budget"
+  rather than blocking the report. Deadlines tighten by rung.
+
+**Two operational rules that are non-negotiable on Oracle Free:**
+
+- **`--mlock` on every model, and swap disabled.** Storage is network-attached. If model
+  weights are ever paged out, performance does not degrade — it collapses. Locking ~9 GB of
+  weights into RAM is the entire reason the memory budget in §4.2 is calculated so carefully.
+- **`MemoryMax=` on each systemd unit**, sized so that a runaway inference process is killed
+  and restarted rather than triggering the kernel OOM killer against Postgres.
 
 ---
 
@@ -553,6 +714,41 @@ it is what the model reads, what the diff runs on, and what the verifier matches
 An `extraction_quality` score (text/markup ratio, heading presence, length) gates whether a
 source is trusted enough to cite; low-quality extractions are dropped with a logged reason.
 
+### 5.4 Deterministic-first extraction
+
+**Do not ask a language model to do what a parser can do better.** This is presented as a
+latency compensation for Rung 0, but it is primarily a *quality* decision and it stays in
+place at every rung.
+
+| Fact type | Extracted by | Why |
+|---|---|---|
+| Prices, currencies, billing periods, seat/usage basis | **Code** — HTML table parsing + currency/period regex over the pricing page | A parsed `$8/user/mo` is exact. A generated one can be off by a digit, and pricing is the most-read and most-quoted section in the product. |
+| Tier names and per-tier limits | **Code** — table row/column structure | Structure is already in the markup; re-deriving it through a model discards information. |
+| Changelog entries, release dates, version numbers | **Code** — heading + `<time>` + date regex | Dates are the most common LLM fabrication in "recent changes" and are trivially verifiable. |
+| Feature lists on structured pages | **Code first**, model for normalization only | Bullet lists parse cleanly; the model only harmonizes wording across competitors. |
+| Positioning, category language, differentiators | **Model** | Genuinely requires language understanding. |
+| Review/sentiment themes | **Model** | Genuinely requires language understanding. |
+| SWOT interpretation | **Model** | The one place inference is permitted. |
+
+Consequences:
+
+- **Prefill collapses.** The largest source documents — pricing pages and changelogs — stop
+  entering the model's context at all. On Rung 0, where prefill is the dominant cost, this is
+  worth more than any other optimization in this document.
+- **Faithfulness improves.** Deterministically parsed values carry an exact source offset, so
+  the verifier (Quality doc §2, Layer 3) matches them trivially and Layer 4's price/date
+  validators become near-tautological rather than best-effort.
+- **Failures become honest.** When the parser cannot find a pricing table, the answer is
+  "no public pricing found, here is what we checked" — which is the correct output, and
+  strictly better than a model guessing from prose.
+
+**Span pre-selection** applies the same idea to what the model *does* read: heading structure,
+table proximity, and keyword windows reduce each source from ~2,500 tokens to a ~400-token
+candidate window before the extractor sees it. Eight sources then cost roughly 3,200 prefill
+tokens instead of ~20,000. The selection heuristic is versioned alongside prompts and is
+itself part of the golden-set evaluation, because a bad window is indistinguishable from a bad
+model at the output.
+
 ---
 
 ## 6. Caching & resource control
@@ -569,10 +765,22 @@ Local inference means **cache aggressiveness is a product feature, not an optimi
 | llama.cpp prefix cache | shared system prompt | process lifetime | Free wins from stable prompts. |
 | CDN/HTTP | public shared reports | 5m + SWR | Shared report pages are static HTML. |
 
-Resource control:
+On Rung 0 this is not an optimization at all — **cache hit rate is the capacity plan.** A 50%
+full-analysis hit rate literally doubles the number of users the free tier can serve, and it
+is the only lever that costs nothing.
+
+Resource control — budgets are per rung, because the whole point of climbing is to spend them:
+
+| Budget | Rung 0 (Free) | Rung 1 (CPU box) | Rung 2 (GPU) |
+|---|---|---|---|
+| Sources per analysis | ≤ 8 | ≤ 12 | ≤ 14 |
+| Prefill tokens (after span pre-selection, §5.4) | ≤ 4,000 | ≤ 12,000 | ≤ 24,000 |
+| Generated tokens | ≤ 900 | ≤ 1,600 | ≤ 2,500 |
+| Wall clock | ≤ 240s | ≤ 120s | ≤ 90s |
+
 - Global semaphore on inference (§4.7); analyses queue, never thrash.
-- Per-analysis hard budgets: ≤14 sources, ≤24k context tokens, ≤2,500 generated tokens,
-  ≤90s wall clock. Exceeding a budget degrades the report gracefully and marks it partial.
+- Exceeding a budget degrades the report gracefully and marks it partial — it never silently
+  truncates.
 - Anonymous quota keyed on hashed IP + coarse fingerprint, enforced in Redis.
 - A **global admission controller**: if queue depth > threshold, anonymous requests get a
   "high demand — sign in for priority" message instead of joining the queue. Paying users
@@ -679,13 +887,32 @@ Noise suppression is the difference between a product and a nuisance:
 
 ## 11. Hosting & deployment
 
-### 11.1 Start (Phase 0–4): one machine
+### 11.1 Start (Phase 0–5): Oracle Cloud Always Free, one machine, €0/mo
 
-- **Hetzner dedicated AX52-class** (~€55–70/mo) — dedicated CPU is essential; shared-vCPU
-  VPS instances make local inference latency wildly unpredictable. This is the one place to
-  not chase the free tier.
-- Everything on it: Caddy, `landscape` (api+worker), Postgres, Redis, `llama-server`,
-  SearXNG. Managed by **systemd units** with a `docker compose` alternative for Postgres/Redis/SearXNG.
+- **Oracle Cloud Always Free — Ampere A1: 4 OCPU, 24 GB RAM, aarch64, 200 GB block storage.**
+  This is the launch host and it costs nothing, forever. The bootstrapping premise is that
+  the product must reach paying customers before it costs money; see
+  [ROADMAP.md](ROADMAP.md) §6.
+- Everything on it: Caddy, `landscape` (api+worker), Postgres, Redis, the three
+  `llama-server` processes (§4.7), SearXNG. Managed by **systemd units** with a
+  `docker compose` alternative for Postgres/Redis/SearXNG.
+- **Build for aarch64.** Rust cross-compiles cleanly to `aarch64-unknown-linux-gnu`, but CI
+  must actually target it — GitHub Actions provides ARM runners, and a build that only ever
+  ran on x86 will find its first ARM bug in production. llama.cpp is built on the host with
+  ARM `dotprod`/`i8mm` support enabled.
+- **Three Oracle-specific operational rules**, each of which has taken down someone's free
+  tier before:
+  1. **Convert the account to Pay-As-You-Go.** Always Free resources on a *trial* account
+     can be reclaimed; on a PAYG account they are retained, and staying inside the free
+     limits still bills €0. Do this before building anything on the instance.
+  2. **A1 capacity is genuinely scarce** in popular regions and instance creation frequently
+     returns "out of capacity." Provision early, in whichever region has capacity, and never
+     terminate the instance to "recreate it later."
+  3. **Take the 200 GB as block storage and keep the fetch cache bounded** (§6). Storage is
+     network-attached; treat it as slow, not as an extension of RAM. Swap stays disabled.
+- **Known limitation, stated plainly:** this host cannot meet the 15–25s product latency
+  target (§4.4). It is chosen because €0 with honest 90–180s reports beats €70/mo with fast
+  reports and no revenue. Rung 1 fixes latency the moment there is income to pay for it.
 - **Why systemd for `llama-server` specifically**: `Restart=always`, `MemoryMax=`,
   `CPUAffinity=`, and OOM isolation are exactly the controls needed, without container
   GPU-passthrough friction later.
@@ -703,20 +930,31 @@ Noise suppression is the difference between a product and a nuisance:
   reconnects and replays via `Last-Event-ID` (§2.4) — that mechanism is load-bearing for
   deploys, not just for phone locks.
 
-**Explicitly: can one machine serve early traffic?** Yes, with the numbers stated plainly.
-At Rung 1 with 4 slots and ~60s of inference per analysis, sustained throughput is roughly
-**200–350 analyses/day** before queueing becomes user-visible — comfortably above what a
-launch generates. The binding constraint is inference, never Rust: axum on this hardware
-handles thousands of req/s of non-LLM traffic, and Postgres is nowhere near loaded. The
-correct scaling reflex is therefore *always* "improve cache hit rate or add a GPU," never
-"add app servers."
+**Explicitly: can one free machine serve early traffic?** Yes, for validation and early
+users, with the numbers stated plainly: roughly **60–120 analyses/day** before queueing
+becomes user-visible, heavily dependent on cache hit rate. That is enough to find out whether
+anyone wants this. It is *not* enough for a successful launch, which is why Phase 6 gates the
+public launch on Rung 1 being affordable.
+
+The binding constraint is inference, never Rust: axum on 4 ARM cores still handles hundreds of
+req/s of non-LLM traffic, and Postgres at this data volume is idle. The correct scaling reflex
+is therefore *always* "improve cache hit rate, then buy inference capacity," never "add app
+servers."
 
 ### 11.2 Scale path
 
-1. Add GPU box; move `llama-server` to it (Rung 2). Backend unchanged — just a URL.
-2. Split `--role worker` onto its own host; both talk to the same Postgres.
-3. Multiple inference nodes behind a least-loaded router.
-4. Managed Postgres only when backup/HA operational load exceeds the founder's tolerance.
+The web tier never moves. Every step below buys **inference capacity only**, which is the
+whole point of the split — it keeps the free tier working for everything it is good at.
+
+1. **Rung 1:** add a dedicated CPU box running only `llama-server`; point `LLAMA_BASE_URL` at
+   it over WireGuard. Web tier stays on Oracle Free. Backend code unchanged.
+2. **Rung 2:** replace that box with a GPU box. Again just a URL.
+3. **Rung 3:** larger-VRAM GPU for 70B-class or large-MoE models.
+4. Split `--role worker` onto its own host if job throughput ever demands it; both talk to
+   the same Postgres.
+5. Multiple inference nodes behind a least-loaded router (`inference_nodes` table).
+6. Managed Postgres only when backup/HA operational load exceeds the founder's tolerance —
+   and note this is the first step that *removes* a free-tier benefit, so it should be late.
 
 ### 11.3 Environments
 
