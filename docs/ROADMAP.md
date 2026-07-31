@@ -152,6 +152,9 @@ structural, and retrofitting them is expensive.
 - A measured, realistic end-to-end latency estimate for a full analysis, and a written
   decision on whether Rung 1 (CPU) ships or Phase 1 starts on GPU.
 - Grammar-constrained JSON round-trip working from Rust with 0 parse failures over 100 runs.
+- A written decision on the observability backend: `tracing` instrumentation is fixed, but
+  self-hosted Prometheus/Grafana/Tempo competes for RAM with the model. Decide now whether
+  to start with a hosted error tracker and defer the metrics stack.
 
 **Cost posture:** ~€70/mo infra, ~€15 domain. No revenue.
 
@@ -315,9 +318,21 @@ requested when the user asks for something that requires it.
   resume-the-blocked-action after upgrade.
 - Annual billing at 2 months free.
 
+**Decision required before writing billing code: merchant of record, or not?**
+Stripe is a payment processor — VAT, GST, and US sales-tax registration, calculation, and
+remittance remain *our* legal obligation. Paddle or Lemon Squeezy become the legal seller and
+absorb that entirely, at a higher fee and a worse API. The roadmap recommends Stripe, but
+this must be an explicit, recorded choice made **now**, because switching providers after
+customers exist is genuinely painful. If Stripe: budget for Stripe Tax and identify the
+registration thresholds that will eventually be crossed. See
+[ARCHITECTURE.md](ARCHITECTURE.md) §9 and
+[ARCHITECTURE_EXPLANATION.md](ARCHITECTURE_EXPLANATION.md) §7.
+
 **Technical tasks**
 - `landscape-billing`: `async-stripe`, Checkout sessions, portal sessions, webhook endpoint
   with signature verification and `event.id` idempotency, hourly reconciliation job.
+- Keep Stripe types out of domain code — `async-stripe` is community-maintained with no
+  official Stripe backing, and the whole SDK surface should stay replaceable in a day.
 - Entitlement resolution from local tables only — never call Stripe on the request path.
 - Priority queue: reserved inference slots for paid tiers; visible "Priority" state.
 - Dunning: `invoice.payment_failed` → email → 7-day grace → downgrade (never delete data).
@@ -339,6 +354,8 @@ published, no-argument refund policy — refund disputes cost more than refunds.
 - End-to-end purchase, upgrade, downgrade, and cancel verified in test mode and once live.
 - Webhook replay and reconciliation verified by deliberately dropping webhooks in staging.
 - Zero cases of a paying user being blocked by anonymous traffic.
+- The merchant-of-record decision recorded in `docs/DECISIONS.md`, with the tax obligations
+  it implies written down rather than assumed.
 
 **Cost posture:** ~€95/mo + Stripe fees. First revenue possible.
 
@@ -663,7 +680,13 @@ retrieval gating, grammar-enforced citations, mechanical quote verification (uns
 claims are *deleted*, not flagged), type-specific validators for prices and dates, and
 honest presentation of confidence and gaps. Plus CI quality gates, trap subjects, daily human
 review, and user error reporting that feeds the golden set.
-*Early warning:* drop rate, 👎 rate by section, inaccuracy reports per 100 analyses.
+*Note on where quality actually fails:* the expected dominant cause is **extraction, not the
+model** — a missed pricing table, a client-rendered page that reads as empty, nav junk
+swamping the content. The daily review sample must record *which* layer failed, because the
+instinct to reach for a bigger model when the real bug is in the HTML parser would waste both
+money and weeks.
+*Early warning:* drop rate, 👎 rate by section, inaccuracy reports per 100 analyses, and
+`extraction_quality` scores clustered by domain.
 
 ### R4 — Notification noise
 *Risk:* alerts on cosmetic changes; users mute, then churn. Noise is how monitoring products
@@ -729,7 +752,26 @@ every user a distribution channel; launch to multiple communities rather than on
 generous free tier is affordable *precisely because* inference is local — lean on it hard.
 *Early warning:* organic signups per week; comparison-page impressions; share-link opens.
 
-### R10 — Founder burnout / scope creep
+### R10 — The fetch primitive is an attack surface (SSRF and abuse)
+*Risk:* the core feature is "the server fetches a URL a stranger typed." Without explicit
+prevention, that is a general-purpose request proxy: an attacker points it at
+`169.254.169.254`, at `localhost:5432`, or at a service on the host's private network and
+reads the response back out of a rendered report. Secondarily, the same primitive can be
+aimed at a third party as an amplification or scanning tool, which gets the host's IP blocked.
+**Likelihood: certain to be attempted. Impact: severe — credential disclosure or an abuse
+complaint that takes the box offline.**
+*Mitigations:* [ARCHITECTURE.md](ARCHITECTURE.md) §11.4 — resolve-then-validate against the
+*resolved IP*, not the hostname (hostname checks are defeated by DNS rebinding);
+re-validation after every redirect; scheme restriction; size and time caps; no raw fetch
+errors echoed to users. Plus per-host and global rate limits, an honest user-agent with a
+public bot page and opt-out, and anonymous quotas that bound how much fetching a stranger can
+provoke. This code is on the 100%-human-review list alongside auth, billing, and the
+verification layer, with unit tests covering rebinding, redirect chains, and IPv6-mapped
+forms.
+*Early warning:* fetch attempts to non-public address space (should be zero, and alarmed);
+abuse complaints to the host; anomalous per-IP analysis volume.
+
+### R11 — Founder burnout / scope creep
 *Risk:* an eight-week refactor, a design system, a Kubernetes migration.
 **Likelihood: medium. Impact: high.**
 *Mitigations:* fixed weekly ship cadence; phase exit criteria written before the phase
