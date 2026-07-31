@@ -822,6 +822,46 @@ a new failure mode usually loses.
   the design specifically because it is conservative, and Phase 0 measures throughput at
   1/2/4/8 rather than guessing.
 
+### 3.6b Deterministic extraction instead of model extraction
+
+- **What it is** — Prices, billing periods, tier names, release dates and version numbers are
+  parsed from HTML by *code* (table parsing, `<time>` elements, currency and date regex) and
+  never enter the model's context. The model is used only where language understanding is
+  genuinely required: positioning, sentiment themes, SWOT interpretation.
+- **Alternatives** — Feed the whole page to the model and ask for structured output (the
+  default LLM-application pattern); a hybrid where the model extracts and code validates;
+  a fine-tuned extraction model.
+- **Why this choice** — Two independent wins that happen to be the same change. **Accuracy:**
+  a parsed `$8/user/mo` carries an exact source offset and cannot be off by a digit, and
+  pricing is the most-read and most-quoted section in the product. **Latency:** on 4 ARM
+  cores prefill dominates, and pricing pages plus changelogs are the largest documents; not
+  sending them is worth more than any other optimisation available.
+- **Trade-off** — Parsers are brittle where models are flexible. A pricing page with an
+  unusual layout yields nothing, where a model might have inferred correctly. The product
+  already has the right answer for that case — "no public pricing found, here is what we
+  checked" — which is *more* trustworthy than a confident guess, so the failure mode is
+  aligned with the product's honesty posture rather than against it. Real cost: per-site
+  parser maintenance as layouts change, which is why `extraction_quality` scoring and the
+  daily review sample both track which layer failed.
+
+### 3.6c Why not stream MoE experts from disk
+
+- **What it is** — A technique, well demonstrated on Apple Silicon, of keeping a mixture-of-
+  experts model's shared core and KV cache resident while streaming only the experts each
+  token needs from local NVMe. It allows a ~26B-class MoE to run in a couple of GB of RAM.
+- **Why it is not used here** — Three reasons, any one sufficient. The available
+  implementations are **Swift + Metal**, i.e. Apple Silicon and macOS; the Oracle instance is
+  aarch64 Linux with no GPU. Oracle Free storage is **network-attached block**, where
+  per-token random reads are in a different performance class from local NVMe. And it solves
+  the wrong problem: on this host the binding constraint is compute and memory bandwidth, not
+  capacity — 24GB already holds far more model than 4 cores can run.
+- **The equivalent we do use** — llama.cpp's `--n-cpu-moe` and `--override-tensor` move MoE
+  expert weights between GPU and system RAM, which is the same idea one tier up the memory
+  hierarchy and becomes relevant at Rung 2.
+- **The general lesson, worth stating** — memory-capacity tricks are attractive precisely
+  when memory is the constraint. Confirm which resource actually binds before optimising for
+  it; here it is prefill throughput, and no amount of clever weight paging improves that.
+
 ### 3.7 Prefix caching, flash attention, speculative decoding
 
 - **Prefix / KV caching** — Transformer inference caches per-token attention state. If two
@@ -1025,27 +1065,42 @@ a new failure mode usually loses.
   than reproducibility). That split is deliberate, and a reviewer who wants everything
   containerized should weigh it against GPU passthrough complexity in Phase 7.
 
-### 8.3 Hetzner dedicated hardware
+### 8.3 Oracle Cloud Always Free at launch, Hetzner on the ladder  ⚠ Genuinely arguable
 
-- **What it is** — A German hosting provider offering dedicated servers — real, unshared
-  CPUs — at roughly a quarter of hyperscaler pricing. The AX52 class is a Ryzen 7 with 64GB
-  of DDR5; the GEX44 adds an RTX 4000 SFF Ada with 20GB of VRAM.
-- **Alternatives** — **AWS/GCP/Azure** (where equivalent GPU capacity costs many times more);
-  **Fly.io**, **Railway**, or **Render** (excellent developer experience, priced for
-  small workloads, unattractive for sustained inference); **DigitalOcean** or **Linode**
-  (shared vCPU at this tier); **Vast.ai** or **RunPod** (cheapest GPU rental, but preemptible
-  and unsuitable for a persistent service).
-- **Why this choice** — Dedicated CPU is not a preference, it is a requirement: on shared
-  vCPU, inference latency varies with neighbouring tenants, which makes a latency SLO
-  meaningless and a benchmark unrepeatable. Hetzner is where the price-performance is, and
-  the GPU upgrade path (GEX44 at roughly €180/month) is a known, bookable next rung rather
-  than a hyperscaler bill.
-- **Trade-off** — No managed services, no meaningful SLA, single-region (Germany/Finland),
-  and setup is manual. Latency to US users is 90–150ms — acceptable when the product's own
-  response time is measured in tens of seconds, and mitigated for static assets by
-  Cloudflare. We are trading convenience and geographic reach for the price-performance that
-  makes the whole fixed-cost inference model work. This is the one place ARCHITECTURE.md
-  explicitly warns against chasing a free tier.
+- **What it is** — Oracle's Always Free tier includes an **Ampere A1** instance: up to
+  4 OCPU (Neoverse N1 ARM cores), 24GB RAM, 200GB network block storage, permanently free.
+  The product launches entirely on one of these. Later rungs add **Hetzner** dedicated
+  servers — a German provider offering real, unshared CPUs and consumer GPUs at roughly a
+  quarter of hyperscaler pricing (AX52: Ryzen 7, 64GB; GEX44: RTX 4000 SFF Ada, 20GB VRAM).
+- **Alternatives** — Starting directly on **Hetzner** (~€60/month, far faster, but requires
+  spending before revenue); **AWS/GCP/Azure** free tiers (time-limited, and equivalent GPU
+  capacity costs many times more); **Fly.io**, **Railway**, **Render** (excellent DX, priced
+  for small workloads, unattractive for sustained inference); **Vast.ai** or **RunPod**
+  (cheapest GPU rental, but preemptible and unsuitable for a persistent service);
+  **Google Cloud Run** with scale-to-zero (cold-starting a multi-GB model is fatal here).
+- **Why this choice** — The project is bootstrapped with no outside capital
+  ([ROADMAP.md](ROADMAP.md) §6), so the binding requirement is that the product can reach
+  paying customers *before* it costs money. Oracle Always Free is the only offer that
+  provides enough RAM to hold several quantized models resident, does not expire, and does
+  not require a card charge. It makes the total cash needed to reach first revenue under
+  €100.
+- **Trade-off — and this one is genuinely expensive.** Four Neoverse N1 cores cannot meet
+  the 15–25s product target; reports take 90–180 seconds. That is a real product cost paid
+  to avoid a real financial one, and the roadmap accepts it explicitly rather than hiding
+  it. There is also single-vendor risk (ROADMAP R11): A1 capacity is scarce in popular
+  regions, and Always Free instances on *trial* accounts can be reclaimed — hence the
+  requirement to convert to Pay-As-You-Go, which retains the resources while still billing
+  €0. Storage is network-attached, so `--mlock` and disabled swap are mandatory. **A
+  reviewer who would rather spend €60/month from month one to launch with 45–70s reports is
+  making a defensible call** — the counter-argument is only that a bootstrapped founder's
+  scarcest asset is the runway to be wrong for a while, and a free tier that never expires
+  is exactly that runway.
+- **Why Hetzner for the later rungs** — Dedicated CPU is a requirement, not a preference: on
+  shared vCPU, inference latency varies with neighbouring tenants, making a latency SLO
+  meaningless and a benchmark unrepeatable. Hetzner has the price-performance, and GEX44 at
+  ~€180/month is a known, bookable next step rather than a hyperscaler bill. Costs: no
+  managed services, no meaningful SLA, single-region, manual setup, and 90–150ms latency to
+  US users — acceptable when the product's own response time is measured in tens of seconds.
 
 ### 8.4 Cloudflare free tier, Backblaze B2, GitHub Actions
 
@@ -1118,6 +1173,9 @@ The choices most worth challenging, with the conditions that should force a re-t
 | **Self-hosted observability rather than Sentry/Honeycomb** (§2.15) | Hosted tooling is better and costs founder-hours rather than RAM on the inference box | If Prometheus/Grafana/Tempo memory competes with the model, move errors to Sentry first |
 | **SearXNG rather than a paid search API** (§4.1) | Metasearch is fragile and depends on engines that block it | If search reliability causes user-visible failures, promote Brave to primary — it does not violate the local-inference constraint |
 | **systemd rather than containers** (§8.2) | Containers give reproducibility that host discipline does not | If host dependency drift causes an incident — but weigh against GPU passthrough friction |
+| **Launching on Oracle Always Free rather than paying €60/mo from day one** (§8.3) | Rung 1 would give 45–70s reports instead of 90–180s, and might be the difference between converting and not | If Phase 6 shows users converting but naming latency as the blocker (ROADMAP R12) |
+| **Three small models rather than one larger one** (§4.2) | One 14B is simpler to operate than a 1.7B + 4B + 8B trio | If Phase 0 shows the routing/extraction split does not pay for its complexity |
+| **Deterministic extraction rather than model extraction** (§3.6b) | Parsers are brittle where models are flexible, and every site layout is per-site maintenance | If parser maintenance exceeds the quality it buys on the golden set |
 | **TanStack Router rather than React Router** (§1.4) | React Router is the incumbent with far more support material | At the first sign of type-inference friction; it is a day of work to switch |
 | **`sqlx` rather than Diesel** (§2.4) | A composable query DSL and stronger migration tooling | If the offline-metadata workflow becomes a persistent CI annoyance |
 | **No JS rendering** (§4.3) | A meaningful share of pricing pages are client-rendered and will read as empty | If "not found" rates on pricing sections stay high and trace to client rendering |

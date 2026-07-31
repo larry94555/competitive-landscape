@@ -6,13 +6,15 @@
 
 ## 1. The core bet
 
-A locally-run 8B–14B model, given *only* retrieved public text, forced through a strict
+A locally-run 4B–8B model, given *only* retrieved public text, forced through a strict
 grammar, and mechanically verified against its own sources, produces **more trustworthy
 competitive analysis than a frontier model prompted freely** — because the failure mode
 that destroys this product is not "prose is slightly worse," it is "invented a price."
 
 Everything below exists to make invention structurally difficult rather than
-merely discouraged.
+merely discouraged. §7 addresses the obvious follow-up question — how a model that small,
+running on four ARM cores, is good enough — and the short answer is that on this workload
+grounding, not parameter count, is what binds quality.
 
 ---
 
@@ -143,7 +145,8 @@ frozen HTML, every eval run measures the web changing rather than the model chan
 | **Refusal correctness** | % of genuinely-absent facts reported as `not_found` rather than invented | ≥ 98% |
 | **Trap resistance** | 0 fabricated content on the two trap subjects | **hard gate** |
 | **Schema validity** | % of runs parsing under the grammar | 100% |
-| **Latency** | p50 / p95 wall clock | p50 ≤ 25s |
+| **Latency** | p50 / p95 wall clock | Rung 0: p50 ≤ 180s · Rung 2: p50 ≤ 25s |
+| **Quality per second** | rubric score ÷ p50 latency | tracked, not gated — the number that decides prompt changes on slow hardware |
 | **Determinism** | claim-set Jaccard across 3 runs at temp 0.2 | ≥ 0.85 |
 
 CI fails on any gate regression. A prompt change that improves prose while dropping recall
@@ -241,6 +244,7 @@ Ordered by leverage, cheapest first:
 
 ---
 
+
 ## 6. Legal, ethical, and data-handling posture
 
 - **Public data only.** No login-gated content, no paywall circumvention, no ToS-violating
@@ -262,3 +266,97 @@ Ordered by leverage, cheapest first:
 - **No competitor targeting features.** No "monitor this person," no scraping of individual
   employees' profiles beyond publicly posted job listings in aggregate. The product analyzes
   companies' public positioning, not people.
+
+---
+
+## 7. Maximising quality on free-tier hardware
+
+The launch host is Oracle Always Free — 4 Ampere cores, 24 GB, no GPU
+([ARCHITECTURE.md](ARCHITECTURE.md) §4.4). The synthesizer is an 8B model, not a 70B. This
+section is the answer to the obvious question: *how is that good enough?*
+
+The premise is that **on this workload, parameter count is not the binding constraint on
+quality — grounding is.** The job is "read this page, report what it says, cite it, and
+decline when it doesn't say." A 70B model does that better than an 8B, but not
+categorically better, and every mechanism below closes more of the gap than the next model
+size up would.
+
+### 7.1 Move work out of the model entirely
+
+The largest single quality gain available on constrained hardware is **not asking the model
+to do things code does better** (ARCHITECTURE.md §5.4). Prices, billing periods, tier names,
+release dates and version numbers are parsed deterministically from HTML tables and headings.
+
+This is not a compromise forced by the hardware. A parsed `$8/user/mo` carries an exact
+source offset and cannot be off by a digit; a generated one can. Pricing is the most-read and
+most-quoted section in the product, and it is now the section least exposed to model error.
+The same fact removes most of the prefill cost — the quality win and the latency win are the
+same change.
+
+### 7.2 Narrow the task until the model is good at it
+
+Small models degrade steeply with task breadth, and gracefully with task depth. So:
+
+- **One narrow job per call.** "Given this 400-token window from a pricing page, list the
+  stated plan limits" is a task an 8B does reliably. "Write a competitive analysis" is not.
+- **Three model sizes, matched to difficulty** (§4.2): a 1.7B router for enums and
+  classification, a 4B extractor for span selection, an 8B synthesizer for the only work
+  requiring real language understanding. Spending 8B-class compute on "is this input
+  ambiguous?" is waste that shows up as latency, which shows up as abandonment.
+- **Span pre-selection before the model reads.** A 400-token window containing the answer
+  beats a 2,500-token page containing the answer *and* a navigation menu — for a small model
+  the difference is large, because distractor text is where small models lose the thread.
+
+### 7.3 Constrain harder, because the model is weaker
+
+Every mechanism in §2 becomes *more* load-bearing at 8B, not less:
+
+- **GBNF grammars are non-optional.** An unconstrained 8B produces malformed JSON often
+  enough to matter; under a grammar it cannot. Retry loops that would cost fractions of a
+  cent on a hosted API cost *seconds of user-visible latency* here, so preventing invalid
+  output is a latency mechanism too.
+- **Mechanical verification (Layer 3) does not care how big the model is.** A claim whose
+  evidence quote is absent from its cited source is deleted whether an 8B or a 405B wrote it.
+  This is why the verification layer, not the model, is the product's quality floor.
+- **Explicit refusal paths at every level of the grammar.** Small models invent most when the
+  output format gives them no legal way to say nothing.
+
+### 7.4 Spend the prompt budget where it compounds
+
+Prefill is the scarce resource, so few-shot examples are expensive — *except* in the system
+prefix, which llama.cpp caches across calls. Therefore:
+
+- Few-shot examples live in the **byte-identical system prefix** and are paid for once per
+  process, not once per request. Two or three examples per call type, including one
+  demonstrating correct refusal.
+- Variable content goes strictly at the end. On this hardware, prompt ordering is worth
+  seconds per request.
+- Examples are drawn from **human-approved past outputs** (§3.4) and versioned in
+  `prompts/vN/`, so the corpus improves as the daily review queue is worked.
+
+### 7.5 Evaluate against the hardware you have
+
+- The golden set runs **on the A1 instance**, not on a laptop. A prompt change that improves
+  quality but adds 40 seconds is a regression here and must be visible as one.
+- Track **quality per second**, not just quality: the eval report carries both the rubric
+  score and the measured latency for every configuration.
+- **Re-run the model bake-off quarterly.** Small open models are improving faster than any
+  other input to this product, and a 4B released next quarter may beat today's 8B at half the
+  cost. This is the single highest-leverage recurring task in the roadmap.
+- When the ladder moves to Rung 1 or 2 (ROADMAP §6), **re-run the full golden set before
+  cutting over**. A larger model is not automatically better on a grounded, constrained task,
+  and shipping one on faith is how a quality regression reaches users.
+
+### 7.6 What a bigger model would actually buy
+
+Recorded honestly, so the Rung 3 spend is made on evidence rather than hope. Expect gains in:
+prose quality of the Positioning and SWOT sections, subtler sentiment-theme clustering, and
+robustness on unusual page structures. Expect **little or no gain** in: citation coverage,
+hallucination rate, refusal correctness, or pricing accuracy — all of which are governed by
+retrieval, deterministic parsing and mechanical verification.
+
+The practical consequence: **do not buy Rung 3 until the golden set shows the model, rather
+than the pipeline, is the ceiling.** In the daily review sample, record which layer failed —
+retrieval, extraction, or generation. The expectation is that extraction dominates for a long
+time, and reaching for a bigger model when the bug is in the HTML parser would waste both
+money and weeks.

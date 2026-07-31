@@ -7,7 +7,12 @@
 ## 0. The one-sentence product
 
 **Type anything about a product or a set of competitors into one box and get a structured,
-source-cited competitive analysis in under a minute — then get told when anything changes.**
+source-cited competitive analysis — then get told when anything changes.**
+
+> **Speed is a function of what the hosting costs.** On the free-tier launch host a complete
+> report takes 90–180 seconds, with the first section on screen in 20–40s. The under-a-minute
+> goal arrives at Rung 2 ([ROADMAP.md](ROADMAP.md) §6). Every timing in this document is given
+> as *Rung 0 (today) → Rung 2 (funded)*, and the interface promises the former.
 
 ## 1. Design principles (enforced, not aspirational)
 
@@ -31,20 +36,25 @@ source-cited competitive analysis in under a minute — then get told when anyth
 
 ## 2. User flows
 
-### 2.1 First-time anonymous visitor — the 60-second path
+### 2.1 First-time anonymous visitor — the first-report path
 
 ```
 Land on /
   └─ Sees: headline, one textarea (autofocused), 3 example chips, one disclaimer line.
      No signup wall. No cookie modal beyond a minimal essential-only notice.
 Type "Linear vs Jira vs Shortcut"  →  Enter (or click Analyze)
-  └─ [0.0s] Input collapses to a subject chip. Stage rail: Resolving → Fetching → Reading → Writing
-  └─ [0.4s] Optional ClarifyPanel appears ONLY if needed (see §3). Chips, not text fields.
-             A "Skip, just analyze" button is always present and always works.
-  └─ [1–3s] Source cards stream in: linear.app/pricing, g2.com/…, news…
-  └─ [4–8s] Positioning begins streaming, word by word.
-  └─ [8–20s] Pricing → Key features → Recent public changes → Sentiment themes → SWOT
-  └─ [~20s] Sources section completes. PDF button turns solid.
+     Timings shown as  Rung 0 (free tier, today)  →  Rung 2 (funded)
+  └─ [0.0s → 0.0s] Input collapses to a subject chip. Stage rail appears:
+             Resolving → Fetching → Reading → Writing
+  └─ [~2s → 0.4s] Optional ClarifyPanel appears ONLY if needed (see §3). Chips, not text
+             fields. A "Skip, just analyze" button is always present and always works.
+  └─ [3–10s → 1–3s] Source cards stream in: linear.app/pricing, g2.com/…, news…
+  └─ [12–25s → 3–5s] **Pricing table appears first** — it is parsed from the page by code,
+             not generated, so it lands before any model output. This is deliberate: the
+             most-wanted section is also the fastest and the most accurate.
+  └─ [20–40s → 4–8s] Positioning begins streaming, word by word.
+  └─ [40–150s → 8–20s] Key features → Recent public changes → Sentiment themes → SWOT
+  └─ [90–180s → ~20s] Sources section completes. PDF button turns solid.
 Read / scroll
   └─ Hover any [S4] chip → source domain, page title, fetched-at timestamp, open link.
   └─ Per-section 👍 / 👎.
@@ -95,7 +105,7 @@ PDF allowed, share allowed. Generous enough to prove value; tight enough to surv
 | Few sources found | Report runs anyway, marked **Thin evidence** with source count and an explicit list of what could not be found. |
 | Site blocks the bot | Source card shows "not accessible to automated retrieval" and is listed in Sources with that reason. |
 | Model/section timeout | That section shows "couldn't be completed within the time budget — retry" with a retry button. The rest of the report is delivered. |
-| Queue congestion | "2 analyses ahead of you — about 25 seconds." Honest countdown, not a spinner. |
+| Queue congestion | "2 analyses ahead of you — about 4 minutes." Honest countdown in real units, not a spinner. On the free tier this is common and must read as normal, not as breakage. |
 | Hard failure | Nothing is charged against quota. One-click retry. Error id shown for support. |
 
 ---
@@ -105,7 +115,8 @@ PDF allowed, share allowed. Generous enough to prove value; tight enough to surv
 Asked **only** when the input is genuinely insufficient, at most **3**, always progressive
 (one at a time), always chip-answerable, always skippable.
 
-Trigger conditions (evaluated by a fast grammar-constrained classifier call, <1s):
+Trigger conditions (evaluated by a grammar-constrained call to the 1.7B router model —
+~2s on the free tier, <1s on Rung 2):
 
 | Condition | Question | Chips |
 |---|---|---|
@@ -331,7 +342,7 @@ Full design in [SUPPORT_SYSTEM.md](SUPPORT_SYSTEM.md). The user-facing shape:
 | Landing | One autofocused textarea. Three example chips that run real analyses. No signup wall, no video, no feature grid above the fold. |
 | Input | Free-form natural language. URLs, names, or a paragraph all work. No syntax, no operators, no "prompt tips" link. |
 | Clarification | ≤3 questions, one at a time, chips not fields, always skippable to a complete report. |
-| Waiting | Progressive streaming with a named stage rail and sources appearing live. The user reads while it writes. |
+| Waiting | Progressive streaming with a named stage rail, sources appearing live, and the deterministically-parsed pricing table landing before any generated text. The user reads while it writes — which is what makes free-tier latency survivable. |
 | Reading | Identical 7-section structure every time. Learned once. |
 | Trust | Inline `[S4]` chips with hover cards; "what we checked" on every gap. |
 | Acting | One primary button per context: **Download PDF** on a report, **Start watching** in the watch sheet, **Upgrade** in the limit dialog. |
@@ -341,6 +352,9 @@ Full design in [SUPPORT_SYSTEM.md](SUPPORT_SYSTEM.md). The user-facing shape:
 | Support | Public KB reachable from every screen; slash commands are discoverable but never required. |
 | Errors | Every failure names what happened, what it cost (nothing), and offers exactly one recovery action. |
 
-**The measurable definition:** a first-time visitor with no instructions reaches a
-downloaded PDF in under 90 seconds, having read no documentation and made no account.
-This is tested with unmoderated 5-person usability runs every phase (see Metrics, §F).
+**The measurable definition:** a first-time visitor with no instructions reaches a downloaded
+PDF **without abandoning**, having read no documentation and made no account. On Rung 0 that
+means surviving a 90–180s wait, which is why the perceived-latency ladder in §2.1 is a
+P0 requirement rather than polish: sources landing at 3–10s and a parsed pricing table at
+12–25s are what make the wait legible as work rather than as a hang. Tested with unmoderated
+5-person usability runs every phase (see Metrics, §F).
