@@ -61,7 +61,7 @@ almost entirely on grounding quality and inference throughput.
 | Concern | Choice | Why |
 |---|---|---|
 | Build | **Vite** | Fastest DX, trivial config, first-class TS. |
-| Package manager | **npm** | Ships with Node; no extra toolchain. pnpm/Bun are faster to install but the gain is CI-only, and CI here is dominated by the Rust build. |
+| Package manager | **Bun** (`bun install` only) | Fastest installs, drop-in, build-time only. Adopted for CI speed since the cost is near zero — *not* as a runtime, bundler, or test runner (see §2.7). Verify on Windows + Playwright postinstall in Phase 0; fall back to npm if either misbehaves. |
 | Language | **TypeScript, `strict: true`** + `noUncheckedIndexedAccess` | Report schema is the product contract; types must be load-bearing. |
 | Framework | **React 19**, function components + hooks | Constraint. `use()` + Suspense for streamed data. |
 | Routing | **TanStack Router** (or React Router v7) | Type-safe params; the app has ~12 routes, not 100. |
@@ -194,6 +194,27 @@ PDF is generated **server-side** (§7). The client:
 - First request renders and caches to object storage; later requests 302 to a signed URL.
 - The exec PDF is pre-warmed in the background the moment an analysis completes, so the
   click is instant ~90% of the time.
+
+### 2.7 Where Bun stops
+
+`bun install` is adopted; **Bun as a runtime, bundler, or test runner is not.** The two have
+unrelated cost profiles and should not be decided together.
+
+Install is pure build-time: identical output, no runtime surface, no effect on latency, user
+experience, or infrastructure cost. It is a free CI win, taken on that basis alone.
+
+Replacing Vite would cost the mature React plugin and HMR ecosystem; replacing Vitest would
+cost the shared-transform-pipeline guarantee that makes tests and app build identically; and
+Bun-as-runtime has nothing to run, because there is no JavaScript process in production —
+static files are served by Caddy and SSR lives in Rust (§2.2, and
+[ARCHITECTURE_EXPLANATION.md](ARCHITECTURE_EXPLANATION.md) §1.11). That last point decides
+it: Bun's defining feature has no surface in this architecture.
+
+**Where the CI time actually is:** the Rust build, by a wide margin. Ordered by payoff —
+`Swatinem/rust-cache` or `sccache` (minutes), running the Rust and frontend jobs in
+parallel (minutes), `cargo-nextest` in place of `cargo test` (tens of seconds), and
+`cargo check` ahead of `cargo build` on PRs. Swapping npm for Bun is worth ~15–30s against
+those. Take it, but do not mistake it for the optimization.
 
 ---
 

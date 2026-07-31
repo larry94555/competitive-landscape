@@ -121,6 +121,11 @@ skeleton everything else attaches to.
 - Cargo workspace per [ARCHITECTURE.md](ARCHITECTURE.md) §3.2; Vite + React + TS strict
   scaffold; GitHub Actions CI (`fmt`, `clippy -D warnings`, `test`, `audit`, `deny`,
   `tsc`, `eslint`, `vitest`).
+- **CI speed, in payoff order** — the Rust build dominates, so optimize it first:
+  `Swatinem/rust-cache` (or `sccache`), Rust and frontend as parallel jobs,
+  `cargo-nextest` in place of `cargo test`, `cargo check` before `cargo build` on PRs.
+  Then `bun install` for the frontend (~15–30s), after verifying it behaves on Windows
+  and does not break Playwright's postinstall browser download — npm is the fallback.
 - Provision the launch box (Hetzner AX52-class dedicated). Caddy, Postgres 16, Redis,
   systemd units, `pg_dump`→B2 backups **plus a restore drill**.
 - Build `llama-server` from source; supervise via systemd with `Restart=always` and

@@ -309,6 +309,31 @@ a new failure mode usually loses.
   watched competitors is the plausible one), a small library can be added then — and by then
   the data will justify it.
 
+### 1.16 Bun as the package manager (`bun install`)
+
+- **What it is** — Bun is a JavaScript toolkit: a runtime, bundler, test runner, and package
+  manager in one binary, written in Zig. Only its package manager is adopted here.
+- **Alternatives** — **npm** (ships with Node, zero extra tooling); **pnpm** (fast, strict
+  `node_modules` that prevents phantom dependencies, disk-efficient via content-addressed
+  storage); **Yarn**.
+- **Why this choice** — It is the fastest of the four at installing, it is a drop-in
+  replacement, and the change is confined entirely to build time. There is no runtime
+  surface: the emitted bundle is identical, so product latency, user experience, and
+  infrastructure cost are all untouched. A free speedup with no downstream consequence is
+  worth taking on its own terms.
+- **Trade-off** — Three small costs, none disqualifying. It introduces a **second lockfile
+  format**, so an agent or a future contributor running `npm install` out of habit creates
+  drift — mitigate by recording the choice in `CLAUDE.md`/README and committing only
+  `bun.lock`. **Playwright's postinstall** downloads browser binaries and is the most likely
+  package to misbehave under a non-npm installer; verify it explicitly. And Bun's **Windows**
+  support stabilized last, which matters because development happens on Windows while CI runs
+  Linux — a platform split in install behavior is an irritating bug class. Phase 0 verifies
+  both; npm is the fallback and costs nothing to revert to.
+- **Proportion, stated honestly** — this saves roughly 15–30 seconds per CI run on a pipeline
+  measured in minutes. The Rust build dominates, and `Swatinem/rust-cache`, parallel
+  frontend/backend jobs, and `cargo-nextest` are each an order of magnitude more valuable.
+  Bun is worth taking because it is nearly free, not because it is significant.
+
 ---
 
 ## 2. Backend — Rust
@@ -1077,7 +1102,7 @@ Things a reviewer might expect to see, and why they are absent:
 | **Kubernetes** | No orchestration problem exists on one host. |
 | **A hosted LLM API fallback** | Explicitly excluded by the product constraint, and accepting it would quietly undo the cost model and the privacy claim. Worth stating that this is a *product* decision, not merely a technical one. |
 | **Multi-region deployment** | Response times are dominated by inference, not network latency. A CDN in front of static assets is sufficient. |
-| **Bun** (as runtime, bundler, test runner, or package manager) | **There is no JavaScript runtime in production** — the frontend is static files served by Caddy and SSR lives in Rust (§1.11), so Bun's defining feature has no surface to act on. What remains is build tooling, where the gain is CI speed only: no effect on product latency, user experience, or infrastructure cost, and CI here is dominated by the Rust build regardless. Replacing Vite/Vitest would additionally forfeit the shared-transform-pipeline guarantee (§1.10) and move off the path coding agents handle best (ROADMAP §4). Revisit only if a JS server process ever enters production — at which point the decision being reopened is §1.11, not this one. |
+| **Bun as a runtime, bundler, or test runner** (`bun install` *is* adopted — see §1.16) | **There is no JavaScript runtime in production** — static files via Caddy, SSR in Rust (§1.11) — so Bun's defining feature has no surface to act on. Replacing Vite forfeits the mature React plugin/HMR ecosystem; replacing Vitest forfeits the shared-transform-pipeline guarantee (§1.10). Revisit only if a JS server process ever enters production, at which point the decision being reopened is §1.11, not this one. |
 
 ---
 
