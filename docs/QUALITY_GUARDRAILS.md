@@ -1,6 +1,9 @@
 # Landscape — Quality & Trust Guardrails
 
 > Section **E** of the roadmap. See [ROADMAP.md](ROADMAP.md) for the index and phasing.
+>
+> This document covers the quality of the **product's output**. For the quality of the
+> **code that produces it**, see [CODING_QUALITY.md](CODING_QUALITY.md).
 
 ---
 

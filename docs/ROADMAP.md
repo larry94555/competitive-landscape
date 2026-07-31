@@ -20,6 +20,7 @@ TypeScript + React frontend · Rust backend · local llama.cpp inference on Orac
 | [ARCHITECTURE_EXPLANATION.md](ARCHITECTURE_EXPLANATION.md) | Companion to the above: every technology explained — what it is, the alternatives, the justification, and the cost/benefit trade-off |
 | [SUPPORT_SYSTEM.md](SUPPORT_SYSTEM.md) | Support system design (**D**): the open "slash-lite" knowledge base |
 | [QUALITY_GUARDRAILS.md](QUALITY_GUARDRAILS.md) | Quality & trust guardrails (**E**): anti-hallucination stack, evaluation, feedback loops, legal posture |
+| [CODING_QUALITY.md](CODING_QUALITY.md) | The code quality standard: simplicity budgets, design patterns, testing, linting, Sonar, hooks, ADRs, the tutorial, review process, and the agent contract |
 
 ---
 
@@ -140,6 +141,13 @@ skeleton everything else attaches to.
 - Cargo workspace per [ARCHITECTURE.md](ARCHITECTURE.md) §3.2; Vite + React + TS strict
   scaffold; GitHub Actions CI (`fmt`, `clippy -D warnings`, `test`, `audit`, `deny`,
   `tsc`, `eslint`, `vitest`).
+- **Quality toolchain from commit one** per [CODING_QUALITY.md](CODING_QUALITY.md): workspace
+  clippy lints (`unsafe_code = forbid`, `unwrap_used = deny`), `tsc --strict`, ESLint
+  type-checked rules, `lefthook` pre-commit hooks, `gitleaks`, `cargo deny`, SonarCloud
+  quality gate on new code, coverage reporting, and the budget-annotation report. **Retrofitting
+  a quality bar onto an existing codebase does not work** — the gates must predate the code.
+- `docs/decisions/` initialised with the ADR template, and `docs/TUTORIAL.md` skeleton with
+  its CI link-checker, so both grow with the code rather than being written at the end.
 - **CI speed, in payoff order** — the Rust build dominates, so optimize it first:
   `Swatinem/rust-cache` (or `sccache`), Rust and frontend as parallel jobs,
   `cargo-nextest` in place of `cargo test`, `cargo check` before `cargo build` on PRs.
@@ -198,6 +206,8 @@ structural, and retrofitting them is expensive.
   On this hardware the answer is almost certainly "hosted error tracking only, for now."
 - `q8_0` KV quantization decided on evidence, and the `--mlock` + no-swap configuration
   verified under load.
+- Every merge gate in [CODING_QUALITY.md](CODING_QUALITY.md) §10.4 green on an empty
+  repository, so the first real PR meets the bar rather than establishing a lower one.
 
 **Cost posture:** **€0/mo infra**, ~€15 domain. No revenue. See §6.4.
 
@@ -721,15 +731,18 @@ line by line. Everything downstream of a good specification can be delegated agg
   golden-set eval can iterate on the analysis pipeline safely. Without the eval suite,
   agent-written prompt changes are unfalsifiable — which is why Phase 2 builds it before
   Phase 3 accelerates.
-- **One PR per concern, always reviewed.** Agent-generated code is read, not merged on faith,
-  particularly anything touching auth, billing, SSRF, or the verification layer. Those four
-  areas are hand-reviewed 100% of the time.
+- **One PR per concern, always reviewed**, against the checklist in
+  [CODING_QUALITY.md](CODING_QUALITY.md) §10.3. Agent-generated code is read, not merged on
+  faith; the hot zones — auth, billing, SSRF, BYOK credentials, the verification layer, and
+  migrations — are hand-reviewed line by line, 100% of the time, and never merged the same
+  hour they were written.
 - **Timebox the infrastructure.** Kubernetes, microservices, and a custom design system are
   all traps. The deploy script is 20 lines and stays that way until it demonstrably hurts.
 - **Batch the founder-only work.** Quality review, support, and prompt iteration go in one
   daily 45-minute block. Context-switching is the scarcest resource in a one-person company.
-- **Write the decision down.** `docs/BENCHMARKS.md`, `docs/DECISIONS.md` (ADR-lite). In six
-  months you will not remember why Q5_K_M lost, and re-deciding costs more than recording.
+- **Write the decision down.** `docs/BENCHMARKS.md` and numbered ADRs in `docs/decisions/`
+  ([CODING_QUALITY.md](CODING_QUALITY.md) §8.1). In six months you will not remember why
+  Q5_K_M lost, and re-deciding costs more than recording.
 - **Ship on a fixed cadence** (weekly). A solo founder's real failure mode is an eight-week
   refactor nobody asked for.
 

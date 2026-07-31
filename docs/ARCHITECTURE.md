@@ -6,6 +6,9 @@
 > explains every technology in this document — what it is, what the alternatives were, why
 > this one was chosen, and what the choice costs.
 >
+> **Writing code against this design?** [CODING_QUALITY.md](CODING_QUALITY.md) is the standard
+> every change is measured against — simplicity budgets, justified patterns, testing, review.
+>
 > Status: **proposed design, not yet implemented.** Every performance number in this
 > document is a *design target* that must be confirmed by the Phase 0 benchmark harness
 > before it is treated as fact.
