@@ -862,6 +862,42 @@ a new failure mode usually loses.
   when memory is the constraint. Confirm which resource actually binds before optimising for
   it; here it is prefill throughput, and no amount of clever weight paging improves that.
 
+### 3.6d Bring-your-own-key: hosted providers as an opt-in override
+
+- **What it is** — Users may supply their own OpenAI-compatible or Anthropic credentials and
+  have *their* analyses run on *their* provider instead of the built-in local model
+  ([ARCHITECTURE.md](ARCHITECTURE.md) §4.8). The local model remains the default and the
+  product is fully functional without a key.
+- **Alternatives** — Local-only, no BYOK at all (simplest, and what the original constraint
+  implies); a hosted API as the *default* with local as fallback (abandons the cost model and
+  the privacy claim); reselling inference ourselves at a markup (becomes a per-token business
+  with margin risk and requires holding provider spend on our balance sheet).
+- **Why this choice** — Three reasons that reinforce each other. It is the **direct
+  mitigation for R12**, the bootstrapping stall: a user who finds 90–180s intolerable can fix
+  it themselves today rather than churning. It **costs us nothing to serve**, because
+  inference leaves our box entirely — the scarcest resource in the system. And it is the
+  strongest possible answer to *"why not just use ChatGPT?"* (R6): if a user brings GPT-5 and
+  still gets a better result here than in a chat session, the product's value proposition —
+  retrieval, verification, fixed schema, monitoring — has been demonstrated rather than
+  argued.
+- **Why it does not violate the local-inference constraint** — the constraint is that the
+  core analysis path must not *depend* on external commercial APIs. It ships local, works
+  local, is evaluated local, and every user gets a complete product without ever seeing the
+  feature. BYOK is a preference a user expresses about their own account, not a dependency.
+- **Trade-off** — Three real costs, each mitigated rather than dismissed. **Security:**
+  custody of third-party credentials is the most dangerous data this product will hold, hence
+  session-only by default, encryption at rest when persisted, a redacting `Secret` newtype
+  with a CI check, and exclusion from backups (R13). **Trust:** it punches a hole in "your
+  research never leaves our server," so disclosure is mandatory and at the point of choice
+  (R14) — a privacy promise with a silent exception is worse than no promise. **Complexity:**
+  three structured-output mechanisms instead of one — GBNF, OpenAI strict schema, Anthropic
+  tool `input_schema` — though all three are generated from the same schemars JSON Schema
+  (§1.14), which is exactly the payoff of having defined the report contract once in Rust.
+- **The design decision worth noticing** — verification (Quality doc Layers 3–5) is
+  model-agnostic Rust and applies identically to BYOK output. **This is what makes BYOK safe
+  to offer**: we do not trust a user's frontier model any more than our own 8B, and a claim
+  whose evidence quote is absent from its cited source is deleted either way.
+
 ### 3.7 Prefix caching, flash attention, speculative decoding
 
 - **Prefix / KV caching** — Transformer inference caches per-token attention state. If two
@@ -1176,6 +1212,7 @@ The choices most worth challenging, with the conditions that should force a re-t
 | **Launching on Oracle Always Free rather than paying €60/mo from day one** (§8.3) | Rung 1 would give 45–70s reports instead of 90–180s, and might be the difference between converting and not | If Phase 6 shows users converting but naming latency as the blocker (ROADMAP R12) |
 | **Three small models rather than one larger one** (§4.2) | One 14B is simpler to operate than a 1.7B + 4B + 8B trio | If Phase 0 shows the routing/extraction split does not pay for its complexity |
 | **Deterministic extraction rather than model extraction** (§3.6b) | Parsers are brittle where models are flexible, and every site layout is per-site maintenance | If parser maintenance exceeds the quality it buys on the golden set |
+| **Offering BYOK at all** (§3.6d) | It adds credential custody (the riskiest data we'd hold), punches a hole in the privacy claim, and could cannibalise subscriptions | If BYOK users convert materially worse — though the first response is to move the tier boundaries, not restrict BYOK |
 | **TanStack Router rather than React Router** (§1.4) | React Router is the incumbent with far more support material | At the first sign of type-inference friction; it is a day of work to switch |
 | **`sqlx` rather than Diesel** (§2.4) | A composable query DSL and stronger migration tooling | If the offline-metadata workflow becomes a persistent CI annoyance |
 | **No JS rendering** (§4.3) | A meaningful share of pricing pages are client-rendered and will read as empty | If "not found" rates on pricing sections stay high and trace to client rendering |

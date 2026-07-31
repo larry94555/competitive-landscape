@@ -268,13 +268,17 @@ crates/
 ### 3.3 Data model (Postgres 16)
 
 ```sql
-users(id, email, email_verified_at, created_at, plan, stripe_customer_id, role)
+users(id, email, email_verified_at, created_at, plan, stripe_customer_id, role,
+      default_inference_provider /*local|byok*/)
+user_api_keys(...)  -- see §4.8; encrypted, excluded from ordinary backups
 sessions(id, user_id, expires_at, ip_hash, ua_hash)
 plans(key, analyses_per_month, watches, watch_interval_minutes, price_cents)
 usage_counters(subject_id, subject_kind /*user|ip*/, period, analyses_used, updated_at)
 
 analyses(id, user_id NULL, anon_key_hash NULL, input_text, resolved_subject jsonb,
-         status, model_id, prompt_version, started_at, finished_at,
+         status, model_id, prompt_version, inference_provider /*local|openai_compatible|anthropic*/,
+         byok_key_id NULL, fell_back_to_local bool, structured_output_mode,
+         started_at, finished_at,
          latency_ms, tokens_in, tokens_out, cost_compute_ms, share_slug, visibility)
 analysis_sections(analysis_id, key, payload jsonb, tokens_out, verify_status)
 sources(id, url, canonical_url, host, first_seen_at)
@@ -376,7 +380,9 @@ impl LlmClient {
 Every call carries a **deadline** and a **token budget**. Nothing runs unbounded.
 
 Escape hatch: if in-process ever becomes worth it (e.g. embedding a tiny reranker),
-`landscape-llm` already isolates it behind this trait.
+`landscape-llm` already isolates it behind this trait. The same isolation is what makes
+user-supplied hosted providers a matter of adding an adapter rather than a refactor — see
+§4.8.
 
 ### 4.2 Model selection
 
@@ -670,6 +676,126 @@ call → global Semaphore(2–3 in-flight, all servers) → per-server slot
   weights into RAM is the entire reason the memory budget in §4.2 is calculated so carefully.
 - **`MemoryMax=` on each systemd unit**, sized so that a runaway inference process is killed
   and restarted rather than triggering the kernel OOM killer against Postgres.
+
+### 4.8 Bring-your-own-key (BYOK) — optional user-supplied inference
+
+**The local model is the default and always will be.** The product must be fully functional,
+with no degraded features, for a user who never supplies a key. BYOK is an *opt-in override*
+for users who would rather pay their own provider than wait on free-tier hardware.
+
+This does not weaken the local-inference constraint — it strengthens the product's position
+against it. The core analysis path ships local, works local, and is evaluated local. BYOK is
+a preference a user may express about their own account.
+
+#### Why it belongs in this architecture
+
+- **It is the escape valve for R12** (ROADMAP §5), the bootstrapping stall. A user who finds
+  90–180s intolerable can paste a key and get 15–25s *today*, at their cost rather than ours.
+  That converts the free tier's worst property into a segmentable one.
+- **It costs us nothing to serve.** Inference moves off our box entirely, so BYOK analyses do
+  not consume the scarcest resource in the system.
+- **It answers the "why not just use ChatGPT" objection** (R6) from the other side: the
+  product's value is the retrieval, the verification, the schema and the monitoring — not the
+  model. Letting users bring a frontier model and *still* getting a better result than a chat
+  session is the strongest possible demonstration of that.
+
+#### Provider abstraction
+
+`landscape-llm` already isolates inference behind `LlmClient`. BYOK adds implementations:
+
+| Adapter | Covers | Structured output mechanism |
+|---|---|---|
+| `local` (default) | `llama-server` | **GBNF grammar** from JSON Schema |
+| `openai_compatible` | OpenAI, Azure OpenAI, OpenRouter, Together, Fireworks, Groq, DeepInfra, and any self-hosted vLLM/llama.cpp endpoint | **Strict JSON Schema** (structured outputs) |
+| `anthropic` | Claude models | **Tool `input_schema`** — a forced single-tool call |
+
+**The same `schemars`-generated JSON Schema drives all three** (§2.5). One schema → GBNF for
+llama.cpp, strict-schema for OpenAI-compatible, tool input schema for Anthropic. This is the
+payoff of having defined the report shape once in Rust: adding a provider does not mean
+re-expressing the contract.
+
+Adapters declare their capability, and the orchestrator degrades knowingly:
+
+```rust
+pub struct ProviderCapabilities {
+    pub structured_output: StructuredOutput,  // Grammar | StrictSchema | JsonMode | None
+    pub streaming: bool,
+    pub max_context: u32,
+}
+```
+
+`JsonMode` and `None` providers fall back to parse-and-retry (max 2 attempts) and the report
+records that a weaker constraint was used. A provider that cannot produce valid structured
+output twice in a row is rejected with a clear message rather than silently degrading the
+report.
+
+#### Key storage & security
+
+Third-party credentials are the most dangerous data this product will ever hold. They are
+treated accordingly.
+
+- **Session-only by default.** A key supplied for interactive analyses is held in memory for
+  the session and never written to disk. Persisting is a separate, explicit opt-in — and is
+  *required* only if the user wants BYOK applied to background jobs (watch checks, digests),
+  which is stated plainly at the point of choice.
+- **Encrypted at rest** with **XChaCha20-Poly1305**, using a master key from the systemd
+  `EnvironmentFile` (mode `0600`) — never in the database, never in the repo. Rows carry a
+  `key_version` so rotation and re-encryption are possible.
+- **Never returned to the client.** After storage the API exposes only
+  `{ provider, model, last_four, added_at, last_used_at, status }`. There is no "reveal key"
+  endpoint, because there is no legitimate use for one.
+- **Never logged.** A `Secret<String>` newtype with redacting `Debug`/`Display`, plus a CI
+  grep that fails on any format string interpolating it. Provider error bodies are
+  sanitized before they reach logs or the user.
+- **Deleted on request and on account deletion**, immediately and verifiably.
+- **`user_api_keys` is excluded from database backups**, or backed up under a separate key.
+  A restored backup should not resurrect credentials a user deleted.
+- **Custom base URLs go through the SSRF guard** (§11.4). A user-supplied
+  `openai_compatible` endpoint is exactly the "fetch a URL a stranger typed" problem again,
+  now with our credentials-handling code attached. Same resolve-then-validate rules, no
+  exceptions, plus an allowlist of known provider hosts with custom hosts as an explicit
+  opt-in.
+
+```sql
+user_api_keys(id, user_id, provider, model, base_url NULL,
+              ciphertext bytea, nonce bytea, key_version int,
+              last_four text, status /*active|invalid|rate_limited|exhausted*/,
+              scope /*interactive|interactive_and_background*/,
+              created_at, last_used_at, last_error_at, last_error_code)
+```
+
+#### Failure handling — fall back, never fail silently
+
+Keys expire, run out of credit, and get rate-limited, usually at the worst moment.
+
+- On provider failure the analysis **falls back to the local model automatically** and the
+  report carries a visible notice explaining what happened. A watch alert at 3am must not
+  simply not arrive.
+- The key's `status` is updated and the user is emailed **once** (not per failure) that their
+  key stopped working and what the product did instead.
+- Fallback is never silent and never disguised: provenance is recorded per analysis.
+
+#### Provenance & accounting
+
+Every analysis records `inference_provider`, `model_id`, and whether fallback occurred. This
+appears on the report, in the PDF footer, and in the admin console — and, critically,
+**quality metrics are always sliced by provider** (Quality doc §3.2), because BYOK reports
+generated by a frontier model would otherwise flatter the local model's measured quality.
+
+Token counts are surfaced to the user per analysis so a BYOK bill is never a surprise.
+We do not, and cannot, see their spend — only tokens submitted and returned.
+
+#### What BYOK does and does not change
+
+- **It does not bypass any quality control.** Layers 1–5 of the anti-hallucination stack are
+  model-agnostic Rust. A claim from Claude or GPT whose evidence quote is absent from its
+  cited source is deleted exactly as one from Qwen3-8B would be. This is precisely what makes
+  BYOK safe to offer: we do not trust the user's model any more than our own.
+- **It does not remove rate limits.** Fetching, extraction, PDF rendering and storage still
+  cost us bandwidth and CPU. BYOK **raises the analysis quota substantially** because
+  inference stops being ours, but it does not make an account unlimited.
+- **It does not unlock paid features.** Watch counts, alert cadence, webhook delivery, API
+  access and team features remain tier-gated, because none of them is an inference cost.
 
 ---
 
@@ -980,6 +1106,13 @@ Required, on every outbound fetch including redirect targets:
   form that discloses internal network topology.
 - Treat this as security-critical code: 100% human review, and unit tests covering
   rebinding, redirect chains, and IPv6 forms.
+
+**Second-highest severity: user-supplied provider credentials** (§4.8). Session-only by
+default; XChaCha20-Poly1305 at rest with the master key in a `0600` `EnvironmentFile`; a
+`Secret<String>` newtype with redacting `Debug`; a CI check that fails on any format string
+interpolating it; no reveal endpoint; excluded from ordinary backups; and user-supplied base
+URLs routed through the same SSRF guard above — a custom endpoint is the fetch-a-stranger's-URL
+problem again, this time with our credential handling attached.
 
 The rest of the baseline: Argon2id for any passwords; magic links single-use, 15-min TTL,
 constant-time compare; `SameSite=Lax` `HttpOnly` `Secure` session cookies; CSRF tokens on

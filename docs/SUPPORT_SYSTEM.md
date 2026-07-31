@@ -82,6 +82,7 @@ gets a normal free-form post.
 | `/watch` | `notifications` | Which page / how often / what you expected |
 | `/source` | `sources`, `quality` | Which claim / which source / what's wrong |
 | `/quality` | `quality` | Analysis ID / which section / what was wrong |
+| `/byok` | `byok`, `models` | Provider / what you expected / the error shown (**never** the key — the composer's secret detector blocks anything key-shaped) |
 | `/feature` | `feature-request` | What you're trying to do (not what to build) |
 | `/private` | — | Converts to a **private** email-backed thread |
 
@@ -148,6 +149,11 @@ search queries:
 - "How do I cancel my subscription?"
 - "Do you use my inputs to train a model?" (Answer: no — see [QUALITY_GUARDRAILS.md](QUALITY_GUARDRAILS.md).)
 - "Which AI model does Landscape use, and does my data leave your server?"
+- "Why does a report take two minutes?" (Answer: honest — free hardware, and here is what
+  we do to make the wait useful.)
+- "Can I use my own OpenAI or Anthropic key?" (Yes — and here is exactly what leaves our
+  servers if you do.)
+- "My report says it fell back to the built-in model. Why?"
 - …
 
 An empty help section reads as an abandoned product. A seeded one reads as a considered

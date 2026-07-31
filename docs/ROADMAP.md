@@ -59,7 +59,10 @@ report says so and lists what was checked. Nothing is estimated, inferred, or in
   a claim whose quote does not appear in its cited source is deleted before the user sees it.
 - **Privacy becomes a feature.** "Your competitive research never leaves our server, and is
   never sent to any AI vendor" is a real, checkable differentiator for exactly the
-  strategy-and-product buyers this tool serves.
+  strategy-and-product buyers this tool serves. The one exception — a user who opts into
+  their own provider key (§Phase 4, BYOK) — is disclosed at the point of choice and marked on
+  every affected report, because a privacy claim with a silent exception is worse than no
+  claim at all.
 - **No vendor risk.** No rate limits, no price changes, no deprecation notices, no terms
   changes on the critical path.
 
@@ -351,6 +354,11 @@ requested when the user asks for something that requires it.
 **Goal:** be able to take money without breaking the frictionless promise.
 
 **Ship**
+- **Bring-your-own-key (BYOK)** — optional user-supplied OpenAI-compatible or Anthropic
+  credentials ([ARCHITECTURE.md](ARCHITECTURE.md) §4.8,
+  [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §5A). Shipped here rather than later because it is the
+  **primary mitigation for R12** — a user who finds free-tier latency intolerable can fix it
+  themselves, today, at their own cost, instead of churning.
 - **Starter $19/mo**: 100 analyses/mo, 25 watches (daily), priority queue, full PDF, refresh-bypass.
 - **Pro $49/mo**: 500 analyses/mo, 100 watches (6-hourly), instant major alerts,
   Slack/webhook (delivered Phase 7), API access (Phase 7), team seats (later).
@@ -373,6 +381,20 @@ registration thresholds that will eventually be crossed. See
   with signature verification and `event.id` idempotency, hourly reconciliation job.
 - Keep Stripe types out of domain code — `async-stripe` is community-maintained with no
   official Stripe backing, and the whole SDK surface should stay replaceable in a day.
+- `landscape-llm`: `openai_compatible` and `anthropic` adapters behind the existing
+  `LlmClient` trait, each declaring its `ProviderCapabilities`. The same schemars JSON Schema
+  drives GBNF, OpenAI strict schema, and Anthropic tool `input_schema` — no second definition
+  of the report contract.
+- BYOK key handling: session-only by default; XChaCha20-Poly1305 at rest when persisted;
+  `Secret<String>` newtype with redacting `Debug`; **a CI check that fails the build on any
+  format string interpolating a secret**; no reveal endpoint; excluded from ordinary backups;
+  custom base URLs through the SSRF guard.
+- Automatic fallback to the local model on provider failure, with a visible report notice and
+  a single (not per-failure) notification email.
+- Provenance: `inference_provider`, `byok_key_id`, `fell_back_to_local` on every analysis,
+  surfaced on the report, in the PDF footer, and sliced in every quality metric.
+- Quota model: BYOK raises the analysis limit substantially; watches, cadence, webhooks and
+  API stay tier-gated, because none of those is an inference cost.
 - Entitlement resolution from local tables only — never call Stripe on the request path.
 - Priority queue: reserved inference slots for paid tiers; visible "Priority" state.
 - Dunning: `invoice.payment_failed` → email → 7-day grace → downgrade (never delete data).
@@ -383,7 +405,9 @@ registration thresholds that will eventually be crossed. See
 click. Both rules are anti-support-load measures as much as ethics.
 
 **Support:** billing KB articles (`/quota`, `/pricing`, cancellation, refunds). A written,
-published, no-argument refund policy — refund disputes cost more than refunds.
+published, no-argument refund policy — refund disputes cost more than refunds. Plus BYOK
+articles: which providers work, what it costs, **what leaves our servers**, how to delete a
+key, and why a report says it fell back to the built-in model.
 
 **Instrumentation & eval**
 - Revenue events, conversion funnel by limit-hit type, plan distribution, churn.
@@ -396,6 +420,11 @@ published, no-argument refund policy — refund disputes cost more than refunds.
 - Zero cases of a paying user being blocked by anonymous traffic.
 - The merchant-of-record decision recorded in `docs/DECISIONS.md`, with the tax obligations
   it implies written down rather than assumed.
+- BYOK verified end to end on both adapters, including: structured output parity with the
+  local grammar, an invalid key falling back cleanly mid-analysis, and a persisted key
+  surviving a watch-alert run.
+- **A deliberate secret-leak audit**: grep the codebase and a full request/response log
+  capture for any occurrence of a test key. Zero hits required before this ships.
 
 **Cost posture:** ~€15/mo + Stripe fees. First revenue possible.
 
@@ -610,6 +639,9 @@ sandbagged goal on Rung 2.
 | Watch-check inference share | ≤ 25% of daily capacity |
 | Infra cost / paying customer | ≤ $4/mo |
 | **Infrastructure as % of collected MRR** (§6.1) | **≤ 20%** |
+| BYOK adoption | % of registered users with a key configured — tracked, not targeted |
+| BYOK share of analyses | inference we do not pay for; rises = free-tier pressure relieved |
+| BYOK fallback rate | % of BYOK analyses that fell back to local; > 10% means bad key UX |
 | Analyses served per day on current rung | tracked against rung capacity |
 
 ### 3.3 Quality — the measurable definition of "high quality"
@@ -624,6 +656,10 @@ A report is high quality when **all** of:
 6. **Human rubric ≥ 4/5** on the daily 5-report sample.
 7. **User 👍 rate ≥ 80%** on section feedback.
 8. **Zero fabrication on trap subjects** — a hard gate, never traded away.
+
+All eight are measured **per inference provider**. A BYOK analysis on a frontier model must
+clear the same bar, and its results must never be pooled with the local model's — pooling
+would hide a local regression behind someone else's GPU.
 
 ### 3.4 Quality — the measurable definition of "frictionless"
 
@@ -667,6 +703,7 @@ re-run-analysis click-through ≥ 15% · false-positive rate (cosmetic alerts) �
 | React components from a specified design | **Prompt engineering** (agents write plausible prompts; only evals tell truth) |
 | Test scaffolding, fixtures, wiremock stubs | **Quality gate thresholds** — what counts as good enough |
 | Stripe webhook plumbing and idempotency | **The report schema** — the product's core contract |
+| Provider adapters (`openai_compatible`, `anthropic`) against a specified capability trait | **Anything touching BYOK credential custody** — storage, redaction, logging, backup exclusion (R13) |
 | Typst PDF templates | **Trust presentation** — how citations, confidence, and gaps look |
 | Email templates, MJML → HTML | **The first-run experience** — every pixel above the fold |
 | CI/CD, systemd units, deploy scripts | **Pricing and tier boundaries** |
@@ -856,7 +893,11 @@ convert users — or it may be exactly what stops them converting, in which case
 reaches the $350 trigger, and the product never gets the hardware that would make it good.
 This is the specific failure mode of a bootstrapped, compute-bound product.
 **Likelihood: medium. Impact: severe — it is the difference between a slow start and no start.**
-*Mitigations:* make Rung 0 quality as high as the hardware allows rather than accepting it —
+*Mitigations:* **BYOK (Phase 4) is the direct answer** — a user who finds the wait intolerable
+can supply their own provider key and get 15–25s immediately, at their cost rather than ours,
+instead of churning. That converts the free tier's worst property into a segmentable one and
+costs us nothing to serve. Beyond that: make Rung 0 quality as high as the hardware allows
+rather than accepting it —
 deterministic extraction, span pre-selection, and verification are quality mechanisms first
 and latency mechanisms second ([QUALITY_GUARDRAILS.md](QUALITY_GUARDRAILS.md) §7). Set
 expectations honestly so slowness reads as thoroughness, not brokenness. Track conversion
@@ -868,7 +909,43 @@ in writing, not by drift.
 rate mid-stream.
 
 
-### R13 — Founder burnout / scope creep
+### R13 — Custody of user-supplied provider credentials (BYOK)
+*Risk:* BYOK means holding third-party API keys. A leak — through a log line, an error
+response, a database backup, or a restored snapshot resurrecting deleted keys — bills a user's
+provider account and ends the product's credibility in a single incident. Adding it also
+creates a second SSRF surface, because a custom `base_url` is a user-supplied URL our server
+calls, now with credential-handling code attached.
+**Likelihood: low with discipline, near-certain without it. Impact: severe.**
+*Mitigations:* [ARCHITECTURE.md](ARCHITECTURE.md) §4.8 — session-only by default, so most
+users' keys are never written to disk at all; XChaCha20-Poly1305 at rest with the master key
+in a `0600` `EnvironmentFile` and a `key_version` for rotation; a `Secret<String>` newtype
+with redacting `Debug`, plus **a CI check that fails the build on any format string
+interpolating it**; provider error bodies sanitized before logging; no reveal endpoint;
+`user_api_keys` excluded from ordinary backups; deletion honoured immediately; custom base
+URLs through the same resolve-then-validate SSRF guard as R10, with known provider hosts
+allowlisted and custom hosts an explicit opt-in. On the 100%-human-review list.
+*Early warning:* any secret-shaped string appearing in logs (alarmed, not sampled); key
+`status` transitions; support threads mentioning unexpected provider charges.
+
+### R14 — BYOK erodes the privacy differentiator or the subscription
+*Risk:* two commercial failure modes. **Trust:** "your research never leaves our server" is a
+headline claim, and BYOK breaks it — if that exception is discovered rather than disclosed,
+the claim reads as a lie. **Revenue:** if BYOK users get everything for free, the subscription
+loses its reason to exist.
+**Likelihood: medium. Impact: medium.**
+*Mitigations:* disclosure is mandatory, unmissable and at the point of choice, with an
+explicit acknowledgement checkbox ([PRODUCT_SPEC.md](PRODUCT_SPEC.md) §5A.2), a provider chip
+on every affected report and PDF, and coverage in `/legal/privacy` plus a dedicated KB thread.
+On revenue: BYOK raises the **analysis** quota because inference stops being ours, but watch
+counts, alert cadence, webhooks, API access and team features stay tier-gated — none of them
+is an inference cost. Track BYOK adoption against conversion; if BYOK users convert
+materially worse, the tier boundaries are on the wrong axis and should move, rather than BYOK
+being restricted.
+*Early warning:* free→paid conversion split by BYOK usage; privacy questions in the KB;
+churn reasons citing data handling.
+
+
+### R15 — Founder burnout / scope creep
 *Risk:* an eight-week refactor, a design system, a Kubernetes migration.
 **Likelihood: medium. Impact: high.**
 *Mitigations:* fixed weekly ship cadence; phase exit criteria written before the phase
@@ -942,6 +1019,10 @@ aspirational.
 
 ### 6.5 Bootstrapping discipline
 
+- **BYOK relieves rung pressure without spending.** Users who bring their own key take their
+  inference off our box entirely, so heavy users can be served well *before* the next rung is
+  affordable. Watch BYOK share of analyses alongside queue depth — rising BYOK adoption
+  legitimately defers a rung, and that is a feature of the ladder, not an accident.
 - **Never pre-buy capacity.** Rung 1 is triggered by paying customers, not by a benchmark the
   founder finds disappointing.
 - **The free tier is the runway.** Because it does not expire, there is no clock forcing a

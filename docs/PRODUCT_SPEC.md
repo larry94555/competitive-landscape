@@ -316,6 +316,87 @@ the setting is still there in `/watch/:id` for anyone who wants it.
 
 ---
 
+## 5A. Bring your own model (BYOK)
+
+**Default: the built-in model. Nobody is asked about this, ever, unless they go looking.**
+A first-time visitor must never see the words "API key," "provider," or "model." The feature
+exists for the minority who want it and is invisible to everyone else — that is the only way
+it can coexist with a zero-learning-curve product.
+
+### 5A.1 Where it surfaces — two places, both earned
+
+**1. In `/account` → "Model," for people who go looking.** A short form: provider dropdown
+(Built-in · OpenAI-compatible · Anthropic), key field, optional model name, optional custom
+base URL behind a disclosure. Test button. That's it.
+
+**2. Contextually, when the wait is the problem.** After a user's *third* analysis, or when
+they abandon mid-stream, a single dismissible line appears under the stage rail:
+
+> Reports take about two minutes on our free hardware. If you have an OpenAI or Anthropic
+> key, you can use it for your own analyses and get results in about 20 seconds.
+> [Use my own key] · [No thanks]
+
+Dismissed twice, never shown again. This is the one place the product acknowledges its own
+slowness, and offering a fix is more honest than staying quiet about it.
+
+### 5A.2 The privacy disclosure — mandatory, unmissable, at the point of choice
+
+The product's differentiator is that research never leaves the server. BYOK breaks that, by
+the user's own choice, so the choice must be informed:
+
+> **Using your own key sends your query and the fetched page text to OpenAI.**
+> That data leaves our servers and is subject to their terms, not ours. Your built-in
+> analyses stay local. You can switch back at any time.
+> [ ] I understand
+
+Unchecked, the key is not accepted. This is not a dark pattern in reverse — a user who
+enables BYOK without understanding it has been mis-sold the product's core promise.
+
+### 5A.3 Session-only by default
+
+The key is held for the session and never written to disk. Persisting it is a separate
+checkbox, and the copy says exactly why you would want to:
+
+> [ ] Remember this key so my **watch alerts** also use it.
+>     Stored encrypted. We never show it again, and you can delete it in one click.
+
+Most users need only the session behaviour. Only background jobs require persistence, and
+saying so lets people choose the smaller risk.
+
+### 5A.4 On the report
+
+A small provider chip beside the timestamp: **`Built-in model`** or **`Your OpenAI key ·
+gpt-…`**. Same treatment in the PDF footer. If a key failed and the analysis fell back:
+
+> **Your key didn't work, so we used the built-in model.** OpenAI returned "insufficient
+> quota." Nothing was charged to your account, and this report is complete.
+> [Check my key]
+
+The report is still delivered. A failed key must never mean a missing report or a missing
+watch alert.
+
+### 5A.5 What it changes for the user
+
+| | Built-in | BYOK |
+|---|---|---|
+| Speed | 90–180s (Rung 0) | Whatever their provider does — typically 15–25s |
+| Analysis quota | Plan limit | **Substantially higher** — inference is no longer ours |
+| Cost | Free / plan price | Their provider bill, which we show tokens for but cannot see |
+| Privacy | Never leaves our server | Leaves, to their provider |
+| Watch count, alert cadence, webhooks, API, PDF | Plan limits | **Unchanged** — these aren't inference costs |
+| Source grounding, citation checks, "not found" honesty | Identical | **Identical** |
+
+That last row is the important one. Bringing a frontier model does not switch off any
+verification: an unsupported claim is deleted whether Claude wrote it or Qwen3-8B did.
+
+### 5A.6 Cost transparency
+
+Every BYOK analysis shows tokens submitted and returned, and `/account` shows a 30-day
+total. We never see their spend and say so. Nobody should discover this feature through a
+provider invoice.
+
+---
+
 ## 6. Support UX — the "slash-lite" open knowledge base
 
 Full design in [SUPPORT_SYSTEM.md](SUPPORT_SYSTEM.md). The user-facing shape:
@@ -347,6 +428,7 @@ Full design in [SUPPORT_SYSTEM.md](SUPPORT_SYSTEM.md). The user-facing shape:
 | Trust | Inline `[S4]` chips with hover cards; "what we checked" on every gap. |
 | Acting | One primary button per context: **Download PDF** on a report, **Start watching** in the watch sheet, **Upgrade** in the limit dialog. |
 | Accounts | Magic link only. Account creation happens *because* the user asked for something that needs one (an alert), never as a gate. |
+| Model choice | **Not a choice, by default.** BYOK (§5A) is invisible until a user goes looking or repeatedly hits the wait. Nobody is asked to pick a model to get a report. |
 | Limits | Never surprise the user: usage meter visible; limit dialogs state exactly what was blocked and resume the blocked action after upgrade. |
 | Notifications | Two clicks with sane pre-selection. Thresholds are learned from 👍/👎, not configured. |
 | Support | Public KB reachable from every screen; slash commands are discoverable but never required. |
