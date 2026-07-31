@@ -16,6 +16,7 @@ TypeScript + React frontend · Rust backend · local llama.cpp inference.
 | **ROADMAP.md** (this file) | Executive summary, phased plan (**C**), metrics (**F**), solo-founder execution (**G**), risks (**H**), git/PR workflow |
 | [PRODUCT_SPEC.md](PRODUCT_SPEC.md) | Product & UX specification (**A**): user flows, report schema, notification UX, zero-learning-curve mechanisms |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Technical architecture & stack (**B**): React, Rust, llama.cpp, data, jobs, caching, PDF, email, Stripe, change detection, hosting |
+| [ARCHITECTURE_EXPLANATION.md](ARCHITECTURE_EXPLANATION.md) | Companion to the above: every technology explained — what it is, the alternatives, the justification, and the cost/benefit trade-off |
 | [SUPPORT_SYSTEM.md](SUPPORT_SYSTEM.md) | Support system design (**D**): the open "slash-lite" knowledge base |
 | [QUALITY_GUARDRAILS.md](QUALITY_GUARDRAILS.md) | Quality & trust guardrails (**E**): anti-hallucination stack, evaluation, feedback loops, legal posture |
 

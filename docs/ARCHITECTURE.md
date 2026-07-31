@@ -2,6 +2,10 @@
 
 > Section **B** of the roadmap. See [ROADMAP.md](ROADMAP.md) for the index and phasing.
 >
+> **Unfamiliar with a tool named here?** [ARCHITECTURE_EXPLANATION.md](ARCHITECTURE_EXPLANATION.md)
+> explains every technology in this document — what it is, what the alternatives were, why
+> this one was chosen, and what the choice costs.
+>
 > Status: **proposed design, not yet implemented.** Every performance number in this
 > document is a *design target* that must be confirmed by the Phase 0 benchmark harness
 > before it is treated as fact.
@@ -376,7 +380,7 @@ Selection principles, not brand loyalty:
 
 | Level | Use |
 |---|---|
-| **Q4_K_M** | **Default for both roles.** Best quality/size knee; ~4.5 bits/weight. |
+| **Q4_K_M** | **Default for both roles.** Best quality/size knee; ~4.8 bits/weight effective. |
 | Q5_K_M | Synthesizer, if VRAM allows and eval shows a real gain. Measure, don't assume. |
 | IQ4_XS | CPU-only fallback when RAM-bound; slightly better ppl than Q4_0 at similar size. |
 | Q8_0 / F16 | **Reference only** — used in eval to measure the quality cost of quantization. |
