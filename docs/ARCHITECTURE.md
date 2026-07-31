@@ -77,6 +77,7 @@ almost entirely on grounding quality and inference throughput.
 /                       Composer (the whole product; also the landing page)
 /a/:analysisId          Report view (streamed, then static; shareable, SEO-indexable)
 /a/:analysisId/pdf      Triggers PDF download (server-rendered)
+/compare/:a-vs-:b       Pre-generated comparison page (SSR, indexable; Phase 6)
 /watch                  Watchlist management
 /watch/:watchId         Change history for one watched target
 /account                Profile, usage meter, plan, billing portal link
@@ -215,7 +216,7 @@ PDF is generated **server-side** (§7). The client:
 | Payments | `async-stripe` | |
 | Email | Provider HTTP API (Postmark or Resend) via `reqwest` | No SMTP. |
 | PDF | **`typst`** as a library | See §7. |
-| Observability | `tracing` + `tracing-subscriber` + OpenTelemetry → Grafana/Tempo; `metrics` + Prometheus exporter | |
+| Observability | `tracing` + `tracing-subscriber` + OpenTelemetry → Grafana/Tempo; `metrics` + Prometheus exporter | Instrument with `tracing` from day one; the *backend* is swappable. Start with local logs + a hosted error tracker, and defer self-hosting the metrics stack until there is traffic to look at — it competes for RAM with the model. Decide in Phase 0. |
 | Config | `figment` (env + TOML) | |
 | Errors | `thiserror` internally, one `AppError` → typed JSON problem responses | |
 | Tests | `cargo test` + `wiremock` for fetch fixtures + `sqlx::test` | |
@@ -607,6 +608,22 @@ count, and the standard public-data disclaimer.
   optimization, not a source of truth.
 - Test mode + Stripe CLI fixtures in CI; a seeded fake clock test for renewal and dunning.
 
+**Sales tax / VAT is an open decision, not an implementation detail.** Stripe is a payment
+processor, not a merchant of record: registration, calculation, and remittance of VAT, GST,
+and US sales tax remain our legal obligation. **Stripe Tax** (a paid add-on) calculates
+correctly but does not file. The alternative — **Paddle** or **Lemon Squeezy** — becomes the
+legal seller and absorbs compliance entirely, at a higher fee (~5% + fixed vs ~2.9% + 30¢)
+and a less pleasant API. The recommendation stands on developer experience and build speed,
+but **the choice must be made deliberately in Phase 4, before customers exist** — migrating
+billing providers afterwards is genuinely painful. See
+[ARCHITECTURE_EXPLANATION.md](ARCHITECTURE_EXPLANATION.md) §7.
+
+**Supply risk:** Stripe maintains no official Rust SDK, so `async-stripe` is
+community-maintained and can lag the API. The blast radius is deliberately small — because
+entitlements come from local tables and Stripe is never called on the request path, the SDK
+surface is a handful of Checkout, Portal, and webhook calls, replaceable with raw `reqwest`
+in a day. Keep it that way: no Stripe types in domain code.
+
 ---
 
 ## 10. Change detection
@@ -653,9 +670,16 @@ Noise suppression is the difference between a product and a nuisance:
 - Deploy = build a static `x86_64-unknown-linux-gnu` binary in GitHub Actions → `scp` →
   `systemctl restart`. A 20-line script. No Kubernetes, no Nomad, no ECS.
 - Frontend built in CI, served as static files by Caddy (and optionally fronted by
-  Cloudflare free tier for DDoS protection and global asset caching).
-- Backups: `pg_dump` nightly + WAL archiving to Backblaze B2 (~$1/mo). Restore drill in
-  Phase 3, repeated quarterly. **An untested backup is not a backup.**
+  Cloudflare free tier for DDoS protection and global asset caching). **If Cloudflare
+  proxies the API host, verify SSE is not buffered** — a CDN that buffers `text/event-stream`
+  turns progressive streaming into a single delivery at the end, silently destroying the
+  product's core UX mechanism. Test this deliberately; it fails quietly.
+- Backups: `pg_dump` nightly + WAL archiving to Backblaze B2 or Cloudflare R2 (~$1/mo;
+  R2 has no egress fees and is the better pick if Cloudflare is already in the stack).
+  Restore drill in Phase 3, repeated quarterly. **An untested backup is not a backup.**
+- Deploy restarts drop in-flight SSE connections. This is acceptable only because the client
+  reconnects and replays via `Last-Event-ID` (§2.4) — that mechanism is load-bearing for
+  deploys, not just for phone locks.
 
 **Explicitly: can one machine serve early traffic?** Yes, with the numbers stated plainly.
 At Rung 1 with 4 slots and ~60s of inference per analysis, sustained throughput is roughly
@@ -680,10 +704,25 @@ always backward-compatible for one release so rollback is safe.
 
 ### 11.4 Security baseline
 
-Argon2id for any passwords; magic links single-use, 15-min TTL, constant-time compare;
-SameSite=Lax `HttpOnly` `Secure` session cookies; CSRF tokens on state-changing forms;
-strict CSP; **SSRF protection on user-supplied URLs** (block RFC1918/link-local/metadata
-endpoints, resolve-then-verify to defeat DNS rebinding) — this matters a lot when the core
-feature is "fetch a URL the user typed"; sqlx parameterized queries throughout; secrets in
-systemd `EnvironmentFile` with `0600`, never in the repo; `cargo audit` + `cargo deny` in CI;
+**SSRF protection is the highest-severity control in this system and is called out first
+for that reason.** The core feature is "fetch a URL a stranger typed," which makes the
+backend a general-purpose request proxy unless it is explicitly prevented from being one.
+Required, on every outbound fetch including redirect targets:
+
+- Resolve the hostname, then validate the **resolved IP** against a denylist — RFC1918
+  private ranges, loopback, link-local (`169.254.0.0/16`, including the cloud metadata
+  endpoint `169.254.169.254`), IPv6 equivalents (`::1`, `fc00::/7`, `fe80::/10`), and
+  IPv4-mapped IPv6 forms. **Validating the hostname string alone is defeated by DNS
+  rebinding**; resolve-then-connect-to-that-IP is the only correct pattern.
+- Re-validate after **every** redirect — a permitted host may 302 to `127.0.0.1`.
+- Restrict schemes to `http`/`https` (no `file:`, `gopher:`, `ftp:`).
+- Cap response size (2MB) and time (8s), and never echo raw fetch errors to the user in a
+  form that discloses internal network topology.
+- Treat this as security-critical code: 100% human review, and unit tests covering
+  rebinding, redirect chains, and IPv6 forms.
+
+The rest of the baseline: Argon2id for any passwords; magic links single-use, 15-min TTL,
+constant-time compare; `SameSite=Lax` `HttpOnly` `Secure` session cookies; CSRF tokens on
+state-changing forms; strict CSP; sqlx parameterized queries throughout; secrets in systemd
+`EnvironmentFile` with `0600`, never in the repo; `cargo audit` + `cargo deny` in CI;
 KB posts sanitized (Markdown → safe subset, no raw HTML) and rate-limited.
