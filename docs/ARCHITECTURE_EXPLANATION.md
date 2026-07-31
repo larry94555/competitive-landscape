@@ -1077,6 +1077,7 @@ Things a reviewer might expect to see, and why they are absent:
 | **Kubernetes** | No orchestration problem exists on one host. |
 | **A hosted LLM API fallback** | Explicitly excluded by the product constraint, and accepting it would quietly undo the cost model and the privacy claim. Worth stating that this is a *product* decision, not merely a technical one. |
 | **Multi-region deployment** | Response times are dominated by inference, not network latency. A CDN in front of static assets is sufficient. |
+| **Bun** (as runtime, bundler, test runner, or package manager) | **There is no JavaScript runtime in production** — the frontend is static files served by Caddy and SSR lives in Rust (§1.11), so Bun's defining feature has no surface to act on. What remains is build tooling, where the gain is CI speed only: no effect on product latency, user experience, or infrastructure cost, and CI here is dominated by the Rust build regardless. Replacing Vite/Vitest would additionally forfeit the shared-transform-pipeline guarantee (§1.10) and move off the path coding agents handle best (ROADMAP §4). Revisit only if a JS server process ever enters production — at which point the decision being reopened is §1.11, not this one. |
 
 ---
 

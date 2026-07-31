@@ -61,6 +61,7 @@ almost entirely on grounding quality and inference throughput.
 | Concern | Choice | Why |
 |---|---|---|
 | Build | **Vite** | Fastest DX, trivial config, first-class TS. |
+| Package manager | **npm** | Ships with Node; no extra toolchain. pnpm/Bun are faster to install but the gain is CI-only, and CI here is dominated by the Rust build. |
 | Language | **TypeScript, `strict: true`** + `noUncheckedIndexedAccess` | Report schema is the product contract; types must be load-bearing. |
 | Framework | **React 19**, function components + hooks | Constraint. `use()` + Suspense for streamed data. |
 | Routing | **TanStack Router** (or React Router v7) | Type-safe params; the app has ~12 routes, not 100. |
