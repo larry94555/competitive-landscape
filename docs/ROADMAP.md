@@ -1,7 +1,8 @@
 # Landscape — Product & Engineering Roadmap
 
-**Public-data competitive intelligence in under 60 seconds.**
-TypeScript + React frontend · Rust backend · local llama.cpp inference.
+**Public-data competitive intelligence in under 60 seconds** — the product goal, delivered
+at Rung 2. The free-tier launch host serves the same report in 90–180s; see §6 for the ladder.
+TypeScript + React frontend · Rust backend · local llama.cpp inference on Oracle Always Free.
 
 > Status: **initial roadmap, pending human review.** Nothing in this repository is
 > implemented yet. Every latency and throughput figure is a *design target* to be confirmed
@@ -13,7 +14,7 @@ TypeScript + React frontend · Rust backend · local llama.cpp inference.
 
 | Doc | Covers |
 |---|---|
-| **ROADMAP.md** (this file) | Executive summary, phased plan (**C**), metrics (**F**), solo-founder execution (**G**), risks (**H**), git/PR workflow |
+| **ROADMAP.md** (this file) | Executive summary, phased plan (**C**), metrics (**F**), solo-founder execution (**G**), risks (**H**), bootstrapped cost ladder, git/PR workflow |
 | [PRODUCT_SPEC.md](PRODUCT_SPEC.md) | Product & UX specification (**A**): user flows, report schema, notification UX, zero-learning-curve mechanisms |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Technical architecture & stack (**B**): React, Rust, llama.cpp, data, jobs, caching, PDF, email, Stripe, change detection, hosting |
 | [ARCHITECTURE_EXPLANATION.md](ARCHITECTURE_EXPLANATION.md) | Companion to the above: every technology explained — what it is, the alternatives, the justification, and the cost/benefit trade-off |
@@ -27,9 +28,10 @@ TypeScript + React frontend · Rust backend · local llama.cpp inference.
 ### What we are building
 
 One text box. A user types a product name, a list of competitors, a URL, or a paragraph
-describing what they're building. Within 15–25 seconds they are reading a structured,
-source-cited competitive analysis in a fixed seven-section format, streamed section by
-section. One click produces a clean one-page PDF. Two more clicks put the competitor's
+describing what they're building. They then read a structured, source-cited competitive
+analysis in a fixed seven-section format, streamed section by section as it is written —
+in 90–180 seconds on the free-tier launch host, and in 15–25 seconds once revenue pays for
+Rung 2 (§6). One click produces a clean one-page PDF. Two more clicks put the competitor's
 pricing page and changelog on watch, and they get an email when something meaningful
 changes — with an AI summary of what changed and why it might matter.
 
@@ -41,14 +43,18 @@ report says so and lists what was checked. Nothing is estimated, inferred, or in
 **Local llama.cpp inference is the right call here, and not merely an acceptable one.**
 
 - **Unit economics invert.** The dominant cost of an LLM product is normally per-token
-  inference, which scales linearly with usage and caps gross margin. Here the cost is a
-  fixed €60–250/month box. The 500th analysis of the day is free. That makes a genuinely
-  generous free tier — the single strongest acquisition lever for a zero-marketing-budget
-  solo product — economically sane instead of suicidal.
+  inference, which scales linearly with usage and caps gross margin. Here the cost is a fixed
+  box — and at launch that box is **free**: Oracle Cloud Always Free (4 ARM cores, 24 GB).
+  The 100th analysis of the day costs nothing. That makes a genuinely generous free tier —
+  the single strongest acquisition lever for a zero-marketing-budget solo product —
+  economically sane instead of suicidal, and it means the product can reach paying customers
+  before it costs a euro to run. With no outside capital, that is not a nice property; it is
+  the whole plan (§6).
 - **The workload suits small models.** This is not open-ended reasoning. It is
   read-this-page → emit-structured-facts-with-quotes, executed over 8–14 sources, then
-  assembled. With retrieval grounding, GBNF-constrained decoding, and mechanical
-  verification of every citation, an 8B–14B model at Q4_K_M is not a compromise — the
+  assembled — with prices, dates and versions parsed deterministically by code rather than
+  generated at all. With retrieval grounding, GBNF-constrained decoding, and mechanical
+  verification of every citation, a 4B–8B model at Q4_K_M is not a compromise — the
   verification layer makes it *more* reliable than an unconstrained frontier model, because
   a claim whose quote does not appear in its cited source is deleted before the user sees it.
 - **Privacy becomes a feature.** "Your competitive research never leaves our server, and is
@@ -74,14 +80,23 @@ over generated report types means a schema change breaks the build rather than t
 
 ### The honest tension, stated up front
 
-The 15–25 second target is **not achievable on a CPU-only box for a full-length synthesis**.
-Phase 0 exists to measure this precisely. The plan resolves it with architecture, not hope:
-map-reduce over sources with tiny per-source outputs, section-parallel generation across
-llama.cpp slots, aggressive multi-layer caching (two users analyzing the same competitor
-share all reading work), extractive-first synthesis with a ~600-token generation budget,
-and progressive streaming so the first content appears in 4–8 seconds. That ships on a
-€60/month CPU box. The €180/month GPU box moves p50 comfortably inside target and is
-triggered by a defined metric, not by ambition.
+**The 15–25 second target is not achievable on the free tier, and the plan says so rather
+than working around it.** Four Ampere cores cannot run a full-length synthesis that fast, and
+on that hardware *prompt processing*, not generation, is the dominant cost. Phase 0 measures
+this precisely on the actual instance.
+
+The resolution is architectural, and most of it improves quality at the same time:
+**deterministic-first extraction** (prices, dates and versions are parsed by code, not
+generated by a model — more accurate *and* it removes most of the prefill), span
+pre-selection that cuts each source from ~2,500 to ~400 tokens before the model sees it, tiny
+grammar-constrained per-source outputs, section-parallel generation batched across slots, a
+≤900-token generation budget, aggressive multi-layer caching (two users analysing the same
+competitor share all reading work), and progressive streaming.
+
+That yields an honest **90–180 seconds to a complete report on €0/month**, with first content
+in 20–40s. The 15–25s promise arrives at **Rung 2** (~€200/month GPU box), triggered by
+revenue — see §6. Until then the landing page promises what the hardware delivers; advertising
+Rung 2 speed while serving Rung 0 is the fastest available way to destroy trust.
 
 ### Shape of the plan
 
@@ -97,9 +112,10 @@ triggered by a defined metric, not by ambition.
 | 7 | 25–30 | Retention, scale, GPU, model upgrade loop |
 | 8 | 31+ | Sustainability and margin |
 
-Target: **~$1.5–2k MRR by month 8**, against ~$250/month of infrastructure. That is
-profitable in absolute terms early, and the constraint on growth is distribution, not
-compute — which is the correct problem to have.
+Target: **~$1.5–2k MRR by month 8**, against infrastructure that starts at **€0** and reaches
+~€200/month only once revenue justifies it (§6). Total cash required to reach first revenue is
+under €100. That is profitable in absolute terms early, and the constraint on growth is
+distribution, not compute — which is the correct problem to have.
 
 ---
 
@@ -126,17 +142,30 @@ skeleton everything else attaches to.
   `cargo-nextest` in place of `cargo test`, `cargo check` before `cargo build` on PRs.
   Then `bun install` for the frontend (~15–30s), after verifying it behaves on Windows
   and does not break Playwright's postinstall browser download — npm is the fallback.
-- Provision the launch box (Hetzner AX52-class dedicated). Caddy, Postgres 16, Redis,
-  systemd units, `pg_dump`→B2 backups **plus a restore drill**.
-- Build `llama-server` from source; supervise via systemd with `Restart=always` and
-  `MemoryMax=`.
-- **Benchmark harness** (`landscape-bench`): for each candidate model × quantization,
-  measure prompt-processing tok/s, generation tok/s, RAM, time-to-first-token, and
-  throughput at `--parallel 1/2/4/8` on realistic prompts (6k-token source bundle in,
-  200-token structured JSON out; and 20k in, 700 out).
-- Bake-off across **Qwen3-4B / Qwen3-8B / Qwen3-14B / Llama 3.1 8B / Gemma 3 12B /
-  Mistral Small 3.x**, at Q4_K_M and Q5_K_M, plus a Q8_0 reference. **License review
-  precedes benchmarking** — a model we cannot use commercially is not a candidate.
+- **Provision the Oracle Always Free A1** (4 OCPU / 24 GB / aarch64) *first* — A1 capacity is
+  scarce in popular regions and this can take several attempts. **Convert the account to
+  Pay-As-You-Go before building on it**, so Always Free resources are not reclaimed; staying
+  inside the free limits still bills €0. Then Caddy, Postgres 16, Redis, systemd units,
+  swap disabled, `pg_dump`→B2/R2 backups **plus a restore drill**.
+- Target **`aarch64-unknown-linux-gnu`** in CI from the first commit. A Rust build that has
+  only ever run on x86 finds its first ARM bug in production.
+- Build `llama-server` on the host with ARM `dotprod`/`i8mm` enabled; three supervised
+  processes per [ARCHITECTURE.md](ARCHITECTURE.md) §4.7, each with `--mlock`, `Restart=always`
+  and `MemoryMax=`.
+- **Benchmark harness** (`landscape-bench`), run **on the actual A1 instance** — laptop
+  numbers are worthless here. For each candidate model × quantization measure prefill tok/s,
+  generation tok/s, resident RAM, time-to-first-token, and aggregate throughput at
+  `--parallel 1/2/4/8`, on realistic prompts (400-token span window in → 100-token structured
+  JSON out; 4k-token bundle in → 700 out).
+- Bake-off across **Qwen3-1.7B / 4B / 8B / 14B**, plus **Gemma 3 4B/12B** and
+  **Llama 3.2 3B** as alternates, at **Q4_K_M *and* Q4_0** (ARM repacking may make the
+  lower-quality format the faster one — measure, don't assume), with a Q8_0 reference.
+  **License review precedes benchmarking** — a model we cannot use commercially is not a
+  candidate.
+- **Prefill is the thing to measure most carefully.** On 4 ARM cores it dominates, and the
+  span-pre-selection design (§5.4) lives or dies on these numbers.
+- Validate `q8_0` KV cache quantization against the golden set — three resident models share
+  a tight KV budget, so this decision cannot be deferred as it could on a 64 GB box.
 - Prove GBNF constrained decoding end-to-end: Rust struct → `schemars` JSON Schema →
   GBNF → llama-server → parsed back into the struct. This is the spine of the product;
   validate it before anything else is built on it.
@@ -153,15 +182,21 @@ structural, and retrofitting them is expensive.
 `docs/BENCHMARKS.md` with real numbers and the chosen model + quantization, with reasoning.
 
 **Exit criteria**
-- A documented model choice with measured tok/s at the target `--parallel`.
-- A measured, realistic end-to-end latency estimate for a full analysis, and a written
-  decision on whether Rung 1 (CPU) ships or Phase 1 starts on GPU.
+- A documented three-model choice (Router / Extractor / Synthesizer) with measured prefill
+  and generation tok/s on the A1, at the chosen `--parallel`, fitting the ~17 GB budget.
+- **A measured, realistic end-to-end latency estimate**, and a written, honest decision on
+  what the Rung-0 latency promise will be. If the measurement is materially worse than the
+  90–180s estimate in ARCHITECTURE §4.4, the response is to cut scope per analysis (fewer
+  sources, tighter span windows, smaller synthesizer) — **not** to quietly ship a promise the
+  hardware cannot keep.
 - Grammar-constrained JSON round-trip working from Rust with 0 parse failures over 100 runs.
 - A written decision on the observability backend: `tracing` instrumentation is fixed, but
-  self-hosted Prometheus/Grafana/Tempo competes for RAM with the model. Decide now whether
-  to start with a hosted error tracker and defer the metrics stack.
+  self-hosted Prometheus/Grafana/Tempo competes for RAM with the model on a 24 GB box.
+  On this hardware the answer is almost certainly "hosted error tracking only, for now."
+- `q8_0` KV quantization decided on evidence, and the `--mlock` + no-swap configuration
+  verified under load.
 
-**Cost posture:** ~€70/mo infra, ~€15 domain. No revenue.
+**Cost posture:** **€0/mo infra**, ~€15 domain. No revenue. See §6.4.
 
 ---
 
@@ -212,11 +247,11 @@ loading screen; treat it as a P0 requirement.
 
 **Exit criteria**
 - 20 consecutive analyses of varied subjects complete without a crash.
-- p50 end-to-end ≤ 40s, time-to-first-content ≤ 10s (tightened in Phase 2).
+- p50 end-to-end ≤ 240s, time-to-first-content ≤ 45s on Rung 0 (tightened in Phase 2).
 - 100% schema validity.
 - The founder would show it to a stranger without apologizing.
 
-**Cost posture:** ~€70/mo. No revenue.
+**Cost posture:** €0/mo. No revenue.
 
 ---
 
@@ -258,11 +293,11 @@ rather than a pile of warnings.
 
 **Exit criteria**
 - Citation coverage ≥ 97%; drop rate ≤ 3%; trap subjects produce zero fabricated content.
-- p50 ≤ 30s, time-to-first-content ≤ 8s.
+- p50 ≤ 180s, time-to-first-content ≤ 40s on Rung 0. (Rung 2 equivalents: 25s / 8s.)
 - PDF click-to-download ≤ 1s in the pre-warmed case.
 - 10 external testers rate report usefulness ≥ 4/5.
 
-**Cost posture:** ~€80/mo (object storage). No revenue.
+**Cost posture:** €0/mo (object storage ~€1). No revenue.
 
 ---
 
@@ -307,7 +342,7 @@ requested when the user asks for something that requires it.
 - KB search returns a relevant result for 80% of the seeded questions.
 - Zero-result search queries logged and reviewed weekly (they are the KB backlog).
 
-**Cost posture:** ~€95/mo (email). No revenue.
+**Cost posture:** ~€15/mo (email). No revenue.
 
 ---
 
@@ -362,7 +397,7 @@ published, no-argument refund policy — refund disputes cost more than refunds.
 - The merchant-of-record decision recorded in `docs/DECISIONS.md`, with the tax obligations
   it implies written down rather than assumed.
 
-**Cost posture:** ~€95/mo + Stripe fees. First revenue possible.
+**Cost posture:** ~€15/mo + Stripe fees. First revenue possible.
 
 ---
 
@@ -408,8 +443,8 @@ cosmetic?" — the highest-volume predictable question in this feature.
 - Zero alerts fired by pure timestamp/counter/testimonial churn in the regression suite.
 - Watch checking consumes <25% of daily inference capacity.
 
-**Cost posture:** ~€110/mo. Watches raise inference load; watch caps per tier exist to
-bound it.
+**Cost posture:** ~€15/mo. Watches raise inference load, which on Rung 0 is the scarcest
+resource in the system; watch caps per tier and off-peak scheduling exist to bound it.
 
 ---
 
@@ -456,7 +491,8 @@ pricing). Watch the tag distribution daily.
 - ≥1 acquisition channel with a repeatable, measurable cost/effort per signup.
 - Comparison pages beginning to appear in search results.
 
-**Cost posture:** ~€120/mo + ~€100 one-off launch costs. Target ~$300–500 MRR exiting.
+**Cost posture:** €15/mo, rising to ~€80/mo if the Rung 1 trigger fires ($350 MRR), plus
+~€100 one-off launch costs. Target ~$350–500 MRR exiting.
 
 ---
 
@@ -498,13 +534,14 @@ resolved support threads to shipped fixes.
   earlier in the funnel.
 
 **Exit criteria**
-- p50 ≤ 20s, p95 ≤ 35s at 10× Phase 6 traffic.
+- p50 ≤ 25s, p95 ≤ 45s at 10× Phase 6 traffic — **achieved by reaching Rung 2**, not by
+  optimising Rung 0 further.
 - Quality gates all passing on the larger model.
 - D30 retention ≥ 25% for registered users.
 - ~$1k+ MRR.
 
-**Cost posture:** ~€250/mo (GPU box). Should be comfortably covered by revenue; if it is
-not, the trigger to migrate had not actually fired.
+**Cost posture:** ~€200/mo (Rung 2 GPU box) + ~€15 email. Must be ≤ 20% of collected MRR
+per §6.1; if it is not, the trigger to migrate had not actually fired.
 
 ---
 
@@ -543,7 +580,7 @@ Instrumented from Phase 1. Reviewed weekly; a dashboard the founder actually ope
 
 | Metric | Definition | Target |
 |---|---|---|
-| **Time to first value** | Land → first section streaming | p50 ≤ 10s |
+| **Time to first value** | Land → first section streaming | Rung 0: p50 ≤ 40s · Rung 2: p50 ≤ 10s |
 | **First-run completion** | % of first-time visitors who submit and read a complete report | ≥ 60% |
 | **PDF rate** | % of completed reports downloaded | ≥ 25% |
 | **Activation** | New user runs ≥2 analyses **or** creates a watch in 7 days | ≥ 40% |
@@ -554,17 +591,26 @@ Instrumented from Phase 1. Reviewed weekly; a dashboard the founder actually ope
 
 ### 3.2 Compute & latency
 
+Latency targets are **per rung** — a single number would be either a lie on Rung 0 or a
+sandbagged goal on Rung 2.
+
+| Metric | Rung 0 (free) | Rung 2 (GPU) |
+|---|---|---|
+| End-to-end analysis latency | p50 ≤ 180s, p95 ≤ 240s | p50 ≤ 25s, p95 ≤ 45s |
+| Time to first streamed content | p50 ≤ 40s | p50 ≤ 8s |
+| Prefill tokens per analysis | ≤ 4,000 | ≤ 24,000 |
+| Tokens generated per analysis | ≤ 900 | ≤ 2,500 |
+
 | Metric | Target |
 |---|---|
-| End-to-end analysis latency | p50 ≤ 25s, p95 ≤ 45s |
-| Time to first streamed content | p50 ≤ 8s |
-| Tokens generated per analysis | ≤ 2,500 |
 | **Compute-ms per analysis** (the real unit cost) | trending down |
 | Cache hit rate — fetch / extraction / section | ≥ 60% / ≥ 45% / ≥ 25% |
 | Inference queue depth | p95 ≤ 2 |
 | Slot utilization | 40–75% (below is waste; above is queueing) |
 | Watch-check inference share | ≤ 25% of daily capacity |
 | Infra cost / paying customer | ≤ $4/mo |
+| **Infrastructure as % of collected MRR** (§6.1) | **≤ 20%** |
+| Analyses served per day on current rung | tracked against rung capacity |
 
 ### 3.3 Quality — the measurable definition of "high quality"
 
@@ -581,14 +627,18 @@ A report is high quality when **all** of:
 
 ### 3.4 Quality — the measurable definition of "frictionless"
 
-1. **No-instruction success**: ≥4 of 5 unmoderated testers reach a downloaded PDF within
-   90 seconds, having read nothing.
+1. **No-instruction success**: ≥4 of 5 unmoderated testers reach a downloaded PDF **without
+   abandoning**, having read nothing. On Rung 0 that means surviving a 90–180s wait, which
+   makes this the hardest UX measure in the product.
 2. **Zero required fields** beyond the one textarea.
 3. **≤1 clarifying question** in ≥80% of analyses; 100% skippable to a complete report.
 4. **Zero documentation reads** required for the core flow — measured as `/help` visits
    *before* a first completed analysis (target < 5%).
-5. **Support threads per 100 analyses** trending down month over month.
-6. **Signup-to-first-analysis time**: p50 ≤ 60s.
+5. **Mid-stream abandonment** — the free tier's defining risk. Target ≤ 20% on Rung 0,
+   ≤ 5% on Rung 2. If this is high, the fix is a better waiting experience or a faster rung,
+   not more copy.
+6. **Support threads per 100 analyses** trending down month over month.
+7. **Signup-to-first-analysis time**: p50 ≤ 60s (submission, not completion).
 
 ### 3.5 Support
 
@@ -656,15 +706,23 @@ Cloudflare free tier · Backblaze B2 · Plausible or self-hosted analytics.
 
 ## 5. Risks & mitigations (H)
 
-### R1 — Local inference latency and hardware limits
-*Risk:* CPU-only inference cannot meet 15–25s for full synthesis; users abandon.
-**Likelihood: high. Impact: high.**
-*Mitigations:* Phase 0 measures this before a line of product code depends on it;
-map-reduce with tiny per-source outputs; section-parallel generation across slots;
-extractive-first synthesis at ~600 generated tokens; progressive streaming so
-time-to-first-content is 4–8s; honest queue-position display; a defined metric trigger for
-the GPU box; speculative decoding and prefix caching as further levers.
-*Early warning:* p95 latency, queue depth, abandonment rate mid-stream.
+### R1 — Free-tier inference latency
+*Risk:* four Ampere cores cannot deliver the 15–25s product promise. Reports take 90–180s,
+and users abandon mid-stream. On this hardware **prefill, not generation, is the dominant
+cost**, so the naive design (feed 20k tokens of source text to a model) is not merely slow —
+it is unusable.
+**Likelihood: certain at Rung 0. Impact: high.**
+*Mitigations:* deterministic-first extraction so prices, dates and versions never enter the
+model's context at all ([ARCHITECTURE.md](ARCHITECTURE.md) §5.4); span pre-selection cutting
+each source from ~2,500 to ~400 tokens; tiny grammar-constrained per-source outputs;
+section-parallel generation batched across slots (continuous batching is worth more on
+memory-bound CPU than on GPU); a ≤900-token generation budget; aggressive caching, where hit
+rate *is* the capacity plan; progressive streaming with first content in 20–40s; honest
+queue-position display; and a revenue-triggered ladder to Rung 1 and Rung 2 (§6). Phase 0
+measures all of this on the actual A1 instance before any product code depends on it.
+*Critically:* the landing page promises Rung-0 reality, not Rung-2 aspiration.
+*Early warning:* p95 latency, queue depth, abandonment rate mid-stream, prefill share of
+total inference time.
 
 ### R2 — Free-tier resource exhaustion
 *Risk:* fixed capacity means free users can starve paying ones — the failure mode unique to
@@ -776,7 +834,41 @@ forms.
 *Early warning:* fetch attempts to non-public address space (should be zero, and alarmed);
 abuse complaints to the host; anomalous per-IP analysis volume.
 
-### R11 — Founder burnout / scope creep
+### R11 — Single-vendor dependency on Oracle Always Free
+*Risk:* the entire product runs on a free tier controlled by one vendor. Oracle can reclaim
+idle Always Free instances on trial accounts, A1 capacity is genuinely scarce in popular
+regions, and free-tier terms can change with little notice. Losing the instance means losing
+the product.
+**Likelihood: medium. Impact: severe at Rung 0, declining thereafter.**
+*Mitigations:* convert the account to Pay-As-You-Go before building on it, which retains
+Always Free resources while still billing €0; provision early and never terminate the
+instance to recreate it; nightly `pg_dump` plus WAL archiving to Backblaze B2 or Cloudflare
+R2 off Oracle entirely, with a quarterly restore drill; keep the deployment
+provider-agnostic — systemd units, a static aarch64 binary and standard Postgres, with no
+Oracle-specific services (notably *not* Oracle Autonomous Database) anywhere in the stack.
+Recovery from total loss should be a documented afternoon: provision anywhere with ARM or
+x86, restore, repoint DNS. **Rehearse it once in Phase 3.**
+*Early warning:* Oracle service notices, instance health, any capacity or quota mail.
+
+### R12 — Bootstrapping stall: quality gated behind revenue that quality gates
+*Risk:* the free tier produces 90–180s reports from an 8B model. That may be good enough to
+convert users — or it may be exactly what stops them converting, in which case revenue never
+reaches the $350 trigger, and the product never gets the hardware that would make it good.
+This is the specific failure mode of a bootstrapped, compute-bound product.
+**Likelihood: medium. Impact: severe — it is the difference between a slow start and no start.**
+*Mitigations:* make Rung 0 quality as high as the hardware allows rather than accepting it —
+deterministic extraction, span pre-selection, and verification are quality mechanisms first
+and latency mechanisms second ([QUALITY_GUARDRAILS.md](QUALITY_GUARDRAILS.md) §7). Set
+expectations honestly so slowness reads as thoroughness, not brokenness. Track conversion
+against *report quality ratings*, not latency, so the actual blocker is identifiable. If
+Phase 6 shows users converting but latency is the top complaint, Rung 1 is worth funding from
+personal savings as the one deliberate exception to §6.1 — a decision to make consciously and
+in writing, not by drift.
+*Early warning:* free→paid conversion versus 👍 rate; churn reasons citing speed; abandonment
+rate mid-stream.
+
+
+### R13 — Founder burnout / scope creep
 *Risk:* an eight-week refactor, a design system, a Kubernetes migration.
 **Likelihood: medium. Impact: high.**
 *Mitigations:* fixed weekly ship cadence; phase exit criteria written before the phase
@@ -785,7 +877,88 @@ buy-don't-build defaults; agents on everything downstream of a specification.
 
 ---
 
-## 6. Git / pull-request workflow (mandatory)
+## 6. Bootstrapped hosting & cost ladder
+
+**Premise: no angel or VC funding.** Every euro of infrastructure is paid for by revenue
+already collected. There is no runway to burn, so the product must be free to operate until
+it is not free to operate — which is why the launch host is Oracle Cloud Always Free and why
+each upgrade has a revenue trigger rather than a date.
+
+If outside capital ever arrives, this section is the first thing to rewrite. Until then it is
+a hard constraint, not a preference.
+
+### 6.1 The two rules
+
+1. **Infrastructure ≤ 20% of MRR.** Below that, upgrading is premature; above it, the
+   business is subsidising its own hosting out of a founder's pocket.
+2. **Hold three months of the next rung's cost in cash before climbing.** A rung you cannot
+   sustain through one bad month is a rung you cannot afford. Downgrading after a migration
+   is far more disruptive than waiting.
+
+Both rules are checked monthly against actual collected revenue — not MRR run-rate, not
+annualised, not "committed."
+
+### 6.2 The ladder
+
+| Rung | Host | Models | Est. latency (p50) | Cost/mo | Trigger (MRR) |
+|---|---|---|---|---:|---:|
+| **0** | Oracle Always Free A1 (4 OCPU, 24 GB) | Qwen3-1.7B / 4B / 8B | 90–180s | **€0** | — (launch here) |
+| **1** | Oracle Free web tier **+** Hetzner AX52 dedicated for inference | Qwen3-30B-A3B (MoE) | 45–70s | ~€65 | **$350** |
+| **2** | Oracle Free web tier **+** Hetzner GEX44 (RTX 4000 Ada 20 GB) | Qwen3-14B / 30B-A3B, GPU-resident | **15–25s** | ~€200 | **$1,100** |
+| **3** | 48–80 GB VRAM GPU (RTX 6000 Ada / L40S / A100) | 70B-class dense or gpt-oss-120b MoE | 15–25s, better output | ~€700 | **$3,800** |
+| **4** | Multi-GPU server (8×H100-class) | Kimi K2-class (~1T params, ~32B active) | — | €3,000–6,000 | **$18,000** (~$215k ARR) |
+
+Read the last row as a reality check, not a plan. **A Kimi-class model is not a
+"when revenue comes in" upgrade for a bootstrapped solo product** — at 4-bit it is roughly
+550–600 GB of weights and needs a multi-GPU server. The realistic quality ceiling for the
+first two years is **Rung 3**, and the honest framing is that Rungs 0→2 are the ones that
+determine whether this business exists at all.
+
+### 6.3 What each rung buys, in order of what users notice
+
+- **0 → 1** is a *quality* jump more than a speed jump: Qwen3-30B-A3B is a materially better
+  grounded summariser than an 8B, and MoE keeps it CPU-affordable. Reports get better before
+  they get fast.
+- **1 → 2** is the *speed* jump that finally makes the 15–25s product promise true, and it is
+  the rung at which the marketing copy and the product stop disagreeing.
+- **2 → 3** is diminishing returns on this workload. Most remaining quality is in retrieval,
+  extraction, and prompting — not parameters. **Spend on Rung 3 only after the golden set
+  shows the model, not the pipeline, is the ceiling.**
+
+### 6.4 Cost posture by phase
+
+| Phase | Infra/mo | Other | Revenue target |
+|---|---:|---|---:|
+| 0–2 (build) | €0 | domain ~€15/yr | €0 |
+| 3–4 (accounts, billing) | €0 | email ~€15/mo once sending | €0 |
+| 5 (watches) | €0 | email ~€15/mo | first customers |
+| 6 (launch) | €0 → €65 | ~€100 one-off launch costs | **$350–500** |
+| 7 (retention/scale) | €65 → €200 | | **$1,100–2,000** |
+| 8 (sustain) | €200 | | **$2,000+**, infra ≤ 20% |
+
+Total cash required to reach first revenue: **under €100.** That is the entire point of the
+free-tier launch, and it is what makes a no-outside-capital plan credible rather than
+aspirational.
+
+### 6.5 Bootstrapping discipline
+
+- **Never pre-buy capacity.** Rung 1 is triggered by paying customers, not by a benchmark the
+  founder finds disappointing.
+- **The free tier is the runway.** Because it does not expire, there is no clock forcing a
+  premature launch or a bad pricing decision.
+- **Downgrade must stay possible.** Nothing above Rung 0 may become architecturally load-bearing:
+  the web tier never moves off Oracle Free, and every inference rung is one environment
+  variable. If revenue falls, step back down without a migration.
+- **Prefer variable-to-fixed conversions late.** Managed Postgres, hosted observability, and
+  paid search APIs all convert founder time into monthly cost. Each is defensible eventually;
+  none is defensible before revenue.
+- **Price for the rung you are on.** Rung 0 latency is a product fact and must be reflected in
+  what is promised on the landing page (see [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §2.1) — the
+  fastest way to destroy trust is to advertise Rung 2 speed while serving Rung 0.
+
+---
+
+## 7. Git / pull-request workflow (mandatory)
 
 This roadmap and every subsequent change to it follow a strict PR workflow.
 
