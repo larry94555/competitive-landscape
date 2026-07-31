@@ -1,0 +1,346 @@
+# Landscape — Product & UX Specification
+
+> Section **A** of the roadmap. See [ROADMAP.md](ROADMAP.md) for the index and phasing.
+
+---
+
+## 0. The one-sentence product
+
+**Type anything about a product or a set of competitors into one box and get a structured,
+source-cited competitive analysis in under a minute — then get told when anything changes.**
+
+## 1. Design principles (enforced, not aspirational)
+
+1. **One box.** The landing page and the app are the same page. A first-time visitor sees a
+   focused textarea and three example chips. Nothing else above the fold.
+2. **No prompt literacy required.** The user writes like a human ("Notion vs Coda vs
+   Obsidian" or "I'm building an invoicing tool for freelancers"). The system does the
+   prompting.
+3. **Ask at most 3 short questions, and only when the answer would change the report.**
+   Every question is answerable by clicking a chip.
+4. **The report is always the same shape.** Users learn the layout once, on their first
+   report, and never again.
+5. **Absence is information.** "Not found in public sources" is a first-class, styled
+   output — never a gap, never a guess.
+6. **Every claim is clickable to its source.** No citation, no claim.
+7. **Say what this is.** A calm, permanent line — not a modal, not a scare banner —
+   setting the expectation: *good-enough public intelligence, generated from public web
+   sources, not verified enterprise CI.*
+8. **The exit is always PDF.** Users came to send something to someone. One click, one page,
+   presentable.
+
+## 2. User flows
+
+### 2.1 First-time anonymous visitor — the 60-second path
+
+```
+Land on /
+  └─ Sees: headline, one textarea (autofocused), 3 example chips, one disclaimer line.
+     No signup wall. No cookie modal beyond a minimal essential-only notice.
+Type "Linear vs Jira vs Shortcut"  →  Enter (or click Analyze)
+  └─ [0.0s] Input collapses to a subject chip. Stage rail: Resolving → Fetching → Reading → Writing
+  └─ [0.4s] Optional ClarifyPanel appears ONLY if needed (see §3). Chips, not text fields.
+             A "Skip, just analyze" button is always present and always works.
+  └─ [1–3s] Source cards stream in: linear.app/pricing, g2.com/…, news…
+  └─ [4–8s] Positioning begins streaming, word by word.
+  └─ [8–20s] Pricing → Key features → Recent public changes → Sentiment themes → SWOT
+  └─ [~20s] Sources section completes. PDF button turns solid.
+Read / scroll
+  └─ Hover any [S4] chip → source domain, page title, fetched-at timestamp, open link.
+  └─ Per-section 👍 / 👎.
+Act
+  ├─ "Download PDF" → instant (pre-warmed). No email gate. This is the moment of value.
+  ├─ "Watch for changes" → soft account prompt: "We'll email you. Where?"  (email only,
+  │    magic link, no password) — the ONLY place anonymous users meet friction, and only
+  │    because a notification literally requires an address.
+  └─ "Share" → public read-only URL.
+Second analysis same day
+  └─ Works. Third → "You've used your free analyses for today. Sign in (free) for 10/month."
+```
+
+**Anonymous limit: 2 analyses per day** (hashed IP + coarse fingerprint), 0 watches,
+PDF allowed, share allowed. Generous enough to prove value; tight enough to survive.
+
+### 2.2 Registered free user
+
+- Sign-in is **email + magic link only**. No password, no confirm-password, no captcha
+  unless abuse is detected.
+- After the first magic-link click, the session persists ~90 days. Sign-in should feel like
+  something that happened once.
+- Gets: **10 analyses/month**, **3 watches** at weekly cadence, analysis history, saved
+  reports, both PDF variants, KB posting.
+- A small usage meter lives in the header — a thin bar, not a nag. It turns amber at 80%.
+- History (`/` shows recent analyses beneath the box once you have any) is the entire
+  "dashboard." There is no separate dashboard to learn.
+
+### 2.3 Paying user (Starter / Pro)
+
+- Upgrade path is always contextual: the upgrade dialog appears **at the moment of the
+  limit**, states exactly what was blocked, what the next tier gives, and the price. Two
+  buttons: *Upgrade* and *Not now*. It never appears otherwise.
+- Stripe Checkout → back to the **exact analysis that was blocked**, which then runs
+  automatically. The interrupted intent is always resumed.
+- Gets: higher quotas, **priority queue slot** (visible: "Priority — running now"), more
+  watches at faster cadence, instant alerts for major changes, Slack/webhook delivery
+  (Pro), "refresh this analysis" bypassing the cache, and the full-length PDF with
+  evidence quotes.
+- Billing is entirely Stripe Billing Portal. Cancel is one click, present in the UI, not
+  hidden — cancellation friction is a support-load generator and a trust destroyer.
+
+### 2.4 Failure flows (designed, not incidental)
+
+| Situation | What the user sees |
+|---|---|
+| Subject unresolvable | "I couldn't identify a product from that. Do you mean one of these?" + 3 candidates + the box, still filled. |
+| Few sources found | Report runs anyway, marked **Thin evidence** with source count and an explicit list of what could not be found. |
+| Site blocks the bot | Source card shows "not accessible to automated retrieval" and is listed in Sources with that reason. |
+| Model/section timeout | That section shows "couldn't be completed within the time budget — retry" with a retry button. The rest of the report is delivered. |
+| Queue congestion | "2 analyses ahead of you — about 25 seconds." Honest countdown, not a spinner. |
+| Hard failure | Nothing is charged against quota. One-click retry. Error id shown for support. |
+
+---
+
+## 3. Clarifying questions
+
+Asked **only** when the input is genuinely insufficient, at most **3**, always progressive
+(one at a time), always chip-answerable, always skippable.
+
+Trigger conditions (evaluated by a fast grammar-constrained classifier call, <1s):
+
+| Condition | Question | Chips |
+|---|---|---|
+| Ambiguous brand name (multiple real products match) | "Which *Notion* do you mean?" | the candidates |
+| No competitors named and no product URL | "Who should I compare against?" | 3 auto-suggested competitors + "Find them for me" |
+| Product described but no market/segment | "Who's the buyer?" | SMB / Mid-market / Enterprise / Consumer |
+| Intent unclear (positioning vs pricing vs feature gap) | "What matters most right now?" | Positioning / Pricing / Features / Everything |
+
+Rules: never ask something inferable from the input or from a fetched homepage; never ask
+two questions on one screen; "Skip, just analyze" always produces a complete report; and
+the answer is remembered for the session so a follow-up analysis doesn't re-ask.
+
+---
+
+## 4. The report schema (fixed, every time)
+
+The schema is defined once in Rust (`landscape-core`) and generates the TypeScript types,
+the JSON Schema, and the GBNF decoding grammar. **The model cannot emit a shape other than
+this one.**
+
+### 4.1 Structure
+
+```
+Header
+  subject, subject_type (single | comparison), competitors[],
+  generated_at (UTC), model_id, prompt_version,
+  evidence_strength: strong | moderate | thin,
+  source_count, disclaimer
+1. Positioning
+2. Pricing signals
+3. Key features
+4. Recent public changes
+5. Review & sentiment themes
+6. SWOT-style summary
+7. Sources
+```
+
+Every section carries `status: populated | partial | not_found_in_public_sources` and
+`notes[]`. Every factual statement is a `Claim`:
+
+```ts
+interface Claim {
+  text: string;              // ≤400 chars, one assertion
+  source_label: string;      // "S1".."S14" — required
+  evidence_quote: string;    // verbatim span from the source, required
+  confidence: 'high' | 'medium' | 'low';
+  as_of: string;             // ISO-8601 UTC, from the source or the fetch time
+}
+```
+
+Section payloads:
+
+| Section | Payload |
+|---|---|
+| **Positioning** | `summary: Claim[]` (2–4), `target_segments: Claim[]`, `stated_differentiators: Claim[]`, `category_language: string[]` (their words, quoted) |
+| **Pricing signals** | `tiers: PricingTier[]` (`name, price_display, billing_period, seat_or_usage_basis, notable_limits[], source_label, as_of`), `free_tier: bool \| unknown`, `trial: Claim?`, `enterprise_pricing: 'public' \| 'contact_sales' \| 'unknown'`, `observed_changes: Claim[]` |
+| **Key features** | `features: { name, description, evidence: Claim, category }[]` (8–15), `notable_gaps: Claim[]` — *gaps only when a source explicitly says so; never inferred from absence* |
+| **Recent public changes** | `changes: { date, headline, detail, kind: release\|pricing\|positioning\|funding\|personnel\|policy, evidence: Claim }[]`, `lookback_window_days`, `coverage_note` |
+| **Review & sentiment themes** | `themes: { theme, valence: positive\|negative\|mixed, frequency: 'often'\|'sometimes'\|'rarely', representative_quotes: Claim[] }[]`, `platforms_covered[]`, `volume_caveat` — **no numeric ratings are synthesized**, only reported with a source |
+| **SWOT-style summary** | `strengths/weaknesses/opportunities/threats: Claim[]` (2–4 each). Opportunities/Threats are **explicitly labelled `interpretation`** and must each cite the observed facts they rest on. This is the one place inference is allowed, and it is visually marked as such. |
+| **Sources** | `sources: { label, url, title, host, trust_tier, fetched_at, extraction_quality, status: ok\|blocked_by_robots\|unreachable\|paywalled }[]`, `excluded: { url, reason }[]` |
+
+### 4.2 Rendered example (abridged)
+
+```markdown
+# Linear vs Jira vs Shortcut
+Comparison · Generated 2026-07-31 14:22 UTC · 11 sources · Evidence: strong
+Public-web analysis. Not verified enterprise competitive intelligence.
+
+## 1. Positioning
+Linear positions on speed and craft for product engineering teams, describing itself as
+"purpose-built for modern product development." [S1] (high)
+Jira positions as the configurable system of record for large, process-heavy orgs. [S4] (high)
+Shortcut positions between the two, emphasising simplicity without losing planning. [S7] (medium)
+
+Category language — Linear: "issue tracking, project planning, roadmaps" [S1];
+Jira: "agile project management at scale" [S4].
+
+## 2. Pricing signals
+| Product  | Tier      | Price          | Basis     | Notable limits              | As of      |
+|----------|-----------|----------------|-----------|-----------------------------|------------|
+| Linear   | Free      | $0             | per user  | 250 issues [S2]             | 2026-07-31 |
+| Linear   | Basic     | $8/user/mo     | per user  | annual billing shown [S2]   | 2026-07-31 |
+| Jira     | Free      | $0             | per user  | up to 10 users [S5]         | 2026-07-30 |
+| Shortcut | Team      | $8.50/user/mo  | per user  | — [S8]                      | 2026-07-31 |
+
+Enterprise pricing: contact sales for all three [S2][S5][S8].
+
+## 3. Key features
+… 12 features, each with an evidence quote …
+Notable gaps: Shortcut's docs page states native time-tracking is not included [S8].
+
+## 4. Recent public changes  (lookback: 90 days)
+2026-07-14 — Linear shipped "Initiatives" for multi-project planning. [S3]
+2026-06-02 — Jira announced Premium plan price increase effective Sept 2026. [S6]
+Coverage note: no public changelog found for Shortcut in this window. [S9]
+
+## 5. Review & sentiment themes
+Speed / responsiveness — positive, often. "The fastest tracker I've used." [S10]
+Migration difficulty — negative, sometimes (Jira). [S11]
+Platforms covered: G2, Reddit r/ProductManagement. Volume caveat: 4 threads sampled.
+
+## 6. SWOT-style summary   (interpretation — inference from the facts above)
+Strengths · Linear's shipping cadence is visibly high — 6 changelog entries in 90 days [S3].
+Threats   · Jira's Sept 2026 price increase [S6] may push cost-sensitive teams to evaluate
+            alternatives — inference from the announced increase, not a stated Jira position.
+
+## 7. Sources
+S1 linear.app — Homepage — fetched 2026-07-31 14:21 UTC — tier 1 — ok
+…
+S12 capterra.com — excluded: disallowed by robots.txt
+```
+
+### 4.3 The "not found" treatment
+
+A section with nothing verifiable renders as a calm bordered block, not an error:
+
+> **No public pricing found.** Shortcut's pricing page returned 403 and no pricing was
+> stated on the homepage or in the last 90 days of the blog. We do not estimate prices.
+> *Checked: /pricing, /plans, homepage, blog (90d), G2 listing.*
+
+Listing **what was checked** converts a gap into evidence of thoroughness. This is a
+deliberate trust mechanism, not a consolation message.
+
+---
+
+## 5. Notification UX
+
+### 5.1 Creating a watch — two clicks, no forms
+
+From a finished report, a "Watch for changes" button opens a sheet pre-populated with the
+sources already fetched, sensibly pre-selected:
+
+```
+Watch Linear for changes
+ [x] Pricing page          linear.app/pricing        ← pre-checked
+ [x] Changelog             linear.app/changelog      ← pre-checked
+ [ ] Homepage              linear.app
+ [ ] News mentions         (search-based)
+How often?   ( Daily )  Weekly     [Free plan: weekly, 3 watches]
+Email:       larry@example.com
+                                              [Start watching]
+```
+
+Nothing else is asked. No naming, no folders, no thresholds — thresholds are learned (§5.4).
+Watches can also be created from `/watch` by pasting a URL.
+
+### 5.2 The alert email
+
+Subject lines state the change, not the product:
+`Linear raised Basic to $10/user/mo` — never `You have 1 new alert`.
+
+```
+┌───────────────────────────────────────────────┐
+│ Linear · Pricing page changed                 │
+│ Detected 2026-08-14 09:02 UTC   [ Major ]     │
+├───────────────────────────────────────────────┤
+│ Basic went from $8 to $10 per user/month.     │
+│ The free tier's 250-issue limit was removed.  │
+│                                               │
+│ Why it may matter                             │
+│ A 25% increase on their entry paid tier, plus │
+│ a more generous free tier — consistent with   │
+│ moving upmarket while widening the top of the │
+│ funnel.                                       │
+│                                               │
+│ [ See the diff ]  [ Re-run full analysis ]    │
+│                                               │
+│ Useful?   👍   👎     (one click, no login)    │
+├───────────────────────────────────────────────┤
+│ Source: linear.app/pricing · fetched 09:02 UTC│
+│ Pause this watch · Unsubscribe                │
+└───────────────────────────────────────────────┘
+```
+
+- **Weekly digest is the free-tier default**; one email, grouped by product, cosmetic
+  changes collapsed into a single line.
+- Paid tiers get **instant alerts for `major` pricing/positioning changes** and a daily
+  digest for everything else.
+- "See the diff" opens a side-by-side rendered diff with the changed regions highlighted —
+  the receipt behind the AI summary. Users who verify once tend to trust thereafter.
+- The 👍/👎 in the email is a signed one-click link, no login. It is the primary training
+  signal for §5.4.
+
+### 5.3 Zero-noise defaults
+
+Never alert on: timestamps, rotating testimonials, customer-count widgets, blog sidebars,
+cache-busting parameters, cookie-banner variants, A/B-test copy shuffles, or any diff whose
+normalized SimHash distance is below threshold. **Silence is the default state of a good
+monitoring product.** A watch that fires weekly is broken.
+
+### 5.4 Learned thresholds
+
+Two 👎 on a watch → its importance threshold rises automatically and the user is told:
+*"We'll only send major changes for this page from now on."* No settings screen required;
+the setting is still there in `/watch/:id` for anyone who wants it.
+
+---
+
+## 6. Support UX — the "slash-lite" open knowledge base
+
+Full design in [SUPPORT_SYSTEM.md](SUPPORT_SYSTEM.md). The user-facing shape:
+
+- `/help` is **public, indexable, and searchable without an account**. Search box on top,
+  popular tags, recently answered threads.
+- Every product surface that can confuse someone has a contextual `?` linking to a
+  *specific* KB thread, not to the help index.
+- Asking a question is one textarea plus optional email. Signed-in users post with their
+  handle; anonymous asks are allowed with email verification to prevent spam.
+- **Slash commands in the composer** (`/bug`, `/pricing`, `/quota`, `/watch`, `/source`,
+  `/feature`, `/private`) auto-apply tags and pre-fill a short structured template.
+  Typing `/` opens the menu; ignoring it entirely still works.
+- Answers stay public forever. Official answers are badged and pinned above community ones.
+- `/private` is the escape hatch: it converts the post into an email-backed private thread.
+  It exists, it works, and it is deliberately the *second* option on the menu.
+
+---
+
+## 7. How near-zero learning curve is maintained at every step
+
+| Surface | Mechanism |
+|---|---|
+| Landing | One autofocused textarea. Three example chips that run real analyses. No signup wall, no video, no feature grid above the fold. |
+| Input | Free-form natural language. URLs, names, or a paragraph all work. No syntax, no operators, no "prompt tips" link. |
+| Clarification | ≤3 questions, one at a time, chips not fields, always skippable to a complete report. |
+| Waiting | Progressive streaming with a named stage rail and sources appearing live. The user reads while it writes. |
+| Reading | Identical 7-section structure every time. Learned once. |
+| Trust | Inline `[S4]` chips with hover cards; "what we checked" on every gap. |
+| Acting | One primary button per context: **Download PDF** on a report, **Start watching** in the watch sheet, **Upgrade** in the limit dialog. |
+| Accounts | Magic link only. Account creation happens *because* the user asked for something that needs one (an alert), never as a gate. |
+| Limits | Never surprise the user: usage meter visible; limit dialogs state exactly what was blocked and resume the blocked action after upgrade. |
+| Notifications | Two clicks with sane pre-selection. Thresholds are learned from 👍/👎, not configured. |
+| Support | Public KB reachable from every screen; slash commands are discoverable but never required. |
+| Errors | Every failure names what happened, what it cost (nothing), and offers exactly one recovery action. |
+
+**The measurable definition:** a first-time visitor with no instructions reaches a
+downloaded PDF in under 90 seconds, having read no documentation and made no account.
+This is tested with unmoderated 5-person usability runs every phase (see Metrics, §F).
