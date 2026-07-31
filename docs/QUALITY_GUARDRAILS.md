@@ -1,0 +1,264 @@
+# Landscape — Quality & Trust Guardrails
+
+> Section **E** of the roadmap. See [ROADMAP.md](ROADMAP.md) for the index and phasing.
+
+---
+
+## 1. The core bet
+
+A locally-run 8B–14B model, given *only* retrieved public text, forced through a strict
+grammar, and mechanically verified against its own sources, produces **more trustworthy
+competitive analysis than a frontier model prompted freely** — because the failure mode
+that destroys this product is not "prose is slightly worse," it is "invented a price."
+
+Everything below exists to make invention structurally difficult rather than
+merely discouraged.
+
+---
+
+## 2. The five-layer anti-hallucination stack
+
+```
+Layer 1  Retrieval gate        — no source text, no section. Full stop.
+Layer 2  Constrained decoding  — GBNF grammar; citation fields are non-optional.
+Layer 3  Evidence verification — every claim's quote must exist in its cited source.
+Layer 4  Type-specific checks  — prices, dates, versions, numbers re-validated.
+Layer 5  Presentation honesty  — confidence, tier, timestamps, and gaps shown to the user.
+```
+
+### Layer 1 — Retrieval gate
+
+- The synthesizer's prompt contains **only** fetched source text. No parametric knowledge is
+  solicited, and the system prompt states that unsupported statements are errors.
+- If a section has zero qualifying sources, the section is **not generated at all**. It
+  renders as `not_found_in_public_sources` with the list of what was checked. The model is
+  never given the chance to fill a gap.
+- Source text is labelled inline (`[S3] linear.app/pricing — fetched 2026-07-31T14:21Z`),
+  which is what makes labels attributable at verification time.
+
+### Layer 2 — Constrained decoding
+
+Every structured call runs under a GBNF grammar derived from the same JSON Schema that
+generates the API and UI types (see [ARCHITECTURE.md](ARCHITECTURE.md) §2.5, §4.5).
+
+- `Claim` cannot be emitted without `source_label` **and** `evidence_quote`. Citation is a
+  grammar requirement, not a prompt request.
+- Enums make refusal cheap and reliable: `"enterprise_pricing": "unknown"` is a legal token
+  path, so the model has a well-formed way to *not know*. Models hallucinate most when the
+  grammar gives them no way to decline.
+- `source_label` is constrained to `^S[0-9]{1,2}$`, so a fabricated citation format is
+  impossible — only a *wrong* label is possible, and Layer 3 catches that.
+
+### Layer 3 — Evidence verification (the load-bearing layer)
+
+Every emitted `Claim` is checked in Rust — deterministic code, no model involved:
+
+1. **Label validity** — does `S7` exist in this analysis's source set? If not → **dropped**.
+2. **Quote presence** — does `evidence_quote` appear in that source's extracted Markdown?
+   Exact match first; then normalized (whitespace/case/smart-quotes/entities); then
+   token-level fuzzy match (trigram Jaccard ≥ 0.85 over a sliding window) to tolerate
+   benign truncation.
+   - exact/normalized → `verified`
+   - fuzzy → `weak`
+   - no match → **dropped**
+3. **Entailment sanity** — the claim's key content tokens (numbers, currency symbols,
+   product names, dates, negations) must be present in a ±400-character window around the
+   matched quote. Catches the "correct quote, wrong conclusion" failure.
+4. **Drop accounting** — dropped claims are stored with the reason. Never silently deleted:
+   they are the primary quality telemetry.
+
+Enforcement on the report:
+
+| Condition | Action |
+|---|---|
+| Any claim dropped | Removed from output; counted. |
+| >30% of a section's claims dropped | Section regenerated **once** with the failed claims quoted back as negative examples. |
+| Still >30% after retry | Section marked `partial` with an explicit note. |
+| >50% of all claims dropped | Report marked **thin evidence**, prominently. |
+| Verification error rate >5% over 24h | Ops alert — the model, prompt, or extractor has regressed. |
+
+Cost: a few milliseconds of string matching against a hallucinated price shipped to a user
+who quotes it in a board deck. This layer is the product's actual moat.
+
+### Layer 4 — Type-specific validators
+
+Free-form text passes Layer 3 easily; *numbers* are where damage happens.
+
+- **Prices**: regex-extract currency, amount, period, and basis from the evidence quote and
+  require an exact match to the structured `PricingTier`. `$8/user/mo` in the tier and
+  `$8 per user, billed annually` in the quote → flagged for the `billing_period` mismatch,
+  and the report shows the annual-billing caveat rather than dropping the tier.
+- **Dates**: must be ≤ `fetched_at` and within the stated lookback window. Future-dated
+  "recent changes" are dropped outright — a common and very visible failure.
+- **Versions / counts / percentages**: must appear verbatim in the quote.
+- **Superlatives**: "the only," "the fastest," "the leading" are permitted **only** when the
+  source is the company's own site *and* the claim is framed as a company statement
+  ("Linear describes itself as…"). Otherwise the modifier is stripped.
+- **Competitor attribution**: in comparison reports, a claim about product B sourced from
+  product A's comparison page is retagged `tier3` and labelled *"per competitor's own
+  comparison page"* — vendor comparison pages are systematically unreliable and must never
+  be presented as neutral.
+
+### Layer 5 — Presentation honesty
+
+Trust is set by what the interface shows, not by what the copy promises:
+
+- `[S4]` chips on every claim, with hover cards: URL, page title, trust tier, fetched-at.
+- Per-claim confidence (high/medium/low), derived from verification status × source tier ×
+  corroboration count — **not** from anything the model self-reports. Model-reported
+  confidence is discarded; self-assessed confidence is uncalibrated in small models.
+- Report-level `evidence_strength: strong | moderate | thin`, always visible, in the PDF too.
+- The SWOT section — the one place inference is permitted — is visually distinct and labelled
+  *interpretation*, with each item citing the observed facts it rests on.
+- Timestamps everywhere, in UTC, on screen and in the PDF.
+- The permanent disclaimer line (calm, not a modal):
+  > *Generated from public web sources on 2026-07-31. Good-enough public intelligence, not
+  > verified enterprise competitive intelligence. Check anything you'll act on.*
+- **"What we checked"** on every gap. Showing the negative space is the strongest available
+  signal that the system is not guessing.
+
+---
+
+## 3. Evaluation
+
+### 3.1 The golden set
+
+**50 subjects** (growing to 150), fixed and version-controlled, spanning: well-documented
+SaaS, thin-footprint startups, ambiguous brand names, non-English sites, JS-heavy sites,
+robots-restricted sites, recently-repriced products, and two deliberate traps (a product
+that does not exist; a name shared by three real products).
+
+For each, a human-curated **reference sheet** of verifiable public facts as of a fixed
+date, plus fixture snapshots of every source page. **Fixtures are essential**: without
+frozen HTML, every eval run measures the web changing rather than the model changing.
+
+### 3.2 Automated metrics (nightly + on every prompt/model change)
+
+| Metric | Definition | Gate |
+|---|---|---|
+| **Citation coverage** | % of claims with a verified quote | ≥ 97% |
+| **Hallucination rate** | dropped-claim rate at Layer 3 | ≤ 3% |
+| **Fact recall** | % of reference-sheet facts present in the report | ≥ 70% |
+| **Fact precision** | % of report claims consistent with the reference sheet | ≥ 95% |
+| **Refusal correctness** | % of genuinely-absent facts reported as `not_found` rather than invented | ≥ 98% |
+| **Trap resistance** | 0 fabricated content on the two trap subjects | **hard gate** |
+| **Schema validity** | % of runs parsing under the grammar | 100% |
+| **Latency** | p50 / p95 wall clock | p50 ≤ 25s |
+| **Determinism** | claim-set Jaccard across 3 runs at temp 0.2 | ≥ 0.85 |
+
+CI fails on any gate regression. A prompt change that improves prose while dropping recall
+3 points does not ship.
+
+### 3.3 LLM-as-judge — used narrowly, run locally
+
+A larger local model (e.g. Qwen3-30B-A3B or a Q8 build of the synthesizer) scores
+**readability, structure adherence, and usefulness** on a 1–5 rubric. Deliberately *not*
+used for factual grading — Layer 3 and the reference sheets do that deterministically, and
+a judge sharing the generator's blind spots would launder them into a passing score.
+
+### 3.4 Human review — 15 minutes a day
+
+The admin console surfaces a **daily sample of 5 reports**, weighted toward: 👎 feedback,
+high drop rates, thin-evidence flags, and new source domains. The founder grades each
+1–5 against a written rubric and tags failure modes. This queue is where prompt work
+originates — never intuition.
+
+### 3.5 Model & prompt version management
+
+- Every analysis records `model_id` and `prompt_version`. Quality metrics are always
+  sliced by both.
+- **Shadow evaluation**: a candidate model runs the golden set offline; if it passes gates
+  it is promoted to 10% of live traffic with metrics compared for a week before full cutover.
+- **Rollback is a config change**, and old GGUFs stay on disk for exactly this reason.
+- Prompt changes are PRs containing the eval diff. No prompt merges without one.
+
+---
+
+## 4. Improving structured output from a small local model
+
+Ordered by leverage, cheapest first:
+
+1. **Grammar first, prompt second.** Anything expressible as a grammar constraint should be
+   a grammar constraint. Instructions are advisory; grammars are not.
+2. **Decompose ruthlessly.** One small task per call ("extract pricing tiers from this one
+   page") beats one large task ("write the report"). Small models degrade steeply with task
+   breadth, and per-call outputs are independently cacheable and verifiable.
+3. **Few-shot with real, versioned examples** — 2–3 per call type, drawn from human-approved
+   past outputs, including one showing correct *refusal*. Kept in `prompts/vN/` and pinned
+   in the shared system prefix so they hit the llama.cpp prefix cache.
+4. **Stable prefix, variable suffix.** Ordering prompts for cache hits is a quality *and*
+   latency lever.
+5. **Sampling discipline.** Extraction: `temperature 0.1`, `top_p 0.9`, `repeat_penalty 1.05`.
+   Prose: `temperature 0.4`. Never sample creatively over facts.
+6. **Negative-example repair loop.** When Layer 3 drops claims, the single retry includes
+   the dropped claims verbatim with "these were not supported by the cited source."
+   Concrete negative examples outperform stern instructions in small models.
+7. **Retrieval quality beats model size.** Most quality failures trace to bad extraction
+   (nav junk, missing pricing table, truncated changelog), not to the model. Fix the
+   extractor before reaching for more parameters.
+8. **Quantization is a measured tradeoff.** Q4_K_M vs Q5_K_M vs Q8_0 are compared on the
+   golden set, and the smallest that passes all gates ships.
+9. **Speculative decoding** for latency (a 0.5–1.5B draft model). Output-identical under
+   greedy-ish sampling, so quality gates are unaffected.
+10. **Fine-tuning is deliberately deferred.** A LoRA on human-approved outputs is a Phase 7+
+    option, only after prompting, grammar, and retrieval are exhausted — it adds a training
+    pipeline, a serving artifact, and a whole class of silent regressions.
+
+---
+
+## 5. Feedback loops
+
+### 5.1 Report quality
+
+- Per-section 👍/👎 with an optional one-line reason.
+- **"Report an inaccuracy"** on any claim → creates a KB-linked quality thread carrying the
+  analysis id, claim, source, and verification status. Public by default (identifiers
+  stripped), so corrections become searchable content.
+- Signals routed to: the human review queue, the golden set (a confirmed error becomes a
+  regression case — this is how the eval suite grows for free), and prompt work.
+- Weekly review of 👎 clustered by section and by source domain. Domain clustering usually
+  reveals an *extraction* bug, not a model bug.
+
+### 5.2 Notification usefulness
+
+- One-click 👍/👎 in every alert email (signed link, no login) — the highest-response-rate
+  feedback surface in the product.
+- 👎 raises that watch's threshold and is logged with the diff for offline review.
+- Tracked: alerts per watch per week, 👍 rate, watch pause/delete rate, and re-run-analysis
+  click rate (the strongest positive signal — the alert made someone act).
+- **Health target: ≥70% 👍, ≤2 alerts/watch/week.** Below that, tighten thresholds globally
+  before adding any feature.
+
+### 5.3 Frictionless-ness
+
+- Funnel: land → submit → first content → complete → PDF → return. Every drop-off is a
+  friction bug with an owner.
+- 5-person unmoderated usability run each phase, single task: *"Find out how this product
+  compares to its competitors."* No instructions given. Watching two people fail is worth
+  more than a month of analytics.
+- Support-tag distribution is treated as a friction map: a spike in `/quota` posts means
+  the limit dialog is unclear, not that users are confused.
+
+---
+
+## 6. Legal, ethical, and data-handling posture
+
+- **Public data only.** No login-gated content, no paywall circumvention, no ToS-violating
+  scraping. Sources that block us are reported as blocked.
+- **robots.txt honored** on every fetch; honest user-agent with a public `/bot` page
+  documenting behavior, cadence, and an opt-out address; per-host rate limiting.
+- **Right to be excluded**: a public form for site owners to request exclusion, honored
+  within 5 business days and recorded in a public exclusion list.
+- **Quoting**: evidence quotes are short excerpts under fair-use/quotation norms, always
+  attributed with a link. Long-form reproduction is a hard limit in the grammar
+  (`evidence_quote` maxLength 300) — enforced structurally, not by policy.
+- **User data**: inputs and reports belong to the user; **never used to train anything**;
+  deletable from `/account`; retained 12 months by default. Because inference is local,
+  no analysis content ever leaves the server — this is a genuine differentiator and is
+  stated plainly on the landing page and in the KB.
+- **Disclaimers**: one calm line under every report and in every PDF footer; a fuller
+  `/legal/disclaimer` page; explicit statements that the product does not verify claims,
+  does not provide investment/legal advice, and may be wrong or out of date.
+- **No competitor targeting features.** No "monitor this person," no scraping of individual
+  employees' profiles beyond publicly posted job listings in aggregate. The product analyzes
+  companies' public positioning, not people.
