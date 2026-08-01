@@ -792,32 +792,32 @@
 
   /* ---------- demo ---------- */
   var DEMO = [
-    { t:0,   c:"A first-time visitor arrives. No account, no signup wall, nothing to read first.", a:function(){ setTier("anon"); show("composer"); } },
-    { t:3.5, c:"One box. Three examples. That is the entire learning curve.", a:function(){} },
-    { t:7,   c:"They pick an example — and the analysis begins.", a:function(){ $("prompt").value="Linear vs Jira vs Shortcut"; run("Linear vs Jira vs Shortcut"); } },
-    { t:10,  c:"Sources appear as they are fetched. The wait shows work happening, not a spinner.", a:function(){} },
-    { t:14,  c:"The last one is greyed out — Capterra blocks automated access, so we say so rather than pretending we read it.", a:function(){} },
-    { t:17.5,c:"Pricing lands first, because it is parsed from the page by code — never generated. It cannot be off by a digit.", a:function(){ var e=$("sec-pricing"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:22,  c:"A third-party price we could not confirm is shown separately — never in the table, never in the chart.", a:function(){} },
-    { t:26,  c:"Then the written sections stream in, word by word.", a:function(){ var e=$("sec-pos"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:30,  c:"The feature matrix has five states. A question mark means we looked and found nothing — which is a different claim from 'no'.", a:function(){ var e=$("sec-matrix"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:34,  c:"Where a competitor publishes no changelog, the report says exactly that — and lists every page it checked.", a:function(){ var e=$("sec-changes"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:38,  c:"Every claim carries its source. One click shows the URL, the timestamp, the content hash, and the quoted line.", a:function(){ var e=$("sec-swot"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"});
+    { t:0,   c:"Landscape answers one question: who else is already doing what you are planning to do?", a:function(){ setTier("anon"); show("composer"); } },
+    { t:3.5, c:"You describe your idea in the box, in your own words. That is the only thing you have to do.", a:function(){} },
+    { t:7,   c:"Here we have asked it to compare three project-management products.", a:function(){ $("prompt").value="Linear vs Jira vs Shortcut"; run("Linear vs Jira vs Shortcut"); } },
+    { t:10,  c:"It reads the companies own websites. Each page shows up as it is read, so you can watch it work.", a:function(){} },
+    { t:14,  c:"One site does not allow automated reading, so it is skipped. The report will say so, rather than quietly leaving it out.", a:function(){} },
+    { t:17.5,c:"Prices come first. They are taken straight from each company pricing page, so the figures are exactly what the company published.", a:function(){ var e=$("sec-pricing"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:22,  c:"A price found somewhere else, that we could not confirm on the company own site, is kept out of the table and shown separately.", a:function(){} },
+    { t:26,  c:"Then the written summary appears, a few words at a time.", a:function(){ var e=$("sec-pos"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:30,  c:"The comparison table is careful about what it claims. A question mark means we looked and found nothing, which is not the same as saying they do not have it.", a:function(){ var e=$("sec-matrix"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:34,  c:"When a company does not publish its updates, the report says exactly that, and lists everywhere it looked.", a:function(){ var e=$("sec-changes"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:38,  c:"Every fact links back to where it came from. Click one and you see the web page, the exact sentence, and when it was read.", a:function(){ var e=$("sec-swot"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"});
               setTimeout(function(){ var c=document.querySelector("#sec-swot .cite"); if(c) showPop.call(c,null); }, 900); } },
-    { t:43,  c:"Now the follow-up conversation — fast, because the sources are already read.", a:function(){ $("pop").classList.remove("open"); $("followup").scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:43,  c:"Once the report is ready you can ask questions about it. Answers come back quickly, because the pages have already been read.", a:function(){ $("pop").classList.remove("open"); $("followup").scrollIntoView({behavior:"smooth",block:"center"}); } },
     { t:46,  c:"", a:function(){ askFollowUp("Which is cheapest at 50 seats?"); } },
-    { t:51,  c:"Ask something the sources don't cover, and it says so rather than inventing an answer.", a:function(){ askFollowUp("What is their enterprise security posture?"); } },
-    { t:57,  c:"Anonymous users get one analysis a day — but the report itself is never degraded. Full sections, full PDF, no watermark.", a:function(){ show("limit"); } },
-    { t:62,  c:"A free account raises it to one an hour, with ten follow-ups.", a:function(){ setTier("reg"); show("composer"); } },
-    { t:66,  c:"A dollar a month gives five an hour and unlimited follow-ups. The report is identical at every tier — only frequency changes.", a:function(){ setTier("sub"); } },
-    { t:71,  c:"When a watched page changes, an email arrives. The subject line states the change, not the notification.", a:function(){ show("notify"); } },
-    { t:76,  c:"And the diff is the receipt behind the summary — both versions kept, both dated.", a:function(){ $("diffBlock").classList.remove("hidden"); setTimeout(function(){$("diffBlock").scrollIntoView({behavior:"smooth",block:"center"});},250); } },
-    { t:81,  c:"Seven community channels, all publicly readable. Sign-up and log-in issues accept posts from anyone — because someone locked out cannot log in to report it.", a:function(){ show("community"); curChan="signup"; renderChan(); } },
-    { t:87,  c:"Posts stay editable after publishing, with an 'edited' marker.", a:function(){ curChan="login"; renderChan(); } },
-    { t:91,  c:"And the operator's view: usage, capacity, quality — with every rate limit editable at runtime.", a:function(){ show("admin"); } },
-    { t:96,  c:"Change a number, and it takes effect immediately. The right values are unknowable before real traffic.", a:function(){ var i=$("limA"); i.value="2"; i.classList.add("flash");
-              $("adminSaved").textContent="Saved — anonymous analyses now 2 per 24h. Logged 2026-08-01 09:31 UTC."; } },
-    { t:101, c:"Verified sources. Honest gaps. One box to learn. That is the whole product.", a:function(){ show("composer"); setTier("anon"); } }
+    { t:51,  c:"Ask something the sources do not cover, and it tells you, instead of making an answer up.", a:function(){ askFollowUp("What is their enterprise security posture?"); } },
+    { t:57,  c:"Without signing up you get one report a day. The report itself is complete: nothing hidden, nothing stamped across it.", a:function(){ show("limit"); } },
+    { t:62,  c:"A free account raises that to one report an hour.", a:function(){ setTier("reg"); show("composer"); } },
+    { t:66,  c:"A dollar a month gives you five an hour and as many questions as you like. The report is the same either way. Only how often you can run it changes.", a:function(){ setTier("sub"); } },
+    { t:71,  c:"If a competitor changes their prices, you get an email. The subject line tells you what changed.", a:function(){ show("notify"); } },
+    { t:76,  c:"And you can see the before and after side by side, both dated, so you can check it yourself.", a:function(){ $("diffBlock").classList.remove("hidden"); setTimeout(function(){$("diffBlock").scrollIntoView({behavior:"smooth",block:"center"});},250); } },
+    { t:81,  c:"There is a public help area that anyone can read. The channels for sign-up and log-in trouble accept messages from anyone, because a person who cannot log in cannot be asked to log in first.", a:function(){ show("community"); curChan="signup"; renderChan(); } },
+    { t:87,  c:"Posts can be edited after you send them.", a:function(){ curChan="login"; renderChan(); } },
+    { t:91,  c:"Behind the scenes, the owner can see how busy the service is and change any of the limits without touching code.", a:function(){ show("admin"); } },
+    { t:96,  c:"Change a number and it takes effect straight away. The right values are impossible to guess before real people are using it.", a:function(){ var i=$("limA"); i.value="2"; i.classList.add("flash");
+              $("adminSaved").textContent="Saved - anonymous analyses now 2 per 24h. Logged 2026-08-01 09:31 UTC."; } },
+    { t:101, c:"Facts you can check. Gaps it owns up to. And one thing to type to get started.", a:function(){ show("composer"); setTier("anon"); } }
   ];
 
   function playDemo() {

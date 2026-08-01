@@ -6,92 +6,92 @@ frame; this track exists for accessibility tooling, text extraction and reuse.
 
 1
 00:00:01.500 --> 00:00:05.000
-A first-time visitor arrives. No account, no signup wall, nothing to read first.
+Landscape answers one question: who else is already doing what you are planning to do?
 
 2
 00:00:05.000 --> 00:00:08.500
-One box. Three examples. That is the entire learning curve.
+You describe your idea in the box, in your own words. That is the only thing you have to do.
 
 3
 00:00:08.500 --> 00:00:11.500
-They pick an example — and the analysis begins.
+Here we have asked it to compare three project-management products.
 
 4
 00:00:11.500 --> 00:00:15.500
-Sources appear as they are fetched. The wait shows work happening, not a spinner.
+It reads the companies own websites. Each page shows up as it is read, so you can watch it work.
 
 5
 00:00:15.500 --> 00:00:19.000
-The last one is greyed out — Capterra blocks automated access, so we say so rather than pretending we read it.
+One site does not allow automated reading, so it is skipped. The report will say so, rather than quietly leaving it out.
 
 6
 00:00:19.000 --> 00:00:23.500
-Pricing lands first, because it is parsed from the page by code — never generated. It cannot be off by a digit.
+Prices come first. They are taken straight from each company pricing page, so the figures are exactly what the company published.
 
 7
 00:00:23.500 --> 00:00:27.500
-A third-party price we could not confirm is shown separately — never in the table, never in the chart.
+A price found somewhere else, that we could not confirm on the company own site, is kept out of the table and shown separately.
 
 8
 00:00:27.500 --> 00:00:31.500
-Then the written sections stream in, word by word.
+Then the written summary appears, a few words at a time.
 
 9
 00:00:31.500 --> 00:00:35.500
-The feature matrix has five states. A question mark means we looked and found nothing — which is a different claim from 'no'.
+The comparison table is careful about what it claims. A question mark means we looked and found nothing, which is not the same as saying they do not have it.
 
 10
 00:00:35.500 --> 00:00:39.500
-Where a competitor publishes no changelog, the report says exactly that — and lists every page it checked.
+When a company does not publish its updates, the report says exactly that, and lists everywhere it looked.
 
 11
 00:00:39.500 --> 00:00:44.500
-Every claim carries its source. One click shows the URL, the timestamp, the content hash, and the quoted line.
+Every fact links back to where it came from. Click one and you see the web page, the exact sentence, and when it was read.
 
 12
 00:00:44.500 --> 00:00:52.500
-Now the follow-up conversation — fast, because the sources are already read.
+Once the report is ready you can ask questions about it. Answers come back quickly, because the pages have already been read.
 
 13
 00:00:52.500 --> 00:00:58.500
-Ask something the sources don't cover, and it says so rather than inventing an answer.
+Ask something the sources do not cover, and it tells you, instead of making an answer up.
 
 14
 00:00:58.500 --> 00:01:03.500
-Anonymous users get one analysis a day — but the report itself is never degraded. Full sections, full PDF, no watermark.
+Without signing up you get one report a day. The report itself is complete: nothing hidden, nothing stamped across it.
 
 15
 00:01:03.500 --> 00:01:07.500
-A free account raises it to one an hour, with ten follow-ups.
+A free account raises that to one report an hour.
 
 16
 00:01:07.500 --> 00:01:12.500
-A dollar a month gives five an hour and unlimited follow-ups. The report is identical at every tier — only frequency changes.
+A dollar a month gives you five an hour and as many questions as you like. The report is the same either way. Only how often you can run it changes.
 
 17
 00:01:12.500 --> 00:01:17.500
-When a watched page changes, an email arrives. The subject line states the change, not the notification.
+If a competitor changes their prices, you get an email. The subject line tells you what changed.
 
 18
 00:01:17.500 --> 00:01:22.500
-And the diff is the receipt behind the summary — both versions kept, both dated.
+And you can see the before and after side by side, both dated, so you can check it yourself.
 
 19
 00:01:22.500 --> 00:01:28.500
-Seven community channels, all publicly readable. Sign-up and log-in issues accept posts from anyone — because someone locked out cannot log in to report it.
+There is a public help area that anyone can read. The channels for sign-up and log-in trouble accept messages from anyone, because a person who cannot log in cannot be asked to log in first.
 
 20
 00:01:28.500 --> 00:01:32.500
-Posts stay editable after publishing, with an 'edited' marker.
+Posts can be edited after you send them.
 
 21
 00:01:32.500 --> 00:01:37.500
-And the operator's view: usage, capacity, quality — with every rate limit editable at runtime.
+Behind the scenes, the owner can see how busy the service is and change any of the limits without touching code.
 
 22
 00:01:37.500 --> 00:01:42.500
-Change a number, and it takes effect immediately. The right values are unknowable before real traffic.
+Change a number and it takes effect straight away. The right values are impossible to guess before real people are using it.
 
 23
 00:01:42.500 --> 00:01:48.500
-Verified sources. Honest gaps. One box to learn. That is the whole product.
+Facts you can check. Gaps it owns up to. And one thing to type to get started.

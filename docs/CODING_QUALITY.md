@@ -557,6 +557,10 @@ Claude cannot render video and should not be asked to. It writes the harness, th
 script, and the captions; open-source tools do the recording. Building a bespoke video tool
 would be precisely the speculative abstraction §1 calls a defect.
 
+> **Craft rules** — how the narration is written, how subtitles are delivered, and how the
+> voice is paced — are in [Video_Guidelines.md](Video_Guidelines.md). This section is policy:
+> when a demo is required and what it must contain.
+
 #### The narration script is a reviewed artifact, not runtime output
 
 **[REVIEW]** Each demo has a committed script at `demos/<slug>.demo.md`:
