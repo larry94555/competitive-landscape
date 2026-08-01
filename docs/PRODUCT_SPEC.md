@@ -71,6 +71,59 @@ Second analysis same day
 **Anonymous limit: 2 analyses per day** (hashed IP + coarse fingerprint), 0 watches,
 PDF allowed, share allowed. Generous enough to prove value; tight enough to survive.
 
+### 2.1A Two-pass reports — fast first, complete second
+
+Some pages render their content with JavaScript, so a plain fetch returns a shell. Reading
+those requires a headless browser, which is far too heavy to run while a user is waiting on
+four shared ARM cores ([ARCHITECTURE.md](ARCHITECTURE.md) §5.5). Rather than make every
+analysis slow to accommodate the minority of pages that need it, the report arrives in **two
+passes**.
+
+```
+Pass 1  ~120s   Static fetch + embedded-state extraction + API discovery + archive lookup.
+                A complete, usable, fully cited report. Any source that still needs
+                rendering is marked — not hidden.
+Pass 2  10-15m  Queued browser renders, one at a time, off-peak, yielding to live users.
+                The report updates in place to v2 and the user is told.
+```
+
+**Pass 1 is a real report, not a teaser.** It is complete under everything we could read
+without a browser, and for most subjects pass 2 changes nothing at all. The user is never
+shown a deliberately withheld result.
+
+**What the user sees during pass 1** — the gap is honest and specific, never a bare "not
+found":
+
+> **Shortcut pricing — retrieving this page another way.**
+> This page builds its content in the browser, so our first pass could not read it. We have
+> queued it and will update this report, usually within 15 minutes.
+> *Checked: /pricing (JavaScript-rendered), /plans (404), homepage, docs.*
+
+**When pass 2 completes:**
+
+- The report becomes **v2**. **v1 stays reachable at its own URL** — a shared report whose
+  content silently changes is a citation problem, so both versions persist and the share link
+  resolves to the latest with a visible version marker.
+- A quiet in-page banner if the reader is still on it: *"Updated — pricing for Shortcut is now
+  included. [See what changed]"*
+- Signed-in users get one email. Anonymous users simply revisit the URL; no account is
+  required to receive the completed report.
+- **The PDF waits.** The executive PDF is not pre-warmed while pass 2 is pending, because a
+  user who downloads at minute two and forwards it has a stale artifact. If they ask for the
+  PDF before pass 2 finishes, they get it stamped *"Provisional — 1 source still being
+  retrieved"*, and it regenerates on completion.
+
+**When pass 2 does not run at all** — which is the common case:
+
+- Every source read successfully on pass 1 → the report is final immediately, marked
+  **Complete**, and nothing is queued.
+- Rendering yields nothing new → the report stays v1 and the marker becomes
+  *"we were unable to read this page"* with what was attempted
+  ([FACT_CHECKING.md](FACT_CHECKING.md) §3.2.5).
+
+**Rung 2 collapses the wait.** On funded hardware, pass 1 is 15–25s and pass 2 minutes rather
+than tens of minutes — the shape stays the same, the numbers shrink.
+
 ### 2.2 Registered free user
 
 - Sign-in is **email + magic link only**. No password, no confirm-password, no captcha

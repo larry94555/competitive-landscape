@@ -285,7 +285,8 @@ plans(key, analyses_per_month, watches, watch_interval_minutes, price_cents)
 usage_counters(subject_id, subject_kind /*user|ip*/, period, analyses_used, updated_at)
 
 analyses(id, user_id NULL, anon_key_hash NULL, input_text, resolved_subject jsonb,
-         status, model_id, prompt_version, strictness_setting /*primary|primary_attributed|all*/,
+         status, version int, superseded_by NULL, completeness /*complete|awaiting_pass2*/,
+         model_id, prompt_version, strictness_setting /*primary|primary_attributed|all*/,
          inference_provider /*local|openai_compatible|anthropic*/,
          byok_key_id NULL, fell_back_to_local bool, structured_output_mode,
          started_at, finished_at,
@@ -333,7 +334,9 @@ no vector DB in v1 — the corpus is hundreds of threads, not millions.
 | Job | Trigger | Notes |
 |---|---|---|
 | `analysis.run` | API enqueue | The orchestrator. Priority by plan tier. |
-| `pdf.render` | analysis complete | Pre-warms exec PDF. |
+| `pdf.render` | analysis complete **and not awaiting pass 2** | Pre-warms exec PDF. Held while a render is pending so nobody forwards a stale one (PRODUCT_SPEC §2.1A). |
+| `source.render` | pass 1 found a page needing a browser | Tier 5 (§5.5). Concurrency 1, off-peak, memory-capped, pauses under inference load. |
+| `analysis.pass2` | all render jobs for an analysis resolved | Re-runs affected sections, emits v2, notifies. |
 | `watch.check` | scheduler tick | One job per due watch; jittered. |
 | `watch.notify` | importance ≥ threshold | Batches per user per digest window. |
 | `cache.evict` | hourly | LRU over `fetch_cache` byte budget. |
@@ -844,8 +847,9 @@ grouping are specified in [FACT_CHECKING.md](FACT_CHECKING.md) §3.2 and §4.
 - Identify honestly: `User-Agent: LandscapeBot/1.0 (+https://<domain>/bot)`, with a public
   bot page explaining behavior and an opt-out contact.
 - Per-host rate limit (≥1s between requests, `governor`), global concurrency cap,
-  conditional requests (`If-None-Match` / `If-Modified-Since`), 8s timeout, 2MB body cap,
-  no JS rendering in v1 (headless Chrome is a Phase 6+ decision with real cost).
+  conditional requests (`If-None-Match` / `If-Modified-Since`), 8s timeout, 2MB body cap.
+  **No JS rendering on the request path, ever** — see §5.5 for the escalation ladder and the
+  deferred render tier.
 - No paywall circumvention, no login-gated content, no scraping of anything behind ToS
   that forbids it. When a source is inaccessible, the report says "not accessible to
   automated retrieval," which is *more* trustworthy than a fabricated summary.
@@ -893,6 +897,73 @@ candidate window before the extractor sees it. Eight sources then cost roughly 3
 tokens instead of ~20,000. The selection heuristic is versioned alongside prompts and is
 itself part of the golden-set evaluation, because a bad window is indistinguishable from a bad
 model at the output.
+
+### 5.5 JavaScript-rendered pages — an escalation ladder, not a browser
+
+Some pages build their content in the browser, so a plain fetch returns a shell. **The
+response is a ladder, and a headless browser is the last rung — most of the gap closes
+without one.**
+
+| Tier | Method | Cost | Notes |
+|---|---|---|---|
+| **1** | Static HTML parse | current | Most sites |
+| **2** | **Embedded state** — `__NEXT_DATA__`, `__NUXT__`, inline JSON, JSON-LD `Product`/`Offer` | ~free | **The big one.** A Next.js pricing page ships its pricing as JSON *in the initial HTML*. The page looks JS-rendered; the data is already in the bytes we fetched. |
+| **3** | **Discovered JSON API** — the endpoint the page itself calls | ~free | Cheaper *and better* than rendering: structured data instead of scraped text |
+| **4** | **Archive snapshot** — an existing Internet Archive capture | free | Occasionally sufficient |
+| **5** | **Headless render** | expensive | The true residual only |
+
+**Tiers 2–4 ship regardless of any decision about browsers.** They are a superior data path
+where they work, and they cost nothing.
+
+#### Sizing before building
+
+Phase 1 instruments two counters, because building tier 5 before knowing its size would be
+speculative work:
+
+1. Of pricing pages fetched, what share yield **no price** from static HTML?
+2. Of those, what share are recovered by **tiers 2–4**?
+
+Phase 2's exit re-measures. **If the residual is under ~5%, tier 5 is not built** and the
+honest-gap treatment stands.
+
+#### Tier 5, if the residual justifies it
+
+Never synchronous, never in the request path. Rendering is a **job**:
+
+```
+static fetch → no data → enqueue render job → pass 1 report ships with an honest marker
+                              ↓  (off-peak, concurrency 1, memory-capped)
+                        render → extract → cache content-addressed, permanently
+                              ↓
+                        pass 2 → report updates to v2, user notified
+```
+
+Two-pass UX is specified in [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §2.1A.
+
+**Resource control — the constraint is a hard ceiling, not a spend threshold.** Oracle Always
+Free is a fixed allocation (4 OCPU / 24 GB / 200 GB / 10 TB egress); exceeding CPU or RAM
+produces contention or an OOM kill, never a bill. Charges arise only from *provisioning*
+beyond the free limits, which heavy use of existing resources never does. Ingress is
+unmetered, so **bandwidth is not the constraint — memory and CPU are.**
+
+- Chromium on arm64: ~150 MB base RSS, ~150–250 MB per page → **~400 MB peak at concurrency 1**.
+- **`MemoryMax=512M` on the render systemd unit.** An oversized page kills that render process
+  only; the job retries later and Postgres and `llama-server` never notice. Same isolation
+  pattern as §4.7.
+- **Circuit breaker:** rendering pauses whenever inference queue depth exceeds threshold.
+  Live users always win.
+- Rendered snapshots join the fetch-cache byte budget and its LRU eviction (§6).
+- Benchmark **Lightpanda** (a lightweight headless browser built for this use case) against
+  Chromium before assuming Chromium is the only option.
+
+**Deployment:** on-box is viable *because* rendering is deferred — the contention argument for
+a separate host disappears once nothing waits on it. If Phase 2 measurement shows heavy
+demand, a **~€4/mo Hetzner CX22** running only the render worker removes it from the inference
+host entirely, and slots into the Rung 1 spend.
+
+**Rejected:** splitting the Oracle allocation (the 4 OCPU / 24 GB is one shared pool — a render
+node steals ~25% from the bottleneck), and GitHub Actions as a render worker (free minutes,
+but product data pipelines fall outside their terms of use).
 
 ---
 

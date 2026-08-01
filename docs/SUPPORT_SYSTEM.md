@@ -154,6 +154,9 @@ search queries:
 - "Can I use my own OpenAI or Anthropic key?" (Yes — and here is exactly what leaves our
   servers if you do.)
 - "My report says it fell back to the built-in model. Why?"
+- "My report says a page is 'being retrieved another way' — what does that mean?"
+- "My report changed after I read it. Why, and can I get the original back?" (Yes — v1 stays
+  at its own URL.)
 - …
 
 An empty help section reads as an abandoned product. A seeded one reads as a considered

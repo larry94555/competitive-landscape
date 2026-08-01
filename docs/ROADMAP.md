@@ -242,6 +242,9 @@ the single most important phase; everything after it is commerce and polish.
 **Technical tasks**
 - `landscape-fetch`: robots caching, per-host `governor` limits, conditional GET, timeouts,
   size caps, **SSRF protection on user-supplied URLs** (block private ranges, resolve-then-verify).
+- **Instrument the JS-rendering gap** ([ARCHITECTURE.md](ARCHITECTURE.md) §5.5): two counters —
+  what share of pricing pages yield no price from static HTML, and what share of those tiers
+  2–4 will recover. One day of work, and it decides whether a browser tier is ever built.
 - `landscape-search`: `SourceProvider` trait; SearXNG adapter; trust tiering; source ranking
   and capping at 8–14.
 - Extraction → Markdown, preserving tables and headings; `extraction_quality` scoring.
@@ -300,6 +303,10 @@ right to charge money.
   describe an idea rather than name competitors.
 - Clarifying questions (≤3, chip-answerable, skippable), fired **only when discovery fails to
   converge** — not when the prompt looks incomplete.
+- **Tiers 2–4 of the rendering ladder** ([ARCHITECTURE.md](ARCHITECTURE.md) §5.5): embedded-state
+  extraction (`__NEXT_DATA__`, `__NUXT__`, JSON-LD), discovered JSON endpoints, and archive
+  fallback. ~2–3 days, €0, and a *better* data path than rendering where it applies — structured
+  data instead of scraped text.
 - PDF export: one-page executive summary + full version.
 - Evidence strength badges, per-claim confidence, "what we checked" gap blocks.
 - Per-section 👍/👎 and "report an inaccuracy."
@@ -339,6 +346,9 @@ streaming* — which no screenshot can. Free on a public repository.
 
 **Exit criteria**
 - Citation coverage ≥ 97%; drop rate ≤ 3%; trap subjects produce zero fabricated content.
+- **JS-rendering gap re-measured after tiers 2–4.** If the residual is under ~5%, the browser
+  tier is **not built** and the honest-gap treatment stands. If it is material, tier 5 and the
+  two-pass flow (PRODUCT_SPEC §2.1A) are scheduled — with a written decision either way.
 - p50 ≤ 180s, time-to-first-content ≤ 40s on Rung 0. (Rung 2 equivalents: 25s / 8s.)
 - PDF click-to-download ≤ 1s in the pre-warmed case.
 - 10 external testers rate report usefulness ≥ 4/5.
@@ -487,6 +497,11 @@ the primary justification for a subscription.**
 - `/watch` management and per-watch change timeline.
 
 **Technical tasks**
+- **Two-pass reports and the deferred render tier**, *if* Phase 2's measurement justified it
+  ([PRODUCT_SPEC.md](PRODUCT_SPEC.md) §2.1A, [ARCHITECTURE.md](ARCHITECTURE.md) §5.5): the
+  `source.render` and `analysis.pass2` jobs, report versioning with v1 retained at its own URL,
+  held PDF pre-warm, and the completion notice. Built here because it reuses this phase's
+  scheduling, off-peak batching and notification machinery rather than duplicating it.
 - `landscape-watch`: scheduler with jitter, conditional GET, content-hash short-circuit,
   normalization before hashing, SimHash near-duplicate suppression, `similar` word diffs.
 - Grammar-constrained importance scoring: `{importance 0–100, label, category, summary_md,
@@ -514,6 +529,8 @@ cosmetic?" — the highest-volume predictable question in this feature.
 - ≥70% 👍 on alerts; ≤2 alerts/watch/week median.
 - Zero alerts fired by pure timestamp/counter/testimonial churn in the regression suite.
 - Watch checking consumes <25% of daily inference capacity.
+- If two-pass shipped: pass 1 latency **unchanged** by rendering (the render queue never
+  touches the request path), pass 2 median under 15 minutes, and v1 reachable after v2 lands.
 
 **Cost posture:** ~€15/mo. Watches raise inference load, which on Rung 0 is the scarcest
 resource in the system; watch caps per tier and off-peak scheduling exist to bound it.
@@ -680,6 +697,9 @@ sandbagged goal on Rung 2.
 | Inference queue depth | p95 ≤ 2 |
 | Slot utilization | 40–75% (below is waste; above is queueing) |
 | Watch-check inference share | ≤ 25% of daily capacity |
+| Analyses needing pass 2 | tracked — the number that decides whether the render tier earns its keep |
+| Pass-2 completion time | p50 ≤ 15 min on Rung 0 |
+| Pass-2 value rate | % of pass-2 runs that actually add a fact; a low rate means stop rendering |
 | Infra cost / paying customer | ≤ $4/mo |
 | **Infrastructure as % of collected MRR** (§6.1) | **≤ 20%** |
 | BYOK adoption | % of registered users with a key configured — tracked, not targeted |
