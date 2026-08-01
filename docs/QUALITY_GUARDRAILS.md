@@ -2,8 +2,12 @@
 
 > Section **E** of the roadmap. See [ROADMAP.md](ROADMAP.md) for the index and phasing.
 >
-> This document covers the quality of the **product's output**. For the quality of the
-> **code that produces it**, see [CODING_QUALITY.md](CODING_QUALITY.md).
+> This document covers the quality of the **product's output** — specifically the middle of
+> the chain, *model output → verified claim*. The two ends are in
+> [FACT_CHECKING.md](FACT_CHECKING.md): how sources are found and judged before the model
+> sees them, and how a reader independently confirms a claim afterwards.
+>
+> For the quality of the **code that produces it**, see [CODING_QUALITY.md](CODING_QUALITY.md).
 
 ---
 
@@ -15,9 +19,18 @@ competitive analysis than a frontier model prompted freely** — because the fai
 that destroys this product is not "prose is slightly worse," it is "invented a price."
 
 Everything below exists to make invention structurally difficult rather than
-merely discouraged. §7 addresses the obvious follow-up question — how a model that small,
-running on four ARM cores, is good enough — and the short answer is that on this workload
-grounding, not parameter count, is what binds quality.
+merely discouraged.
+
+**One limitation, stated at the top rather than buried.** Layers 3–5 prove a claim is
+faithful to *the text we extracted*. They cannot prove the extraction was correct, and they
+cannot prove the source was telling the truth. Those are the jobs of
+[FACT_CHECKING.md](FACT_CHECKING.md) levels L0–L2 (source admission, provenance, extraction
+fidelity) and of attribution framing — the rule that the product reports *what sources say*,
+attributed and dated, rather than what is true.
+
+§7 addresses the other obvious question — how a model that small, running on four ARM cores,
+is good enough — and the short answer is that on this workload grounding, not parameter count,
+is what binds quality.
 
 ---
 

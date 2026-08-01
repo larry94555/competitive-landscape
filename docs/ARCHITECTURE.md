@@ -11,7 +11,8 @@
 >
 > **What the product actually outputs** is specified in
 > [COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md) — report sections, the chart
-> catalogue, and what is deliberately excluded.
+> catalogue, and what is deliberately excluded. **Where the information comes from and how it
+> is checked** is in [FACT_CHECKING.md](FACT_CHECKING.md).
 >
 > Status: **proposed design, not yet implemented.** Every performance number in this
 > document is a *design target* that must be confirmed by the Phase 0 benchmark harness
@@ -822,9 +823,12 @@ We do not, and cannot, see their spend — only tokens submitted and returned.
    news, job boards, public ad libraries. Each is an adapter behind a `SourceProvider` trait
    so providers can be added or disabled without touching the orchestrator.
 
-Sources are **ranked and capped** (target 8–14 per analysis) by a trust tier:
-`tier1` = the company's own site; `tier2` = major review/news/job platforms;
-`tier3` = forums and aggregators. Tier is displayed and drives claim confidence.
+Sources are **ranked and capped** (target 8–14 per analysis) by trust tier, and tier is
+**two-dimensional**: a vendor's own page is the highest authority for *what they claim* and a
+weak authority for *what is true*. Conflating those is the central epistemic error in
+automated competitive intelligence. The full model, the admission rules (including the
+primary-source-only requirement for pricing, features and changelog facts), and independence
+grouping are specified in [FACT_CHECKING.md](FACT_CHECKING.md) §3.2 and §4.
 
 ### 5.2 Fetching politely
 

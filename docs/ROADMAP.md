@@ -21,6 +21,7 @@ TypeScript + React frontend · Rust backend · local llama.cpp inference on Orac
 | [ARCHITECTURE_EXPLANATION.md](ARCHITECTURE_EXPLANATION.md) | Companion to the above: every technology explained — what it is, the alternatives, the justification, and the cost/benefit trade-off |
 | [SUPPORT_SYSTEM.md](SUPPORT_SYSTEM.md) | Support system design (**D**): the open "slash-lite" knowledge base |
 | [QUALITY_GUARDRAILS.md](QUALITY_GUARDRAILS.md) | Quality & trust guardrails (**E**): anti-hallucination stack, evaluation, feedback loops, legal posture |
+| [FACT_CHECKING.md](FACT_CHECKING.md) | Information gathering & fact-checking: source discovery, the two-axis trust model, competitive-set derivation, the nine-level verification pipeline, misinformation/disinformation handling, and how a reader independently confirms every claim |
 | [CODING_QUALITY.md](CODING_QUALITY.md) | The code quality standard: simplicity budgets, design patterns, testing, linting, Sonar, hooks, ADRs, the tutorial, review process, and the agent contract |
 
 ---
@@ -222,7 +223,15 @@ the single most important phase; everything after it is commerce and polish.
 **Ship**
 - `/` composer with one autofocused textarea and three example chips.
 - Subject resolution from free-form input.
-- Source discovery (SearXNG self-hosted + targeted `/pricing`, `/changelog`, `/blog` probes).
+- **Entity resolution before any fetch**, with the disambiguation gate
+  ([FACT_CHECKING.md](FACT_CHECKING.md) §3.1) — wrong entity resolution produces a report that
+  is wrong throughout yet internally consistent and fully cited.
+- Source discovery: **structured probes first** (`/pricing`, `/changelog`, `sitemap.xml`,
+  `llms.txt`, docs, status, public ATS boards), templated search second (SearXNG self-hosted),
+  adapters third. Probes are deterministic, free, and hit primary sources; search fills gaps
+  rather than leading (FACT_CHECKING §3.3).
+- Per-section coverage thresholds and computed evidence strength (FACT_CHECKING §3.5), so a
+  thin report is shipped marked rather than silently guessed.
 - Polite fetch + extraction pipeline.
 - Map-reduce analysis: per-source structured extraction → section synthesis.
 - All seven report sections, streamed over SSE.
