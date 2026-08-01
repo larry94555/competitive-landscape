@@ -1,0 +1,27 @@
+{
+  "name": "competitive-landscape",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/larry94555/competitive-landscape.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/larry94555/competitive-landscape/issues"
+  },
+  "homepage": "https://github.com/larry94555/competitive-landscape#readme",
+  "dependencies": {
+    "playwright": "^1.62.1"
+  }
+}

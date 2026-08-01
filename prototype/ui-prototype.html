@@ -8,55 +8,28 @@
      ============================================================ */
 
   :root {
-    /* Neutrals carry a slight green bias toward the accent — chosen, not inherited */
-    --ground:      #F6F8F6;
-    --surface:     #FFFFFF;
-    --surface-alt: #EEF2EF;
-    --ink:         #141C19;
-    --ink-soft:    #3D4A45;
-    --muted:       #6B7772;
-    --rule:        #DCE3DE;
-    --rule-strong: #C3CDC7;
-
-    /* Verdigris: oxidised copper. Reads as stamped/verified, not as a tech accent. */
-    --accent:      #0F6E5C;
-    --accent-soft: #E2F0EB;
-    --accent-ink:  #0A4A3E;
-
-    /* Semantic, deliberately separate from the accent */
-    --flag:        #A8541B;   /* not found / attention */
-    --flag-soft:   #F7EBE1;
-    --warn:        #8A6D1F;
-
-    --shadow: 0 1px 2px rgba(20,28,25,.06), 0 8px 24px -12px rgba(20,28,25,.14);
-
-    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    --mono: ui-monospace, "SF Mono", SFMono-Regular, "Cascadia Mono", "Liberation Mono", Menlo, Consolas, monospace;
-
-    --step--1: clamp(.78rem, .76rem + .1vw, .84rem);
-    --step-0:  clamp(.94rem, .91rem + .15vw, 1rem);
-    --step-1:  clamp(1.1rem, 1.04rem + .3vw, 1.25rem);
-    --step-2:  clamp(1.35rem, 1.24rem + .55vw, 1.7rem);
-    --step-3:  clamp(1.7rem, 1.45rem + 1.2vw, 2.5rem);
+    --ground:#F6F8F6; --surface:#FFFFFF; --surface-alt:#EEF2EF;
+    --ink:#141C19; --ink-soft:#3D4A45; --muted:#6B7772;
+    --rule:#DCE3DE; --rule-strong:#C3CDC7;
+    --accent:#0F6E5C; --accent-soft:#E2F0EB; --accent-ink:#0A4A3E;
+    --flag:#A8541B; --flag-soft:#F7EBE1; --warn:#8A6D1F;
+    --shadow:0 1px 2px rgba(20,28,25,.06),0 8px 24px -12px rgba(20,28,25,.14);
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,"Cascadia Mono","Liberation Mono",Menlo,Consolas,monospace;
+    --step--1:clamp(.78rem,.76rem + .1vw,.84rem);
+    --step-0:clamp(.94rem,.91rem + .15vw,1rem);
+    --step-1:clamp(1.1rem,1.04rem + .3vw,1.25rem);
+    --step-2:clamp(1.35rem,1.24rem + .55vw,1.7rem);
+    --step-3:clamp(1.7rem,1.45rem + 1.2vw,2.5rem);
   }
-
   @media (prefers-color-scheme: dark) {
     :root {
-      --ground:      #0D1311;
-      --surface:     #141C19;
-      --surface-alt: #1B2521;
-      --ink:         #E8EFEB;
-      --ink-soft:    #B8C5BF;
-      --muted:       #85958E;
-      --rule:        #26332E;
-      --rule-strong: #35453E;
-      --accent:      #4FBFA3;
-      --accent-soft: #12302A;
-      --accent-ink:  #7FD6BF;
-      --flag:        #D08B54;
-      --flag-soft:   #2C2018;
-      --warn:        #C4A34D;
-      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+      --ground:#0D1311; --surface:#141C19; --surface-alt:#1B2521;
+      --ink:#E8EFEB; --ink-soft:#B8C5BF; --muted:#85958E;
+      --rule:#26332E; --rule-strong:#35453E;
+      --accent:#4FBFA3; --accent-soft:#12302A; --accent-ink:#7FD6BF;
+      --flag:#D08B54; --flag-soft:#2C2018; --warn:#C4A34D;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
     }
   }
   :root[data-theme="dark"] {
@@ -65,7 +38,7 @@
     --rule:#26332E; --rule-strong:#35453E;
     --accent:#4FBFA3; --accent-soft:#12302A; --accent-ink:#7FD6BF;
     --flag:#D08B54; --flag-soft:#2C2018; --warn:#C4A34D;
-    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.6);
   }
   :root[data-theme="light"] {
     --ground:#F6F8F6; --surface:#FFFFFF; --surface-alt:#EEF2EF;
@@ -73,353 +46,301 @@
     --rule:#DCE3DE; --rule-strong:#C3CDC7;
     --accent:#0F6E5C; --accent-soft:#E2F0EB; --accent-ink:#0A4A3E;
     --flag:#A8541B; --flag-soft:#F7EBE1; --warn:#8A6D1F;
-    --shadow: 0 1px 2px rgba(20,28,25,.06), 0 8px 24px -12px rgba(20,28,25,.14);
+    --shadow:0 1px 2px rgba(20,28,25,.06),0 8px 24px -12px rgba(20,28,25,.14);
   }
 
-  * { box-sizing: border-box; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--ground); color:var(--ink); font-family:var(--sans);
+         font-size:var(--step-0); line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:62rem; margin:0 auto; padding:0 1.25rem 7rem; }
 
-  body {
-    margin: 0;
-    background: var(--ground);
-    color: var(--ink);
-    font-family: var(--sans);
-    font-size: var(--step-0);
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-  }
+  .proto-banner { background:var(--accent-soft); border-bottom:1px solid var(--rule);
+    color:var(--accent-ink); font-family:var(--mono); font-size:var(--step--1);
+    padding:.45rem 1.25rem; text-align:center; letter-spacing:.02em; }
 
-  .wrap { max-width: 62rem; margin: 0 auto; padding: 0 1.25rem 5rem; }
+  header.app { border-bottom:1px solid var(--rule); background:var(--surface); position:sticky; top:0; z-index:20; }
+  .head-inner { max-width:62rem; margin:0 auto; padding:.8rem 1.25rem;
+    display:flex; align-items:center; gap:.85rem; flex-wrap:wrap; }
+  .brand { font-weight:680; letter-spacing:-.02em; font-size:var(--step-1);
+    display:flex; align-items:center; gap:.55rem; margin-right:auto; }
+  .brand-mark { width:1.05rem; height:1.05rem; border:2px solid var(--accent); border-radius:2px; position:relative; flex:none; }
+  .brand-mark::after { content:""; position:absolute; inset:3px 3px auto 3px; height:2px; background:var(--accent); }
 
-  /* ---------- banner ---------- */
-  .proto-banner {
-    background: var(--accent-soft);
-    border-bottom: 1px solid var(--rule);
-    color: var(--accent-ink);
-    font-family: var(--mono);
-    font-size: var(--step--1);
-    padding: .5rem 1.25rem;
-    text-align: center;
-    letter-spacing: .02em;
-  }
+  .nav { display:flex; gap:.15rem; }
+  .nav button { font-family:var(--mono); font-size:var(--step--1); border:0; background:transparent;
+    color:var(--muted); padding:.28rem .5rem; cursor:pointer; border-radius:2px; }
+  .nav button:hover { color:var(--accent); }
+  .nav button[aria-current="true"] { background:var(--surface-alt); color:var(--ink); }
 
-  /* ---------- header ---------- */
-  header.app {
-    border-bottom: 1px solid var(--rule);
-    background: var(--surface);
-    position: sticky; top: 0; z-index: 20;
-  }
-  .head-inner {
-    max-width: 62rem; margin: 0 auto; padding: .85rem 1.25rem;
-    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
-  }
-  .brand {
-    font-weight: 680; letter-spacing: -.02em; font-size: var(--step-1);
-    display: flex; align-items: center; gap: .55rem; margin-right: auto;
-  }
-  .brand-mark {
-    width: 1.05rem; height: 1.05rem; border: 2px solid var(--accent);
-    border-radius: 2px; position: relative; flex: none;
-  }
-  .brand-mark::after {
-    content: ""; position: absolute; inset: 3px 3px auto 3px; height: 2px;
-    background: var(--accent);
-  }
+  .quota { font-family:var(--mono); font-size:var(--step--1); color:var(--muted);
+    display:flex; align-items:center; gap:.4rem; border:1px solid var(--rule);
+    border-radius:2px; padding:.28rem .55rem; background:var(--ground); white-space:nowrap; }
+  .quota strong { color:var(--ink); font-weight:600; }
+  .quota.spent { border-color:var(--flag); color:var(--flag); }
+  .quota.spent strong { color:var(--flag); }
+  .tier-dot { width:.45rem; height:.45rem; border-radius:50%; background:var(--muted); }
+  .tier-dot.reg { background:var(--accent); }
+  .tier-dot.sub { background:var(--warn); }
 
-  .quota {
-    font-family: var(--mono); font-size: var(--step--1); color: var(--muted);
-    display: flex; align-items: center; gap: .45rem;
-    border: 1px solid var(--rule); border-radius: 2px; padding: .3rem .55rem;
-    background: var(--ground);
-  }
-  .quota strong { color: var(--ink); font-weight: 600; }
-  .quota.spent { border-color: var(--flag); color: var(--flag); }
-  .quota.spent strong { color: var(--flag); }
-
-  .speed { display: flex; border: 1px solid var(--rule); border-radius: 2px; overflow: hidden; }
-  .speed button {
-    font-family: var(--mono); font-size: var(--step--1); border: 0;
-    background: var(--surface); color: var(--muted);
-    padding: .3rem .6rem; cursor: pointer; transition: background .12s, color .12s;
-  }
-  .speed button + button { border-left: 1px solid var(--rule); }
-  .speed button[aria-pressed="true"] { background: var(--accent); color: #fff; }
-  :root[data-theme="dark"] .speed button[aria-pressed="true"],
-  @media (prefers-color-scheme: dark) { }
+  .seg { display:flex; border:1px solid var(--rule); border-radius:2px; overflow:hidden; }
+  .seg button { font-family:var(--mono); font-size:var(--step--1); border:0; background:var(--surface);
+    color:var(--muted); padding:.28rem .55rem; cursor:pointer; }
+  .seg button + button { border-left:1px solid var(--rule); }
+  .seg button[aria-pressed="true"] { background:var(--accent); color:#fff; }
 
   /* ---------- composer ---------- */
-  .hero { padding: 4.5rem 0 2rem; }
-  h1.lede {
-    font-size: var(--step-3); line-height: 1.1; letter-spacing: -.03em;
-    font-weight: 690; margin: 0 0 .9rem; text-wrap: balance; max-width: 22ch;
-  }
-  .sub { color: var(--ink-soft); max-width: 54ch; margin: 0 0 2rem; font-size: var(--step-1); }
+  .hero { padding:3.5rem 0 2rem; }
+  h1.lede { font-size:var(--step-3); line-height:1.1; letter-spacing:-.03em; font-weight:690;
+    margin:0 0 .9rem; text-wrap:balance; max-width:22ch; }
+  .sub { color:var(--ink-soft); max-width:54ch; margin:0 0 2rem; font-size:var(--step-1); }
+  .composer { background:var(--surface); border:1px solid var(--rule-strong); border-radius:3px;
+    box-shadow:var(--shadow); overflow:hidden; transition:border-color .15s; }
+  .composer:focus-within { border-color:var(--accent); }
+  .composer textarea { width:100%; border:0; resize:none; padding:1.15rem 1.25rem .5rem; font:inherit;
+    font-size:var(--step-1); background:transparent; color:var(--ink); min-height:5.5rem; outline:none; line-height:1.5; }
+  .composer textarea::placeholder { color:var(--muted); }
+  .composer-foot { display:flex; align-items:center; gap:.75rem; padding:.6rem .8rem .7rem 1.25rem; flex-wrap:wrap; }
+  .composer-hint { font-family:var(--mono); font-size:var(--step--1); color:var(--muted); margin-right:auto; }
 
-  .composer {
-    background: var(--surface); border: 1px solid var(--rule-strong);
-    border-radius: 3px; box-shadow: var(--shadow); overflow: hidden;
-    transition: border-color .15s;
-  }
-  .composer:focus-within { border-color: var(--accent); }
-  .composer textarea {
-    width: 100%; border: 0; resize: none; padding: 1.15rem 1.25rem .5rem;
-    font: inherit; font-size: var(--step-1); background: transparent; color: var(--ink);
-    min-height: 5.5rem; outline: none; line-height: 1.5;
-  }
-  .composer textarea::placeholder { color: var(--muted); }
-  .composer-foot {
-    display: flex; align-items: center; gap: .75rem; padding: .6rem .8rem .7rem 1.25rem;
-    flex-wrap: wrap;
-  }
-  .composer-hint { font-family: var(--mono); font-size: var(--step--1); color: var(--muted); margin-right: auto; }
+  .btn { font:inherit; font-weight:600; font-size:var(--step-0); background:var(--accent); color:#fff;
+    border:0; border-radius:2px; padding:.55rem 1.15rem; cursor:pointer; transition:opacity .12s, transform .06s; }
+  .btn:hover { opacity:.9; } .btn:active { transform:translateY(1px); }
+  .btn:disabled { opacity:.4; cursor:not-allowed; }
+  .btn.ghost { background:transparent; color:var(--accent); border:1px solid var(--rule-strong); }
+  .btn.sm { font-size:var(--step--1); padding:.35rem .75rem; }
 
-  .btn {
-    font: inherit; font-weight: 600; font-size: var(--step-0);
-    background: var(--accent); color: #fff; border: 0; border-radius: 2px;
-    padding: .55rem 1.15rem; cursor: pointer; transition: opacity .12s, transform .06s;
-  }
-  .btn:hover { opacity: .9; }
-  .btn:active { transform: translateY(1px); }
-  .btn:disabled { opacity: .4; cursor: not-allowed; }
-  .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--rule-strong); }
+  .chips { display:flex; gap:.5rem; flex-wrap:wrap; margin-top:1.1rem; }
+  .chip { font:inherit; font-size:var(--step--1); background:var(--surface); border:1px solid var(--rule);
+    color:var(--ink-soft); border-radius:2px; padding:.38rem .7rem; cursor:pointer; transition:border-color .12s,color .12s; }
+  .chip:hover { border-color:var(--accent); color:var(--accent); }
 
-  .chips { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: 1.1rem; }
-  .chip {
-    font: inherit; font-size: var(--step--1); background: var(--surface);
-    border: 1px solid var(--rule); color: var(--ink-soft); border-radius: 2px;
-    padding: .38rem .7rem; cursor: pointer; transition: border-color .12s, color .12s;
-  }
-  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .disclaimer { margin-top:2.5rem; padding-top:1rem; border-top:1px solid var(--rule);
+    color:var(--muted); font-size:var(--step--1); max-width:60ch; }
 
-  .disclaimer {
-    margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--rule);
-    color: var(--muted); font-size: var(--step--1); max-width: 60ch;
-  }
+  /* ---------- run ---------- */
+  .run-head { display:flex; align-items:baseline; gap:.75rem; flex-wrap:wrap; padding:2rem 0 1rem; border-bottom:1px solid var(--rule); }
+  .subject-chip { font-weight:640; font-size:var(--step-2); letter-spacing:-.02em; margin-right:auto; }
+  .elapsed { font-family:var(--mono); font-size:var(--step--1); color:var(--muted); font-variant-numeric:tabular-nums; }
+  .rail { display:flex; gap:0; margin:1.25rem 0 1.5rem; flex-wrap:wrap; }
+  .stage { font-family:var(--mono); font-size:var(--step--1); color:var(--muted); padding:.3rem .8rem .3rem 0;
+    display:flex; align-items:center; gap:.45rem; }
+  .stage::before { content:""; width:.5rem; height:.5rem; border-radius:50%; border:1.5px solid var(--rule-strong); flex:none; }
+  .stage.active { color:var(--accent); }
+  .stage.active::before { border-color:var(--accent); background:var(--accent); animation:pulse 1.1s ease-in-out infinite; }
+  .stage.done { color:var(--ink-soft); }
+  .stage.done::before { border-color:var(--accent); background:var(--accent); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+  @media (prefers-reduced-motion:reduce){ .stage.active::before{animation:none} }
 
-  /* ---------- stage rail ---------- */
-  .run-head {
-    display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap;
-    padding: 2rem 0 1rem; border-bottom: 1px solid var(--rule);
-  }
-  .subject-chip {
-    font-weight: 640; font-size: var(--step-2); letter-spacing: -.02em; margin-right: auto;
-  }
-  .elapsed { font-family: var(--mono); font-size: var(--step--1); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .sources-live { display:flex; flex-wrap:wrap; gap:.5rem; margin-bottom:1.75rem; }
+  .src { display:flex; align-items:center; gap:.5rem; background:var(--surface); border:1px solid var(--rule);
+    border-radius:2px; padding:.4rem .65rem; font-family:var(--mono); font-size:var(--step--1);
+    color:var(--ink-soft); animation:rise .35s ease-out both; }
+  .src .dot { width:.45rem; height:.45rem; border-radius:50%; background:var(--accent); flex:none; }
+  .src .dot.flag { background:var(--flag); }
+  @keyframes rise { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:none} }
+  @media (prefers-reduced-motion:reduce){ .src{animation:none} }
 
-  .rail { display: flex; gap: 0; margin: 1.25rem 0 1.75rem; flex-wrap: wrap; }
-  .stage {
-    font-family: var(--mono); font-size: var(--step--1); color: var(--muted);
-    padding: .3rem .8rem .3rem 0; display: flex; align-items: center; gap: .45rem;
-  }
-  .stage::before {
-    content: ""; width: .5rem; height: .5rem; border-radius: 50%;
-    border: 1.5px solid var(--rule-strong); flex: none;
-  }
-  .stage.active { color: var(--accent); }
-  .stage.active::before { border-color: var(--accent); background: var(--accent); animation: pulse 1.1s ease-in-out infinite; }
-  .stage.done { color: var(--ink-soft); }
-  .stage.done::before { border-color: var(--accent); background: var(--accent); }
-  @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:.35 } }
-  @media (prefers-reduced-motion: reduce) { .stage.active::before { animation: none } }
+  .meta-bar { font-family:var(--mono); font-size:var(--step--1); color:var(--muted);
+    display:flex; flex-wrap:wrap; gap:.35rem 1rem; padding:.75rem 0 1.5rem;
+    border-bottom:1px solid var(--rule); margin-bottom:2rem; }
+  .meta-bar .ok { color:var(--accent); }
 
-  /* ---------- source cards ---------- */
-  .sources-live { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 2rem; }
-  .src {
-    display: flex; align-items: center; gap: .5rem; background: var(--surface);
-    border: 1px solid var(--rule); border-radius: 2px; padding: .4rem .65rem;
-    font-family: var(--mono); font-size: var(--step--1); color: var(--ink-soft);
-    animation: rise .35s ease-out both;
-  }
-  .src .dot { width: .45rem; height: .45rem; border-radius: 50%; background: var(--accent); flex: none; }
-  .src .dot.flag { background: var(--flag); }
-  @keyframes rise { from { opacity:0; transform: translateY(5px) } to { opacity:1; transform:none } }
-  @media (prefers-reduced-motion: reduce) { .src { animation: none } }
+  section.rep { margin:0 0 2.5rem; animation:rise .4s ease-out both; }
+  section.rep h2 { font-size:var(--step--1); font-family:var(--mono); font-weight:600; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--muted); margin:0 0 .9rem; padding-bottom:.5rem;
+    border-bottom:1px solid var(--rule); display:flex; align-items:baseline; gap:.6rem; }
+  section.rep h2 .n { color:var(--accent); }
+  section.rep p { margin:0 0 .8rem; max-width:68ch; }
+  .interp-tag { font-family:var(--mono); font-size:.68rem; letter-spacing:.08em; background:var(--surface-alt);
+    color:var(--warn); border:1px solid var(--rule); padding:.1rem .4rem; border-radius:2px;
+    margin-left:auto; text-transform:uppercase; }
 
-  /* ---------- report ---------- */
-  .meta-bar {
-    font-family: var(--mono); font-size: var(--step--1); color: var(--muted);
-    display: flex; flex-wrap: wrap; gap: .35rem 1rem; padding: .75rem 0 1.5rem;
-    border-bottom: 1px solid var(--rule); margin-bottom: 2rem;
-  }
-  .meta-bar .ok { color: var(--accent); }
+  .cite { font-family:var(--mono); font-size:.72rem; color:var(--accent); background:var(--accent-soft);
+    border:1px solid transparent; padding:.05rem .3rem; border-radius:2px; cursor:pointer;
+    white-space:nowrap; transition:border-color .12s; }
+  .cite:hover,.cite:focus-visible { border-color:var(--accent); outline:none; }
+  .cite.attr { color:var(--warn); background:var(--surface-alt); }
+  .conf { font-family:var(--mono); font-size:.68rem; color:var(--muted); }
 
-  section.rep { margin: 0 0 2.75rem; animation: rise .4s ease-out both; }
-  section.rep h2 {
-    font-size: var(--step--1); font-family: var(--mono); font-weight: 600;
-    letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
-    margin: 0 0 .9rem; padding-bottom: .5rem; border-bottom: 1px solid var(--rule);
-    display: flex; align-items: baseline; gap: .6rem;
-  }
-  section.rep h2 .n { color: var(--accent); }
-  section.rep p { margin: 0 0 .8rem; max-width: 68ch; }
-  .interp-tag {
-    font-family: var(--mono); font-size: .68rem; letter-spacing: .08em;
-    background: var(--surface-alt); color: var(--warn); border: 1px solid var(--rule);
-    padding: .1rem .4rem; border-radius: 2px; margin-left: auto; text-transform: uppercase;
-  }
+  .tbl-wrap { overflow-x:auto; border:1px solid var(--rule); border-radius:2px; background:var(--surface); }
+  table { border-collapse:collapse; width:100%; font-size:var(--step--1); }
+  th,td { text-align:left; padding:.55rem .75rem; border-bottom:1px solid var(--rule); white-space:nowrap; }
+  th { font-family:var(--mono); font-weight:600; font-size:.72rem; letter-spacing:.05em; text-transform:uppercase;
+       color:var(--muted); background:var(--surface-alt); }
+  tr:last-child td { border-bottom:0; }
+  td.num { font-family:var(--mono); font-variant-numeric:tabular-nums; }
+  td.src-cell { font-family:var(--mono); font-size:.7rem; color:var(--accent); }
+  .cell-y{color:var(--accent);font-weight:600} .cell-n{color:var(--flag);font-weight:600}
+  .cell-p{color:var(--warn);font-weight:600} .cell-u{color:var(--muted);border-bottom:1px dotted var(--muted);cursor:help}
+  .cell-c{color:var(--warn);font-weight:600;cursor:help}
 
-  /* citation chips — mono, because mono means checkable */
-  .cite {
-    font-family: var(--mono); font-size: .72rem; color: var(--accent);
-    background: var(--accent-soft); border: 1px solid transparent;
-    padding: .05rem .3rem; border-radius: 2px; cursor: pointer;
-    vertical-align: baseline; white-space: nowrap; transition: border-color .12s;
-  }
-  .cite:hover, .cite:focus-visible { border-color: var(--accent); outline: none; }
-  .cite.attr { color: var(--warn); background: var(--surface-alt); }
+  .gap { border:1px solid var(--flag); border-left-width:3px; background:var(--flag-soft); border-radius:2px;
+    padding:.9rem 1.1rem; max-width:68ch; }
+  .gap strong { color:var(--flag); }
+  .gap .checked { font-family:var(--mono); font-size:var(--step--1); color:var(--muted); margin-top:.5rem; display:block; }
+  .unconfirmed { border-left:3px solid var(--warn); background:var(--surface-alt); padding:.7rem 1rem;
+    margin-top:.9rem; font-size:var(--step--1); color:var(--ink-soft); max-width:68ch; }
 
-  .conf { font-family: var(--mono); font-size: .68rem; color: var(--muted); }
+  .chart { border:1px dashed var(--rule-strong); border-radius:2px; background:var(--surface); padding:1rem; margin-top:.9rem; }
+  .chart-cap { font-family:var(--mono); font-size:.7rem; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; }
+  .bars { display:flex; align-items:flex-end; gap:.5rem; height:5rem; margin-top:.75rem; }
+  .bar { flex:1; background:var(--accent); border-radius:1px 1px 0 0; min-height:3px; }
 
-  /* tables */
-  .tbl-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 2px; background: var(--surface); }
-  table { border-collapse: collapse; width: 100%; font-size: var(--step--1); }
-  th, td { text-align: left; padding: .55rem .75rem; border-bottom: 1px solid var(--rule); white-space: nowrap; }
-  th {
-    font-family: var(--mono); font-weight: 600; font-size: .72rem; letter-spacing: .05em;
-    text-transform: uppercase; color: var(--muted); background: var(--surface-alt);
-  }
-  tr:last-child td { border-bottom: 0; }
-  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
-  td.src-cell { font-family: var(--mono); font-size: .7rem; color: var(--accent); }
+  .actions { display:flex; gap:.6rem; flex-wrap:wrap; padding:1.5rem 0; border-top:1px solid var(--rule); }
 
-  .cell-y { color: var(--accent); font-weight: 600; }
-  .cell-n { color: var(--flag); font-weight: 600; }
-  .cell-p { color: var(--warn); font-weight: 600; }
-  .cell-u { color: var(--muted); cursor: help; border-bottom: 1px dotted var(--muted); }
-  .cell-c { color: var(--warn); font-weight: 600; cursor: help; }
+  .followup { margin-top:1rem; border-top:1px solid var(--rule); padding-top:1.75rem; }
+  .fu-title { font-family:var(--mono); font-size:var(--step--1); letter-spacing:.06em; text-transform:uppercase;
+    color:var(--muted); margin-bottom:.9rem; }
+  .qa { margin-bottom:1.25rem; }
+  .qa .q { font-weight:600; padding:.55rem .85rem; background:var(--surface-alt); border-radius:2px;
+    display:inline-block; max-width:60ch; }
+  .qa .a { padding:.75rem .85rem 0; max-width:68ch; }
+  .fu-box { display:flex; gap:.5rem; border:1px solid var(--rule-strong); border-radius:3px;
+    background:var(--surface); padding:.35rem .35rem .35rem .85rem; }
+  .fu-box:focus-within { border-color:var(--accent); }
+  .fu-box input { flex:1; border:0; background:transparent; font:inherit; color:var(--ink); outline:none; }
+  .fu-meta { font-family:var(--mono); font-size:var(--step--1); color:var(--muted); margin-top:.5rem; }
 
-  /* the gap block — the trust mechanism */
-  .gap {
-    border: 1px solid var(--flag); border-left-width: 3px; background: var(--flag-soft);
-    border-radius: 2px; padding: .9rem 1.1rem; max-width: 68ch;
-  }
-  .gap strong { color: var(--flag); }
-  .gap .checked {
-    font-family: var(--mono); font-size: var(--step--1); color: var(--muted);
-    margin-top: .5rem; display: block;
-  }
+  .card { border:1px solid var(--rule-strong); background:var(--surface); border-radius:3px;
+    padding:1.5rem; box-shadow:var(--shadow); }
+  .card h3 { margin:0 0 .5rem; font-size:var(--step-1); letter-spacing:-.01em; }
+  .card p { color:var(--ink-soft); margin:0 0 1rem; max-width:56ch; }
 
-  .unconfirmed {
-    border-left: 3px solid var(--warn); background: var(--surface-alt);
-    padding: .7rem 1rem; margin-top: .9rem; font-size: var(--step--1);
-    color: var(--ink-soft); max-width: 68ch;
-  }
+  /* email mock */
+  .email { max-width:34rem; border:1px solid var(--rule-strong); border-radius:3px; overflow:hidden;
+    background:var(--surface); box-shadow:var(--shadow); }
+  .email-head { padding:.9rem 1.1rem; border-bottom:1px solid var(--rule); background:var(--surface-alt); }
+  .email-subj { font-weight:660; font-size:var(--step-1); letter-spacing:-.01em; }
+  .email-from { font-family:var(--mono); font-size:var(--step--1); color:var(--muted); margin-top:.2rem; }
+  .email-body { padding:1.1rem; }
+  .sev { font-family:var(--mono); font-size:.68rem; letter-spacing:.08em; text-transform:uppercase;
+    background:var(--flag-soft); color:var(--flag); border:1px solid var(--flag); padding:.1rem .4rem; border-radius:2px; }
 
-  /* chart placeholder — real charts are server-rendered SVG */
-  .chart {
-    border: 1px dashed var(--rule-strong); border-radius: 2px; background: var(--surface);
-    padding: 1rem; margin-top: .9rem;
-  }
-  .chart-cap { font-family: var(--mono); font-size: .7rem; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
-  .bars { display: flex; align-items: flex-end; gap: .5rem; height: 5rem; margin-top: .75rem; }
-  .bar { flex: 1; background: var(--accent); border-radius: 1px 1px 0 0; min-height: 3px; transition: height .5s ease-out; }
-  .bar.alt { background: var(--rule-strong); }
+  .diff { display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--rule);
+    border:1px solid var(--rule); border-radius:2px; overflow:hidden; font-family:var(--mono); font-size:var(--step--1); }
+  .diff > div { background:var(--surface); padding:.85rem 1rem; }
+  .diff .lbl { font-size:.68rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:.5rem; }
+  .del { background:var(--flag-soft); color:var(--flag); text-decoration:line-through; }
+  .ins { background:var(--accent-soft); color:var(--accent-ink); font-weight:600; }
 
-  /* actions */
-  .actions { display: flex; gap: .6rem; flex-wrap: wrap; padding: 1.5rem 0; border-top: 1px solid var(--rule); }
+  /* community */
+  .chan-layout { display:grid; grid-template-columns:13rem 1fr; gap:1.5rem; align-items:start; }
+  .chan-list { border:1px solid var(--rule); border-radius:3px; background:var(--surface); overflow:hidden; }
+  .chan-list button { display:flex; width:100%; align-items:center; gap:.5rem; text-align:left; border:0;
+    background:transparent; font:inherit; font-size:var(--step--1); color:var(--ink-soft);
+    padding:.5rem .75rem; cursor:pointer; border-bottom:1px solid var(--rule); }
+  .chan-list button:last-child { border-bottom:0; }
+  .chan-list button[aria-current="true"] { background:var(--accent-soft); color:var(--accent-ink); font-weight:600; }
+  .chan-list .open-badge { margin-left:auto; font-family:var(--mono); font-size:.62rem; color:var(--accent);
+    border:1px solid var(--accent); border-radius:2px; padding:0 .25rem; }
+  .post { border-bottom:1px solid var(--rule); padding:.9rem 0; }
+  .post:last-child { border-bottom:0; }
+  .post-meta { font-family:var(--mono); font-size:var(--step--1); color:var(--muted); display:flex; gap:.6rem; flex-wrap:wrap; }
+  .post-meta .who { color:var(--ink); font-weight:600; }
+  .edited { color:var(--muted); font-style:italic; }
 
-  /* follow-up */
-  .followup { margin-top: 2rem; border-top: 1px solid var(--rule); padding-top: 1.75rem; }
-  .fu-title { font-family: var(--mono); font-size: var(--step--1); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: .9rem; }
-  .qa { margin-bottom: 1.25rem; }
-  .qa .q {
-    font-weight: 600; padding: .55rem .85rem; background: var(--surface-alt);
-    border-radius: 2px; display: inline-block; max-width: 60ch;
-  }
-  .qa .a { padding: .75rem .85rem 0; max-width: 68ch; }
-  .fu-box { display: flex; gap: .5rem; border: 1px solid var(--rule-strong); border-radius: 3px; background: var(--surface); padding: .35rem .35rem .35rem .85rem; }
-  .fu-box:focus-within { border-color: var(--accent); }
-  .fu-box input { flex: 1; border: 0; background: transparent; font: inherit; color: var(--ink); outline: none; }
-  .fu-meta { font-family: var(--mono); font-size: var(--step--1); color: var(--muted); margin-top: .5rem; }
+  /* admin */
+  .stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(9rem,1fr)); gap:1px;
+    background:var(--rule); border:1px solid var(--rule); border-radius:3px; overflow:hidden; }
+  .stat { background:var(--surface); padding:.9rem 1rem; }
+  .stat .k { font-family:var(--mono); font-size:.68rem; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); }
+  .stat .v { font-size:var(--step-2); font-weight:660; font-variant-numeric:tabular-nums; letter-spacing:-.02em; margin-top:.15rem; }
+  .stat .v.ok { color:var(--accent); } .stat .v.warn { color:var(--flag); }
+  input.lim { font-family:var(--mono); font-size:var(--step--1); width:5rem; padding:.25rem .4rem;
+    border:1px solid var(--rule-strong); border-radius:2px; background:var(--ground); color:var(--ink);
+    text-align:right; font-variant-numeric:tabular-nums; }
+  input.lim.flash { border-color:var(--accent); background:var(--accent-soft); }
 
-  /* limit state */
-  .limit {
-    border: 1px solid var(--rule-strong); background: var(--surface); border-radius: 3px;
-    padding: 1.5rem; text-align: left; max-width: 46rem; box-shadow: var(--shadow);
-  }
-  .limit h3 { margin: 0 0 .5rem; font-size: var(--step-1); letter-spacing: -.01em; }
-  .limit p { color: var(--ink-soft); margin: 0 0 1rem; max-width: 56ch; }
+  h2.view-title { font-size:var(--step-2); letter-spacing:-.02em; margin:0 0 .35rem; font-weight:660; }
+  p.view-sub { color:var(--muted); margin:0 0 1.75rem; max-width:60ch; }
 
   /* popover */
-  .pop {
-    position: fixed; z-index: 60; background: var(--surface); border: 1px solid var(--rule-strong);
-    border-radius: 3px; box-shadow: var(--shadow); padding: .85rem 1rem; max-width: 24rem;
-    font-size: var(--step--1); display: none;
-  }
-  .pop.open { display: block; animation: rise .15s ease-out both; }
-  .pop dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: .2rem .7rem; }
-  .pop dt { font-family: var(--mono); font-size: .7rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-  .pop dd { margin: 0; font-family: var(--mono); font-size: .74rem; word-break: break-all; }
-  .pop .quote { margin-top: .6rem; padding-top: .6rem; border-top: 1px solid var(--rule); font-style: italic; color: var(--ink-soft); }
-  .pop .links { margin-top: .6rem; display: flex; gap: .75rem; font-family: var(--mono); font-size: .72rem; }
-  .pop .links a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; cursor: pointer; }
-  .pop .links a:hover { border-color: var(--accent); }
+  .pop { position:fixed; z-index:60; background:var(--surface); border:1px solid var(--rule-strong);
+    border-radius:3px; box-shadow:var(--shadow); padding:.85rem 1rem; max-width:24rem;
+    font-size:var(--step--1); display:none; }
+  .pop.open { display:block; animation:rise .15s ease-out both; }
+  .pop dl { margin:0; display:grid; grid-template-columns:auto 1fr; gap:.2rem .7rem; }
+  .pop dt { font-family:var(--mono); font-size:.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .pop dd { margin:0; font-family:var(--mono); font-size:.74rem; word-break:break-all; }
+  .pop .quote { margin-top:.6rem; padding-top:.6rem; border-top:1px solid var(--rule); font-style:italic; color:var(--ink-soft); }
+  .pop .links { margin-top:.6rem; display:flex; gap:.75rem; font-family:var(--mono); font-size:.72rem; }
+  .pop .links a { color:var(--accent); text-decoration:none; border-bottom:1px solid transparent; cursor:pointer; }
 
-  .hidden { display: none !important; }
+  /* caption bar for demo mode */
+  .cap-bar { position:fixed; left:0; right:0; bottom:0; z-index:90; background:rgba(10,14,13,.94);
+    color:#F2F6F4; padding:1rem 1.5rem 1.15rem; display:none; backdrop-filter:blur(6px);
+    border-top:2px solid var(--accent); }
+  .cap-bar.on { display:block; }
+  .cap-inner { max-width:56rem; margin:0 auto; display:flex; gap:1rem; align-items:flex-start; }
+  .cap-step { font-family:var(--mono); font-size:.72rem; color:#7FD6BF; letter-spacing:.06em;
+    padding-top:.28rem; white-space:nowrap; }
+  .cap-text { font-size:1.16rem; line-height:1.45; font-weight:500; text-wrap:balance; }
+  .cap-prog { position:absolute; left:0; top:-2px; height:2px; background:var(--accent); width:0%; transition:width .3s linear; }
 
-  @media (max-width: 640px) {
-    .hero { padding: 2.5rem 0 1.5rem; }
-    .head-inner { gap: .6rem; }
-    .quota { order: 3; }
-  }
+  .hidden { display:none !important; }
+
+  @media (max-width:760px) { .chan-layout { grid-template-columns:1fr; } .diff { grid-template-columns:1fr; } }
 </style>
 
-<div class="proto-banner">
+<div class="proto-banner" id="banner">
   PROTOTYPE — faked data, simulated timings, no backend. Built to test the wait, not the code.
 </div>
 
 <header class="app">
   <div class="head-inner">
     <div class="brand"><span class="brand-mark"></span>Landscape</div>
-    <div class="quota" id="quota">
-      <span>anonymous</span>·<strong id="quotaN">1</strong><span>analysis left today</span>
+    <nav class="nav" id="nav">
+      <button data-v="composer" aria-current="true">analyse</button>
+      <button data-v="notify">alerts</button>
+      <button data-v="community">community</button>
+      <button data-v="admin">admin</button>
+    </nav>
+    <div class="quota" id="quota"></div>
+    <div class="seg" role="group" aria-label="Tier">
+      <button data-tier="anon" aria-pressed="true">anon</button>
+      <button data-tier="reg" aria-pressed="false">free</button>
+      <button data-tier="sub" aria-pressed="false">$1/mo</button>
     </div>
-    <div class="speed" role="group" aria-label="Playback speed">
-      <button id="sp8" aria-pressed="true">8× speed</button>
-      <button id="sp1" aria-pressed="false">real time</button>
+    <div class="seg" role="group" aria-label="Speed">
+      <button id="sp8" aria-pressed="true">8×</button>
+      <button id="sp1" aria-pressed="false">real</button>
     </div>
+    <button class="btn sm" id="playDemo">▶ Play demo</button>
   </div>
 </header>
 
 <div class="wrap">
 
-  <!-- ============ COMPOSER ============ -->
-  <div id="viewComposer">
+  <!-- COMPOSER -->
+  <div id="v-composer">
     <div class="hero">
       <h1 class="lede">Competitive analysis you can check.</h1>
-      <p class="sub">
-        Every claim carries the source it came from. Anything we can't verify, we delete —
-        and tell you what we looked at instead.
-      </p>
-
+      <p class="sub">Every claim carries the source it came from. Anything we can't verify, we
+        delete — and tell you what we looked at instead.</p>
       <div class="composer">
-        <textarea id="prompt" rows="3"
-          placeholder="Name a product, list competitors, paste a URL, or just describe what you're building…"></textarea>
+        <textarea id="prompt" rows="3" placeholder="Name a product, list competitors, paste a URL, or just describe what you're building…"></textarea>
         <div class="composer-foot">
-          <span class="composer-hint" id="hint">1 analysis available · resets in 24h</span>
+          <span class="composer-hint" id="hint"></span>
           <button class="btn" id="go">Analyse</button>
         </div>
       </div>
-
       <div class="chips">
         <button class="chip" data-ex="Linear vs Jira vs Shortcut">Linear vs Jira vs Shortcut</button>
         <button class="chip" data-ex="a free competitive landscape research tool">a free competitive research tool</button>
         <button class="chip" data-ex="https://linear.app">https://linear.app</button>
       </div>
-
-      <p class="disclaimer">
-        Generated from public web sources. Good-enough public intelligence, not verified
-        enterprise competitive intelligence. Check anything you'll act on.
-      </p>
+      <p class="disclaimer">Generated from public web sources. Good-enough public intelligence,
+        not verified enterprise competitive intelligence. Check anything you'll act on.</p>
     </div>
   </div>
 
-  <!-- ============ RUN + REPORT ============ -->
-  <div id="viewRun" class="hidden">
+  <!-- RUN -->
+  <div id="v-run" class="hidden">
     <div class="run-head">
       <div class="subject-chip" id="subject">Linear vs Jira vs Shortcut</div>
       <div class="elapsed" id="elapsed">0:00</div>
     </div>
-
     <div class="rail" id="rail">
       <div class="stage" data-s="resolving">Resolving</div>
       <div class="stage" data-s="fetching">Fetching</div>
@@ -427,26 +348,19 @@
       <div class="stage" data-s="writing">Writing</div>
       <div class="stage" data-s="verifying">Verifying</div>
     </div>
-
     <div class="sources-live" id="srcLive"></div>
-
     <div class="meta-bar hidden" id="metaBar">
-      <span>Comparison</span>
-      <span id="metaTime">2026-08-01 09:14 UTC</span>
+      <span>Comparison</span><span>2026-08-01 09:14 UTC</span>
       <span>11 sources · 9 independent groups</span>
       <span class="ok">Evidence: strong</span>
-      <span>qwen3-8b · prompt v4</span>
-      <span class="ok">Complete</span>
+      <span>qwen3-8b · prompt v4</span><span class="ok">Complete</span>
     </div>
-
     <div id="report"></div>
-
     <div class="actions hidden" id="actions">
       <button class="btn" id="pdf">Download PDF</button>
       <button class="btn ghost" id="watch">Watch these pages for changes</button>
       <button class="btn ghost" id="share">Share</button>
     </div>
-
     <div class="followup hidden" id="followup">
       <div class="fu-title">Ask about these results</div>
       <div id="qaList"></div>
@@ -454,32 +368,129 @@
         <input id="fuInput" placeholder="e.g. Which one is cheapest at 50 seats?" aria-label="Follow-up question">
         <button class="btn" id="fuGo">Ask</button>
       </div>
-      <div class="fu-meta" id="fuMeta">3 follow-ups left · resets in 2h · answers use only the sources above</div>
+      <div class="fu-meta" id="fuMeta"></div>
     </div>
-
-    <div class="actions">
-      <button class="btn ghost" id="restart">↺ Start over</button>
-    </div>
+    <div class="actions"><button class="btn ghost" id="restart">↺ Start over</button></div>
   </div>
 
-  <!-- ============ LIMIT ============ -->
-  <div id="viewLimit" class="hidden">
+  <!-- LIMIT -->
+  <div id="v-limit" class="hidden">
     <div class="hero">
-      <div class="limit">
-        <h3>You've used today's analysis.</h3>
-        <p>
-          It resets in 23 hours 41 minutes. A free account gives you one every hour, keeps your
-          history, and lets you watch pages for changes.
-        </p>
+      <div class="card">
+        <h3 id="limTitle">You've used today's analysis.</h3>
+        <p id="limBody">It resets in 23 hours 41 minutes. A free account gives you one every hour,
+          keeps your history, and lets you watch pages for changes.</p>
         <div style="display:flex;gap:.6rem;flex-wrap:wrap">
           <button class="btn" id="signup">Create a free account</button>
           <button class="btn ghost" id="backToReport">Back to my report</button>
         </div>
         <p style="margin-top:1.25rem;font-size:var(--step--1);color:var(--muted);max-width:56ch">
-          Your report stays available at its link, and you can keep asking follow-up questions
-          about it.
-        </p>
+          Your report stays available at its link, and you can keep asking follow-up questions about it.</p>
       </div>
+    </div>
+  </div>
+
+  <!-- NOTIFY -->
+  <div id="v-notify" class="hidden">
+    <div class="hero">
+      <h2 class="view-title">A watched page changed</h2>
+      <p class="view-sub">Subject lines state the change, not the notification. Silence is the
+        default state of a good monitoring product.</p>
+      <div class="email">
+        <div class="email-head">
+          <div class="email-subj">Linear raised Basic to $10/user/mo</div>
+          <div class="email-from">notifications@landscape.app · 2026-08-14 09:02 UTC</div>
+        </div>
+        <div class="email-body">
+          <div style="display:flex;gap:.6rem;align-items:center;margin-bottom:.85rem">
+            <span class="sev">Major</span>
+            <span style="font-family:var(--mono);font-size:var(--step--1);color:var(--muted)">Pricing page</span>
+          </div>
+          <p style="margin:0 0 .8rem">Basic went from <strong>$8</strong> to <strong>$10</strong> per user/month.
+            The free tier's 250-issue limit was removed.</p>
+          <p style="margin:0 0 1rem;font-size:var(--step--1);color:var(--ink-soft)">
+            <strong>Why it may matter —</strong> a 25% increase on their entry paid tier, alongside a
+            more generous free tier. Consistent with moving upmarket while widening the top of the funnel.</p>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <button class="btn sm" id="seeDiff">See the diff</button>
+            <button class="btn ghost sm">Re-run full analysis</button>
+          </div>
+          <p style="margin:1rem 0 0;font-family:var(--mono);font-size:var(--step--1);color:var(--muted)">
+            Useful? 👍 👎 &nbsp;·&nbsp; one click, no login</p>
+        </div>
+      </div>
+      <div id="diffBlock" class="hidden" style="margin-top:2rem">
+        <h2 class="view-title" style="font-size:var(--step-1)">linear.app/pricing</h2>
+        <p class="view-sub" style="margin-bottom:1rem">Both versions kept. The receipt behind the summary.</p>
+        <div class="diff">
+          <div><div class="lbl">Fetched 2026-08-07 09:02 UTC</div>
+            <div>Basic</div><div class="del">$8 per user / month</div><div>Free — up to 250 issues</div></div>
+          <div><div class="lbl">Fetched 2026-08-14 09:02 UTC</div>
+            <div>Basic</div><div class="ins">$10 per user / month</div><div class="ins">Free — unlimited issues</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMMUNITY -->
+  <div id="v-community" class="hidden">
+    <div class="hero">
+      <h2 class="view-title">Community</h2>
+      <p class="view-sub">Seven channels, everything publicly readable. Sign-up and log-in issues
+        are open to anyone — the people who need those channels are the ones who can't get in.</p>
+      <div class="chan-layout">
+        <div class="chan-list" id="chanList">
+          <button data-c="welcome">Welcome</button>
+          <button data-c="general">General<span class="open-badge">open</span></button>
+          <button data-c="trouble">Troubleshooting</button>
+          <button data-c="signup" aria-current="true">Sign-up Issues<span class="open-badge">open</span></button>
+          <button data-c="login">Log-in Issues<span class="open-badge">open</span></button>
+          <button data-c="feedback">Feedback</button>
+          <button data-c="social">Social</button>
+        </div>
+        <div>
+          <div id="chanPosts"></div>
+          <div class="fu-box" style="margin-top:1rem">
+            <input id="postInput" placeholder="Post to #sign-up-issues…" aria-label="New post">
+            <button class="btn" id="postGo">Post</button>
+          </div>
+          <div class="fu-meta" id="postMeta"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN -->
+  <div id="v-admin" class="hidden">
+    <div class="hero">
+      <h2 class="view-title">Admin</h2>
+      <p class="view-sub">Access is a hard-coded list of emails in a config file that is never
+        committed. No admin flag in the database, no escalation path through the app.</p>
+      <div class="stat-grid" style="margin-bottom:2rem">
+        <div class="stat"><div class="k">Analyses today</div><div class="v">63</div></div>
+        <div class="stat"><div class="k">Queue depth</div><div class="v ok">1</div></div>
+        <div class="stat"><div class="k">Capacity used</div><div class="v warn">78%</div></div>
+        <div class="stat"><div class="k">Cache hit</div><div class="v ok">61%</div></div>
+        <div class="stat"><div class="k">Claim drop rate</div><div class="v ok">2.1%</div></div>
+        <div class="stat"><div class="k">Subscribers</div><div class="v">14</div></div>
+      </div>
+      <h2 class="view-title" style="font-size:var(--step-1)">Limits</h2>
+      <p class="view-sub" style="margin-bottom:1rem">Every number is runtime-configurable. The right
+        values are unknowable before real traffic.</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Tier</th><th>New analyses</th><th>Per</th><th>Follow-ups</th><th>Per</th></tr></thead>
+          <tbody>
+            <tr><td>Anonymous</td><td><input class="lim" id="limA" value="1"></td><td class="num">24h</td>
+                <td><input class="lim" value="3"></td><td class="num">2h</td></tr>
+            <tr><td>Registered</td><td><input class="lim" value="1"></td><td class="num">1h</td>
+                <td><input class="lim" value="10"></td><td class="num">1h</td></tr>
+            <tr><td>Subscribed</td><td><input class="lim" value="5"></td><td class="num">1h</td>
+                <td><input class="lim" value="∞"></td><td class="num">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="fu-meta" id="adminSaved">Changes take effect immediately. Every edit is logged with who and when.</p>
     </div>
   </div>
 
@@ -487,56 +498,52 @@
 
 <div class="pop" id="pop" role="dialog" aria-label="Source detail"></div>
 
+<div class="cap-bar" id="capBar">
+  <div class="cap-prog" id="capProg"></div>
+  <div class="cap-inner">
+    <div class="cap-step" id="capStep">01 / 22</div>
+    <div class="cap-text" id="capText"></div>
+  </div>
+</div>
+
 <script>
 (function () {
   "use strict";
-
-  var SPEED = 8;
-  var t0 = 0, timers = [], elapsedTimer = null, quota = 1, fuLeft = 3;
-
+  var SPEED = 8, t0 = 0, timers = [], elapsedTimer = null, demoTimers = [];
+  var TIER = "anon", quota = 1, fuLeft = 3, fuIdx = 0, demoRunning = false;
   var $ = function (id) { return document.getElementById(id); };
 
-  /* ---------- source data ---------- */
+  var TIERS = {
+    anon: { label:"anonymous", dot:"", analyses:1, window:"24h", fu:3, fuWin:"2h" },
+    reg:  { label:"free account", dot:"reg", analyses:1, window:"1h", fu:10, fuWin:"1h" },
+    sub:  { label:"$1/mo", dot:"sub", analyses:5, window:"1h", fu:"∞", fuWin:"—" }
+  };
+
   var SOURCES = [
-    { id:"S1",  host:"linear.app",        title:"Homepage",           cls:"P", t:3.0 },
-    { id:"S2",  host:"linear.app",        title:"Pricing",            cls:"P", t:4.4 },
-    { id:"S4",  host:"atlassian.com",     title:"Jira Pricing",       cls:"P", t:5.8 },
-    { id:"S7",  host:"shortcut.com",      title:"Homepage",           cls:"P", t:7.1 },
-    { id:"S9",  host:"reddit.com",        title:"r/ProductManagement",cls:"A", t:8.6 },
-    { id:"S12", host:"boards.greenhouse.io", title:"Linear careers",  cls:"P", t:9.9 },
-    { id:"S14", host:"capterra.com",      title:"not accessible",     cls:"X", t:10.8 }
+    {host:"linear.app",true_:1,title:"Homepage",cls:"P",t:3.0},
+    {host:"linear.app",title:"Pricing",cls:"P",t:4.4},
+    {host:"atlassian.com",title:"Jira Pricing",cls:"P",t:5.8},
+    {host:"shortcut.com",title:"Homepage",cls:"P",t:7.1},
+    {host:"reddit.com",title:"r/ProductManagement",cls:"A",t:8.6},
+    {host:"boards.greenhouse.io",title:"Linear careers",cls:"P",t:9.9},
+    {host:"capterra.com",title:"not accessible",cls:"X",t:10.8}
   ];
 
   var SRC_DETAIL = {
-    S1:{host:"linear.app", title:"Homepage", url:"https://linear.app", cls:"P — primary (vendor's own page)",
-        fetched:"2026-08-01 09:12 UTC", hash:"8f3c…a91d", group:"G1",
-        quote:"purpose-built for modern product development"},
-    S2:{host:"linear.app", title:"Pricing", url:"https://linear.app/pricing", cls:"P — primary (vendor's own page)",
-        fetched:"2026-08-01 09:12 UTC", hash:"4b7e…22c0", group:"G1",
-        quote:"Basic  $8 per user / month, billed annually"},
-    S4:{host:"atlassian.com", title:"Jira Pricing", url:"https://www.atlassian.com/software/jira/pricing",
-        cls:"P — primary (vendor's own page)", fetched:"2026-08-01 09:13 UTC", hash:"c1a9…7f42", group:"G3",
-        quote:"Free for up to 10 users"},
-    S7:{host:"shortcut.com", title:"Homepage", url:"https://shortcut.com", cls:"P — primary (vendor's own page)",
-        fetched:"2026-08-01 09:13 UTC", hash:"9d20…be11", group:"G4",
-        quote:"planning without the overhead"},
-    S9:{host:"reddit.com", title:"r/ProductManagement thread", url:"https://reddit.com/r/ProductManagement",
-        cls:"A — attributed (dated, author identified, cites sources)",
-        fetched:"2026-08-01 09:13 UTC", hash:"55ef…03a7", group:"G6",
-        quote:"The fastest tracker I've used, but bulk export is missing"},
-    S12:{host:"boards.greenhouse.io", title:"Linear careers", url:"https://boards.greenhouse.io/linear",
-        cls:"P — primary (public job board)", fetched:"2026-08-01 09:14 UTC", hash:"71bc…d5e0", group:"G7",
-        quote:"14 open roles"}
+    S1:{url:"https://linear.app",cls:"P — primary (vendor's own page)",fetched:"2026-08-01 09:12 UTC",hash:"8f3c…a91d",group:"G1",quote:"purpose-built for modern product development"},
+    S2:{url:"https://linear.app/pricing",cls:"P — primary (vendor's own page)",fetched:"2026-08-01 09:12 UTC",hash:"4b7e…22c0",group:"G1",quote:"Basic  $8 per user / month, billed annually"},
+    S4:{url:"https://www.atlassian.com/software/jira/pricing",cls:"P — primary (vendor's own page)",fetched:"2026-08-01 09:13 UTC",hash:"c1a9…7f42",group:"G3",quote:"Free for up to 10 users"},
+    S7:{url:"https://shortcut.com",cls:"P — primary (vendor's own page)",fetched:"2026-08-01 09:13 UTC",hash:"9d20…be11",group:"G4",quote:"planning without the overhead"},
+    S9:{url:"https://reddit.com/r/ProductManagement",cls:"A — attributed (dated, author identified, cites sources)",fetched:"2026-08-01 09:13 UTC",hash:"55ef…03a7",group:"G6",quote:"The fastest tracker I've used, but bulk export is missing"}
   };
 
-  /* ---------- report sections ---------- */
-  function cite(id, cls) {
-    return '<span class="cite' + (cls === 'A' ? ' attr' : '') + '" data-src="' + id + '" tabindex="0" role="button">[' + id + ']</span>';
+  function cite(id, attr) {
+    return '<span class="cite' + (attr ? ' attr' : '') + '" data-src="' + id + '" tabindex="0" role="button">[' + id + ']</span>';
   }
 
   var SECTIONS = [
-    { t: 26, html:
-      '<section class="rep"><h2><span class="n">02</span> Pricing &amp; packaging</h2>' +
+    { t:26, id:"sec-pricing", html:
+      '<section class="rep" id="sec-pricing"><h2><span class="n">02</span> Pricing &amp; packaging</h2>' +
       '<p style="font-size:var(--step--1);color:var(--muted)">Parsed from the pricing pages by code, not generated — which is why it lands before anything else.</p>' +
       '<div class="tbl-wrap"><table><thead><tr><th>Product</th><th>Tier</th><th>Price</th><th>Basis</th><th>Notable limits</th><th>As of</th><th>Src</th></tr></thead><tbody>' +
       '<tr><td>Linear</td><td>Free</td><td class="num">$0</td><td>per user</td><td>250 issues</td><td class="num">2026-08-01</td><td class="src-cell">S2·P</td></tr>' +
@@ -545,294 +552,334 @@
       '<tr><td>Shortcut</td><td>Team</td><td class="num">$8.50/user/mo</td><td>per user</td><td>—</td><td class="num">2026-08-01</td><td class="src-cell">S7·P</td></tr>' +
       '</tbody></table></div>' +
       '<div class="chart"><span class="chart-cap">Cost at scale · derived · monthly cost by seat count</span>' +
-      '<div class="bars">' +
-      '<div class="bar" style="height:12%"></div><div class="bar" style="height:22%"></div>' +
+      '<div class="bars"><div class="bar" style="height:12%"></div><div class="bar" style="height:22%"></div>' +
       '<div class="bar" style="height:38%"></div><div class="bar" style="height:58%"></div>' +
-      '<div class="bar" style="height:78%"></div><div class="bar" style="height:100%"></div>' +
-      '</div></div>' +
-      '<div class="unconfirmed"><strong>Reported elsewhere, unconfirmed.</strong> A third-party article (Feb 2026) states Shortcut Business at $16/user/mo. We were unable to confirm this on Shortcut\'s own site, so it is not in the table above. ' + cite('S9','A') + '</div>' +
+      '<div class="bar" style="height:78%"></div><div class="bar" style="height:100%"></div></div></div>' +
+      '<div class="unconfirmed"><strong>Reported elsewhere, unconfirmed.</strong> A third-party article (Feb 2026) states Shortcut Business at $16/user/mo. We were unable to confirm this on Shortcut\'s own site, so it is not in the table above. ' + cite('S9',1) + '</div>' +
       '</section>' },
-
-    { t: 34, stream: true, html:
-      '<section class="rep"><h2><span class="n">01</span> Positioning</h2>' +
+    { t:34, stream:true, html:
+      '<section class="rep" id="sec-pos"><h2><span class="n">01</span> Positioning</h2>' +
       '<p>Linear describes itself as “purpose-built for modern product development.” ' + cite('S1') + ' <span class="conf">(high)</span></p>' +
       '<p>Jira describes itself as “agile project management at scale.” ' + cite('S4') + ' <span class="conf">(high)</span></p>' +
-      '<p>Shortcut describes itself as “planning without the overhead.” ' + cite('S7') + ' <span class="conf">(medium)</span></p>' +
-      '</section>' },
-
-    { t: 52, html:
-      '<section class="rep"><h2><span class="n">03</span> Feature comparison</h2>' +
+      '<p>Shortcut describes itself as “planning without the overhead.” ' + cite('S7') + ' <span class="conf">(medium)</span></p></section>' },
+    { t:50, html:
+      '<section class="rep" id="sec-matrix"><h2><span class="n">03</span> Feature comparison</h2>' +
       '<div class="tbl-wrap"><table><thead><tr><th>Capability</th><th>Linear</th><th>Jira</th><th>Shortcut</th><th>Note</th></tr></thead><tbody>' +
       '<tr><td>Issue tracking</td><td class="cell-y">✓</td><td class="cell-y">✓</td><td class="cell-y">✓</td><td></td></tr>' +
       '<tr><td>Roadmaps</td><td class="cell-y">✓</td><td class="cell-y">✓</td><td class="cell-p">◐</td><td>Shortcut: “basic”</td></tr>' +
       '<tr><td>Native time tracking</td><td class="cell-u" title="We looked and found no public statement. Checked: /features, /docs, pricing page.">?</td><td class="cell-y">✓</td><td class="cell-n">✗</td><td>Shortcut docs state not included</td></tr>' +
       '<tr><td>Self-hosting</td><td class="cell-n">✗</td><td class="cell-y">✓</td><td class="cell-u" title="We looked and found no public statement.">?</td><td>Linear states cloud-only</td></tr>' +
-      '<tr><td>SAML SSO</td><td class="cell-y">✓</td><td class="cell-y">✓</td><td class="cell-c" title="Claimed by a rival\'s comparison page, not by Shortcut. Never presented as neutral.">▲</td><td>Per Jira\'s comparison page</td></tr>' +
+      '<tr><td>SAML SSO</td><td class="cell-y">✓</td><td class="cell-y">✓</td><td class="cell-c" title="Claimed by a rival comparison page, not by Shortcut.">▲</td><td>Per Jira\'s comparison page</td></tr>' +
       '</tbody></table></div>' +
-      '<p style="font-size:var(--step--1);color:var(--muted);margin-top:.7rem">' +
-      '<strong>?</strong> = we found no public statement — hover to see what was checked. ' +
-      '<strong>▲</strong> = claimed by a competitor, not the vendor.</p>' +
-      '</section>' },
-
-    { t: 68, html:
-      '<section class="rep"><h2><span class="n">04</span> Recent public changes <span style="font-weight:400;text-transform:none;letter-spacing:0">· 90 days</span></h2>' +
+      '<p style="font-size:var(--step--1);color:var(--muted);margin-top:.7rem"><strong>?</strong> = we found no public statement — hover to see what was checked. <strong>▲</strong> = claimed by a competitor, not the vendor.</p></section>' },
+    { t:66, html:
+      '<section class="rep" id="sec-changes"><h2><span class="n">04</span> Recent public changes <span style="font-weight:400;text-transform:none;letter-spacing:0">· 90 days</span></h2>' +
       '<p><span style="font-family:var(--mono);font-size:var(--step--1);color:var(--muted)">2026-07-14</span> — Linear shipped “Initiatives” for multi-project planning. ' + cite('S1') + '</p>' +
       '<p><span style="font-family:var(--mono);font-size:var(--step--1);color:var(--muted)">2026-06-02</span> — Jira announced a Premium price increase effective Sept 2026. ' + cite('S4') + '</p>' +
       '<div class="gap"><strong>No public changelog found for Shortcut in this window.</strong> That is not the same as “no changes” — we could not find a changelog to read.' +
-      '<span class="checked">Checked: /changelog (404) · /releases (404) · /blog (90 days) · sitemap.xml</span></div>' +
-      '</section>' },
-
-    { t: 84, html:
-      '<section class="rep"><h2><span class="n">05</span> Review &amp; sentiment themes</h2>' +
-      '<p><strong>Speed / responsiveness</strong> — positive, often. 14 mentions across 2 platforms. “The fastest tracker I\'ve used.” ' + cite('S9','A') + '</p>' +
+      '<span class="checked">Checked: /changelog (404) · /releases (404) · /blog (90 days) · sitemap.xml</span></div></section>' },
+    { t:82, html:
+      '<section class="rep" id="sec-sent"><h2><span class="n">05</span> Review &amp; sentiment themes</h2>' +
+      '<p><strong>Speed / responsiveness</strong> — positive, often. 14 mentions across 2 platforms. “The fastest tracker I\'ve used.” ' + cite('S9',1) + '</p>' +
       '<p style="margin-top:1.1rem"><strong>Unmet needs</strong> <span style="font-family:var(--mono);font-size:var(--step--1);color:var(--muted)">from 2–3★ reviews</span></p>' +
-      '<p>Bulk export — 7 reviewers across 2 platforms mention wanting it ' + cite('S9','A') + '<br>' +
-      'Offline mode — 4 reviewers ' + cite('S9','A') + '</p>' +
-      '<p style="font-size:var(--step--1);color:var(--muted)">Platforms covered: Reddit. Volume caveat: 31 reviews sampled. No composite score is synthesised.</p>' +
-      '</section>' },
-
-    { t: 100, html:
-      '<section class="rep"><h2><span class="n">07</span> SWOT summary <span class="interp-tag">interpretation</span></h2>' +
+      '<p>Bulk export — 7 reviewers across 2 platforms mention wanting it ' + cite('S9',1) + '<br>Offline mode — 4 reviewers ' + cite('S9',1) + '</p></section>' },
+    { t:96, html:
+      '<section class="rep" id="sec-swot"><h2><span class="n">07</span> SWOT summary <span class="interp-tag">interpretation</span></h2>' +
       '<p><strong>Strengths</strong> · Linear\'s shipping cadence is visibly high — 6 changelog entries in 90 days. ' + cite('S1') + '</p>' +
-      '<p><strong>Threats</strong> · Jira\'s Sept 2026 price increase ' + cite('S4') + ' may push cost-sensitive teams to evaluate alternatives — inference from the announced increase, not a stated Jira position.</p>' +
-      '</section>' },
-
-    { t: 112, html:
-      '<section class="rep"><h2><span class="n">08</span> Sources</h2>' +
+      '<p><strong>Threats</strong> · Jira\'s Sept 2026 price increase ' + cite('S4') + ' may push cost-sensitive teams to evaluate alternatives — inference from the announced increase, not a stated Jira position.</p></section>' },
+    { t:108, html:
+      '<section class="rep" id="sec-sources"><h2><span class="n">08</span> Sources</h2>' +
       '<div class="tbl-wrap"><table><thead><tr><th>Ref</th><th>Host</th><th>Class</th><th>Fetched</th><th>Hash</th><th>Group</th></tr></thead><tbody>' +
       '<tr><td class="src-cell">S1</td><td>linear.app</td><td>P</td><td class="num">09:12 UTC</td><td class="num">8f3c…a91d</td><td>G1</td></tr>' +
       '<tr><td class="src-cell">S2</td><td>linear.app/pricing</td><td>P</td><td class="num">09:12 UTC</td><td class="num">4b7e…22c0</td><td>G1</td></tr>' +
-      '<tr><td class="src-cell">S4</td><td>atlassian.com</td><td>P</td><td class="num">09:13 UTC</td><td class="num">c1a9…7f42</td><td>G3</td></tr>' +
       '<tr><td class="src-cell">S9</td><td>reddit.com</td><td>A</td><td class="num">09:13 UTC</td><td class="num">55ef…03a7</td><td>G6</td></tr>' +
       '</tbody></table></div>' +
-      '<p style="font-size:var(--step--1);color:var(--muted);margin-top:.8rem">' +
-      '<strong>Not used (2).</strong> capterra.com — not accessible under our fetching rules (robots.txt). ' +
-      'example.com/best-tools-2026 — we were unable to verify this source against our criteria: we could not confirm an author, a publication date, or cited sources.</p>' +
-      '</section>' }
+      '<p style="font-size:var(--step--1);color:var(--muted);margin-top:.8rem"><strong>Not used (2).</strong> capterra.com — not accessible under our fetching rules (robots.txt). example.com/best-tools-2026 — we were unable to verify this source against our criteria: we could not confirm an author, a publication date, or cited sources.</p></section>' }
   ];
 
-  /* ---------- follow-up answers ---------- */
   var FU = [
-    { a: 'At 50 seats, Linear Basic is <strong>$400/month</strong> and Shortcut Team is <strong>$425/month</strong>, both billed per user ' + cite('S2') + cite('S7') +
-         '. Jira\'s free tier stops at 10 users ' + cite('S4') + ', so a 50-seat Jira deployment would need a paid tier whose price I could not confirm from their public pricing page.' },
-    { a: 'Two of the three publish a changelog. Linear shipped 6 entries in the last 90 days ' + cite('S1') + '; Jira posted 1 pricing announcement ' + cite('S4') + '. For Shortcut I found no public changelog at all — /changelog and /releases both returned 404, so I can\'t tell you whether they ship slowly or just don\'t publish it.' },
-    { a: 'That isn\'t covered by the sources I fetched for this report. I could run a new analysis focused on <strong>enterprise pricing and security posture</strong> — that would use one of your analyses.' }
+    'At 50 seats, Linear Basic is <strong>$400/month</strong> and Shortcut Team is <strong>$425/month</strong>, both billed per user ' + cite('S2') + cite('S7') + '. Jira\'s free tier stops at 10 users ' + cite('S4') + ', so a 50-seat Jira deployment needs a paid tier whose price I could not confirm from their public pricing page.',
+    'Two of the three publish a changelog. Linear shipped 6 entries in the last 90 days ' + cite('S1') + '; Jira posted 1 pricing announcement ' + cite('S4') + '. For Shortcut I found no public changelog at all — /changelog and /releases both returned 404, so I can\'t tell you whether they ship slowly or simply don\'t publish it.',
+    'That isn\'t covered by the sources I fetched for this report. I could run a new analysis focused on <strong>enterprise pricing and security posture</strong> — that would use one of your analyses.'
   ];
-  var fuIdx = 0;
+
+  var CHANNELS = {
+    welcome:{name:"welcome",open:false,posts:[["Ben","2d","Welcome. Read anything here without an account. Posting needs a free login, except in #general and the two access channels."]]},
+    general:{name:"general",open:true,posts:[["visitor","1h","Does this work for hardware products or only SaaS?"],["Ben","54m","Mostly SaaS today — the discovery step leans on software review taxonomies. Hardware works if the vendor publishes specs and pricing."]]},
+    trouble:{name:"troubleshooting",open:false,posts:[["mira","3h","My report says a page is 'being retrieved another way'. What does that mean?"],["Ben","2h","That page builds its content in the browser, so the first pass couldn't read it. It's queued — the report updates itself, usually within 15 minutes."]]},
+    signup:{name:"sign-up-issues",open:true,posts:[
+      ["visitor","22m","Never got the magic link. Checked spam."],
+      ["Ben","18m","Corporate mail scanners sometimes click links in transit, which burns the single-use token. Request another and it should land — I've also raised the TTL."],
+      ["visitor","9m","That worked, thanks.",true]]},
+    login:{name:"log-in-issues",open:true,posts:[["visitor","1h","Locked out — link says 'already used'."],["Ben","47m","Same cause as above. Requesting a fresh one works. You don't need an account to post here, which is rather the point."]]},
+    feedback:{name:"feedback",open:false,posts:[["dara","5h","The 'what we checked' list under a gap is the reason I trust this. Nothing else shows its misses."]]},
+    social:{name:"social",open:false,posts:[["ben","1d","Shipped the feature matrix today. Five cell states, because 'not found' and 'no' are different claims."]]}
+  };
+  var curChan = "signup";
 
   /* ---------- helpers ---------- */
-  function at(sec, fn) { timers.push(setTimeout(fn, (sec * 1000) / SPEED)); }
+  function at(sec, fn) { var h = setTimeout(fn, (sec*1000)/SPEED); timers.push(h); return h; }
   function clearAll() { timers.forEach(clearTimeout); timers = []; if (elapsedTimer) clearInterval(elapsedTimer); }
+  function fmt(ms) { var s = Math.floor(ms/1000); return Math.floor(s/60)+":"+String(s%60).padStart(2,"0"); }
 
-  function fmt(ms) {
-    var s = Math.floor(ms / 1000);
-    return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  function renderQuota() {
+    var t = TIERS[TIER];
+    var left = (TIER === "sub") ? t.analyses : quota;
+    $("quota").className = "quota" + (left === 0 ? " spent" : "");
+    $("quota").innerHTML = '<span class="tier-dot ' + t.dot + '"></span><span>' + t.label + '</span>·<strong>' +
+      left + '</strong><span>left / ' + t.window + '</span>';
+    $("hint").textContent = left + " analysis available · " + t.analyses + " per " + t.window;
+    $("fuMeta").textContent = (TIER === "sub" ? "Unlimited follow-ups" : fuLeft + " follow-ups left · resets in " + t.fuWin) +
+      " · answers use only the sources above";
+  }
+
+  function setTier(tier) {
+    TIER = tier; quota = TIERS[tier].analyses; fuLeft = (tier === "sub") ? 999 : TIERS[tier].fu;
+    var bs = document.querySelectorAll('[data-tier]');
+    for (var i=0;i<bs.length;i++) bs[i].setAttribute("aria-pressed", bs[i].getAttribute("data-tier")===tier ? "true":"false");
+    $("fuGo").disabled = false; $("fuInput").disabled = false;
+    $("fuInput").placeholder = "e.g. Which one is cheapest at 50 seats?";
+    renderQuota();
+  }
+
+  function show(v) {
+    ["composer","run","limit","notify","community","admin"].forEach(function (n) {
+      var el = $("v-" + n); if (el) el.classList.toggle("hidden", n !== v);
+    });
+    var ns = document.querySelectorAll("#nav button");
+    for (var i=0;i<ns.length;i++) {
+      var d = ns[i].getAttribute("data-v");
+      ns[i].setAttribute("aria-current", (d===v || (v==="run"&&d==="composer") || (v==="limit"&&d==="composer")) ? "true":"false");
+    }
+    window.scrollTo(0,0);
   }
 
   function setStage(name) {
-    var els = document.querySelectorAll(".stage");
-    var hit = false;
-    for (var i = 0; i < els.length; i++) {
+    var els = document.querySelectorAll(".stage"), hit = false;
+    for (var i=0;i<els.length;i++) {
       var s = els[i].getAttribute("data-s");
-      if (s === name) { els[i].className = "stage active"; hit = true; }
-      else if (!hit) { els[i].className = "stage done"; }
-      else { els[i].className = "stage"; }
+      if (s===name) { els[i].className="stage active"; hit=true; }
+      else if (!hit) els[i].className="stage done";
+      else els[i].className="stage";
     }
   }
   function finishStages() {
     var els = document.querySelectorAll(".stage");
-    for (var i = 0; i < els.length; i++) els[i].className = "stage done";
+    for (var i=0;i<els.length;i++) els[i].className="stage done";
   }
 
-  /* ---------- streaming text ---------- */
   function streamIn(el) {
     var ps = el.querySelectorAll("p");
-    for (var i = 0; i < ps.length; i++) {
-      (function (p, i) {
-        var full = p.innerHTML;
-        p.innerHTML = "";
-        p.style.minHeight = "1.6em";
-        var words = full.split(/(\s+)/);
-        var n = 0;
-        var iv = setInterval(function () {
-          n += 2;
-          p.innerHTML = words.slice(0, n).join("");
-          if (n >= words.length) { clearInterval(iv); p.innerHTML = full; bindCites(p); }
-        }, 55 / SPEED);
-        timers.push(iv);
-      })(ps[i], i);
-    }
+    for (var i=0;i<ps.length;i++) (function (p) {
+      var full = p.innerHTML; p.innerHTML=""; p.style.minHeight="1.6em";
+      var words = full.split(/(\s+)/), n=0;
+      var iv = setInterval(function () {
+        n += 2; p.innerHTML = words.slice(0,n).join("");
+        if (n>=words.length) { clearInterval(iv); p.innerHTML=full; p.style.minHeight=""; bindCites(p); }
+      }, 55/SPEED);
+      timers.push(iv);
+    })(ps[i]);
   }
 
-  /* ---------- citation popover ---------- */
   function bindCites(root) {
-    var cs = (root || document).querySelectorAll(".cite");
-    for (var i = 0; i < cs.length; i++) {
+    var cs = (root||document).querySelectorAll(".cite");
+    for (var i=0;i<cs.length;i++) {
       cs[i].onclick = showPop;
-      cs[i].onkeydown = function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showPop.call(this, e); } };
+      cs[i].onkeydown = function (e) { if (e.key==="Enter"||e.key===" ") { e.preventDefault(); showPop.call(this,e); } };
     }
   }
-
   function showPop(e) {
-    e.stopPropagation();
-    var id = this.getAttribute("data-src");
-    var d = SRC_DETAIL[id];
-    if (!d) return;
+    if (e && e.stopPropagation) e.stopPropagation();
+    var d = SRC_DETAIL[this.getAttribute("data-src")]; if (!d) return;
     var pop = $("pop");
-    pop.innerHTML =
-      '<dl>' +
-      '<dt>Ref</dt><dd>' + id + '</dd>' +
-      '<dt>Source</dt><dd>' + d.url + '</dd>' +
-      '<dt>Class</dt><dd>' + d.cls + '</dd>' +
-      '<dt>Fetched</dt><dd>' + d.fetched + '</dd>' +
-      '<dt>Hash</dt><dd>' + d.hash + '</dd>' +
-      '<dt>Group</dt><dd>' + d.group + '</dd>' +
-      '</dl>' +
-      '<div class="quote">“' + d.quote + '”</div>' +
-      '<div class="links"><a>Open at this quote →</a><a>View what we saw</a><a>Archive</a></div>';
+    pop.innerHTML = '<dl><dt>Source</dt><dd>' + d.url + '</dd><dt>Class</dt><dd>' + d.cls +
+      '</dd><dt>Fetched</dt><dd>' + d.fetched + '</dd><dt>Hash</dt><dd>' + d.hash +
+      '</dd><dt>Group</dt><dd>' + d.group + '</dd></dl><div class="quote">“' + d.quote +
+      '”</div><div class="links"><a>Open at this quote →</a><a>View what we saw</a><a>Archive</a></div>';
     pop.classList.add("open");
     var r = this.getBoundingClientRect();
-    var top = r.bottom + 8, left = Math.min(r.left, window.innerWidth - pop.offsetWidth - 16);
-    if (top + pop.offsetHeight > window.innerHeight - 12) top = r.top - pop.offsetHeight - 8;
-    pop.style.top = Math.max(12, top) + "px";
-    pop.style.left = Math.max(12, left) + "px";
+    var top = r.bottom+8, left = Math.min(r.left, window.innerWidth-pop.offsetWidth-16);
+    if (top+pop.offsetHeight > window.innerHeight-12) top = r.top-pop.offsetHeight-8;
+    pop.style.top = Math.max(12,top)+"px"; pop.style.left = Math.max(12,left)+"px";
   }
   document.addEventListener("click", function () { $("pop").classList.remove("open"); });
-  document.addEventListener("keydown", function (e) { if (e.key === "Escape") $("pop").classList.remove("open"); });
+  document.addEventListener("keydown", function (e) { if (e.key==="Escape") $("pop").classList.remove("open"); });
 
-  /* ---------- the run ---------- */
+  /* ---------- run ---------- */
   function run(subject) {
-    clearAll();
-    $("viewComposer").classList.add("hidden");
-    $("viewLimit").classList.add("hidden");
-    $("viewRun").classList.remove("hidden");
+    clearAll(); show("run");
     $("subject").textContent = subject;
-    $("srcLive").innerHTML = "";
-    $("report").innerHTML = "";
-    $("qaList").innerHTML = "";
-    $("metaBar").classList.add("hidden");
-    $("actions").classList.add("hidden");
-    $("followup").classList.add("hidden");
-    fuIdx = 0; fuLeft = 3;
-    $("fuMeta").textContent = "3 follow-ups left · resets in 2h · answers use only the sources above";
+    $("srcLive").innerHTML=""; $("report").innerHTML=""; $("qaList").innerHTML="";
+    $("metaBar").classList.add("hidden"); $("actions").classList.add("hidden"); $("followup").classList.add("hidden");
+    fuIdx = 0; fuLeft = (TIER==="sub") ? 999 : TIERS[TIER].fu;
+    $("fuGo").disabled=false; $("fuInput").disabled=false;
+    renderQuota();
 
     t0 = Date.now();
-    elapsedTimer = setInterval(function () {
-      $("elapsed").textContent = fmt((Date.now() - t0) * SPEED);
-    }, 100);
+    elapsedTimer = setInterval(function () { $("elapsed").textContent = fmt((Date.now()-t0)*SPEED); }, 100);
 
     setStage("resolving");
-    at(2.0, function () { setStage("fetching"); });
-
+    at(2, function () { setStage("fetching"); });
     SOURCES.forEach(function (s) {
       at(s.t, function () {
-        var d = document.createElement("div");
-        d.className = "src";
-        d.innerHTML = '<span class="dot' + (s.cls === "X" ? " flag" : "") + '"></span>' +
-                      s.host + ' <span style="color:var(--muted)">' + s.title + '</span>';
+        var d = document.createElement("div"); d.className="src";
+        d.innerHTML = '<span class="dot' + (s.cls==="X"?" flag":"") + '"></span>' + s.host +
+          ' <span style="color:var(--muted)">' + s.title + '</span>';
         $("srcLive").appendChild(d);
       });
     });
-
     at(12, function () { setStage("reading"); });
     at(30, function () { setStage("writing"); });
-    at(104, function () { setStage("verifying"); });
+    at(100, function () { setStage("verifying"); });
 
     SECTIONS.forEach(function (sec) {
       at(sec.t, function () {
-        var div = document.createElement("div");
-        div.innerHTML = sec.html;
-        var node = div.firstChild;
-        $("report").appendChild(node);
+        var div = document.createElement("div"); div.innerHTML = sec.html;
+        var node = div.firstChild; $("report").appendChild(node);
         if (sec.stream) streamIn(node); else bindCites(node);
       });
     });
 
-    at(118, function () {
-      finishStages();
-      clearInterval(elapsedTimer);
+    at(114, function () {
+      finishStages(); clearInterval(elapsedTimer);
       $("metaBar").classList.remove("hidden");
       $("actions").classList.remove("hidden");
       $("followup").classList.remove("hidden");
-      quota = 0;
-      $("quotaN").textContent = "0";
-      $("quota").classList.add("spent");
-      $("quota").innerHTML = '<span>anonymous</span>·<strong>0</strong><span>left · resets in 24h</span>';
+      if (TIER !== "sub") { quota = Math.max(0, quota-1); }
+      renderQuota();
     });
   }
 
-  /* ---------- follow-up ---------- */
-  function askFollowUp() {
-    var q = $("fuInput").value.trim();
-    if (!q || fuLeft <= 0) return;
-    $("fuInput").value = "";
-    fuLeft--;
-
-    var wrap = document.createElement("div");
-    wrap.className = "qa";
-    wrap.innerHTML = '<div class="q">' + q.replace(/</g, "&lt;") + '</div><div class="a" style="color:var(--muted);font-family:var(--mono);font-size:var(--step--1)">reading the sources…</div>';
+  function askFollowUp(text) {
+    var q = text || $("fuInput").value.trim();
+    if (!q || fuLeft<=0) return;
+    $("fuInput").value=""; if (TIER!=="sub") fuLeft--;
+    var wrap = document.createElement("div"); wrap.className="qa";
+    wrap.innerHTML = '<div class="q">' + q.replace(/</g,"&lt;") +
+      '</div><div class="a" style="color:var(--muted);font-family:var(--mono);font-size:var(--step--1)">reading the sources…</div>';
     $("qaList").appendChild(wrap);
-
-    var ans = FU[Math.min(fuIdx, FU.length - 1)];
-    fuIdx++;
-
+    var ans = FU[Math.min(fuIdx, FU.length-1)]; fuIdx++;
     timers.push(setTimeout(function () {
-      wrap.querySelector(".a").style.cssText = "";
-      wrap.querySelector(".a").className = "a";
-      wrap.querySelector(".a").innerHTML = ans.a +
-        (fuIdx === 3 ? '<div style="margin-top:.7rem;display:flex;gap:.5rem"><button class="btn" style="font-size:var(--step--1);padding:.35rem .8rem">Run it</button><button class="btn ghost" style="font-size:var(--step--1);padding:.35rem .8rem">No thanks</button></div>' : "");
-      bindCites(wrap);
-      $("fuMeta").textContent = fuLeft + " follow-up" + (fuLeft === 1 ? "" : "s") + " left · resets in 2h · answers use only the sources above";
-      if (fuLeft === 0) {
-        $("fuGo").disabled = true;
-        $("fuInput").disabled = true;
-        $("fuInput").placeholder = "Follow-up limit reached — resets in 2h";
+      var a = wrap.querySelector(".a"); a.style.cssText=""; a.className="a";
+      a.innerHTML = ans + (fuIdx===3 ? '<div style="margin-top:.7rem;display:flex;gap:.5rem"><button class="btn sm">Run it</button><button class="btn ghost sm">No thanks</button></div>' : "");
+      bindCites(wrap); renderQuota();
+      if (fuLeft<=0 && TIER!=="sub") {
+        $("fuGo").disabled=true; $("fuInput").disabled=true;
+        $("fuInput").placeholder="Follow-up limit reached — resets in " + TIERS[TIER].fuWin;
       }
-    }, 4200 / SPEED));
+      window.scrollTo(0, document.body.scrollHeight);
+    }, 4200/SPEED));
+  }
+
+  /* ---------- community ---------- */
+  function renderChan() {
+    var c = CHANNELS[curChan];
+    var bs = document.querySelectorAll("#chanList button");
+    for (var i=0;i<bs.length;i++) bs[i].setAttribute("aria-current", bs[i].getAttribute("data-c")===curChan?"true":"false");
+    $("chanPosts").innerHTML = c.posts.map(function (p) {
+      return '<div class="post"><div class="post-meta"><span class="who">' + p[0] + '</span><span>' + p[1] +
+        ' ago</span>' + (p[3] ? '<span class="edited">edited</span>' : '') + '</div><div style="margin-top:.3rem">' + p[2] + '</div></div>';
+    }).join("");
+    $("postInput").placeholder = "Post to #" + c.name + "…";
+    var canPost = c.open || TIER!=="anon";
+    $("postGo").disabled = !canPost; $("postInput").disabled = !canPost;
+    $("postMeta").textContent = c.open
+      ? (TIER==="anon" ? "Open to everyone · 2 posts per hour until you register · posts are editable"
+                       : "Open to everyone · posts are editable")
+      : (TIER==="anon" ? "Reading is open to everyone. Posting here needs a free account."
+                       : "Posts are editable, Slack-style, with an 'edited' marker.");
+  }
+
+  /* ---------- demo ---------- */
+  var DEMO = [
+    { t:0,   c:"A first-time visitor arrives. No account, no signup wall, nothing to read first.", a:function(){ setTier("anon"); show("composer"); } },
+    { t:3.5, c:"One box. Three examples. That is the entire learning curve.", a:function(){} },
+    { t:7,   c:"They pick an example — and the analysis begins.", a:function(){ $("prompt").value="Linear vs Jira vs Shortcut"; run("Linear vs Jira vs Shortcut"); } },
+    { t:10,  c:"Sources appear as they are fetched. The wait shows work happening, not a spinner.", a:function(){} },
+    { t:14,  c:"The last one is greyed out — Capterra blocks automated access, so we say so rather than pretending we read it.", a:function(){} },
+    { t:17.5,c:"Pricing lands first, because it is parsed from the page by code — never generated. It cannot be off by a digit.", a:function(){ var e=$("sec-pricing"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:22,  c:"A third-party price we could not confirm is shown separately — never in the table, never in the chart.", a:function(){} },
+    { t:26,  c:"Then the written sections stream in, word by word.", a:function(){ var e=$("sec-pos"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:30,  c:"The feature matrix has five states. A question mark means we looked and found nothing — which is a different claim from 'no'.", a:function(){ var e=$("sec-matrix"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:34,  c:"Where a competitor publishes no changelog, the report says exactly that — and lists every page it checked.", a:function(){ var e=$("sec-changes"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:38,  c:"Every claim carries its source. One click shows the URL, the timestamp, the content hash, and the quoted line.", a:function(){ var e=$("sec-swot"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"});
+              setTimeout(function(){ var c=document.querySelector("#sec-swot .cite"); if(c) showPop.call(c,null); }, 900); } },
+    { t:43,  c:"Now the follow-up conversation — fast, because the sources are already read.", a:function(){ $("pop").classList.remove("open"); $("followup").scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:46,  c:"", a:function(){ askFollowUp("Which is cheapest at 50 seats?"); } },
+    { t:51,  c:"Ask something the sources don't cover, and it says so rather than inventing an answer.", a:function(){ askFollowUp("What is their enterprise security posture?"); } },
+    { t:57,  c:"Anonymous users get one analysis a day — but the report itself is never degraded. Full sections, full PDF, no watermark.", a:function(){ show("limit"); } },
+    { t:62,  c:"A free account raises it to one an hour, with ten follow-ups.", a:function(){ setTier("reg"); show("composer"); } },
+    { t:66,  c:"A dollar a month gives five an hour and unlimited follow-ups. The report is identical at every tier — only frequency changes.", a:function(){ setTier("sub"); } },
+    { t:71,  c:"When a watched page changes, an email arrives. The subject line states the change, not the notification.", a:function(){ show("notify"); } },
+    { t:76,  c:"And the diff is the receipt behind the summary — both versions kept, both dated.", a:function(){ $("diffBlock").classList.remove("hidden"); setTimeout(function(){$("diffBlock").scrollIntoView({behavior:"smooth",block:"center"});},250); } },
+    { t:81,  c:"Seven community channels, all publicly readable. Sign-up and log-in issues accept posts from anyone — because someone locked out cannot log in to report it.", a:function(){ show("community"); curChan="signup"; renderChan(); } },
+    { t:87,  c:"Posts stay editable after publishing, with an 'edited' marker.", a:function(){ curChan="login"; renderChan(); } },
+    { t:91,  c:"And the operator's view: usage, capacity, quality — with every rate limit editable at runtime.", a:function(){ show("admin"); } },
+    { t:96,  c:"Change a number, and it takes effect immediately. The right values are unknowable before real traffic.", a:function(){ var i=$("limA"); i.value="2"; i.classList.add("flash");
+              $("adminSaved").textContent="Saved — anonymous analyses now 2 per 24h. Logged 2026-08-01 09:31 UTC."; } },
+    { t:101, c:"Verified sources. Honest gaps. One box to learn. That is the whole product.", a:function(){ show("composer"); setTier("anon"); } }
+  ];
+
+  function playDemo() {
+    if (demoRunning) return;
+    demoRunning = true;
+    demoTimers.forEach(clearTimeout); demoTimers = [];
+    clearAll();
+    $("capBar").classList.add("on");
+    $("banner").textContent = "PROTOTYPE DEMO — simulated data and timings. Every flow shown is specified in docs/UI_FLOWS.md.";
+    var total = DEMO[DEMO.length-1].t + 6;
+    DEMO.forEach(function (step, i) {
+      demoTimers.push(setTimeout(function () {
+        if (step.c) { $("capText").textContent = step.c; $("capStep").textContent = String(i+1).padStart(2,"0")+" / "+DEMO.length; }
+        $("capProg").style.width = ((step.t/total)*100)+"%";
+        try { step.a(); } catch (err) {}
+      }, step.t*1000));
+    });
+    demoTimers.push(setTimeout(function () {
+      $("capText").textContent = "Prototype — throwaway code, faked data. Built to test the wait before writing the real thing.";
+      $("capStep").textContent = "end";
+      $("capProg").style.width = "100%";
+      demoRunning = false;
+    }, total*1000));
   }
 
   /* ---------- wiring ---------- */
   $("go").onclick = function () {
     var v = $("prompt").value.trim() || "Linear vs Jira vs Shortcut";
-    if (quota <= 0) { $("viewComposer").classList.add("hidden"); $("viewLimit").classList.remove("hidden"); return; }
+    if (quota<=0 && TIER!=="sub") { show("limit"); return; }
     run(v);
   };
-  $("prompt").onkeydown = function (e) {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) $("go").click();
-  };
+  $("prompt").onkeydown = function (e) { if (e.key==="Enter"&&(e.metaKey||e.ctrlKey)) $("go").click(); };
   var chips = document.querySelectorAll(".chip");
-  for (var i = 0; i < chips.length; i++) {
-    chips[i].onclick = function () { $("prompt").value = this.getAttribute("data-ex"); $("go").click(); };
-  }
-  $("fuGo").onclick = askFollowUp;
-  $("fuInput").onkeydown = function (e) { if (e.key === "Enter") askFollowUp(); };
-
-  $("restart").onclick = function () {
-    clearAll();
-    $("viewRun").classList.add("hidden");
-    $("viewLimit").classList.add("hidden");
-    $("viewComposer").classList.remove("hidden");
-    quota = 1;
-    $("quota").className = "quota";
-    $("quota").innerHTML = '<span>anonymous</span>·<strong id="quotaN">1</strong><span>analysis left today</span>';
-    $("prompt").value = "";
-  };
-  $("backToReport").onclick = function () {
-    $("viewLimit").classList.add("hidden");
-    $("viewRun").classList.remove("hidden");
-  };
-  $("signup").onclick = function () { alert("Prototype — this is where the magic-link form appears.\n\nEmail only. No password."); };
+  for (var i=0;i<chips.length;i++) chips[i].onclick = function () { $("prompt").value=this.getAttribute("data-ex"); $("go").click(); };
+  $("fuGo").onclick = function () { askFollowUp(); };
+  $("fuInput").onkeydown = function (e) { if (e.key==="Enter") askFollowUp(); };
+  $("restart").onclick = function () { clearAll(); setTier(TIER); show("composer"); $("prompt").value=""; };
+  $("backToReport").onclick = function () { show("run"); };
+  $("signup").onclick = function () { setTier("reg"); show("composer"); };
+  $("seeDiff").onclick = function () { $("diffBlock").classList.remove("hidden"); };
   $("pdf").onclick = function () { alert("Prototype — the one-page executive PDF downloads here.\n\nPrimary sources only. No watermark, no truncation, identical for anonymous users."); };
-  $("watch").onclick = function () { alert("Prototype — the watch sheet opens here.\n\nPricing page and changelog pre-selected. Needs an email address, because an alert requires somewhere to send it."); };
+  $("watch").onclick = function () { alert("Prototype — the watch sheet opens here.\n\nPricing page and changelog pre-selected."); };
   $("share").onclick = function () { alert("Prototype — a public read-only link is created here."); };
+  $("postGo").onclick = function () {
+    var v = $("postInput").value.trim(); if (!v) return;
+    CHANNELS[curChan].posts.push(["you","just now",v.replace(/</g,"&lt;")]);
+    $("postInput").value=""; renderChan();
+  };
 
-  function setSpeed(v) {
-    SPEED = v;
-    $("sp8").setAttribute("aria-pressed", v === 8 ? "true" : "false");
-    $("sp1").setAttribute("aria-pressed", v === 1 ? "true" : "false");
-  }
-  $("sp8").onclick = function () { setSpeed(8); };
-  $("sp1").onclick = function () { setSpeed(1); };
+  var tb = document.querySelectorAll("[data-tier]");
+  for (var j=0;j<tb.length;j++) tb[j].onclick = function () { setTier(this.getAttribute("data-tier")); };
+  var nb = document.querySelectorAll("#nav button");
+  for (var k=0;k<nb.length;k++) nb[k].onclick = function () { show(this.getAttribute("data-v")); if (this.getAttribute("data-v")==="community") renderChan(); };
+  var cl = document.querySelectorAll("#chanList button");
+  for (var m=0;m<cl.length;m++) cl[m].onclick = function () { curChan=this.getAttribute("data-c"); renderChan(); };
 
+  $("sp8").onclick = function () { SPEED=8; this.setAttribute("aria-pressed","true"); $("sp1").setAttribute("aria-pressed","false"); };
+  $("sp1").onclick = function () { SPEED=1; this.setAttribute("aria-pressed","true"); $("sp8").setAttribute("aria-pressed","false"); };
+  $("playDemo").onclick = playDemo;
+
+  window.__playDemo = playDemo;
+
+  setTier("anon"); renderChan(); show("composer");
 })();
 </script>
