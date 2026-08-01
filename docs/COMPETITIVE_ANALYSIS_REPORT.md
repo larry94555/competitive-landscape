@@ -74,11 +74,15 @@ empty cell as ✗, which silently manufactures a claim. Landscape uses five cell
 That last state exists because vendor comparison pages are systematically unreliable and are a
 major source of error in automated competitive tooling.
 
-Every populated cell also carries its **source class** — P (primary), S1 (established
-secondary) or S2 (unknown reputation), per [FACT_CHECKING.md](FACT_CHECKING.md) §3.2.1.
-Primary-sourced cells render normally; secondary-sourced cells carry a visible marker; class X
-sources never populate a cell at all. The same rule governs charts: a secondary-sourced series
-is drawn dashed or hatched and keyed as such, and the executive one-pager is primary-only.
+Every populated cell also carries its **source class** — P (primary), A (attributed) or U
+(unattributed), per [FACT_CHECKING.md](FACT_CHECKING.md) §3.2.1. Primary-sourced cells render
+normally; attributed-source cells carry a visible marker; sources we did not use never populate
+a cell at all. The same rule governs charts: an attributed-source series is drawn dashed or
+hatched and keyed as such, and the executive one-pager is primary-only.
+
+The wording of every source annotation follows the language rules in
+[FACT_CHECKING.md](FACT_CHECKING.md) §3.2.5: annotations describe what **we** were able to
+confirm, never what a publisher is or lacks.
 
 ---
 
@@ -356,8 +360,8 @@ Charts persuade faster than prose, which makes them a faster route to misleading
 These are review-blocking:
 
 1. **Bars start at zero.** Always.
-2. **Source class is visible on every plotted series** — primary solid, established secondary
-   dashed, unknown-reputation data never plotted ([FACT_CHECKING.md](FACT_CHECKING.md) §3.2.4).
+2. **Source class is visible on every plotted series** — primary solid, attributed dashed,
+   unattributed never plotted ([FACT_CHECKING.md](FACT_CHECKING.md) §3.2.4).
 3. **Sample size is printed** wherever a chart aggregates counts or ratings.
 4. **Missing data is drawn as missing** — a labelled gap, never zero, never interpolated.
 5. **Interpreted charts look interpreted** — same visual treatment as the SWOT section, with

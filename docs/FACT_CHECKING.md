@@ -121,73 +121,90 @@ trustworthiness depends on what you are asking it.** So every source carries two
 
 ### 3.2.1 The four source classes
 
-Reputation is not a single tier number. Every source is placed in one of four classes by
-**objective, checkable criteria** — never by a model's opinion of a publisher.
+Every source is placed in one of four classes by **objective, checkable signals** — never by a
+model's opinion of a publisher, and never as a judgement about the publisher at all.
 
-| Class | Meaning | Use |
+**The framing rule that governs this entire section:** a class records *what we were able to
+confirm*, not what a site is or lacks. The subject of every sentence is us. We do not say a
+page is unreliable, incomplete, or wrong. We say what we confirmed, what we could not confirm,
+and where we found information we could not reconcile. See §3.2.5 for the exact language.
+
+| Class | What it records | Use |
 |---|---|---|
 | **P — Primary** | The subject's own properties, or a regulator's | Sets authoritative values |
-| **S1 — Established secondary** | Independent publisher meeting the criteria below | Included by default, marked, with the criteria shown |
-| **S2 — Unknown reputation** | Neither clearly established nor clearly deficient | Included only on the permissive setting, marked "reputation not established" |
-| **X — Excluded** | Fails a hard signal | Never in the report body; **its existence is always disclosed** |
+| **A — Attributed** | We confirmed authorship, dating, publisher identity and sourcing | Included by default, marked, with the confirmed signals shown |
+| **U — Unattributed** | We could not confirm enough of those signals to attribute it | Included only on the permissive setting, marked |
+| **N — Not used** | We could not verify it against our criteria, or it carries information we could not reconcile with a primary source | Not in the report body; **its existence is always disclosed** |
 
 **Primary (P):** the subject's own domain and documented properties — site, docs, changelog,
 status page, official blog, public ATS board, GitHub org, verified app-store listing — plus
 regulatory filings (SEC/EDGAR and equivalents).
 
-**Established secondary (S1)** must meet **at least four** of these, and the report shows
-*which* — the justification is the checklist, not an assertion:
+**Attributed (A)** — we confirmed **at least four** of the following, and the report shows
+*which*. This is a list of things we found, not a list of things a page owes anyone:
 
-- Named author with a byline
-- Publication date present, and update history where revised
-- Published masthead, ownership, or editorial policy
-- Published corrections policy
-- Cites and links its own sources
-- Identifiable publisher (legal entity and contact)
-- Domain with a multi-year publishing history on the topic
-- Not a syndication copy of another source (§6)
+- An identified author
+- A publication date, and revision dates where shown
+- Published ownership, masthead, or editorial policy
+- A published corrections policy
+- Sources cited and linked
+- An identifiable publisher with contact details
+- A multi-year publishing history on the topic
+- Independently written rather than syndicated (§6)
 
-**Unknown reputation (S2):** meets some criteria but not four, and trips no hard signal. A
-dated, source-citing post on a personal blog with no masthead lands here. It is *usable* and
-*labelled*, not condemned.
+**Unattributed (U):** we confirmed some of the above but fewer than four, and found nothing we
+could not reconcile. A dated, source-citing post on a personal blog sits here. It is **usable
+and labelled** — the class says we could not attribute it, which is a statement about our
+confirmation, not about its accuracy.
 
-**Excluded (X)** — any one of these hard signals:
+**Not used (N)** — one of exactly two situations, and the report says which:
 
-- **Contradicts a primary source on a checkable fact.** The strongest and most objective
-  disqualifier: if a page states a price that the vendor's current pricing page contradicts,
-  that page is demonstrably wrong about this subject.
-- The AI-slop profile: no author **and** no date **and** no outbound citations, with listicle
-  structure and unattributed superlatives.
-- Domain on the maintained content-farm denylist.
-- Pure syndication with no added reporting (collapsed into its origin instead).
-- Affiliate-ranking pattern: "best X" ordering that tracks affiliate links rather than any
-  stated methodology.
-- Extraction quality below threshold — a JS shell, a nav-only page, a near-empty page.
+1. **"We were unable to verify this source against our criteria."** Applies when we could not
+   confirm authorship, dating, publisher identity or sourcing; when a page appears to be a
+   syndicated copy (we cite the origin instead); when a ranking order could not be tied to a
+   stated methodology; when a domain is one where we have not previously been able to confirm
+   attribution; or when our extraction of the page did not produce usable text.
+2. **"This source carries information we could not reconcile with a primary source."** Applies
+   when a value on the page differs from the subject's own current published value. **We do
+   not claim the source is wrong.** Both values are shown with their dates and links, and the
+   reader decides:
 
-### 3.2.2 Excluded sources are disclosed, never silently dropped
+   > This page states $6.00/user/month (page undated). Shortcut's own pricing page states
+   > $8.50/user/month as of 2026-07-31. We were unable to reconcile these, so we did not use
+   > this figure. [Both sources]
+
+   A primary source must be **more recently fetched** than the secondary one for this to apply
+   — otherwise a legitimately recent price change would look like an error on the other page.
+   Regional and currency variance (P18) is checked before this rule fires.
+
+### 3.2.2 What we did not use is disclosed, never silently dropped
 
 Every report states what it found and did not use. Collapsed by default:
 
-> **3 sources found and not included.** [Show what and why]
+> **3 sources found and not used.** [Show what we found]
 
 Expanded:
 
-> `example-listicle.com/best-project-tools-2026` — mentions Shortcut pricing
-> Not included: no named author · no publication date · cites no sources ·
-> states $6/user/mo, which the vendor's current pricing page contradicts
-> [Show what we found anyway]
+> `example.com/best-project-tools-2026` — mentions Shortcut pricing
+> **Not used:** we were unable to verify this source against our criteria — we could not
+> confirm an author, a publication date, or cited sources. It also states $6.00/user/month,
+> which we were unable to reconcile with Shortcut's own current pricing page ($8.50, fetched
+> 2026-07-31).
+> [Show what we found] · [What are our criteria?](/methodology)
 
-**Two rules protect this from becoming a liability of its own:**
+**Three rules keep this from becoming a liability of its own:**
 
-1. **We publish evidence, not verdicts.** The report never says a publisher *is
-   untrustworthy* — that is a reputational claim about a third party and is not ours to make.
-   It says what was and was not present on the page: no byline, no date, no citations, a
-   figure the vendor contradicts. The reader draws the conclusion. This is both more useful
-   and the only defensible position (P23).
-2. **"Show what we found anyway" is quarantined.** Excluded content opens in a clearly marked
-   panel: never in the report body, never in the PDF, never in a chart or matrix cell, never
-   in a shared or public report, and never indexable. It is visible to the person who ran the
-   analysis, because they asked — not published to the world on our authority.
+1. **We describe our own confirmation, never the publisher.** The report never states that a
+   site is unreliable, low-quality, or wrong. Those are reputational claims about a third
+   party and are not ours to make. Every sentence is about what *we* could and could not
+   confirm (P23).
+2. **Both figures, both dates, both links.** Where values differ we show them side by side
+   rather than adjudicating. A reader who follows both links may reasonably conclude we were
+   the ones who got it wrong — that possibility has to remain visible.
+3. **"Show what we found" is quarantined.** It opens in a clearly marked panel: never in the
+   report body, never in the PDF, never in a chart or matrix cell, never in a shared or public
+   report, and never indexable. It is visible to the person who ran the analysis, because they
+   asked — not published to the world on our authority.
 
 ### 3.2.3 The strictness setting — the reader chooses
 
@@ -196,29 +213,29 @@ One setting, three values, per account with a per-analysis override:
 | Setting | Includes | For |
 |---|---|---|
 | **Primary sources only** | P | Due diligence; anything going into a decision or a document |
-| **Primary + established secondary** ← *default* | P, S1 | Everyday use |
-| **Include unestablished sources** | P, S1, S2 | Thin-footprint subjects where little is published |
+| **Primary + attributed** ← *default* | P, A | Everyday use |
+| **Include unattributed sources** | P, A, U | Thin-footprint subjects where little is published |
 
-Class **X is excluded at every setting.** That is what "automatically ignore" means; the
-setting governs S2, not the hard signals.
+Class **N is not used at any setting.** That is what "automatically ignore" means; the setting
+governs U, not the two not-used situations.
 
 The setting is **recorded on the analysis and printed on the report and the PDF** — *"Sources:
-primary + established secondary"* — so a shared report is reproducible and a reader knows
-which lens produced it. Evidence strength (§3.5) recomputes per setting, so a permissive
-report does not inherit a strictness it did not earn.
+primary + attributed"* — so a shared report is reproducible and a reader knows which lens
+produced it. Evidence strength (§3.5) recomputes per setting, so a permissive report does not
+inherit a strictness it did not earn.
 
 Frictionless posture, consistent with BYOK: **nobody is asked about this to get a report.**
 The default is sensible, the control lives in `/account`, and it surfaces contextually only
-when a section is empty under the current setting — *"2 unestablished sources mention pricing.
+when a section is empty under the current setting — *"2 unattributed sources mention pricing.
 Include them?"*
 
 ### 3.2.4 Where each class may appear
 
-| Surface | P | S1 | S2 | X |
+| Surface | P | A | U | N |
 |---|:-:|:-:|:-:|:-:|
 | Pricing table values, feature matrix cells | ✓ | marked "secondary" | ✗ | ✗ |
 | Charts (cost-at-scale, velocity, ratings) | ✓ | dashed/hatched, keyed | ✗ | ✗ |
-| Report body claims | ✓ | ✓ marked | ✓ marked "reputation not established" | ✗ |
+| Report body claims | ✓ | ✓ marked | ✓ marked "attribution not confirmed" | ✗ |
 | One-page executive PDF | ✓ | ✗ | ✗ | ✗ |
 | Corroboration counting (§6) | ✓ | ✓ | ✗ | ✗ |
 | Shared / public report pages | ✓ | ✓ | ✓ marked | ✗ |
@@ -226,6 +243,42 @@ Include them?"*
 The executive one-pager is primary-only by design. It is the artifact that gets forwarded,
 screenshotted, and pasted into decks, and it should carry only what the vendor itself
 publishes.
+
+### 3.2.5 How we describe sources — the language rules
+
+These are **review-blocking** ([CODING_QUALITY.md](CODING_QUALITY.md) §10.3) and apply to every
+surface: report body, exclusion notices, hover cards, PDF endnotes, emails, and the KB.
+
+**The rule in one line: the subject of the sentence is us, not them.** We report the limits of
+our own verification. We never characterise a publisher.
+
+| Never write | Write instead |
+|---|---|
+| "This site is not reputable" | "We were unable to verify this source against our criteria" |
+| "The page lacks an author and a date" | "We could not confirm an author or a publication date" |
+| "Low-quality source" / "content farm" | "We could not confirm attribution for this source" |
+| "This source is wrong / outdated / false" | "We were unable to reconcile this with the vendor's own current page" |
+| "Fails our criteria" | "We were unable to confirm the signals we look for" |
+| "Excluded" / "rejected" / "blocked" | "Not used in this report" |
+| "Untrustworthy claim" | "A claim we could not corroborate independently" |
+| "X is more expensive than Y" | "X's published price is $10; Y's is $8, as of 2026-07-31" |
+
+Four supporting rules:
+
+- **State what was confirmed, not what was absent.** An attributed source lists the signals we
+  found. Prefer that framing even when the list is short.
+- **Both sides of a discrepancy, always.** Never assert which figure is right. Show both, with
+  dates and links, and say we could not reconcile them.
+- **No adjectives about publishers.** No "reputable-looking", "questionable", "sketchy",
+  "dubious". The class name and the confirmed-signal list carry the meaning.
+- **Leave room for us to be wrong.** Wording must never imply our verification is
+  authoritative. "We were unable to" is accurate and honest; "this is unverifiable" is neither.
+
+**Field and class names follow the same rule**, because internal vocabulary leaks into
+interfaces: `attribution_signals_confirmed`, `not_used_reason`, `sources_not_used` — not
+`criteria_failed`, `excluded`, or `blocklist`. The domain memo of hosts where attribution
+could not previously be confirmed is a **cache of our own past determinations**, not a
+judgement list, and is named and treated as such.
 
 ### 3.3 The gathering pipeline (P1, P2)
 
@@ -322,7 +375,7 @@ L3  Claim grounding       — quote exists verbatim in extracted text
 L4  Type validation       — prices, dates, versions re-checked
 L5  Presentation honesty  — confidence, tier, timestamps, gaps shown
 L6  Independence          — corroboration counted by group, not URL
-L7  Adversarial weighting — interested parties, gamed platforms, slop
+L7  Interested-party weighting — vendors on rivals, platforms we cannot treat as samples
 L8  Temporal validity     — is this fact still in date for its type?
 L9  Reader auditability   — can someone check it without trusting us?
 ```
@@ -331,14 +384,17 @@ L9  Reader auditability   — can someone check it without trusting us?
 
 A page must earn the right to be cited. Rejected before extraction:
 
-- **Classified X** by the hard signals in §3.2.1 — contradicts a primary source on a checkable
-  fact, AI-slop profile, content-farm domain, pure syndication, affiliate-ranking pattern, or
-  failing extraction quality.
-- **AI-slop signals**: no named author *and* no publication date *and* no outbound citations,
-  combined with listicle structure and superlatives without attribution. Scored, not
-  binary — a high score demotes to tier-3 and bars it from pricing/feature claims entirely.
-- **Known content-farm domains** (a maintained denylist, seeded and grown from the daily
-  review queue).
+- **Classified N — not used** (§3.2.1): we could not confirm attribution signals, the page
+  appears to be a syndicated copy, a ranking order could not be tied to a stated methodology,
+  the host is one where we have not previously confirmed attribution, our extraction did not
+  produce usable text, or the page carries a value we could not reconcile with a primary
+  source.
+- **Attribution signals we could not confirm**: no identified author *and* no publication date
+  *and* no cited sources, with listicle structure and unattributed superlatives. Scored, not
+  binary — a low confirmation score places the source in U or N and keeps it away from
+  authoritative values.
+- **Hosts where we have not previously been able to confirm attribution** — a cache of our own
+  past determinations, grown from the daily review queue, not a judgement about those hosts.
 - **Extraction quality below threshold** — nav-heavy, near-empty, or JS-shell pages.
 - **Syndication detection**: byline-free copy of a press release is collapsed into the
   originating release (§6).
@@ -409,16 +465,16 @@ A claim supported by five articles that are one press release is reported as **o
 and the report says so: *"5 sources, 1 independent group (company announcement)."* This is
 the difference between corroboration and echo.
 
-### L7 — Adversarial weighting (P8, P11, P12)
+### L7 — Interested-party weighting (P8, P11, P12)
 
 | Adversarial pattern | Handling |
 |---|---|
-| Vendor comparison page about a rival | Tier-3; rendered as *"per <vendor>'s own comparison page"*; **never** counts toward corroboration; never sources a pricing or feature cell |
+| Vendor comparison page about a rival | Rendered as *"per <vendor>'s own comparison page"*; **never** counts toward corroboration; never sources a pricing or feature cell |
 | Marketing superlatives ("the only", "the fastest") | Permitted **only** as attributed self-description; the modifier is stripped otherwise |
 | Review platforms | Rating always shown **with review count and platform**; recency distribution noted; incentivised-review disclosure surfaced where the platform publishes one; no synthesised composite score, ever |
-| Astroturf signals | Rating-distribution anomalies and burst timing lower the platform's weight for that subject and are noted in the volume caveat |
+| Rating patterns we cannot treat as a representative sample | Distribution shape and submission timing that we cannot treat as representative lower that platform's weight for the subject, and the volume caveat says so — we do not assert that reviews were manipulated |
 | Press releases | Labelled `company_announcement`, not `news`; one independence group |
-| SEO/AI listicles | L0 demotion or exclusion; barred from primary fact types |
+| Pages where attribution could not be confirmed | Classified U or N per §3.2.1; never set authoritative values |
 
 ### L8 — Temporal validity (P13)
 
@@ -589,15 +645,15 @@ Publishing wrong claims about real companies is a liability, not just a defect.
 | **P4** | Sufficiency | §3.5 per-section coverage thresholds; evidence strength computed from independent groups, tiers and recency; thin reports shipped and marked |
 | **P5** | Fact-checking | §4 nine-level pipeline; deterministic Rust, not model self-review |
 | **P6** | Hallucination | L3 quote-must-exist + L4 type validation; unmatched claims **deleted**; grammar makes citations structurally mandatory |
-| **P7** | Misinformation | §3.2.1 four-class model; primary sources set authoritative values; contradicting a primary source is a hard exclusion signal; L8 shelf lives; L2 extraction round-trip |
-| **P8** | Disinformation | §2 attribution framing; L7 adversarial weighting; comparison pages barred from fact cells; astroturf signals lower platform weight |
-| **P9** | Independent confirmation | §5 — full footnotes, text-fragment deep links, stored snapshots, content hashes, Internet Archive captures, PDF endnotes; plus §3.2.2 disclosure of what was found and excluded, with the criteria failed |
+| **P7** | Misinformation | §3.2.1 four-class model; primary sources set authoritative values; a value we cannot reconcile with a primary source is not used, with both figures shown; L8 shelf lives; L2 extraction round-trip |
+| **P8** | Disinformation | §2 attribution framing; L7 interested-party weighting; comparison pages never set fact cells; rating patterns we cannot treat as representative lower that platform's weight, stated as our limitation |
+| **P9** | Independent confirmation | §5 — full footnotes, text-fragment deep links, stored snapshots, content hashes, Internet Archive captures, PDF endnotes; plus §3.2.2 disclosure of what was found and not used, in our own terms |
 | **P10** | Vendor bias about itself | §3.2 two-axis trust: authoritative for *claims*, weak for *truth*; attribution framing throughout |
-| **P11** | Comparison pages | Tier-3, labelled as the rival's own claim, excluded from corroboration and from fact cells |
+| **P11** | Comparison pages | Labelled as the rival's own claim; not counted toward corroboration; never set a fact cell |
 | **P12** | Gamed reviews | Ratings always with counts and platform; no composite score; distribution anomalies noted; themes preferred over stars |
 | **P13** | Staleness | L8 per-type shelf lives; `as_of` on every claim; read-time re-check; "last checked N days ago" |
 | **P14** | Circularity | L6 independence groups via SimHash, shared-span detection, timing clusters, publisher map; report states group count |
-| **P15** | AI slop | Class **X** hard signals (no author + no date + no citations + listicle structure), content-farm denylist, and exclusion from every authoritative surface; existence disclosed with the criteria failed, content quarantined
+| **P15** | AI slop | Class **N** — attribution signals we could not confirm, hosts where attribution was not confirmed previously, and no access to any authoritative surface; existence disclosed in our own terms (§3.2.5), content quarantined |
 | **P16** | Entity ambiguity | §3.1 resolution before fetching; disambiguation gate asks the user; rebrand/acquisition noted in header; Wikipedia for disambiguation only |
 | **P17** | Extraction ≠ truth | L2 deterministic parsing, number round-trip against raw bytes, structural sanity, quality gating, golden fixtures — **and the limitation stated openly in §7** |
 | **P18** | Region/currency | Request region recorded and displayed; currency and tax treatment captured verbatim; stated as a limit |
@@ -620,7 +676,7 @@ ARM cores ([ARCHITECTURE.md](ARCHITECTURE.md) §4.4):
 | SimHash independence grouping | Microseconds |
 | Shelf-life and coverage computation | Trivial |
 | Structured probes | HTTP only; no model involvement |
-| L0 slop scoring | Heuristics over structure and metadata; **no model call** |
+| Attribution-signal scoring | Heuristics over structure and metadata; **no model call** |
 | Entity disambiguation | One 1.7B router call (~50 tokens) |
 | Competitive-set ranking | Deterministic co-occurrence counting; **no model call** |
 
@@ -635,8 +691,8 @@ product's central quality mechanism is also one of its cheapest.
 
 - **Phase 1** — entity resolution with the disambiguation gate; structured probes; templated
   search; L1 provenance; per-section coverage thresholds.
-- **Phase 2** — the four-class source model (§3.2.1) with the exclusion disclosure and
-  quarantine view; L2 extraction round-trip; full footnote UI with snapshots, hashes and
+- **Phase 2** — the four-class source model (§3.2.1) with the not-used disclosure, the language
+  rules (§3.2.5) and the quarantine view; L2 extraction round-trip; full footnote UI with snapshots, hashes and
   text-fragment deep links; auditable negatives; `/methodology`.
 - **Phase 3** — the strictness setting (§3.2.3) in `/account`, recorded on each analysis and
   printed on the report; needs accounts, so it lands with them.
@@ -644,7 +700,7 @@ product's central quality mechanism is also one of its cheapest.
   scores; corrections channel and SLA.
 - **Phase 5** — L8 read-time staleness re-checks (reuses the watch infrastructure);
   Internet Archive submission.
-- **Phase 7** — L7 astroturf-signal detection; publisher-ownership map; per-competitor
-  coverage-asymmetry reporting.
-- **Ongoing** — content-farm denylist and golden-set regression cases grow from the daily
+- **Phase 7** — rating-pattern representativeness checks; publisher-ownership map;
+  per-competitor coverage-asymmetry reporting.
+- **Ongoing** — the attribution cache and the golden-set regression cases grow from the daily
   review queue and from every confirmed correction.

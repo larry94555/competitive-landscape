@@ -719,6 +719,13 @@ Every PR. A reviewer who cannot answer yes to all of these does not approve.
 - [ ] **I watched the demo, and the experience matches the intent** — not merely "a demo
       exists." The walkthrough script describes the code that is actually here (§9.5).
 
+**Language about third parties** (blocking, wherever the change produces user-visible text)
+- [ ] No sentence characterises a publisher, a source, or a company. Every statement is about
+      what **we** confirmed or could not confirm ([FACT_CHECKING.md](FACT_CHECKING.md) §3.2.5).
+- [ ] Where two values differ, both are shown with dates and links, and neither is adjudicated.
+- [ ] Field names, enum variants and log messages follow the same rule — internal vocabulary
+      leaks into interfaces.
+
 **Security** (blocking; escalate to hot-zone review if any is unclear)
 - [ ] No secret can reach a log, an error body, or a response.
 - [ ] User-supplied URLs go through the SSRF guard, including redirects.

@@ -285,7 +285,7 @@ plans(key, analyses_per_month, watches, watch_interval_minutes, price_cents)
 usage_counters(subject_id, subject_kind /*user|ip*/, period, analyses_used, updated_at)
 
 analyses(id, user_id NULL, anon_key_hash NULL, input_text, resolved_subject jsonb,
-         status, model_id, prompt_version, strictness_setting /*primary|primary_s1|all*/,
+         status, model_id, prompt_version, strictness_setting /*primary|primary_attributed|all*/,
          inference_provider /*local|openai_compatible|anthropic*/,
          byok_key_id NULL, fell_back_to_local bool, structured_output_mode,
          started_at, finished_at,
@@ -294,11 +294,12 @@ analysis_sections(analysis_id, key, payload jsonb, tokens_out, verify_status)
 sources(id, url, canonical_url, host, first_seen_at, publisher_group)
 analysis_sources(analysis_id, source_id, label /*S1..Sn*/, fetched_at,
                  content_hash, http_status, extraction_quality,
-                 source_class /*P|S1|S2|X*/, class_criteria_met jsonb,
-                 class_criteria_failed jsonb, independence_group,
-                 claim_authority, truth_authority)
-source_exclusions(analysis_id, url, host, criteria_failed jsonb, what_it_claimed,
-                  quarantine_path)
+                 source_class /*P|A|U|N*/, attribution_signals_confirmed jsonb,
+                 independence_group, claim_authority, truth_authority)
+sources_not_used(analysis_id, url, host,
+                 not_used_reason /*unverified_by_our_criteria|could_not_reconcile*/,
+                 signals_confirmed jsonb, what_it_stated,
+                 primary_value, primary_fetched_at, quarantine_path)
 claims(id, analysis_id, section_key, text, evidence_quote, source_label,
        verify_status /*verified|weak|dropped*/, verifier_notes)
 

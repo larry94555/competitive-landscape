@@ -103,8 +103,8 @@ PDF allowed, share allowed. Generous enough to prove value; tight enough to surv
 |---|---|
 | Subject unresolvable | "I couldn't identify a product from that. Do you mean one of these?" + 3 candidates + the box, still filled. |
 | Few sources found | Report runs anyway, marked **Thin evidence** with source count and an explicit list of what could not be found. |
-| Sources found but excluded | "3 sources found and not included" — collapsed, expandable to the **criteria each failed** (no byline, no date, contradicts the vendor's own page). "Show what we found anyway" opens a quarantined panel, never the report body, never the PDF, never a shared link. |
-| Section empty only because of strictness | "2 unestablished sources mention pricing. Include them?" — one click, scoped to this analysis. The only place the strictness setting ever interrupts. |
+| Sources found but not used | "3 sources found and not used" — collapsed, expandable to **what we were and were not able to confirm**, phrased per [FACT_CHECKING.md](FACT_CHECKING.md) §3.2.5 ("we could not confirm an author or a publication date"; "we were unable to reconcile $6.00 with the vendor's own current page, $8.50 as of 2026-07-31" — both figures shown, neither adjudicated). "Show what we found" opens a quarantined panel: never the report body, never the PDF, never a shared link. |
+| Section empty only because of strictness | "2 unattributed sources mention pricing. Include them?" — one click, scoped to this analysis. The only place the strictness setting ever interrupts. |
 | Site blocks the bot | Source card shows "not accessible to automated retrieval" and is listed in Sources with that reason. |
 | Model/section timeout | That section shows "couldn't be completed within the time budget — retry" with a retry button. The rest of the report is delivered. |
 | Queue congestion | "2 analyses ahead of you — about 4 minutes." Honest countdown in real units, not a spinner. On the free tier this is common and must read as normal, not as breakage. |
@@ -187,7 +187,7 @@ Section payloads:
 | **Recent public changes** | `changes: { date, headline, detail, kind: release\|pricing\|positioning\|funding\|personnel\|policy, evidence: Claim }[]`, `lookback_window_days`, `coverage_note` |
 | **Review & sentiment themes** | `themes: { theme, valence: positive\|negative\|mixed, frequency: 'often'\|'sometimes'\|'rarely', representative_quotes: Claim[] }[]`, `platforms_covered[]`, `volume_caveat` — **no numeric ratings are synthesized**, only reported with a source |
 | **SWOT-style summary** | `strengths/weaknesses/opportunities/threats: Claim[]` (2–4 each). Opportunities/Threats are **explicitly labelled `interpretation`** and must each cite the observed facts they rest on. This is the one place inference is allowed, and it is visually marked as such. |
-| **Sources** | `sources: { label, url, title, host, source_class: P\|S1\|S2, class_criteria_met[], independence_group, fetched_at, content_hash, extraction_quality, status: ok\|blocked_by_robots\|unreachable\|paywalled }[]`, `excluded: { url, host, criteria_failed[], what_it_claimed }[]`, `strictness_setting` |
+| **Sources** | `sources: { label, url, title, host, source_class: P\|A\|U, attribution_signals_confirmed[], independence_group, fetched_at, content_hash, extraction_quality, status: ok\|blocked_by_robots\|unreachable\|paywalled }[]`, `sources_not_used: { url, host, not_used_reason: unverified_by_our_criteria\|could_not_reconcile, signals_confirmed[], what_it_stated, primary_value_and_date }[]`, `strictness_setting` |
 
 ### 4.2 Rendered example (abridged)
 
