@@ -24,6 +24,7 @@ TypeScript + React frontend · Rust backend · local llama.cpp inference on Orac
 | [SUPPORT_SYSTEM.md](SUPPORT_SYSTEM.md) | Support system design (**D**): the open "slash-lite" knowledge base |
 | [QUALITY_GUARDRAILS.md](QUALITY_GUARDRAILS.md) | Quality & trust guardrails (**E**): anti-hallucination stack, evaluation, feedback loops, legal posture |
 | [FACT_CHECKING.md](FACT_CHECKING.md) | Information gathering & fact-checking: source discovery, the two-axis trust model, competitive-set derivation, the nine-level verification pipeline, misinformation/disinformation handling, and how a reader independently confirms every claim |
+| [Fable_Evaluation.md](Fable_Evaluation.md) · [Evaluation_Action_Plan.md](Evaluation_Action_Plan.md) | Pre-implementation evaluation of the whole plan, and the disposition of every finding with its impact on implementation |
 | [CODING_QUALITY.md](CODING_QUALITY.md) | The code quality standard: simplicity budgets, design patterns, testing, linting, Sonar, hooks, ADRs, the tutorial, review process, and the agent contract |
 
 ---
