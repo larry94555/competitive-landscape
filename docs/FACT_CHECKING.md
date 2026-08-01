@@ -111,12 +111,121 @@ trustworthiness depends on what you are asking it.** So every source carries two
 
 **Rules that fall out of this table:**
 
-- **Pricing, features and changelog facts come from the vendor's own pages or not at all.**
-  A third-party page stating a competitor's price is a *lead to verify*, never a citation.
-- **Any claim about company B sourced from company A's page** is retagged tier-3 and rendered
-  as *"per Linear's own comparison page"* — never as neutral fact.
+- **Any claim about company B sourced from company A's page** is retagged and rendered as
+  *"per Linear's own comparison page"* — never as neutral fact.
 - **Docs and status pages are underrated and preferred** where they cover the question. They
   are written for users, not buyers, and are correspondingly honest.
+- **Primary sources set the authoritative values** — the pricing table, the feature matrix,
+  the charts. Secondary sources may add, corroborate, and fill gaps, under the placement
+  rules in §3.2.4.
+
+### 3.2.1 The four source classes
+
+Reputation is not a single tier number. Every source is placed in one of four classes by
+**objective, checkable criteria** — never by a model's opinion of a publisher.
+
+| Class | Meaning | Use |
+|---|---|---|
+| **P — Primary** | The subject's own properties, or a regulator's | Sets authoritative values |
+| **S1 — Established secondary** | Independent publisher meeting the criteria below | Included by default, marked, with the criteria shown |
+| **S2 — Unknown reputation** | Neither clearly established nor clearly deficient | Included only on the permissive setting, marked "reputation not established" |
+| **X — Excluded** | Fails a hard signal | Never in the report body; **its existence is always disclosed** |
+
+**Primary (P):** the subject's own domain and documented properties — site, docs, changelog,
+status page, official blog, public ATS board, GitHub org, verified app-store listing — plus
+regulatory filings (SEC/EDGAR and equivalents).
+
+**Established secondary (S1)** must meet **at least four** of these, and the report shows
+*which* — the justification is the checklist, not an assertion:
+
+- Named author with a byline
+- Publication date present, and update history where revised
+- Published masthead, ownership, or editorial policy
+- Published corrections policy
+- Cites and links its own sources
+- Identifiable publisher (legal entity and contact)
+- Domain with a multi-year publishing history on the topic
+- Not a syndication copy of another source (§6)
+
+**Unknown reputation (S2):** meets some criteria but not four, and trips no hard signal. A
+dated, source-citing post on a personal blog with no masthead lands here. It is *usable* and
+*labelled*, not condemned.
+
+**Excluded (X)** — any one of these hard signals:
+
+- **Contradicts a primary source on a checkable fact.** The strongest and most objective
+  disqualifier: if a page states a price that the vendor's current pricing page contradicts,
+  that page is demonstrably wrong about this subject.
+- The AI-slop profile: no author **and** no date **and** no outbound citations, with listicle
+  structure and unattributed superlatives.
+- Domain on the maintained content-farm denylist.
+- Pure syndication with no added reporting (collapsed into its origin instead).
+- Affiliate-ranking pattern: "best X" ordering that tracks affiliate links rather than any
+  stated methodology.
+- Extraction quality below threshold — a JS shell, a nav-only page, a near-empty page.
+
+### 3.2.2 Excluded sources are disclosed, never silently dropped
+
+Every report states what it found and did not use. Collapsed by default:
+
+> **3 sources found and not included.** [Show what and why]
+
+Expanded:
+
+> `example-listicle.com/best-project-tools-2026` — mentions Shortcut pricing
+> Not included: no named author · no publication date · cites no sources ·
+> states $6/user/mo, which the vendor's current pricing page contradicts
+> [Show what we found anyway]
+
+**Two rules protect this from becoming a liability of its own:**
+
+1. **We publish evidence, not verdicts.** The report never says a publisher *is
+   untrustworthy* — that is a reputational claim about a third party and is not ours to make.
+   It says what was and was not present on the page: no byline, no date, no citations, a
+   figure the vendor contradicts. The reader draws the conclusion. This is both more useful
+   and the only defensible position (P23).
+2. **"Show what we found anyway" is quarantined.** Excluded content opens in a clearly marked
+   panel: never in the report body, never in the PDF, never in a chart or matrix cell, never
+   in a shared or public report, and never indexable. It is visible to the person who ran the
+   analysis, because they asked — not published to the world on our authority.
+
+### 3.2.3 The strictness setting — the reader chooses
+
+One setting, three values, per account with a per-analysis override:
+
+| Setting | Includes | For |
+|---|---|---|
+| **Primary sources only** | P | Due diligence; anything going into a decision or a document |
+| **Primary + established secondary** ← *default* | P, S1 | Everyday use |
+| **Include unestablished sources** | P, S1, S2 | Thin-footprint subjects where little is published |
+
+Class **X is excluded at every setting.** That is what "automatically ignore" means; the
+setting governs S2, not the hard signals.
+
+The setting is **recorded on the analysis and printed on the report and the PDF** — *"Sources:
+primary + established secondary"* — so a shared report is reproducible and a reader knows
+which lens produced it. Evidence strength (§3.5) recomputes per setting, so a permissive
+report does not inherit a strictness it did not earn.
+
+Frictionless posture, consistent with BYOK: **nobody is asked about this to get a report.**
+The default is sensible, the control lives in `/account`, and it surfaces contextually only
+when a section is empty under the current setting — *"2 unestablished sources mention pricing.
+Include them?"*
+
+### 3.2.4 Where each class may appear
+
+| Surface | P | S1 | S2 | X |
+|---|:-:|:-:|:-:|:-:|
+| Pricing table values, feature matrix cells | ✓ | marked "secondary" | ✗ | ✗ |
+| Charts (cost-at-scale, velocity, ratings) | ✓ | dashed/hatched, keyed | ✗ | ✗ |
+| Report body claims | ✓ | ✓ marked | ✓ marked "reputation not established" | ✗ |
+| One-page executive PDF | ✓ | ✗ | ✗ | ✗ |
+| Corroboration counting (§6) | ✓ | ✓ | ✗ | ✗ |
+| Shared / public report pages | ✓ | ✓ | ✓ marked | ✗ |
+
+The executive one-pager is primary-only by design. It is the artifact that gets forwarded,
+screenshotted, and pasted into decks, and it should carry only what the vendor itself
+publishes.
 
 ### 3.3 The gathering pipeline (P1, P2)
 
@@ -222,7 +331,9 @@ L9  Reader auditability   — can someone check it without trusting us?
 
 A page must earn the right to be cited. Rejected before extraction:
 
-- **Fails the primary-source preference** for the fact type in question (§3.2).
+- **Classified X** by the hard signals in §3.2.1 — contradicts a primary source on a checkable
+  fact, AI-slop profile, content-farm domain, pure syndication, affiliate-ranking pattern, or
+  failing extraction quality.
 - **AI-slop signals**: no named author *and* no publication date *and* no outbound citations,
   combined with listicle structure and superlatives without attribution. Scored, not
   binary — a high score demotes to tier-3 and bars it from pricing/feature claims entirely.
@@ -232,10 +343,17 @@ A page must earn the right to be cited. Rejected before extraction:
 - **Syndication detection**: byline-free copy of a press release is collapsed into the
   originating release (§6).
 
-**The strongest rule, stated plainly: a pricing, feature, or changelog fact may only be cited
-to a primary source.** No exceptions, no "the only source we found" escape. If the vendor does
-not say it publicly, the report says we could not find it. This alone removes most of the
-misinformation surface.
+**The strongest rule, stated plainly: primary sources set the authoritative values.** A price
+in the pricing table, a cell in the feature matrix, a point on a chart, and anything on the
+executive one-pager come from the vendor's own pages. Secondary sources add, corroborate and
+fill gaps — always classified, always marked, always outside the authoritative surfaces
+(§3.2.4). A third-party price is presented as *what that source reports*, never as the price.
+
+This is deliberately not the stricter "primary or nothing" rule. Silence is not neutral: a
+reader who sees an empty pricing row and can find the number in ten seconds concludes the tool
+is incompetent rather than careful. Reporting *"a dated, sourced article states $8.50; we could
+not confirm this on the vendor's own site"* is more useful **and** more honest than saying
+nothing — provided the number never enters a table, a chart, or a forwardable PDF.
 
 ### L1 — Retrieval provenance
 
@@ -471,15 +589,15 @@ Publishing wrong claims about real companies is a liability, not just a defect.
 | **P4** | Sufficiency | §3.5 per-section coverage thresholds; evidence strength computed from independent groups, tiers and recency; thin reports shipped and marked |
 | **P5** | Fact-checking | §4 nine-level pipeline; deterministic Rust, not model self-review |
 | **P6** | Hallucination | L3 quote-must-exist + L4 type validation; unmatched claims **deleted**; grammar makes citations structurally mandatory |
-| **P7** | Misinformation | L0 primary-source-only rule for pricing/features/changelog; L8 shelf lives; L2 extraction round-trip |
+| **P7** | Misinformation | §3.2.1 four-class model; primary sources set authoritative values; contradicting a primary source is a hard exclusion signal; L8 shelf lives; L2 extraction round-trip |
 | **P8** | Disinformation | §2 attribution framing; L7 adversarial weighting; comparison pages barred from fact cells; astroturf signals lower platform weight |
-| **P9** | Independent confirmation | §5 — full footnotes, text-fragment deep links, stored snapshots, content hashes, Internet Archive captures, PDF endnotes |
+| **P9** | Independent confirmation | §5 — full footnotes, text-fragment deep links, stored snapshots, content hashes, Internet Archive captures, PDF endnotes; plus §3.2.2 disclosure of what was found and excluded, with the criteria failed |
 | **P10** | Vendor bias about itself | §3.2 two-axis trust: authoritative for *claims*, weak for *truth*; attribution framing throughout |
 | **P11** | Comparison pages | Tier-3, labelled as the rival's own claim, excluded from corroboration and from fact cells |
 | **P12** | Gamed reviews | Ratings always with counts and platform; no composite score; distribution anomalies noted; themes preferred over stars |
 | **P13** | Staleness | L8 per-type shelf lives; `as_of` on every claim; read-time re-check; "last checked N days ago" |
 | **P14** | Circularity | L6 independence groups via SimHash, shared-span detection, timing clusters, publisher map; report states group count |
-| **P15** | AI slop | L0 slop scoring + content-farm denylist + **primary-source-only for the fact types that matter** |
+| **P15** | AI slop | Class **X** hard signals (no author + no date + no citations + listicle structure), content-farm denylist, and exclusion from every authoritative surface; existence disclosed with the criteria failed, content quarantined
 | **P16** | Entity ambiguity | §3.1 resolution before fetching; disambiguation gate asks the user; rebrand/acquisition noted in header; Wikipedia for disambiguation only |
 | **P17** | Extraction ≠ truth | L2 deterministic parsing, number round-trip against raw bytes, structural sanity, quality gating, golden fixtures — **and the limitation stated openly in §7** |
 | **P18** | Region/currency | Request region recorded and displayed; currency and tax treatment captured verbatim; stated as a limit |
@@ -506,9 +624,10 @@ ARM cores ([ARCHITECTURE.md](ARCHITECTURE.md) §4.4):
 | Entity disambiguation | One 1.7B router call (~50 tokens) |
 | Competitive-set ranking | Deterministic co-occurrence counting; **no model call** |
 
-**Rigour here is nearly free, and it partly pays for itself**: primary-source preference means
-fetching fewer, better pages, which reduces prefill — the scarce resource. The product's
-central quality mechanism is also one of its cheapest.
+**Rigour here is nearly free, and it partly pays for itself**: preferring primary sources means
+fetching fewer, better pages, which reduces prefill — the scarce resource. Source
+classification is heuristics over page structure and metadata, with **no model call**. The
+product's central quality mechanism is also one of its cheapest.
 
 ---
 
@@ -516,8 +635,11 @@ central quality mechanism is also one of its cheapest.
 
 - **Phase 1** — entity resolution with the disambiguation gate; structured probes; templated
   search; L1 provenance; per-section coverage thresholds.
-- **Phase 2** — L0 admission and slop scoring; L2 extraction round-trip; full footnote UI with
-  snapshots, hashes and text-fragment deep links; auditable negatives; `/methodology`.
+- **Phase 2** — the four-class source model (§3.2.1) with the exclusion disclosure and
+  quarantine view; L2 extraction round-trip; full footnote UI with snapshots, hashes and
+  text-fragment deep links; auditable negatives; `/methodology`.
+- **Phase 3** — the strictness setting (§3.2.3) in `/account`, recorded on each analysis and
+  printed on the report; needs accounts, so it lands with them.
 - **Phase 3** — L6 independence grouping; competitive-set derivation with published candidate
   scores; corrections channel and SLA.
 - **Phase 5** — L8 read-time staleness re-checks (reuses the watch infrastructure);

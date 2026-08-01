@@ -69,10 +69,16 @@ empty cell as ✗, which silently manufactures a claim. Landscape uses five cell
 | **✗ No** | The vendor states they do *not* have it | A citation |
 | **◐ Partial** | Present with a stated limitation | A citation + the limitation |
 | **? Not found** | We looked and found no public statement | **The list of pages checked** |
-| **▲ Per competitor** | Claimed by a rival's comparison page, not the vendor | Marked as tier-3, never presented as neutral |
+| **▲ Per competitor** | Claimed by a rival's comparison page, not the vendor | Marked as an interested-party claim, never presented as neutral |
 
 That last state exists because vendor comparison pages are systematically unreliable and are a
 major source of error in automated competitive tooling.
+
+Every populated cell also carries its **source class** — P (primary), S1 (established
+secondary) or S2 (unknown reputation), per [FACT_CHECKING.md](FACT_CHECKING.md) §3.2.1.
+Primary-sourced cells render normally; secondary-sourced cells carry a visible marker; class X
+sources never populate a cell at all. The same rule governs charts: a secondary-sourced series
+is drawn dashed or hatched and keyed as such, and the executive one-pager is primary-only.
 
 ---
 
@@ -350,14 +356,16 @@ Charts persuade faster than prose, which makes them a faster route to misleading
 These are review-blocking:
 
 1. **Bars start at zero.** Always.
-2. **Sample size is printed** wherever a chart aggregates counts or ratings.
-3. **Missing data is drawn as missing** — a labelled gap, never zero, never interpolated.
-4. **Interpreted charts look interpreted** — same visual treatment as the SWOT section, with
+2. **Source class is visible on every plotted series** — primary solid, established secondary
+   dashed, unknown-reputation data never plotted ([FACT_CHECKING.md](FACT_CHECKING.md) §3.2.4).
+3. **Sample size is printed** wherever a chart aggregates counts or ratings.
+4. **Missing data is drawn as missing** — a labelled gap, never zero, never interpolated.
+5. **Interpreted charts look interpreted** — same visual treatment as the SWOT section, with
    the method printed on the chart.
-5. **Every series carries its citation.**
-6. **No chart without a data table.**
-7. **A chart with fewer than three data points is a sentence.** Render the sentence.
-8. **If the data cannot support the chart, omit the chart** and say what was missing — the
+6. **Every series carries its citation.**
+7. **No chart without a data table.**
+8. **A chart with fewer than three data points is a sentence.** Render the sentence.
+9. **If the data cannot support the chart, omit the chart** and say what was missing — the
    same "what we checked" discipline the rest of the product uses.
 
 ---

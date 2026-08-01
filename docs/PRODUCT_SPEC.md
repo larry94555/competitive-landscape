@@ -103,6 +103,8 @@ PDF allowed, share allowed. Generous enough to prove value; tight enough to surv
 |---|---|
 | Subject unresolvable | "I couldn't identify a product from that. Do you mean one of these?" + 3 candidates + the box, still filled. |
 | Few sources found | Report runs anyway, marked **Thin evidence** with source count and an explicit list of what could not be found. |
+| Sources found but excluded | "3 sources found and not included" — collapsed, expandable to the **criteria each failed** (no byline, no date, contradicts the vendor's own page). "Show what we found anyway" opens a quarantined panel, never the report body, never the PDF, never a shared link. |
+| Section empty only because of strictness | "2 unestablished sources mention pricing. Include them?" — one click, scoped to this analysis. The only place the strictness setting ever interrupts. |
 | Site blocks the bot | Source card shows "not accessible to automated retrieval" and is listed in Sources with that reason. |
 | Model/section timeout | That section shows "couldn't be completed within the time budget — retry" with a retry button. The rest of the report is delivered. |
 | Queue congestion | "2 analyses ahead of you — about 4 minutes." Honest countdown in real units, not a spinner. On the free tier this is common and must read as normal, not as breakage. |
@@ -180,12 +182,12 @@ Section payloads:
 | Section | Payload |
 |---|---|
 | **Positioning** | `summary: Claim[]` (2–4), `target_segments: Claim[]`, `stated_differentiators: Claim[]`, `category_language: string[]` (their words, quoted) |
-| **Pricing signals** | `tiers: PricingTier[]` (`name, price_display, billing_period, seat_or_usage_basis, notable_limits[], source_label, as_of`), `free_tier: bool \| unknown`, `trial: Claim?`, `enterprise_pricing: 'public' \| 'contact_sales' \| 'unknown'`, `observed_changes: Claim[]` |
+| **Pricing signals** | `tiers: PricingTier[]` (`name, price_display, billing_period, seat_or_usage_basis, notable_limits[], source_label, source_class, as_of`), `free_tier: bool \| unknown`, `trial: Claim?`, `enterprise_pricing: 'public' \| 'contact_sales' \| 'unknown'`, `observed_changes: Claim[]`, `reported_unconfirmed: Claim[]` — secondary-sourced figures shown beneath the table, never in it |
 | **Key features** | `features: { name, description, evidence: Claim, category }[]` (8–15), `notable_gaps: Claim[]` — *gaps only when a source explicitly says so; never inferred from absence* |
 | **Recent public changes** | `changes: { date, headline, detail, kind: release\|pricing\|positioning\|funding\|personnel\|policy, evidence: Claim }[]`, `lookback_window_days`, `coverage_note` |
 | **Review & sentiment themes** | `themes: { theme, valence: positive\|negative\|mixed, frequency: 'often'\|'sometimes'\|'rarely', representative_quotes: Claim[] }[]`, `platforms_covered[]`, `volume_caveat` — **no numeric ratings are synthesized**, only reported with a source |
 | **SWOT-style summary** | `strengths/weaknesses/opportunities/threats: Claim[]` (2–4 each). Opportunities/Threats are **explicitly labelled `interpretation`** and must each cite the observed facts they rest on. This is the one place inference is allowed, and it is visually marked as such. |
-| **Sources** | `sources: { label, url, title, host, trust_tier, fetched_at, extraction_quality, status: ok\|blocked_by_robots\|unreachable\|paywalled }[]`, `excluded: { url, reason }[]` |
+| **Sources** | `sources: { label, url, title, host, source_class: P\|S1\|S2, class_criteria_met[], independence_group, fetched_at, content_hash, extraction_quality, status: ok\|blocked_by_robots\|unreachable\|paywalled }[]`, `excluded: { url, host, criteria_failed[], what_it_claimed }[]`, `strictness_setting` |
 
 ### 4.2 Rendered example (abridged)
 
@@ -438,6 +440,7 @@ Full design in [SUPPORT_SYSTEM.md](SUPPORT_SYSTEM.md). The user-facing shape:
 | Acting | One primary button per context: **Download PDF** on a report, **Start watching** in the watch sheet, **Upgrade** in the limit dialog. |
 | Accounts | Magic link only. Account creation happens *because* the user asked for something that needs one (an alert), never as a gate. |
 | Model choice | **Not a choice, by default.** BYOK (§5A) is invisible until a user goes looking or repeatedly hits the wait. Nobody is asked to pick a model to get a report. |
+| Source strictness | **Not a choice, by default.** The source-strictness setting ([FACT_CHECKING.md](FACT_CHECKING.md) §3.2.3) has a sensible default and lives in `/account`; it surfaces contextually only when a section is empty under the current setting. |
 | Limits | Never surprise the user: usage meter visible; limit dialogs state exactly what was blocked and resume the blocked action after upgrade. |
 | Notifications | Two clicks with sane pre-selection. Thresholds are learned from 👍/👎, not configured. |
 | Support | Public KB reachable from every screen; slash commands are discoverable but never required. |
