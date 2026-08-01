@@ -154,15 +154,16 @@ The raw video file therefore has no captions in it. The `.vtt` ships beside it.
 
 ### 3.2 Generated from source, never transcribed
 
-The narration lives in the demo script in the prototype source. `make-captions.py` parses it
-and emits the WebVTT. **Nobody types the captions twice.**
+The narration lives in **`prototype/narration.md`**, a plain file of headings and sentences.
+`build.py` reads it, injects it into the prototype, and emits the WebVTT. **Nobody types the
+captions twice, and nobody edits words inside a JavaScript array.**
 
 Two consequences worth having:
 
 - Captions cannot drift from what is actually demonstrated.
-- **Rewriting the narration does not require re-recording.** Text and timing are separate:
-  `t:` values drive the visuals, `c:` strings drive the words. This document's own rewrite of
-  every caption cost one command and no new footage.
+- **Rewriting the narration does not require re-recording.** Text and timing live in different
+  files: the video carries no words of its own, so a rewrite costs one command and no new
+  footage. Every caption in this project has been rewritten twice on that basis.
 
 ### 3.3 Styled for reading, not for decoration
 
@@ -276,23 +277,55 @@ started."* — is three short claims, not a recap. That is the target.
 
 Three scripts, roughly 200 lines total, **no ffmpeg required**:
 
-| Script | Does |
+| File | Role |
 |---|---|
+| **`prototype/narration.md`** | **The script. The only file to edit when changing words.** |
+| `prototype/build.py` | Reads the script, injects it, writes the WebVTT, rebuilds the page |
+| `prototype/make-demo-page.py` | Assembles the self-contained page (called by `build.py`) |
 | `prototype/record-demo.mjs` | Drives the prototype with Playwright, records WebM |
-| `prototype/make-captions.py` | Parses the narration out of the demo script → WebVTT |
-| `prototype/make-demo-page.py` | Builds a self-contained page: video + track inlined, narration and controls in JS |
 
-Rebuild after a copy change:
+**Changing what is said** — edit `narration.md`, then:
 
 ```bash
-python prototype/make-captions.py && python prototype/make-demo-page.py
+python prototype/build.py
 ```
 
-Re-record only when the **visuals** change:
+**Changing what happens on screen** — edit the `DEMO` array in `ui-prototype.html`, then
+re-record and rebuild:
 
 ```bash
-node prototype/record-demo.mjs
+node prototype/record-demo.mjs && python prototype/build.py
 ```
+
+**Checking the script without building anything:**
+
+```bash
+python prototype/build.py --check
+```
+
+### 9.1 What `narration.md` looks like
+
+```markdown
+## [the-box] 0:03.5  ·  4s on screen  ·  ~8s to read
+
+You describe your idea in the box, in your own words. That is the only thing you have to do.
+```
+
+- The `[id]` ties the line to a moment in the demo and must not change.
+- The two hints — **how long it is on screen** and **roughly how long it takes to read aloud**
+  — are regenerated on every build, so an overlong line is visible before anyone watches it.
+- An empty entry holds the previous caption through that moment.
+
+### 9.2 The checker
+
+`build.py --check` is the machine half of §10. It fails on:
+
+- a line in the script with no matching demo step, or a step with no line;
+- any word from the §2.2 banned list;
+- a caption that does not end in a full stop, which is nearly always a fragment (§2.5).
+
+It is advisory during a normal build and blocking under `--check`, so it can go in CI without
+stopping someone mid-edit.
 
 ---
 
