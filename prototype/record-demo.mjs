@@ -33,15 +33,28 @@ if (!browser) {
   process.exit(1);
 }
 
+// Recorded larger, and with the page zoomed, so text stays legible when the
+// video is scaled down in a player. Frame size is a compromise with file size:
+// this page inlines the video as a data URI.
+const W = 1600, H = 1000, ZOOM = 1.35;
+
 const context = await browser.newContext({
-  viewport: { width: 1440, height: 900 },
+  viewport: { width: W, height: H },
   deviceScaleFactor: 1,
   colorScheme: 'light',
-  recordVideo: { dir: outDir, size: { width: 1440, height: 900 } },
+  recordVideo: { dir: outDir, size: { width: W, height: H } },
 });
 
 const page = await context.newPage();
 await page.goto(page_url, { waitUntil: 'load' });
+
+// Scale the whole UI up: the complaint about the first cut was that text was
+// too small once the video was letterboxed into a page.
+await page.addStyleTag({ content: `
+  html { zoom: ${ZOOM}; }
+  .cap-text { font-size: 1.05rem !important; }
+  .cap-bar  { padding: .85rem 1.2rem 1rem !important; }
+` });
 await page.waitForTimeout(1200);
 
 console.log('recording…');
