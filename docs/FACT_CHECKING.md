@@ -314,6 +314,10 @@ login circumvention.
 
 ### 3.4 Discovering the competitive set — the market-research step (P3)
 
+> Summarised here; the full design — input classes, category vocabulary resolution, seed
+> channels, relevance classification, and when clarifying questions fire — is in
+> [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md).
+
 When the user names one product, or describes an idea and names nobody, the competitive set
 must be *derived*. It is derived by **co-occurrence across independent source classes**, never
 by asking a model to recall competitors from memory — which is exactly where an 8B model

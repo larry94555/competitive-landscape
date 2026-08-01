@@ -16,6 +16,7 @@ TypeScript + React frontend · Rust backend · local llama.cpp inference on Orac
 |---|---|
 | **ROADMAP.md** (this file) | Executive summary, phased plan (**C**), metrics (**F**), solo-founder execution (**G**), risks (**H**), bootstrapped cost ladder, git/PR workflow |
 | [PRODUCT_SPEC.md](PRODUCT_SPEC.md) | Product & UX specification (**A**): user flows, report schema, notification UX, zero-learning-curve mechanisms |
+| [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) | How a prompt becomes a competitor set: input classes, prompt completeness by convergence, category vocabulary resolution, seed channels, relevance classification, clarifying questions, and how company standing is assessed |
 | [COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md) | What the report contains: the nine sections, the chart catalogue, evidence classes, what is deliberately excluded, and the charting decision |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Technical architecture & stack (**B**): React, Rust, llama.cpp, data, jobs, caching, PDF, email, Stripe, change detection, hosting |
 | [ARCHITECTURE_EXPLANATION.md](ARCHITECTURE_EXPLANATION.md) | Companion to the above: every technology explained — what it is, the alternatives, the justification, and the cost/benefit trade-off |
@@ -222,7 +223,8 @@ the single most important phase; everything after it is commerce and polish.
 
 **Ship**
 - `/` composer with one autofocused textarea and three example chips.
-- Subject resolution from free-form input.
+- Subject resolution from free-form input; input classification and the named-set /
+  named-single discovery paths ([COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) §10).
 - **Entity resolution before any fetch**, with the disambiguation gate
   ([FACT_CHECKING.md](FACT_CHECKING.md) §3.1) — wrong entity resolution produces a report that
   is wrong throughout yet internally consistent and fully cited.
@@ -291,7 +293,13 @@ right to charge money.
   curve**, rendered identically in the web report and the Typst PDF. Charts consume zero
   model tokens, so they improve the report while *reducing* the generation budget.
 - Layers 3–5 of the anti-hallucination stack ([QUALITY_GUARDRAILS.md](QUALITY_GUARDRAILS.md) §2).
-- Clarifying questions (≤3, chip-answerable, skippable).
+- **Discovery from a category or a product idea** — vocabulary resolution (the user's words to
+  the market's words), seed harvesting across independent channels, relevance classification
+  into direct / adjacent / substitute, and the editable interpretation header
+  ([COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) §4–§6). This is what lets someone
+  describe an idea rather than name competitors.
+- Clarifying questions (≤3, chip-answerable, skippable), fired **only when discovery fails to
+  converge** — not when the prompt looks incomplete.
 - PDF export: one-page executive summary + full version.
 - Evidence strength badges, per-claim confidence, "what we checked" gap blocks.
 - Per-section 👍/👎 and "report an inaccuracy."

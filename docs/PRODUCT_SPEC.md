@@ -117,8 +117,14 @@ PDF allowed, share allowed. Generous enough to prove value; tight enough to surv
 Asked **only** when the input is genuinely insufficient, at most **3**, always progressive
 (one at a time), always chip-answerable, always skippable.
 
-Trigger conditions (evaluated by a grammar-constrained call to the 1.7B router model —
-~2s on the free tier, <1s on Rung 2):
+**Questions fire only when discovery fails to converge**, not when the prompt looks
+incomplete — see [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) §2. A cheap discovery
+probe runs first; most prompts need no question because the probe resolves them. Where
+convergence is merely *marginal*, the product proceeds and shows an editable interpretation
+line instead of asking (§6.3 there) — direct manipulation beats interrogation.
+
+Trigger conditions (evaluated after the probe, by a grammar-constrained call to the 1.7B
+router model — ~2s on the free tier, <1s on Rung 2):
 
 | Condition | Question | Chips |
 |---|---|---|

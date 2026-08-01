@@ -92,7 +92,10 @@ Nine sections. The current seven, plus the two that a real competitive analysis 
 
 ### Section 0 — Header
 Subject, comparison set, generated-at (UTC), evidence strength (strong/moderate/thin), source
-count, model and prompt version, inference provider, disclaimer.
+count, model and prompt version, inference provider, disclaimer — plus, when the set was
+derived rather than given, the **interpretation line**: the resolved category, the constraints
+applied, the counts of direct/adjacent/substitute competitors, and an editable link to the
+full candidate list ([COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) §5.5).
 
 ### Section 1 — Positioning
 - **Content:** each competitor's self-described category, target segment, stated
@@ -138,6 +141,17 @@ count, model and prompt version, inference provider, disclaimer.
 ### Section 7 — SWOT-style summary
 Unchanged. Strengths and Weaknesses cite observed facts; Opportunities and Threats are
 explicitly labelled interpretation.
+
+### Section 7A — Operating signals *(where evidence exists)*
+- **Content:** per competitor, dated public activity — release cadence, last public update,
+  open roles by function, documentation freshness, status-page history, published pricing
+  changes. Longevity from first web-archive capture alongside any self-stated founding year.
+- **Financial standing:** publicly announced funding, acquisitions and, for public companies,
+  figures from regulatory filings. **Private-company revenue is never estimated** — the report
+  states that it is not disclosed.
+- **No composite health score.** Combining non-comparable signals into one number would be
+  interpretation dressed as measurement. See
+  [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) §7.
 
 ### Section 8 — Sources
 Every source with label, URL, title, host, trust tier, fetched-at, extraction quality, and
