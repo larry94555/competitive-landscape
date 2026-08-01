@@ -146,6 +146,15 @@ SaaS, thin-footprint startups, ambiguous brand names, non-English sites, JS-heav
 robots-restricted sites, recently-repriced products, and two deliberate traps (a product
 that does not exist; a name shared by three real products).
 
+**Discovery-shaped prompts are half the set.** Named products test the analysis pipeline;
+they do not test discovery, which is now equally hard and equally capable of being wrong
+([COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md)). The set therefore includes **class C/D/E
+inputs** — bare categories, product ideas in the user's own words, and job-to-be-done
+descriptions — each with a human-curated *expected competitor set* plus the classification
+(direct / adjacent / substitute) each candidate should receive. Concierge reports from Phase 0
+are the natural first source of these. Without them, a discovery regression is invisible until
+a user reports a report about the wrong market.
+
 For each, a human-curated **reference sheet** of verifiable public facts as of a fixed
 date, plus fixture snapshots of every source page. **Fixtures are essential**: without
 frozen HTML, every eval run measures the web changing rather than the model changing.
@@ -164,9 +173,38 @@ frozen HTML, every eval run measures the web changing rather than the model chan
 | **Latency** | p50 / p95 wall clock | Rung 0: p50 ≤ 180s · Rung 2: p50 ≤ 25s |
 | **Quality per second** | rubric score ÷ p50 latency | tracked, not gated — the number that decides prompt changes on slow hardware |
 | **Determinism** | claim-set Jaccard across 3 runs at temp 0.2 | ≥ 0.85 |
+| **Discovery precision** | % of returned competitors in the curated expected set | ≥ 80% |
+| **Discovery recall** | % of expected competitors returned | ≥ 60% |
+| **Classification accuracy** | direct / adjacent / substitute assigned correctly | ≥ 75% |
 
 CI fails on any gate regression. A prompt change that improves prose while dropping recall
 3 points does not ship.
+
+### 3.2A The comparative benchmark — measured against competitors, not only ground truth
+
+The metrics above measure us against **ground truth**. They do not measure us against the free
+alternatives a user will actually compare us to, which means every claim about being *better*
+is currently belief rather than evidence.
+
+**A Phase 2 exit criterion.** Run the same **20 subjects** through Landscape and 3–4 free
+alternatives, and score:
+
+| Dimension | How |
+|---|---|
+| **Fact precision** | Claims correct, against hand-verified reference sheets |
+| **Citation validity** | Of claims that cite a source, how many are actually supported by it |
+| **Hallucination rate** | Claims contradicted by the primary source |
+| **Coverage** | Facts found, of those publicly available |
+| **Honest-gap rate** | Does it say "not found" when the fact genuinely is not public? |
+| **Time to result** | Wall clock, stated honestly |
+
+**The trap subjects are the most revealing test and cost nothing.** A tool that generates
+confident detail for a product that does not exist has disclosed its architecture. Expect to
+win decisively on precision, citation validity and honest gaps; expect to lose on time and
+possibly on coverage. **Both halves get published** — a benchmark that only reports favourable
+dimensions is the marketing behaviour this product exists to be an alternative to.
+
+Re-run at each rung change and before any public accuracy claim.
 
 ### 3.3 LLM-as-judge — used narrowly, run locally
 

@@ -16,6 +16,7 @@ TypeScript + React frontend · Rust backend · local llama.cpp inference on Orac
 |---|---|
 | **ROADMAP.md** (this file) | Executive summary, phased plan (**C**), metrics (**F**), solo-founder execution (**G**), risks (**H**), bootstrapped cost ladder, git/PR workflow |
 | [PRODUCT_SPEC.md](PRODUCT_SPEC.md) | Product & UX specification (**A**): user flows, report schema, notification UX, zero-learning-curve mechanisms |
+| [DISTRIBUTION.md](DISTRIBUTION.md) | The owning document for R9: beachhead selection, positioning, channels in yield order, the weekly cadence, and the trap-subject launch benchmark |
 | [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) | How a prompt becomes a competitor set: input classes, prompt completeness by convergence, category vocabulary resolution, seed channels, relevance classification, clarifying questions, and how company standing is assessed |
 | [COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md) | What the report contains: the nine sections, the chart catalogue, evidence classes, what is deliberately excluded, and the charting decision |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Technical architecture & stack (**B**): React, Rust, llama.cpp, data, jobs, caching, PDF, email, Stripe, change detection, hosting |
@@ -33,7 +34,7 @@ TypeScript + React frontend · Rust backend · local llama.cpp inference on Orac
 
 One text box. A user types a product name, a list of competitors, a URL, or a paragraph
 describing what they're building. They then read a structured, source-cited competitive
-analysis in a fixed seven-section format, streamed section by section as it is written —
+analysis in a fixed nine-section format, streamed section by section as it is written —
 in 90–180 seconds on the free-tier launch host, and in 15–25 seconds once revenue pays for
 Rung 2 (§6). One click produces a clean one-page PDF. Two more clicks put the competitor's
 pricing page and changelog on watch, and they get an email when something meaningful
@@ -119,6 +120,13 @@ Rung 2 speed while serving Rung 0 is the fastest available way to destroy trust.
 | 7 | 25–30 | Retention, scale, GPU, model upgrade loop |
 | 8 | 31+ | Sustainability and margin |
 
+**Week counts are the optimistic case; plan on 1.5×.** Phases 1–2 carry the most added scope
+(nine sections, matrix extraction, SVG charts, source classes, two-pass) and are the likeliest
+to overrun. **Honest planning assumption: 42–48 weeks to Phase 6, not 20–24.** The delay costs
+almost nothing — €15/month tolerates any schedule — but a founder who planned for month 8 and
+arrives at month 12 pre-revenue may read a *working slow* plan as a *failed* one. That
+misreading is the actual risk (R13), and re-baselining now is the cheap prevention.
+
 Target: **~$1.5–2k MRR by month 8**, against infrastructure that starts at **€0** and reaches
 ~€200/month only once revenue justifies it (§6). Total cash required to reach first revenue is
 under €100. That is profitable in absolute terms early, and the constraint on growth is
@@ -138,7 +146,27 @@ Assumes one technical founder at ~30–40 focused hours/week, augmented by codin
 **Goal:** replace every assumption in this document with a measurement, and stand up the
 skeleton everything else attaches to.
 
-**Ship:** nothing user-facing.
+**Ship:** nothing user-facing — *except* the two founder-run tracks below, which are the most
+important work in this phase.
+
+**Track A — concierge validation (parallel, weeks 1–2).** Produce **5–10 competitive reports
+by hand**, following [COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md) and
+[FACT_CHECKING.md](FACT_CHECKING.md) exactly — those documents are already an analyst's SOP.
+Deliver them to real founders found in the communities Phase 6 plans to launch into, and
+**charge a token amount**. Willingness to pay $10 for a hand-made report is stronger evidence
+than a hundred waitlist signups.
+
+Why this is not optional: the plan otherwise builds for ~20 weeks before meeting a user, and a
+bootstrapped solo project cannot afford to discover in week 20 that the format, the pricing or
+the positioning is wrong. Each hand-made report also becomes a **golden-set reference sheet**,
+a **testimonial**, and a **format test** — so the work is never wasted even if the concierge
+channel is abandoned.
+
+**Track B — pre-launch assets (week 1).** Register and stand up a **waitlist landing page**
+(the domain starts ageing and the list starts growing from day one); run the **name and
+trademark check** before any brand equity accrues; provision the Oracle A1 and **convert the
+account to Pay-As-You-Go** immediately — A1 capacity is genuinely scarce and R11 depends on
+holding it.
 
 **Technical tasks**
 - Cargo workspace per [ARCHITECTURE.md](ARCHITECTURE.md) §3.2; Vite + React + TS strict
@@ -156,6 +184,9 @@ skeleton everything else attaches to.
   `cargo-nextest` in place of `cargo test`, `cargo check` before `cargo build` on PRs.
   Then `bun install` for the frontend (~15–30s), after verifying it behaves on Windows
   and does not break Playwright's postinstall browser download — npm is the fallback.
+- Start `RUNBOOK.md` (R7 promises one; it has never been scheduled). It grows with the system:
+  the three known llama.cpp failure modes, restore-from-backup, and how to put the product into
+  a safe read-only away mode (§2A.4).
 - **Provision the Oracle Always Free A1** (4 OCPU / 24 GB / aarch64) *first* — A1 capacity is
   scarce in popular regions and this can take several attempts. **Convert the account to
   Pay-As-You-Go before building on it**, so Always Free resources are not reclaimed; staying
@@ -209,6 +240,10 @@ structural, and retrofitting them is expensive.
   On this hardware the answer is almost certainly "hosted error tracking only, for now."
 - `q8_0` KV quantization decided on evidence, and the `--mlock` + no-swap configuration
   verified under load.
+- **Concierge track: ≥5 reports delivered to real people**, with their reactions recorded —
+  what they read first, what they ignored, what they asked for, whether they would pay.
+- **Review-platform access decision recorded**, with the discovery channel ranking updated to
+  match reality.
 - Every merge gate in [CODING_QUALITY.md](CODING_QUALITY.md) §10.4 green on an empty
   repository, so the first real PR meets the bar rather than establishing a lower one.
 
@@ -242,6 +277,14 @@ the single most important phase; everything after it is commerce and polish.
 **Technical tasks**
 - `landscape-fetch`: robots caching, per-host `governor` limits, conditional GET, timeouts,
   size caps, **SSRF protection on user-supplied URLs** (block private ranges, resolve-then-verify).
+- **Review-platform access audit** (§ week 1, before any architecture assumes the channel):
+  [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) ranks review-site category pages as the
+  **highest-yield discovery channel**, and the sentiment section leans on the same platforms —
+  but the plan honours robots.txt as a hard ethical commitment. **These two positions may
+  collide.** Audit the named platforms' robots policies and terms, record the result, and if
+  access is disallowed, promote the documented fallbacks (vendor `/alternatives` pages,
+  marketplaces, community threads) to the primary path *by decision rather than by discovery
+  in week 8*.
 - **Instrument the JS-rendering gap** ([ARCHITECTURE.md](ARCHITECTURE.md) §5.5): two counters —
   what share of pricing pages yield no price from static HTML, and what share of those tiers
   2–4 will recover. One day of work, and it decides whether a browser tier is ever built.
@@ -661,6 +704,82 @@ per §6.1; if it is not, the trigger to migrate had not actually fired.
 
 ---
 
+## 2A. Validation gates, pivot criteria, and the distribution workstream
+
+Three things the phased plan does not otherwise contain. All are cheap; all address risks the
+plan already ranks as its most serious.
+
+### 2A.1 The distribution workstream — weekly, from Phase 1
+
+R9 names distribution as the most likely cause of death, and the plan's only answer is one
+launch window in Phase 6. Everything known about zero-budget launches says the audience must
+exist **before** launch day.
+
+**From Phase 1 onward, 2–4 hours per week, every week:**
+
+| Activity | Cadence |
+|---|---|
+| Build-in-public update (progress, a finding, a screenshot) | Weekly |
+| Participate genuinely in one community that will later be a launch channel | Weekly |
+| Publish one `/help` article or comparison page as static content | Weekly from Phase 2 |
+| Waitlist growth check + one outreach conversation | Weekly |
+| Review acquisition metrics against §3.1 | Monthly |
+
+This is probably worth more to the Phase 6 outcome than any single technical task in
+Phases 1–5. It is written here as a standing commitment rather than a phase so that it cannot
+be quietly deferred; see [DISTRIBUTION.md](DISTRIBUTION.md) for the channel plan.
+
+### 2A.2 Validation gates — evidence required before proceeding
+
+Exit criteria say when a phase is *done*. These say when the plan is *wrong*. Written now,
+while no ego is invested in the answer.
+
+| Gate | When | Evidence required | If not met |
+|---|---|---|---|
+| **G1 — Anyone wants this** | End of Phase 0 | ≥5 concierge reports delivered; ≥2 recipients ask for another, or pay | Do not start Phase 1 as specified. Re-scope the report, or re-target the buyer, using what the 5 conversations actually said. |
+| **G2 — The output is worth money** | End of Phase 2 | ≥10 beta users have run real analyses; ≥3 say they would pay; ≥1 actually does (manual invoice is fine) | Fix the product concept before building accounts, billing and watches on top of it. |
+| **G3 — Monitoring is the hook** | End of Phase 5 | ≥35% of registered users create a watch; alert 👍 rate ≥70% | The retention thesis is wrong. Re-plan around one-shot value, or find the segment where monitoring matters. |
+| **G4 — Distribution works at all** | 3 months post-launch | Organic signups trending up; ≥1 channel with repeatable cost/effort per signup | The problem is positioning, not features. Re-position (§2A.3) rather than building more. |
+
+### 2A.3 Pivot ladder — what "re-position" concretely means
+
+The engine is subject-agnostic: discovery, fetching, verification, reporting and monitoring do
+not care what kind of organisation is being analysed. So a failed positioning is a **relabelling
+exercise, not a rebuild** — and at €15/month there is no limit on attempts.
+
+Ordered by distance from the current plan:
+
+1. **Same product, sharper buyer** — target roles where a wrong number has a *named personal
+   cost*: diligence associates, agency strategists, procurement, journalists. This is the first
+   move, not the last, and it is mostly a copy change.
+2. **Same engine, different subject** — vendor due-diligence for procurement; supplier
+   monitoring; grant/funder landscape scans for non-profits.
+3. **Same engine, different delivery** — a monitoring-first product where the report is the
+   onboarding artifact rather than the point.
+4. **Same engine, someone else's brand** — white-label report generation for agencies and
+   consultancies who already have the client relationships.
+
+Each step reuses the pipeline entirely. **Record which positioning is being tested and for how
+long**, so that a pivot is a decision with a date rather than a drift.
+
+### 2A.4 Bus factor and the promises that assume a healthy founder
+
+The plan makes public commitments that assume continuous availability: a 2-business-day
+correction SLA, a support SLA, and watch alerts users rely on. A two-week illness breaks all
+three, publicly.
+
+Cheap mitigations, none requiring a second person:
+- **Publish SLAs as targets with a stated exception** ("usually within 2 business days") rather
+  than guarantees.
+- **A status page** (a static page updated by hand is sufficient) so an outage or absence is
+  visible rather than mysterious.
+- **A documented `RUNBOOK.md`**, grown from Phase 0 onward, covering the three known failure
+  modes (R7), restore-from-backup (R11), and how to put the product into a safe read-only mode.
+- **An away-mode switch** that pauses watch checks and shows an honest banner, so absence
+  degrades gracefully instead of silently.
+
+---
+
 ## 3. Metrics & success criteria (F)
 
 Instrumented from Phase 1. Reviewed weekly; a dashboard the founder actually opens.
@@ -1076,6 +1195,12 @@ determine whether this business exists at all.
 | 3–4 (accounts, billing) | €0 | email ~€15/mo once sending | €0 |
 | 5 (watches) | €0 | email ~€15/mo | first customers |
 | 6 (launch) | €0 → €65 | ~€100 one-off launch costs | **$350–500** |
+
+**One variable cost to watch:** SearXNG depends on upstream engines that rate-limit it, and
+Brave Search API is the documented fallback — which is **paid per query**. Budget **~$5–15/month
+from Phase 2** as a contingency, and track queries-per-analysis as a cost metric. It is small,
+but it is the only line in this plan that scales with usage, which makes it the one worth
+watching.
 | 7 (retention/scale) | €65 → €200 | | **$1,100–2,000** |
 | 8 (sustain) | €200 | | **$2,000+**, infra ≤ 20% |
 

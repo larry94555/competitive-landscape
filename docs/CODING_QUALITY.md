@@ -324,6 +324,14 @@ removing the escape hatch removes the debate.
 `exactOptionalPropertyTypes`. ESLint with `typescript-eslint` (type-checked rules),
 `eslint-plugin-react-hooks`, `jsx-a11y`, and `import/no-cycle`.
 
+**Accessibility — [CI] where checkable, [REVIEW] otherwise.** `jsx-a11y` lint plus `axe-core`
+assertions in the Playwright flows. The bar: keyboard-reachable and operable without a mouse;
+visible focus; correct roles and labels on every Radix primitive; **`prefers-reduced-motion`
+respected by the streaming report**, which animates for 90–180 seconds and is the one surface
+where motion sensitivity genuinely matters; colour never the sole encoding (already required
+for charts, extended to the app); and a text alternative for every chart
+([COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md) §7.3).
+
 Denied: `any` (use `unknown` and narrow), non-null `!`, `@ts-ignore` (`@ts-expect-error` with
 a reason is fine), default exports (except route modules), barrel files (they defeat
 tree-shaking and hide cycles), and hand-editing anything under `shared/types/`.
@@ -422,6 +430,10 @@ Chapter 7  Change something  A guided first PR: add a field, thread it through a
 
 Rules that keep it alive:
 
+- **[CI] Documentation drift check.** A grep for banned stale terms (e.g. `seven-section` once
+  the report has nine) fails the build. The documents are the product's source of truth and have
+  exactly the same drift dynamics as code — every documentation inconsistency found in review to
+  date was a straggler left by an otherwise-complete sweep, and all of them were greppable.
 - **[CI] Every file path and symbol referenced in the tutorial is checked to exist.** A
   moved file breaks the build. This is what stops the tutorial rotting into a liability —
   documentation that is not executable is documentation that is eventually wrong.

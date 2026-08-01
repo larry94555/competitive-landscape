@@ -60,9 +60,12 @@ Read / scroll
   └─ Per-section 👍 / 👎.
 Act
   ├─ "Download PDF" → instant (pre-warmed). No email gate. This is the moment of value.
-  ├─ "Watch for changes" → soft account prompt: "We'll email you. Where?"  (email only,
-  │    magic link, no password) — the ONLY place anonymous users meet friction, and only
-  │    because a notification literally requires an address.
+  ├─ "Watch for changes" → **presented at the completion moment, beside the PDF button, not
+  │    buried later.** Monitoring is the retention hinge, so the first report is where it must
+  │    be offered — the one-shot analysis is the demo; the watch loop is the product.
+  │    Soft account prompt: "We'll email you. Where?" (email only, magic link, no password) —
+  │    the ONLY place anonymous users meet friction, and only because a notification
+  │    literally requires an address.
   └─ "Share" → public read-only URL.
 Second analysis same day
   └─ Works. Third → "You've used your free analyses for today. Sign in (free) for 10/month."
@@ -70,6 +73,10 @@ Second analysis same day
 
 **Anonymous limit: 2 analyses per day** (hashed IP + coarse fingerprint), 0 watches,
 PDF allowed, share allowed. Generous enough to prove value; tight enough to survive.
+
+**Quota counts analyses, not passes.** A pass-2 update never consumes quota — it completes
+work already paid for, and charging twice for one analysis would be indefensible. Likewise a
+failed analysis costs nothing (§2.4).
 
 ### 2.1A Two-pass reports — fast first, complete second
 
@@ -112,6 +119,12 @@ found":
   user who downloads at minute two and forwards it has a stale artifact. If they ask for the
   PDF before pass 2 finishes, they get it stamped *"Provisional — 1 source still being
   retrieved"*, and it regenerates on completion.
+
+**Pass 2 uses the same inference provider as pass 1.** If the analysis ran on a BYOK key, so
+does its completion; if the key has since been removed or stopped working, pass 2 falls back
+to the built-in model and says so in the update notice — the same fallback treatment as §5A.4.
+Provenance stays consistent across both passes so a report is never half one model and half
+another without saying so.
 
 **When pass 2 does not run at all** — which is the common case:
 
@@ -165,6 +178,33 @@ than tens of minutes — the shape stays the same, the numbers shrink.
 
 ---
 
+## 2A. Mobile and returning-user states
+
+**Mobile is a reading surface, not a second app.** Reports are forwarded and opened on phones;
+the composer is used on desktop. The spec therefore differs by surface rather than duplicating:
+
+- **Composer on mobile:** the textarea and example chips, full width, keyboard-aware. Nothing
+  else above the fold. Identical behaviour, not a reduced feature set.
+- **Report on mobile:** sections stack; the **feature matrix scrolls horizontally inside its own
+  container** with the competitor column pinned (the page body never scrolls sideways); charts
+  reflow to full width; citation chips open a sheet rather than a hover card, because hover
+  does not exist.
+- **Long waits on mobile** are the hardest case — a locked phone must not lose a report. The
+  `Last-Event-ID` replay (ARCHITECTURE §2.4) exists for exactly this, and it is tested on a
+  real device, not only in a headless browser.
+
+**Returning-user states**, none of which is an empty dashboard:
+
+| State | What `/` shows |
+|---|---|
+| First visit | Composer only |
+| Has history | Composer, with recent analyses beneath it |
+| Analysis still running | Composer, with the in-flight analysis pinned at the top and resumable |
+| Pass 2 pending | Same, with the "completing" marker — revisiting is how anonymous users collect the finished report |
+| Watches firing | A single line above history: *"3 changes across your watches this week"* — not a badge, not a notification centre |
+
+---
+
 ## 3. Clarifying questions
 
 Asked **only** when the input is genuinely insufficient, at most **3**, always progressive
@@ -200,7 +240,8 @@ the answer is remembered for the session so a follow-up analysis doesn't re-ask.
 > [COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md). The schema below covers
 > seven sections and must be expanded to nine (adding **Feature comparison matrix** and
 > **Market emphasis**) plus a `Chart` payload per section; that expansion is ADR-worthy and
-> lands in Phase 2.
+> lands in Phase 2. §4.2's worked example already shows the **nine-section** output the
+> schema must reach.
 
 The schema is defined once in Rust (`landscape-core`) and generates the TypeScript types,
 the JSON Schema, and the GBNF decoding grammar. **The model cannot emit a shape other than
@@ -248,55 +289,115 @@ Section payloads:
 | **SWOT-style summary** | `strengths/weaknesses/opportunities/threats: Claim[]` (2–4 each). Opportunities/Threats are **explicitly labelled `interpretation`** and must each cite the observed facts they rest on. This is the one place inference is allowed, and it is visually marked as such. |
 | **Sources** | `sources: { label, url, title, host, source_class: P\|A\|U, attribution_signals_confirmed[], independence_group, fetched_at, content_hash, extraction_quality, status: ok\|blocked_by_robots\|unreachable\|paywalled }[]`, `sources_not_used: { url, host, not_used_reason: unverified_by_our_criteria\|could_not_reconcile, signals_confirmed[], what_it_stated, primary_value_and_date }[]`, `strictness_setting` |
 
-### 4.2 Rendered example (abridged)
+### 4.2 Rendered example — the full nine-section output (abridged)
+
+This is the specification's most load-bearing artifact: the shape everything else must
+produce. Note what it demonstrates beyond layout — source classes on every value, five-state
+matrix cells, a disclosed not-used source, an auditable negative, and interpretation that is
+visually separated from observation.
 
 ```markdown
 # Linear vs Jira vs Shortcut
-Comparison · Generated 2026-07-31 14:22 UTC · 11 sources · Evidence: strong
+Comparison · Generated 2026-07-31 14:22 UTC · 11 sources (9 independent groups)
+Evidence: strong · Sources: primary + attributed · Model: qwen3-8b · Prompt v4 · Complete
 Public-web analysis. Not verified enterprise competitive intelligence.
 
 ## 1. Positioning
-Linear positions on speed and craft for product engineering teams, describing itself as
-"purpose-built for modern product development." [S1] (high)
-Jira positions as the configurable system of record for large, process-heavy orgs. [S4] (high)
-Shortcut positions between the two, emphasising simplicity without losing planning. [S7] (medium)
+Linear describes itself as "purpose-built for modern product development." [S1·P] (high)
+Jira describes itself as "agile project management at scale." [S4·P] (high)
+Shortcut describes itself as "planning without the overhead." [S7·P] (medium)
 
 Category language — Linear: "issue tracking, project planning, roadmaps" [S1];
-Jira: "agile project management at scale" [S4].
+Jira: "agile project management at scale" [S4]; Shortcut: "project management for
+software teams" [S7].
 
-## 2. Pricing signals
-| Product  | Tier      | Price          | Basis     | Notable limits              | As of      |
-|----------|-----------|----------------|-----------|-----------------------------|------------|
-| Linear   | Free      | $0             | per user  | 250 issues [S2]             | 2026-07-31 |
-| Linear   | Basic     | $8/user/mo     | per user  | annual billing shown [S2]   | 2026-07-31 |
-| Jira     | Free      | $0             | per user  | up to 10 users [S5]         | 2026-07-30 |
-| Shortcut | Team      | $8.50/user/mo  | per user  | — [S8]                      | 2026-07-31 |
+  [Positioning map — INTERPRETATION]
+  Axes: published entry price (observed) x stated target segment (observed ordinal).
+  Method printed on chart. Omitted entirely if neither axis can be grounded.
+
+## 2. Pricing & packaging
+| Product  | Tier  | Price         | Basis    | Notable limits            | As of      | Src   |
+|----------|-------|---------------|----------|---------------------------|------------|-------|
+| Linear   | Free  | $0            | per user | 250 issues [S2]           | 2026-07-31 | S2·P  |
+| Linear   | Basic | $8/user/mo    | per user | annual billing shown [S2] | 2026-07-31 | S2·P  |
+| Jira     | Free  | $0            | per user | up to 10 users [S5]       | 2026-07-30 | S5·P  |
+| Shortcut | Team  | $8.50/user/mo | per user | -                         | 2026-07-31 | S8·P  |
 
 Enterprise pricing: contact sales for all three [S2][S5][S8].
 
-## 3. Key features
-… 12 features, each with an evidence quote …
-Notable gaps: Shortcut's docs page states native time-tracking is not included [S8].
+  [Cost-at-scale curve — DERIVED]
+  Monthly cost vs seats (1/5/10/25/50/100), step-shaped at tier boundaries.
+  Contact-sales tiers appear as a labelled gap, never an estimate.
 
-## 4. Recent public changes  (lookback: 90 days)
-2026-07-14 — Linear shipped "Initiatives" for multi-project planning. [S3]
-2026-06-02 — Jira announced Premium plan price increase effective Sept 2026. [S6]
-Coverage note: no public changelog found for Shortcut in this window. [S9]
+> Reported elsewhere, unconfirmed: a third-party article (Feb 2026) states Shortcut
+> Business at $16/user/mo. We were unable to confirm this on Shortcut's own site, so it
+> is not in the table above. [S10·A]
+
+## 3. Feature comparison matrix
+| Capability          | Linear | Jira  | Shortcut | Note                          |
+|---------------------|--------|-------|----------|-------------------------------|
+| Issue tracking      | ✓ P    | ✓ P   | ✓ P      |                               |
+| Roadmaps            | ✓ P    | ✓ P   | ◐ P      | Shortcut: "basic" [S7]        |
+| Native time tracking| ? —    | ✓ P   | ✗ P      | Shortcut docs state not incl. |
+| Self-hosting        | ✗ P    | ✓ P   | ? —      | Linear states cloud-only [S1] |
+| SAML SSO            | ✓ P    | ✓ P   | ▲ A      | Per Jira's comparison page    |
+
+  ? = we found no public statement. Hover lists the pages checked.
+  ▲ = claimed by a rival's comparison page; never presented as neutral.
+
+## 4. Recent public changes (lookback: 90 days)
+2026-07-14 — Linear shipped "Initiatives" for multi-project planning. [S3·P]
+2026-06-02 — Jira announced a Premium price increase effective Sept 2026. [S6·P]
+Coverage note: no public changelog found for Shortcut in this window — /changelog (404),
+/releases (404), blog (90d). Not "no changes."
+
+  [Shipping velocity — DERIVED]  Releases/month, 12 months. Shortcut shown as
+  "no public changelog," never as zero.
 
 ## 5. Review & sentiment themes
-Speed / responsiveness — positive, often. "The fastest tracker I've used." [S10]
-Migration difficulty — negative, sometimes (Jira). [S11]
-Platforms covered: G2, Reddit r/ProductManagement. Volume caveat: 4 threads sampled.
+Speed / responsiveness — positive, often (14 mentions, 2 platforms).
+  "The fastest tracker I've used." [S9·A]
+Migration difficulty — negative, sometimes (Jira, 6 mentions). [S9·A]
 
-## 6. SWOT-style summary   (interpretation — inference from the facts above)
-Strengths · Linear's shipping cadence is visibly high — 6 changelog entries in 90 days [S3].
-Threats   · Jira's Sept 2026 price increase [S6] may push cost-sensitive teams to evaluate
-            alternatives — inference from the announced increase, not a stated Jira position.
+Unmet needs (from 2-3 star reviews):
+  Bulk export — 7 reviewers across 2 platforms mention wanting it [S9][S11]
+  Offline mode — 4 reviewers [S9]
 
-## 7. Sources
-S1 linear.app — Homepage — fetched 2026-07-31 14:21 UTC — tier 1 — ok
+Platforms covered: G2, Reddit r/ProductManagement. Volume caveat: 31 reviews sampled.
+Ratings reported with source and count only; no composite score is synthesised.
+
+## 6. Market emphasis (strategy canvas)
+  [Value curve — DERIVED, presented as interpretation]
+  Factors from the union of their own marketing language; Y = prominence in their own
+  public copy. Method printed on chart. This plots EMPHASIS, not capability.
+
+## 7. SWOT-style summary   [INTERPRETATION — inference from the facts above]
+Strengths  · Linear's shipping cadence is visibly high — 6 changelog entries in 90 days [S3].
+Weaknesses · Shortcut publishes no changelog, so release activity cannot be assessed [S8].
+Opportunities · Cost-sensitive Jira teams may evaluate alternatives before Sept 2026 —
+             inference from the announced increase [S6], not a stated Jira position.
+Threats    · Jira's self-hosting option [S5] covers a requirement Linear states it does
+             not serve [S1].
+
+## 7A. Operating signals
+| Company  | Publicly visible since | Last public update | Open roles | Financial standing |
+|----------|------------------------|--------------------|------------|--------------------|
+| Linear   | 2019 (archive) ·       | 2026-07-14 [S3]    | 14 [S12]   | Privately held;    |
+|          | states founded 2019    |                    |            | not disclosed      |
+| Shortcut | 2014 (archive)         | not found          | not found  | Not disclosed      |
+
+No composite health score. Private-company revenue is never estimated.
+
+## 8. Sources
+S1  linear.app — Homepage — P — fetched 2026-07-31 14:21 UTC — hash 8f3c…a91d — group G1
+S2  linear.app/pricing — Pricing — P — 14:21 UTC — hash 4b7e…22c0 — group G1
 …
-S12 capterra.com — excluded: disallowed by robots.txt
+S12 boards.greenhouse.io/linear — Careers — P — 14:23 UTC — group G7
+
+Not used (3): [Show what we found]
+  example.com/best-tools-2026 — we were unable to verify this source against our
+  criteria: we could not confirm an author, a publication date, or cited sources.
+  capterra.com/… — not accessible under our fetching rules (robots.txt).
 ```
 
 ### 4.3 The "not found" treatment

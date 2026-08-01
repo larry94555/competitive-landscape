@@ -143,7 +143,7 @@ recurrence across channels is meaningful rather than an echo.
 
 | # | Channel | Yields |
 |---|---|---|
-| 1 | **Review-site category pages** (G2, Capterra, GetApp, Software Advice) | Curated membership lists — highest-yield channel for classes C/D |
+| 1 | **Review-site category pages** (G2, Capterra, GetApp, Software Advice) | Curated membership lists — highest-yield channel for classes C/D **where access is permitted (§5.1.1)** |
 | 2 | **"Best X" / "top X tools" searches** | Broad name lists |
 | 3 | **"Alternatives to Y"** once one seed exists | Snowball; the highest-precision channel |
 | 4 | **Vendor comparison pages** (`/vs`, `/alternatives`) | Vendors name their real rivals |
@@ -154,6 +154,33 @@ recurrence across channels is meaningful rather than an echo.
 
 **Snowballing** is bounded: two hops from the first seeds, breadth-first, stopping when a
 round adds no new names that survive relevance filtering.
+
+#### 5.1.1 The access question this channel depends on — settle it in week 1
+
+Major review platforms commonly restrict automated access through `robots.txt`, bot detection
+and terms of use. **This plan honours `robots.txt` as a hard commitment**
+([FACT_CHECKING.md](FACT_CHECKING.md) §5.2), so the highest-yield discovery channel and part
+of the sentiment section may be unavailable *by our own rules*. The two positions can collide,
+and the plan must not discover that in week 8.
+
+**Phase 0 runs an access audit** and records the outcome. Three cases:
+
+| Outcome | Response |
+|---|---|
+| Access permitted | Channel 1 stays primary. No change. |
+| Disallowed for our paths | **Channels 3, 4 and 6 become primary** — vendor `/alternatives` pages, snowballed alternatives searches, and marketplace directories. Discovery still works; recurrence across channels is what matters, not any one channel. |
+| Partially permitted | Use what is allowed, disclose the rest as an access limitation. |
+
+**The design already survives this**, which is why it is a scheduling risk rather than an
+architectural one: candidates require **≥2 independent channels** and an existence gate, and
+eight channels are specified precisely so no single one is load-bearing. What changes is the
+*ranking*, and ranking is configuration.
+
+**In the report**, an inaccessible platform is stated plainly rather than silently omitted:
+*"Review-platform coverage: G2 not accessible under our fetching rules; themes below are drawn
+from community threads and vendor-published testimonials only."* This is the same disclosed-gap
+treatment used everywhere else, and it doubles as a fairness control — P21 warns that
+differential access must not read as differential quality.
 
 ### 5.2 The distinction that makes this compatible with the fact-checking rules
 
@@ -246,6 +273,15 @@ that is technically unanswered.
 | Delivery models mixed | "Is this a product people use themselves, or a service you deliver?" | Product / Service / API / Not sure |
 | Constraint is ambiguous | *"Free" as in a free tier, or open source?* | Free tier / Open source / Either |
 | 0–2 candidates survive | "I found very little in this space. Is it very new, or is there another name for it?" | Free text + "Analyse anyway" |
+
+**When the category genuinely does not exist yet** — a real case for novel product ideas, and
+distinct from a failed search. If the user confirms the space is new, the report **changes
+shape rather than failing**: it reports the **substitutes and adjacent categories** people
+currently use for the same job, states plainly that no established category was found, and
+lists the searches run so the negative is auditable (§ FACT_CHECKING §5.4). *"We could not find
+an established category for this. Here is what people appear to use instead"* is a genuinely
+useful answer to a founder with a novel idea — arguably more useful than a competitor list —
+and it is honest, which an invented set of competitors would not be.
 | >60 candidates survive | "That's a broad space. Narrow it?" | Segment chips + "Show me the whole landscape" |
 
 ### 6.2 When *not* to ask

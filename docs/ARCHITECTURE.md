@@ -163,7 +163,8 @@ type AnalysisEvent =
   | { type: 'section';  key: SectionKey; status: 'started' }
   | { type: 'delta';    key: SectionKey; text: string }        // token deltas
   | { type: 'section';  key: SectionKey; status: 'done'; data: SectionPayload }
-  | { type: 'done';     analysis: AnalysisSummary }
+  | { type: 'done';     analysis: AnalysisSummary; completeness: 'complete' | 'awaiting_pass2' }
+  | { type: 'version'; version: number; changed: SectionKey[] }   // pass 2 landed
   | { type: 'error';    code: string; message: string; retryable: boolean };
 ```
 

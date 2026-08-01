@@ -14,7 +14,7 @@
 
 ## 1. The problem catalogue
 
-Every problem is numbered so §11 can map each to its mitigation. **P1–P9** were raised in
+Every problem is numbered so §9 can map each to its mitigation. **P1–P9** were raised in
 review; **P10–P23** are ones this design has to solve regardless.
 
 ### Raised in review
@@ -531,8 +531,10 @@ and the PDF endnotes carry the same fields:
 ### 5.2 Deep links that land on the sentence
 
 Live-page links use **URL text fragments** (`#:~:text=Basic%20%248%20per%20user`), so clicking
-a footnote scrolls to and highlights the quoted sentence on the vendor's own page. Supported
-in Chrome, Edge and Safari; harmless where unsupported. **Verification should cost one click,
+a footnote scrolls to and highlights the quoted sentence on the vendor's own page. Supported in
+Chromium browsers and Safari; **Firefox support is partial**, so the link still opens the page
+but may not scroll to the quote. The stored snapshot (§5.3) is the fallback and is always
+offered alongside — verification never depends on a browser feature. **Verification should cost one click,
 not a page-scan** — friction here is why people stop checking.
 
 ### 5.3 "What we saw" snapshots, and change detection at read time
@@ -540,6 +542,10 @@ not a page-scan** — friction here is why people stop checking.
 Citing a URL is not enough: pages change, and a reader who finds different content concludes
 we were wrong even when we were right at fetch time.
 
+- **Archive submission is a deferred job, never inline.** The Internet Archive's save endpoint
+  is rate-limited and intermittently slow; blocking a report on it would trade our own
+  reliability for someone else's. Submissions queue alongside render jobs (ARCHITECTURE §5.5)
+  and the citation shows an archive link once one exists.
 - The **extracted snapshot** is stored with its content hash and served at
   `/a/:id/source/:label`, with the quoted span highlighted.
 - On report view, a cheap conditional re-fetch of tier-1 sources compares hashes. A changed

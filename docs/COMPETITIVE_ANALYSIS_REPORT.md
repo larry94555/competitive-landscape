@@ -127,6 +127,19 @@ full candidate list ([COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) §5.5)
   covered, and an explicit volume caveat.
 - **Visuals:** *Theme sentiment bars* (derived) and *Rating comparison* (observed) — §4.5, §4.6.
 - **Never:** a synthesised numeric score. Ratings are reported with their source or not at all.
+- **Unmet-need mining — the highest-value part of this section.** Mine **2–3 star reviews
+  specifically** for recurring *"I wish it did X"* / *"the only thing missing is…"* patterns.
+  Unlike 1-star reviews (often support incidents) and 5-star reviews (often marketing), the
+  middle band is where users describe what a product they otherwise like fails to do.
+  Each theme is reported as an observed, quoted, counted pattern — *"Feature gap: 7 reviewers
+  across 2 platforms mention wanting bulk export [S9][S11]"* — never as an inferred market
+  opportunity.
+
+  **Why this matters strategically:** it is the evidenced version of what "underserved market"
+  tools assert without evidence. A counted, quoted, cited unmet need is a defensible finding;
+  "this market is underserved" is an unfalsifiable claim that costs a founder a year if wrong.
+  This is the one competitor technique worth adopting, and adopting it *honestly* is the
+  differentiator.
 
 ### Section 6 — Market emphasis (strategy canvas)  ← **new**
 - **Content:** how prominently each competitor markets each competing factor — measured from

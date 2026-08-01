@@ -56,7 +56,7 @@ a new failure mode usually loses.
   runtime reality the default types pretend away.
 - **Alternatives** — Plain JavaScript with JSDoc annotations; TypeScript with `strict: false`;
   runtime-only validation (Zod everywhere, no static types).
-- **Why this choice** — The report schema *is* the product. A seven-section structure with
+- **Why this choice** — The report schema *is* the product. A nine-section structure with
   nested claims, optional payloads, and three "not found" states is exactly the shape where
   a loose type system lets a rendering bug ship. Because the types are generated from the
   Rust schema (§1.14), strict mode turns a backend schema change into a compile error rather
@@ -948,6 +948,27 @@ a new failure mode usually loses.
   to offer**: we do not trust a user's frontier model any more than our own 8B, and a claim
   whose evidence quote is absent from its cited source is deleted either way.
 
+### 3.6e Two-pass reports rather than synchronous rendering
+
+- **What it is** — Pages needing a headless browser are rendered in a **deferred job**, and the
+  report is delivered in two passes: a complete cited report at ~120s, then a v2 once renders
+  complete ([ARCHITECTURE.md](ARCHITECTURE.md) §5.5, [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §2.1A).
+- **Alternatives** — Render synchronously (simplest, and it turns a 120s report into a 300s one
+  while contending with inference for four cores); skip JS pages entirely (an accuracy gap, not
+  just a coverage gap — a client-rendered pricing page reads as "not found"); render on a
+  background schedule and rely on cache warming (helps only *popular* subjects, not the user in
+  front of you).
+- **Why this choice** — It removes rendering from the request path entirely, so pass 1 latency
+  is unaffected, while still completing *every* analysis rather than only popular ones. It also
+  makes the free tier viable where the alternative was a paid second host: the whole argument
+  for a separate render box was request-path contention, which deferral eliminates.
+- **Trade-off** — It requires **report versioning**, which is real complexity and was not
+  optional: a shared URL whose content silently changes is a citation problem for a product
+  whose premise is citations. It also complicates PDF timing (pre-warm must wait) and adds a
+  completion-notification path. Roughly 3–4 days beyond the render tier itself, most of it
+  versioning. The alternative — a report that quietly rewrites itself — would undermine the
+  product's central promise, so the complexity is bought deliberately rather than reluctantly.
+
 ### 3.7 Prefix caching, flash attention, speculative decoding
 
 - **Prefix / KV caching** — Transformer inference caches per-token attention state. If two
@@ -1243,6 +1264,8 @@ Things a reviewer might expect to see, and why they are absent:
 | **Kubernetes** | No orchestration problem exists on one host. |
 | **A hosted LLM API fallback** | Explicitly excluded by the product constraint, and accepting it would quietly undo the cost model and the privacy claim. Worth stating that this is a *product* decision, not merely a technical one. |
 | **Multi-region deployment** | Response times are dominated by inference, not network latency. A CDN in front of static assets is sufficient. |
+| **Crunchbase and paid company-data APIs** | **Cost** violates the €0 premise; **licensing** restricts redistributing their data in our published output; **coverage bias** skews to VC-funded startups while bootstrapped and indie SaaS — much of our subject matter — is thin; and it is a **secondary aggregator**, so under our own model it is class A at best, meaning funding facts should cite the company's announcement or the filing anyway. Free equivalents cover much of it: **SEC EDGAR**, **UK Companies House** (actual filed accounts), **Wikidata** (CC0), **GLEIF**, **Internet Archive CDX**, public ATS boards, **USPTO**. Revisit only as a *discovery aid, never a fact source*, at Rung 2–3 economics. |
+| **Non-English v1** | Vocabulary resolution, category taxonomies, review mining and the language rules are all English-tuned. Multi-language is not a translation layer — it is a second discovery corpus. Deferred until a specific market demands it. |
 | **Bun as a runtime, bundler, or test runner** (`bun install` *is* adopted — see §1.16) | **There is no JavaScript runtime in production** — static files via Caddy, SSR in Rust (§1.11) — so Bun's defining feature has no surface to act on. Replacing Vite forfeits the mature React plugin/HMR ecosystem; replacing Vitest forfeits the shared-transform-pipeline guarantee (§1.10). Revisit only if a JS server process ever enters production, at which point the decision being reopened is §1.11, not this one. |
 
 ---
