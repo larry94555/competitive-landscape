@@ -1,0 +1,97 @@
+WEBVTT
+
+NOTE
+Landscape prototype walkthrough. These captions are also burned into the video
+frame; this track exists for accessibility tooling, text extraction and reuse.
+
+1
+00:00:01.500 --> 00:00:05.000
+A first-time visitor arrives. No account, no signup wall, nothing to read first.
+
+2
+00:00:05.000 --> 00:00:08.500
+One box. Three examples. That is the entire learning curve.
+
+3
+00:00:08.500 --> 00:00:11.500
+They pick an example — and the analysis begins.
+
+4
+00:00:11.500 --> 00:00:15.500
+Sources appear as they are fetched. The wait shows work happening, not a spinner.
+
+5
+00:00:15.500 --> 00:00:19.000
+The last one is greyed out — Capterra blocks automated access, so we say so rather than pretending we read it.
+
+6
+00:00:19.000 --> 00:00:23.500
+Pricing lands first, because it is parsed from the page by code — never generated. It cannot be off by a digit.
+
+7
+00:00:23.500 --> 00:00:27.500
+A third-party price we could not confirm is shown separately — never in the table, never in the chart.
+
+8
+00:00:27.500 --> 00:00:31.500
+Then the written sections stream in, word by word.
+
+9
+00:00:31.500 --> 00:00:35.500
+The feature matrix has five states. A question mark means we looked and found nothing — which is a different claim from 'no'.
+
+10
+00:00:35.500 --> 00:00:39.500
+Where a competitor publishes no changelog, the report says exactly that — and lists every page it checked.
+
+11
+00:00:39.500 --> 00:00:44.500
+Every claim carries its source. One click shows the URL, the timestamp, the content hash, and the quoted line.
+
+12
+00:00:44.500 --> 00:00:52.500
+Now the follow-up conversation — fast, because the sources are already read.
+
+13
+00:00:52.500 --> 00:00:58.500
+Ask something the sources don't cover, and it says so rather than inventing an answer.
+
+14
+00:00:58.500 --> 00:01:03.500
+Anonymous users get one analysis a day — but the report itself is never degraded. Full sections, full PDF, no watermark.
+
+15
+00:01:03.500 --> 00:01:07.500
+A free account raises it to one an hour, with ten follow-ups.
+
+16
+00:01:07.500 --> 00:01:12.500
+A dollar a month gives five an hour and unlimited follow-ups. The report is identical at every tier — only frequency changes.
+
+17
+00:01:12.500 --> 00:01:17.500
+When a watched page changes, an email arrives. The subject line states the change, not the notification.
+
+18
+00:01:17.500 --> 00:01:22.500
+And the diff is the receipt behind the summary — both versions kept, both dated.
+
+19
+00:01:22.500 --> 00:01:28.500
+Seven community channels, all publicly readable. Sign-up and log-in issues accept posts from anyone — because someone locked out cannot log in to report it.
+
+20
+00:01:28.500 --> 00:01:32.500
+Posts stay editable after publishing, with an 'edited' marker.
+
+21
+00:01:32.500 --> 00:01:37.500
+And the operator's view: usage, capacity, quality — with every rate limit editable at runtime.
+
+22
+00:01:37.500 --> 00:01:42.500
+Change a number, and it takes effect immediately. The right values are unknowable before real traffic.
+
+23
+00:01:42.500 --> 00:01:48.500
+Verified sources. Honest gaps. One box to learn. That is the whole product.
