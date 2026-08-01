@@ -88,6 +88,44 @@ positions against both are the watch loop, the verification pipeline, and the pr
 The one-shot report alone would not survive as a business; the plan already treats monitoring
 as the retention hinge, which is correct.
 
+### 2.5 Is anything fatal? No — and here is the reasoning, not just the reassurance
+
+Every risk named in this evaluation and in the plan's own register comes with a mitigation
+already specified or specified here. But the stronger claim deserves its own argument: **no
+identified problem is fatal, because every one of them is a positioning problem in disguise,
+and positioning is a choice.** Walking the worst three:
+
+**The invisible-advantage problem (accuracy is unseen, latency is seen).** Fatal only if the
+product must win *first-glance* comparisons in front of a *speed-sensitive* audience. Neither
+is fixed. The fix is niche selection: sell to the people for whom a wrong number has a
+*named personal cost* — an associate whose diligence memo gets checked by a partner, an
+agency whose client deliverable carries their letterhead, a founder pasting numbers into an
+investor deck, a journalist who prints a correction. For that buyer, "every claim carries a
+verifiable receipt, and we delete what we cannot prove" is not an invisible property — it is
+the purchase reason, and 90 seconds is nothing against the hour of checking it replaces.
+The mass-market casual comparer was never the beachhead; the plan should say so explicitly
+in the forthcoming DISTRIBUTION.md.
+
+**Distribution failure (R9).** Fatal only for products that get one launch. This product's
+economics (€15/month) permit unlimited attempts at unlimited niches: if "competitive analysis
+for founders" doesn't catch, the same engine is "vendor due-diligence for procurement,"
+"pre-pitch research for agencies," "market scans for accelerator cohorts," or a white-label
+report engine — each a repositioning, not a rebuild, because the pipeline is subject-agnostic.
+The mitigation is to *plan* for multiple positioning attempts (the §5.3 pivot gates) instead
+of treating the first launch as the verdict.
+
+**Free-tier latency gating revenue that would fix latency (R12).** Already has three
+independent escape valves in the plan: BYOK (the user fixes it themselves today), the
+concierge/manual channel (revenue with zero latency constraint), and the one written
+exception to the 20%-of-MRR rule. A problem with three exits is not a trap.
+
+The honest formulation is therefore not "nothing can kill this" — neglect can, and a founder
+who reads a slow month as a dead product can. It is: **every external obstacle identified
+here converts into a smaller, better-fitting niche rather than a wall, and the plan's cost
+structure grants unlimited attempts to find it.** What capitalism does not forgive is
+spending money you do not have while searching — which is the one mistake this plan is
+structurally incapable of making.
+
 ---
 
 ## 3. Question 2 — Missing topics and documents
