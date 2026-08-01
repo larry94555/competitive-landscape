@@ -319,16 +319,45 @@ a new failure mode usually loses.
   We accept generated-code ugliness for a guarantee that three representations of the
   product's core data structure cannot diverge.
 
-### 1.15 No charting library
+### 1.15 Server-side SVG charts, not a JavaScript charting library
 
-- **What it is** — A decision not to add **Recharts**, **Chart.js**, **visx**, or **D3**.
-- **Why this choice** — Reports are prose, tables, and citations. There is no time series and
-  no quantitative data worth plotting; a chart would be decoration implying rigor the data
-  does not have, which cuts directly against the product's honesty posture.
-- **Trade-off** — Charts make screenshots look impressive, and screenshots drive launch-day
-  signups. We forgo that. If a genuinely quantitative feature arrives (pricing history across
-  watched competitors is the plausible one), a small library can be added then — and by then
-  the data will justify it.
+> **Revised.** An earlier version of this document rejected charts entirely, on the grounds
+> that reports are prose and tables and a chart would be decoration. That reasoning was sound
+> about *decorative* charts and wrong in its conclusion: competitive analysis communicates
+> through feature matrices, pricing comparisons and positioning views, and a CI tool without
+> them is not doing the job. See
+> [COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md) §7 for the full
+> reassessment. What survives is the rejection of a *JS charting library*, for stronger
+> reasons than the original.
+
+- **What it is** — Eight fixed chart types emitted as static, themed SVG by a Rust crate
+  (`landscape-charts`) from the report data, plus `resvg` to rasterise to PNG for email.
+- **Alternatives** — **Recharts**, **Chart.js**, **visx**, **Nivo**, **D3** on the client;
+  **plotters** (the mature Rust plotting crate, with an SVG backend) on the server;
+  **Vega-Lite** specs rendered headlessly; server-side rendering of a JS library via a Node
+  process.
+- **Why not a JS library** — Four reasons, none about taste. It serves **one of four
+  surfaces**: charts must appear in the React app, the **Typst PDF**, server-rendered shared
+  pages, and later in emails — so we would maintain two implementations that drift. It breaks
+  the **one-source-of-truth** principle that makes the schema drive every representation
+  (§1.14). It breaks **replay determinism** (CODING_QUALITY §9.2), because client-side charts
+  with animation and layout-dependent sizing do not re-render byte-identically. And it ships a
+  general plotting engine to draw fixed, non-interactive SVG.
+- **Why hand-rolled emitters rather than `plotters`** — The catalogue is eight fixed layouts,
+  not a general plotting problem. `plotters` is built for arbitrary charts with generic axes,
+  scales and legends, most of which we would fight to match Typst's typography. Per §2.17's
+  own rule — *no dependency > 50 lines of our code > a small focused crate* — roughly 400–600
+  lines of SVG emitters buys complete control at zero adaptation cost.
+- **Trade-off** — We own the rendering code, including axis maths, label collision and
+  responsive sizing, which a library would have solved. If a **ninth** chart type is needed,
+  or axis/scale logic starts being duplicated across emitters, adopt `plotters` then — that is
+  the rule of three (CODING_QUALITY §3.3) applied honestly, not a hedge. We also give up
+  interactivity: no hover tooltips, no zoom. Acceptable, because the charts are static
+  comparisons and every one ships with a data table beside it.
+- **The point that settles it** — charts render from already-extracted structured data, so
+  they consume **zero model tokens**. On free-tier hardware where generation is the scarce
+  resource, moving comparison out of prose and into a matrix makes the report both faster and
+  more accurate — the same lever as deterministic-first extraction (§3.6b).
 
 ### 1.16 Bun as the package manager (`bun install`)
 
@@ -1233,6 +1262,7 @@ The choices most worth challenging, with the conditions that should force a re-t
 | **Launching on Oracle Always Free rather than paying €60/mo from day one** (§8.3) | Rung 1 would give 45–70s reports instead of 90–180s, and might be the difference between converting and not | If Phase 6 shows users converting but naming latency as the blocker (ROADMAP R12) |
 | **Three small models rather than one larger one** (§4.2) | One 14B is simpler to operate than a 1.7B + 4B + 8B trio | If Phase 0 shows the routing/extraction split does not pay for its complexity |
 | **Deterministic extraction rather than model extraction** (§3.6b) | Parsers are brittle where models are flexible, and every site layout is per-site maintenance | If parser maintenance exceeds the quality it buys on the golden set |
+| **Hand-rolled SVG chart emitters rather than `plotters`** (§1.15) | We own axis maths, label collision and responsive sizing that a library already solved | A ninth chart type, or duplicated axis logic across emitters |
 | **Offering BYOK at all** (§3.6d) | It adds credential custody (the riskiest data we'd hold), punches a hole in the privacy claim, and could cannibalise subscriptions | If BYOK users convert materially worse — though the first response is to move the tier boundaries, not restrict BYOK |
 | **TanStack Router rather than React Router** (§1.4) | React Router is the incumbent with far more support material | At the first sign of type-inference friction; it is a day of work to switch |
 | **`sqlx` rather than Diesel** (§2.4) | A composable query DSL and stronger migration tooling | If the offline-metadata workflow becomes a persistent CI annoyance |

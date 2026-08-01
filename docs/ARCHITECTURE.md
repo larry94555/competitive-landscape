@@ -9,6 +9,10 @@
 > **Writing code against this design?** [CODING_QUALITY.md](CODING_QUALITY.md) is the standard
 > every change is measured against — simplicity budgets, justified patterns, testing, review.
 >
+> **What the product actually outputs** is specified in
+> [COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md) — report sections, the chart
+> catalogue, and what is deliberately excluded.
+>
 > Status: **proposed design, not yet implemented.** Every performance number in this
 > document is a *design target* that must be confirmed by the Phase 0 benchmark harness
 > before it is treated as fact.
@@ -72,7 +76,7 @@ almost entirely on grounding quality and inference throughput.
 | Client state | **Zustand** (one small store) + URL state | No Redux. The only real client state is the composer draft and stream buffer. |
 | Styling | **Tailwind CSS** + a handful of local primitives (Radix UI for dialog/popover/toast) | Fast, accessible, no design-system tax. |
 | Forms | Native + **Zod** | Zod schemas are shared conceptually with the Rust `serde` structs (kept in sync by codegen, §2.5). |
-| Charts | None in v1 | Reports are text + tables. Do not add a chart library to look serious. |
+| Charts | **No JS charting library.** Charts are static SVG generated server-side in Rust (`landscape-charts`) | One renderer serves the React app, the Typst PDF, SSR pages and email. A JS library serves only one of those, breaks replay determinism, and ships a plotting engine to draw fixed SVG. See [COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md) §7. |
 | Testing | Vitest + Testing Library + Playwright | Playwright covers the three critical flows end to end. |
 
 ### 2.2 Route map
@@ -260,6 +264,7 @@ crates/
   landscape-llm/       llama-server client, grammars, prompts, slot pool, budgets
   landscape-analyze/   the orchestrator: plan → fetch → read → synthesize → verify
   landscape-watch/     change detection, importance scoring, alert composition
+  landscape-charts/    static SVG emitters (8 fixed chart types) + resvg for email PNG
   landscape-pdf/       typst templates + render
   landscape-billing/   Stripe, plans, entitlements
   landscape-kb/        support KB, search, moderation
@@ -927,8 +932,11 @@ Resource control — budgets are per rung, because the whole point of climbing i
 - Templates are plain `.typ` files with data injected as JSON — designers/founders can
   iterate on layout without touching Rust.
 - Two templates: **`exec.typ`** (one page: subject, as-of timestamp, positioning, pricing
-  table, top 5 features, top 3 changes, SWOT grid, source count, disclaimer footer) and
-  **`full.typ`** (everything, with numbered sources and evidence quotes).
+  table, **the cost-at-scale chart**, top 5 feature-matrix rows, top 3 changes, SWOT grid,
+  source count, disclaimer footer) and **`full.typ`** (everything, with numbered sources and
+  evidence quotes).
+- Charts arrive as SVG from `landscape-charts` and embed natively in Typst — the same SVG the
+  web report renders, so the two cannot drift ([COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md) §7.2).
 
 Rejected alternatives: headless Chrome (heavyweight on a box already running an LLM),
 `printpdf` (too low-level), client-side jsPDF (quality and fidelity too poor for a

@@ -133,6 +133,14 @@ the answer is remembered for the session so a follow-up analysis doesn't re-ask.
 
 ## 4. The report schema (fixed, every time)
 
+> **Scope note.** This section specifies the *schema*. What the report should **contain** —
+> the nine sections, the chart catalogue, the evidence classes, and what is deliberately
+> excluded — is specified in
+> [COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md). The schema below covers
+> seven sections and must be expanded to nine (adding **Feature comparison matrix** and
+> **Market emphasis**) plus a `Chart` payload per section; that expansion is ADR-worthy and
+> lands in Phase 2.
+
 The schema is defined once in Rust (`landscape-core`) and generates the TypeScript types,
 the JSON Schema, and the GBNF decoding grammar. **The model cannot emit a shape other than
 this one.**
@@ -424,6 +432,7 @@ Full design in [SUPPORT_SYSTEM.md](SUPPORT_SYSTEM.md). The user-facing shape:
 | Input | Free-form natural language. URLs, names, or a paragraph all work. No syntax, no operators, no "prompt tips" link. |
 | Clarification | ≤3 questions, one at a time, chips not fields, always skippable to a complete report. |
 | Waiting | Progressive streaming with a named stage rail, sources appearing live, and the deterministically-parsed pricing table landing before any generated text. The user reads while it writes — which is what makes free-tier latency survivable. |
+| Scanning | The feature matrix and pricing charts carry the comparison, so the reader gets the answer without reading paragraphs. Every chart ships with its data table, so nobody has to trust a picture. |
 | Reading | Identical 7-section structure every time. Learned once. |
 | Trust | Inline `[S4]` chips with hover cards; "what we checked" on every gap. |
 | Acting | One primary button per context: **Download PDF** on a report, **Start watching** in the watch sheet, **Upgrade** in the limit dialog. |

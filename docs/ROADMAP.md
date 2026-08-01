@@ -16,6 +16,7 @@ TypeScript + React frontend · Rust backend · local llama.cpp inference on Orac
 |---|---|
 | **ROADMAP.md** (this file) | Executive summary, phased plan (**C**), metrics (**F**), solo-founder execution (**G**), risks (**H**), bootstrapped cost ladder, git/PR workflow |
 | [PRODUCT_SPEC.md](PRODUCT_SPEC.md) | Product & UX specification (**A**): user flows, report schema, notification UX, zero-learning-curve mechanisms |
+| [COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md) | What the report contains: the nine sections, the chart catalogue, evidence classes, what is deliberately excluded, and the charting decision |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Technical architecture & stack (**B**): React, Rust, llama.cpp, data, jobs, caching, PDF, email, Stripe, change detection, hosting |
 | [ARCHITECTURE_EXPLANATION.md](ARCHITECTURE_EXPLANATION.md) | Companion to the above: every technology explained — what it is, the alternatives, the justification, and the cost/benefit trade-off |
 | [SUPPORT_SYSTEM.md](SUPPORT_SYSTEM.md) | Support system design (**D**): the open "slash-lite" knowledge base |
@@ -274,6 +275,12 @@ loading screen; treat it as a P0 requirement.
 right to charge money.
 
 **Ship**
+- **The feature comparison matrix and pricing comparison** — the backbone of a real
+  competitive analysis ([COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md)
+  §3), including the five-state cell model where *not found* is distinct from *no*.
+- `landscape-charts`: static SVG emitters for the **feature matrix** and **cost-at-scale
+  curve**, rendered identically in the web report and the Typst PDF. Charts consume zero
+  model tokens, so they improve the report while *reducing* the generation budget.
 - Layers 3–5 of the anti-hallucination stack ([QUALITY_GUARDRAILS.md](QUALITY_GUARDRAILS.md) §2).
 - Clarifying questions (≤3, chip-answerable, skippable).
 - PDF export: one-page executive summary + full version.
@@ -306,7 +313,9 @@ streaming* — which no screenshot can. Free on a public repository.
 **Support:** write the first 10 seed KB articles as static Markdown (published in Phase 3).
 
 **Instrumentation & eval**
-- Golden set to 50 subjects, including both traps.
+- Golden set to 50 subjects, including both traps, with **matrix and chart-data assertions** —
+  a chart plotting the wrong number is a fact error and must fail the same gates as a
+  hallucinated price.
 - Full automated eval suite with **CI gates** ([QUALITY_GUARDRAILS.md](QUALITY_GUARDRAILS.md) §3.2).
 - Daily human review of 5 sampled reports begins here and never stops.
 - Dashboards: citation coverage, drop rate, latency percentiles, cache hit rates.
