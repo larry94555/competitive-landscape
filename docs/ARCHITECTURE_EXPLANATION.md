@@ -216,6 +216,27 @@ a new failure mode usually loses.
   cross-browser coverage over interactive ergonomics, because a solo founder runs the suite
   far more often than they debug it.
 
+### 1.10b Playwright as the demo recorder, not just the E2E runner
+
+- **What it is** — Playwright's `recordVideo` captures a WebM of any test run. The demo
+  pipeline ([CODING_QUALITY.md](CODING_QUALITY.md) §9.5) reuses it twice: once for
+  `@demo`-tagged E2E specs showing the UI in action, and once to drive a static HTML deck that
+  renders the code walkthrough.
+- **Alternatives** — A dedicated screen recorder such as **OBS** (GUI-driven, not scriptable
+  in CI); **asciinema** + **agg** or **terminalizer** for terminal capture; **silicon** to
+  render code to PNGs and stitch them with ffmpeg; a hosted service such as Loom or Arcade
+  (paid, and the recording is not reproducible from source).
+- **Why this choice** — It adds no tool. Playwright is already the E2E runner (§1.10), so the
+  demo suite is the *same specs with recording enabled* rather than a parallel suite to keep
+  in sync. Driving an HTML deck for the code walkthrough also buys full typographic control,
+  CSS-based highlighting and scrolling, and deterministic pacing — which matters because the
+  captions are timestamped in a committed script.
+- **Trade-off** — Playwright video is ~25fps, silent, and records the whole test including
+  setup, so ffmpeg has to trim and concatenate. A purpose-built recorder would produce a
+  smoother result with less post-processing. Not worth a second tool: the artifact is a
+  90-second review aid, not a marketing asset. **VHS** is the one exception — terminal output
+  renders badly through a browser, so CLI demos use it directly.
+
 ### 1.11 Client-rendered SPA with server-rendered public pages  ⚠ Genuinely arguable
 
 - **What it is** — The app ships as a JavaScript bundle that renders in the browser, but

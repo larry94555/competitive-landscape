@@ -428,6 +428,8 @@ Rules that keep it alive:
 - **[REVIEW]** A PR that changes the shape of a chapter's subject must update that chapter.
 - Chapter 7 doubles as the **onboarding task for any new agent or contributor**, and as a
   smoke test of the whole toolchain.
+- Each chapter links the demo video (§9.5) for the area it covers, so the tutorial can be
+  watched as well as read.
 
 ---
 
@@ -501,6 +503,138 @@ let variant = experiments.assign("synth_prompt_v7", subject_key);  // determinis
   without exposing a single user. Live experiments are for what replay cannot settle.
 - **Quality gates apply to every variant.** An experiment may not ship a variant that fails
   the golden set, however good its engagement metric looks.
+
+### 9.5 Demo videos — UI in action plus a code walkthrough
+
+**Why this exists.** Two of this product's hardest review problems are not visible in a diff.
+The core UX is *progressive streaming* — a time-based experience a screenshot cannot show —
+and the founder reviews their own agent-generated code, where reading for intent hides the
+gap between what was asked for and what was built (§10.2). **Watching a feature work is a
+different cognitive act from reading it**, and it catches "the code is right, the experience
+is wrong." It is also a forcing function: a feature whose demo cannot be scripted in a few
+steps probably is not reachable by a real user.
+
+#### What a demo contains
+
+One video, **120 seconds hard maximum** — a demo nobody watches is worse than none.
+
+| Segment | Length | Content |
+|---|---|---|
+| Title card | 2s | PR number, title, commit SHA, branch |
+| **UI in action** | 20–60s | The feature working, recorded from a `@demo`-tagged Playwright spec |
+| **Code walkthrough** | 20–50s | 3–6 steps through the changed code: what changed, where, and why |
+| End card | 3s | What the reviewer should scrutinise; link to the ADR |
+
+**Every segment is subtitled and silent.** Captions are burned in, so the video is fully
+comprehensible with sound off — which is also how GitHub autoplays it, and what makes it
+accessible by default. No text-to-speech in v1; it adds a toolchain and a rendering step to
+convey what the captions already convey. (If narration is wanted later for marketing,
+**Piper** is the open-source option — but not on the inference box.)
+
+#### Toolchain — all open source, nothing new to the stack
+
+| Job | Tool | Note |
+|---|---|---|
+| Record the UI | **Playwright** `recordVideo` | Already in the stack for E2E (§6.1). WebM, 1280×720. |
+| Render the code walkthrough | **A static HTML deck driven by Playwright** | One step per concept: syntax-highlighted diff, changed lines emphasised, scroll/highlight in CSS. Reuses the recorder we already have instead of adding a screen-capture tool. |
+| CLI demos (`landscape replay`, migrations) | **VHS** (charmbracelet) | Scripted `.tape` files → MP4. The right tool for terminal-native output. |
+| Concat, title cards, captions, encode | **ffmpeg** | WebM → H.264 MP4 (`-pix_fmt yuv420p -movflags +faststart`); two-pass palette for the GIF. |
+| Write the walkthrough script and captions | **Claude** | See below — this is the part that genuinely needs a model. |
+
+Claude cannot render video and should not be asked to. It writes the harness, the demo
+script, and the captions; open-source tools do the recording. Building a bespoke video tool
+would be precisely the speculative abstraction §1 calls a defect.
+
+#### The narration script is a reviewed artifact, not runtime output
+
+**[REVIEW]** Each demo has a committed script at `demos/<slug>.demo.md`:
+
+```markdown
+---
+slug: watch-create-sheet
+ui_spec: e2e/watch.spec.ts@creates a watch from a report
+max_seconds: 90
+---
+## UI
+- [0:00] "From a finished report, one click opens the watch sheet."
+- [0:06] "Pricing page and changelog are pre-selected — no naming, no folders."
+
+## Code
+- [0:24] crates/landscape-watch/src/create.rs:41
+  "Watch creation is one transaction with the first scheduled check, so a watch
+   can never exist without a job that will run it."
+- [0:38] crates/landscape-db/migrations/0031_watches.sql
+  "The unique index on (user_id, target_url) is what makes re-watching idempotent."
+```
+
+Committing the script rather than generating captions at record time buys three things:
+the video is **deterministic and reproducible** (same principle as `replay`, §9.2); the
+**reviewer reads the script as part of the diff**, so a wrong explanation is caught like any
+other wrong code; and a model cannot invent a description of code at render time, which is
+the exact failure this whole document is built to prevent.
+
+Timestamps and file references are **[CI]-checked**: a referenced path or spec that does not
+exist fails the build, the same mechanism that keeps the tutorial honest (§8.3).
+
+#### Pipeline
+
+```
+@demo Playwright specs ──> WebM ─┐
+walkthrough HTML + Playwright ──>┤
+VHS .tape (CLI demos) ──────────>┴─> ffmpeg concat
+                                      ├─ burn captions (ASS styling from the .demo.md)
+                                      ├─> demo.mp4  (full quality → CI artifact)
+                                      ├─> demo.vtt  (sidecar, for accessibility and reuse)
+                                      └─> demo.gif  (≤1MB, 15fps, inline-renderable)
+
+demo.gif ──> orphan `demo-assets` branch at <pr>-<sha>.gif
+         ──> bot comments on the PR with the raw.githubusercontent URL
+```
+
+The orphan branch matters: GIFs render inline in PR comments via `raw.githubusercontent.com`,
+but committing them to `main` would bloat the repository permanently.
+
+#### The honesty rule **[CI]**
+
+On Rung 0 a real analysis takes 90–180 seconds ([ARCHITECTURE.md](ARCHITECTURE.md) §4.4), so
+UI demos record against a stubbed inference layer. **A sped-up demo that quietly misrepresents
+latency would undermine the one thing this project has been careful to be honest about.**
+Therefore:
+
+- Every stubbed demo burns in a persistent corner label:
+  `Stubbed inference — not representative of real latency`.
+- **One demo per release is recorded at real speed**, unedited, and linked from the changelog,
+  so the actual experience stays visible to the founder and to users.
+- Speed ramps are permitted only on waits, never on interactions, and the ramp factor is
+  displayed.
+
+#### When it is required **[CI]**
+
+| Change | Demo |
+|---|---|
+| Touches `frontend/**`, a route, an email template, or the PDF | **Required** — merge blocked without one |
+| New CLI command or operator workflow | **Required** (VHS) |
+| Backend-only, refactor, dependency bump, docs, lint | Not required |
+
+Escape hatch: a **`no-demo` label with a one-line justification**, counted and reported
+alongside `// BUDGET:` annotations (§3.2). A rising count is visible rather than silent.
+
+#### Storage & pruning **[CI]**
+
+Free on a public repository — GitHub Actions minutes and artifact storage are unmetered for
+public repos, and every tool above is open source. Two real costs remain:
+
+- **Repository growth.** ≤1MB per GIF, so roughly 100MB/year at 100 PRs. A scheduled job
+  prunes the `demo-assets` branch: keep demos for merged PRs and tagged releases, drop those
+  for closed PRs, and drop anything older than two releases. **Set this up with the pipeline,
+  not later** — retrofitting it means rewriting branch history.
+- MP4 artifacts use 14-day retention; the GIF is the durable record.
+
+If the repository ever goes private, Actions minutes become metered (2,000/month free) — but
+the Rust build, not the demo, is what would consume them. **Do not solve that with a
+self-hosted runner while the repo is public**: fork PRs can execute arbitrary code on the
+runner, and the only spare machine is the production box holding the database and encrypted
+user API keys.
 
 ---
 
@@ -582,6 +716,8 @@ Every PR. A reviewer who cannot answer yes to all of these does not approve.
 - [ ] New operations >100ms have named spans.
 - [ ] New failure paths produce an actionable error with a correlation id.
 - [ ] Replay determinism preserved.
+- [ ] **I watched the demo, and the experience matches the intent** — not merely "a demo
+      exists." The walkthrough script describes the code that is actually here (§9.5).
 
 **Security** (blocking; escalate to hot-zone review if any is unclear)
 - [ ] No secret can reach a log, an error body, or a response.
@@ -593,7 +729,8 @@ Every PR. A reviewer who cannot answer yes to all of these does not approve.
 
 `fmt` · `clippy -D warnings` · `tsc` · `eslint` · unit + integration tests · new-code coverage
 ≥ 80% · Sonar quality gate · `cargo deny` · `cargo audit` · `gitleaks` · budget report ·
-tutorial link check · **golden-set eval for anything touching the analysis pipeline**.
+tutorial link check · **demo video for user-visible changes** (§9.5) · **golden-set eval for
+anything touching the analysis pipeline**.
 
 Merges are **squash-only**, with a message explaining *why*. The commit log is documentation.
 

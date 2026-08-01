@@ -296,6 +296,13 @@ right to charge money.
 SWOT, and the disclaimer line — all shipped together so the trust story reads as one design
 rather than a pile of warnings.
 
+**Demo pipeline** ([CODING_QUALITY.md](CODING_QUALITY.md) §9.5): Playwright `@demo` specs,
+the HTML code-walkthrough deck, ffmpeg caption burn-in, the `demo-assets` orphan branch with
+its pruning job, and the CI gate requiring a demo for user-visible changes. Built here rather
+than later because Phase 2 is the first phase with a UI worth demonstrating, and because a
+silent, subtitled 90-second video is the only review artifact that shows *progressive
+streaming* — which no screenshot can. Free on a public repository.
+
 **Support:** write the first 10 seed KB articles as static Markdown (published in Phase 3).
 
 **Instrumentation & eval**
