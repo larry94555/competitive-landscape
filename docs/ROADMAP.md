@@ -164,6 +164,13 @@ the positioning is wrong. Each hand-made report also becomes a **golden-set refe
 a **testimonial**, and a **format test** — so the work is never wasted even if the concierge
 channel is abandoned.
 
+**Track C — the UI prototype (week 1–2).** Build `prototype/ui-prototype.html`: one throwaway
+HTML file, canned data, simulated timings, no backend. It tests the one thing no static mockup
+can show — whether a 90–180 second wait reads as *work happening* or as a hang — plus whether
+citations invite clicking and whether an honest gap reads as rigour. Show it to concierge
+recipients (Track A) in the same conversation as their hand-made report.
+**Explicitly disposable: it must not become the production frontend.**
+
 **Track B — pre-launch assets (week 1).** Register and stand up a **waitlist landing page**
 (the domain starts ageing and the list starts growing from day one); run the **name and
 trademark check** before any brand equity accrues; provision the Oracle A1 and **convert the
