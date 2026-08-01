@@ -1,9 +1,15 @@
 # Builds the standalone demo page.
 #
 # Video + caption track are inlined as data URIs so the page is self-contained
-# (the Artifact CSP blocks external hosts). Narration is generated in the browser
-# with Web Speech, driven by the caption cues, so it cannot drift out of sync and
-# adds nothing to the download.
+# (the Artifact CSP blocks external hosts).
+#
+# Captions are rendered by the player from the WebVTT track, not burned into the
+# picture: baked-in text shrinks with the video when a player scales it, whereas
+# player-rendered subtitles stay legible at any size.
+#
+# Narration is generated in the browser with Web Speech and *owns the pacing* -
+# it pauses the video, finishes the sentence, waits a beat, then resumes. Racing
+# the voice against a fixed-length recording is what made the first cut choppy.
 import base64, io, os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -31,7 +37,8 @@ PAGE = r'''<title>Landscape — Product Demo</title>
 
   .stage{background:#0A0E0D;position:relative}
   .stage video{display:block;width:100%;height:auto;max-height:88vh;margin:0 auto;background:#000}
-  video::cue{background:rgba(8,12,11,.9);color:#F2F6F4;font-family:var(--sans);font-size:.95em;line-height:1.4}
+  video::cue{background:rgba(8,12,11,.92);color:#F4F8F6;font-family:var(--sans);
+    font-size:1.35em;line-height:1.45;font-weight:500}
 
   .bar{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--rule);
     display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;padding:.6rem 1rem}
@@ -70,7 +77,7 @@ PAGE = r'''<title>Landscape — Product Demo</title>
 </style>
 
 <div class="bar">
-  <span class="grow" id="status">silent video · captions burned in</span>
+  <span class="grow" id="status">subtitles on · narration off</span>
   <button class="tog primary" id="playAll">▶ Play with narration</button>
   <button class="tog" id="tVoice" aria-pressed="false"><span class="led"></span>Narration</button>
   <button class="tog" id="tFull">⛶ Fullscreen</button>
@@ -88,9 +95,9 @@ PAGE = r'''<title>Landscape — Product Demo</title>
 
 <div class="meta">
   <span class="ok">1600×1000</span>
-  <span class="ok">captions burned in + selectable track</span>
+  <span class="ok">subtitles on by default</span>
   <span>optional narration: your browser's speech engine</span>
-  <span>1 min 53 s</span>
+  <span>1 min 53 s (longer with narration)</span>
 </div>
 
 <div class="wrap">
@@ -100,9 +107,10 @@ PAGE = r'''<title>Landscape — Product Demo</title>
   compressed timings.</p>
 
   <div class="callout">
-    <strong>The recording has no audio.</strong> Captions are burned into the picture, so it reads
-    fine muted. <em>Narration</em> is optional and generated in your browser &mdash; the voice reads
-    each caption as it appears, so it cannot drift out of sync, and it adds nothing to the download.
+    <strong>The recording has no audio.</strong> Subtitles are on by default, so it reads fine
+    muted. <em>Narration</em> is optional and spoken by your browser &mdash; and it sets the pace:
+    the video pauses while each line is read, then continues. That makes the walkthrough longer
+    than 1:53, and it is the only way the voice can finish a sentence.
   </div>
 
   <h2>What it covers</h2>
@@ -131,14 +139,28 @@ PAGE = r'''<title>Landscape — Product Demo</title>
   "use strict";
   var vid = document.getElementById('vid');
   var status = document.getElementById('status');
+  var tVoice = document.getElementById('tVoice');
+
+  var GAP_MS = 700;          // beat between finishing a line and resuming the video
+  var SENTENCE_GAP_MS = 260; // beat between sentences within one line
+
   var voiceOn = false, chosenVoice = null;
+  var speaking = false;      // we are mid-narration
+  var pausedByUs = false;    // we paused the video to speak
+  var userPaused = false;    // the viewer paused it themselves
+  var token = 0;             // invalidates in-flight narration on seek/toggle
+
+  var canSpeak = !!window.speechSynthesis;
+  if (!canSpeak) {
+    tVoice.disabled = true;
+    tVoice.title = 'This browser has no speech synthesis';
+  }
 
   function pickVoice() {
-    var vs = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+    var vs = speechSynthesis.getVoices();
     if (!vs.length) return null;
     var en = vs.filter(function (v) { return /^en(-|_|$)/i.test(v.lang); });
     var pool = en.length ? en : vs;
-    // Prefer the neural/"Natural" voices where a browser exposes them.
     var prefs = [/natural/i, /aria|jenny|libby|sonia|ava|samantha|serena|zoe/i, /google/i];
     for (var i = 0; i < prefs.length; i++) {
       var hit = pool.filter(function (v) { return prefs[i].test(v.name); })[0];
@@ -146,45 +168,106 @@ PAGE = r'''<title>Landscape — Product Demo</title>
     }
     return pool[0];
   }
-  if (window.speechSynthesis) {
+  if (canSpeak) {
     chosenVoice = pickVoice();
     speechSynthesis.onvoiceschanged = function () { chosenVoice = pickVoice() || chosenVoice; };
   }
 
-  function say(text) {
-    if (!voiceOn || !window.speechSynthesis || !text) return;
+  // Split a caption into sentences. Short utterances avoid the ~15s cutoff bug in
+  // Chromium's speech engine, and give a natural beat between thoughts.
+  function sentences(text) {
+    var t = text.replace(/\s+/g, ' ').trim();
+    var parts = t.match(/[^.!?]+[.!?]*/g) || [t];
+    var out = [];
+    parts.forEach(function (p) {
+      p = p.trim();
+      if (!p) return;
+      // Glue a stray fragment onto the previous sentence rather than speaking it alone.
+      if (out.length && p.length < 18) out[out.length - 1] += ' ' + p;
+      else out.push(p);
+    });
+    return out;
+  }
+
+  function speakSequence(lines, myToken, done) {
+    var i = 0;
+    (function next() {
+      if (myToken !== token) return;              // superseded
+      if (i >= lines.length) { done(); return; }
+      var u = new SpeechSynthesisUtterance(lines[i++]);
+      if (chosenVoice) { u.voice = chosenVoice; u.lang = chosenVoice.lang; }
+      u.rate = 1.0; u.pitch = 1.0; u.volume = 1.0;
+      u.onend = function () {
+        if (myToken !== token) return;
+        setTimeout(next, SENTENCE_GAP_MS);
+      };
+      u.onerror = function () { if (myToken === token) setTimeout(next, SENTENCE_GAP_MS); };
+      speechSynthesis.speak(u);
+    })();
+  }
+
+  // Narration owns the pacing: pause the picture, finish the thought, then resume.
+  function narrate(text) {
+    if (!voiceOn || !canSpeak || !text) return;
+    var myToken = ++token;
     speechSynthesis.cancel();
-    var u = new SpeechSynthesisUtterance(text.replace(/\s+/g, ' ').trim());
-    if (chosenVoice) { u.voice = chosenVoice; u.lang = chosenVoice.lang; }
-    u.rate = 1.08; u.pitch = 1.0; u.volume = 1.0;
-    speechSynthesis.speak(u);
+    speaking = true;
+
+    if (!vid.paused) { pausedByUs = true; vid.pause(); }
+    setStatus();
+
+    speakSequence(sentences(text), myToken, function () {
+      setTimeout(function () {
+        if (myToken !== token) return;
+        speaking = false;
+        setStatus();
+        if (pausedByUs && !userPaused) { pausedByUs = false; vid.play(); }
+        else { pausedByUs = false; }
+      }, GAP_MS);
+    });
+  }
+
+  function stopNarration() {
+    token++;
+    speaking = false;
+    pausedByUs = false;
+    if (canSpeak) speechSynthesis.cancel();
+    setStatus();
+  }
+
+  function currentCue() {
+    var t = vid.textTracks && vid.textTracks[0];
+    var c = t && t.activeCues && t.activeCues[0];
+    return c ? c.text : null;
   }
 
   function hookCues() {
     var t = vid.textTracks && vid.textTracks[0];
     if (!t) return;
-    t.mode = 'hidden';                 // burned-in captions are already visible
+    t.mode = 'showing';                       // the player draws the subtitles
     t.addEventListener('cuechange', function () {
       var c = t.activeCues && t.activeCues[0];
-      if (c) say(c.text);
+      if (c && voiceOn) narrate(c.text);
     });
   }
-  if (vid.readyState >= 1) hookCues(); else vid.addEventListener('loadedmetadata', hookCues);
+  if (vid.readyState >= 1) hookCues();
+  else vid.addEventListener('loadedmetadata', hookCues);
 
   function setStatus() {
-    status.textContent = (voiceOn ? 'narration on' : 'silent video') + ' · captions burned in';
+    var s = voiceOn ? (speaking ? 'narrating — video paused' : 'narration on') : 'narration off';
+    status.textContent = 'subtitles on · ' + s;
   }
-
-  var tVoice = document.getElementById('tVoice');
 
   tVoice.onclick = function () {
     voiceOn = !voiceOn;
     this.setAttribute('aria-pressed', voiceOn ? 'true' : 'false');
-    if (!voiceOn && window.speechSynthesis) speechSynthesis.cancel();
-    else {
-      var t = vid.textTracks && vid.textTracks[0];
-      var c = t && t.activeCues && t.activeCues[0];
-      if (c && !vid.paused) say(c.text);
+    if (!voiceOn) {
+      var wasPausedByUs = pausedByUs;
+      stopNarration();
+      if (wasPausedByUs && !userPaused) vid.play();
+    } else if (!vid.paused) {
+      var c = currentCue();
+      if (c) narrate(c);
     }
     setStatus();
   };
@@ -195,14 +278,25 @@ PAGE = r'''<title>Landscape — Product Demo</title>
   };
 
   document.getElementById('playAll').onclick = function () {
-    if (!voiceOn) tVoice.click();
+    if (!voiceOn && canSpeak) { voiceOn = true; tVoice.setAttribute('aria-pressed', 'true'); }
+    userPaused = false;
+    stopNarration();
     vid.currentTime = 0;
     vid.play();
+    setStatus();
   };
 
-  vid.addEventListener('pause', function () { if (window.speechSynthesis) speechSynthesis.cancel(); });
-  vid.addEventListener('seeking', function () { if (window.speechSynthesis) speechSynthesis.cancel(); });
-  vid.addEventListener('ended', function () { if (window.speechSynthesis) speechSynthesis.cancel(); });
+  vid.addEventListener('pause', function () {
+    if (pausedByUs) return;                   // our own pause, mid-sentence
+    userPaused = true;
+    stopNarration();
+  });
+  vid.addEventListener('play', function () {
+    userPaused = false;
+    setStatus();
+  });
+  vid.addEventListener('seeking', function () { stopNarration(); });
+  vid.addEventListener('ended', function () { stopNarration(); });
 
   setStatus();
 })();

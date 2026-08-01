@@ -48,12 +48,15 @@ const context = await browser.newContext({
 const page = await context.newPage();
 await page.goto(page_url, { waitUntil: 'load' });
 
-// Scale the whole UI up: the complaint about the first cut was that text was
-// too small once the video was letterboxed into a page.
+// Scale the whole UI up so text stays legible when the video is scaled down.
+//
+// The caption bar is hidden: captions are delivered by the WebVTT track instead
+// (prototype/video/landscape-demo.vtt). Burned-in captions shrink with the video
+// when a player scales it; player-rendered subtitles stay legible at any size,
+// and are what drives the optional narration.
 await page.addStyleTag({ content: `
   html { zoom: ${ZOOM}; }
-  .cap-text { font-size: 1.05rem !important; }
-  .cap-bar  { padding: .85rem 1.2rem 1rem !important; }
+  .cap-bar { display: none !important; }
 ` });
 await page.waitForTimeout(1200);
 
