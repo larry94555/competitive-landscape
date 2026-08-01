@@ -85,6 +85,59 @@ punchy written down and sound broken spoken aloud — and this narration *is* sp
 
 ---
 
+## 2A. Choosing the example
+
+### 2A.1 Demonstrate the simplest path first, always
+
+**The mistake:** the first cut opened by comparing three named products. That quietly assumed
+the viewer already knew who their competitors were — which is the opposite of the problem the
+product solves, and it made an advanced input look like the normal one.
+
+**The rule:** the opening example uses **the simplest possible input, and only that**. Here it
+is a plain business idea in someone's own words. Anything that requires prior knowledge —
+naming rivals, pasting a website — is an advanced path and does not appear until §2A.3.
+
+The same discipline applies to the interface itself. The examples offered on screen are all
+the simple kind; the other ways in live behind a closed disclosure that most people will never
+open.
+
+### 2A.2 Pick an example that makes the product look necessary
+
+**The mistake:** the first example was three project-management tools. A reviewer's verdict was
+"pretty flat," and they were right — everyone has heard of those products, so the demo showed
+the tool doing work the viewer could have done themselves.
+
+**The rule:** choose a subject where the viewer **cannot already name the competitors**. The
+current example — an app helping small farms sell to restaurants — surfaces three companies
+most viewers will never have heard of. That single fact demonstrates the hardest capability in
+the product, and no narration is needed to explain why it is useful.
+
+**Test:** if a viewer could have listed the competitors themselves before pressing play, the
+example is teaching nothing.
+
+### 2A.3 Advanced paths go last, and are named as alternatives
+
+Show them **after** the complete simple journey, briefly, one at a time:
+
+1. name the competitors, if you already know them;
+2. paste a company's website;
+3. or put either in the same sentence as the idea.
+
+Say explicitly that each works alone **or in combination**. Listing them separately keeps each
+one legible; bundling them into one example makes all three look like requirements.
+
+### 2A.4 Invent the companies in the example
+
+Demo data is fabricated by definition. Attaching invented prices and features to **real named
+companies** — even behind a "simulated data" banner — is exactly what
+[FACT_CHECKING.md](FACT_CHECKING.md) §3.2.5 forbids the product itself from doing, and it
+carries the same trade-libel exposure as R13.
+
+Use coined names on the reserved `.example` domain. It is unmistakably fictional, it costs
+nothing, and it means the demo never makes a claim about a real business.
+
+---
+
 ## 3. Subtitles
 
 ### 3.1 Player-rendered, never burned into the picture
@@ -163,9 +216,14 @@ the frame*. More pixels alone does not help — a 4K recording of small text is 
 
 ### 5.2 Frame size is a negotiation with file size
 
-The demo page inlines the video as a data URI so it is self-contained. 1600×1000 lands around
-10MB for two minutes, which is acceptable. Beyond that, reconsider before reaching for more
-resolution.
+The demo page inlines the video as a data URI, and the artifact limit is **16MB** — so the
+video must stay under roughly **11.5MB**. At 1360×850 a two-and-a-half minute demo lands near
+11MB.
+
+Because subtitles are drawn by the player (§3.1), the frame only has to carry the *interface*
+legibly. That is what the zoom does, not the pixel count — so when the file is too large, cut
+the frame size and keep the zoom. Cutting resolution costs almost nothing; cutting the zoom
+would make the text unreadable again.
 
 ### 5.3 Give the viewer a way to make it bigger
 
@@ -242,6 +300,11 @@ node prototype/record-demo.mjs
 
 Blocking, alongside the §10.3 checklist in [CODING_QUALITY.md](CODING_QUALITY.md):
 
+- [ ] The opening example is the **simplest input**, with no advanced options mixed in.
+- [ ] A viewer could **not** have named the competitors themselves before pressing play.
+- [ ] Advanced paths appear only at the end, listed separately, described as optional.
+- [ ] Companies in the example are invented, on `.example` — no real business is given
+      fabricated prices or features.
 - [ ] Every caption is understandable to someone outside software.
 - [ ] No word from the §2.2 banned list.
 - [ ] No noun that cannot be resolved from the video alone.

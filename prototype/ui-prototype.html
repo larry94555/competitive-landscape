@@ -114,6 +114,24 @@
     color:var(--ink-soft); border-radius:2px; padding:.38rem .7rem; cursor:pointer; transition:border-color .12s,color .12s; }
   .chip:hover { border-color:var(--accent); color:var(--accent); }
 
+  .adv { margin-top:1.5rem; }
+  .adv-toggle { font:inherit; font-size:var(--step--1); background:none; border:0; color:var(--muted);
+    cursor:pointer; padding:.3rem 0; font-family:var(--mono); }
+  .adv-toggle:hover { color:var(--accent); }
+  .adv-toggle[aria-expanded="true"] { color:var(--accent); }
+  .adv-body { display:none; margin-top:.9rem; padding:1rem 1.1rem; background:var(--surface);
+    border:1px solid var(--rule); border-radius:3px; max-width:46rem; }
+  .adv-body.on { display:block; animation:rise .3s ease-out both; }
+  .adv-body p { margin:0 0 .9rem; font-size:var(--step--1); color:var(--ink-soft); max-width:56ch; }
+  .adv-row { display:flex; align-items:center; gap:.75rem; margin-bottom:.5rem; flex-wrap:wrap; }
+  .adv-k { font-family:var(--mono); font-size:var(--step--1); color:var(--muted); min-width:11rem; }
+
+  .interp { font-family:var(--mono); font-size:var(--step--1); color:var(--ink-soft);
+    background:var(--accent-soft); border:1px solid var(--rule); border-radius:2px;
+    padding:.55rem .8rem; margin-bottom:1.25rem; display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
+  .interp b { color:var(--accent-ink); font-weight:640; }
+  .interp .edit { margin-left:auto; color:var(--accent); cursor:pointer; }
+
   .disclaimer { margin-top:2.5rem; padding-top:1rem; border-top:1px solid var(--rule);
     color:var(--muted); font-size:var(--step--1); max-width:60ch; }
 
@@ -326,9 +344,23 @@
         </div>
       </div>
       <div class="chips">
-        <button class="chip" data-ex="Linear vs Jira vs Shortcut">Linear vs Jira vs Shortcut</button>
-        <button class="chip" data-ex="a free competitive landscape research tool">a free competitive research tool</button>
-        <button class="chip" data-ex="https://linear.app">https://linear.app</button>
+        <button class="chip" data-ex="an app that helps small farms sell directly to local restaurants">an app that helps small farms sell to restaurants</button>
+        <button class="chip" data-ex="a tool that chases unpaid invoices for freelancers">a tool that chases unpaid invoices for freelancers</button>
+        <button class="chip" data-ex="software for booking guitar lessons">software for booking guitar lessons</button>
+      </div>
+
+      <div class="adv" id="advWrap">
+        <button class="adv-toggle" id="advToggle" aria-expanded="false">Other ways to start &rsaquo;</button>
+        <div class="adv-body" id="advBody">
+          <p>You can also start from what you already know. Any of these work on their own,
+             or together in the same sentence.</p>
+          <div class="adv-row"><span class="adv-k">Name the competitors</span>
+            <button class="chip" data-ex="Croptally vs Barnwise">Croptally vs Barnwise</button></div>
+          <div class="adv-row"><span class="adv-k">Paste a website</span>
+            <button class="chip" data-ex="https://croptally.example">https://croptally.example</button></div>
+          <div class="adv-row"><span class="adv-k">Or mix them</span>
+            <button class="chip" data-ex="an app for farm-to-restaurant orders, like Croptally">an app for farm-to-restaurant orders, like Croptally</button></div>
+        </div>
       </div>
       <p class="disclaimer">Generated from public web sources. Good-enough public intelligence,
         not verified enterprise competitive intelligence. Check anything you'll act on.</p>
@@ -349,6 +381,7 @@
       <div class="stage" data-s="verifying">Verifying</div>
     </div>
     <div class="sources-live" id="srcLive"></div>
+    <div class="interp hidden" id="interpLine"></div>
     <div class="meta-bar hidden" id="metaBar">
       <span>Comparison</span><span>2026-08-01 09:14 UTC</span>
       <span>11 sources · 9 independent groups</span>
@@ -520,21 +553,21 @@
   };
 
   var SOURCES = [
-    {host:"linear.app",true_:1,title:"Homepage",cls:"P",t:3.0},
-    {host:"linear.app",title:"Pricing",cls:"P",t:4.4},
-    {host:"atlassian.com",title:"Jira Pricing",cls:"P",t:5.8},
-    {host:"shortcut.com",title:"Homepage",cls:"P",t:7.1},
-    {host:"reddit.com",title:"r/ProductManagement",cls:"A",t:8.6},
-    {host:"boards.greenhouse.io",title:"Linear careers",cls:"P",t:9.9},
-    {host:"capterra.com",title:"not accessible",cls:"X",t:10.8}
+    {host:"croptally.example",title:"Homepage",cls:"P",t:3.0},
+    {host:"croptally.example",title:"Prices",cls:"P",t:4.4},
+    {host:"barnwise.example",title:"Prices",cls:"P",t:5.8},
+    {host:"freshroute.example",title:"Homepage",cls:"P",t:7.1},
+    {host:"growers-forum.example",title:"ordering tools thread",cls:"A",t:8.6},
+    {host:"jobs.croptally.example",title:"Jobs",cls:"P",t:9.9},
+    {host:"softwarelists.example",title:"would not let us read it",cls:"X",t:10.8}
   ];
 
   var SRC_DETAIL = {
-    S1:{url:"https://linear.app",cls:"P — primary (vendor's own page)",fetched:"2026-08-01 09:12 UTC",hash:"8f3c…a91d",group:"G1",quote:"purpose-built for modern product development"},
-    S2:{url:"https://linear.app/pricing",cls:"P — primary (vendor's own page)",fetched:"2026-08-01 09:12 UTC",hash:"4b7e…22c0",group:"G1",quote:"Basic  $8 per user / month, billed annually"},
-    S4:{url:"https://www.atlassian.com/software/jira/pricing",cls:"P — primary (vendor's own page)",fetched:"2026-08-01 09:13 UTC",hash:"c1a9…7f42",group:"G3",quote:"Free for up to 10 users"},
-    S7:{url:"https://shortcut.com",cls:"P — primary (vendor's own page)",fetched:"2026-08-01 09:13 UTC",hash:"9d20…be11",group:"G4",quote:"planning without the overhead"},
-    S9:{url:"https://reddit.com/r/ProductManagement",cls:"A — attributed (dated, author identified, cites sources)",fetched:"2026-08-01 09:13 UTC",hash:"55ef…03a7",group:"G6",quote:"The fastest tracker I've used, but bulk export is missing"}
+    S1:{url:"https://croptally.example",cls:"the company own website",fetched:"2026-08-01 09:12 UTC",hash:"8f3c...a91d",group:"G1",quote:"wholesale ordering, built for farms under fifty acres"},
+    S2:{url:"https://croptally.example/pricing",cls:"the company own price page",fetched:"2026-08-01 09:12 UTC",hash:"4b7e...22c0",group:"G1",quote:"Starter  $39 per month, up to 25 orders"},
+    S4:{url:"https://barnwise.example/pricing",cls:"the company own price page",fetched:"2026-08-01 09:13 UTC",hash:"c1a9...7f42",group:"G3",quote:"Grower  $49 per month, unlimited orders"},
+    S7:{url:"https://freshroute.example",cls:"the company own website",fetched:"2026-08-01 09:13 UTC",hash:"9d20...be11",group:"G4",quote:"regional food supply, from field to kitchen"},
+    S9:{url:"https://growers-forum.example/t/ordering-tools",cls:"a forum post, author named and dated",fetched:"2026-08-01 09:13 UTC",hash:"55ef...03a7",group:"G6",quote:"Setup took an afternoon, but I still price every restaurant by hand"}
   };
 
   function cite(id, attr) {
@@ -543,64 +576,65 @@
 
   var SECTIONS = [
     { t:26, id:"sec-pricing", html:
-      '<section class="rep" id="sec-pricing"><h2><span class="n">02</span> Pricing &amp; packaging</h2>' +
-      '<p style="font-size:var(--step--1);color:var(--muted)">Parsed from the pricing pages by code, not generated — which is why it lands before anything else.</p>' +
-      '<div class="tbl-wrap"><table><thead><tr><th>Product</th><th>Tier</th><th>Price</th><th>Basis</th><th>Notable limits</th><th>As of</th><th>Src</th></tr></thead><tbody>' +
-      '<tr><td>Linear</td><td>Free</td><td class="num">$0</td><td>per user</td><td>250 issues</td><td class="num">2026-08-01</td><td class="src-cell">S2·P</td></tr>' +
-      '<tr><td>Linear</td><td>Basic</td><td class="num">$8/user/mo</td><td>per user</td><td>billed annually</td><td class="num">2026-08-01</td><td class="src-cell">S2·P</td></tr>' +
-      '<tr><td>Jira</td><td>Free</td><td class="num">$0</td><td>per user</td><td>up to 10 users</td><td class="num">2026-08-01</td><td class="src-cell">S4·P</td></tr>' +
-      '<tr><td>Shortcut</td><td>Team</td><td class="num">$8.50/user/mo</td><td>per user</td><td>—</td><td class="num">2026-08-01</td><td class="src-cell">S7·P</td></tr>' +
+      '<section class="rep" id="sec-pricing"><h2><span class="n">02</span> Prices</h2>' +
+      '<p style="font-size:var(--step--1);color:var(--muted)">Taken straight from each company own price page, so these are the figures they published.</p>' +
+      '<div class="tbl-wrap"><table><thead><tr><th>Company</th><th>Plan</th><th>Price</th><th>Limits they state</th><th>Read on</th><th>From</th></tr></thead><tbody>' +
+      '<tr><td>Croptally</td><td>Starter</td><td class="num">$39/mo</td><td>25 orders a month</td><td class="num">2026-08-01</td><td class="src-cell">S2</td></tr>' +
+      '<tr><td>Croptally</td><td>Pro</td><td class="num">$89/mo</td><td>no order limit</td><td class="num">2026-08-01</td><td class="src-cell">S2</td></tr>' +
+      '<tr><td>Barnwise</td><td>Grower</td><td class="num">$49/mo</td><td>no order limit</td><td class="num">2026-08-01</td><td class="src-cell">S4</td></tr>' +
+      '<tr><td>Freshroute</td><td>&mdash;</td><td class="num">not published</td><td>asks you to contact them</td><td class="num">2026-08-01</td><td class="src-cell">S7</td></tr>' +
       '</tbody></table></div>' +
-      '<div class="chart"><span class="chart-cap">Cost at scale · derived · monthly cost by seat count</span>' +
-      '<div class="bars"><div class="bar" style="height:12%"></div><div class="bar" style="height:22%"></div>' +
-      '<div class="bar" style="height:38%"></div><div class="bar" style="height:58%"></div>' +
-      '<div class="bar" style="height:78%"></div><div class="bar" style="height:100%"></div></div></div>' +
-      '<div class="unconfirmed"><strong>Reported elsewhere, unconfirmed.</strong> A third-party article (Feb 2026) states Shortcut Business at $16/user/mo. We were unable to confirm this on Shortcut\'s own site, so it is not in the table above. ' + cite('S9',1) + '</div>' +
+      '<div class="chart"><span class="chart-cap">What you would pay each month as your orders grow</span>' +
+      '<div class="bars"><div class="bar" style="height:18%"></div><div class="bar" style="height:18%"></div>' +
+      '<div class="bar" style="height:42%"></div><div class="bar" style="height:42%"></div>' +
+      '<div class="bar" style="height:42%"></div><div class="bar" style="height:42%"></div></div></div>' +
+      '<div class="unconfirmed"><strong>Found elsewhere, not confirmed.</strong> A blog post from February says Freshroute starts at $120 a month. We could not find that on their own website, so it is not in the table above. ' + cite('S9',1) + '</div>' +
       '</section>' },
     { t:34, stream:true, html:
-      '<section class="rep" id="sec-pos"><h2><span class="n">01</span> Positioning</h2>' +
-      '<p>Linear describes itself as “purpose-built for modern product development.” ' + cite('S1') + ' <span class="conf">(high)</span></p>' +
-      '<p>Jira describes itself as “agile project management at scale.” ' + cite('S4') + ' <span class="conf">(high)</span></p>' +
-      '<p>Shortcut describes itself as “planning without the overhead.” ' + cite('S7') + ' <span class="conf">(medium)</span></p></section>' },
+      '<section class="rep" id="sec-pos"><h2><span class="n">01</span> How each one describes itself</h2>' +
+      '<p>Croptally calls itself &ldquo;wholesale ordering, built for farms under fifty acres.&rdquo; ' + cite('S1') + '</p>' +
+      '<p>Barnwise calls itself &ldquo;the online storefront for independent growers.&rdquo; ' + cite('S4') + '</p>' +
+      '<p>Freshroute calls itself &ldquo;regional food supply, from field to kitchen&rdquo; and sells to distributors as well as farms. ' + cite('S7') + '</p></section>' },
     { t:50, html:
-      '<section class="rep" id="sec-matrix"><h2><span class="n">03</span> Feature comparison</h2>' +
-      '<div class="tbl-wrap"><table><thead><tr><th>Capability</th><th>Linear</th><th>Jira</th><th>Shortcut</th><th>Note</th></tr></thead><tbody>' +
-      '<tr><td>Issue tracking</td><td class="cell-y">✓</td><td class="cell-y">✓</td><td class="cell-y">✓</td><td></td></tr>' +
-      '<tr><td>Roadmaps</td><td class="cell-y">✓</td><td class="cell-y">✓</td><td class="cell-p">◐</td><td>Shortcut: “basic”</td></tr>' +
-      '<tr><td>Native time tracking</td><td class="cell-u" title="We looked and found no public statement. Checked: /features, /docs, pricing page.">?</td><td class="cell-y">✓</td><td class="cell-n">✗</td><td>Shortcut docs state not included</td></tr>' +
-      '<tr><td>Self-hosting</td><td class="cell-n">✗</td><td class="cell-y">✓</td><td class="cell-u" title="We looked and found no public statement.">?</td><td>Linear states cloud-only</td></tr>' +
-      '<tr><td>SAML SSO</td><td class="cell-y">✓</td><td class="cell-y">✓</td><td class="cell-c" title="Claimed by a rival comparison page, not by Shortcut.">▲</td><td>Per Jira\'s comparison page</td></tr>' +
+      '<section class="rep" id="sec-matrix"><h2><span class="n">03</span> What each one does</h2>' +
+      '<div class="tbl-wrap"><table><thead><tr><th>&nbsp;</th><th>Croptally</th><th>Barnwise</th><th>Freshroute</th><th>Note</th></tr></thead><tbody>' +
+      '<tr><td>Restaurants order online</td><td class="cell-y">&#10003;</td><td class="cell-y">&#10003;</td><td class="cell-y">&#10003;</td><td></td></tr>' +
+      '<tr><td>Repeating weekly orders</td><td class="cell-y">&#10003;</td><td class="cell-p">&#9680;</td><td class="cell-y">&#10003;</td><td>Barnwise: set up by hand each week</td></tr>' +
+      '<tr><td>Plans your delivery route</td><td class="cell-u" title="We looked and found nothing said either way. Looked at: features page, help centre, price page.">?</td><td class="cell-n">&#10007;</td><td class="cell-y">&#10003;</td><td>Barnwise says it does not do this</td></tr>' +
+      '<tr><td>Sends invoices</td><td class="cell-y">&#10003;</td><td class="cell-y">&#10003;</td><td class="cell-y">&#10003;</td><td></td></tr>' +
+      '<tr><td>A different price list per restaurant</td><td class="cell-y">&#10003;</td><td class="cell-u" title="We looked and found nothing said either way.">?</td><td class="cell-c" title="Croptally comparison page claims this. Freshroute does not say it themselves.">&#9650;</td><td>Only a rival claims this one</td></tr>' +
       '</tbody></table></div>' +
-      '<p style="font-size:var(--step--1);color:var(--muted);margin-top:.7rem"><strong>?</strong> = we found no public statement — hover to see what was checked. <strong>▲</strong> = claimed by a competitor, not the vendor.</p></section>' },
+      '<p style="font-size:var(--step--1);color:var(--muted);margin-top:.7rem"><strong>?</strong> means we looked and found nothing said either way. <strong>&#9650;</strong> means a rival claimed it, not the company itself.</p></section>' },
     { t:66, html:
-      '<section class="rep" id="sec-changes"><h2><span class="n">04</span> Recent public changes <span style="font-weight:400;text-transform:none;letter-spacing:0">· 90 days</span></h2>' +
-      '<p><span style="font-family:var(--mono);font-size:var(--step--1);color:var(--muted)">2026-07-14</span> — Linear shipped “Initiatives” for multi-project planning. ' + cite('S1') + '</p>' +
-      '<p><span style="font-family:var(--mono);font-size:var(--step--1);color:var(--muted)">2026-06-02</span> — Jira announced a Premium price increase effective Sept 2026. ' + cite('S4') + '</p>' +
-      '<div class="gap"><strong>No public changelog found for Shortcut in this window.</strong> That is not the same as “no changes” — we could not find a changelog to read.' +
-      '<span class="checked">Checked: /changelog (404) · /releases (404) · /blog (90 days) · sitemap.xml</span></div></section>' },
+      '<section class="rep" id="sec-changes"><h2><span class="n">04</span> What changed recently <span style="font-weight:400;text-transform:none;letter-spacing:0">&middot; last 90 days</span></h2>' +
+      '<p><span style="font-family:var(--mono);font-size:var(--step--1);color:var(--muted)">2026-06-30</span> &mdash; Croptally added split deliveries, so one order can go to two kitchens. ' + cite('S1') + '</p>' +
+      '<p><span style="font-family:var(--mono);font-size:var(--step--1);color:var(--muted)">2026-05-12</span> &mdash; Barnwise raised the Grower plan from $39 to $49 a month. ' + cite('S4') + '</p>' +
+      '<div class="gap"><strong>Freshroute does not publish a list of what it has changed.</strong> That does not mean nothing changed. It means we could not find anywhere they say so.' +
+      '<span class="checked">Looked at: their news page (empty), their blog (nothing since 2025), and the rest of their website.</span></div></section>' },
     { t:82, html:
-      '<section class="rep" id="sec-sent"><h2><span class="n">05</span> Review &amp; sentiment themes</h2>' +
-      '<p><strong>Speed / responsiveness</strong> — positive, often. 14 mentions across 2 platforms. “The fastest tracker I\'ve used.” ' + cite('S9',1) + '</p>' +
-      '<p style="margin-top:1.1rem"><strong>Unmet needs</strong> <span style="font-family:var(--mono);font-size:var(--step--1);color:var(--muted)">from 2–3★ reviews</span></p>' +
-      '<p>Bulk export — 7 reviewers across 2 platforms mention wanting it ' + cite('S9',1) + '<br>Offline mode — 4 reviewers ' + cite('S9',1) + '</p></section>' },
+      '<section class="rep" id="sec-sent"><h2><span class="n">05</span> What customers say</h2>' +
+      '<p><strong>Easy to set up</strong> &mdash; said by 11 people across 2 places. &ldquo;Setup took an afternoon.&rdquo; ' + cite('S9',1) + '</p>' +
+      '<p style="margin-top:1.1rem"><strong>What people wish it did</strong> <span style="font-family:var(--mono);font-size:var(--step--1);color:var(--muted)">from the middling reviews, not the angry ones or the glowing ones</span></p>' +
+      '<p>A different price list for each restaurant &mdash; 6 people asked for this ' + cite('S9',1) + '<br>Taking orders at a market with no phone signal &mdash; 4 people asked for this ' + cite('S9',1) + '</p></section>' },
     { t:96, html:
-      '<section class="rep" id="sec-swot"><h2><span class="n">07</span> SWOT summary <span class="interp-tag">interpretation</span></h2>' +
-      '<p><strong>Strengths</strong> · Linear\'s shipping cadence is visibly high — 6 changelog entries in 90 days. ' + cite('S1') + '</p>' +
-      '<p><strong>Threats</strong> · Jira\'s Sept 2026 price increase ' + cite('S4') + ' may push cost-sensitive teams to evaluate alternatives — inference from the announced increase, not a stated Jira position.</p></section>' },
+      '<section class="rep" id="sec-swot"><h2><span class="n">07</span> What this adds up to <span class="interp-tag">our reading, not theirs</span></h2>' +
+      '<p><strong>An opening</strong> &middot; None of the three offers a different price list per restaurant as a normal feature, and six customers asked for it. ' + cite('S9',1) + '</p>' +
+      '<p><strong>Worth watching</strong> &middot; Barnwise put its price up by a quarter in May ' + cite('S4') + ', which may make its customers willing to look around. That is our reading of the price change, not something Barnwise has said.</p></section>' },
     { t:108, html:
-      '<section class="rep" id="sec-sources"><h2><span class="n">08</span> Sources</h2>' +
-      '<div class="tbl-wrap"><table><thead><tr><th>Ref</th><th>Host</th><th>Class</th><th>Fetched</th><th>Hash</th><th>Group</th></tr></thead><tbody>' +
-      '<tr><td class="src-cell">S1</td><td>linear.app</td><td>P</td><td class="num">09:12 UTC</td><td class="num">8f3c…a91d</td><td>G1</td></tr>' +
-      '<tr><td class="src-cell">S2</td><td>linear.app/pricing</td><td>P</td><td class="num">09:12 UTC</td><td class="num">4b7e…22c0</td><td>G1</td></tr>' +
-      '<tr><td class="src-cell">S9</td><td>reddit.com</td><td>A</td><td class="num">09:13 UTC</td><td class="num">55ef…03a7</td><td>G6</td></tr>' +
+      '<section class="rep" id="sec-sources"><h2><span class="n">08</span> Where all of this came from</h2>' +
+      '<div class="tbl-wrap"><table><thead><tr><th>Ref</th><th>Page</th><th>Kind</th><th>Read on</th></tr></thead><tbody>' +
+      '<tr><td class="src-cell">S1</td><td>croptally.example</td><td>the company own site</td><td class="num">09:12 UTC</td></tr>' +
+      '<tr><td class="src-cell">S2</td><td>croptally.example/pricing</td><td>the company own site</td><td class="num">09:12 UTC</td></tr>' +
+      '<tr><td class="src-cell">S4</td><td>barnwise.example/pricing</td><td>the company own site</td><td class="num">09:13 UTC</td></tr>' +
+      '<tr><td class="src-cell">S9</td><td>growers-forum.example</td><td>a forum post, author named</td><td class="num">09:13 UTC</td></tr>' +
       '</tbody></table></div>' +
-      '<p style="font-size:var(--step--1);color:var(--muted);margin-top:.8rem"><strong>Not used (2).</strong> capterra.com — not accessible under our fetching rules (robots.txt). example.com/best-tools-2026 — we were unable to verify this source against our criteria: we could not confirm an author, a publication date, or cited sources.</p></section>' }
+      '<p style="font-size:var(--step--1);color:var(--muted);margin-top:.8rem"><strong>Two we did not use.</strong> One site does not allow automated reading. The other had no author and no date, and gave a price the company own page contradicts.</p></section>' }
   ];
 
   var FU = [
-    'At 50 seats, Linear Basic is <strong>$400/month</strong> and Shortcut Team is <strong>$425/month</strong>, both billed per user ' + cite('S2') + cite('S7') + '. Jira\'s free tier stops at 10 users ' + cite('S4') + ', so a 50-seat Jira deployment needs a paid tier whose price I could not confirm from their public pricing page.',
-    'Two of the three publish a changelog. Linear shipped 6 entries in the last 90 days ' + cite('S1') + '; Jira posted 1 pricing announcement ' + cite('S4') + '. For Shortcut I found no public changelog at all — /changelog and /releases both returned 404, so I can\'t tell you whether they ship slowly or simply don\'t publish it.',
-    'That isn\'t covered by the sources I fetched for this report. I could run a new analysis focused on <strong>enterprise pricing and security posture</strong> — that would use one of your analyses.'
+    'For 40 orders a month, Croptally Starter runs out at 25, so you would need Pro at <strong>$89</strong> ' + cite('S2') + '. Barnwise Grower is <strong>$49</strong> with no order limit ' + cite('S4') + '. Freshroute does not publish a price at all ' + cite('S7') + ', so I cannot put it beside them.',
+    'Two of the three say what they have changed. Croptally added split deliveries in June ' + cite('S1') + ', and Barnwise put its price up in May ' + cite('S4') + '. Freshroute has no update page I could find, so I cannot tell you whether they are moving slowly or simply not saying.',
+    'The pages I read for this report do not cover that. I could look specifically at how each one handles food safety records, which would use one of your reports.'
   ];
 
   var CHANNELS = {
@@ -711,6 +745,7 @@
     $("subject").textContent = subject;
     $("srcLive").innerHTML=""; $("report").innerHTML=""; $("qaList").innerHTML="";
     $("metaBar").classList.add("hidden"); $("actions").classList.add("hidden"); $("followup").classList.add("hidden");
+    $("interpLine").classList.add("hidden");
     fuIdx = 0; fuLeft = (TIER==="sub") ? 999 : TIERS[TIER].fu;
     $("fuGo").disabled=false; $("fuInput").disabled=false;
     renderQuota();
@@ -742,6 +777,7 @@
 
     at(114, function () {
       finishStages(); clearInterval(elapsedTimer);
+      showInterp();
       $("metaBar").classList.remove("hidden");
       $("actions").classList.remove("hidden");
       $("followup").classList.remove("hidden");
@@ -791,33 +827,53 @@
   }
 
   /* ---------- demo ---------- */
+  var IDEA = "an app that helps small farms sell directly to local restaurants";
+
+  function showInterp() {
+    var el = $("interpLine");
+    el.innerHTML = '<span>Read as</span> <b>ordering software for small farms</b>' +
+      '<span>&middot; 3 companies compared &middot; 2 more found nearby</span>' +
+      '<span class="edit">change</span>';
+    el.classList.remove("hidden");
+  }
+  function openAdvanced()  { $("advBody").classList.add("on");  $("advToggle").setAttribute("aria-expanded","true"); }
+  function closeAdvanced() { $("advBody").classList.remove("on"); $("advToggle").setAttribute("aria-expanded","false"); }
+
   var DEMO = [
     { t:0,   c:"Landscape answers one question: who else is already doing what you are planning to do?", a:function(){ setTier("anon"); show("composer"); } },
     { t:3.5, c:"You describe your idea in the box, in your own words. That is the only thing you have to do.", a:function(){} },
-    { t:7,   c:"Here we have asked it to compare three project-management products.", a:function(){ $("prompt").value="Linear vs Jira vs Shortcut"; run("Linear vs Jira vs Shortcut"); } },
-    { t:10,  c:"It reads the companies own websites. Each page shows up as it is read, so you can watch it work.", a:function(){} },
-    { t:14,  c:"One site does not allow automated reading, so it is skipped. The report will say so, rather than quietly leaving it out.", a:function(){} },
-    { t:17.5,c:"Prices come first. They are taken straight from each company pricing page, so the figures are exactly what the company published.", a:function(){ var e=$("sec-pricing"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:22,  c:"A price found somewhere else, that we could not confirm on the company own site, is kept out of the table and shown separately.", a:function(){} },
-    { t:26,  c:"Then the written summary appears, a few words at a time.", a:function(){ var e=$("sec-pos"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:30,  c:"The comparison table is careful about what it claims. A question mark means we looked and found nothing, which is not the same as saying they do not have it.", a:function(){ var e=$("sec-matrix"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:34,  c:"When a company does not publish its updates, the report says exactly that, and lists everywhere it looked.", a:function(){ var e=$("sec-changes"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:38,  c:"Every fact links back to where it came from. Click one and you see the web page, the exact sentence, and when it was read.", a:function(){ var e=$("sec-swot"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"});
+    { t:7,   c:"Here the idea is an app that helps small farms sell straight to local restaurants.", a:function(){ $("prompt").value=IDEA; run(IDEA); } },
+    { t:10.5,c:"First it works out what to call this line of business, then goes looking for companies already in it.", a:function(){} },
+    { t:14,  c:"It reads each company own website. One site does not allow automated reading, so it is skipped, and the report will say so.", a:function(){} },
+    { t:18,  c:"It found three companies you may never have heard of. That is the point: you do not have to know the names in advance.", a:function(){ showInterp(); } },
+    { t:22,  c:"Prices come first. They are taken straight from each company own price page, so the figures are exactly what they published.", a:function(){ var e=$("sec-pricing"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:27,  c:"One company does not publish a price at all, so the report says that instead of guessing.", a:function(){} },
+    { t:31,  c:"A price found on somebody blog, which we could not confirm on the company own site, is kept out of the table.", a:function(){} },
+    { t:35,  c:"Then the written part appears, a few words at a time.", a:function(){ var e=$("sec-pos"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:40,  c:"The table of what each one does is careful. A question mark means we looked and found nothing said either way.", a:function(){ var e=$("sec-matrix"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:45,  c:"And a triangle means a rival claimed it, not the company itself.", a:function(){} },
+    { t:49,  c:"When a company does not say what it has changed, the report says exactly that, and lists everywhere it looked.", a:function(){ var e=$("sec-changes"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:54,  c:"Customer reviews are read for what people wish the product did. Six people wanted a different price list for each restaurant. That is a gap you could build into.", a:function(){ var e=$("sec-sent"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:60,  c:"Every fact links back to where it came from. Click one and you see the page, the exact sentence, and when it was read.", a:function(){ var e=$("sec-swot"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"});
               setTimeout(function(){ var c=document.querySelector("#sec-swot .cite"); if(c) showPop.call(c,null); }, 900); } },
-    { t:43,  c:"Once the report is ready you can ask questions about it. Answers come back quickly, because the pages have already been read.", a:function(){ $("pop").classList.remove("open"); $("followup").scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:46,  c:"", a:function(){ askFollowUp("Which is cheapest at 50 seats?"); } },
-    { t:51,  c:"Ask something the sources do not cover, and it tells you, instead of making an answer up.", a:function(){ askFollowUp("What is their enterprise security posture?"); } },
-    { t:57,  c:"Without signing up you get one report a day. The report itself is complete: nothing hidden, nothing stamped across it.", a:function(){ show("limit"); } },
-    { t:62,  c:"A free account raises that to one report an hour.", a:function(){ setTier("reg"); show("composer"); } },
-    { t:66,  c:"A dollar a month gives you five an hour and as many questions as you like. The report is the same either way. Only how often you can run it changes.", a:function(){ setTier("sub"); } },
-    { t:71,  c:"If a competitor changes their prices, you get an email. The subject line tells you what changed.", a:function(){ show("notify"); } },
-    { t:76,  c:"And you can see the before and after side by side, both dated, so you can check it yourself.", a:function(){ $("diffBlock").classList.remove("hidden"); setTimeout(function(){$("diffBlock").scrollIntoView({behavior:"smooth",block:"center"});},250); } },
-    { t:81,  c:"There is a public help area that anyone can read. The channels for sign-up and log-in trouble accept messages from anyone, because a person who cannot log in cannot be asked to log in first.", a:function(){ show("community"); curChan="signup"; renderChan(); } },
-    { t:87,  c:"Posts can be edited after you send them.", a:function(){ curChan="login"; renderChan(); } },
-    { t:91,  c:"Behind the scenes, the owner can see how busy the service is and change any of the limits without touching code.", a:function(){ show("admin"); } },
-    { t:96,  c:"Change a number and it takes effect straight away. The right values are impossible to guess before real people are using it.", a:function(){ var i=$("limA"); i.value="2"; i.classList.add("flash");
-              $("adminSaved").textContent="Saved - anonymous analyses now 2 per 24h. Logged 2026-08-01 09:31 UTC."; } },
-    { t:101, c:"Facts you can check. Gaps it owns up to. And one thing to type to get started.", a:function(){ show("composer"); setTier("anon"); } }
+    { t:66,  c:"Once the report is ready you can ask questions about it. Answers come back quickly, because the pages have already been read.", a:function(){ $("pop").classList.remove("open"); $("followup").scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:70,  c:"", a:function(){ askFollowUp("What would I pay for 40 orders a month?"); } },
+    { t:75,  c:"Ask something the pages do not cover, and it tells you, instead of making an answer up.", a:function(){ askFollowUp("How do they handle food safety records?"); } },
+    { t:81,  c:"Without signing up you get one report a day. The report itself is complete: nothing hidden, nothing stamped across it.", a:function(){ show("limit"); } },
+    { t:86,  c:"A free account raises that to one report an hour.", a:function(){ setTier("reg"); show("composer"); } },
+    { t:90,  c:"A dollar a month gives you five an hour and as many questions as you like. The report is the same either way.", a:function(){ setTier("sub"); } },
+    { t:95,  c:"If a competitor changes their prices, you get an email. The subject line tells you what changed.", a:function(){ show("notify"); } },
+    { t:100, c:"And you can see the before and after side by side, both dated, so you can check it yourself.", a:function(){ $("diffBlock").classList.remove("hidden"); setTimeout(function(){$("diffBlock").scrollIntoView({behavior:"smooth",block:"center"});},250); } },
+    { t:105, c:"There is a public help area anyone can read. The channels for sign-up and log-in trouble take messages from anyone, because a person who cannot log in cannot be asked to log in first.", a:function(){ show("community"); curChan="signup"; renderChan(); } },
+    { t:111, c:"Behind the scenes, the owner can see how busy the service is and change any of the limits without touching code.", a:function(){ show("admin"); } },
+    { t:116, c:"Change a number and it takes effect straight away.", a:function(){ var i=$("limA"); i.value="2"; i.classList.add("flash");
+              $("adminSaved").textContent="Saved - one report a day is now two. Logged 2026-08-01 09:31 UTC."; } },
+
+    { t:120, c:"That is the whole of it. There are two other ways to start, if you already know something about the market.", a:function(){ show("composer"); setTier("anon"); $("prompt").value=""; openAdvanced(); } },
+    { t:125, c:"You can name the competitors yourself, if you already know who they are.", a:function(){ $("prompt").value="Croptally vs Barnwise"; } },
+    { t:129, c:"You can paste the address of a company website, and it will work out the rest.", a:function(){ $("prompt").value="https://croptally.example"; } },
+    { t:133, c:"Or put them in the same sentence as your idea. Any of the three work on their own, or together.", a:function(){ $("prompt").value="an app for farm-to-restaurant orders, like Croptally"; } },
+    { t:138, c:"Facts you can check. Gaps it owns up to. And one thing to type to get started.", a:function(){ closeAdvanced(); $("prompt").value=IDEA; } }
   ];
 
   function playDemo() {
@@ -876,6 +932,11 @@
 
   $("sp8").onclick = function () { SPEED=8; this.setAttribute("aria-pressed","true"); $("sp1").setAttribute("aria-pressed","false"); };
   $("sp1").onclick = function () { SPEED=1; this.setAttribute("aria-pressed","true"); $("sp8").setAttribute("aria-pressed","false"); };
+  $("advToggle").onclick = function () {
+    var on = $("advBody").classList.toggle("on");
+    this.setAttribute("aria-expanded", on ? "true" : "false");
+  };
+
   $("playDemo").onclick = playDemo;
 
   window.__playDemo = playDemo;

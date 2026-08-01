@@ -94,17 +94,18 @@ PAGE = r'''<title>Landscape — Product Demo</title>
 </div>
 
 <div class="meta">
-  <span class="ok">1600×1000</span>
+  <span class="ok">1360×850</span>
   <span class="ok">subtitles on by default</span>
   <span>optional narration: your browser's speech engine</span>
-  <span>1 min 53 s (longer with narration)</span>
+  <span>2 min 25 s (longer with narration)</span>
 </div>
 
 <div class="wrap">
-  <div class="eyebrow">Prototype walkthrough</div>
+  <div class="eyebrow">Prototype walkthrough &middot; 2 min 25 s</div>
   <h1>Landscape, end to end.</h1>
-  <p class="sub">All seven flows, recorded from the clickable prototype. Simulated data and
-  compressed timings.</p>
+  <p class="sub">Someone types a business idea into the box and gets a competitor report they
+  can check. Recorded from the clickable prototype, with invented companies and compressed
+  timings.</p>
 
   <div class="callout">
     <strong>The recording has no audio.</strong> Subtitles are on by default, so it reads fine
@@ -115,7 +116,9 @@ PAGE = r'''<title>Landscape — Product Demo</title>
 
   <h2>What it covers</h2>
   <ol>
-    <li><b>Unregistered flow</b> &mdash; one analysis a day, full report, no signup wall</li>
+    <li><b>Starting from an idea</b> &mdash; type it in plain words; the tool works out the market
+        and finds companies you may never have heard of</li>
+    <li><b>Unregistered flow</b> &mdash; one report a day, complete, no signup wall</li>
     <li><b>The wait, honestly</b> &mdash; sources landing, pricing parsed before prose, gaps that
         list what was checked</li>
     <li><b>Citations</b> &mdash; URL, timestamp, content hash and the quoted line, one click away</li>
@@ -125,7 +128,9 @@ PAGE = r'''<title>Landscape — Product Demo</title>
     <li><b>Subscribed flow</b> &mdash; five an hour, unlimited follow-ups, identical report</li>
     <li><b>Notification flow</b> &mdash; the alert email and the diff behind it</li>
     <li><b>Community</b> &mdash; seven channels; sign-up and log-in issues open to anyone</li>
-    <li><b>Admin</b> &mdash; usage, capacity, and every rate limit editable at runtime</li>
+    <li><b>Admin</b> &mdash; usage, capacity, and every limit changeable without touching code</li>
+    <li><b>Other ways to start</b> &mdash; name the competitors, paste a website, or put either in
+        the same sentence as your idea</li>
   </ol>
 
   <p class="note"><strong>This is a prototype, not the product.</strong> Faked data, no backend,

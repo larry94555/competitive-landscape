@@ -15,7 +15,7 @@ const outDir = join(here, 'video');
 if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
 
-const RUNTIME_MS = 113_000; // demo script is ~107s; a little tail for the end card
+const RUNTIME_MS = 150_000; // demo script runs to ~138s; a little tail for the closing line
 
 const launchOpts = { args: ['--force-prefers-reduced-motion=0'] };
 let browser;
@@ -36,7 +36,10 @@ if (!browser) {
 // Recorded larger, and with the page zoomed, so text stays legible when the
 // video is scaled down in a player. Frame size is a compromise with file size:
 // this page inlines the video as a data URI.
-const W = 1600, H = 1000, ZOOM = 1.35;
+// Frame size is bounded by the 16MB artifact limit: the demo page inlines the video
+// as a data URI. Subtitles are drawn by the player, so the frame only has to carry the
+// interface legibly - the zoom does that, not the pixel count.
+const W = 1360, H = 850, ZOOM = 1.35;
 
 const context = await browser.newContext({
   viewport: { width: W, height: H },
