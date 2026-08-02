@@ -45,6 +45,14 @@ to answer, and what in the public record suggests they apply.** Questions are ch
 generate, impossible to be confidently wrong about, and are the thing a chatbot will not give
 you, because a chatbot always answers.
 
+**How the questions get good:** the frameworks are written down as versioned rubrics in
+[REASONING_FRAMEWORKS.md](REASONING_FRAMEWORKS.md), and the model matches retrieved evidence
+against them rather than recalling the books. That converts the model's weakness — recall
+fidelity — into its strength — matching against stated criteria. It does not make us as good
+as a frontier model at strategy; it makes us **reliable** at raising the right questions, with
+the evidence that raised them attached. Rubrics fire only on observable signals, and the model
+cannot emit a question the rubric does not contain.
+
 ---
 
 ## 2. The eight levels
@@ -341,8 +349,14 @@ part of the reasoning task retrieval genuinely improves.
   commercial terms are out of reach ([DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) §4.3). All
   three are link-out only, and **none of them may appear in an absence panel**, because we
   have not searched them.
-- **We do not reproduce the books we cite.** Named frameworks are pointers with one line of
-  orientation. If a reader wants *Crossing the Chasm*, they should buy it.
+- **We do not reproduce the books we cite.** Framework rubrics
+  ([REASONING_FRAMEWORKS.md](REASONING_FRAMEWORKS.md)) are our own diagnostic questions plus
+  attribution and a pointer — never a summary that substitutes for the book. If a reader wants
+  *Crossing the Chasm*, they should buy it, and the report says so.
+- **We disclose what we did not search.** X, LinkedIn and Reddit get a named section with the
+  searches we would have run, prefilled and opening on each site
+  ([DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) §4.4b). A reader who knows what we skipped
+  can trust what we covered.
 - **English-language public web only**, and this constrains levels 1, 5 and 8 most.
 - **Absence at every level follows the same rule** (DISCUSSION_SIGNALS §2): only reportable
   from venues where presence would be expected, always with queries shown, never interpreted.

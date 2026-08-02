@@ -422,6 +422,14 @@ Where this idea does not appear
 Silence is not evidence of no demand. Most working businesses are never
 discussed online.
 
+Places we have not searched
+  We have not licensed content from X, LinkedIn or Reddit, so nothing from
+  them appears above and we cannot tell you whether your idea is discussed
+  there. It may well be. These open on each site, under your own account:
+    X         `farm to restaurant ordering` · `restaurant produce sourcing`
+    LinkedIn  `farm to restaurant ordering`
+    Reddit    `farm to restaurant ordering` · `restaurant produce sourcing`
+
 ## 7A. Operating signals
 | Company  | Publicly visible since | Last public update | Open roles | Financial standing |
 |----------|------------------------|--------------------|------------|--------------------|

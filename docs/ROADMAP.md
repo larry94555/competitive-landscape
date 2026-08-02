@@ -20,6 +20,7 @@ TypeScript + React frontend · Rust backend · local llama.cpp inference on Orac
 | [Video_Text_Best_Practices.md](Video_Text_Best_Practices.md) | How demo narration is written: word economy, value in the listener's currency, one elevator pitch per line, and letting the viewer reach the conclusion unaided |
 | [UI_FLOWS.md](UI_FLOWS.md) | The seven flows: access tiers, conversational follow-up, notifications, admin, community channels — and four conflicts with earlier decisions |
 | [DISTRIBUTION.md](DISTRIBUTION.md) | The owning document for R9: beachhead selection, positioning, channels in yield order, the weekly cadence, and the trap-subject launch benchmark |
+| [REASONING_FRAMEWORKS.md](REASONING_FRAMEWORKS.md) | Versioned rubrics — Innovator's Dilemma, Crossing the Chasm, Cold Start Problem, Tipping Point, niche strategy — that let a small local model apply known frameworks by **matching evidence against written criteria instead of recalling books**, plus the attribution posture that keeps us on the right side of the authors |
 | [IDEA_ANALYSIS.md](IDEA_ANALYSIS.md) | The eight levels a founder actually asks — problem space, value proposition, product, business, discussions, power niches, startup trajectory, investor interest — and the rule that decides the product: **observation levels answer, framing levels only ask** |
 | [DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) | The second axis — public discussion about the **problem, idea and niche** rather than the companies: what people ask for, complain about and are building, which venues may legally be read, and how an *absence* of discussion is reported without becoming a guess |
 | [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) | How a prompt becomes a competitor set: input classes, prompt completeness by convergence, category vocabulary resolution, seed channels, relevance classification, clarifying questions, and how company standing is assessed |
@@ -533,6 +534,16 @@ requested when the user asks for something that requires it.
   *questions with the evidence that raised them*, never conclusions — a local 8B model loses
   a reasoning contest with the reader's own chatbot, and pretending otherwise would
   contaminate the levels where retrieval genuinely wins.
+- **Framework rubrics** ([REASONING_FRAMEWORKS.md](REASONING_FRAMEWORKS.md)) — six versioned
+  YAML assets the router matches against the structured output of levels 1–5. Signal matching
+  is near-free (it reads extracted fields, not pages), question emission is grammar-constrained
+  to the rubric's own list, and every question carries the source labels that fired it. A
+  rubric that fires wrongly is **a bug with a fix** — tighten the signal, and the eval suite
+  catches the regression. Ships with attribution and links to each author's own free writing.
+- **"Places we have not searched"** ([DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) §4.4b) —
+  X, LinkedIn and Reddit disclosed by name with prefilled searches that open on each site
+  under the reader's own account. Ships with the framing sections so the report's honesty
+  about its own limits reads as one design.
 - **"Copy as context"** — the whole report as clean Markdown with every URL and date, sized
   to paste into the reader's own AI assistant ([IDEA_ANALYSIS.md](IDEA_ANALYSIS.md) §5).
   Near-free to build, and it settles the positioning: we are not a worse chatbot, we are the

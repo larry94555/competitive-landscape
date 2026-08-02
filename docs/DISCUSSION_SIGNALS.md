@@ -313,6 +313,50 @@ absence panel** (§2). We do not convert "we were not permitted to look" into "i
 there." For X, LinkedIn and Reddit the report says plainly that we did not search, and links
 what a web search surfaced.
 
+### 4.4b "Search these yourself" — the disclosure section
+
+Three venues the reader will expect us to have covered — X, LinkedIn, Reddit — are
+commercially closed to us. The report says so directly and hands the reader the searches we
+would have run.
+
+**The wording is fixed, and it is deliberately non-defensive:**
+
+> **Places we have not searched.** We have not licensed content from X, LinkedIn or Reddit,
+> so nothing from them appears above and we cannot tell you whether your idea is discussed
+> there. It may well be. These searches are the ones we would have run — they open on each
+> site, in your browser, under your own account:
+>
+> · X — `farm to restaurant ordering` · `restaurant produce sourcing`
+> · LinkedIn — `farm to restaurant ordering`
+> · Reddit — `farm to restaurant ordering` · `restaurant produce sourcing`
+>
+> We also found these threads through ordinary web search, which is all we are able to see:
+> [r/smallfarms — "How do you handle restaurant orders?"] · [r/Chefit — "Sourcing direct"]
+
+**Why this is not the boilerplate §3.2.1b forbids.** That rule bans standing "you might also
+try…" footers that appear on every report regardless of subject. This section is different in
+kind: it is a **disclosure of a known gap in our coverage**, and the searches are built from
+*this* subject's resolved vocabulary (§5), not from a fixed list. It earns its place because
+without it the reader would reasonably assume we had looked.
+
+**Design rules:**
+
+| Rule | Why |
+|---|---|
+| Link to each platform's **own search page**, with the query prefilled | An ordinary link. The reader searches as themselves, under that site's terms |
+| Show the **actual queries**, in both registers (§5) | The reader can improve on them, and often will |
+| Never route through a proxy, mirror, scraper, or cache | We are not building a workaround with extra steps |
+| Never suggest circumventing a login, paywall, or rate limit | Good citizenship applies to what we encourage as much as to what we do |
+| State the reason as **"we have not licensed this content"** | True, neutral, and takes no swipe at the platform |
+| **Never** list these venues in the absence panel | We did not search them. §2 |
+
+**The good-citizen position, stated once.** Sending a reader to a site's own search is exactly
+what a link is for, and it sends the platform a real human visitor under its own terms. What we
+decline to do is read at scale without permission, reproduce content we may not republish, or
+build anything whose purpose is to get around a commercial gate. If a platform's terms later
+permit our use, this section shrinks. Until then, honest disclosure beats a silent gap — and a
+reader who knows what we did *not* look at can trust what we did.
+
 ### 4.5 The robots.txt commitment applies here too
 
 [FACT_CHECKING.md](FACT_CHECKING.md) commits to honouring robots.txt. Discussion venues are
