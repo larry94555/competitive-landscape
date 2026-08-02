@@ -371,9 +371,9 @@ prototype/demo-*.html             one page per film
 
 `build.py --check` validates without writing, and **fails** on:
 
-- a `result` beat with no `why` after it
+- a `result` beat with no `means` after it
 - more than 4 results in a film
-- a film outside 45–75 seconds
+- a film outside 35–70 seconds
 - a caption too long to read in its own slot
 - banned vocabulary ([Video_Guidelines.md](Video_Guidelines.md) §2.2)
 - an action referring to a selector the prototype does not contain
@@ -392,14 +392,16 @@ file without new footage.
 Checked before recording. Anything failing is a rewrite, not a tweak. The first five are
 enforced by `--check`; the rest need a person.
 
-- [ ] Every `result` is followed by a `why`
+- [ ] Every `result` is followed by a `means`
 - [ ] Four or fewer results per film
-- [ ] Every film lands between 45 and 75 seconds
+- [ ] Every film lands between 35 and 70 seconds
 - [ ] Every caption is readable in the time it is on screen
 - [ ] Every selector exists in the prototype
-- [ ] Does beat 1 make someone think *that's me*?
-- [ ] Does beat 2 name a frustration they have actually had?
-- [ ] Does every `why` name a decision, a saving, or a risk avoided?
+- [ ] **Does any line claim a benefit?** Time saved, money made, risk avoided, or what the
+      viewer could now do. Remove it — §1
+- [ ] Does every `means` say what the thing *is*, not what it is *worth*?
+- [ ] Does the narration follow the same order as the screen, top to bottom?
+- [ ] Is the working case shown before the correction case?
 - [ ] Could someone who has never used a research tool follow it start to finish?
 - [ ] Any sentence assuming prior knowledge? Remove it.
 - [ ] Read aloud: does any beat feel rushed?
