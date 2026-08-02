@@ -39,7 +39,7 @@ First it works out what to call this line of business, then goes looking for com
 
 ## [reads-sites] 0:14.0  ·  4s on screen  ·  ~9s to read
 
-It reads each company own website. One site does not allow automated reading, so it is skipped, and the report will say so.
+It reads each company own website. One site would not let a program read it, so that page is listed with a link, for you to open yourself.
 
 ## [found-three] 0:18.0  ·  4s on screen  ·  ~9s to read
 
@@ -55,7 +55,7 @@ One company does not publish a price at all, so the report says that instead of 
 
 ## [price-elsewhere] 0:31.0  ·  4s on screen  ·  ~8s to read
 
-A price found on somebody blog, which we could not confirm on the company own site, is kept out of the table.
+Somebody blog gives a price for the third company. It is not the company own figure, so it stays out of the table, but it is reported underneath with a link and a note saying why we could not confirm it.
 
 ## [written-part] 0:35.0  ·  5s on screen  ·  ~4s to read
 
@@ -76,6 +76,14 @@ When a company does not say what it has changed, the report says exactly that, a
 ## [what-people-wish] 0:54.0  ·  6s on screen  ·  ~11s to read
 
 Customer reviews are read for what people wish the product did. Six people wanted a different price list for each restaurant. That is a gap you could build into.
+
+## [size-and-standing] 0:57.0
+
+It also looks up how busy each website is, and when each company started, from services the companies do not control.
+
+## [rankings-not-visits] 1:02.0
+
+Each line says which service it came from and when. These are rankings against every other website, not visitor counts, because visitor numbers are guesses.
 
 ## [where-it-came-from] 1:00.0  ·  6s on screen  ·  ~9s to read
 

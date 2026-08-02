@@ -21,7 +21,7 @@ First it works out what to call this line of business, then goes looking for com
 
 5
 00:00:15.500 --> 00:00:19.500
-It reads each company own website. One site does not allow automated reading, so it is skipped, and the report will say so.
+It reads each company own website. One site would not let a program read it, so that page is listed with a link, for you to open yourself.
 
 6
 00:00:19.500 --> 00:00:23.500
@@ -37,7 +37,7 @@ One company does not publish a price at all, so the report says that instead of 
 
 9
 00:00:32.500 --> 00:00:36.500
-A price found on somebody blog, which we could not confirm on the company own site, is kept out of the table.
+Somebody blog gives a price for the third company. It is not the company own figure, so it stays out of the table, but it is reported underneath with a link and a note saying why we could not confirm it.
 
 10
 00:00:36.500 --> 00:00:41.500
@@ -56,69 +56,77 @@ And a triangle means a rival claimed it, not the company itself.
 When a company does not say what it has changed, the report says exactly that, and lists everywhere it looked.
 
 14
-00:00:55.500 --> 00:01:01.500
+00:00:55.500 --> 00:00:58.500
 Customer reviews are read for what people wish the product did. Six people wanted a different price list for each restaurant. That is a gap you could build into.
 
 15
-00:01:01.500 --> 00:01:07.500
-Every fact links back to where it came from. Click one and you see the page, the exact sentence, and when it was read.
+00:00:58.500 --> 00:01:03.500
+It also looks up how busy each website is, and when each company started, from services the companies do not control.
 
 16
-00:01:07.500 --> 00:01:16.500
-Once the report is ready you can ask questions about it. Answers come back quickly, because the pages have already been read.
+00:01:03.500 --> 00:01:08.500
+Each line says which service it came from and when. These are rankings against every other website, not visitor counts, because visitor numbers are guesses.
 
 17
-00:01:16.500 --> 00:01:22.500
-Ask something the pages do not cover, and it tells you, instead of making an answer up.
+00:01:08.500 --> 00:01:14.500
+Every fact links back to where it came from. Click one and you see the page, the exact sentence, and when it was read.
 
 18
-00:01:22.500 --> 00:01:27.500
-Without signing up you get one report a day. The report itself is complete: nothing hidden, nothing stamped across it.
+00:01:14.500 --> 00:01:23.500
+Once the report is ready you can ask questions about it. Answers come back quickly, because the pages have already been read.
 
 19
-00:01:27.500 --> 00:01:31.500
-A free account raises that to one report an hour.
+00:01:23.500 --> 00:01:29.500
+Ask something the pages do not cover, and it tells you, instead of making an answer up.
 
 20
-00:01:31.500 --> 00:01:36.500
-A dollar a month gives you five an hour and as many questions as you like. The report is the same either way.
+00:01:29.500 --> 00:01:34.500
+Without signing up you get one report a day. The report itself is complete: nothing hidden, nothing stamped across it.
 
 21
-00:01:36.500 --> 00:01:41.500
-If a competitor changes their prices, you get an email. The subject line tells you what changed.
+00:01:34.500 --> 00:01:38.500
+A free account raises that to one report an hour.
 
 22
-00:01:41.500 --> 00:01:46.500
-And you can see the before and after side by side, both dated, so you can check it yourself.
+00:01:38.500 --> 00:01:43.500
+A dollar a month gives you five an hour and as many questions as you like. The report is the same either way.
 
 23
-00:01:46.500 --> 00:01:52.500
-There is a public help area anyone can read. The channels for sign-up and log-in trouble take messages from anyone, because a person who cannot log in cannot be asked to log in first.
+00:01:43.500 --> 00:01:48.500
+If a competitor changes their prices, you get an email. The subject line tells you what changed.
 
 24
-00:01:52.500 --> 00:01:57.500
-Behind the scenes, the owner can see how busy the service is and change any of the limits without touching code.
+00:01:48.500 --> 00:01:53.500
+And you can see the before and after side by side, both dated, so you can check it yourself.
 
 25
-00:01:57.500 --> 00:02:01.500
-Change a number and it takes effect straight away.
+00:01:53.500 --> 00:01:59.500
+There is a public help area anyone can read. The channels for sign-up and log-in trouble take messages from anyone, because a person who cannot log in cannot be asked to log in first.
 
 26
-00:02:01.500 --> 00:02:06.500
-That is the whole of it. There are two other ways to start, if you already know something about the market.
+00:01:59.500 --> 00:02:04.500
+Behind the scenes, the owner can see how busy the service is and change any of the limits without touching code.
 
 27
-00:02:06.500 --> 00:02:10.500
-You can name the competitors yourself, if you already know who they are.
+00:02:04.500 --> 00:02:08.500
+Change a number and it takes effect straight away.
 
 28
-00:02:10.500 --> 00:02:14.500
-You can paste the address of a company website, and it will work out the rest.
+00:02:08.500 --> 00:02:13.500
+That is the whole of it. There are two other ways to start, if you already know something about the market.
 
 29
-00:02:14.500 --> 00:02:19.500
-Or put them in the same sentence as your idea. Any of the three work on their own, or together.
+00:02:13.500 --> 00:02:17.500
+You can name the competitors yourself, if you already know who they are.
 
 30
-00:02:19.500 --> 00:02:25.500
+00:02:17.500 --> 00:02:21.500
+You can paste the address of a company website, and it will work out the rest.
+
+31
+00:02:21.500 --> 00:02:26.500
+Or put them in the same sentence as your idea. Any of the three work on their own, or together.
+
+32
+00:02:26.500 --> 00:02:32.500
 Facts you can check. Gaps it owns up to. And one thing to type to get started.

@@ -94,14 +94,14 @@ PAGE = r'''<title>Landscape — Product Demo</title>
 </div>
 
 <div class="meta">
-  <span class="ok">1360×850</span>
+  <span class="ok">1280×800</span>
   <span class="ok">subtitles on by default</span>
   <span>optional narration: your browser's speech engine</span>
-  <span>2 min 25 s (longer with narration)</span>
+  <span>2 min 40 s (longer with narration)</span>
 </div>
 
 <div class="wrap">
-  <div class="eyebrow">Prototype walkthrough &middot; 2 min 25 s</div>
+  <div class="eyebrow">Prototype walkthrough &middot; 2 min 40 s</div>
   <h1>Landscape, end to end.</h1>
   <p class="sub">Someone types a business idea into the box and gets a competitor report they
   can check. Recorded from the clickable prototype, with invented companies and compressed

@@ -162,6 +162,14 @@ explicitly labelled interpretation.
 - **Financial standing:** publicly announced funding, acquisitions and, for public companies,
   figures from regulatory filings. **Private-company revenue is never estimated** — the report
   states that it is not disclosed.
+- **Reach and standing, from named services** ([FACT_CHECKING.md](FACT_CHECKING.md) §3.2.1a):
+  domain popularity rank from Cloudflare Radar or Tranco; Wikipedia pageviews where the company
+  has an article; founding year, headquarters and parent company from Wikipedia or Wikidata.
+  Each is **attributed to the service by name, dated, and linked** — the report says what a
+  named service records, not what is true, and never lets a supplementary value override what
+  the company publishes about itself.
+- **Rankings, not visitor counts.** A domain rank is measured from real traffic; a visitor
+  estimate is modelled and differs wildly between vendors. Report the first, never the second.
 - **No composite health score.** Combining non-comparable signals into one number would be
   interpretation dressed as measurement. See
   [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) §7.
@@ -266,6 +274,7 @@ strategic implications of observed changes.
 | Excluded | Reason |
 |---|---|
 | Market share, TAM/SAM/SOM | Not reliably public; analyst estimates are modelled, not observed |
+| **Visitor counts and traffic estimates** | Modelled, and they vary wildly between vendors. **Domain *rankings* are reported instead** — see §3, Section 7A — because ranks are measured from real traffic while visitor numbers are inferred |
 | Revenue, ARR, burn, margins (private companies) | Not public |
 | Traffic, visitor counts, conversion rates | Third-party estimates only |
 | Customer counts and named logos beyond what is published | Frequently stale or promotional |

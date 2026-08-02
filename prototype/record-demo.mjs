@@ -15,7 +15,7 @@ const outDir = join(here, 'video');
 if (existsSync(outDir)) rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
 
-const RUNTIME_MS = 150_000; // demo script runs to ~138s; a little tail for the closing line
+const RUNTIME_MS = 158_000; // demo runs to ~145s; a little tail for the closing line
 
 const launchOpts = { args: ['--force-prefers-reduced-motion=0'] };
 let browser;
@@ -39,7 +39,7 @@ if (!browser) {
 // Frame size is bounded by the 16MB artifact limit: the demo page inlines the video
 // as a data URI. Subtitles are drawn by the player, so the frame only has to carry the
 // interface legibly - the zoom does that, not the pixel count.
-const W = 1360, H = 850, ZOOM = 1.35;
+const W = 1280, H = 800, ZOOM = 1.35;
 
 const context = await browser.newContext({
   viewport: { width: W, height: H },

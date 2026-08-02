@@ -559,7 +559,7 @@
     {host:"freshroute.example",title:"Homepage",cls:"P",t:7.1},
     {host:"growers-forum.example",title:"ordering tools thread",cls:"A",t:8.6},
     {host:"jobs.croptally.example",title:"Jobs",cls:"P",t:9.9},
-    {host:"softwarelists.example",title:"would not let us read it",cls:"X",t:10.8}
+    {host:"fooddirectory.example",title:"we could not read it - you can",cls:"R",t:10.8}
   ];
 
   var SRC_DETAIL = {
@@ -588,7 +588,7 @@
       '<div class="bars"><div class="bar" style="height:18%"></div><div class="bar" style="height:18%"></div>' +
       '<div class="bar" style="height:42%"></div><div class="bar" style="height:42%"></div>' +
       '<div class="bar" style="height:42%"></div><div class="bar" style="height:42%"></div></div></div>' +
-      '<div class="unconfirmed"><strong>Found elsewhere, not confirmed.</strong> A blog post from February says Freshroute starts at $120 a month. We could not find that on their own website, so it is not in the table above. ' + cite('S9',1) + '</div>' +
+      '<div class="unconfirmed"><strong>Also found, not verified.</strong> A post on growers-forum.example dated 12 February says Freshroute starts at $120 a month. That is somebody writing about the company rather than the company itself, and we could not confirm who edits that site &mdash; so the figure is not in the table above. It reads as a genuine post and nothing on it contradicts what Freshroute publishes. ' + cite('S9',1) + ' <a href="#" style="color:var(--accent)">Read it</a></div>' +
       '</section>' },
     { t:34, stream:true, html:
       '<section class="rep" id="sec-pos"><h2><span class="n">01</span> How each one describes itself</h2>' +
@@ -616,19 +616,33 @@
       '<p><strong>Easy to set up</strong> &mdash; said by 11 people across 2 places. &ldquo;Setup took an afternoon.&rdquo; ' + cite('S9',1) + '</p>' +
       '<p style="margin-top:1.1rem"><strong>What people wish it did</strong> <span style="font-family:var(--mono);font-size:var(--step--1);color:var(--muted)">from the middling reviews, not the angry ones or the glowing ones</span></p>' +
       '<p>A different price list for each restaurant &mdash; 6 people asked for this ' + cite('S9',1) + '<br>Taking orders at a market with no phone signal &mdash; 4 people asked for this ' + cite('S9',1) + '</p></section>' },
-    { t:96, html:
+    { t:92, html:
+      '<section class="rep" id="sec-reach"><h2><span class="n">06</span> Size and standing <span class="interp-tag">from other services</span></h2>' +
+      '<p style="font-size:var(--step--1);color:var(--muted)">None of this comes from the companies themselves. Each line says which service it came from, and when.</p>' +
+      '<div class="tbl-wrap"><table><thead><tr><th>Company</th><th>How busy the site is</th><th>Started</th><th>Where</th><th>Told us</th></tr></thead><tbody>' +
+      '<tr><td>Croptally</td><td class="num">rank 412,000</td><td class="num">2019</td><td>Vermont, US</td><td class="src-cell">S12 / S11</td></tr>' +
+      '<tr><td>Barnwise</td><td class="num">rank 690,000</td><td class="num">2016</td><td>Oregon, US</td><td class="src-cell">S12 / S11</td></tr>' +
+      '<tr><td>Freshroute</td><td class="num">rank 158,000</td><td class="num">2014</td><td>not listed</td><td class="src-cell">S12 / S11</td></tr>' +
+      '</tbody></table></div>' +
+      '<p style="font-size:var(--step--1);color:var(--muted);margin-top:.7rem">Ranking is how a site compares with every other site, from Cloudflare Radar on 1 August. It is not a visitor count: those are estimates and we do not report them. Founding years are from Wikipedia, which the companies do not control.</p>' +
+      '</section>' },
+    { t:100, html:
       '<section class="rep" id="sec-swot"><h2><span class="n">07</span> What this adds up to <span class="interp-tag">our reading, not theirs</span></h2>' +
       '<p><strong>An opening</strong> &middot; None of the three offers a different price list per restaurant as a normal feature, and six customers asked for it. ' + cite('S9',1) + '</p>' +
       '<p><strong>Worth watching</strong> &middot; Barnwise put its price up by a quarter in May ' + cite('S4') + ', which may make its customers willing to look around. That is our reading of the price change, not something Barnwise has said.</p></section>' },
-    { t:108, html:
+    { t:112, html:
       '<section class="rep" id="sec-sources"><h2><span class="n">08</span> Where all of this came from</h2>' +
       '<div class="tbl-wrap"><table><thead><tr><th>Ref</th><th>Page</th><th>Kind</th><th>Read on</th></tr></thead><tbody>' +
       '<tr><td class="src-cell">S1</td><td>croptally.example</td><td>the company own site</td><td class="num">09:12 UTC</td></tr>' +
       '<tr><td class="src-cell">S2</td><td>croptally.example/pricing</td><td>the company own site</td><td class="num">09:12 UTC</td></tr>' +
       '<tr><td class="src-cell">S4</td><td>barnwise.example/pricing</td><td>the company own site</td><td class="num">09:13 UTC</td></tr>' +
       '<tr><td class="src-cell">S9</td><td>growers-forum.example</td><td>a forum post, author named</td><td class="num">09:13 UTC</td></tr>' +
+      '<tr><td class="src-cell">S11</td><td>wikipedia.org</td><td>reference service</td><td class="num">09:14 UTC</td></tr>' +
+      '<tr><td class="src-cell">S12</td><td>radar.cloudflare.com</td><td>reference service</td><td class="num">09:14 UTC</td></tr>' +
       '</tbody></table></div>' +
-      '<p style="font-size:var(--step--1);color:var(--muted);margin-top:.8rem"><strong>Two we did not use.</strong> One site does not allow automated reading. The other had no author and no date, and gave a price the company own page contradicts.</p></section>' }
+      '<p style="font-size:var(--step--1);color:var(--ink-soft);margin-top:.9rem"><strong>One page we could not read.</strong> ' +
+      '<a href="#" style="color:var(--accent)">fooddirectory.example/freshroute</a> looks relevant, but the site does not allow automated reading, so we have nothing from it. A person can open it even though a program cannot.</p>' +
+      '<p style="font-size:var(--step--1);color:var(--muted);margin-top:.5rem"><strong>One page we could not reconcile.</strong> It gives a price the company own page contradicts, so the table uses the company figure. <a href="#" style="color:var(--accent)">Show both</a></p></section>' }
   ];
 
   var FU = [
@@ -758,7 +772,7 @@
     SOURCES.forEach(function (s) {
       at(s.t, function () {
         var d = document.createElement("div"); d.className="src";
-        d.innerHTML = '<span class="dot' + (s.cls==="X"?" flag":"") + '"></span>' + s.host +
+        d.innerHTML = '<span class="dot' + (s.cls==="R"?" flag":"") + '"></span>' + s.host +
           ' <span style="color:var(--muted)">' + s.title + '</span>';
         $("srcLive").appendChild(d);
       });
@@ -845,16 +859,18 @@
     "the-box": "You describe your idea in the box, in your own words. That is the only thing you have to do.",
     "the-idea": "Here the idea is an app that helps small farms sell straight to local restaurants.",
     "works-out-market": "First it works out what to call this line of business, then goes looking for companies already in it.",
-    "reads-sites": "It reads each company own website. One site does not allow automated reading, so it is skipped, and the report will say so.",
+    "reads-sites": "It reads each company own website. One site would not let a program read it, so that page is listed with a link, for you to open yourself.",
     "found-three": "It found three companies you may never have heard of. That is the point: you do not have to know the names in advance.",
     "prices": "Prices come first. They are taken straight from each company own price page, so the figures are exactly what they published.",
     "no-price-published": "One company does not publish a price at all, so the report says that instead of guessing.",
-    "price-elsewhere": "A price found on somebody blog, which we could not confirm on the company own site, is kept out of the table.",
+    "price-elsewhere": "Somebody blog gives a price for the third company. It is not the company own figure, so it stays out of the table, but it is reported underneath with a link and a note saying why we could not confirm it.",
     "written-part": "Then the written part appears, a few words at a time.",
     "what-each-does": "The table of what each one does is careful. A question mark means we looked and found nothing said either way.",
     "rival-claim": "And a triangle means a rival claimed it, not the company itself.",
     "no-update-list": "When a company does not say what it has changed, the report says exactly that, and lists everywhere it looked.",
     "what-people-wish": "Customer reviews are read for what people wish the product did. Six people wanted a different price list for each restaurant. That is a gap you could build into.",
+    "size-and-standing": "It also looks up how busy each website is, and when each company started, from services the companies do not control.",
+    "rankings-not-visits": "Each line says which service it came from and when. These are rankings against every other website, not visitor counts, because visitor numbers are guesses.",
     "where-it-came-from": "Every fact links back to where it came from. Click one and you see the page, the exact sentence, and when it was read.",
     "ask-questions": "Once the report is ready you can ask questions about it. Answers come back quickly, because the pages have already been read.",
     "ask-1": "",
@@ -890,26 +906,28 @@
     { t:45, id:"rival-claim", c:N["rival-claim"], a:function(){} },
     { t:49, id:"no-update-list", c:N["no-update-list"], a:function(){ var e=$("sec-changes"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
     { t:54, id:"what-people-wish", c:N["what-people-wish"], a:function(){ var e=$("sec-sent"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:60, id:"where-it-came-from", c:N["where-it-came-from"], a:function(){ var e=$("sec-swot"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"});
+    { t:57, id:"size-and-standing", c:N["size-and-standing"], a:function(){ var e=$("sec-reach"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:62, id:"rankings-not-visits", c:N["rankings-not-visits"], a:function(){} },
+    { t:67, id:"where-it-came-from", c:N["where-it-came-from"], a:function(){ var e=$("sec-swot"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"});
               setTimeout(function(){ var c=document.querySelector("#sec-swot .cite"); if(c) showPop.call(c,null); }, 900); } },
-    { t:66, id:"ask-questions", c:N["ask-questions"], a:function(){ $("pop").classList.remove("open"); $("followup").scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:70, id:"ask-1", c:N["ask-1"], a:function(){ askFollowUp("What would I pay for 40 orders a month?"); } },
-    { t:75, id:"ask-declined", c:N["ask-declined"], a:function(){ askFollowUp("How do they handle food safety records?"); } },
-    { t:81, id:"without-signing-up", c:N["without-signing-up"], a:function(){ show("limit"); } },
-    { t:86, id:"free-account", c:N["free-account"], a:function(){ setTier("reg"); show("composer"); } },
-    { t:90, id:"subscription", c:N["subscription"], a:function(){ setTier("sub"); } },
-    { t:95, id:"alerts", c:N["alerts"], a:function(){ show("notify"); } },
-    { t:100, id:"before-and-after", c:N["before-and-after"], a:function(){ $("diffBlock").classList.remove("hidden"); setTimeout(function(){$("diffBlock").scrollIntoView({behavior:"smooth",block:"center"});},250); } },
-    { t:105, id:"help-area", c:N["help-area"], a:function(){ show("community"); curChan="signup"; renderChan(); } },
-    { t:111, id:"behind-the-scenes", c:N["behind-the-scenes"], a:function(){ show("admin"); } },
-    { t:116, id:"change-a-limit", c:N["change-a-limit"], a:function(){ var i=$("limA"); i.value="2"; i.classList.add("flash");
+    { t:73, id:"ask-questions", c:N["ask-questions"], a:function(){ $("pop").classList.remove("open"); $("followup").scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:77, id:"ask-1", c:N["ask-1"], a:function(){ askFollowUp("What would I pay for 40 orders a month?"); } },
+    { t:82, id:"ask-declined", c:N["ask-declined"], a:function(){ askFollowUp("How do they handle food safety records?"); } },
+    { t:88, id:"without-signing-up", c:N["without-signing-up"], a:function(){ show("limit"); } },
+    { t:93, id:"free-account", c:N["free-account"], a:function(){ setTier("reg"); show("composer"); } },
+    { t:97, id:"subscription", c:N["subscription"], a:function(){ setTier("sub"); } },
+    { t:102, id:"alerts", c:N["alerts"], a:function(){ show("notify"); } },
+    { t:107, id:"before-and-after", c:N["before-and-after"], a:function(){ $("diffBlock").classList.remove("hidden"); setTimeout(function(){$("diffBlock").scrollIntoView({behavior:"smooth",block:"center"});},250); } },
+    { t:112, id:"help-area", c:N["help-area"], a:function(){ show("community"); curChan="signup"; renderChan(); } },
+    { t:118, id:"behind-the-scenes", c:N["behind-the-scenes"], a:function(){ show("admin"); } },
+    { t:123, id:"change-a-limit", c:N["change-a-limit"], a:function(){ var i=$("limA"); i.value="2"; i.classList.add("flash");
               $("adminSaved").textContent="Saved - one report a day is now two. Logged 2026-08-01 09:31 UTC."; } },
 
-    { t:120, id:"other-ways", c:N["other-ways"], a:function(){ show("composer"); setTier("anon"); $("prompt").value=""; openAdvanced(); } },
-    { t:125, id:"name-competitors", c:N["name-competitors"], a:function(){ $("prompt").value="Croptally vs Barnwise"; } },
-    { t:129, id:"paste-website", c:N["paste-website"], a:function(){ $("prompt").value="https://croptally.example"; } },
-    { t:133, id:"mix-them", c:N["mix-them"], a:function(){ $("prompt").value="an app for farm-to-restaurant orders, like Croptally"; } },
-    { t:138, id:"close", c:N["close"], a:function(){ closeAdvanced(); $("prompt").value=IDEA; } }
+    { t:127, id:"other-ways", c:N["other-ways"], a:function(){ show("composer"); setTier("anon"); $("prompt").value=""; openAdvanced(); } },
+    { t:132, id:"name-competitors", c:N["name-competitors"], a:function(){ $("prompt").value="Croptally vs Barnwise"; } },
+    { t:136, id:"paste-website", c:N["paste-website"], a:function(){ $("prompt").value="https://croptally.example"; } },
+    { t:140, id:"mix-them", c:N["mix-them"], a:function(){ $("prompt").value="an app for farm-to-restaurant orders, like Croptally"; } },
+    { t:145, id:"close", c:N["close"], a:function(){ closeAdvanced(); $("prompt").value=IDEA; } }
   ];
 
   function playDemo() {

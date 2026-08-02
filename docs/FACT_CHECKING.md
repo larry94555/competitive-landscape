@@ -86,8 +86,10 @@ from getting this wrong.
    acquisition notice found. Rebrands are a common silent failure — *"Company A (formerly B,
    renamed 2025-03)"* appears in the header.
 
-**Wikipedia and Wikidata are used for disambiguation only** — to tell three products apart —
-and are **never** cited as a fact source in the report body.
+**Wikipedia and Wikidata are used first for disambiguation** — to tell three products apart.
+They are *also* usable as **supplementary sources** for slow-moving facts such as founding
+year, headquarters and parent company (§3.2.1a), always named and linked, and never overriding
+what the company publishes about itself.
 
 ### 3.2 Source classes and the two-axis trust model (P10)
 
@@ -119,26 +121,38 @@ trustworthiness depends on what you are asking it.** So every source carries two
   the charts. Secondary sources may add, corroborate, and fill gaps, under the placement
   rules in §3.2.4.
 
-### 3.2.1 The four source classes
+### 3.2.1 The five source dispositions
 
-Every source is placed in one of four classes by **objective, checkable signals** — never by a
-model's opinion of a publisher, and never as a judgement about the publisher at all.
+Every source is placed by **objective, checkable signals** — never by a model's opinion of a
+publisher, and never as a judgement about the publisher at all.
 
-**The framing rule that governs this entire section:** a class records *what we were able to
-confirm*, not what a site is or lacks. The subject of every sentence is us. We do not say a
+**The framing rule that governs this entire section:** a disposition records *what we were able
+to confirm*, not what a site is or lacks. The subject of every sentence is us. We do not say a
 page is unreliable, incomplete, or wrong. We say what we confirmed, what we could not confirm,
 and where we found information we could not reconcile. See §3.2.5 for the exact language.
 
-| Class | What it records | Use |
+**The governing principle for what to show:** *if we have information, we pass it on.* Holding
+back something we found — because we could not fully vouch for it, or could not read it —
+serves nobody. The reader is better served by everything we found, each labelled with how far
+we got, than by a shorter list we felt more comfortable publishing.
+
+| Disposition | What it records | Where it appears |
 |---|---|---|
-| **P — Primary** | The subject's own properties, or a regulator's | Sets authoritative values |
-| **A — Attributed** | We confirmed authorship, dating, publisher identity and sourcing | Included by default, marked, with the confirmed signals shown |
-| **U — Unattributed** | We could not confirm enough of those signals to attribute it | Included only on the permissive setting, marked |
-| **N — Not used** | We could not verify it against our criteria, or it carries information we could not reconcile with a primary source | Not in the report body; **its existence is always disclosed** |
+| **P — Primary** | The subject's own pages, or a regulator's | Sets the authoritative values |
+| **S — Supplementary** | An established reference or data service, reasonably reliable but not the company itself | Report body, labelled, with the service named and linked |
+| **A — Attributed** | An independent page where we confirmed authorship, dating, publisher and sourcing | Report body, labelled |
+| **U — Unverified** | A page we could read that shows nothing troubling, but which we could not fully attribute | **Report body, labelled as unverified, with why and a link** |
+| **N — Not reconciled** | It states something the subject's own current page contradicts | Shown separately, both values, neither adjudicated |
+| **R — Not read** | We were not able or permitted to read it | **Listed with a link, so the reader can read it themselves** |
 
 **Primary (P):** the subject's own domain and documented properties — site, docs, changelog,
-status page, official blog, public ATS board, GitHub org, verified app-store listing — plus
-regulatory filings (SEC/EDGAR and equivalents).
+status page, official blog, public job board, code repository, verified app-store listing —
+plus regulatory filings (SEC/EDGAR, Companies House and equivalents).
+
+**Supplementary (S)** — see §3.2.1a. Established references and data services that are not the
+company but are maintained, dated and checkable: Wikipedia and Wikidata, public company
+registers, and domain-popularity or traffic services. **More reliable than an unverified page,
+less authoritative than the company itself**, and always attributed to the service by name.
 
 **Attributed (A)** — we confirmed **at least four** of the following, and the report shows
 *which*. This is a list of things we found, not a list of things a page owes anyone:
@@ -152,36 +166,84 @@ regulatory filings (SEC/EDGAR and equivalents).
 - A multi-year publishing history on the topic
 - Independently written rather than syndicated (§6)
 
-**Unattributed (U):** we confirmed some of the above but fewer than four, and found nothing we
-could not reconcile. A dated, source-citing post on a personal blog sits here. It is **usable
-and labelled** — the class says we could not attribute it, which is a statement about our
-confirmation, not about its accuracy.
+**Unverified (U) — included by default, and this is a deliberate change.** A dated post on
+somebody's personal blog, written in their own voice, with nothing contradictory and no sign
+of being generated or syndicated, is **real information**. Earlier drafts of this document
+excluded such pages unless the reader went looking for a setting — which meant the reader was
+not told the page existed. That was the wrong default.
 
-**Not used (N)** — one of exactly two situations, and the report says which:
+What the report does instead: **reports what the page says, says plainly that we could not
+verify it, explains what that means, and links it.**
 
-1. **"We were unable to verify this source against our criteria."** Applies when we could not
-   confirm authorship, dating, publisher identity or sourcing; when a page appears to be a
-   syndicated copy (we cite the origin instead); when a ranking order could not be tied to a
-   stated methodology; when a domain is one where we have not previously been able to confirm
-   attribution; or when our extraction of the page did not produce usable text.
-2. **"This source carries information we could not reconcile with a primary source."** Applies
-   when a value on the page differs from the subject's own current published value. **We do
-   not claim the source is wrong.** Both values are shown with their dates and links, and the
-   reader decides:
+> **Also found, not verified.** A post on *growers-forum.example* dated 12 February says
+> Freshroute starts at $120 a month. This is somebody writing about the company rather than
+> the company itself, and we could not confirm who edits that site, so we have not put the
+> figure in the table above. It looks like a genuine post and nothing on it contradicts what
+> Freshroute publishes. [Read it]
 
-   > This page states $6.00/user/month (page undated). Shortcut's own pricing page states
-   > $8.50/user/month as of 2026-07-31. We were unable to reconcile these, so we did not use
-   > this figure. [Both sources]
+That paragraph gives the reader more than silence does, and it does not pretend to a
+confidence we do not have.
 
-   A primary source must be **more recently fetched** than the secondary one for this to apply
-   — otherwise a legitimately recent price change would look like an error on the other page.
-   Regional and currency variance (P18) is checked before this rule fires.
+**Not reconciled (N)** — a value on the page differs from the subject's own current published
+value. **We do not claim the source is wrong.** Both values are shown with their dates and
+links:
 
-### 3.2.2 What we did not use is disclosed, never silently dropped
+> This page states $6.00 a month, and the page is undated. Shortcut's own price page states
+> $8.50 as of 2026-07-31. We could not reconcile the two, so the table uses the company's own
+> figure. [Both pages]
 
-Every report states what it found and did not use. Collapsed by default:
+A primary source must be **more recently read** than the other one for this to apply —
+otherwise a genuinely recent price change would make the other page look mistaken. Regional
+and currency differences (P18) are checked before this rule fires.
 
-> **3 sources found and not used.** [Show what we found]
+**Not read (R) — listed, never hidden, and this is also a change.** A page we could not read
+is **not** a page we distrust; it is a page we know nothing about either way. Access and trust
+are different questions, and earlier drafts wrongly filed both under "not used."
+
+If a relevant page exists and we could not read it — because the site does not permit
+automated reading, because it requires a login, or because it was unreachable — **it is listed
+in Sources with the reason and a working link.** A person can open a page a program may not,
+so this is a lead for the reader, not noise:
+
+> **fooddirectory.example/freshroute** — relevant, not read. This site does not allow
+> automated reading, so we have nothing from it. You can open it yourself. [Link]
+
+Withholding a URL we found would be withholding information for no benefit.
+
+### 3.2.1a Supplementary sources — reference and data services
+
+Established third parties that are neither the company nor an individual writing about it.
+They are maintained, dated, correctable and widely used, which makes them **more reliable
+than an unverified page and less authoritative than the company's own statement.**
+
+| Service | Gives | Cost | Notes |
+|---|---|---|---|
+| **Wikipedia / Wikidata** | Founding year, headquarters, parent company, industry, acquisitions | Free, open licence | Wikidata is structured and machine-readable; both carry edit histories, so a claim can be traced to when and by whom it was added |
+| **Wikipedia pageviews** | Public interest over time | Free API | A genuine relative signal for companies notable enough to have an article |
+| **Cloudflare Radar / Tranco** | Domain popularity ranking | Free | **Ranking, not visitor counts.** Ranks are measured; visitor numbers are modelled |
+| **Public company registers** (Companies House, SEC/EDGAR, GLEIF) | Filed accounts, officers, legal entity | Free | For UK and US entities these are *primary*, not supplementary |
+| **App stores** | Ratings, review counts, update history | Free | Publisher-controlled, so treat as the company's own page |
+| Commercial data services (Crunchbase, Similarweb and similar) | Funding, traffic estimates | **Paid, and their terms restrict republishing their data** | Not used while the product is free to run; the licensing question matters more than the price (ARCHITECTURE_EXPLANATION §10) |
+
+**Three rules that make this safe:**
+
+1. **Always name the service, always link it, always date it.** We are not reporting that a
+   company has a given traffic rank; we are reporting *what Cloudflare Radar says its rank was
+   on a given day*. That is attribution framing (§2) applied to data rather than to prose.
+2. **Rankings, not visitor counts.** Domain rankings are measured from real traffic. Visitor
+   *estimates* are modelled, vary wildly between vendors, and lend borrowed precision. Report
+   the first; do not report the second.
+3. **Supplementary values never override the company's own.** If Wikipedia says a company was
+   founded in 2014 and the company's own about page says 2015, the report shows both and says
+   which is which. It does not pick.
+
+### 3.2.2 Nothing we found is hidden
+
+Everything found appears somewhere. Pages we could read but could not verify are in the body,
+labelled (§3.2.1). Pages we could not read are in Sources with a link. The only collapsed group
+is the one where we found something we could not reconcile:
+
+> **1 page states something the company's own page contradicts.** [Show both]
 
 Expanded:
 
@@ -212,33 +274,42 @@ One setting, three values, per account with a per-analysis override:
 
 | Setting | Includes | For |
 |---|---|---|
-| **Primary sources only** | P | Due diligence; anything going into a decision or a document |
-| **Primary + attributed** ← *default* | P, A | Everyday use |
-| **Include unattributed sources** | P, A, U | Thin-footprint subjects where little is published |
+| **Only what companies publish themselves** | P | Due diligence; anything going into a decision or a document |
+| **Everything we found, labelled** ← *default* | P, S, A, U | Everyday use |
 
-Class **N is not used at any setting.** That is what "automatically ignore" means; the setting
-governs U, not the two not-used situations.
+There are only two settings now, and the default is the inclusive one. An earlier draft had a
+third, stricter middle setting that excluded unverified pages — which meant the reader was not
+told those pages existed. **Withholding a page we found, from a reader who can judge it for
+themselves, is not caution.** The strict setting remains for people who want only what a
+company says about itself.
+
+**Not reconciled (N)** and **not read (R)** appear at both settings, because both are
+information the reader should have. N shows both values side by side without adjudicating;
+R lists the page with a link so the reader can open what we could not.
 
 The setting is **recorded on the analysis and printed on the report and the PDF** — *"Sources:
-primary + attributed"* — so a shared report is reproducible and a reader knows which lens
-produced it. Evidence strength (§3.5) recomputes per setting, so a permissive report does not
+everything we found, labelled"* — so a shared report is reproducible and a reader knows which
+lens produced it. Evidence strength (§3.5) recomputes per setting, so a permissive report does not
 inherit a strictness it did not earn.
 
 Frictionless posture, consistent with BYOK: **nobody is asked about this to get a report.**
 The default is sensible, the control lives in `/account`, and it surfaces contextually only
-when a section is empty under the current setting — *"2 unattributed sources mention pricing.
-Include them?"*
+when the strict setting has hidden something — *"2 other pages mention pricing. Show them?"*
 
 ### 3.2.4 Where each class may appear
 
-| Surface | P | A | U | N |
-|---|:-:|:-:|:-:|:-:|
-| Pricing table values, feature matrix cells | ✓ | marked "secondary" | ✗ | ✗ |
-| Charts (cost-at-scale, velocity, ratings) | ✓ | dashed/hatched, keyed | ✗ | ✗ |
-| Report body claims | ✓ | ✓ marked | ✓ marked "attribution not confirmed" | ✗ |
-| One-page executive PDF | ✓ | ✗ | ✗ | ✗ |
-| Corroboration counting (§6) | ✓ | ✓ | ✗ | ✗ |
-| Shared / public report pages | ✓ | ✓ | ✓ marked | ✗ |
+| Surface | P | S | A | U | N | R |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|
+| Pricing table values, feature matrix cells | ✓ | ✗ | marked | ✗ | ✗ | ✗ |
+| Charts | ✓ | named on the chart | dashed, keyed | ✗ | ✗ | ✗ |
+| Report body | ✓ | ✓ named + linked | ✓ marked | ✓ marked unverified, with why | ✓ both values | ✗ |
+| Sources list | ✓ | ✓ | ✓ | ✓ | ✓ | **✓ with a link** |
+| One-page executive PDF | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Corroboration counting (§6) | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ |
+| Shared / public report pages | ✓ | ✓ | ✓ | ✓ marked | ✓ | ✓ |
+
+The executive one-pager stays primary-only: it is the page that gets forwarded, and it should
+carry only what a company says about itself.
 
 The executive one-pager is primary-only by design. It is the artifact that gets forwarded,
 screenshotted, and pasted into decks, and it should carry only what the vendor itself
