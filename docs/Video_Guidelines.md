@@ -273,6 +273,41 @@ started."* — is three short claims, not a recap. That is the target.
 
 ---
 
+## 8A. Several short films, not one long one
+
+**The mistake:** a single walkthrough grew to 2:40 and started colliding with the 16MB page
+budget. The only lever left was shrinking the frame — so the film got *longer and blurrier at
+the same time*, which is the wrong direction on both counts.
+
+**The rule:** split at natural boundaries and publish a short film each. Three benefits, and
+the first is the one that matters:
+
+1. **Each film can be recorded larger.** Freed of the size ceiling, the frame went back up to
+   1600×1000 — bigger than the single film ever managed.
+2. **A viewer can stop after the first** and still have seen the product. Film 1 is the
+   product; the rest is detail.
+3. **A specific thing becomes shareable** without asking someone to scrub through a longer film.
+
+**How to split.** Cut where the story changes, not at equal lengths. Order by what a stranger
+most needs:
+
+| | Film | Covers |
+|---|---|---|
+| 1 | The product working, end to end | The one film that must stand alone |
+| 2 | What it is like to use over time | Limits, questions, alerts |
+| 3 | Everything else | Community, admin, advanced paths |
+
+**Chaining.** Each page ends with **"More video demos available ›"** naming the next film, and
+carries the full list with the current one marked. Published URLs live in
+`prototype/video/links.json`: publish once, paste the URLs in, rebuild, republish — the same
+file path keeps the same URL, so the links settle on the second pass.
+
+**Chapters that start mid-story need a setup.** Film 2 opens on a finished report, so the
+prototype can render one instantly with no animation. Without that, every film would have to
+replay everything before it.
+
+---
+
 ## 9. The pipeline
 
 Three scripts, roughly 200 lines total, **no ffmpeg required**:
@@ -280,9 +315,11 @@ Three scripts, roughly 200 lines total, **no ffmpeg required**:
 | File | Role |
 |---|---|
 | **`prototype/narration.md`** | **The script. The only file to edit when changing words.** |
-| `prototype/build.py` | Reads the script, injects it, writes the WebVTT, rebuilds the page |
-| `prototype/make-demo-page.py` | Assembles the self-contained page (called by `build.py`) |
-| `prototype/record-demo.mjs` | Drives the prototype with Playwright, records WebM |
+| `prototype/build.py` | Reads the script, injects it, writes one WebVTT and one page per film |
+| `prototype/page-template.html` | The page shell: player, narration, chapter links |
+| `prototype/record-demo.mjs` | Records one WebM per film. `node record-demo.mjs answers` does just one. |
+| `prototype/video/chapters.json` | Written by the recorder, read by the build |
+| `prototype/video/links.json` | Published URLs, so the films can link to each other |
 
 **Changing what is said** — edit `narration.md`, then:
 

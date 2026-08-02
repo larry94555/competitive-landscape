@@ -1,0 +1,23 @@
+[
+  {
+    "id": "report",
+    "n": 1,
+    "title": "From an idea to a report",
+    "blurb": "Someone types a business idea in plain words and gets a competitor report they can check.",
+    "seconds": 78
+  },
+  {
+    "id": "answers",
+    "n": 2,
+    "title": "Questions, alerts and what it costs",
+    "blurb": "Asking questions about a finished report, what each kind of account allows, and the email when a competitor changes their prices.",
+    "seconds": 44
+  },
+  {
+    "id": "more",
+    "n": 3,
+    "title": "Community, admin, and other ways to start",
+    "blurb": "The public help channels, the owner's view of the service, and the two other ways to begin a report.",
+    "seconds": 44
+  }
+]

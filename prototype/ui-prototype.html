@@ -801,6 +801,34 @@
     });
   }
 
+  // Puts a completed report on screen with no animation, so a later chapter can
+  // start from it without replaying the whole analysis.
+  function renderReportNow() {
+    clearAll();
+    show("run");
+    $("subject").textContent = IDEA;
+    $("srcLive").innerHTML = ""; $("report").innerHTML = ""; $("qaList").innerHTML = "";
+    SOURCES.forEach(function (src) {
+      var d = document.createElement("div"); d.className = "src";
+      d.innerHTML = '<span class="dot' + (src.cls === "R" ? " flag" : "") + '"></span>' +
+        src.host + ' <span style="color:var(--muted)">' + src.title + '</span>';
+      $("srcLive").appendChild(d);
+    });
+    finishStages();
+    SECTIONS.forEach(function (sec) {
+      var div = document.createElement("div"); div.innerHTML = sec.html;
+      var node = div.firstChild; $("report").appendChild(node); bindCites(node);
+    });
+    showInterp();
+    $("metaBar").classList.remove("hidden");
+    $("actions").classList.remove("hidden");
+    $("followup").classList.remove("hidden");
+    $("elapsed").textContent = "2:04";
+    fuIdx = 0; fuLeft = TIERS[TIER].fu;
+    $("fuGo").disabled = false; $("fuInput").disabled = false;
+    renderQuota();
+  }
+
   function askFollowUp(text) {
     var q = text || $("fuInput").value.trim();
     if (!q || fuLeft<=0) return;
@@ -931,27 +959,58 @@
     { t:145, id:"close", c:N["close"], a:function(){ closeAdvanced(); $("prompt").value=IDEA; } }
   ];
 
-  function playDemo() {
+  // Three shorter films rather than one long one: each stays well inside the size
+  // budget, so each can be recorded larger, and a viewer can stop after the first.
+  var CHAPTERS = [
+    { id:"report",  n:1, title:"From an idea to a report",
+      blurb:"Someone types a business idea in plain words and gets a competitor report they can check.",
+      from:0, to:72,
+      setup:function(){ setTier("anon"); show("composer"); $("prompt").value=""; closeAdvanced(); } },
+    { id:"answers", n:2, title:"Questions, alerts and what it costs",
+      blurb:"Asking questions about a finished report, what each kind of account allows, and the email when a competitor changes their prices.",
+      from:73, to:111,
+      setup:function(){ setTier("anon"); renderReportNow(); } },
+    { id:"more",    n:3, title:"Community, admin, and other ways to start",
+      blurb:"The public help channels, the owner's view of the service, and the two other ways to begin a report.",
+      from:112, to:150,
+      setup:function(){ setTier("anon"); show("composer"); closeAdvanced(); } }
+  ];
+
+  function playDemo(chapterId) {
+    var ch = null;
+    for (var k = 0; k < CHAPTERS.length; k++) if (CHAPTERS[k].id === chapterId) ch = CHAPTERS[k];
+
     if (demoRunning) return;
     demoRunning = true;
     demoTimers.forEach(clearTimeout); demoTimers = [];
     clearAll();
     $("capBar").classList.add("on");
-    $("banner").textContent = "PROTOTYPE DEMO — simulated data and timings. Every flow shown is specified in docs/UI_FLOWS.md.";
-    var total = DEMO[DEMO.length-1].t + 6;
-    DEMO.forEach(function (step, i) {
+    $("banner").textContent = ch
+      ? "PROTOTYPE DEMO " + ch.n + " of " + CHAPTERS.length + " - " + ch.title + " - simulated data and timings."
+      : "PROTOTYPE DEMO - simulated data and timings. Every flow shown is specified in docs/UI_FLOWS.md.";
+
+    var steps = ch ? DEMO.filter(function (d) { return d.t >= ch.from && d.t <= ch.to; }) : DEMO;
+    var base = ch ? ch.from : 0;
+    var total = (steps[steps.length - 1].t - base) + 6;
+
+    if (ch) { try { ch.setup(); } catch (e) {} }
+
+    steps.forEach(function (step, i) {
       demoTimers.push(setTimeout(function () {
-        if (step.c) { $("capText").textContent = step.c; $("capStep").textContent = String(i+1).padStart(2,"0")+" / "+DEMO.length; }
-        $("capProg").style.width = ((step.t/total)*100)+"%";
+        if (step.c) { $("capText").textContent = step.c; $("capStep").textContent = String(i + 1).padStart(2, "0") + " / " + steps.length; }
+        $("capProg").style.width = (((step.t - base) / total) * 100) + "%";
         try { step.a(); } catch (err) {}
-      }, step.t*1000));
+      }, (step.t - base) * 1000));
     });
+
     demoTimers.push(setTimeout(function () {
-      $("capText").textContent = "Prototype — throwaway code, faked data. Built to test the wait before writing the real thing.";
+      $("capText").textContent = ch && ch.n < CHAPTERS.length
+        ? "More of the walkthrough follows in the next film."
+        : "Prototype - throwaway code, invented companies. Built to test the wait before writing the real thing.";
       $("capStep").textContent = "end";
       $("capProg").style.width = "100%";
       demoRunning = false;
-    }, total*1000));
+    }, total * 1000));
   }
 
   /* ---------- wiring ---------- */
@@ -995,6 +1054,9 @@
   $("playDemo").onclick = playDemo;
 
   window.__playDemo = playDemo;
+  window.__chapters = CHAPTERS.map(function (c) {
+    return { id:c.id, n:c.n, title:c.title, blurb:c.blurb, seconds:(c.to - c.from) + 6 };
+  });
 
   setTier("anon"); renderChan(); show("composer");
 })();
