@@ -10,49 +10,52 @@
 
 ---
 
-## 1. What was wrong, stated plainly
+## 1. The films explain. They do not sell.
 
-The previous films failed for one reason, and every rule below exists to prevent it:
+Two faults, corrected in that order.
 
-> **They showed results without ever saying why a result matters.**
+**The first cut showed results without saying what they were.** Visuals flashed past, nothing
+was explored, and every line assumed the viewer already knew why a table mattered.
 
-| Symptom | Cause |
+**The second cut fixed that by selling** — *"quote these without checking"*, *"a week you do
+not have"*, *"that is customers telling you what to build"*. Accurate, and wrong for this.
+A demo is not a pitch. Someone watching wants to know **what the thing does**, and will decide
+for themselves whether that is worth anything.
+
+> **Describe what is on screen and what it means. Never claim what it is worth.**
+
+| Never | Instead |
 |---|---|
-| Visuals flash past in 4 seconds | Too many beats, each too short to absorb |
-| Nothing is explored in detail | The film was organised by *feature*, not by *result* |
-| Abstract, not concrete | Narration described mechanisms instead of pointing at something on screen |
-| Assumes the viewer already knows | No beat existed for "why this helps you" |
-| The UI looks busy | Chips, URL hints and advanced options competed with the one thing that mattered |
+| "Quote these in a plan without checking." | "Each figure comes from that company own price page." |
+| "Finding out takes a week you do not have." | "Landscape looks for companies already doing it." |
+| "Nobody sells that — it is what customers want built." | "Six reviewers asked for a price list per restaurant." |
+| "You can check any number in ten seconds." | "The page, the sentence it came from, and when it was read." |
 
-**The correction:** every result gets *two* beats. What it is, then why it helps. That halves
-what a film can cover, which is the point.
+The test: **no line may mention time saved, money made, risk avoided, or what the viewer could
+now do.** State the fact. Stop.
+
+**Show it working before showing it being corrected.** Film 1 spends four beats on a report
+that came out right, then two on changing a wrong reading. That order matters — the reading is
+right most of the time, and leading with the caveat implies otherwise.
 
 ---
 
-## 2. The arc — every film has the same five parts
+## 2. The arc — every film has the same shape
 
 | # | Part | Job |
 |---|---|---|
-| 1 | **recognition** | A question that makes them think *that's me* |
-| 2 | **frustration** | The problem, stated so they think *yes, I need that* |
-| 3 | **turn** | *Here's how it works now* — and the action happens on screen |
-| 4 | **result** | What came back. Concrete, on screen, named |
-| 5 | **why** | Why that result helps them |
+| 1 | **recognition** | Name what this film is about |
+| 2 | **turn** | What the screen is showing, and the action |
+| 3 | **result** | What is there. Concrete, on screen, named |
+| 4 | **means** | What that is, or where it came from — **never what it is worth** |
 
-**The payoff is the film.** A film covers **two to four results**, no more. If it needs five,
-it is two films.
+**A film covers two to four results**, no more. If it needs five, it is two films.
 
-Every `result` must be followed by a `why`. **The build fails otherwise** — that is the one
-rule worth enforcing mechanically, because it is the rule the old films broke.
+Every `result` must be followed by a `means`. **The build fails otherwise** — that is the one
+rule worth enforcing mechanically, because it is the rule the first cut broke.
 
-The `why` line must survive: *would someone who has never thought about competitive research
-understand what they can now do that they could not before?*
-
-| Weak `why` | Strong `why` |
-|---|---|
-| "Sources are verifiable." | "Check any number in ten seconds, so you can put it in front of someone else." |
-| "We surface unmet needs." | "Six people asked and nobody sells it. That is customers telling you what to build." |
-| "Pricing is primary-sourced." | "Quote these in a plan without checking them." |
+The `means` line answers *what is this?*, not *why should you care?* If it could appear in a
+brochure, rewrite it.
 
 ---
 
@@ -62,16 +65,20 @@ Timings are **derived** from these rules. No step time is written by hand.
 
 | Rule | Value |
 |---|---|
-| Base beat | **4s** |
-| `result` and `why` beats | **6s** |
-| Any line containing a number | **at least 6s** |
-| After a scroll or highlight | **+2s** to settle before the narration lands |
-| Reading room | at least `characters ÷ 14` seconds, plus 1 |
-| Film length | **45–75s** |
+| Base beat | **3.2s** |
+| `result` and `means` beats | **4.8s** |
+| Any line containing a number | **at least 4.8s** |
+| After a scroll or highlight | **+1.6s** to settle before the narration lands |
+| Reading room | at least `characters ÷ 14` seconds, plus 0.8 |
+| Film length | **35–70s** |
 | Results per film | **2–4** |
 
-**Scroll, settle, then speak.** The old films narrated while the page was still moving, which
-is most of why nothing registered. The +2s is that rule made mechanical.
+Every floor above is **20% shorter than the first cut**, which left too long a gap between
+points. Only the *slack* was cut: the `÷ 14` reading rate is untouched, so a caption still gets
+the time it takes to read. Shortening that would make captions unreadable rather than brisk.
+
+**Scroll, settle, then speak.** The first cut narrated while the page was still moving, which
+is most of why nothing registered. The +1.6s is that rule made mechanical.
 
 ---
 
@@ -122,249 +129,230 @@ Each row is one beat. `kind` drives the timing; `action` drives the picture.
 
 ### Film 1 · `idea` — Do you have an idea you want to explore?
 
-**Blurb.** Someone types a business idea in plain words and finds three companies already doing it.
-
-*The only film that must be perfect — it is the one everybody watches.*
+**Blurb.** One box, one question, and a report on the companies already doing it.
 
 | Kind | Action | Narration |
 |---|---|---|
 | recognition | `clean` | Do you have an idea you want to explore? |
-| frustration | `hold` | Finding out who else is doing it takes a week you do not have. |
-| turn | `hold` | It should be as easy as saying the idea out loud. |
-| action | `type` | So type it. Here: an app helping small farms sell straight to restaurants. |
-| action | `go` | That is the whole input. No account, no setup. |
-| wait | `hold` | It goes and reads the public web. About two minutes. |
-| result | `spot:#srcLive` | Three companies already doing this. |
-| why | `hold` | You had not heard of any of them. That is the part you cannot do yourself. |
-| result | `spot:#interpLine` | It shows what it decided your idea was. |
-| why | `hold` | Wrong reading, wrong report. So you get to see it, and change it. |
-| close | `to:#report` | Everything below is what it found, and where each piece came from. |
-| next | `hold` | What they charge is next. |
+| turn | `hold` | Landscape looks for companies already doing it. |
+| point | `hold` | There is one box and one question. |
+| action | `type` | You type the idea in ordinary words. |
+| action | `go` | Then press Analyse. That is the only step. |
+| wait | `hold` | It reads public web pages. This takes about two minutes. |
+| result | `spot:#srcLive` | Each page appears as it is read. |
+| means | `hold` | Company sites, a forum, and one page it could not open. |
+| result | `spot:#interpLine` | It read the idea as ordering software for small farms. |
+| means | `hold` | Three companies matched that reading. The report is built on it. |
+| result | `spot:#interpLine .edit` | If that reading is wrong, change reopens it. |
+| means | `hold` | You correct the wording and it runs again. |
+| next | `to:#report` | The report follows. What they charge is next. |
 
-*Beat 8 is the film. Beats 9–10 cost eight seconds and buy the rest of the series: a wrong
-category reading silently ruins everything, so showing that we expose it is the trust beat.*
+*Beats 7 to 10 are the working case, beats 11 and 12 the correction. That order is
+deliberate: the reading is right most of the time, and leading with the caveat would
+suggest otherwise.*
 
 ---
 
 ### Film 2 · `prices` — What do they charge?
 
-**Blurb.** Three prices, one company that publishes none, and a figure from a blog that stays out of the table.
+**Blurb.** The price table, a company that publishes none, and a figure from a blog kept separate.
 
 | Kind | Action | Narration |
 |---|---|---|
-| recognition | `report` | Wondering what to charge? |
-| frustration | `to:#sec-pricing` | Pricing pages are scattered, and half of them change quietly. |
-| turn | `hold` | Here they are side by side. |
-| result | `spot:#sec-pricing table` | Thirty-nine dollars, forty-nine, and nothing. Copied from their own price pages. |
-| why | `hold` | Quote them in a plan without checking. And you can see where yours would sit. |
+| recognition | `report` | This is the pricing section. |
+| turn | `to:#sec-pricing` | Every plan each company publishes, in one table. |
+| result | `spot:#sec-pricing table` | Croptally is thirty-nine dollars, Barnwise forty-nine. |
+| means | `hold` | Each figure comes from that company own price page. |
 | result | `spot:#sec-pricing tbody tr:nth-child(4)` | Freshroute publishes no price at all. |
-| why | `hold` | That is a fact about them, not a hole here. Companies that hide prices chase bigger customers. |
-| point | `hold` | So it says not published, rather than guessing. |
-| result | `spot:#sec-pricing .unconfirmed` | A blog says Freshroute starts at a hundred and twenty. |
-| why | `hold` | You get the number and you get to judge it. Not from the company, so it stays out of the table. |
-| next | `hold` | Nothing unproven is dressed up as fact. What each one does is next. |
-
-*Beat 7 is the strongest line in the series: it turns a missing value into an insight. That is
-the model for how every gap should be narrated.*
+| means | `hold` | The table says not published, and asks you to contact them. |
+| point | `hold` | It does not fill the gap with a guess. |
+| result | `spot:#sec-pricing .unconfirmed` | A blog gives a figure for Freshroute. |
+| means | `hold` | It sits below the table, marked as not from the company, with a link. |
+| next | `hold` | What each one does is next. |
 
 ---
 
-### Film 3 · `features` — What does each one actually do?
+### Film 3 · `features` — What does each one do?
 
-**Blurb.** The feature grid, the cells that mean "nobody said", and the ones where only a rival is claiming it.
+**Blurb.** The feature grid, and what each of the five kinds of cell means.
 
 | Kind | Action | Narration |
 |---|---|---|
-| recognition | `report` | Trying to work out where the gap is? |
-| frustration | `to:#sec-matrix` | Every company's feature page says everything is included. |
-| turn | `hold` | Same rows, same questions, one grid. |
-| result | `spot:#sec-matrix tbody tr:nth-child(3)` | Only Freshroute plans delivery routes. Barnwise says it does not. |
-| why | `hold` | A row where a competitor says no is a row you could win on. |
-| result | `spot:#sec-matrix .cell-u` | A question mark means we looked and nobody said either way. |
-| why | `hold` | That is not a no. It is a question they have never answered in public. |
-| result | `spot:#sec-matrix .cell-c` | A triangle means a rival claimed it, not the company. |
-| why | `hold` | Competitors describe each other badly. Worth knowing before you repeat it. |
-| close | `hold` | Five things a box can mean. Most comparisons manage two. |
-| next | `hold` | What changed recently is next. |
+| recognition | `report` | This is the feature grid. |
+| turn | `to:#sec-matrix` | The same questions asked of all three. |
+| result | `spot:#sec-matrix tbody tr:nth-child(3)` | Freshroute plans delivery routes. Barnwise states it does not. |
+| means | `hold` | A tick is a stated yes, a cross a stated no. |
+| result | `spot:#sec-matrix .cell-u` | A question mark is neither. |
+| means | `hold` | It means the pages were read and nobody said either way. |
+| result | `spot:#sec-matrix .cell-c` | A triangle is a claim by a rival. |
+| means | `hold` | Croptally says Freshroute does this. Freshroute does not say it. |
+| next | `hold` | Recent changes are next. |
 
 ---
 
-### Film 4 · `changes` — What changed, and what do people wish for?
+### Film 4 · `changes` — What has changed recently?
 
-**Blurb.** A price rise with a date, a company that publishes nothing, and six people asking for a feature nobody sells.
+**Blurb.** Dated changes, a company that publishes none, and what reviewers ask for.
 
 | Kind | Action | Narration |
 |---|---|---|
-| recognition | `report` | Timing matters. Is now a good moment? |
-| frustration | `to:#sec-changes` | Nobody announces that their customers just got unhappy. |
-| result | `spot:#sec-changes p:nth-of-type(2)` | Barnwise put its price up a quarter in May. |
-| why | `hold` | Customers look around after a price rise. That is a window, and it has a date. |
-| result | `spot:#sec-changes .gap` | Freshroute publishes nothing about what it changed. |
-| why | `hold` | And it lists where it looked. So you know they are quiet, not that we missed it. |
-| result | `spot:#sec-sent` | Six people asked for a different price list per restaurant. |
-| why | `hold` | Nobody sells that. It is the closest thing to customers telling you what to build. |
-| point | `hold` | Taken from the middling reviews, not the angry ones. |
-| why | `hold` | Furious people describe their day. Lukewarm ones describe the missing feature. |
+| recognition | `report` | This section covers the last ninety days. |
+| turn | `to:#sec-changes` | Each entry carries its date and its source. |
+| result | `spot:#sec-changes p:nth-of-type(2)` | Barnwise moved its Grower plan up to forty-nine in May. |
+| means | `hold` | Taken from their own page, on the date shown. |
+| result | `spot:#sec-changes .gap` | Freshroute publishes no list of changes. |
+| means | `hold` | The block lists the pages checked: news, blog, and the rest of the site. |
+| result | `spot:#sec-sent` | Six reviewers asked for a price list per restaurant. |
+| means | `hold` | Read from the middling reviews, where people describe what is missing. |
 | next | `hold` | What people are saying is next. |
 
-*Beat 8 is the second-strongest line in the series. Give it room.*
-
 ---
 
-### Film 5 · `talking` — What are people saying about this?
+### Film 5 · `talking` — What are people saying?
 
-**Blurb.** People describing the problem in their own words, one project still being built, and one abandoned.
+**Blurb.** Posts from people with the problem, one project still active and one abandoned.
 
 | Kind | Action | Narration |
 |---|---|---|
-| recognition | `report` | Want to know whether anyone else has this problem? |
-| frustration | `to:#sec-talk` | It is out there, spread across a hundred threads. |
-| result | `spot:#sec-talk .quote` | Someone wanting to know what the chefs ordered last week. |
-| why | `hold` | That is your landing page, written by a customer. |
-| result | `spot:#sec-talk .quote:nth-of-type(2)` | Someone else keeping prices in six spreadsheets. |
-| why | `hold` | Two posts, both one click away. We say two because we read two. |
-| result | `spot:#sec-talk .proj` | Somebody has already built this. Still working on it last week. |
-| why | `hold` | Either you have a competitor you did not know about, or a head start you can use. |
-| result | `spot:#sec-talk .proj.dead` | Another was abandoned in 2024. |
-| why | `hold` | Find out why they stopped before you spend a year finding out yourself. |
-| next | `hold` | Where the idea does not turn up is next. |
+| recognition | `report` | This section is about the problem, not the companies. |
+| turn | `to:#sec-talk` | Public posts, open-source projects, and forums. |
+| result | `spot:#sec-talk .quote` | A grower asking what the chefs ordered last week. |
+| means | `hold` | Quoted in full, dated, and linked to the post. |
+| result | `spot:#sec-talk .quote:nth-of-type(2)` | Another keeping prices in six spreadsheets. |
+| means | `hold` | Two posts. It says two because it read two. |
+| result | `spot:#sec-talk .proj` | An open-source project doing something similar. |
+| means | `hold` | Twelve hundred changes, seven people, last worked on in July. |
+| result | `spot:#sec-talk .proj.dead` | Another stopped in November 2024. |
+| means | `hold` | Marked as no longer maintained, and still listed. |
+| next | `hold` | Where the idea does not appear is next. |
 
 ---
 
-### Film 6 · `absence` — Where does this idea not turn up?
+### Film 6 · `absence` — Where does the idea not appear?
 
-**Blurb.** The searches that found nothing, why that sometimes proves nothing, and the three places we have not licensed.
-
-*The most distinctive film — nothing else on the market does this.*
+**Blurb.** Searches that found nothing, why some places are left out, and three sites not searched.
 
 | Kind | Action | Narration |
 |---|---|---|
-| recognition | `report` | Nobody tells you what they failed to find. |
-| frustration | `to:#sec-talk .absent` | So you never learn whether it is quiet out there or they just did not look. |
-| result | `spot:#sec-talk .absent .row` | Nothing on Hacker News. Here are the three searches we ran. |
-| why | `hold` | Repeat them in two minutes and see for yourself. |
-| result | `spot:#sec-talk .caveat` | And it says the silence proves nothing here. |
-| why | `hold` | Hacker News is software people. For a farming tool they were never going to be talking. |
-| point | `spot:#sec-talk .absent .row:nth-child(2)` | Somewhere with nothing to say about farming is left out entirely. |
-| why | `hold` | Padding the list would make a thin search look thorough. |
-| result | `spot:#sec-talk .unsearched` | X, LinkedIn and Reddit are not licensed to us. |
-| why | `hold` | So we say so, and hand you the searches. You know what we did not look at. |
+| recognition | `report` | This part covers what was not found. |
+| turn | `to:#sec-talk .absent` | Each place searched, and what came back. |
+| result | `spot:#sec-talk .absent .row` | Nothing on Hacker News. |
+| means | `hold` | The three searches used are printed, with the date and the window. |
+| result | `spot:#sec-talk .caveat` | Below them, a note on what the silence is worth. |
+| means | `hold` | Hacker News is mostly software people, so finding nothing means little. |
+| point | `spot:#sec-talk .absent .row:nth-child(2)` | Lobsters is listed but not reported on. |
+| means | `hold` | Nothing there covers farming, so it was left out rather than padded in. |
+| result | `spot:#sec-talk .unsearched` | X, LinkedIn and Reddit were not searched. |
+| means | `hold` | Their content is not licensed to us. The searches are offered instead. |
 | next | `hold` | The questions it raises are next. |
 
 ---
 
-### Film 7 · `questions` — What questions should I be asking?
+### Film 7 · `questions` — What questions does it raise?
 
-**Blurb.** Eight levels of checking, the two we deliberately do not answer, and the questions raised instead.
+**Blurb.** Eight levels of checking, the two it does not answer, and the questions it poses instead.
 
 | Kind | Action | Narration |
 |---|---|---|
-| recognition | `report` | New to this? You do not know what you have not thought about. |
-| result | `spot:#sec-levels .levels` | Eight things get checked. Competitors are one of them. |
-| why | `hold` | The other seven are about your idea, not their companies. |
-| result | `spot:#sec-levels .g-q` | Two are marked with a question mark. |
-| why | `hold` | Those we do not answer. A small model guessing at strategy would be worse than useless. |
-| turn | `to:#sec-traj` | So it raises the questions instead. |
-| result | `spot:#sec-traj .ask ul` | This one needs farms and restaurants before it works for either. |
-| why | `hold` | Which side you get first is the decision that sinks most two-sided businesses. |
-| point | `spot:#sec-traj .why` | It says what made it think so, and links it. |
-| point | `spot:#sec-traj .book` | The questions come from a book we did not summarise. Read it. |
-| next | `hold` | These are month-six questions, now. Checking any of it is next. |
+| recognition | `report` | This index sits at the top of every report. |
+| result | `spot:#sec-levels .levels` | Eight levels. Competitors are the fourth. |
+| means | `hold` | The others cover the problem, the idea, and what is publicly said. |
+| result | `spot:#sec-levels .g-q` | Two carry a question mark. |
+| means | `hold` | Those two are not answered. They raise questions instead. |
+| turn | `to:#sec-traj` | This is one of them. |
+| result | `spot:#sec-traj .ask ul` | Three questions about starting a two-sided service. |
+| means | `hold` | Which side first, the smallest workable patch, and the first user. |
+| point | `spot:#sec-traj .why` | Above them, what prompted the questions, linked. |
+| point | `spot:#sec-traj .book` | Below, the book they came from, unsummarised. |
+| next | `hold` | Checking the report is next. |
 
 ---
 
-### Film 8 · `checking` — Can I check any of this?
+### Film 8 · `checking` — Where did each fact come from?
 
-**Blurb.** Every number opens onto the sentence it came from, including the one page we were not allowed to read.
+**Blurb.** Citations that open onto the sentence, the source list, and the page that could not be read.
 
 | Kind | Action | Narration |
 |---|---|---|
-| recognition | `report` | Would you put this in front of an investor? |
-| frustration | `to:#sec-swot` | Not if you cannot say where any of it came from. |
-| result | `cite:#sec-swot .cite` | Every number opens like this. |
-| why | `hold` | The page, the exact sentence, and the minute it was read. |
-| why | `hold` | Ten seconds to check one. So you can hand the whole thing to somebody else. |
-| point | `spot:#sec-sources table` | Every page it read, listed. |
-| result | `spot:#sec-sources p:nth-of-type(1)` | Including one it was not allowed to read. |
-| why | `hold` | It still gives you the link. A person can open what a program cannot. |
-| close | `hold` | Nothing it found is withheld from you. |
-| next | `hold` | Asking it questions is next. |
+| recognition | `report` | Every fact in the report carries a reference. |
+| turn | `to:#sec-swot` | They look like this, beside the sentence. |
+| result | `cite:#sec-swot .cite` | Clicking one opens the source. |
+| means | `hold` | The page, the sentence it came from, and when it was read. |
+| point | `spot:#sec-sources table` | The last section lists every page read. |
+| result | `spot:#sec-sources p:nth-of-type(1)` | One page could not be read. |
+| means | `hold` | The site does not allow it, so the link is given instead. |
+| next | `hold` | Asking questions is next. |
 
 ---
 
-### Film 9 · `asking` — Can I just ask it things?
+### Film 9 · `asking` — Can questions be asked afterwards?
 
-**Blurb.** Follow-up questions answered from what it already read, and one it refuses to answer.
+**Blurb.** Follow-up questions answered from the pages already read, and one it declines.
 
 | Kind | Action | Narration |
 |---|---|---|
-| recognition | `report` | Reports never answer the exact thing you wanted. |
-| turn | `to:#followup` | So ask. |
-| action | `ask:What would I pay for 40 orders a month?` | What would I pay for forty orders a month? |
-| result | `hold` | It works it out from what it already read. |
-| why | `hold` | The pages are read once. Answers come back in seconds, not minutes. |
-| turn | `ask:How do they handle food safety records?` | Now something it cannot know. |
-| result | `hold` | It says the pages do not cover that. |
-| why | `hold` | And offers to go and look, rather than inventing something plausible. |
-| close | `hold` | A tool that says I do not know is one you can trust when it answers. |
+| recognition | `report` | Below the report there is a box for questions. |
+| turn | `to:#followup` | They are answered from the pages already read. |
+| action | `ask:What would I pay for 40 orders a month?` | Here is one about cost at forty orders a month. |
+| result | `hold` | It works through each plan and gives the figure. |
+| means | `hold` | Every number in the answer carries its reference. |
+| turn | `ask:How do they handle food safety records?` | Here is one the pages do not cover. |
+| result | `hold` | It says so, rather than answering. |
+| means | `hold` | And offers to go and look, which uses another report. |
 | next | `hold` | Watching for changes is next. |
 
 ---
 
-### Film 10 · `alerts` — What if something changes?
+### Film 10 · `alerts` — What happens when something changes?
 
-**Blurb.** An email when a competitor moves, showing both versions with dates.
+**Blurb.** An email when a watched page moves, showing both versions with dates.
 
 | Kind | Action | Narration |
 |---|---|---|
-| recognition | `report` | This is all true today. |
-| frustration | `hold` | Competitors change prices without telling anybody. |
-| turn | `view:notify` | Two clicks to watch it. Nothing to configure. |
-| result | `hold` | An email when something you care about moves. |
-| why | `hold` | Not a digest. One change, one email, the thing that changed in the subject line. |
-| point | `hold` | Off by default, except for prices. |
-| why | `hold` | A tool that mails you every day gets filtered, and then it is worth nothing. |
-| result | `diff` | It shows both versions, both dated. |
-| why | `hold` | You can see that it happened rather than take our word for it. |
+| recognition | `report` | A report describes one moment. |
+| turn | `view:notify` | A watch keeps checking the pages behind it. |
+| point | `hold` | Two clicks to set up, with the price page already ticked. |
+| result | `hold` | When one changes, an email says what changed. |
+| means | `hold` | One change, one email, named in the subject line. |
+| point | `hold` | Prices are watched by default. Everything else is off. |
+| result | `diff` | The email shows both versions. |
+| means | `hold` | The old text, the new text, and the date each was read. |
 | next | `hold` | What it costs is next. |
 
 ---
 
 ### Film 11 · `cost` — What does it cost?
 
-**Blurb.** One report a day with no account, and what an account or a dollar a month changes.
+**Blurb.** One report a day with no account, and what an account or a subscription changes.
 
 | Kind | Action | Narration |
 |---|---|---|
-| recognition | `clean` | You have not signed in to anything yet. |
-| frustration | `hold` | Most tools want an account before they show you anything. |
-| result | `view:limit` | One report a day without an account. |
-| why | `hold` | The whole report. Nothing held back, nothing stamped across it. |
-| result | `tier:reg` | An account gets you one an hour, and keeps your history. |
-| why | `hold` | You only sign up when you want the second report, not before. |
-| result | `tier:sub` | A dollar a month gets you five an hour. |
-| why | `hold` | The same report at every level. You pay for how often, never for how much. |
+| recognition | `clean` | Nothing so far has needed an account. |
+| result | `view:limit` | Without one, it is one report a day. |
+| means | `hold` | The full report, with nothing removed or marked. |
+| result | `tier:reg` | A free account makes it one an hour, and keeps them. |
+| means | `hold` | Past reports stay available to reopen. |
+| result | `tier:sub` | A dollar a month makes it five an hour. |
+| means | `hold` | The report itself is the same at all three levels. |
 | next | `hold` | Other ways to start is last. |
 
 ---
 
 ### Film 12 · `ways` — Other ways to start
 
-**Blurb.** Naming the rivals, pasting a website, or both — revealed only once you know what a report is.
+**Blurb.** Naming the competitors, pasting a website, or both, shown after the plain path.
 
 | Kind | Action | Narration |
 |---|---|---|
-| recognition | `clean` | If you already know the market, say so. |
-| turn | `adv` | These were hidden until now, on purpose. |
-| why | `hold` | An option you cannot judge yet just looks like complexity. |
-| result | `type:Croptally vs Barnwise` | Name the rivals yourself. |
-| why | `hold` | It skips working out who competes with you and goes straight to reading them. |
-| result | `type:https://croptally.example` | Or paste one website. |
-| why | `hold` | It reads that company, works out the market, and finds the others itself. |
-| point | `type:an app for farm-to-restaurant orders, like Croptally` | Or both at once, in one sentence. |
-| close | `clean` | The same report either way. One question. Now try it yourself. |
-
----
+| recognition | `clean` | The box takes more than a description. |
+| turn | `adv` | These options sit under the box, closed by default. |
+| point | `hold` | They were kept shut until the plain path was clear. |
+| result | `type:Croptally vs Barnwise` | Competitors can be named directly. |
+| means | `hold` | It skips working out the market and reads them. |
+| result | `type:https://croptally.example` | A website address works too. |
+| means | `hold` | It reads that company first, then looks for similar ones. |
+| point | `type:an app for farm-to-restaurant orders, like Croptally` | Both can go in one sentence. |
+| close | `clean` | The report is the same in each case. |
 
 ## 6. How the build works
 

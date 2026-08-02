@@ -20,15 +20,19 @@ VIDEO = os.path.join(HERE, 'video')
 OFFSET = 1.5           # page load + settle before the recorder starts the film
 
 # --- pacing rules, Demo_Walkthrough.md §3 -------------------------------------
-BASE = 4.0             # every beat
-PAYOFF = 6.0           # result and why beats
-NUMBER = 6.0           # any line containing a digit
-SETTLE = 2.0           # after a scroll or a highlight
-CPS = 14.0             # characters a second, reading aloud
-FILM_MIN, FILM_MAX = 45.0, 75.0
+# Every floor below is 20% shorter than the first cut, which paused too long between
+# points. Only the SLACK was cut: CPS is untouched, so a caption still gets the time
+# it takes to read. Shortening that instead would just make captions unreadable.
+BASE = 3.2             # every beat
+PAYOFF = 4.8           # result and means beats
+NUMBER = 4.8           # any line containing a digit
+SETTLE = 1.6           # after a scroll or a highlight
+CPS = 14.0             # characters a second, reading aloud - NOT reduced
+PAD = 0.8              # breathing room after a caption is readable
+FILM_MIN, FILM_MAX = 35.0, 70.0
 MAX_RESULTS = 4
 
-KINDS = {'recognition', 'frustration', 'turn', 'action', 'wait', 'result', 'why', 'point', 'close', 'next'}
+KINDS = {'recognition', 'frustration', 'turn', 'action', 'wait', 'result', 'means', 'point', 'close', 'next'}
 VERBS = {'hold', 'clean', 'type', 'go', 'report', 'to', 'spot', 'cite', 'ask', 'tier', 'view', 'adv', 'diff'}
 MOVES = ('to', 'spot', 'cite')          # actions that move the page, so they need settling
 
@@ -79,12 +83,12 @@ def selectors_in(html):
 # ----------------------------------------------------------------- timing
 def duration(beat):
     """Beat length, derived. Nothing here is authored by hand."""
-    d = PAYOFF if beat['kind'] in ('result', 'why') else BASE
+    d = PAYOFF if beat['kind'] in ('result', 'means') else BASE
     text = beat['c']
     if re.search(r'\d', text):
         d = max(d, NUMBER)
     if text:
-        d = max(d, len(text) / CPS + 1.0)
+        d = max(d, len(text) / CPS + PAD)
     if beat['a'].split(':')[0] in MOVES:
         d += SETTLE
     return round(d, 1)
@@ -112,9 +116,9 @@ def check(films, html):
         for i, b in enumerate(f['beats']):
             if b['kind'] not in KINDS:
                 problems.append('%s: unknown beat kind "%s"' % (where, b['kind']))
-            # The rule the old films broke: a result with nothing saying why it helps.
-            if b['kind'] == 'result' and (i + 1 >= len(kinds) or kinds[i + 1] != 'why'):
-                problems.append('%s: result "%s" is not followed by a why'
+            # The rule the old films broke: a result with nothing explaining what it is.
+            if b['kind'] == 'result' and (i + 1 >= len(kinds) or kinds[i + 1] != 'means'):
+                problems.append('%s: result "%s" is not followed by a means'
                                 % (where, b['c'][:44]))
             verb = b['a'].split(':')[0]
             if verb not in VERBS:
@@ -132,7 +136,7 @@ def check(films, html):
                         problems.append('%s: "%s" — see Video_Guidelines.md §2.2' % (where, w))
                 if not re.search(r'[.!?]$', b['c']):
                     problems.append('%s: "%s" does not end in a full stop' % (where, b['c'][:44]))
-                if len(b['c']) / CPS + 1.0 > b['d'] + 0.05:
+                if len(b['c']) / CPS + PAD > b['d'] + 0.05:
                     problems.append('%s: "%s" cannot be read in %.1fs' % (where, b['c'][:36], b['d']))
 
         n_res = kinds.count('result')

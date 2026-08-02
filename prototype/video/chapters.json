@@ -3,84 +3,84 @@
     "id": "idea",
     "n": 1,
     "title": "Do you have an idea you want to explore?",
-    "blurb": "Someone types a business idea in plain words and finds three companies already doing it.",
-    "seconds": 69.2
+    "blurb": "One box, one question, and a report on the companies already doing it.",
+    "seconds": 62.9
   },
   {
     "id": "prices",
     "n": 2,
     "title": "What do they charge?",
-    "blurb": "Three prices, one company that publishes none, and a figure from a blog that stays out of the table.",
-    "seconds": 72.3
+    "blurb": "The price table, a company that publishes none, and a figure from a blog kept separate.",
+    "seconds": 50.4
   },
   {
     "id": "features",
     "n": 3,
-    "title": "What does each one actually do?",
-    "blurb": "The feature grid, the cells that mean \"nobody said\", and the ones where only a rival is claiming it.",
-    "seconds": 66.4
+    "title": "What does each one do?",
+    "blurb": "The feature grid, and what each of the five kinds of cell means.",
+    "seconds": 46.1
   },
   {
     "id": "changes",
     "n": 4,
-    "title": "What changed, and what do people wish for?",
-    "blurb": "A price rise with a date, a company that publishes nothing, and six people asking for a feature nobody sells.",
-    "seconds": 70.4
+    "title": "What has changed recently?",
+    "blurb": "Dated changes, a company that publishes none, and what reviewers ask for.",
+    "seconds": 48.1
   },
   {
     "id": "talking",
     "n": 5,
-    "title": "What are people saying about this?",
-    "blurb": "People describing the problem in their own words, one project still being built, and one abandoned.",
-    "seconds": 72
+    "title": "What are people saying?",
+    "blurb": "Posts from people with the problem, one project still active and one abandoned.",
+    "seconds": 59.2
   },
   {
     "id": "absence",
     "n": 6,
-    "title": "Where does this idea not turn up?",
-    "blurb": "The searches that found nothing, why that sometimes proves nothing, and the three places we have not licensed.",
-    "seconds": 73.5
+    "title": "Where does the idea not appear?",
+    "blurb": "Searches that found nothing, why some places are left out, and three sites not searched.",
+    "seconds": 59.4
   },
   {
     "id": "questions",
     "n": 7,
-    "title": "What questions should I be asking?",
-    "blurb": "Eight levels of checking, the two we deliberately do not answer, and the questions raised instead.",
-    "seconds": 74.2
+    "title": "What questions does it raise?",
+    "blurb": "Eight levels of checking, the two it does not answer, and the questions it poses instead.",
+    "seconds": 58.4
   },
   {
     "id": "checking",
     "n": 8,
-    "title": "Can I check any of this?",
-    "blurb": "Every number opens onto the sentence it came from, including the one page we were not allowed to read.",
-    "seconds": 58.9
+    "title": "Where did each fact come from?",
+    "blurb": "Citations that open onto the sentence, the source list, and the page that could not be read.",
+    "seconds": 40.3
   },
   {
     "id": "asking",
     "n": 9,
-    "title": "Can I just ask it things?",
-    "blurb": "Follow-up questions answered from what it already read, and one it refuses to answer.",
-    "seconds": 52.3
+    "title": "Can questions be asked afterwards?",
+    "blurb": "Follow-up questions answered from the pages already read, and one it declines.",
+    "seconds": 39.7
   },
   {
     "id": "alerts",
     "n": 10,
-    "title": "What if something changes?",
-    "blurb": "An email when a competitor moves, showing both versions with dates.",
-    "seconds": 51.9
+    "title": "What happens when something changes?",
+    "blurb": "An email when a watched page moves, showing both versions with dates.",
+    "seconds": 39.1
   },
   {
     "id": "cost",
     "n": 11,
     "title": "What does it cost?",
-    "blurb": "One report a day with no account, and what an account or a dollar a month changes.",
-    "seconds": 49.4
+    "blurb": "One report a day with no account, and what an account or a subscription changes.",
+    "seconds": 35.4
   },
   {
     "id": "ways",
     "n": 12,
     "title": "Other ways to start",
-    "blurb": "Naming the rivals, pasting a website, or both — revealed only once you know what a report is.",
-    "seconds": 48.1
+    "blurb": "Naming the competitors, pasting a website, or both, shown after the plain path.",
+    "seconds": 38.2
   }
 ]
