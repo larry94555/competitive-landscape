@@ -196,19 +196,61 @@ A primary source must be **more recently read** than the other one for this to a
 otherwise a genuinely recent price change would make the other page look mistaken. Regional
 and currency differences (P18) are checked before this rule fires.
 
-**Not read (R) — listed, never hidden, and this is also a change.** A page we could not read
-is **not** a page we distrust; it is a page we know nothing about either way. Access and trust
-are different questions, and earlier drafts wrongly filed both under "not used."
+**Not read (R) — listed, never hidden.** A page we could not read is **not** a page we
+distrust; it is a page we know nothing about either way. Access and trust are different
+questions, and earlier drafts wrongly filed both under "not used."
 
-If a relevant page exists and we could not read it — because the site does not permit
-automated reading, because it requires a login, or because it was unreachable — **it is listed
-in Sources with the reason and a working link.** A person can open a page a program may not,
-so this is a lead for the reader, not noise:
+If a relevant page exists and we did not read it, **it is listed with the reason and a working
+link.** A person can open a page a program may not. There are four reasons, and the report says
+which:
 
-> **fooddirectory.example/freshroute** — relevant, not read. This site does not allow
-> automated reading, so we have nothing from it. You can open it yourself. [Link]
+| Reason shown | When |
+|---|---|
+| "This site does not allow automated reading" | `robots.txt` disallows the path |
+| "This page needs a login" | Behind authentication or a paywall |
+| "We could not reach it" | Fetch failed or timed out |
+| **"This site's terms do not allow us to repeat what it holds, so we point to it instead"** | A service whose licence restricts republishing its data (§3.2.1b) |
 
 Withholding a URL we found would be withholding information for no benefit.
+
+### 3.2.1b Pointing to sources we may not republish
+
+Some services hold genuinely useful information under terms that forbid reproducing it —
+commercial company-data and traffic services in particular. **Not being able to repeat what a
+source says does not stop us telling the reader it exists.**
+
+There is a real difference between the two acts:
+
+| | |
+|---|---|
+| **Reproducing their data** — showing a funding figure taken from their database | Restricted by their terms. We do not do it. |
+| **Stating that a page exists and linking to it** | An ordinary link. We do it, and it is useful. |
+
+**How we know a page exists without reading it.** This matters, because if a site does not
+permit automated reading then probing it to test whether a profile exists would itself be
+reading it. Two clean routes, neither of which touches the site:
+
+- **A search result.** A search naming the company and the service returns a result, which
+  tells us a page exists without our having fetched it.
+- **A cross-reference in an open dataset.** Wikidata carries identifiers for many such
+  services, under an open licence. If Wikidata records an identifier for this company, the
+  profile exists and we can construct the link from the identifier.
+
+**The rule that stops this becoming boilerplate:** *only list a place where we have evidence
+it holds something about this particular subject.* A standing footer suggesting the reader
+"also try" five well-known services on every report is not information — it is filler that
+makes every report look the same and teaches readers to skip the section. One line, naming a
+specific page we have reason to believe exists, is worth more than five generic suggestions.
+
+> **Other places worth looking.** A company profile for Croptally exists on a funding database
+> we are not permitted to quote from. It may hold investment history we could not find on the
+> company's own site. [Open it]
+
+**A caveat worth stating plainly:** what a service's terms permit is a question for the
+founder to settle with the service's terms in front of them, before launch — not something to
+infer from this document. The posture here is the conservative one: do not read what we cannot
+use, learn of a page's existence indirectly, link rather than quote, and never reproduce a
+value.
 
 ### 3.2.1a Supplementary sources — reference and data services
 

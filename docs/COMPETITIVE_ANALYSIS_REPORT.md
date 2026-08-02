@@ -174,6 +174,16 @@ explicitly labelled interpretation.
   interpretation dressed as measurement. See
   [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) §7.
 
+### Section 8A — Other places worth looking *(only when there is something to say)*
+- **Content:** specific pages we did not read but have reason to believe hold something about
+  this subject, each with the reason and a link — a site that does not allow automated reading,
+  a page behind a login, or a service whose terms do not let us repeat what it holds
+  ([FACT_CHECKING.md](FACT_CHECKING.md) §3.2.1b).
+- **The rule that keeps it useful:** only list a place where we have evidence it holds
+  something about *this* company. A standing list of well-known services on every report is
+  filler, and readers learn to skip it.
+- **Omitted entirely when empty.** An empty section is worse than no section.
+
 ### Section 8 — Sources
 Every source with label, URL, title, host, trust tier, fetched-at, extraction quality, and
 status — plus an **exclusions list** with reasons (robots-disallowed, unreachable, paywalled).
