@@ -20,6 +20,7 @@ TypeScript + React frontend · Rust backend · local llama.cpp inference on Orac
 | [Video_Text_Best_Practices.md](Video_Text_Best_Practices.md) | How demo narration is written: word economy, value in the listener's currency, one elevator pitch per line, and letting the viewer reach the conclusion unaided |
 | [UI_FLOWS.md](UI_FLOWS.md) | The seven flows: access tiers, conversational follow-up, notifications, admin, community channels — and four conflicts with earlier decisions |
 | [DISTRIBUTION.md](DISTRIBUTION.md) | The owning document for R9: beachhead selection, positioning, channels in yield order, the weekly cadence, and the trap-subject launch benchmark |
+| [IDEA_ANALYSIS.md](IDEA_ANALYSIS.md) | The eight levels a founder actually asks — problem space, value proposition, product, business, discussions, power niches, startup trajectory, investor interest — and the rule that decides the product: **observation levels answer, framing levels only ask** |
 | [DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) | The second axis — public discussion about the **problem, idea and niche** rather than the companies: what people ask for, complain about and are building, which venues may legally be read, and how an *absence* of discussion is reported without becoming a guess |
 | [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) | How a prompt becomes a competitor set: input classes, prompt completeness by convergence, category vocabulary resolution, seed channels, relevance classification, clarifying questions, and how company standing is assessed |
 | [Off-The-Napkin-Estimates.md](Off-The-Napkin-Estimates.md) | Which quantities are estimated and which are refused: Fermi decomposition, bounds and geometric means, the Rule of Five, estimation by analogy, presentation, and calibration gates |
@@ -180,6 +181,14 @@ source the plan depends on **in a browser, from the primary source**, and record
 ADR. Two of these can invalidate a planned feature, so they are cheap to check now and
 expensive to discover in Phase 3:
 
+- **X (Twitter).** The free read tier is gone; new developers pay **$0.005 per post read**,
+  so 200 posts costs $1 — the whole monthly subscription, for one report section. This is
+  disqualifying rather than expensive, and drives link-out-only in
+  [DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) §4.4a. Same caveat as Reddit: the sources
+  are vendors selling X data alternatives.
+- **YouTube.** Confirmed from Google's own quota docs: **100 `search.list` calls per day**,
+  separate from the 10,000-unit pool — roughly 33 reports/day. Confirm the data-storage
+  limits in the API terms, which are stricter than our normal caching.
 - **Reddit's Data API Terms.** The plan currently assumes Reddit is *not* usable —
   commercial use appears to require prior approval and a monthly minimum far beyond a
   bootstrapped budget, and this drives the link-out-only design in
@@ -451,6 +460,18 @@ streaming* — which no screenshot can. Free on a public repository.
   flagging; seeded with 25–30 official articles.
 - `/legal/*` pages and the public `/bot` page.
 - Admin console v1: usage, quality sample queue, support queue.
+- **Blog and podcast RSS ingestion** — the thoughtspace layer
+  ([IDEA_ANALYSIS.md](IDEA_ANALYSIS.md) level 5). RSS/Atom is the one open syndication
+  standard left: no key, no quota, no commercial gate, dates and authorship already
+  structured. Cheapest high-value venue in the plan.
+- **Level 3 "has it been tried"** — dead startups, archived repositories, launch posts that
+  went nowhere, shutdown post-mortems. Pure retrieval, and plausibly the single most useful
+  answer the product gives.
+- **Level 8 investor interest** — firm blogs and partner blogs via RSS, portfolio pages
+  (primary), and **SEC Form D via EDGAR full-text search** (public, free, filed, dated).
+  Reported as *publicly stated* interest only, with the scope note in
+  [IDEA_ANALYSIS.md](IDEA_ANALYSIS.md) §8.1 — never as a red flag, since most investor
+  interest is private and most viable businesses are not venture-scale.
 - **The absence panel** — "where this idea does *not* appear"
   ([DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) §2). It ships one phase after the signals
   it belongs to, and the ordering is deliberate: the panel needs the **venue-fit gate** and
@@ -506,6 +527,16 @@ requested when the user asks for something that requires it.
 - `/pricing`, Stripe Checkout, Billing Portal, upgrade dialogs at the moment of the limit,
   resume-the-blocked-action after upgrade.
 - Annual billing at 2 months free.
+- **Levels 2, 6 and 7 — the framing questions** ([IDEA_ANALYSIS.md](IDEA_ANALYSIS.md)).
+  Value proposition, power niches, and startup trajectory, shipped **last on purpose**: they
+  take levels 1–5 as input, and they are the levels that damage trust if rushed. They emit
+  *questions with the evidence that raised them*, never conclusions — a local 8B model loses
+  a reasoning contest with the reader's own chatbot, and pretending otherwise would
+  contaminate the levels where retrieval genuinely wins.
+- **"Copy as context"** — the whole report as clean Markdown with every URL and date, sized
+  to paste into the reader's own AI assistant ([IDEA_ANALYSIS.md](IDEA_ANALYSIS.md) §5).
+  Near-free to build, and it settles the positioning: we are not a worse chatbot, we are the
+  evidence file a chatbot cannot assemble.
 
 **Decision required before writing billing code: merchant of record, or not?**
 Stripe is a payment processor — VAT, GST, and US sales-tax registration, calculation, and

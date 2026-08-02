@@ -270,6 +270,15 @@ Header
 > where the idea does **not** appear. It is specified in full, including which venues may
 > legally be read, in [DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md). It is numbered 5A
 > rather than 6 to avoid renumbering the existing nine sections.
+>
+> **The schema above is level 4 of eight.** [IDEA_ANALYSIS.md](IDEA_ANALYSIS.md) defines the
+> full set a founder actually asks — problem space, value proposition, product, business,
+> discussions, power niches, startup trajectory, investor interest — and the rule that
+> governs them: **observation levels produce answers with sources; framing levels produce
+> questions with the evidence that raised them.** Levels 6 and 7 never assert a conclusion,
+> and the report's level index marks them `?` so they cannot be mistaken for findings. The
+> report carries a level index at the top; sections 1–8 of the schema serve levels 1–5 and
+> the framing levels render after them.
 
 Every section carries `status: populated | partial | not_found_in_public_sources` and
 `notes[]`. Every factual statement is a `Claim`:

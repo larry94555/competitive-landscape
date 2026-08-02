@@ -9,6 +9,10 @@
 > around this problem?"** — a question about *the problem, the idea and the niche*, which may
 > have no companies in it at all.
 >
+> **Where this sits.** [IDEA_ANALYSIS.md](IDEA_ANALYSIS.md) defines eight levels of analysis;
+> this document supplies the venues and access terms that levels 1, 5 and 8 depend on. Read
+> that one for *what is asked*, this one for *what may legally be read to answer it*.
+>
 > Companion documents: [FACT_CHECKING.md](FACT_CHECKING.md) governs source dispositions and
 > auditable negatives; [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) governs how a
 > prompt becomes a search; [COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md)
@@ -246,6 +250,68 @@ we only ran a web search would be exactly the kind of unearned claim this produc
 agriculture, logistics, professional services — a niche Discourse or vBulletin forum is a far
 better venue than Hacker News, and its public JSON is usually readable under ordinary
 robots.txt rules. Venue selection should follow the subject, not our convenience.
+
+### 4.4a Thoughtspace venues — blogs, video, podcasts, social
+
+These serve a different purpose from the venues above. They are not read for *facts* but for
+**existing thinking**: what has already been argued about this idea, so the reader can go and
+read it themselves ([IDEA_ANALYSIS.md](IDEA_ANALYSIS.md) §2, level 5). The artifact is a
+reading list, not a claim set — we assert that someone wrote it, when and where, never that
+they were right.
+
+The access picture splits sharply into open and closed, and the split decides the design.
+
+**Open, and better than expected:**
+
+| Venue | Access | Notes |
+|---|---|---|
+| **Blogs / Substack / Medium** | **RSS and Atom, ordinary web, robots-governed** | No API, no key, no terms problem. The highest-value new venue by a distance, and the cheapest |
+| **Podcasts** | **RSS/XML, open by design** | Podcast feeds are public XML. Show notes and descriptions are text; where transcripts are published they are ordinary web pages. Underrated for investor thesis (level 8) |
+| **SEC EDGAR (Form D)** | **Public, free, full-text search** | Who actually raised money in a category. Primary, filed, dated |
+| **VC portfolio pages** | Primary, on the firm's own domain | Revealed preference beats stated preference |
+
+RSS deserves emphasis: it is the one remaining open syndication standard, it is *designed* to
+be read by programs, it carries dates and authorship in structured form, and essentially the
+entire blogosphere still emits it. For the thoughtspace level it is worth more than every
+gated API combined.
+
+**YouTube — usable, but on a hard leash.** Google's own quota documentation is unambiguous:
+a project gets **100 `search.list` calls per day**, in a bucket separate from the 10,000
+units shared by all other endpoints. That is the binding number.
+
+At roughly three queries per report, 100 searches a day supports about **33 reports/day**
+before search is exhausted — workable at launch, a ceiling well before scale, and a quota
+increase requires an audit. Consequences for the design:
+
+- YouTube runs **last** in the pipeline and is **skipped when the day's quota is spent**,
+  which is recorded as `not_searched_reason: quota` rather than silently producing a false
+  negative.
+- We surface **titles, channels, dates and links** — never transcripts. Transcript extraction
+  is not offered by the public API and third-party scraping breaches YouTube's terms.
+- YouTube's terms also cap how long API data may be stored, so results are cached briefly and
+  refreshed, unlike the permanent caching used for immutable discussion posts.
+
+**Closed, and the numbers are decisive:**
+
+**X (Twitter).** The free tier has been discontinued; new developers get pay-per-use at
+**$0.005 per post read**. That price is not merely inconvenient, it is disqualifying:
+
+> Reading 200 posts costs **$1.00** — the entire monthly subscription price, to produce a
+> single section of a single report.
+
+There is no volume at which this works for a $1/month product, and the alternative flat tiers
+are closed to new signups. **X is link-out only**, permanently, unless the pricing changes.
+(As with Reddit, every accessible source on X's pricing is a vendor selling X data
+alternatives — interested parties. The *direction* is unambiguous and corroborated, so the
+design decision is safe; the exact figures go in the Phase 0 audit.)
+
+**LinkedIn.** Terms forbid automated access and the API is partner-only. Link-out only, via
+ordinary web search results. Not fetched.
+
+**The consequence all four share:** a venue we may not properly search **never appears in the
+absence panel** (§2). We do not convert "we were not permitted to look" into "it is not
+there." For X, LinkedIn and Reddit the report says plainly that we did not search, and links
+what a web search surfaced.
 
 ### 4.5 The robots.txt commitment applies here too
 
