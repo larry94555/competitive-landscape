@@ -1,4 +1,6 @@
 {
   "_note": "Published artifact URLs, keyed by film id from docs/Demo_Walkthrough.md §5. Publish a film, paste its URL here, rebuild so the pages cross-link. The four URLs previously listed here (report / talking / answers / more) pointed at the superseded four-film cut and no longer correspond to any film in the walkthrough; they were removed rather than left to mislead.",
+  "idea":   "https://claude.ai/code/artifact/81623bc6-d5a4-4992-bcf7-683447cef188",
+  "prices": "https://claude.ai/code/artifact/7bf79646-78d3-4dd7-b7b1-6d4fcfd942aa",
   "prototype": "https://claude.ai/code/artifact/2bd91da4-2370-4b8b-8d59-26619a93eb7e"
 }
