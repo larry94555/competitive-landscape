@@ -200,6 +200,35 @@
   .unconfirmed { border-left:3px solid var(--warn); background:var(--surface-alt); padding:.7rem 1rem;
     margin-top:.9rem; font-size:var(--step--1); color:var(--ink-soft); max-width:68ch; }
 
+  /* --- demo dress: strip the screen to whatever the current beat is about --- */
+  body.clean .chips, body.clean #advWrap, body.clean .nav, body.clean .seg,
+  body.clean .quota, body.clean .hero .sub, body.clean .disclaimer,
+  body.clean #playDemo { display:none !important; }
+  body.clean .lede { font-size:clamp(1.5rem,1.1rem + 2vw,2.4rem); margin-bottom:1.4rem; }
+  /* Film 12 reveals the advanced options without bringing the rest of the chrome back. */
+  body.clean.showadv #advWrap { display:block !important; }
+
+  /* The highlight is attached to the element itself rather than drawn as a floating
+     box at measured coordinates. Measuring means racing the smooth scroll, and losing
+     that race puts the outline somewhere misleading. An outline on the element is
+     correct by construction, whatever the page is doing. */
+  /* Outline only, no full-screen dim. A fixed overlay cannot be escaped by an element
+     nested inside a stacking context, so dimming left the thing being pointed at as
+     grey as everything else. An outline needs no stacking games and cannot land in
+     the wrong place. */
+  .spotted { outline:3px solid var(--accent) !important; outline-offset:4px;
+    border-radius:2px; box-shadow:0 0 0 5px var(--accent-soft), 0 10px 30px rgba(6,10,9,.16); }
+  /* A table row cannot carry a reliable outline under border-collapse, so tint the
+     cells instead. Same signal, and it works for rows and blocks alike. */
+  .spotted, tr.spotted > td { background:var(--accent-soft) !important; }
+  tr.spotted > td:first-child { box-shadow:inset 3px 0 0 var(--accent); }
+  tr.spotted > td:last-child  { box-shadow:inset -3px 0 0 var(--accent); }
+
+  #beatbar { position:fixed; left:0; right:0; bottom:0; z-index:70; display:none;
+    font-family:var(--mono); font-size:.72rem; background:#0B1210; color:#CFE0D9;
+    padding:.35rem .8rem; letter-spacing:.02em; }
+  body.previewing #beatbar { display:block; }
+
   /* --- the eight levels, discussion signals, and the framing questions --- */
   .levels { border:1px solid var(--rule); border-radius:2px; background:var(--surface); padding:.3rem .9rem; margin:.4rem 0 1.4rem; }
   .lvl { display:flex; gap:.75rem; align-items:baseline; padding:.4rem 0; border-bottom:1px solid var(--rule); font-size:var(--step--1); }
@@ -340,6 +369,7 @@
   @media (max-width:760px) { .chan-layout { grid-template-columns:1fr; } .diff { grid-template-columns:1fr; } }
 </style>
 
+<div id="beatbar"></div>
 <div class="proto-banner" id="banner">
   PROTOTYPE — faked data, simulated timings, no backend. Built to test the wait, not the code.
 </div>
@@ -976,176 +1006,269 @@
   function openAdvanced()  { $("advBody").classList.add("on");  $("advToggle").setAttribute("aria-expanded","true"); }
   function closeAdvanced() { $("advBody").classList.remove("on"); $("advToggle").setAttribute("aria-expanded","false"); }
 
-  // <<NARRATION>> generated from narration.md by build.py — do not edit by hand
-  var N = {
-    "open": "Who else is already doing what you're about to build?",
-    "the-box": "You type your idea the way you'd say it out loud.",
-    "the-idea": "This one: an app for small farms selling straight to restaurants.",
-    "works-out-market": "Your words aren't the market's words. It translates, then goes hunting.",
-    "reads-sites": "It reads what each company publishes about itself.",
-    "found-three": "Three competitors you'd never have found. You didn't need their names.",
-    "prices": "Prices first, copied from their own pricing pages. Quote them without checking.",
-    "no-price-published": "One doesn't publish a price. So neither do we.",
-    "price-elsewhere": "A blog quotes a price. Not from the company, so it sits outside the table, flagged, with a link.",
-    "written-part": "Then how each one pitches itself, in their words rather than ours.",
-    "what-each-does": "A question mark means we looked and found nothing. It never means no.",
-    "rival-claim": "A triangle means a rival said it. Rivals aren't neutral.",
-    "no-update-list": "No public updates? It says so, and lists every page it checked.",
-    "what-people-wish": "It reads the three-star reviews for what people wish existed. Six wanted per-restaurant pricing. Nobody sells it.",
-    "size-and-standing": "How busy each site is, and how long they've been at it.",
-    "rankings-not-visits": "Every figure names its source and its date. Rankings, not visitor guesses.",
-    "where-it-came-from": "Every fact links to where it came from. The page, the sentence, the date.",
-    "next-film-1": "That's a report you can hand to someone. The demo continues in the next film.",
-    "ask-questions": "Now ask it things. The pages are already read, so answers come back fast.",
-    "ask-1": "",
-    "ask-declined": "Ask something the sources don't cover, and it says so rather than inventing one.",
-    "without-signing-up": "One report a day without an account. Nothing held back, nothing stamped across it.",
-    "free-account": "A free account gets you one an hour.",
-    "subscription": "A dollar a month gets five an hour. Same report either way.",
-    "alerts": "A competitor changes their price, an email tells you what changed.",
-    "before-and-after": "Before and after, both dated. Check it yourself in ten seconds.",
-    "next-film-2": "The demo continues in the last film.",
-    "help-area": "Help is public. Locked out of your account? That channel takes posts without a login.",
-    "behind-the-scenes": "The owner sees how busy it is and changes any limit without touching code.",
-    "change-a-limit": "Change a number, it takes effect now.",
-    "other-ways": "Two other ways in, if you already know the market.",
-    "name-competitors": "Name the rivals yourself.",
-    "paste-website": "Or paste one website and let it work out the rest.",
-    "mix-them": "Or both at once. They combine.",
-    "close": "Facts you can check. Gaps it owns up to. One box to start.",
-    "try-it": "That's the walkthrough. Now try it yourself.",
-    "eight-levels": "Competitors are one of eight things checked. The rest is about your idea.",
-    "two-we-dont": "Two we don't answer. Those raise questions instead, and say what raised them.",
-    "the-talking": "This part is not about the companies. It is about the problem.",
-    "asking-for": "People with this problem, in their own words. Both posts are one click away.",
-    "not-a-survey": "Two posts. We say two, because we read two.",
-    "already-built": "Somebody already built this. Twelve hundred changes, seven people, still going.",
-    "one-stopped": "Another was abandoned in 2024. Worth knowing why before you start.",
-    "where-it-isnt": "Nobody on Hacker News is discussing this. Here are the exact searches.",
-    "weak-evidence": "Hacker News is software people. For a farming tool that silence proves nothing.",
-    "not-licensed": "We have not licensed X, LinkedIn or Reddit. So we tell you, and hand you the searches.",
-    "questions-not-answers": "This one needs farms and restaurants both. Which do you get first?",
-    "read-the-book": "The questions come from a book we did not summarise. If this is you, read it.",
-    "next-film-1b": "That is the thinking already out there. The demo continues in the next film.",
-  };
-  // <</NARRATION>>
+  /* ---------- the actions the walkthrough can call ---------- */
 
-  var DEMO = [
-    { t:0, id:"open", c:N["open"], a:function(){ setTier("anon"); show("composer"); } },
-    { t:3.5, id:"the-box", c:N["the-box"], a:function(){} },
-    { t:7, id:"the-idea", c:N["the-idea"], a:function(){ $("prompt").value=IDEA; run(IDEA); } },
-    { t:10.5, id:"works-out-market", c:N["works-out-market"], a:function(){} },
-    { t:14, id:"reads-sites", c:N["reads-sites"], a:function(){} },
-    { t:18, id:"found-three", c:N["found-three"], a:function(){ showInterp(); } },
-    { t:22, id:"prices", c:N["prices"], a:function(){ var e=$("sec-pricing"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:27, id:"no-price-published", c:N["no-price-published"], a:function(){} },
-    { t:31, id:"price-elsewhere", c:N["price-elsewhere"], a:function(){} },
-    { t:35, id:"written-part", c:N["written-part"], a:function(){ var e=$("sec-pos"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:40, id:"what-each-does", c:N["what-each-does"], a:function(){ var e=$("sec-matrix"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:45, id:"rival-claim", c:N["rival-claim"], a:function(){} },
-    { t:49, id:"no-update-list", c:N["no-update-list"], a:function(){ var e=$("sec-changes"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:54, id:"what-people-wish", c:N["what-people-wish"], a:function(){ var e=$("sec-sent"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:57, id:"size-and-standing", c:N["size-and-standing"], a:function(){ var e=$("sec-reach"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:62, id:"rankings-not-visits", c:N["rankings-not-visits"], a:function(){} },
-    { t:67, id:"where-it-came-from", c:N["where-it-came-from"], a:function(){ var e=$("sec-swot"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"});
-              setTimeout(function(){ var c=document.querySelector("#sec-swot .cite"); if(c) showPop.call(c,null); }, 900); } },
-    { t:72, id:"next-film-1", c:N["next-film-1"], a:function(){} },
-    { t:73, id:"ask-questions", c:N["ask-questions"], a:function(){ $("pop").classList.remove("open"); $("followup").scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:77, id:"ask-1", c:N["ask-1"], a:function(){ askFollowUp("What would I pay for 40 orders a month?"); } },
-    { t:82, id:"ask-declined", c:N["ask-declined"], a:function(){ askFollowUp("How do they handle food safety records?"); } },
-    { t:88, id:"without-signing-up", c:N["without-signing-up"], a:function(){ show("limit"); } },
-    { t:93, id:"free-account", c:N["free-account"], a:function(){ setTier("reg"); show("composer"); } },
-    { t:97, id:"subscription", c:N["subscription"], a:function(){ setTier("sub"); } },
-    { t:102, id:"alerts", c:N["alerts"], a:function(){ show("notify"); } },
-    { t:107, id:"before-and-after", c:N["before-and-after"], a:function(){ $("diffBlock").classList.remove("hidden"); setTimeout(function(){$("diffBlock").scrollIntoView({behavior:"smooth",block:"center"});},250); } },
-    { t:111, id:"next-film-2", c:N["next-film-2"], a:function(){} },
-    { t:112, id:"help-area", c:N["help-area"], a:function(){ show("community"); curChan="signup"; renderChan(); } },
-    { t:118, id:"behind-the-scenes", c:N["behind-the-scenes"], a:function(){ show("admin"); } },
-    { t:123, id:"change-a-limit", c:N["change-a-limit"], a:function(){ var i=$("limA"); i.value="2"; i.classList.add("flash");
-              $("adminSaved").textContent="Saved - one report a day is now two. Logged 2026-08-01 09:31 UTC."; } },
+  var spotted = null, spotTimer = null;
 
-    { t:127, id:"other-ways", c:N["other-ways"], a:function(){ show("composer"); setTier("anon"); $("prompt").value=""; openAdvanced(); } },
-    { t:132, id:"name-competitors", c:N["name-competitors"], a:function(){ $("prompt").value="Croptally vs Barnwise"; } },
-    { t:136, id:"paste-website", c:N["paste-website"], a:function(){ $("prompt").value="https://croptally.example"; } },
-    { t:140, id:"mix-them", c:N["mix-them"], a:function(){ $("prompt").value="an app for farm-to-restaurant orders, like Croptally"; } },
-    { t:145, id:"close", c:N["close"], a:function(){ closeAdvanced(); $("prompt").value=IDEA; } },
-    { t:150, id:"try-it", c:N["try-it"], a:function(){} },
+  // Outline the thing being talked about and dim the rest. The outline is a class on
+  // the element, so it is always in exactly the right place no matter where the page
+  // has scrolled to or whether the scroll animation has finished.
+  function spot(sel) {
+    clearSpot();
+    var el = document.querySelector(sel);
+    if (!el) { console.warn("spot: no match for " + sel); return; }
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    spotted = el;
+    el.classList.add("spotted");
+  }
 
-    // Film 2 lives at the end of the timeline rather than in the middle, so adding it
-    // did not require re-timing every step that follows. Chapter order is set by the
-    // CHAPTERS array, not by these numbers.
-    { t:160, id:"eight-levels", c:N["eight-levels"], a:function(){ var e=$("sec-levels"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:165, id:"two-we-dont", c:N["two-we-dont"], a:function(){} },
-    { t:170, id:"the-talking", c:N["the-talking"], a:function(){ var e=$("sec-talk"); if(e) e.scrollIntoView({behavior:"smooth",block:"start"}); } },
-    { t:175, id:"asking-for", c:N["asking-for"], a:function(){} },
-    { t:181, id:"not-a-survey", c:N["not-a-survey"], a:function(){} },
-    { t:185, id:"already-built", c:N["already-built"], a:function(){ var e=document.querySelector("#sec-talk .proj"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:191, id:"one-stopped", c:N["one-stopped"], a:function(){} },
-    { t:195, id:"where-it-isnt", c:N["where-it-isnt"], a:function(){ var e=document.querySelector("#sec-talk .absent"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:201, id:"weak-evidence", c:N["weak-evidence"], a:function(){} },
-    { t:206, id:"not-licensed", c:N["not-licensed"], a:function(){ var e=document.querySelector("#sec-talk .unsearched"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:212, id:"questions-not-answers", c:N["questions-not-answers"], a:function(){ var e=$("sec-traj"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
-    { t:218, id:"read-the-book", c:N["read-the-book"], a:function(){} },
-    { t:223, id:"next-film-1b", c:N["next-film-1b"], a:function(){} }
+  function clearSpot() {
+    if (spotTimer) { clearTimeout(spotTimer); spotTimer = null; }
+    if (spotted) { spotted.classList.remove("spotted"); spotted = null; }
+  }
+
+  function cleanMode() {
+    document.body.classList.add("clean");
+    clearSpot(); closeAdvanced();
+    setTier("anon"); show("composer");
+    $("prompt").value = "";
+    $("prompt").setAttribute("placeholder", "");
+    var h1 = document.querySelector(".lede"); if (h1) h1.textContent = "What is your idea?";
+  }
+
+  function typeInto(text, done) {
+    var box = $("prompt"), i = 0; box.value = "";
+    var iv = setInterval(function () {
+      box.value = text.slice(0, ++i);
+      if (i >= text.length) { clearInterval(iv); if (done) done(); }
+    }, 26);
+    timers.push(iv);
+  }
+
+  // One entry point for everything the walkthrough can ask for. Keeping the
+  // vocabulary small is what makes the generated step list readable.
+  function act(spec) {
+    if (!spec || spec === "hold") return;
+    var c = spec.indexOf(":"), verb = c < 0 ? spec : spec.slice(0, c), arg = c < 0 ? "" : spec.slice(c + 1);
+    if (verb !== "spot") clearSpot();
+    switch (verb) {
+      case "clean":  cleanMode(); break;
+      case "type":   typeInto(arg || IDEA); break;
+      case "go":     run($("prompt").value || IDEA); break;
+      case "report": renderReportNow(); break;
+      case "to":     var e = document.querySelector(arg); if (e) e.scrollIntoView({behavior:"smooth",block:"center"}); break;
+      case "spot":   spot(arg); break;
+      case "cite":   var ce = document.querySelector(arg);
+                     if (ce) { ce.scrollIntoView({behavior:"smooth",block:"center"});
+                               setTimeout(function () { showPop.call(ce, null); }, 600); } break;
+      case "ask":    askFollowUp(arg); break;
+      case "tier":   setTier(arg); break;
+      case "view":   $("pop").classList.remove("open"); show(arg); if (arg === "community") renderChan(); break;
+      case "adv":    document.body.classList.add("showadv"); openAdvanced(); break;
+      case "diff":   $("diffBlock").classList.remove("hidden");
+                     setTimeout(function () { $("diffBlock").scrollIntoView({behavior:"smooth",block:"center"}); }, 250); break;
+      default:       console.warn("unknown action: " + spec);
+    }
+  }
+
+  // <<FILMS>> generated from docs/Demo_Walkthrough.md by build.py - do not edit by hand
+  var FILMS = [
+    { id:"idea", n:1, title:"Do you have an idea you want to explore?", blurb:"Someone types a business idea in plain words and finds three companies already doing it.", seconds:69.2, beats:[
+      { t:0.0, d:4.0, kind:"recognition", a:"clean", c:"Do you have an idea you want to explore?" },
+      { t:4.0, d:5.4, kind:"frustration", a:"hold", c:"Finding out who else is doing it takes a week you do not have." },
+      { t:9.4, d:4.5, kind:"turn", a:"hold", c:"It should be as easy as saying the idea out loud." },
+      { t:13.9, d:6.3, kind:"action", a:"type", c:"So type it. Here: an app helping small farms sell straight to restaurants." },
+      { t:20.2, d:4.3, kind:"action", a:"go", c:"That is the whole input. No account, no setup." },
+      { t:24.5, d:4.7, kind:"wait", a:"hold", c:"It goes and reads the public web. About two minutes." },
+      { t:29.2, d:8.0, kind:"result", a:"spot:#srcLive", c:"Three companies already doing this." },
+      { t:37.2, d:6.3, kind:"why", a:"hold", c:"You had not heard of any of them. That is the part you cannot do yourself." },
+      { t:43.5, d:8.0, kind:"result", a:"spot:#interpLine", c:"It shows what it decided your idea was." },
+      { t:51.5, d:6.0, kind:"why", a:"hold", c:"Wrong reading, wrong report. So you get to see it, and change it." },
+      { t:57.5, d:7.7, kind:"close", a:"to:#report", c:"Everything below is what it found, and where each piece came from." },
+      { t:65.2, d:4.0, kind:"next", a:"hold", c:"What they charge is next." },
+    ] },
+    { id:"prices", n:2, title:"What do they charge?", blurb:"Three prices, one company that publishes none, and a figure from a blog that stays out of the table.", seconds:72.3, beats:[
+      { t:0.0, d:4.0, kind:"recognition", a:"report", c:"Wondering what to charge?" },
+      { t:4.0, d:7.4, kind:"frustration", a:"to:#sec-pricing", c:"Pricing pages are scattered, and half of them change quietly." },
+      { t:11.4, d:4.0, kind:"turn", a:"hold", c:"Here they are side by side." },
+      { t:15.4, d:8.7, kind:"result", a:"spot:#sec-pricing table", c:"Thirty-nine dollars, forty-nine, and nothing. Copied from their own price pages." },
+      { t:24.1, d:6.5, kind:"why", a:"hold", c:"Quote them in a plan without checking. And you can see where yours would sit." },
+      { t:30.6, d:8.0, kind:"result", a:"spot:#sec-pricing tbody tr:nth-child(4)", c:"Freshroute publishes no price at all." },
+      { t:38.6, d:7.7, kind:"why", a:"hold", c:"That is a fact about them, not a hole here. Companies that hide prices chase bigger customers." },
+      { t:46.3, d:4.4, kind:"point", a:"hold", c:"So it says not published, rather than guessing." },
+      { t:50.7, d:8.0, kind:"result", a:"spot:#sec-pricing .unconfirmed", c:"A blog says Freshroute starts at a hundred and twenty." },
+      { t:58.7, d:7.8, kind:"why", a:"hold", c:"You get the number and you get to judge it. Not from the company, so it stays out of the table." },
+      { t:66.5, d:5.8, kind:"next", a:"hold", c:"Nothing unproven is dressed up as fact. What each one does is next." },
+    ] },
+    { id:"features", n:3, title:"What does each one actually do?", blurb:"The feature grid, the cells that mean \"nobody said\", and the ones where only a rival is claiming it.", seconds:66.4, beats:[
+      { t:0.0, d:4.0, kind:"recognition", a:"report", c:"Trying to work out where the gap is?" },
+      { t:4.0, d:7.1, kind:"frustration", a:"to:#sec-matrix", c:"Every company's feature page says everything is included." },
+      { t:11.1, d:4.0, kind:"turn", a:"hold", c:"Same rows, same questions, one grid." },
+      { t:15.1, d:8.0, kind:"result", a:"spot:#sec-matrix tbody tr:nth-child(3)", c:"Only Freshroute plans delivery routes. Barnwise says it does not." },
+      { t:23.1, d:6.0, kind:"why", a:"hold", c:"A row where a competitor says no is a row you could win on." },
+      { t:29.1, d:8.0, kind:"result", a:"spot:#sec-matrix .cell-u", c:"A question mark means we looked and nobody said either way." },
+      { t:37.1, d:6.0, kind:"why", a:"hold", c:"That is not a no. It is a question they have never answered in public." },
+      { t:43.1, d:8.0, kind:"result", a:"spot:#sec-matrix .cell-c", c:"A triangle means a rival claimed it, not the company." },
+      { t:51.1, d:6.3, kind:"why", a:"hold", c:"Competitors describe each other badly. Worth knowing before you repeat it." },
+      { t:57.4, d:5.0, kind:"close", a:"hold", c:"Five things a box can mean. Most comparisons manage two." },
+      { t:62.4, d:4.0, kind:"next", a:"hold", c:"What changed recently is next." },
+    ] },
+    { id:"changes", n:4, title:"What changed, and what do people wish for?", blurb:"A price rise with a date, a company that publishes nothing, and six people asking for a feature nobody sells.", seconds:70.4, beats:[
+      { t:0.0, d:4.0, kind:"recognition", a:"report", c:"Timing matters. Is now a good moment?" },
+      { t:4.0, d:6.9, kind:"frustration", a:"to:#sec-changes", c:"Nobody announces that their customers just got unhappy." },
+      { t:10.9, d:8.0, kind:"result", a:"spot:#sec-changes p:nth-of-type(2)", c:"Barnwise put its price up a quarter in May." },
+      { t:18.9, d:6.6, kind:"why", a:"hold", c:"Customers look around after a price rise. That is a window, and it has a date." },
+      { t:25.5, d:8.0, kind:"result", a:"spot:#sec-changes .gap", c:"Freshroute publishes nothing about what it changed." },
+      { t:33.5, d:6.7, kind:"why", a:"hold", c:"And it lists where it looked. So you know they are quiet, not that we missed it." },
+      { t:40.2, d:8.0, kind:"result", a:"spot:#sec-sent", c:"Six people asked for a different price list per restaurant." },
+      { t:48.2, d:6.9, kind:"why", a:"hold", c:"Nobody sells that. It is the closest thing to customers telling you what to build." },
+      { t:55.1, d:4.7, kind:"point", a:"hold", c:"Taken from the middling reviews, not the angry ones." },
+      { t:59.8, d:6.6, kind:"why", a:"hold", c:"Furious people describe their day. Lukewarm ones describe the missing feature." },
+      { t:66.4, d:4.0, kind:"next", a:"hold", c:"What people are saying is next." },
+    ] },
+    { id:"talking", n:5, title:"What are people saying about this?", blurb:"People describing the problem in their own words, one project still being built, and one abandoned.", seconds:72.0, beats:[
+      { t:0.0, d:4.6, kind:"recognition", a:"report", c:"Want to know whether anyone else has this problem?" },
+      { t:4.6, d:6.5, kind:"frustration", a:"to:#sec-talk", c:"It is out there, spread across a hundred threads." },
+      { t:11.1, d:8.0, kind:"result", a:"spot:#sec-talk .quote", c:"Someone wanting to know what the chefs ordered last week." },
+      { t:19.1, d:6.0, kind:"why", a:"hold", c:"That is your landing page, written by a customer." },
+      { t:25.1, d:8.0, kind:"result", a:"spot:#sec-talk .quote:nth-of-type(2)", c:"Someone else keeping prices in six spreadsheets." },
+      { t:33.1, d:6.0, kind:"why", a:"hold", c:"Two posts, both one click away. We say two because we read two." },
+      { t:39.1, d:8.0, kind:"result", a:"spot:#sec-talk .proj", c:"Somebody has already built this. Still working on it last week." },
+      { t:47.1, d:6.8, kind:"why", a:"hold", c:"Either you have a competitor you did not know about, or a head start you can use." },
+      { t:53.9, d:8.0, kind:"result", a:"spot:#sec-talk .proj.dead", c:"Another was abandoned in 2024." },
+      { t:61.9, d:6.1, kind:"why", a:"hold", c:"Find out why they stopped before you spend a year finding out yourself." },
+      { t:68.0, d:4.0, kind:"next", a:"hold", c:"Where the idea does not turn up is next." },
+    ] },
+    { id:"absence", n:6, title:"Where does this idea not turn up?", blurb:"The searches that found nothing, why that sometimes proves nothing, and the three places we have not licensed.", seconds:73.5, beats:[
+      { t:0.0, d:4.0, kind:"recognition", a:"report", c:"Nobody tells you what they failed to find." },
+      { t:4.0, d:8.4, kind:"frustration", a:"to:#sec-talk .absent", c:"So you never learn whether it is quiet out there or they just did not look." },
+      { t:12.4, d:8.0, kind:"result", a:"spot:#sec-talk .absent .row", c:"Nothing on Hacker News. Here are the three searches we ran." },
+      { t:20.4, d:6.0, kind:"why", a:"hold", c:"Repeat them in two minutes and see for yourself." },
+      { t:26.4, d:8.0, kind:"result", a:"spot:#sec-talk .caveat", c:"And it says the silence proves nothing here." },
+      { t:34.4, d:7.2, kind:"why", a:"hold", c:"Hacker News is software people. For a farming tool they were never going to be talking." },
+      { t:41.6, d:7.6, kind:"point", a:"spot:#sec-talk .absent .row:nth-child(2)", c:"Somewhere with nothing to say about farming is left out entirely." },
+      { t:49.2, d:6.0, kind:"why", a:"hold", c:"Padding the list would make a thin search look thorough." },
+      { t:55.2, d:8.0, kind:"result", a:"spot:#sec-talk .unsearched", c:"X, LinkedIn and Reddit are not licensed to us." },
+      { t:63.2, d:6.3, kind:"why", a:"hold", c:"So we say so, and hand you the searches. You know what we did not look at." },
+      { t:69.5, d:4.0, kind:"next", a:"hold", c:"The questions it raises are next." },
+    ] },
+    { id:"questions", n:7, title:"What questions should I be asking?", blurb:"Eight levels of checking, the two we deliberately do not answer, and the questions raised instead.", seconds:74.2, beats:[
+      { t:0.0, d:5.4, kind:"recognition", a:"report", c:"New to this? You do not know what you have not thought about." },
+      { t:5.4, d:8.0, kind:"result", a:"spot:#sec-levels .levels", c:"Eight things get checked. Competitors are one of them." },
+      { t:13.4, d:6.0, kind:"why", a:"hold", c:"The other seven are about your idea, not their companies." },
+      { t:19.4, d:8.0, kind:"result", a:"spot:#sec-levels .g-q", c:"Two are marked with a question mark." },
+      { t:27.4, d:7.2, kind:"why", a:"hold", c:"Those we do not answer. A small model guessing at strategy would be worse than useless." },
+      { t:34.6, d:6.0, kind:"turn", a:"to:#sec-traj", c:"So it raises the questions instead." },
+      { t:40.6, d:8.0, kind:"result", a:"spot:#sec-traj .ask ul", c:"This one needs farms and restaurants before it works for either." },
+      { t:48.6, d:6.6, kind:"why", a:"hold", c:"Which side you get first is the decision that sinks most two-sided businesses." },
+      { t:55.2, d:6.1, kind:"point", a:"spot:#sec-traj .why", c:"It says what made it think so, and links it." },
+      { t:61.3, d:7.4, kind:"point", a:"spot:#sec-traj .book", c:"The questions come from a book we did not summarise. Read it." },
+      { t:68.7, d:5.5, kind:"next", a:"hold", c:"These are month-six questions, now. Checking any of it is next." },
+    ] },
+    { id:"checking", n:8, title:"Can I check any of this?", blurb:"Every number opens onto the sentence it came from, including the one page we were not allowed to read.", seconds:58.9, beats:[
+      { t:0.0, d:4.1, kind:"recognition", a:"report", c:"Would you put this in front of an investor?" },
+      { t:4.1, d:6.4, kind:"frustration", a:"to:#sec-swot", c:"Not if you cannot say where any of it came from." },
+      { t:10.5, d:8.0, kind:"result", a:"cite:#sec-swot .cite", c:"Every number opens like this." },
+      { t:18.5, d:6.0, kind:"why", a:"hold", c:"The page, the exact sentence, and the minute it was read." },
+      { t:24.5, d:6.4, kind:"why", a:"hold", c:"Ten seconds to check one. So you can hand the whole thing to somebody else." },
+      { t:30.9, d:6.0, kind:"point", a:"spot:#sec-sources table", c:"Every page it read, listed." },
+      { t:36.9, d:8.0, kind:"result", a:"spot:#sec-sources p:nth-of-type(1)", c:"Including one it was not allowed to read." },
+      { t:44.9, d:6.0, kind:"why", a:"hold", c:"It still gives you the link. A person can open what a program cannot." },
+      { t:50.9, d:4.0, kind:"close", a:"hold", c:"Nothing it found is withheld from you." },
+      { t:54.9, d:4.0, kind:"next", a:"hold", c:"Asking it questions is next." },
+    ] },
+    { id:"asking", n:9, title:"Can I just ask it things?", blurb:"Follow-up questions answered from what it already read, and one it refuses to answer.", seconds:52.3, beats:[
+      { t:0.0, d:4.4, kind:"recognition", a:"report", c:"Reports never answer the exact thing you wanted." },
+      { t:4.4, d:6.0, kind:"turn", a:"to:#followup", c:"So ask." },
+      { t:10.4, d:4.0, kind:"action", a:"ask:What would I pay for 40 orders a month?", c:"What would I pay for forty orders a month?" },
+      { t:14.4, d:6.0, kind:"result", a:"hold", c:"It works it out from what it already read." },
+      { t:20.4, d:6.0, kind:"why", a:"hold", c:"The pages are read once. Answers come back in seconds, not minutes." },
+      { t:26.4, d:4.0, kind:"turn", a:"ask:How do they handle food safety records?", c:"Now something it cannot know." },
+      { t:30.4, d:6.0, kind:"result", a:"hold", c:"It says the pages do not cover that." },
+      { t:36.4, d:6.0, kind:"why", a:"hold", c:"And offers to go and look, rather than inventing something plausible." },
+      { t:42.4, d:5.9, kind:"close", a:"hold", c:"A tool that says I do not know is one you can trust when it answers." },
+      { t:48.3, d:4.0, kind:"next", a:"hold", c:"Watching for changes is next." },
+    ] },
+    { id:"alerts", n:10, title:"What if something changes?", blurb:"An email when a competitor moves, showing both versions with dates.", seconds:51.9, beats:[
+      { t:0.0, d:4.0, kind:"recognition", a:"report", c:"This is all true today." },
+      { t:4.0, d:4.6, kind:"frustration", a:"hold", c:"Competitors change prices without telling anybody." },
+      { t:8.6, d:4.2, kind:"turn", a:"view:notify", c:"Two clicks to watch it. Nothing to configure." },
+      { t:12.8, d:6.0, kind:"result", a:"hold", c:"An email when something you care about moves." },
+      { t:18.8, d:6.7, kind:"why", a:"hold", c:"Not a digest. One change, one email, the thing that changed in the subject line." },
+      { t:25.5, d:4.0, kind:"point", a:"hold", c:"Off by default, except for prices." },
+      { t:29.5, d:6.4, kind:"why", a:"hold", c:"A tool that mails you every day gets filtered, and then it is worth nothing." },
+      { t:35.9, d:6.0, kind:"result", a:"diff", c:"It shows both versions, both dated." },
+      { t:41.9, d:6.0, kind:"why", a:"hold", c:"You can see that it happened rather than take our word for it." },
+      { t:47.9, d:4.0, kind:"next", a:"hold", c:"What it costs is next." },
+    ] },
+    { id:"cost", n:11, title:"What does it cost?", blurb:"One report a day with no account, and what an account or a dollar a month changes.", seconds:49.4, beats:[
+      { t:0.0, d:4.0, kind:"recognition", a:"clean", c:"You have not signed in to anything yet." },
+      { t:4.0, d:5.1, kind:"frustration", a:"hold", c:"Most tools want an account before they show you anything." },
+      { t:9.1, d:6.0, kind:"result", a:"view:limit", c:"One report a day without an account." },
+      { t:15.1, d:6.0, kind:"why", a:"hold", c:"The whole report. Nothing held back, nothing stamped across it." },
+      { t:21.1, d:6.0, kind:"result", a:"tier:reg", c:"An account gets you one an hour, and keeps your history." },
+      { t:27.1, d:6.0, kind:"why", a:"hold", c:"You only sign up when you want the second report, not before." },
+      { t:33.1, d:6.0, kind:"result", a:"tier:sub", c:"A dollar a month gets you five an hour." },
+      { t:39.1, d:6.3, kind:"why", a:"hold", c:"The same report at every level. You pay for how often, never for how much." },
+      { t:45.4, d:4.0, kind:"next", a:"hold", c:"Other ways to start is last." },
+    ] },
+    { id:"ways", n:12, title:"Other ways to start", blurb:"Naming the rivals, pasting a website, or both — revealed only once you know what a report is.", seconds:48.1, beats:[
+      { t:0.0, d:4.0, kind:"recognition", a:"clean", c:"If you already know the market, say so." },
+      { t:4.0, d:4.0, kind:"turn", a:"adv", c:"These were hidden until now, on purpose." },
+      { t:8.0, d:6.0, kind:"why", a:"hold", c:"An option you cannot judge yet just looks like complexity." },
+      { t:14.0, d:6.0, kind:"result", a:"type:Croptally vs Barnwise", c:"Name the rivals yourself." },
+      { t:20.0, d:6.5, kind:"why", a:"hold", c:"It skips working out who competes with you and goes straight to reading them." },
+      { t:26.5, d:6.0, kind:"result", a:"type:https://croptally.example", c:"Or paste one website." },
+      { t:32.5, d:6.2, kind:"why", a:"hold", c:"It reads that company, works out the market, and finds the others itself." },
+      { t:38.7, d:4.0, kind:"point", a:"type:an app for farm-to-restaurant orders, like Croptally", c:"Or both at once, in one sentence." },
+      { t:42.7, d:5.4, kind:"close", a:"clean", c:"The same report either way. One question. Now try it yourself." },
+    ] },
   ];
+  // <</FILMS>>
 
-  // Four shorter films rather than one long one: each stays well inside the size
-  // budget, so each can be recorded larger, and a viewer can stop after any of them.
-  // Order here is the order shown; the time windows are independent of it.
-  var CHAPTERS = [
-    { id:"report",  n:1, title:"From an idea to a report",
-      blurb:"Someone types a business idea in plain words and gets a competitor report they can check.",
-      from:0, to:72,
-      setup:function(){ setTier("anon"); show("composer"); $("prompt").value=""; closeAdvanced(); } },
-    { id:"talking", n:2, title:"What folks are talking about",
-      blurb:"Beyond the companies: what people are asking for, what has already been built and abandoned, where the idea does not turn up at all, and the three places we have not licensed.",
-      from:160, to:223,
-      setup:function(){ setTier("anon"); renderReportNow(); } },
-    { id:"answers", n:3, title:"Questions, alerts and what it costs",
-      blurb:"Asking questions about a finished report, what each kind of account allows, and the email when a competitor changes their prices.",
-      from:73, to:111,
-      setup:function(){ setTier("anon"); renderReportNow(); } },
-    { id:"more",    n:4, title:"Community, admin, and other ways to start",
-      blurb:"The public help channels, the owner's view of the service, and the two other ways to begin a report.",
-      from:112, to:150,
-      setup:function(){ setTier("anon"); show("composer"); closeAdvanced(); } }
-  ];
+  function film(id) {
+    for (var i = 0; i < FILMS.length; i++) if (FILMS[i].id === id) return FILMS[i];
+    return null;
+  }
 
-  function playDemo(chapterId) {
-    var ch = null;
-    for (var k = 0; k < CHAPTERS.length; k++) if (CHAPTERS[k].id === chapterId) ch = CHAPTERS[k];
-
-    if (demoRunning) return;
+  function playDemo(filmId) {
+    var f = film(filmId) || FILMS[0];
+    if (!f || demoRunning) return;
     demoRunning = true;
     demoTimers.forEach(clearTimeout); demoTimers = [];
-    clearAll();
+    clearAll(); clearSpot();
+    // Demo dress for the whole film, not just the beats that start at the composer.
+    // Films that open on a finished report need the chrome hidden just as much.
+    document.body.classList.add("clean");
+    document.body.classList.remove("showadv");
     $("capBar").classList.add("on");
-    $("banner").textContent = ch
-      ? "PROTOTYPE DEMO " + ch.n + " of " + CHAPTERS.length + " - " + ch.title + " - simulated data and timings."
-      : "PROTOTYPE DEMO - simulated data and timings. Every flow shown is specified in docs/UI_FLOWS.md.";
+    $("banner").textContent = "PROTOTYPE DEMO " + f.n + " of " + FILMS.length +
+      " - " + f.title + " - simulated data and timings.";
 
-    var steps = ch ? DEMO.filter(function (d) { return d.t >= ch.from && d.t <= ch.to; }) : DEMO;
-    var base = ch ? ch.from : 0;
-    var total = (steps[steps.length - 1].t - base) + 6;
-
-    if (ch) { try { ch.setup(); } catch (e) {} }
-
-    steps.forEach(function (step, i) {
+    f.beats.forEach(function (b, i) {
       demoTimers.push(setTimeout(function () {
-        if (step.c) { $("capText").textContent = step.c; $("capStep").textContent = String(i + 1).padStart(2, "0") + " / " + steps.length; }
-        $("capProg").style.width = (((step.t - base) / total) * 100) + "%";
-        try { step.a(); } catch (err) {}
-      }, (step.t - base) * 1000));
+        try { act(b.a); } catch (err) { console.warn(err); }
+        if (b.c) {
+          $("capText").textContent = b.c;
+          $("capStep").textContent = String(i + 1).padStart(2, "0") + " / " + f.beats.length;
+        }
+        $("capProg").style.width = ((b.t / f.seconds) * 100) + "%";
+        if (document.body.classList.contains("previewing")) {
+          $("beatbar").textContent = (i + 1) + "/" + f.beats.length + "  " + b.kind +
+            "  " + b.a + "  [" + b.t.toFixed(1) + "s +" + b.d.toFixed(1) + "s]  " + (b.c || "");
+        }
+      }, b.t * 1000));
     });
 
     demoTimers.push(setTimeout(function () {
-      $("capText").textContent = ch && ch.n < CHAPTERS.length
-        ? "More of the walkthrough follows in the next film."
+      clearSpot();
+      $("capText").textContent = f.n < FILMS.length
+        ? "The walkthrough continues in the next film."
         : "Prototype - throwaway code, invented companies. Built to test the wait before writing the real thing.";
       $("capStep").textContent = "end";
       $("capProg").style.width = "100%";
       demoRunning = false;
-    }, total * 1000));
+    }, f.seconds * 1000));
   }
 
   /* ---------- wiring ---------- */
@@ -1186,13 +1309,24 @@
     this.setAttribute("aria-expanded", on ? "true" : "false");
   };
 
-  $("playDemo").onclick = playDemo;
+  $("playDemo").onclick = function () { playDemo(FILMS.length ? FILMS[0].id : null); };
 
   window.__playDemo = playDemo;
-  window.__chapters = CHAPTERS.map(function (c) {
-    return { id:c.id, n:c.n, title:c.title, blurb:c.blurb, seconds:(c.to - c.from) + 6 };
+  window.__act = act;                 // for checking a single beat without playing a film
+  window.__renderNow = renderReportNow;
+  window.__chapters = FILMS.map(function (f) {
+    return { id:f.id, n:f.n, title:f.title, blurb:f.blurb, seconds:f.seconds };
   });
 
   setTier("anon"); renderChan(); show("composer");
+
+  // ?film=<id> plays one film at real speed with a beat inspector, so pacing can be
+  // judged without recording anything. The recorder never passes it.
+  var qs = new URLSearchParams(location.search);
+  if (qs.has("film")) {
+    document.body.classList.add("previewing");
+    var want = qs.get("film") || (FILMS[0] && FILMS[0].id);
+    setTimeout(function () { playDemo(want); }, 400);
+  }
 })();
 </script>

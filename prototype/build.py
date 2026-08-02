@@ -1,23 +1,36 @@
-# Rebuilds the demo from narration.md.
+# Compiles docs/Demo_Walkthrough.md into the demo.
 #
-#   python prototype/build.py            rebuild every chapter page
-#   python prototype/build.py --check    validate the script, write nothing
+#   python prototype/build.py            regenerate the prototype and every film page
+#   python prototype/build.py --check    validate only, write nothing
+#   python prototype/build.py --preview  print each film's computed timings
 #
-# Reads the script, injects it into the prototype, and for each chapter writes a
-# WebVTT track and a self-contained page. Does NOT re-record: the video carries no
-# text of its own, so editing words never needs new footage.
+# The walkthrough is the single source: beats, actions and narration all live there.
+# Step timings are COMPUTED from the pacing rules (Demo_Walkthrough.md §3), never
+# authored, which is what makes those rules enforceable rather than aspirational.
 #
-# Chapter pages link to one another. Published URLs live in video/links.json —
-# publish once, paste the URLs in, rebuild, republish.
+# Re-record only when the picture changes. Wording, timing and ordering all flow
+# from the walkthrough without new footage.
 import base64, io, json, os, re, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 HTML = os.path.join(HERE, 'ui-prototype.html')
-SCRIPT = os.path.join(HERE, 'narration.md')
+WALK = os.path.join(os.path.dirname(HERE), 'docs', 'Demo_Walkthrough.md')
 VIDEO = os.path.join(HERE, 'video')
 
-OFFSET = 1.5           # page load + settle before the demo starts in the recorder
-BLANK = '_(intentionally blank)_'
+OFFSET = 1.5           # page load + settle before the recorder starts the film
+
+# --- pacing rules, Demo_Walkthrough.md §3 -------------------------------------
+BASE = 4.0             # every beat
+PAYOFF = 6.0           # result and why beats
+NUMBER = 6.0           # any line containing a digit
+SETTLE = 2.0           # after a scroll or a highlight
+CPS = 14.0             # characters a second, reading aloud
+FILM_MIN, FILM_MAX = 45.0, 75.0
+MAX_RESULTS = 4
+
+KINDS = {'recognition', 'frustration', 'turn', 'action', 'wait', 'result', 'why', 'point', 'close', 'next'}
+VERBS = {'hold', 'clean', 'type', 'go', 'report', 'to', 'spot', 'cite', 'ask', 'tier', 'view', 'adv', 'diff'}
+MOVES = ('to', 'spot', 'cite')          # actions that move the page, so they need settling
 
 # Words that do not belong in narration. docs/Video_Guidelines.md §2.2.
 BANNED = ['parse', 'parsed', 'extract', 'render', 'spinner', 'diff', 'content hash',
@@ -26,80 +39,133 @@ BANNED = ['parse', 'parsed', 'extract', 'render', 'spinner', 'diff', 'content ha
           'schema', 'pipeline', 'backend']
 
 
-# ----------------------------------------------------------------- inputs
-def read_script():
-    body = io.open(SCRIPT, encoding='utf-8').read()
-    out = []
-    for m in re.finditer(r'^##\s*\[([a-z0-9-]+)\][^\n]*\n(.*?)(?=^##\s*\[|\Z)', body, re.S | re.M):
-        text = m.group(2).strip()
-        if text == BLANK:
-            text = ''
-        out.append((m.group(1), ' '.join(text.split())))
-    if not out:
-        raise SystemExit('narration.md: no "## [id]" headings found')
-    return out
+# ----------------------------------------------------------------- parse
+def read_walkthrough():
+    """Every '### Film n · `id` — Title' heading, its blurb, and its beat table."""
+    body = io.open(WALK, encoding='utf-8').read()
+    films, n = [], 0
+    pat = re.compile(r'^###\s+Film\s+\d+\s*[·.]\s*`([a-z0-9-]+)`\s*[—-]\s*(.+?)\s*$', re.M)
+    marks = list(pat.finditer(body))
+    for i, m in enumerate(marks):
+        chunk = body[m.end():marks[i + 1].start() if i + 1 < len(marks) else len(body)]
+        n += 1
+        blurb = ''
+        bm = re.search(r'^\*\*Blurb\.\*\*\s*(.+?)\s*$', chunk, re.M)
+        if bm:
+            blurb = bm.group(1)
+        beats = []
+        for row in re.finditer(r'^\|\s*([a-z]+)\s*\|\s*`([^`]+)`\s*\|\s*(.+?)\s*\|\s*$', chunk, re.M):
+            kind, action, text = row.group(1), row.group(2), row.group(3).strip()
+            beats.append({'kind': kind, 'a': action, 'c': '' if text == '-' else text})
+        if beats:
+            films.append({'id': m.group(1), 'n': n, 'title': m.group(2), 'blurb': blurb, 'beats': beats})
+    if not films:
+        raise SystemExit('Demo_Walkthrough.md: no film tables found')
+    return films
 
 
-def demo_order():
-    s = io.open(HTML, encoding='utf-8').read()
-    block = s[s.index('  var DEMO = ['):s.index('  function playDemo')]
-    return [(m.group(2), float(m.group(1)))
-            for m in re.finditer(r'\{ t:([0-9.]+), id:"([a-z0-9-]+)"', block)]
+def selectors_in(html):
+    """Ids and class names the prototype actually contains, for validating actions.
+
+    Class attributes are collected loosely: many are built by string concatenation
+    inside the script, so the attribute value is not clean HTML. Pulling identifier
+    tokens out of whatever is there beats trying to parse it properly."""
+    names = set(re.findall(r'id="([A-Za-z0-9_-]+)"', html))
+    for c in re.findall(r'class="([^"]*)"', html):
+        names |= set(re.findall(r'[A-Za-z][A-Za-z0-9_-]*', c))
+    return names
 
 
-def chapters():
-    p = os.path.join(VIDEO, 'chapters.json')
-    if not os.path.exists(p):
-        raise SystemExit('video/chapters.json missing — run: node prototype/record-demo.mjs')
-    chs = json.load(io.open(p, encoding='utf-8'))
-    # from/to are not in chapters.json; recover them from the prototype
-    s = io.open(HTML, encoding='utf-8').read()
-    blk = s[s.index('  var CHAPTERS = ['):s.index('  function playDemo')]
-    bounds = {m.group(1): (float(m.group(2)), float(m.group(3)))
-              for m in re.finditer(r'id:"([a-z0-9-]+)"[\s\S]*?from:([0-9.]+),\s*to:([0-9.]+)', blk)}
-    for c in chs:
-        c['from'], c['to'] = bounds[c['id']]
-    return chs
+# ----------------------------------------------------------------- timing
+def duration(beat):
+    """Beat length, derived. Nothing here is authored by hand."""
+    d = PAYOFF if beat['kind'] in ('result', 'why') else BASE
+    text = beat['c']
+    if re.search(r'\d', text):
+        d = max(d, NUMBER)
+    if text:
+        d = max(d, len(text) / CPS + 1.0)
+    if beat['a'].split(':')[0] in MOVES:
+        d += SETTLE
+    return round(d, 1)
 
 
-def links():
-    p = os.path.join(VIDEO, 'links.json')
-    return json.load(io.open(p, encoding='utf-8')) if os.path.exists(p) else {}
+def lay_out(films):
+    """Stamp each beat with its start time and length; each film with its total."""
+    for f in films:
+        t = 0.0
+        for b in f['beats']:
+            b['t'] = round(t, 1)
+            b['d'] = duration(b)
+            t += b['d']
+        f['seconds'] = round(t, 1)
+    return films
 
 
 # ----------------------------------------------------------------- checks
-def check(script, order):
-    problems = []
-    sids, oids = [i for i, _ in script], [i for i, _ in order]
-    for extra in set(sids) - set(oids):
-        problems.append('narration.md has [%s], which is not a step in the demo' % extra)
-    for missing in set(oids) - set(sids):
-        problems.append('demo step [%s] has no entry in narration.md' % missing)
-    for sid, text in script:
-        if not text:
-            continue
-        low = text.lower()
-        for w in BANNED:
-            if re.search(r'\b' + re.escape(w.lower()) + r'\b', low):
-                problems.append('[%s] uses "%s" — see Video_Guidelines.md §2.2' % (sid, w))
-        if not re.search(r'[.!?]$', text):
-            problems.append('[%s] does not end in a full stop' % sid)
+def check(films, html):
+    have, problems = selectors_in(html), []
+    for f in films:
+        where = 'film %s' % f['id']
+        kinds = [b['kind'] for b in f['beats']]
+
+        for i, b in enumerate(f['beats']):
+            if b['kind'] not in KINDS:
+                problems.append('%s: unknown beat kind "%s"' % (where, b['kind']))
+            # The rule the old films broke: a result with nothing saying why it helps.
+            if b['kind'] == 'result' and (i + 1 >= len(kinds) or kinds[i + 1] != 'why'):
+                problems.append('%s: result "%s" is not followed by a why'
+                                % (where, b['c'][:44]))
+            verb = b['a'].split(':')[0]
+            if verb not in VERBS:
+                problems.append('%s: unknown action "%s"' % (where, b['a']))
+            if verb in ('spot', 'to', 'cite'):
+                arg = b['a'].split(':', 1)[1]
+                for tok in re.findall(r'[#.]([A-Za-z0-9_-]+)', arg):
+                    if tok not in have:
+                        problems.append('%s: action "%s" targets "%s", which is not in the prototype'
+                                        % (where, b['a'], tok))
+            if b['c']:
+                low = b['c'].lower()
+                for w in BANNED:
+                    if re.search(r'\b' + re.escape(w.lower()) + r'\b', low):
+                        problems.append('%s: "%s" — see Video_Guidelines.md §2.2' % (where, w))
+                if not re.search(r'[.!?]$', b['c']):
+                    problems.append('%s: "%s" does not end in a full stop' % (where, b['c'][:44]))
+                if len(b['c']) / CPS + 1.0 > b['d'] + 0.05:
+                    problems.append('%s: "%s" cannot be read in %.1fs' % (where, b['c'][:36], b['d']))
+
+        n_res = kinds.count('result')
+        if n_res > MAX_RESULTS:
+            problems.append('%s: %d results, limit is %d — split it' % (where, n_res, MAX_RESULTS))
+        if n_res < 2:
+            problems.append('%s: only %d result(s) — a film needs at least 2' % (where, n_res))
+        if not (FILM_MIN <= f['seconds'] <= FILM_MAX):
+            problems.append('%s: %.1fs, outside %g-%gs' % (where, f['seconds'], FILM_MIN, FILM_MAX))
     return problems
 
 
 # ----------------------------------------------------------------- outputs
-def inject(script):
+def inject(films):
     s = io.open(HTML, encoding='utf-8').read()
-    lines = ['  // <<NARRATION>> generated from narration.md by build.py — do not edit by hand',
-             '  var N = {']
-    for sid, text in script:
-        lines.append('    "%s": "%s",' % (sid, text.replace('\\', '\\\\').replace('"', '\\"')))
-    lines += ['  };', '  // <</NARRATION>>']
-    new, n = re.subn(r'  // <<NARRATION>>.*?  // <</NARRATION>>',
-                     lambda _m: '\n'.join(lines), s, flags=re.S)
+    out = ['  // <<FILMS>> generated from docs/Demo_Walkthrough.md by build.py - do not edit by hand',
+           '  var FILMS = [']
+    for f in films:
+        out.append('    { id:%s, n:%d, title:%s, blurb:%s, seconds:%s, beats:['
+                   % (js(f['id']), f['n'], js(f['title']), js(f['blurb']), f['seconds']))
+        for b in f['beats']:
+            out.append('      { t:%s, d:%s, kind:%s, a:%s, c:%s },'
+                       % (b['t'], b['d'], js(b['kind']), js(b['a']), js(b['c'])))
+        out.append('    ] },')
+    out += ['  ];', '  // <</FILMS>>']
+    new, n = re.subn(r'  // <<FILMS>>.*?  // <</FILMS>>', lambda _m: '\n'.join(out), s, flags=re.S)
     if n != 1:
-        raise SystemExit('could not find the NARRATION block in ui-prototype.html')
+        raise SystemExit('could not find the FILMS block in ui-prototype.html')
     io.open(HTML, 'w', encoding='utf-8').write(new)
+
+
+def js(v):
+    return '"%s"' % v.replace('\\', '\\\\').replace('"', '\\"')
 
 
 def stamp(sec):
@@ -107,112 +173,109 @@ def stamp(sec):
     return '%02d:%02d:%06.3f' % (int(sec // 3600), int((sec % 3600) // 60), sec % 60)
 
 
-def write_vtt(ch, script, order):
-    """One track per chapter, timed from that chapter's start."""
-    text_by_id = dict(script)
-    inside = [(sid, t) for sid, t in order if ch['from'] <= t <= ch['to']]
-    cues = []
-    for i, (sid, t) in enumerate(inside):
-        body = text_by_id.get(sid, '')
-        if not body:
+def write_vtt(f):
+    cues, n = ['WEBVTT', ''], 0
+    for b in f['beats']:
+        if not b['c']:
             continue
-        j = i + 1
-        while j < len(inside) and not text_by_id.get(inside[j][0], ''):
-            j += 1
-        end = inside[j][1] if j < len(inside) else t + 6.0
-        cues.append((t - ch['from'] + OFFSET, end - ch['from'] + OFFSET, body))
-
-    out = ['WEBVTT', '', 'NOTE',
-           'Generated from prototype/narration.md. Edit that file, not this one.', '']
-    for n, (a, b, body) in enumerate(cues, 1):
-        out += [str(n), '%s --> %s' % (stamp(a), stamp(b)), body, '']
-    path = os.path.join(VIDEO, 'landscape-%s.vtt' % ch['id'])
-    io.open(path, 'w', encoding='utf-8').write('\n'.join(out))
-    return len(cues)
+        n += 1
+        cues += ['%d' % n,
+                 '%s --> %s' % (stamp(b['t'] + OFFSET), stamp(b['t'] + b['d'] + OFFSET)),
+                 b['c'], '']
+    p = os.path.join(VIDEO, 'landscape-%s.vtt' % f['id'])
+    io.open(p, 'w', encoding='utf-8', newline='\n').write('\n'.join(cues))
+    return n
 
 
-PAGE = io.open(os.path.join(HERE, 'page-template.html'), encoding='utf-8').read()
+def b64(p):
+    return base64.b64encode(io.open(p, 'rb').read()).decode('ascii')
 
 
-def build_page(ch, chs, url_map):
-    webm = os.path.join(VIDEO, 'landscape-%s.webm' % ch['id'])
-    vtt = os.path.join(VIDEO, 'landscape-%s.vtt' % ch['id'])
+def build_page(f, films, urls):
+    webm = os.path.join(VIDEO, 'landscape-%s.webm' % f['id'])
+    vtt = os.path.join(VIDEO, 'landscape-%s.vtt' % f['id'])
     if not os.path.exists(webm):
-        print('  no footage for %s — skipped' % ch['id'])
         return None
+    tpl = io.open(os.path.join(HERE, 'page-template.html'), encoding='utf-8').read()
 
-    v64 = base64.b64encode(open(webm, 'rb').read()).decode('ascii')
-    t64 = base64.b64encode(open(vtt, 'rb').read()).decode('ascii')
-
-    secs = int(ch['seconds'])
-    dur = '%d:%02d' % (secs // 60, secs % 60)
-
-    # chapter list, with links where we have them
-    items = []
-    for c in chs:
-        cur = c['id'] == ch['id']
-        href = url_map.get(c['id'])
-        label = '%d. %s' % (c['n'], c['title'])
+    rows = []
+    for o in films:
+        url = urls.get(o['id'])
+        cur = o['id'] == f['id']
+        label = '%d. %s' % (o['n'], o['title'])
         if cur:
-            items.append('<li class="cur"><span>%s</span><em>you are here</em></li>' % label)
-        elif href:
-            items.append('<li><a href="%s">%s</a></li>' % (href, label))
+            rows.append('<li class="cur"><span>%s</span><em>now playing</em></li>' % label)
+        elif url:
+            rows.append('<li><a href="%s">%s</a><em>%ds</em></li>' % (url, label, round(o['seconds'])))
         else:
-            items.append('<li><span class="soon">%s</span></li>' % label)
+            rows.append('<li class="soon"><span>%s</span><em>not published yet</em></li>' % label)
 
-    nxt = next((c for c in chs if c['n'] == ch['n'] + 1), None)
-    if nxt and url_map.get(nxt['id']):
-        more = ('<a class="more" href="%s">More video demos available &rsaquo;<b>%d. %s</b></a>'
-                % (url_map[nxt['id']], nxt['n'], nxt['title']))
+    nxt = next((o for o in films if o['n'] == f['n'] + 1), None)
+    if nxt and urls.get(nxt['id']):
+        more = ('<a class="more" href="%s"><b>Next:</b> %s <span>&rarr;</span></a>'
+                % (urls[nxt['id']], nxt['title']))
     elif nxt:
-        more = ('<div class="more off">More video demos available &rsaquo; <b>%d. %s</b>'
-                '<span>link added when it is published</span></div>' % (nxt['n'], nxt['title']))
-    elif url_map.get('prototype'):
-        # The last film ends by handing the viewer the thing itself.
-        more = ('<a class="more" href="%s">Now try it out yourself &rsaquo;'
-                '<b>Open the clickable prototype</b></a>' % url_map['prototype'])
+        more = '<div class="more off"><b>Next:</b> %s <span>not published yet</span></div>' % nxt['title']
     else:
-        more = '<div class="more off">That is the last of them.</div>'
+        more = '<div class="more off"><b>That is the walkthrough.</b> <span>Now try it yourself.</span></div>'
 
-    html = (PAGE
-            .replace('__V64__', v64).replace('__T64__', t64)
-            .replace('__N__', str(ch['n'])).replace('__OF__', str(len(chs)))
-            .replace('__TITLE__', ch['title']).replace('__BLURB__', ch['blurb'])
-            .replace('__DUR__', dur)
-            .replace('__CHAPTERS__', '\n'.join(items))
-            .replace('__MORE__', more))
-    out = os.path.join(HERE, 'demo-%s.html' % ch['id'])
+    html = (tpl.replace('__N__', str(f['n'])).replace('__OF__', str(len(films)))
+               .replace('__TITLE__', f['title']).replace('__BLURB__', f['blurb'])
+               .replace('__DUR__', '%ds' % round(f['seconds']))
+               .replace('__CHAPTERS__', '\n    '.join(rows)).replace('__MORE__', more)
+               .replace('__V64__', b64(webm)).replace('__T64__', b64(vtt)))
+    out = os.path.join(HERE, 'demo-%s.html' % f['id'])
     io.open(out, 'w', encoding='utf-8').write(html)
     return out
 
 
+# ----------------------------------------------------------------- main
 def main():
-    script, order = read_script(), demo_order()
-    problems = check(script, order)
+    films = lay_out(read_walkthrough())
+    html = io.open(HTML, encoding='utf-8').read()
+    problems = check(films, html)
+
+    if '--preview' in sys.argv:
+        for f in films:
+            print('\n%d. %-9s %-46s %5.1fs' % (f['n'], f['id'], f['title'], f['seconds']))
+            for i, b in enumerate(f['beats']):
+                print('   %2d %-11s %-34s %5.1fs  %s'
+                      % (i + 1, b['kind'], b['a'], b['d'], b['c'][:58]))
+        print()
+
     if problems:
-        print('narration problems:')
+        print('walkthrough problems (%d):' % len(problems))
         for p in problems:
             print('  -', p)
         if '--check' in sys.argv:
             sys.exit(1)
         print()
-    if '--check' in sys.argv:
-        print('narration.md is clean: %d lines, all ids match the demo.' % len(script))
+    elif '--check' in sys.argv or '--preview' in sys.argv:
+        total = sum(f['seconds'] for f in films)
+        print('walkthrough is clean: %d films, %d beats, %.0fs total.'
+              % (len(films), sum(len(f['beats']) for f in films), total))
+
+    if '--check' in sys.argv or '--preview' in sys.argv:
         return
 
-    inject(script)
-    chs, url_map = chapters(), links()
-    for ch in chs:
-        n = write_vtt(ch, script, order)
-        out = build_page(ch, chs, url_map)
+    inject(films)
+    urls = {}
+    p = os.path.join(VIDEO, 'links.json')
+    if os.path.exists(p):
+        urls = json.load(io.open(p, encoding='utf-8'))
+    built = 0
+    for f in films:
+        n = write_vtt(f)
+        out = build_page(f, films, urls)
         if out:
+            built += 1
             mb = os.path.getsize(out) / 1048576
             flag = '' if mb < 15.5 else '   ** over the 16MB artifact limit **'
-            print('  %d. %-9s %2d captions   %5.2f MB   %s%s'
-                  % (ch['n'], ch['id'], n, mb, os.path.basename(out), flag))
-    if not url_map:
-        print('\nNo video/links.json yet — pages say "link added when it is published".')
-        print('Publish them, save the URLs as {"report":"…","answers":"…","more":"…"}, rebuild.')
+            print('  %2d. %-9s %2d captions  %5.1fs  %5.2f MB   %s%s'
+                  % (f['n'], f['id'], n, f['seconds'], mb, os.path.basename(out), flag))
+    if built < len(films):
+        print('\n%d film(s) have no footage yet. Record with:  node prototype/record-demo.mjs'
+              % (len(films) - built))
 
 
 if __name__ == '__main__':
