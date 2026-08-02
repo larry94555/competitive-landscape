@@ -260,9 +260,16 @@ Header
 3. Key features
 4. Recent public changes
 5. Review & sentiment themes
+5A. What folks are talking about        ← discussion signals + the absence panel
 6. SWOT-style summary
 7. Sources
 ```
+
+> **5A is the second axis.** Sections 1–5 describe *companies*. 5A describes *the problem,
+> the idea and the niche* — public discussion, active open-source projects, and the venues
+> where the idea does **not** appear. It is specified in full, including which venues may
+> legally be read, in [DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md). It is numbered 5A
+> rather than 6 to avoid renumbering the existing nine sections.
 
 Every section carries `status: populated | partial | not_found_in_public_sources` and
 `notes[]`. Every factual statement is a `Claim`:
@@ -286,6 +293,7 @@ Section payloads:
 | **Key features** | `features: { name, description, evidence: Claim, category }[]` (8–15), `notable_gaps: Claim[]` — *gaps only when a source explicitly says so; never inferred from absence* |
 | **Recent public changes** | `changes: { date, headline, detail, kind: release\|pricing\|positioning\|funding\|personnel\|policy, evidence: Claim }[]`, `lookback_window_days`, `coverage_note` |
 | **Review & sentiment themes** | `themes: { theme, valence: positive\|negative\|mixed, frequency: 'often'\|'sometimes'\|'rarely', representative_quotes: Claim[] }[]`, `platforms_covered[]`, `volume_caveat` — **no numeric ratings are synthesized**, only reported with a source |
+| **What folks are talking about** | `window_days`, `venues_considered: VenueAssessment[]`, `asking_for/complaining/attempts: Signal[]` (≤5 each), `building: Project[]` (≤5). Every venue records `fit: expected\|plausible\|poor`, whether it was searched, the **queries used**, and a `caveat` that is *mandatory* whenever fit is not `expected`. Absence is only published from venues where presence would be expected; no sentiment, momentum or trend is computed. Full schema and the source-by-source access position in [DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) |
 | **SWOT-style summary** | `strengths/weaknesses/opportunities/threats: Claim[]` (2–4 each). Opportunities/Threats are **explicitly labelled `interpretation`** and must each cite the observed facts they rest on. This is the one place inference is allowed, and it is visually marked as such. |
 | **Sources** | `sources: { label, url, title, host, source_class: P\|A\|U, attribution_signals_confirmed[], independence_group, fetched_at, content_hash, extraction_quality, status: ok\|blocked_by_robots\|unreachable\|paywalled }[]`, `sources_not_used: { url, host, not_used_reason: unverified_by_our_criteria\|could_not_reconcile, signals_confirmed[], what_it_stated, primary_value_and_date }[]`, `strictness_setting` |
 
@@ -378,6 +386,32 @@ Opportunities · Cost-sensitive Jira teams may evaluate alternatives before Sept
              inference from the announced increase [S6], not a stated Jira position.
 Threats    · Jira's self-hosting option [S5] covers a requirement Linear states it does
              not serve [S1].
+
+## 5A. What folks are talking about
+Window: 24 months · 4 venues searched · 2 with enough volume to report
+
+People are asking for
+  "I'd pay for something that tells me what the chefs ordered last week."
+                                      — r/smallfarms, 2026-03-11 [S14]
+  2 posts. Not a survey — these are the posts we read.
+
+People are building
+  harvest-ledger   1,240 commits · 7 contributors · last commit 2026-07-28 [S16]
+  farm-box-api     archived 2024-11 · "No longer maintained." [S17]
+  Ranked by commit activity. Stars shown as context, never as the sort key.
+
+Where this idea does not appear
+  Hacker News  Not found. Searched `farm to restaurant ordering`,
+               `restaurant produce sourcing`, `farm wholesale platform`
+               since 2024-08-01. 0 results over 2 comments. 09:14 UTC.
+               HN skews to developer tools — absence here is weak evidence.
+  Reddit       Not searched: their API terms do not permit our use, so we
+               cannot claim a negative. 3 threads found via web search. [links]
+  Lobsters     Not reported — no meaningful volume on this topic. Absence
+               here would tell you nothing.
+
+Silence is not evidence of no demand. Most working businesses are never
+discussed online.
 
 ## 7A. Operating signals
 | Company  | Publicly visible since | Last public update | Open roles | Financial standing |

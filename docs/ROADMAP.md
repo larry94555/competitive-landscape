@@ -20,6 +20,7 @@ TypeScript + React frontend · Rust backend · local llama.cpp inference on Orac
 | [Video_Text_Best_Practices.md](Video_Text_Best_Practices.md) | How demo narration is written: word economy, value in the listener's currency, one elevator pitch per line, and letting the viewer reach the conclusion unaided |
 | [UI_FLOWS.md](UI_FLOWS.md) | The seven flows: access tiers, conversational follow-up, notifications, admin, community channels — and four conflicts with earlier decisions |
 | [DISTRIBUTION.md](DISTRIBUTION.md) | The owning document for R9: beachhead selection, positioning, channels in yield order, the weekly cadence, and the trap-subject launch benchmark |
+| [DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) | The second axis — public discussion about the **problem, idea and niche** rather than the companies: what people ask for, complain about and are building, which venues may legally be read, and how an *absence* of discussion is reported without becoming a guess |
 | [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) | How a prompt becomes a competitor set: input classes, prompt completeness by convergence, category vocabulary resolution, seed channels, relevance classification, clarifying questions, and how company standing is assessed |
 | [Off-The-Napkin-Estimates.md](Off-The-Napkin-Estimates.md) | Which quantities are estimated and which are refused: Fermi decomposition, bounds and geometric means, the Rule of Five, estimation by analogy, presentation, and calibration gates |
 | [COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md) | What the report contains: the nine sections, the chart catalogue, evidence classes, what is deliberately excluded, and the charting decision |
@@ -173,6 +174,25 @@ can show — whether a 90–180 second wait reads as *work happening* or as a ha
 citations invite clicking and whether an honest gap reads as rigour. Show it to concierge
 recipients (Track A) in the same conversation as their hand-made report.
 **Explicitly disposable: it must not become the production frontend.**
+
+**Track D — source-terms audit (week 1, half a day, blocking).** Read the terms of every data
+source the plan depends on **in a browser, from the primary source**, and record each in an
+ADR. Two of these can invalidate a planned feature, so they are cheap to check now and
+expensive to discover in Phase 3:
+
+- **Reddit's Data API Terms.** The plan currently assumes Reddit is *not* usable —
+  commercial use appears to require prior approval and a monthly minimum far beyond a
+  bootstrapped budget, and this drives the link-out-only design in
+  [DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) §4.3. **That assumption rests entirely on
+  vendor blogs who sell Reddit data access** — interested parties under our own trust model —
+  because Reddit's own pages refuse automated fetching. Confirm it by hand, then choose
+  between options A–D in §4.3.
+- **Stack Exchange licensing** — content is CC BY-SA; establish what quoting obliges the
+  surrounding report to do.
+- **GitHub search endpoint rate limits** — the 5,000/hour figure is the general REST limit;
+  search is documented separately and is lower.
+- **Review-platform robots.txt** vs our own crawling commitment (the pre-existing R-series
+  risk).
 
 **Track B — pre-launch assets (week 1).** Register and stand up a **waitlist landing page**
 (the domain starts ageing and the list starts growing from day one); run the **name and
@@ -358,6 +378,13 @@ right to charge money.
   describe an idea rather than name competitors.
 - Clarifying questions (≤3, chip-answerable, skippable), fired **only when discovery fails to
   converge** — not when the prompt looks incomplete.
+- **"What folks are talking about" — Hacker News and GitHub only**
+  ([DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) §3.1–3.3). Both are unambiguously open:
+  HN's official API documents no rate limit and needs no key; GitHub allows 5,000 requests
+  an hour authenticated. What people ask for, complain about, and are actively building —
+  ranked on commit and contributor activity, never on stars. **The absence panel is
+  deliberately *not* in this phase** (see Phase 3). Discussion posts are immutable, so this
+  section caches better than any other and costs little prefill after first read.
 - **Tiers 2–4 of the rendering ladder** ([ARCHITECTURE.md](ARCHITECTURE.md) §5.5): embedded-state
   extraction (`__NEXT_DATA__`, `__NUXT__`, JSON-LD), discovered JSON endpoints, and archive
   fallback. ~2–3 days, €0, and a *better* data path than rendering where it applies — structured
@@ -424,6 +451,12 @@ streaming* — which no screenshot can. Free on a public repository.
   flagging; seeded with 25–30 official articles.
 - `/legal/*` pages and the public `/bot` page.
 - Admin console v1: usage, quality sample queue, support queue.
+- **The absence panel** — "where this idea does *not* appear"
+  ([DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) §2). It ships one phase after the signals
+  it belongs to, and the ordering is deliberate: the panel needs the **venue-fit gate** and
+  **multi-register query generation** to be defensible. Without them it publishes negatives
+  from venues where absence means nothing, which is the failure mode most likely to be quoted
+  back at us. Shipping the panel first would be shipping the liability without the control.
 
 **Technical tasks**
 - Auth: single-use magic links (15-min TTL, constant-time compare), signed `HttpOnly`

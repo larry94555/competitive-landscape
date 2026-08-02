@@ -252,6 +252,35 @@ infer from this document. The posture here is the conservative one: do not read 
 use, learn of a page's existence indirectly, link rather than quote, and never reproduce a
 value.
 
+### 3.2.1c Discussion venues, and the one extra rule they need
+
+Hacker News, Reddit, GitHub, Stack Exchange and niche forums are read for the **"What folks
+are talking about"** section, specified in [DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md).
+They slot into the dispositions above without modification — a forum post is **U** unless its
+author is identifiable, a GitHub repository under the subject's own org is **P**, a venue we
+may not fetch is **R** and is listed with a link.
+
+One rule is genuinely new, and it governs *negatives* rather than sources:
+
+> **Absence is only reportable from a venue where presence would be expected.**
+
+"Not found on Hacker News" is strong evidence for a developer tool and near-worthless for a
+catering business. Publishing both in the same format would be dishonest in the specific way
+§5.4 exists to prevent — it dresses a null result in the costume of rigour. So each venue
+carries a fit judgement made *before* the search runs, negatives are published only from
+venues that pass, and a venue with poor fit is **excluded from the report entirely** rather
+than padded into the absence list.
+
+Two consequences worth stating, because both cut against making the section look impressive:
+
+- **A venue we may not properly search never yields a negative.** Where terms permit only a
+  link-out (§3.2.1b), we say we did not search it. We do not convert "we couldn't look" into
+  "it isn't there."
+- **A silence is never interpreted.** Nobody discussing an idea may mean no demand, or the
+  wrong search words, or a private community, or simply that most working businesses are
+  never talked about online. The evidence cannot separate these, so the report presents the
+  bounded silence and declines to adjudicate.
+
 ### 3.2.1a Supplementary sources — reference and data services
 
 Established third parties that are neither the company nor an individual writing about it.
@@ -681,6 +710,12 @@ what was actually attempted:
 The reader can repeat those exact steps in two minutes. Showing the negative space is the
 strongest available evidence that the system is not guessing — and it converts our biggest
 weakness into a demonstration of rigour.
+
+**Two extensions govern negatives about discussion venues** (§3.2.1c): the venue must be one
+where presence would be expected, and the search must span **at least three query
+formulations in both vendor and sufferer language** — "observability" and "why is my server
+slow" find different things, and a negative from one register mostly measures our phrasing.
+Every query used is printed. See [DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) §2 and §5.
 
 ### 5.5 The methodology page
 

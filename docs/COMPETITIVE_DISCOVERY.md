@@ -8,6 +8,20 @@
 > turning "research the competitive landscape for a free competitive landscape research tool"
 > into a set of real companies. [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §3 specifies the
 > clarifying-question UX; §6 here specifies when it fires.
+>
+> **Two vocabularies, not one.** Discovery resolves a prompt into **category vocabulary** —
+> what vendors call this market — which is what finds companies. Finding *discussion* needs
+> the opposite: **problem vocabulary**, what people with the problem call it. "Observability"
+> and "why is my server slow" describe the same thing and find disjoint results. Both are
+> derived from the same prompt at the same step; the second feeds
+> [DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md), and getting it wrong there manufactures
+> false silences.
+>
+> **A market with no companies is still a finding.** This pipeline can legitimately return
+> zero competitors. When it does, the report is not empty — the problem, the idea and the
+> niche still have a public record of open-source projects, forum complaints and launch
+> attempts, and that record is often more useful to a founder than a competitor table would
+> have been.
 
 ---
 
