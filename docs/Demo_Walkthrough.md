@@ -138,18 +138,21 @@ Each row is one beat. `kind` drives the timing; `action` drives the picture.
 | point | `hold` | There is one box and one question. |
 | action | `type` | You type the idea in ordinary words. |
 | action | `go` | Then press Analyse. That is the only step. |
-| wait | `hold` | It reads public web pages. This takes about two minutes. |
-| result | `spot:#srcLive` | Each page appears as it is read. |
+| result | `spot:#interpLine` | First it settles on what to search for. |
+| means | `hold` | Ordering software for small farms, taken from your wording. |
+| result | `spot:#interpLine .edit` | If that is not your market, change reopens it. |
+| means | `hold` | You correct it there and the search runs again. |
+| wait | `hold` | Otherwise it goes and reads public web pages. |
+| result | `spot:#srcLive` | Each page is listed underneath as it is read. |
 | means | `hold` | Company sites, a forum, and one page it could not open. |
-| result | `spot:#interpLine` | It read the idea as ordering software for small farms. |
-| means | `hold` | Three companies matched that reading. The report is built on it. |
-| result | `spot:#interpLine .edit` | If that reading is wrong, change reopens it. |
-| means | `hold` | You correct the wording and it runs again. |
-| next | `to:#report` | The report follows. What they charge is next. |
+| next | `to:#report` | About two minutes. The report follows, and prices are next. |
 
-*Beats 7 to 10 are the working case, beats 11 and 12 the correction. That order is
-deliberate: the reading is right most of the time, and leading with the caveat would
-suggest otherwise.*
+*The order on screen and in the narration is the same: your words, then the words it
+searched for, then what that search found. The search line sits directly under the idea
+and above the pages, so editing it clearly re-runs everything below.*
+
+*The search line comes out right most of the time, so it is stated plainly first and the
+correction follows. Leading with the correction would suggest otherwise.*
 
 ---
 

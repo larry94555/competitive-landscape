@@ -444,6 +444,11 @@
       <div class="subject-chip" id="subject">Linear vs Jira vs Shortcut</div>
       <div class="elapsed" id="elapsed">0:00</div>
     </div>
+    <!-- Directly under what the user typed and above what was found: the reader sees
+         their words, then the words actually searched for, then the results of that
+         search. Putting the companies first made the "searched as" line read as an
+         afterthought rather than the thing the results follow from. -->
+    <div class="interp hidden" id="interpLine"></div>
     <div class="rail" id="rail">
       <div class="stage" data-s="resolving">Resolving</div>
       <div class="stage" data-s="fetching">Fetching</div>
@@ -452,7 +457,6 @@
       <div class="stage" data-s="verifying">Verifying</div>
     </div>
     <div class="sources-live" id="srcLive"></div>
-    <div class="interp hidden" id="interpLine"></div>
     <div class="meta-bar hidden" id="metaBar">
       <span>Comparison</span><span>2026-08-01 09:14 UTC</span>
       <span>11 sources · 9 independent groups</span>
@@ -895,7 +899,10 @@
     elapsedTimer = setInterval(function () { $("elapsed").textContent = fmt((Date.now()-t0)*SPEED); }, 100);
 
     setStage("resolving");
-    at(2, function () { setStage("fetching"); });
+    // The search term is settled at the end of resolving, so the line appears then -
+    // before the pages it produced, not after them. Showing it at the end made it look
+    // like a summary of the results rather than the query they came from.
+    at(2, function () { setStage("fetching"); showInterp(); });
     SOURCES.forEach(function (s) {
       at(s.t, function () {
         var d = document.createElement("div"); d.className="src";
@@ -1000,7 +1007,7 @@
 
   function showInterp() {
     var el = $("interpLine");
-    el.innerHTML = '<span>Read as</span> <b>ordering software for small farms</b>' +
+    el.innerHTML = '<span>Searched as</span> <b>ordering software for small farms</b>' +
       '<span>&middot; 3 companies compared &middot; 2 more found nearby</span>' +
       '<span class="edit">change</span>';
     el.classList.remove("hidden");
@@ -1075,20 +1082,20 @@
 
   // <<FILMS>> generated from docs/Demo_Walkthrough.md by build.py - do not edit by hand
   var FILMS = [
-    { id:"idea", n:1, title:"Do you have an idea you want to explore?", blurb:"One box, one question, and a report on the companies already doing it.", seconds:62.9, beats:[
+    { id:"idea", n:1, title:"Do you have an idea you want to explore?", blurb:"One box, one question, and a report on the companies already doing it.", seconds:62.7, beats:[
       { t:0.0, d:3.7, kind:"recognition", a:"clean", c:"Do you have an idea you want to explore?" },
       { t:3.7, d:4.2, kind:"turn", a:"hold", c:"Landscape looks for companies already doing it." },
       { t:7.9, d:3.2, kind:"point", a:"hold", c:"There is one box and one question." },
       { t:11.1, d:3.4, kind:"action", a:"type", c:"You type the idea in ordinary words." },
       { t:14.5, d:3.8, kind:"action", a:"go", c:"Then press Analyse. That is the only step." },
-      { t:18.3, d:4.8, kind:"wait", a:"hold", c:"It reads public web pages. This takes about two minutes." },
-      { t:23.1, d:6.4, kind:"result", a:"spot:#srcLive", c:"Each page appears as it is read." },
-      { t:29.5, d:4.8, kind:"means", a:"hold", c:"Company sites, a forum, and one page it could not open." },
-      { t:34.3, d:6.4, kind:"result", a:"spot:#interpLine", c:"It read the idea as ordering software for small farms." },
-      { t:40.7, d:5.4, kind:"means", a:"hold", c:"Three companies matched that reading. The report is built on it." },
-      { t:46.1, d:6.4, kind:"result", a:"spot:#interpLine .edit", c:"If that reading is wrong, change reopens it." },
-      { t:52.5, d:4.8, kind:"means", a:"hold", c:"You correct the wording and it runs again." },
-      { t:57.3, d:5.6, kind:"next", a:"to:#report", c:"The report follows. What they charge is next." },
+      { t:18.3, d:6.4, kind:"result", a:"spot:#interpLine", c:"First it settles on what to search for." },
+      { t:24.7, d:5.0, kind:"means", a:"hold", c:"Ordering software for small farms, taken from your wording." },
+      { t:29.7, d:6.4, kind:"result", a:"spot:#interpLine .edit", c:"If that is not your market, change reopens it." },
+      { t:36.1, d:4.8, kind:"means", a:"hold", c:"You correct it there and the search runs again." },
+      { t:40.9, d:4.0, kind:"wait", a:"hold", c:"Otherwise it goes and reads public web pages." },
+      { t:44.9, d:6.4, kind:"result", a:"spot:#srcLive", c:"Each page is listed underneath as it is read." },
+      { t:51.3, d:4.8, kind:"means", a:"hold", c:"Company sites, a forum, and one page it could not open." },
+      { t:56.1, d:6.6, kind:"next", a:"to:#report", c:"About two minutes. The report follows, and prices are next." },
     ] },
     { id:"prices", n:2, title:"What do they charge?", blurb:"The price table, a company that publishes none, and a figure from a blog kept separate.", seconds:50.4, beats:[
       { t:0.0, d:3.2, kind:"recognition", a:"report", c:"This is the pricing section." },
