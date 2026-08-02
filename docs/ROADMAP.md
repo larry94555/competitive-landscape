@@ -16,8 +16,16 @@ TypeScript + React frontend · Rust backend · local llama.cpp inference on Orac
 |---|---|
 | **ROADMAP.md** (this file) | Executive summary, phased plan (**C**), metrics (**F**), solo-founder execution (**G**), risks (**H**), bootstrapped cost ladder, git/PR workflow |
 | [PRODUCT_SPEC.md](PRODUCT_SPEC.md) | Product & UX specification (**A**): user flows, report schema, notification UX, zero-learning-curve mechanisms |
+| [Demo_Walkthrough.md](Demo_Walkthrough.md) | The shot-by-shot design for the demo films: the five-beat arc every film repeats, the rule that **every result gets both a "what it is" and a "why it helps"** beat, and the twelve films that replace the four |
+| [Video_Guidelines.md](Video_Guidelines.md) | How demo films are made: plain-language rules, subtitle delivery, narration pacing, chaptering, and the build pipeline |
+| [Video_Text_Best_Practices.md](Video_Text_Best_Practices.md) | How demo narration is written: word economy, value in the listener's currency, one elevator pitch per line, and letting the viewer reach the conclusion unaided |
+| [UI_FLOWS.md](UI_FLOWS.md) | The seven flows: access tiers, conversational follow-up, notifications, admin, community channels — and four conflicts with earlier decisions |
 | [DISTRIBUTION.md](DISTRIBUTION.md) | The owning document for R9: beachhead selection, positioning, channels in yield order, the weekly cadence, and the trap-subject launch benchmark |
+| [REASONING_FRAMEWORKS.md](REASONING_FRAMEWORKS.md) | Versioned rubrics — Innovator's Dilemma, Crossing the Chasm, Cold Start Problem, Tipping Point, niche strategy — that let a small local model apply known frameworks by **matching evidence against written criteria instead of recalling books**, plus the attribution posture that keeps us on the right side of the authors |
+| [IDEA_ANALYSIS.md](IDEA_ANALYSIS.md) | The eight levels a founder actually asks — problem space, value proposition, product, business, discussions, power niches, startup trajectory, investor interest — and the rule that decides the product: **observation levels answer, framing levels only ask** |
+| [DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) | The second axis — public discussion about the **problem, idea and niche** rather than the companies: what people ask for, complain about and are building, which venues may legally be read, and how an *absence* of discussion is reported without becoming a guess |
 | [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) | How a prompt becomes a competitor set: input classes, prompt completeness by convergence, category vocabulary resolution, seed channels, relevance classification, clarifying questions, and how company standing is assessed |
+| [Off-The-Napkin-Estimates.md](Off-The-Napkin-Estimates.md) | Which quantities are estimated and which are refused: Fermi decomposition, bounds and geometric means, the Rule of Five, estimation by analogy, presentation, and calibration gates |
 | [COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md) | What the report contains: the nine sections, the chart catalogue, evidence classes, what is deliberately excluded, and the charting decision |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Technical architecture & stack (**B**): React, Rust, llama.cpp, data, jobs, caching, PDF, email, Stripe, change detection, hosting |
 | [ARCHITECTURE_EXPLANATION.md](ARCHITECTURE_EXPLANATION.md) | Companion to the above: every technology explained — what it is, the alternatives, the justification, and the cost/benefit trade-off |
@@ -162,6 +170,40 @@ bootstrapped solo project cannot afford to discover in week 20 that the format, 
 the positioning is wrong. Each hand-made report also becomes a **golden-set reference sheet**,
 a **testimonial**, and a **format test** — so the work is never wasted even if the concierge
 channel is abandoned.
+
+**Track C — the UI prototype (week 1–2).** Build `prototype/ui-prototype.html`: one throwaway
+HTML file, canned data, simulated timings, no backend. It tests the one thing no static mockup
+can show — whether a 90–180 second wait reads as *work happening* or as a hang — plus whether
+citations invite clicking and whether an honest gap reads as rigour. Show it to concierge
+recipients (Track A) in the same conversation as their hand-made report.
+**Explicitly disposable: it must not become the production frontend.**
+
+**Track D — source-terms audit (week 1, half a day, blocking).** Read the terms of every data
+source the plan depends on **in a browser, from the primary source**, and record each in an
+ADR. Two of these can invalidate a planned feature, so they are cheap to check now and
+expensive to discover in Phase 3:
+
+- **X (Twitter).** The free read tier is gone; new developers pay **$0.005 per post read**,
+  so 200 posts costs $1 — the whole monthly subscription, for one report section. This is
+  disqualifying rather than expensive, and drives link-out-only in
+  [DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) §4.4a. Same caveat as Reddit: the sources
+  are vendors selling X data alternatives.
+- **YouTube.** Confirmed from Google's own quota docs: **100 `search.list` calls per day**,
+  separate from the 10,000-unit pool — roughly 33 reports/day. Confirm the data-storage
+  limits in the API terms, which are stricter than our normal caching.
+- **Reddit's Data API Terms.** The plan currently assumes Reddit is *not* usable —
+  commercial use appears to require prior approval and a monthly minimum far beyond a
+  bootstrapped budget, and this drives the link-out-only design in
+  [DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) §4.3. **That assumption rests entirely on
+  vendor blogs who sell Reddit data access** — interested parties under our own trust model —
+  because Reddit's own pages refuse automated fetching. Confirm it by hand, then choose
+  between options A–D in §4.3.
+- **Stack Exchange licensing** — content is CC BY-SA; establish what quoting obliges the
+  surrounding report to do.
+- **GitHub search endpoint rate limits** — the 5,000/hour figure is the general REST limit;
+  search is documented separately and is lower.
+- **Review-platform robots.txt** vs our own crawling commitment (the pre-existing R-series
+  risk).
 
 **Track B — pre-launch assets (week 1).** Register and stand up a **waitlist landing page**
 (the domain starts ageing and the list starts growing from day one); run the **name and
@@ -347,6 +389,13 @@ right to charge money.
   describe an idea rather than name competitors.
 - Clarifying questions (≤3, chip-answerable, skippable), fired **only when discovery fails to
   converge** — not when the prompt looks incomplete.
+- **"What folks are talking about" — Hacker News and GitHub only**
+  ([DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) §3.1–3.3). Both are unambiguously open:
+  HN's official API documents no rate limit and needs no key; GitHub allows 5,000 requests
+  an hour authenticated. What people ask for, complain about, and are actively building —
+  ranked on commit and contributor activity, never on stars. **The absence panel is
+  deliberately *not* in this phase** (see Phase 3). Discussion posts are immutable, so this
+  section caches better than any other and costs little prefill after first read.
 - **Tiers 2–4 of the rendering ladder** ([ARCHITECTURE.md](ARCHITECTURE.md) §5.5): embedded-state
   extraction (`__NEXT_DATA__`, `__NUXT__`, JSON-LD), discovered JSON endpoints, and archive
   fallback. ~2–3 days, €0, and a *better* data path than rendering where it applies — structured
@@ -413,6 +462,24 @@ streaming* — which no screenshot can. Free on a public repository.
   flagging; seeded with 25–30 official articles.
 - `/legal/*` pages and the public `/bot` page.
 - Admin console v1: usage, quality sample queue, support queue.
+- **Blog and podcast RSS ingestion** — the thoughtspace layer
+  ([IDEA_ANALYSIS.md](IDEA_ANALYSIS.md) level 5). RSS/Atom is the one open syndication
+  standard left: no key, no quota, no commercial gate, dates and authorship already
+  structured. Cheapest high-value venue in the plan.
+- **Level 3 "has it been tried"** — dead startups, archived repositories, launch posts that
+  went nowhere, shutdown post-mortems. Pure retrieval, and plausibly the single most useful
+  answer the product gives.
+- **Level 8 investor interest** — firm blogs and partner blogs via RSS, portfolio pages
+  (primary), and **SEC Form D via EDGAR full-text search** (public, free, filed, dated).
+  Reported as *publicly stated* interest only, with the scope note in
+  [IDEA_ANALYSIS.md](IDEA_ANALYSIS.md) §8.1 — never as a red flag, since most investor
+  interest is private and most viable businesses are not venture-scale.
+- **The absence panel** — "where this idea does *not* appear"
+  ([DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) §2). It ships one phase after the signals
+  it belongs to, and the ordering is deliberate: the panel needs the **venue-fit gate** and
+  **multi-register query generation** to be defensible. Without them it publishes negatives
+  from venues where absence means nothing, which is the failure mode most likely to be quoted
+  back at us. Shipping the panel first would be shipping the liability without the control.
 
 **Technical tasks**
 - Auth: single-use magic links (15-min TTL, constant-time compare), signed `HttpOnly`
@@ -462,6 +529,26 @@ requested when the user asks for something that requires it.
 - `/pricing`, Stripe Checkout, Billing Portal, upgrade dialogs at the moment of the limit,
   resume-the-blocked-action after upgrade.
 - Annual billing at 2 months free.
+- **Levels 2, 6 and 7 — the framing questions** ([IDEA_ANALYSIS.md](IDEA_ANALYSIS.md)).
+  Value proposition, power niches, and startup trajectory, shipped **last on purpose**: they
+  take levels 1–5 as input, and they are the levels that damage trust if rushed. They emit
+  *questions with the evidence that raised them*, never conclusions — a local 8B model loses
+  a reasoning contest with the reader's own chatbot, and pretending otherwise would
+  contaminate the levels where retrieval genuinely wins.
+- **Framework rubrics** ([REASONING_FRAMEWORKS.md](REASONING_FRAMEWORKS.md)) — six versioned
+  YAML assets the router matches against the structured output of levels 1–5. Signal matching
+  is near-free (it reads extracted fields, not pages), question emission is grammar-constrained
+  to the rubric's own list, and every question carries the source labels that fired it. A
+  rubric that fires wrongly is **a bug with a fix** — tighten the signal, and the eval suite
+  catches the regression. Ships with attribution and links to each author's own free writing.
+- **"Places we have not searched"** ([DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) §4.4b) —
+  X, LinkedIn and Reddit disclosed by name with prefilled searches that open on each site
+  under the reader's own account. Ships with the framing sections so the report's honesty
+  about its own limits reads as one design.
+- **"Copy as context"** — the whole report as clean Markdown with every URL and date, sized
+  to paste into the reader's own AI assistant ([IDEA_ANALYSIS.md](IDEA_ANALYSIS.md) §5).
+  Near-free to build, and it settles the positioning: we are not a worse chatbot, we are the
+  evidence file a chatbot cannot assemble.
 
 **Decision required before writing billing code: merchant of record, or not?**
 Stripe is a payment processor — VAT, GST, and US sales-tax registration, calculation, and

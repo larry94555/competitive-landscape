@@ -1,0 +1,359 @@
+<title>Landscape — Demo __N__ of __OF__: __TITLE__</title>
+<style>
+  :root{--ground:#F6F8F6;--surface:#FFF;--ink:#141C19;--ink-soft:#3D4A45;--muted:#6B7772;
+    --rule:#DCE3DE;--rule-strong:#C3CDC7;--accent:#0F6E5C;--accent-soft:#E2F0EB;--accent-ink:#0A4A3E;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,"Cascadia Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;}
+  @media (prefers-color-scheme:dark){:root{--ground:#0D1311;--surface:#141C19;--ink:#E8EFEB;
+    --ink-soft:#B8C5BF;--muted:#85958E;--rule:#26332E;--rule-strong:#35453E;
+    --accent:#4FBFA3;--accent-soft:#12302A;--accent-ink:#7FD6BF;}}
+  :root[data-theme="dark"]{--ground:#0D1311;--surface:#141C19;--ink:#E8EFEB;--ink-soft:#B8C5BF;
+    --muted:#85958E;--rule:#26332E;--rule-strong:#35453E;--accent:#4FBFA3;--accent-soft:#12302A;--accent-ink:#7FD6BF;}
+  :root[data-theme="light"]{--ground:#F6F8F6;--surface:#FFF;--ink:#141C19;--ink-soft:#3D4A45;
+    --muted:#6B7772;--rule:#DCE3DE;--rule-strong:#C3CDC7;--accent:#0F6E5C;--accent-soft:#E2F0EB;--accent-ink:#0A4A3E;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.6}
+
+  .bar{position:sticky;top:0;z-index:5;background:var(--surface);border-bottom:1px solid var(--rule);
+    display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;padding:.6rem 1rem}
+  .badge{font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;
+    background:var(--accent);color:#fff;border-radius:2px;padding:.2rem .45rem}
+  .bar .grow{margin-right:auto;font-family:var(--mono);font-size:.75rem;color:var(--muted)}
+  .tog{font:inherit;font-size:.82rem;font-weight:600;border:1px solid var(--rule-strong);
+    background:var(--surface);color:var(--ink-soft);border-radius:2px;padding:.4rem .8rem;cursor:pointer;
+    display:inline-flex;align-items:center;gap:.4rem;transition:background .12s,color .12s,border-color .12s}
+  .tog:hover{border-color:var(--accent);color:var(--accent)}
+  .tog[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tog .led{width:.45rem;height:.45rem;border-radius:50%;background:currentColor;opacity:.35}
+  .tog[aria-pressed="true"] .led{opacity:1}
+  .tog.primary{background:var(--accent);border-color:var(--accent);color:#fff;min-width:12.5rem;
+    justify-content:center}
+  .tog.primary:hover{opacity:.9;color:#fff}
+  .bar .hint{font-family:var(--mono);font-size:.7rem;color:var(--muted);
+    border:1px solid var(--rule);border-radius:2px;padding:.2rem .4rem;white-space:nowrap}
+  @media (max-width:560px){.bar .hint{display:none}}
+
+  /* Click anywhere on the picture to pause. Sits above the video but stops short of
+     the native control strip, so scrubbing and volume still work. */
+  .stage{position:relative}
+  #tapzone{position:absolute;inset:0 0 44px 0;cursor:pointer;background:transparent}
+  #tapzone::after{content:"▶";position:absolute;inset:0;display:none;place-items:center;
+    font-size:3rem;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,.65)}
+  .stage.is-paused #tapzone::after{display:grid}
+
+  .stage{background:#0A0E0D}
+  .stage video{display:block;width:100%;height:auto;max-height:86vh;margin:0 auto;background:#000}
+  video::cue{background:rgba(8,12,11,.92);color:#F4F8F6;font-family:var(--sans);
+    font-size:1.35em;line-height:1.45;font-weight:500}
+
+  .meta{display:flex;flex-wrap:wrap;gap:.35rem 1.1rem;font-family:var(--mono);font-size:.74rem;
+    color:var(--muted);padding:.6rem 1rem;border-bottom:1px solid var(--rule)}
+  .meta .ok{color:var(--accent)}
+
+  .wrap{max-width:58rem;margin:0 auto;padding:2rem 1.25rem 4rem}
+  .eyebrow{font-family:var(--mono);font-size:.75rem;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--accent);margin-bottom:.5rem}
+  h1{font-size:clamp(1.5rem,1.25rem + 1.3vw,2.1rem);letter-spacing:-.03em;font-weight:690;
+    margin:0 0 .6rem;text-wrap:balance}
+  .sub{color:var(--ink-soft);max-width:58ch;margin:0 0 1.75rem;font-size:1.06rem}
+
+  .more{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;text-decoration:none;
+    background:var(--accent-soft);border:1px solid var(--accent);color:var(--accent-ink);
+    border-radius:3px;padding:1rem 1.15rem;font-weight:600;transition:background .12s}
+  a.more:hover{background:var(--accent);color:#fff}
+  .more b{font-weight:700}
+  .more.off{background:var(--surface);border-color:var(--rule);color:var(--muted);font-weight:500}
+  .more.off span{font-family:var(--mono);font-size:.74rem}
+
+  h2{font-size:.78rem;font-family:var(--mono);font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--muted);margin:2.25rem 0 1rem;padding-bottom:.5rem;border-bottom:1px solid var(--rule)}
+  ul.chs{list-style:none;margin:0;padding:0}
+  ul.chs li{padding:.6rem 0;border-bottom:1px solid var(--rule);display:flex;gap:.75rem;align-items:baseline}
+  ul.chs li:last-child{border-bottom:0}
+  ul.chs a{color:var(--accent);text-decoration:none;font-weight:600}
+  ul.chs a:hover{text-decoration:underline}
+  ul.chs .cur span{font-weight:700}
+  ul.chs em{font-family:var(--mono);font-size:.72rem;font-style:normal;color:var(--muted);margin-left:auto}
+  ul.chs .soon{color:var(--muted)}
+
+  .callout{background:var(--surface);border-left:3px solid var(--rule-strong);color:var(--ink-soft);
+    padding:.9rem 1.1rem;border-radius:2px;font-size:.93rem;margin:1.75rem 0 0}
+  .note{font-size:.9rem;color:var(--muted);max-width:62ch;margin-top:1.25rem}
+</style>
+
+<div class="bar">
+  <span class="badge">__N__ / __OF__</span>
+  <span class="grow" id="status">subtitles on · narration off</span>
+  <span class="hint">space&nbsp;=&nbsp;pause</span>
+  <button class="tog primary" id="playAll">▶ Play with narration</button>
+  <button class="tog" id="tVoice" aria-pressed="false"><span class="led"></span>Narration</button>
+  <button class="tog" id="tFull">⛶ Fullscreen</button>
+</div>
+
+<div class="stage">
+  <video id="vid" controls preload="metadata" playsinline>
+    <source src="data:video/webm;base64,__V64__" type="video/webm">
+    <track id="trk" kind="captions" srclang="en" label="English" default
+           src="data:text/vtt;base64,__T64__">
+    Your browser cannot play WebM. The files are in the repo under <code>prototype/video/</code>.
+  </video>
+  <div id="tapzone" title="Click to pause or resume"></div>
+</div>
+
+<div class="meta">
+  <span class="ok">1600×1000</span>
+  <span class="ok">subtitles on by default</span>
+  <span>optional narration: your browser's speech engine</span>
+  <span>__DUR__</span>
+</div>
+
+<div class="wrap">
+  <div class="eyebrow">Prototype walkthrough &middot; film __N__ of __OF__</div>
+  <h1>__TITLE__</h1>
+  <p class="sub">__BLURB__</p>
+
+  __MORE__
+
+  <h2>All the films</h2>
+  <ul class="chs">
+    __CHAPTERS__
+  </ul>
+
+  <div class="callout">
+    <strong>The recording has no audio.</strong> Subtitles are on by default, so it reads fine
+    muted. <em>Narration</em> is optional and spoken by your browser — and it sets the pace: the
+    video pauses while each line is read, then continues, so nothing is cut off mid-sentence.
+    <br><br>
+    <strong>To pause:</strong> press <kbd>space</kbd>, click the picture, or use the button in
+    the bar. Any of the three stops the narration too — otherwise the voice would keep talking
+    over a still frame.
+  </div>
+
+  <p class="note"><strong>This is a prototype, not the product.</strong> Invented companies on
+  the reserved <code>.example</code> domain, no working system behind it, throwaway code. It
+  exists to answer one question before any production code is written: does a 90&ndash;180
+  second wait read as work happening, or as a hang?</p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var vid = document.getElementById('vid');
+  var status = document.getElementById('status');
+  var tVoice = document.getElementById('tVoice');
+
+  var stage = document.querySelector('.stage');
+  var btn = document.getElementById('playAll');
+
+  var GAP_MS = 700, SENTENCE_GAP_MS = 260;
+  var voiceOn = false, chosenVoice = null;
+
+  // Three pieces of state, and the distinction between the last two is the whole game:
+  //   speaking      - narration is mid-sentence
+  //   heldForSpeech - WE paused the picture so a line could finish
+  //   stopped       - the VIEWER wants everything to stop
+  // The picture is paused in both of the last two cases, which is why "is the video
+  // paused?" is never the right question to ask.
+  var speaking = false, heldForSpeech = false, stopped = true, started = false, token = 0;
+  // Marks the one pause event we are about to cause ourselves. A flag that merely describes
+  // the state is not enough: pause events arrive asynchronously, so a stale one can land
+  // after the state has moved on and stop the film for no reason.
+  var selfPause = false;
+
+  var canSpeak = !!window.speechSynthesis;
+  if (!canSpeak) { tVoice.disabled = true; tVoice.title = 'This browser has no speech synthesis'; }
+
+  function pickVoice() {
+    var vs = speechSynthesis.getVoices();
+    if (!vs.length) return null;
+    var en = vs.filter(function (v) { return /^en(-|_|$)/i.test(v.lang); });
+    var pool = en.length ? en : vs;
+    var prefs = [/natural/i, /aria|jenny|libby|sonia|ava|samantha|serena|zoe/i, /google/i];
+    for (var i = 0; i < prefs.length; i++) {
+      var hit = pool.filter(function (v) { return prefs[i].test(v.name); })[0];
+      if (hit) return hit;
+    }
+    return pool[0];
+  }
+  if (canSpeak) {
+    chosenVoice = pickVoice();
+    speechSynthesis.onvoiceschanged = function () { chosenVoice = pickVoice() || chosenVoice; };
+  }
+
+  function sentences(text) {
+    var t = text.replace(/\s+/g, ' ').trim();
+    var parts = t.match(/[^.!?]+[.!?]*/g) || [t];
+    var out = [];
+    parts.forEach(function (p) {
+      p = p.trim();
+      if (!p) return;
+      if (out.length && p.length < 18) out[out.length - 1] += ' ' + p;
+      else out.push(p);
+    });
+    return out;
+  }
+
+  function speakSequence(lines, myToken, done) {
+    var i = 0;
+    (function next() {
+      if (myToken !== token) return;
+      if (i >= lines.length) { done(); return; }
+      var u = new SpeechSynthesisUtterance(lines[i++]);
+      if (chosenVoice) { u.voice = chosenVoice; u.lang = chosenVoice.lang; }
+      u.rate = 1.0;
+      u.onend = function () { if (myToken === token) setTimeout(next, SENTENCE_GAP_MS); };
+      u.onerror = function () { if (myToken === token) setTimeout(next, SENTENCE_GAP_MS); };
+      speechSynthesis.speak(u);
+    })();
+  }
+
+  function playVideo() {
+    var p = vid.play();
+    if (p && p.catch) p.catch(function () {});   // a pause right after play() rejects; harmless
+  }
+
+  // Narration owns the pacing: pause the picture, finish the thought, then resume.
+  function narrate(text) {
+    if (!voiceOn || !canSpeak || !text || stopped) return;
+    var myToken = ++token;
+    speechSynthesis.cancel();
+    speaking = true;
+    if (!vid.paused) { heldForSpeech = true; selfPause = true; vid.pause(); }
+    sync();
+    speakSequence(sentences(text), myToken, function () {
+      setTimeout(function () {
+        if (myToken !== token) return;
+        speaking = false;
+        var resume = heldForSpeech && !stopped;
+        heldForSpeech = false;
+        sync();
+        if (resume) playVideo();
+      }, GAP_MS);
+    });
+  }
+
+  // Drop any narration in flight. Does not touch the picture.
+  function hushNarration() {
+    // selfPause is deliberately left alone: it is only ever set alongside a real
+    // playing->paused transition, so its event is guaranteed to arrive and consume it.
+    token++; speaking = false; heldForSpeech = false;
+    if (canSpeak) speechSynthesis.cancel();
+  }
+
+  // Is anything actually happening? Speech counts, because during a narration hold the
+  // picture is deliberately still.
+  function isRunning() { return !stopped && (speaking || !vid.paused); }
+
+  function pauseAll() {
+    stopped = true;                 // set first: our own pause event handler keys off it
+    hushNarration();
+    if (!vid.paused) vid.pause();
+    sync();
+  }
+
+  function resumeAll() {
+    stopped = false;
+    playVideo();
+    sync();
+    // Re-speak whatever line is on screen, so resuming mid-sentence does not lose it.
+    if (voiceOn) { var c = currentCue(); if (c) narrate(c); }
+  }
+
+  function toggle() {
+    started = true;
+    if (vid.ended) { stopped = false; vid.currentTime = 0; playVideo(); sync(); return; }
+    if (isRunning()) pauseAll(); else resumeAll();
+  }
+
+  function currentCue() {
+    var t = vid.textTracks && vid.textTracks[0];
+    var c = t && t.activeCues && t.activeCues[0];
+    return c ? c.text : null;
+  }
+
+  function hookCues() {
+    var t = vid.textTracks && vid.textTracks[0];
+    if (!t) return;
+    t.mode = 'showing';
+    t.addEventListener('cuechange', function () {
+      var c = t.activeCues && t.activeCues[0];
+      if (c && voiceOn) narrate(c.text);
+    });
+  }
+  if (vid.readyState >= 1) hookCues(); else vid.addEventListener('loadedmetadata', hookCues);
+
+  function sync() {
+    var running = isRunning();
+    btn.textContent = running ? '❚❚ Pause'
+                     : started ? '▶ Resume'
+                     : '▶ Play with narration';
+    btn.setAttribute('aria-label', running ? 'Pause' : 'Play');
+    stage.classList.toggle('is-paused', started && !running);
+    status.textContent = 'subtitles on · ' +
+      (!voiceOn ? 'narration off'
+       : stopped ? 'paused'
+       : speaking ? 'narrating — video paused'
+       : 'narration on');
+  }
+
+  tVoice.onclick = function () {
+    voiceOn = !voiceOn;
+    this.setAttribute('aria-pressed', voiceOn ? 'true' : 'false');
+    if (!voiceOn) {
+      var wasHeld = heldForSpeech;
+      hushNarration();
+      if (wasHeld && !stopped) playVideo();
+    } else if (isRunning()) {
+      var c = currentCue(); if (c) narrate(c);
+    }
+    sync();
+  };
+
+  document.getElementById('tFull').onclick = function () {
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    (vid.requestFullscreen || vid.webkitRequestFullscreen || vid.webkitEnterFullscreen || function () {}).call(vid);
+  };
+
+  btn.onclick = function () {
+    if (!started) {                       // first press: from the top, narration on
+      if (canSpeak && !voiceOn) { voiceOn = true; tVoice.setAttribute('aria-pressed', 'true'); }
+      started = true; stopped = false;
+      hushNarration(); vid.currentTime = 0; playVideo(); sync();
+      return;
+    }
+    toggle();
+  };
+
+  document.getElementById('tapzone').onclick = function () { toggle(); };
+
+  document.addEventListener('keydown', function (e) {
+    if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    if (e.key === ' ' || e.code === 'Space' || e.key === 'k') { e.preventDefault(); toggle(); }
+  });
+
+  // The native controls stay authoritative: the viewer may equally well use them.
+  vid.addEventListener('pause', function () {
+    if (selfPause) { selfPause = false; return; }        // the narration hold we just caused
+    if (stopped || vid.ended) return;                    // already handled
+    pauseAll();                                          // the viewer used the native control
+  });
+
+  vid.addEventListener('play', function () {
+    started = true;
+    if (stopped) {                        // native play out of a full stop
+      stopped = false;
+      if (voiceOn) { var c = currentCue(); if (c) { narrate(c); return; } }
+    } else if (speaking && heldForSpeech && !vid.paused) {
+      // The viewer overrode a narration hold: drop the line and roll on. The !vid.paused
+      // test is what distinguishes this from our own play-then-pause inside narrate().
+      hushNarration();
+    }
+    sync();
+  });
+
+  vid.addEventListener('seeking', function () { hushNarration(); sync(); });
+  vid.addEventListener('ended', function () { hushNarration(); stopped = true; sync(); });
+
+  sync();
+})();
+</script>

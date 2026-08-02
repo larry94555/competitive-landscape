@@ -263,6 +263,8 @@ crates/
   landscape-db/        sqlx queries, migrations, job queue
   landscape-fetch/     robots, politeness, cache, extraction, normalization
   landscape-search/    SearXNG + Brave adapters, source discovery & ranking
+  landscape-signals/   discussion venues: HN + GitHub adapters, venue-fit gate,
+                       absence panel, cross-post independence grouping
   landscape-llm/       llama-server client, grammars, prompts, slot pool, budgets
   landscape-analyze/   the orchestrator: plan → fetch → read → synthesize → verify
   landscape-watch/     change detection, importance scoring, alert composition
@@ -274,6 +276,17 @@ crates/
   landscape-worker/    job handlers
   landscape/           bin: wires roles together
 ```
+
+**`landscape-signals` is deliberately separate from `landscape-fetch`.** Discussion venues
+are read through typed APIs rather than crawled HTML, they carry per-venue terms that decide
+whether we may read at all ([DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) §4), and their
+records are **immutable** — a thread read once never needs re-reading. That last property
+gives this crate a fundamentally different caching strategy from the rest of the fetch path,
+which is reason enough for its own boundary.
+
+It is also the crate where a terms decision becomes code: each venue adapter declares whether
+it may be `fetched`, `linked_only`, or is `unavailable`, and the absence panel refuses to
+publish a negative for any venue not in the first state.
 
 ### 3.3 Data model (Postgres 16)
 

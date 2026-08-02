@@ -146,6 +146,13 @@ SaaS, thin-footprint startups, ambiguous brand names, non-English sites, JS-heav
 robots-restricted sites, recently-repriced products, and two deliberate traps (a product
 that does not exist; a name shared by three real products).
 
+**Known-value subjects test the estimator.** A handful of golden-set subjects are public
+companies whose revenue, headcount and traffic *are* published. Estimates run against them
+blind, and are scored on whether the true value falls **inside the stated range** — not on how
+close the central figure is. A method whose ranges are right 50% of the time is not estimating,
+it is producing false confidence, and the fix is wider bounds
+([Off-The-Napkin-Estimates.md](Off-The-Napkin-Estimates.md) §8).
+
 **Discovery-shaped prompts are half the set.** Named products test the analysis pipeline;
 they do not test discovery, which is now equally hard and equally capable of being wrong
 ([COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md)). The set therefore includes **class C/D/E
@@ -173,6 +180,8 @@ frozen HTML, every eval run measures the web changing rather than the model chan
 | **Latency** | p50 / p95 wall clock | Rung 0: p50 ≤ 180s · Rung 2: p50 ≤ 25s |
 | **Quality per second** | rubric score ÷ p50 latency | tracked, not gated — the number that decides prompt changes on slow hardware |
 | **Determinism** | claim-set Jaccard across 3 runs at temp 0.2 | ≥ 0.85 |
+| **Estimate calibration** | % of known-value subjects where the true figure falls inside the stated range | ≥ 85% |
+| **Estimate arithmetic** | computed in Rust, never by the model — checked by recomputation in the eval | 100% |
 | **Discovery precision** | % of returned competitors in the curated expected set | ≥ 80% |
 | **Discovery recall** | % of expected competitors returned | ≥ 60% |
 | **Classification accuracy** | direct / adjacent / substitute assigned correctly | ≥ 75% |
