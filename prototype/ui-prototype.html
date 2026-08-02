@@ -200,6 +200,45 @@
   .unconfirmed { border-left:3px solid var(--warn); background:var(--surface-alt); padding:.7rem 1rem;
     margin-top:.9rem; font-size:var(--step--1); color:var(--ink-soft); max-width:68ch; }
 
+  /* --- the eight levels, discussion signals, and the framing questions --- */
+  .levels { border:1px solid var(--rule); border-radius:2px; background:var(--surface); padding:.3rem .9rem; margin:.4rem 0 1.4rem; }
+  .lvl { display:flex; gap:.75rem; align-items:baseline; padding:.4rem 0; border-bottom:1px solid var(--rule); font-size:var(--step--1); }
+  .lvl:last-child { border-bottom:0; }
+  .lvl .g { font-family:var(--mono); width:1.1rem; text-align:center; font-size:.9rem; }
+  .lvl .nm { min-width:13rem; font-weight:600; }
+  .lvl .st { color:var(--muted); font-family:var(--mono); font-size:.72rem; }
+  .g-yes { color:var(--accent); } .g-part { color:var(--warn); }
+  .g-none { color:var(--muted); } .g-q { color:var(--flag); font-weight:700; }
+
+  .quote { border-left:2px solid var(--rule-strong); padding:.15rem 0 .15rem .9rem; margin:.7rem 0; max-width:68ch; }
+  .quote .said { font-style:italic; color:var(--ink); }
+  .quote .who { display:block; font-family:var(--mono); font-size:.72rem; color:var(--muted); margin-top:.3rem; }
+
+  .proj { display:flex; gap:.75rem; align-items:baseline; padding:.45rem 0; border-bottom:1px solid var(--rule); font-size:var(--step--1); }
+  .proj .pn { font-family:var(--mono); font-weight:600; min-width:11rem; }
+  .proj .pd { color:var(--muted); font-family:var(--mono); font-size:.72rem; }
+  .proj.dead .pn { color:var(--muted); text-decoration:line-through; }
+
+  .absent { border:1px solid var(--rule-strong); border-radius:2px; margin-top:.9rem; }
+  .absent .row { display:flex; gap:.9rem; padding:.65rem .9rem; border-bottom:1px solid var(--rule); font-size:var(--step--1); }
+  .absent .row:last-child { border-bottom:0; }
+  .absent .vn { font-weight:600; min-width:7rem; }
+  .absent .vd { color:var(--ink-soft); max-width:56ch; }
+  .absent .q { font-family:var(--mono); font-size:.72rem; color:var(--muted); display:block; margin-top:.25rem; }
+  .absent .caveat { color:var(--warn); display:block; margin-top:.25rem; font-size:.78rem; }
+
+  .unsearched { border:1px solid var(--accent); background:var(--accent-soft); border-radius:2px;
+    padding:.9rem 1.1rem; margin-top:1rem; max-width:68ch; font-size:var(--step--1); color:var(--accent-ink); }
+  .unsearched a { color:var(--accent-ink); font-weight:600; }
+  .unsearched .go { font-family:var(--mono); font-size:.74rem; display:block; margin-top:.5rem; }
+
+  .ask { border-left:3px solid var(--flag); background:var(--flag-soft); border-radius:2px;
+    padding:.9rem 1.1rem; margin-top:.9rem; max-width:68ch; }
+  .ask ul { margin:.6rem 0 0; padding-left:1.1rem; }
+  .ask li { margin:.35rem 0; }
+  .ask .why { font-size:var(--step--1); color:var(--ink-soft); }
+  .ask .book { font-size:var(--step--1); color:var(--muted); margin-top:.7rem; display:block; }
+
   .chart { border:1px dashed var(--rule-strong); border-radius:2px; background:var(--surface); padding:1rem; margin-top:.9rem; }
   .chart-cap { font-family:var(--mono); font-size:.7rem; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; }
   .bars { display:flex; align-items:flex-end; gap:.5rem; height:5rem; margin-top:.75rem; }
@@ -575,6 +614,20 @@
   }
 
   var SECTIONS = [
+    { t:24, id:"sec-levels", html:
+      '<section class="rep" id="sec-levels"><h2><span class="n">&mdash;</span> What we looked at</h2>' +
+      '<div class="levels">' +
+      '<div class="lvl"><span class="g g-yes">&#9679;</span><span class="nm">1 &middot; The problem</span><span class="st">6 people describing it, 2 places</span></div>' +
+      '<div class="lvl"><span class="g g-yes">&#9679;</span><span class="nm">2 &middot; What it is worth</span><span class="st">4 company claims, each attributed</span></div>' +
+      '<div class="lvl"><span class="g g-part">&#9680;</span><span class="nm">3 &middot; The idea itself</span><span class="st">2 earlier attempts found, both stopped</span></div>' +
+      '<div class="lvl"><span class="g g-yes">&#9679;</span><span class="nm">4 &middot; The businesses</span><span class="st">3 companies, 11 sources</span></div>' +
+      '<div class="lvl"><span class="g g-yes">&#9679;</span><span class="nm">5 &middot; What people say</span><span class="st">14 items &middot; 3 places we did not search</span></div>' +
+      '<div class="lvl"><span class="g g-q">?</span><span class="nm">6 &middot; Narrowing it down</span><span class="st">3 questions raised</span></div>' +
+      '<div class="lvl"><span class="g g-q">?</span><span class="nm">7 &middot; Getting it started</span><span class="st">2 questions raised</span></div>' +
+      '<div class="lvl"><span class="g g-none">&#9675;</span><span class="nm">8 &middot; Investor interest</span><span class="st">none found publicly &mdash; what that means</span></div>' +
+      '</div>' +
+      '<p style="font-size:var(--step--1);color:var(--muted)"><strong>?</strong> marks the two we do not answer. Those raise questions instead, and say what raised them.</p>' +
+      '</section>' },
     { t:26, id:"sec-pricing", html:
       '<section class="rep" id="sec-pricing"><h2><span class="n">02</span> Prices</h2>' +
       '<p style="font-size:var(--step--1);color:var(--muted)">Taken straight from each company own price page, so these are the figures they published.</p>' +
@@ -630,6 +683,47 @@
       '<section class="rep" id="sec-swot"><h2><span class="n">07</span> What this adds up to <span class="interp-tag">our reading, not theirs</span></h2>' +
       '<p><strong>An opening</strong> &middot; None of the three offers a different price list per restaurant as a normal feature, and six customers asked for it. ' + cite('S9',1) + '</p>' +
       '<p><strong>Worth watching</strong> &middot; Barnwise put its price up by a quarter in May ' + cite('S4') + ', which may make its customers willing to look around. That is our reading of the price change, not something Barnwise has said.</p></section>' },
+    { t:104, id:"sec-talk", html:
+      '<section class="rep" id="sec-talk"><h2><span class="n">5A</span> What folks are talking about</h2>' +
+      '<p style="font-size:var(--step--1);color:var(--muted)">Last 24 months &middot; 4 places searched &middot; 2 had enough going on to report</p>' +
+
+      '<p style="margin-top:1.2rem"><strong>What people are asking for</strong></p>' +
+      '<div class="quote"><span class="said">&ldquo;I would pay for something that just tells me what the chefs ordered last week, so I can plan what to plant.&rdquo;</span>' +
+      '<span class="who">r/smallfarms &middot; 11 March 2026 &middot; 34 replies</span></div>' +
+      '<div class="quote"><span class="said">&ldquo;Every restaurant wants a different price list and I keep it all in six spreadsheets.&rdquo;</span>' +
+      '<span class="who">Grower&rsquo;s Forum &middot; 22 January 2026 &middot; 12 replies</span></div>' +
+      '<p style="font-size:var(--step--1);color:var(--muted)">Two posts. Not a survey &mdash; these are the ones we read, and you can open both.</p>' +
+
+      '<p style="margin-top:1.4rem"><strong>What people are building</strong></p>' +
+      '<div class="proj"><span class="pn">harvest-ledger</span><span class="pd">1,240 commits &middot; 7 people &middot; last change 28 July 2026</span></div>' +
+      '<div class="proj dead"><span class="pn">farm-box-api</span><span class="pd">stopped November 2024 &middot; &ldquo;no longer maintained&rdquo;</span></div>' +
+      '<p style="font-size:var(--step--1);color:var(--muted)">Sorted by how recently people worked on it, never by stars. Someone building this and stopping is worth knowing about.</p>' +
+
+      '<p style="margin-top:1.4rem"><strong>Where this idea does not turn up</strong></p>' +
+      '<div class="absent">' +
+      '<div class="row"><span class="vn">Hacker News</span><span class="vd">Nothing found.' +
+      '<span class="q">searched: farm to restaurant ordering &middot; restaurant produce sourcing &middot; farm wholesale platform &mdash; since Aug 2024, 09:14 UTC</span>' +
+      '<span class="caveat">Hacker News is mostly software people. Nothing here barely counts as evidence.</span></span></div>' +
+      '<div class="row"><span class="vn">Lobsters</span><span class="vd">Not reported. Nobody there discusses food or farming, so silence would tell you nothing.</span></div>' +
+      '</div>' +
+
+      '<div class="unsearched"><strong>Three places we have not searched.</strong> We have not licensed content from X, LinkedIn or Reddit, so nothing from them is above and we cannot tell you whether your idea is discussed there. It may well be. These run the search on each site, signed in as you:' +
+      '<span class="go">X <a href="#">farm to restaurant ordering</a> &middot; <a href="#">restaurant produce sourcing</a><br>' +
+      'LinkedIn <a href="#">farm to restaurant ordering</a><br>' +
+      'Reddit <a href="#">farm to restaurant ordering</a> &middot; <a href="#">restaurant produce sourcing</a></span></div>' +
+      '</section>' },
+    { t:108, id:"sec-traj", html:
+      '<section class="rep" id="sec-traj"><h2><span class="n">07</span> Getting it started <span class="interp-tag">questions, not findings</span></h2>' +
+      '<div class="ask"><strong>This one needs both sides before it is useful to either.</strong>' +
+      '<p class="why" style="margin:.5rem 0 0">Two of the three companies describe signing up farms and restaurants separately ' + cite('S1') + cite('S7') + ', and one review says they joined and found no farms listed yet ' + cite('S9',1) + '.</p>' +
+      '<ul>' +
+      '<li>Which side do you get first, and what do you give them while the other side is empty?</li>' +
+      '<li>What is the smallest patch &mdash; one town, one market &mdash; where this already works?</li>' +
+      '<li>What does it do for the very first person, before anyone else has joined?</li>' +
+      '</ul>' +
+      '<span class="book">These come from Andrew Chen&rsquo;s <em>The Cold Start Problem</em>, which is about exactly this. We have not summarised it. If this is your situation, read it &mdash; his essays are free.</span>' +
+      '</div>' +
+      '<p style="font-size:var(--step--1);color:var(--muted);margin-top:.8rem">A starting point if this is new to you, a checklist if it is not. Not advice.</p></section>' },
     { t:112, html:
       '<section class="rep" id="sec-sources"><h2><span class="n">08</span> Where all of this came from</h2>' +
       '<div class="tbl-wrap"><table><thead><tr><th>Ref</th><th>Page</th><th>Kind</th><th>Read on</th></tr></thead><tbody>' +
@@ -920,6 +1014,19 @@
     "mix-them": "Or both at once. They combine.",
     "close": "Facts you can check. Gaps it owns up to. One box to start.",
     "try-it": "That's the walkthrough. Now try it yourself.",
+    "eight-levels": "Competitors are one of eight things checked. The rest is about your idea.",
+    "two-we-dont": "Two we don't answer. Those raise questions instead, and say what raised them.",
+    "the-talking": "This part is not about the companies. It is about the problem.",
+    "asking-for": "People with this problem, in their own words. Both posts are one click away.",
+    "not-a-survey": "Two posts. We say two, because we read two.",
+    "already-built": "Somebody already built this. Twelve hundred changes, seven people, still going.",
+    "one-stopped": "Another was abandoned in 2024. Worth knowing why before you start.",
+    "where-it-isnt": "Nobody on Hacker News is discussing this. Here are the exact searches.",
+    "weak-evidence": "Hacker News is software people. For a farming tool that silence proves nothing.",
+    "not-licensed": "We have not licensed X, LinkedIn or Reddit. So we tell you, and hand you the searches.",
+    "questions-not-answers": "This one needs farms and restaurants both. Which do you get first?",
+    "read-the-book": "The questions come from a book we did not summarise. If this is you, read it.",
+    "next-film-1b": "That is the thinking already out there. The demo continues in the next film.",
   };
   // <</NARRATION>>
 
@@ -962,21 +1069,43 @@
     { t:136, id:"paste-website", c:N["paste-website"], a:function(){ $("prompt").value="https://croptally.example"; } },
     { t:140, id:"mix-them", c:N["mix-them"], a:function(){ $("prompt").value="an app for farm-to-restaurant orders, like Croptally"; } },
     { t:145, id:"close", c:N["close"], a:function(){ closeAdvanced(); $("prompt").value=IDEA; } },
-    { t:150, id:"try-it", c:N["try-it"], a:function(){} }
+    { t:150, id:"try-it", c:N["try-it"], a:function(){} },
+
+    // Film 2 lives at the end of the timeline rather than in the middle, so adding it
+    // did not require re-timing every step that follows. Chapter order is set by the
+    // CHAPTERS array, not by these numbers.
+    { t:160, id:"eight-levels", c:N["eight-levels"], a:function(){ var e=$("sec-levels"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:165, id:"two-we-dont", c:N["two-we-dont"], a:function(){} },
+    { t:170, id:"the-talking", c:N["the-talking"], a:function(){ var e=$("sec-talk"); if(e) e.scrollIntoView({behavior:"smooth",block:"start"}); } },
+    { t:175, id:"asking-for", c:N["asking-for"], a:function(){} },
+    { t:181, id:"not-a-survey", c:N["not-a-survey"], a:function(){} },
+    { t:185, id:"already-built", c:N["already-built"], a:function(){ var e=document.querySelector("#sec-talk .proj"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:191, id:"one-stopped", c:N["one-stopped"], a:function(){} },
+    { t:195, id:"where-it-isnt", c:N["where-it-isnt"], a:function(){ var e=document.querySelector("#sec-talk .absent"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:201, id:"weak-evidence", c:N["weak-evidence"], a:function(){} },
+    { t:206, id:"not-licensed", c:N["not-licensed"], a:function(){ var e=document.querySelector("#sec-talk .unsearched"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:212, id:"questions-not-answers", c:N["questions-not-answers"], a:function(){ var e=$("sec-traj"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"}); } },
+    { t:218, id:"read-the-book", c:N["read-the-book"], a:function(){} },
+    { t:223, id:"next-film-1b", c:N["next-film-1b"], a:function(){} }
   ];
 
-  // Three shorter films rather than one long one: each stays well inside the size
-  // budget, so each can be recorded larger, and a viewer can stop after the first.
+  // Four shorter films rather than one long one: each stays well inside the size
+  // budget, so each can be recorded larger, and a viewer can stop after any of them.
+  // Order here is the order shown; the time windows are independent of it.
   var CHAPTERS = [
     { id:"report",  n:1, title:"From an idea to a report",
       blurb:"Someone types a business idea in plain words and gets a competitor report they can check.",
       from:0, to:72,
       setup:function(){ setTier("anon"); show("composer"); $("prompt").value=""; closeAdvanced(); } },
-    { id:"answers", n:2, title:"Questions, alerts and what it costs",
+    { id:"talking", n:2, title:"What folks are talking about",
+      blurb:"Beyond the companies: what people are asking for, what has already been built and abandoned, where the idea does not turn up at all, and the three places we have not licensed.",
+      from:160, to:223,
+      setup:function(){ setTier("anon"); renderReportNow(); } },
+    { id:"answers", n:3, title:"Questions, alerts and what it costs",
       blurb:"Asking questions about a finished report, what each kind of account allows, and the email when a competitor changes their prices.",
       from:73, to:111,
       setup:function(){ setTier("anon"); renderReportNow(); } },
-    { id:"more",    n:3, title:"Community, admin, and other ways to start",
+    { id:"more",    n:4, title:"Community, admin, and other ways to start",
       blurb:"The public help channels, the owner's view of the service, and the two other ways to begin a report.",
       from:112, to:150,
       setup:function(){ setTier("anon"); show("composer"); closeAdvanced(); } }

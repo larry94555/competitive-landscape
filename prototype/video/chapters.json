@@ -7,15 +7,22 @@
     "seconds": 78
   },
   {
-    "id": "answers",
+    "id": "talking",
     "n": 2,
+    "title": "What folks are talking about",
+    "blurb": "Beyond the companies: what people are asking for, what has already been built and abandoned, where the idea does not turn up at all, and the three places we have not licensed.",
+    "seconds": 69
+  },
+  {
+    "id": "answers",
+    "n": 3,
     "title": "Questions, alerts and what it costs",
     "blurb": "Asking questions about a finished report, what each kind of account allows, and the email when a competitor changes their prices.",
     "seconds": 44
   },
   {
     "id": "more",
-    "n": 3,
+    "n": 4,
     "title": "Community, admin, and other ways to start",
     "blurb": "The public help channels, the owner's view of the service, and the two other ways to begin a report.",
     "seconds": 44

@@ -166,3 +166,55 @@ Facts you can check. Gaps it owns up to. One box to start.
 ## [try-it] 2:30.0
 
 That's the walkthrough. Now try it yourself.
+
+## [eight-levels] 2:40.0
+
+Competitors are one of eight things checked. The rest is about your idea.
+
+## [two-we-dont] 2:45.0
+
+Two we don't answer. Those raise questions instead, and say what raised them.
+
+## [the-talking] 2:50.0
+
+This part is not about the companies. It is about the problem.
+
+## [asking-for] 2:55.0
+
+People with this problem, in their own words. Both posts are one click away.
+
+## [not-a-survey] 3:01.0
+
+Two posts. We say two, because we read two.
+
+## [already-built] 3:05.0
+
+Somebody already built this. Twelve hundred changes, seven people, still going.
+
+## [one-stopped] 3:11.0
+
+Another was abandoned in 2024. Worth knowing why before you start.
+
+## [where-it-isnt] 3:15.0
+
+Nobody on Hacker News is discussing this. Here are the exact searches.
+
+## [weak-evidence] 3:21.0
+
+Hacker News is software people. For a farming tool that silence proves nothing.
+
+## [not-licensed] 3:26.0
+
+We have not licensed X, LinkedIn or Reddit. So we tell you, and hand you the searches.
+
+## [questions-not-answers] 3:32.0
+
+This one needs farms and restaurants both. Which do you get first?
+
+## [read-the-book] 3:38.0
+
+The questions come from a book we did not summarise. If this is you, read it.
+
+## [next-film-1b] 3:43.0
+
+That is the thinking already out there. The demo continues in the next film.
