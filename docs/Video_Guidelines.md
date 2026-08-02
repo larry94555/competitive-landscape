@@ -6,6 +6,11 @@
 > what it must contain, and how it is published. This document is the **craft**: the rules for
 > writing the narration and building the artefact. Every rule here was learned by getting it
 > wrong first, and the mistake is recorded alongside each one so nobody repeats it.
+>
+> **Companion:** [Video_Text_Best_Practices.md](Video_Text_Best_Practices.md) goes further on
+> the words themselves — word economy, framing value for an impatient listener, and writing so
+> the viewer reaches the conclusion unaided. This document keeps a line *understandable*; that
+> one makes it *worth hearing*. Both checklists are blocking.
 
 ---
 
