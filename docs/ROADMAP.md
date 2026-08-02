@@ -16,6 +16,7 @@ TypeScript + React frontend · Rust backend · local llama.cpp inference on Orac
 |---|---|
 | **ROADMAP.md** (this file) | Executive summary, phased plan (**C**), metrics (**F**), solo-founder execution (**G**), risks (**H**), bootstrapped cost ladder, git/PR workflow |
 | [PRODUCT_SPEC.md](PRODUCT_SPEC.md) | Product & UX specification (**A**): user flows, report schema, notification UX, zero-learning-curve mechanisms |
+| [Demo_Walkthrough.md](Demo_Walkthrough.md) | The shot-by-shot design for the demo films: the five-beat arc every film repeats, the rule that **every result gets both a "what it is" and a "why it helps"** beat, and the twelve films that replace the four |
 | [Video_Guidelines.md](Video_Guidelines.md) | How demo films are made: plain-language rules, subtitle delivery, narration pacing, chaptering, and the build pipeline |
 | [Video_Text_Best_Practices.md](Video_Text_Best_Practices.md) | How demo narration is written: word economy, value in the listener's currency, one elevator pitch per line, and letting the viewer reach the conclusion unaided |
 | [UI_FLOWS.md](UI_FLOWS.md) | The seven flows: access tiers, conversational follow-up, notifications, admin, community channels — and four conflicts with earlier decisions |
