@@ -1,0 +1,77 @@
+WEBVTT
+
+1
+00:00:01.500 --> 00:00:05.400
+This is the code that runs behind the demo.
+
+2
+00:00:05.400 --> 00:00:12.800
+Four Rust crates, a React frontend, and the specification it was built from.
+
+3
+00:00:12.800 --> 00:00:19.700
+Types first. No database, no network, nothing to install to test it.
+
+4
+00:00:19.700 --> 00:00:25.700
+This is a Claim. Every sentence in a report is one.
+
+5
+00:00:25.700 --> 00:00:32.800
+It cannot be built without a source label and a quote from that source.
+
+6
+00:00:32.800 --> 00:00:38.700
+So a sentence with no evidence behind it cannot be written down at all.
+
+7
+00:00:38.700 --> 00:00:44.700
+This is how the application reaches storage.
+
+8
+00:00:44.700 --> 00:00:51.800
+Six methods. There are two implementations: Postgres, and one in memory.
+
+9
+00:00:51.800 --> 00:00:57.300
+Every test uses the memory one, so the tests need nothing running.
+
+10
+00:00:57.300 --> 00:01:03.700
+The queue is a column in the database, not a separate service.
+
+11
+00:01:03.700 --> 00:01:10.800
+Skip locked lets several workers claim jobs at once without collisions.
+
+12
+00:01:10.800 --> 00:01:15.600
+One fewer thing to run, and one fewer thing to pay for.
+
+13
+00:01:15.600 --> 00:01:21.600
+A finished report today contains nothing.
+
+14
+00:01:21.600 --> 00:01:28.500
+It says so, and lists what it would have checked. Same as a real gap.
+
+15
+00:01:28.500 --> 00:01:33.900
+The reading pipeline is next. The shape it fills is already here.
+
+16
+00:01:33.900 --> 00:01:40.700
+This test checks that a failure never shows a reader our internals.
+
+17
+00:01:40.700 --> 00:01:46.900
+It asserts a database password cannot appear in a response.
+
+18
+00:01:46.900 --> 00:01:52.300
+Two commands to run it. Nothing else to install.
+
+19
+00:01:52.300 --> 00:01:58.200
+Twenty-seven tests, no database, no keys, no accounts.

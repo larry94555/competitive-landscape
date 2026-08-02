@@ -15,8 +15,11 @@ import { dirname, join } from 'node:path';
 import { mkdirSync, readdirSync, renameSync, rmSync, existsSync, writeFileSync } from 'node:fs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const pageUrl = pathToFileURL(join(here, 'ui-prototype.html')).href;
-const outDir = join(here, 'video');
+// Which page to record. The code tour exposes the same two globals as the prototype
+// (__chapters and __playDemo), so one recorder serves both rather than two that drift.
+const pageFile = process.env.RECORD_PAGE || 'ui-prototype.html';
+const pageUrl = pathToFileURL(join(here, pageFile)).href;
+const outDir = join(here, process.env.RECORD_OUT || 'video');
 
 const W = 1600, H = 1000, ZOOM = 1.35;
 const only = process.argv[2] || null;
