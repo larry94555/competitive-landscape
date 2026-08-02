@@ -1,0 +1,23 @@
+# Postgres only. The application itself runs from cargo so a rebuild is seconds, not a
+# container build — and `--store memory` skips this file entirely.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: landscape
+      POSTGRES_PASSWORD: landscape
+      POSTGRES_DB: landscape
+    ports:
+      - "5432:5432"
+    volumes:
+      - landscape-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Compose waits for this before reporting the service healthy, so `up -d db` followed
+      # immediately by a migration does not race the server's first boot.
+      test: ["CMD-SHELL", "pg_isready -U landscape -d landscape"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  landscape-pgdata:

@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  # A build that downloads the world on every job is a build nobody waits for.
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  rust:
+    name: rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # rust-toolchain.toml pins the version, so nothing is specified here: the two would
+      # drift, and the file in the repo is the one contributors actually use.
+      - name: Show toolchain
+        run: rustc --version && cargo --version
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        # The workspace already denies unwrap/expect/panic. -D warnings makes everything
+        # else fail too, so a warning cannot accumulate quietly across commits.
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Test
+        # No services. Every test runs against the in-memory store, which is why this job
+        # takes seconds and why a contributor can reproduce it exactly on a laptop.
+        run: cargo test --all-features
+
+      - name: Build release
+        run: cargo build --release
+
+  postgres:
+    name: rust (against postgres)
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: landscape
+          POSTGRES_PASSWORD: landscape
+          POSTGRES_DB: landscape
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U landscape -d landscape"
+          --health-interval 2s --health-timeout 3s --health-retries 15
+    env:
+      DATABASE_URL: postgres://landscape:landscape@127.0.0.1:5432/landscape
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Conformance against a real database
+        # The in-memory store is only worth trusting if it behaves like Postgres. This runs
+        # the same contract against both; without it the fast tests slowly become fiction.
+        run: cargo test --all-features -- --ignored
+
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build

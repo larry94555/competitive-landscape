@@ -1,3 +1,14 @@
 node_modules/
 prototype/demo-page.html
 package-lock.json
+
+# Rust
+/target
+**/*.rs.bk
+
+# Frontend
+web/dist
+web/node_modules
+
+# Local config
+.env

@@ -1,0 +1,28 @@
+[package]
+name = "landscape"
+description = "The binary. Wires roles together: serve, worker, migrate."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "landscape"
+path = "src/main.rs"
+
+[dependencies]
+landscape-api.workspace = true
+landscape-core.workspace = true
+landscape-db.workspace = true
+
+anyhow.workspace = true
+axum.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true
