@@ -53,6 +53,7 @@ the visual treatment**:
 | **Observed** | Stated on a public page; quotable | "Basic is $8/user/month" | Normal. Cited `[S2]`. |
 | **Derived** | Arithmetic or counting over observed facts; no judgement | "At 25 seats that is $200/month"; "6 changelog entries in 90 days" | Normal. Cites the inputs, and the operation is stated. |
 | **Interpreted** | Requires judgement not present in any source | "They are moving upmarket" | **Visually distinct, labelled *interpretation*,** and must cite the observed facts it rests on. |
+| **Estimated** | Arithmetic over assumed inputs as well as observed ones | "Roughly $4M–$19M a year" | **Always a range, never a point.** Assumptions on the face of it, full working one click away, never in the executive PDF. See [Off-The-Napkin-Estimates.md](Off-The-Napkin-Estimates.md). |
 
 This mirrors the existing SWOT treatment ([PRODUCT_SPEC.md](PRODUCT_SPEC.md) §4.1) and extends
 it to every chart. **A positioning map is interpretation with axes; it must look like
@@ -174,6 +175,17 @@ explicitly labelled interpretation.
   interpretation dressed as measurement. See
   [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) §7.
 
+### Section 7B — Rough estimates *(only where the inputs exist)*
+- **Content:** market size now, market size under stated scenarios, and — where inputs allow —
+  customer counts and site traffic. Every figure is a **range with its assumptions printed
+  beside it** and the full working one click away.
+- **Refusal is a normal outcome**, and is written to be useful: what was missing, what was
+  tried, and the one fact that would unlock it.
+- **Every estimate ends with what would sharpen it most** — the input that dominates the
+  uncertainty. Often more valuable than the number.
+- **Never in the executive PDF.** Specified in
+  [Off-The-Napkin-Estimates.md](Off-The-Napkin-Estimates.md).
+
 ### Section 8A — Other places worth looking *(only when there is something to say)*
 - **Content:** specific pages we did not read but have reason to believe hold something about
   this subject, each with the reason and a link — a site that does not allow automated reading,
@@ -283,9 +295,11 @@ strategic implications of observed changes.
 
 | Excluded | Reason |
 |---|---|
-| Market share, TAM/SAM/SOM | Not reliably public; analyst estimates are modelled, not observed |
-| **Visitor counts and traffic estimates** | Modelled, and they vary wildly between vendors. **Domain *rankings* are reported instead** — see §3, Section 7A — because ranks are measured from real traffic while visitor numbers are inferred |
-| Revenue, ARR, burn, margins (private companies) | Not public |
+| Market share | Needs both a numerator and a denominator we do not have |
+| **Hidden estimates of any kind** | A number with no visible derivation, sitting beside verified facts as though it had the same standing. **Estimates with their working shown are a different object and are permitted** — see [Off-The-Napkin-Estimates.md](Off-The-Napkin-Estimates.md) §1 for why the distinction holds |
+| Unlabelled visitor counts | Ranks are measured; visit counts are inferred from them. Both are reported, but a visit figure appears **only as a labelled range with its method shown** (Off-The-Napkin-Estimates §4.4) |
+| Profitability, burn, margins, churn, CAC, LTV | No public input exists at any decomposition — there is nothing to estimate *from* |
+| Private-company revenue **as a stated figure** | Estimable only to an order of magnitude, only from two independent paths, and deliberately restricted: never in a shared report or PDF (Off-The-Napkin-Estimates §4.3) |
 | Traffic, visitor counts, conversion rates | Third-party estimates only |
 | Customer counts and named logos beyond what is published | Frequently stale or promotional |
 | Win/loss data | Internal by definition |
@@ -293,7 +307,7 @@ strategic implications of observed changes.
 | Individual employees, org charts, LinkedIn profiles | Public-company-behaviour analysis, not people-tracking ([QUALITY_GUARDRAILS.md](QUALITY_GUARDRAILS.md) §6) |
 | Anything behind a login, paywall, or robots-disallowed path | Public data only |
 | Roadmaps and unannounced plans | Speculation |
-| Forecasts, predictions, "likely to" | The product does not predict |
+| Forecasts, predictions, "likely to" | The product does not predict. Scenario arithmetic on stated assumptions is a different object and is permitted (Off-The-Napkin-Estimates §4.2) |
 | Security, compliance, or legal assessments | Requires expertise and liability we do not have |
 | Head-to-head "winner" verdicts | The user's context decides; asserting a winner without knowing their constraints is a confident guess |
 

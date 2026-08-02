@@ -728,7 +728,10 @@ committing the error it exists to prevent.
    and say so; a price you see may differ.
 5. **Pages are A/B tested and personalised** (P19). We captured one variant at one moment.
 6. **Review data is not a representative sample** (P12).
-7. **We do not predict, forecast, or estimate** anything not published.
+7. **We do not predict or forecast.** We do make **labelled estimates** where the inputs
+   exist — always a range, always with the assumptions printed and the arithmetic one click
+   away, never in a shared PDF ([Off-The-Napkin-Estimates.md](Off-The-Napkin-Estimates.md)).
+   The line is between a number you can take apart and one you cannot.
 8. **We do not assess security, compliance, or legal posture.**
 9. **We are not a substitute for primary due diligence** on a decision that matters.
 
