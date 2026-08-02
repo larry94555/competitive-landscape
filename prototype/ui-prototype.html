@@ -901,6 +901,7 @@
     "size-and-standing": "It also looks up how busy each website is, and when each company started, from services the companies do not control.",
     "rankings-not-visits": "Each line says which service it came from and when. These are rankings against every other website, not visitor counts, because visitor numbers are guesses.",
     "where-it-came-from": "Every fact links back to where it came from. Click one and you see the page, the exact sentence, and when it was read.",
+    "next-film-1": "That is a report, from a plain idea to something you can check. The demo continues in the next film.",
     "ask-questions": "Once the report is ready you can ask questions about it. Answers come back quickly, because the pages have already been read.",
     "ask-1": "",
     "ask-declined": "Ask something the pages do not cover, and it tells you, instead of making an answer up.",
@@ -909,6 +910,7 @@
     "subscription": "A dollar a month gives you five an hour and as many questions as you like. The report is the same either way.",
     "alerts": "If a competitor changes their prices, you get an email. The subject line tells you what changed.",
     "before-and-after": "And you can see the before and after side by side, both dated, so you can check it yourself.",
+    "next-film-2": "The demo continues in the last film.",
     "help-area": "There is a public help area anyone can read. The channels for sign-up and log-in trouble take messages from anyone, because a person who cannot log in cannot be asked to log in first.",
     "behind-the-scenes": "Behind the scenes, the owner can see how busy the service is and change any of the limits without touching code.",
     "change-a-limit": "Change a number and it takes effect straight away.",
@@ -917,6 +919,7 @@
     "paste-website": "You can paste the address of a company website, and it will work out the rest.",
     "mix-them": "Or put them in the same sentence as your idea. Any of the three work on their own, or together.",
     "close": "Facts you can check. Gaps it owns up to. And one thing to type to get started.",
+    "try-it": "That is the whole walkthrough. Now try it out yourself.",
   };
   // <</NARRATION>>
 
@@ -939,6 +942,7 @@
     { t:62, id:"rankings-not-visits", c:N["rankings-not-visits"], a:function(){} },
     { t:67, id:"where-it-came-from", c:N["where-it-came-from"], a:function(){ var e=$("sec-swot"); if(e) e.scrollIntoView({behavior:"smooth",block:"center"});
               setTimeout(function(){ var c=document.querySelector("#sec-swot .cite"); if(c) showPop.call(c,null); }, 900); } },
+    { t:72, id:"next-film-1", c:N["next-film-1"], a:function(){} },
     { t:73, id:"ask-questions", c:N["ask-questions"], a:function(){ $("pop").classList.remove("open"); $("followup").scrollIntoView({behavior:"smooth",block:"center"}); } },
     { t:77, id:"ask-1", c:N["ask-1"], a:function(){ askFollowUp("What would I pay for 40 orders a month?"); } },
     { t:82, id:"ask-declined", c:N["ask-declined"], a:function(){ askFollowUp("How do they handle food safety records?"); } },
@@ -947,6 +951,7 @@
     { t:97, id:"subscription", c:N["subscription"], a:function(){ setTier("sub"); } },
     { t:102, id:"alerts", c:N["alerts"], a:function(){ show("notify"); } },
     { t:107, id:"before-and-after", c:N["before-and-after"], a:function(){ $("diffBlock").classList.remove("hidden"); setTimeout(function(){$("diffBlock").scrollIntoView({behavior:"smooth",block:"center"});},250); } },
+    { t:111, id:"next-film-2", c:N["next-film-2"], a:function(){} },
     { t:112, id:"help-area", c:N["help-area"], a:function(){ show("community"); curChan="signup"; renderChan(); } },
     { t:118, id:"behind-the-scenes", c:N["behind-the-scenes"], a:function(){ show("admin"); } },
     { t:123, id:"change-a-limit", c:N["change-a-limit"], a:function(){ var i=$("limA"); i.value="2"; i.classList.add("flash");
@@ -956,7 +961,8 @@
     { t:132, id:"name-competitors", c:N["name-competitors"], a:function(){ $("prompt").value="Croptally vs Barnwise"; } },
     { t:136, id:"paste-website", c:N["paste-website"], a:function(){ $("prompt").value="https://croptally.example"; } },
     { t:140, id:"mix-them", c:N["mix-them"], a:function(){ $("prompt").value="an app for farm-to-restaurant orders, like Croptally"; } },
-    { t:145, id:"close", c:N["close"], a:function(){ closeAdvanced(); $("prompt").value=IDEA; } }
+    { t:145, id:"close", c:N["close"], a:function(){ closeAdvanced(); $("prompt").value=IDEA; } },
+    { t:150, id:"try-it", c:N["try-it"], a:function(){} }
   ];
 
   // Three shorter films rather than one long one: each stays well inside the size

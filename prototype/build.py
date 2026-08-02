@@ -167,11 +167,12 @@ def build_page(ch, chs, url_map):
     elif nxt:
         more = ('<div class="more off">More video demos available &rsaquo; <b>%d. %s</b>'
                 '<span>link added when it is published</span></div>' % (nxt['n'], nxt['title']))
+    elif url_map.get('prototype'):
+        # The last film ends by handing the viewer the thing itself.
+        more = ('<a class="more" href="%s">Now try it out yourself &rsaquo;'
+                '<b>Open the clickable prototype</b></a>' % url_map['prototype'])
     else:
-        first = chs[0]
-        more = (('<a class="more" href="%s">Back to the beginning &rsaquo;<b>1. %s</b></a>'
-                 % (url_map[first['id']], first['title'])) if url_map.get(first['id'])
-                else '<div class="more off">That is the last of them.</div>')
+        more = '<div class="more off">That is the last of them.</div>'
 
     html = (PAGE
             .replace('__V64__', v64).replace('__T64__', t64)

@@ -302,6 +302,18 @@ carries the full list with the current one marked. Published URLs live in
 `prototype/video/links.json`: publish once, paste the URLs in, rebuild, republish — the same
 file path keeps the same URL, so the links settle on the second pass.
 
+**Every film ends deliberately.** A film that simply stops reads as broken — the viewer waits,
+wondering whether something failed. Each one closes with a spoken line, not just a link on the
+page:
+
+| Film | Closes with |
+|---|---|
+| Any but the last | *"The demo continues in the next film."* |
+| The last | *"Now try it out yourself."* — and the page's call to action opens the working prototype rather than looping back to the beginning |
+
+The last film handing the viewer the thing itself is the point of the whole sequence. Sending
+them back to film one instead would be a loop with no exit.
+
 **Chapters that start mid-story need a setup.** Film 2 opens on a finished report, so the
 prototype can render one instantly with no animation. Without that, every film would have to
 replay everything before it.

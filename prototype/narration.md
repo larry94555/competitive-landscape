@@ -89,6 +89,10 @@ Each line says which service it came from and when. These are rankings against e
 
 Every fact links back to where it came from. Click one and you see the page, the exact sentence, and when it was read.
 
+## [next-film-1] 1:12.0
+
+That is a report, from a plain idea to something you can check. The demo continues in the next film.
+
 ## [ask-questions] 1:06.0  ·  4s on screen  ·  ~8s to read
 
 Once the report is ready you can ask questions about it. Answers come back quickly, because the pages have already been read.
@@ -121,6 +125,10 @@ If a competitor changes their prices, you get an email. The subject line tells y
 
 And you can see the before and after side by side, both dated, so you can check it yourself.
 
+## [next-film-2] 1:51.0
+
+The demo continues in the last film.
+
 ## [help-area] 1:45.0  ·  6s on screen  ·  ~13s to read
 
 There is a public help area anyone can read. The channels for sign-up and log-in trouble take messages from anyone, because a person who cannot log in cannot be asked to log in first.
@@ -152,3 +160,7 @@ Or put them in the same sentence as your idea. Any of the three work on their ow
 ## [close] 2:18.0  ·  6s on screen  ·  ~7s to read
 
 Facts you can check. Gaps it owns up to. And one thing to type to get started.
+
+## [try-it] 2:30.0
+
+That is the whole walkthrough. Now try it out yourself.
