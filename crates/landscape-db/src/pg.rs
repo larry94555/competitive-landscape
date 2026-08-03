@@ -32,6 +32,16 @@ impl PgStore {
         Ok(Self { pool })
     }
 
+    /// Wrap a pool the caller built.
+    ///
+    /// Exists so a caller can control connection setup — tests use it to give each test
+    /// its own Postgres schema, which is what lets them run in parallel against one
+    /// database without colliding.
+    #[must_use]
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self { pool }
+    }
+
     /// Apply migrations. Safe to call on every boot; applied migrations are skipped.
     pub async fn migrate(&self) -> Result<()> {
         sqlx::migrate!("../../migrations")
