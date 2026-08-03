@@ -37,6 +37,25 @@ Everything in the demo films is a **prototype** with invented data. It is not th
 
 ---
 
+## Which shell
+
+**This matters on Windows, and the commands below are written for one shell.**
+
+Every `curl` in this document uses POSIX syntax — single quotes around the JSON, `\` to
+continue a line. That works in **Git Bash, WSL, macOS and Linux**. It does **not** work in
+`cmd.exe` or PowerShell, and the failure is confusing rather than obvious: `cmd` treats `\`
+as the end of the command and runs the next line as a separate one, so you get a rejection
+from the API followed by *"'-H' is not recognized"*.
+
+If you are on Windows, either **use Git Bash** — simplest, and everything below works
+unchanged — or use the per-shell forms in [Part 3A](#part-3a--the-same-request-in-cmdexe-or-powershell).
+
+> **PowerShell has an extra trap.** In Windows PowerShell 5.1, `curl` is an *alias for
+> `Invoke-WebRequest`*, not curl at all. You need `curl.exe`, and even then PowerShell eats
+> the quotes around a JSON body. Part 3A gives two forms that work.
+
+---
+
 ## Setup
 
 You need **Rust** and **Node**. Nothing else for Part 1–6.
@@ -173,6 +192,51 @@ curl -s localhost:8787/api/analyses/PASTE_THE_ID_HERE
 
 **Why it matters.** `report` is `null` while queued and an object once complete. It is never a
 half-filled shape — a partial report is not representable.
+
+---
+
+## Part 3A — The same request in cmd.exe or PowerShell
+
+Skip this if you are in Git Bash, WSL, macOS or Linux — Part 3 already worked.
+
+**Every command here was run on Windows before being written down.**
+
+### cmd.exe
+
+Double quotes outside, escaped double quotes inside. No single quotes, and `^` — not `\` —
+continues a line:
+
+```bat
+curl -s -X POST localhost:8787/api/analyses -H "content-type: application/json" -d "{\"prompt\":\"an app that helps small farms sell to local restaurants\"}"
+```
+
+Doubling the inner quotes works too, if you find it easier to read:
+
+```bat
+curl -s -X POST localhost:8787/api/analyses -H "content-type: application/json" -d "{""prompt"":""an app that helps small farms sell to local restaurants""}"
+```
+
+### PowerShell
+
+`curl.exe`, not `curl` — and `--%` stops PowerShell parsing the rest, which is what keeps the
+quotes intact:
+
+```powershell
+curl.exe --% -s -X POST localhost:8787/api/analyses -H "content-type: application/json" -d "{\"prompt\":\"an app that helps small farms sell to local restaurants\"}"
+```
+
+Or skip curl entirely and use PowerShell's own client, which needs no quoting gymnastics:
+
+```powershell
+$body = @{ prompt = 'an app that helps small farms sell to local restaurants' } | ConvertTo-Json
+Invoke-RestMethod -Uri http://localhost:8787/api/analyses -Method Post -ContentType 'application/json' -Body $body
+```
+
+**GET requests are fine everywhere** — no body, no quoting:
+
+```bat
+curl -s localhost:8787/api/health
+```
 
 ---
 
@@ -451,6 +515,7 @@ python prototype/build.py --preview
 | 2 — web UI, submit, completes, box clears | | |
 | 2 — short prompt rejected in the UI, box NOT cleared | | |
 | 3 — API create and read back | | |
+| 3A — the same request in your shell, if on Windows | | |
 | 4 — report shows `checked`, no invented claims | | |
 | 5 — all seven rejections carry a remedy | | |
 | 6 — `serve` alone leaves it queued | | |

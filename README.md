@@ -141,6 +141,11 @@ curl -sX POST http://127.0.0.1:8787/api/analyses \
 
 Take the `id` from the response and read it back a second later — it will be `complete`.
 
+**On Windows, that command needs a different shell or a different form.** The `\`
+continuations and single quotes above are POSIX syntax; `cmd.exe` and PowerShell both reject
+them, and PowerShell additionally aliases `curl` to `Invoke-WebRequest`.
+[`Feature_Walkthrough.md` Part 3A](docs/Feature_Walkthrough.md) has forms verified on both.
+
 **The `content-type` header is required.** Leaving it off is the most common way to hit this
 endpoint by hand, so the rejection names the missing header rather than making you guess:
 

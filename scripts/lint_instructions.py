@@ -52,7 +52,12 @@ def commands(text: str) -> list[tuple[int, str]]:
     for n, raw in enumerate(text.splitlines(), start=1):
         line = raw.strip()
         if line.startswith('```'):
-            inside = line.startswith('```bash') or line.startswith('```sh')
+            # Windows fences document the same requests and get the same checks:
+            # a wrong port in a .bat block misleads exactly as much.
+            inside = any(
+                line.startswith(f'```{lang}')
+                for lang in ('bash', 'sh', 'bat', 'cmd', 'powershell')
+            )
             continue
         if inside and line.startswith(MARKER):
             skip_next = True
