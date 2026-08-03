@@ -1,0 +1,147 @@
+name: CI
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  # A build that downloads the world on every job is a build nobody waits for.
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  rust:
+    name: rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # rust-toolchain.toml pins the version, so nothing is specified here: the two would
+      # drift, and the file in the repo is the one contributors actually use.
+      - name: Show toolchain
+        run: rustc --version && cargo --version
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        # The workspace already denies unwrap/expect/panic. -D warnings makes everything
+        # else fail too, so a warning cannot accumulate quietly across commits.
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Lint the instructions
+        # The README is a set of commands people paste. A stale one looks like the
+        # software is broken, so it is checked like code.
+        run: python3 scripts/lint_instructions.py README.md docs/Feature_Walkthrough.md
+
+      - name: Test
+        # No services. Every test runs against the in-memory store, which is why this job
+        # takes seconds and why a contributor can reproduce it exactly on a laptop.
+        run: cargo test --all-features
+
+      - name: Build release
+        run: cargo build --release
+
+  aarch64:
+    name: cross-compile for the target hardware
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      # The production host is an Oracle Ampere A1: 4 OCPU aarch64. ROADMAP.md wants this
+      # from the first commit, because a Rust build that has only ever run on x86 finds its
+      # first ARM-only problem in production — usually in a transitive C dependency.
+      - name: Add the target
+        run: rustup target add aarch64-unknown-linux-gnu
+      - name: Install the cross linker
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+      - name: Check
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        # `check` rather than `build`: it catches the dependency and codegen problems this
+        # is for, in a fraction of the time. A full cross build belongs in the release job.
+        run: cargo check --workspace --all-features --target aarch64-unknown-linux-gnu
+
+  supply-chain:
+    name: supply chain
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks scans a commit RANGE, so it needs the commits in that range. The
+          # default shallow clone (depth 1) has none of them: it reports "scanned ~0 bytes",
+          # finds nothing because there is nothing to look at, and then exits non-zero.
+          # A green "no leaks found" from an empty scan would be worse than this failure.
+          fetch-depth: 0
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Advisories, licences, sources
+        # Licences matter beyond the usual here: this runs an open-weights model
+        # commercially, and the same discipline has to apply to the dependency tree.
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories licenses bans sources
+
+      - name: Secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  postgres:
+    name: rust (against postgres)
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: landscape
+          POSTGRES_PASSWORD: landscape
+          POSTGRES_DB: landscape
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U landscape -d landscape"
+          --health-interval 2s --health-timeout 3s --health-retries 15
+    env:
+      DATABASE_URL: postgres://landscape:landscape@127.0.0.1:5432/landscape
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - name: Conformance against a real database
+        # The in-memory store is only worth trusting if it behaves like Postgres. This runs
+        # the same contract against both; without it the fast tests slowly become fiction.
+        #
+        # `--ignored` is a blunt instrument: it also sweeps up the README execution test
+        # (fine, it needs nothing) and the llama-server tests (not fine — CI runs no model
+        # server). Those skip themselves when nothing is reachable, and say so in the log.
+        # `LLAMA_REQUIRED` is deliberately NOT set here; a job that does provide a model
+        # server should set it, so a dead server fails loudly instead of passing quietly.
+        run: cargo test --all-features -- --ignored
+
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Test
+        run: npm test
+      - name: Build
+        run: npm run build

@@ -1,0 +1,563 @@
+<title>Landscape — Code Tour</title>
+<style>
+  :root{--ground:#0D1311;--surface:#131C19;--ink:#E8EFEB;--ink-soft:#B8C5BF;--muted:#7F8F88;
+    --rule:#233029;--accent:#4FBFA3;--accent-soft:#12302A;--warn:#D9A441;--flag:#E0765B;
+    --mono:ui-monospace,"Cascadia Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.55}
+
+  .banner{background:var(--accent-soft);color:var(--accent);font-family:var(--mono);
+    font-size:.78rem;letter-spacing:.04em;padding:.5rem 1rem;text-align:center;
+    border-bottom:1px solid var(--rule)}
+
+  .wrap{display:grid;grid-template-columns:19rem 1fr;min-height:calc(100vh - 2.4rem)}
+
+  .tree{border-right:1px solid var(--rule);padding:1.2rem 1rem;font-family:var(--mono);font-size:.8rem}
+  .tree h2{font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+    margin:0 0 .9rem;font-weight:600}
+  .tree .row{padding:.28rem .5rem;border-radius:3px;color:var(--ink-soft);white-space:nowrap}
+  .tree .row.dir{color:var(--muted)}
+  .tree .row .note{color:var(--muted);font-size:.72rem}
+
+  .pane{padding:1.4rem 1.6rem;overflow:hidden}
+  .filename{font-family:var(--mono);font-size:.82rem;color:var(--accent);margin-bottom:.15rem}
+  .purpose{font-size:.86rem;color:var(--muted);margin-bottom:1rem;max-width:70ch}
+
+  pre{margin:0;font-family:var(--mono);font-size:.84rem;line-height:1.62;
+    background:var(--surface);border:1px solid var(--rule);border-radius:4px;
+    padding:1rem 1.1rem;overflow:hidden;white-space:pre}
+  .ln{display:block;padding:0 .35rem;border-radius:2px}
+  .k{color:#7FD6BF}.s{color:var(--warn)}.c{color:var(--muted);font-style:italic}
+  .t{color:#9DC6F0}.f{color:#E8EFEB}
+
+  /* Same highlight mechanism as the product films: a class on the element, so it is
+     correct by construction rather than measured against a moving page. */
+  .spotted{outline:2px solid var(--accent)!important;outline-offset:3px;border-radius:3px;
+    background:rgba(79,191,163,.13)!important}
+
+  .cap-bar{position:fixed;left:0;right:0;bottom:0;background:rgba(6,10,9,.94);
+    border-top:1px solid var(--rule);padding:.85rem 1.2rem;display:none}
+  .cap-bar.on{display:block}
+  .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
+</style>
+
+<div class="banner" id="banner">CODE TOUR — is the model right?</div>
+
+<div class="wrap">
+  <aside class="tree">
+    <h2>Repository</h2>
+    <div class="row dir" id="t-crates">crates/</div>
+    <div class="row" id="t-core">&nbsp;&nbsp;landscape-core<span class="note"> types</span></div>
+    <div class="row" id="t-db">&nbsp;&nbsp;landscape-db<span class="note"> storage</span></div>
+    <div class="row" id="t-api">&nbsp;&nbsp;landscape-api<span class="note"> http</span></div>
+    <div class="row" id="t-llm">&nbsp;&nbsp;landscape-llm<span class="note"> the model</span></div>
+    <div class="row" id="t-bench">&nbsp;&nbsp;landscape-bench<span class="note"> how fast</span></div>
+    <div class="row" id="t-golden">&nbsp;&nbsp;landscape-golden<span class="note"> whether it is right</span></div>
+    <div class="row" id="t-bin">&nbsp;&nbsp;landscape<span class="note"> the binary</span></div>
+    <div class="row dir" id="t-mig">migrations/</div>
+    <div class="row dir" id="t-web">web/<span class="note"> react + ts</span></div>
+    <div class="row dir" id="t-docs">docs/<span class="note"> the spec</span></div>
+  </aside>
+
+  <main class="pane">
+    <div class="filename" id="fname">&nbsp;</div>
+    <div class="purpose" id="purpose">&nbsp;</div>
+    <pre id="code"></pre>
+  </main>
+</div>
+
+<div class="cap-bar" id="capBar"><div class="cap-text" id="capText"></div></div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+
+  // Real excerpts from the committed code. Kept short: a tour that shows whole files
+  // shows nothing, because nobody reads a screen of code while being talked at.
+  var FILES = {
+    problem: {
+      name: "the problem",
+      purpose: "Everything we could check said this model was fine.",
+      lines: [
+        ['c', '// A faulty copy of a small model. Every check we had:'],
+        ['t', '  always parseable      yes'],
+        ['t', '  right shape           yes'],
+        ['t', '  fastest in the table  yes'],
+        ['c', ''],
+        ['c', '// And the answers it gave:'],
+        ['s', '{"plan_name": "/:D!01:56:G>!#9*2-@1F-08@E5A0\'(5,#0#D>9G",'],
+        ['s', ' "price_usd": 9}'],
+        ['c', ''],
+        ['f', '// Forcing the shape of an answer says nothing about its truth.']
+      ]
+    },
+    subjects: {
+      name: "crates/landscape-golden/subjects/",
+      purpose: "Ten real pages, frozen, with the answers written by hand.",
+      lines: [
+        ['f', '  01-plain-table              a price, plainly stated'],
+        ['f', '  03-price-in-prose           no table to pattern-match'],
+        ['f', '  05-two-currencies           euros first, dollars second'],
+        ['f', '  06-discounted-price         old price written before new'],
+        ['t', '  08-free-tier                zero is a price, not a gap'],
+        ['t', '  02-contact-sales            no price published'],
+        ['t', '  09-numbers-that-are-not-prices'],
+        ['t', '  10-price-belongs-to-something-else'],
+        ['c', ''],
+        ['c', '// Three of ten publish no price at all. On the last one,'],
+        ['c', '// a real price for a DIFFERENT product sits on the page.']
+      ]
+    },
+    truncation: {
+      name: "crates/landscape-llm/src/lib.rs",
+      purpose: "The first score was 53%. The harness was wrong, not the model.",
+      lines: [
+        ['c', '// Asked for four fields, the model returned two:'],
+        ['s', '{"plan_name": "Grower", "price_usd": 49}'],
+        ['c', ''],
+        ['c', '// Not null. Absent. And a missing key parses as "none",'],
+        ['c', '// which is exactly what "the page does not say" looks like.'],
+        ['c', ''],
+        ['k', 'fn require_every_property(value: &mut Value) {'],
+        ['f', '    // the key must be written; null is still allowed'],
+        ['k', '}'],
+        ['c', ''],
+        ['t', '// 53% -> 73%. Nothing about the model changed.']
+      ]
+    },
+    verdict: {
+      name: "the scorecard",
+      purpose: "The same model, two builds. One number tells them apart.",
+      lines: [
+        ['f', '  model                       fields   invented prices'],
+        ['f', '  --------------------------------------------------------'],
+        ['t', '  Qwen3-4B    Q4_K_M            90%          0'],
+        ['t', '  Qwen3-1.7B  Q8_0              87%          1'],
+        ['s', '  Qwen3-1.7B  Q4_K_M (faulty)   10%          3'],
+        ['c', ''],
+        ['c', '// Same size. Same speed. Same shape guarantees.'],
+        ['f', '// The gap is now something a test can fail on.']
+      ]
+    },
+    honest: {
+      name: "crates/landscape-golden/subjects/02-contact-sales.json",
+      purpose: "How the small model fails is worse than inventing.",
+      lines: [
+        ['c', '// The page, asked about "Enterprise":'],
+        ['f', '  Grower - $49 per month. Unlimited orders.'],
+        ['f', '  Enterprise - ... Contact sales for pricing.'],
+        ['c', ''],
+        ['c', '// The small model answered:'],
+        ['s', '  price   $49'],
+        ['s', '  quote   "Grower - $49 per month. Unlimited orders."'],
+        ['c', ''],
+        ['c', '// Nothing invented. The quote is real, word for word.'],
+        ['f', '// It answered about the plan one line above.']
+      ]
+    },
+    selfcheck: {
+      name: "crates/landscape-golden/tests/the_set_itself.rs",
+      purpose: "A ruler nobody checks is worse than no ruler.",
+      lines: [
+        ['k', 'fn every_expected_answer_is_actually_on_the_page()'],
+        ['f', '    // otherwise a correct model scores as wrong,'],
+        ['f', '    // and then we "fix" the model'],
+        ['c', ''],
+        ['k', 'fn at_least_three_subjects_publish_no_price()'],
+        ['k', 'fn every_subject_says_why_it_exists()'],
+        ['c', ''],
+        ['c', '// The hard pages are the ones that fail, so they are the'],
+        ['c', '// ones under quiet pressure to be deleted - which is'],
+        ['f', '// exactly when they were doing their job.']
+      ]
+    },
+    union: {
+      name: "what we tried and did not keep",
+      purpose: "A type that forbids the bad answer made the good one rarer.",
+      lines: [
+        ['c', '// Both models gave a billing period for plans with no price.'],
+        ['c', '// The tidy fix: make that impossible to express.'],
+        ['k', 'enum Price { Published { amount, period }, NotPublished }'],
+        ['c', ''],
+        ['c', '// On a page plainly reading "$49 per month", the larger'],
+        ['c', '// model then answered:'],
+        ['s', '  "price": "not_published"'],
+        ['c', ''],
+        ['f', '// One cheap word competes with a whole nested answer.'],
+        ['f', '// Guarantees a compiler enforces are free. These are not.']
+      ]
+    },
+    tiering: {
+      name: "docs/BENCHMARKS.md",
+      purpose: "With a working build, the small model is much faster.",
+      lines: [
+        ['f', '  model                 span (400 tokens in)   fits in 120s'],
+        ['f', '  ------------------------------------------------------------'],
+        ['t', '  Qwen3-1.7B Q8_0        3.8 s                  32 extractions'],
+        ['f', '  Qwen3-4B  Q4_K_M      12.6 s                  10 extractions'],
+        ['c', ''],
+        ['c', '// The three-tier design is worth building.'],
+        ['c', '// Earlier pessimism measured a 4B doing a 1.7B job.'],
+        ['s', '// Still not the target hardware. 8 x86 threads != 4 ARM cores.']
+      ]
+    },
+    bounds: {
+      name: "crates/landscape-llm/src/lib.rs",
+      purpose: "The constraint was never broken. It was never told the limit.",
+      lines: [
+        ['c', '// schemars describes a u32 like this:'],
+        ['f', '   {"type":"integer","format":"uint32","minimum":0}'],
+        ['c', '// llama.cpp reads minimum/maximum and ignores format.'],
+        ['c', '// So the sampler was told "any integer >= 0", and produced:'],
+        ['s', '   "order_limit": 1000000000000000      // 6 of 20 runs'],
+        ['c', ''],
+        ['k', 'fn tighten_integer_bounds(value: &mut Value) {'],
+        ['f', '    // add the maximum the format implies'],
+        ['k', '}'],
+        ['c', ''],
+        ['t', '// Same model, same prompts, after: 0 of 20.']
+      ]
+    },
+    reclaim: {
+      name: "crates/landscape-db/src/lib.rs",
+      purpose: "A worker that dies no longer strands its work.",
+      lines: [
+        ['c', '/// Return analyses running longer than max_age to the queue.'],
+        ['c', '///'],
+        ['c', '/// A worker killed mid-analysis leaves its row running with'],
+        ['c', '/// nothing to finish it. Nothing failed, so no error is'],
+        ['c', '/// recorded - the row is simply stranded, and the reader'],
+        ['c', '/// watches a spinner that never resolves.'],
+        ['k', 'async fn reclaim_stale(&self, max_age: Duration)'],
+        ['k', '    -> Result<u64>;'],
+        ['c', ''],
+        ['c', '// Time-based, not heartbeat: a heartbeat is a second thing'],
+        ['c', '// that can fail.']
+      ]
+    },
+    counts: {
+      name: "crates/landscape-bench/src/main.rs",
+      purpose: "Three failures that must never be one number.",
+      lines: [
+        ['t', '  unparseable      0   (the constraint failing)'],
+        ['t', '  transport errors 0   (the server, not the constraint)'],
+        ['t', '  wrong contents   0   (accuracy, not shape)'],
+        ['c', ''],
+        ['c', '// An earlier version counted all three as "parse failures".'],
+        ['c', '// It would have reported a healthy server timing out as'],
+        ['c', '// evidence that constrained decoding was broken.'],
+        ['f', '// The measuring instrument needs checking too.']
+      ]
+    },
+    generate: {
+      name: "crates/landscape-llm/src/lib.rs",
+      purpose: "The schema comes from the type, so the two cannot drift apart.",
+      lines: [
+        ['c', '/// Generate a T, with the sampler prevented from producing'],
+        ['c', '/// anything that is not one.'],
+        ['k', 'pub async fn generate<T>(&self, prompt: &str, decode: &Decode)'],
+        ['k', '    -> Result<T>'],
+        ['k', 'where'],
+        ['f', '    T: JsonSchema + DeserializeOwned,'],
+        ['k', '{'],
+        ['t', '    let schema = serde_json::to_value(schemars::schema_for!(T))?;'],
+        ['f', '    let raw = self.complete('],
+        ['f', '        prompt, &Constraint::JsonSchema(schema), decode'],
+        ['f', '    ).await?;'],
+        ['t', '    parse(&raw)'],
+        ['k', '}']
+      ]
+    },
+    proof: {
+      name: "crates/landscape-llm/tests/constrained_decoding.rs",
+      purpose: "The Phase 0 exit criterion, run against a real model.",
+      lines: [
+        ['c', '// A three-variant enum. Nothing but the grammar stops a model'],
+        ['c', '// returning a fourth.'],
+        ['k', 'enum BillingPeriod { Monthly, Yearly, OneOff }'],
+        ['c', ''],
+        ['f', '  runs                 100'],
+        ['t', '  parse failures       0'],
+        ['t', '  content mismatches   0'],
+        ['f', '  median latency       10855 ms'],
+        ['f', '  p95 latency          17201 ms'],
+        ['c', ''],
+        ['c', '// Plus ten runs at temperature 0.9. The enum never wandered.']
+      ]
+    },
+    latency: {
+      name: "docs/BENCHMARKS.md",
+      purpose: "The number that should worry us, written down rather than buried.",
+      lines: [
+        ['s', '11 seconds median for ONE short extraction,'],
+        ['s', 'on a laptop with twice the threads of the target.'],
+        ['c', ''],
+        ['c', 'The architecture budgets 90-180s end to end.'],
+        ['c', 'That buys 8-16 extractions. Before any fetching.'],
+        ['c', 'Before the synthesiser. Nothing left for the router.'],
+        ['c', ''],
+        ['t', 'Three things could close it. None is measured:'],
+        ['f', '  1. a 4B doing a 1.7B router job'],
+        ['f', '  2. prefill on much shorter prompts than real ones'],
+        ['f', '  3. --parallel 1']
+      ]
+    },
+    skip: {
+      name: "crates/landscape-llm/tests/constrained_decoding.rs",
+      purpose: "A test that needs a service it may not have.",
+      lines: [
+        ['c', '/// Absence skips by default: CI runs --ignored to pick up other'],
+        ['c', '/// tests, and sweeps these up with it. A missing model server'],
+        ['c', '/// should not fail a job that has nothing to do with models.'],
+        ['c', '///'],
+        ['c', '/// LLAMA_REQUIRED=1 makes it a hard failure instead - a job that'],
+        ['c', '/// does provide a server must not pass quietly when it dies.'],
+        ['k', 'async fn server_or_skip() -> Option<LlamaClient> {'],
+        ['f', '    if client.is_ready().await { return Some(client); }'],
+        ['t', '    assert!(std::env::var("LLAMA_REQUIRED").is_err(), ...);'],
+        ['f', '    eprintln!("SKIPPED: no llama-server at {}", client.base());'],
+        ['f', '    None'],
+        ['k', '}']
+      ]
+    },
+    gates: {
+      name: ".github/workflows/ci.yml",
+      purpose: "What has to be true before anything merges.",
+      lines: [
+        ['t', 'cargo fmt --check          cargo clippy -D warnings'],
+        ['t', 'cargo test                 cargo deny check'],
+        ['t', 'gitleaks                   eslint + vitest'],
+        ['c', ''],
+        ['c', '# The production host is an Ampere A1: 4 OCPU aarch64.'],
+        ['c', '# A build that has only ever run on x86 finds its first'],
+        ['c', '# ARM problem in production.'],
+        ['s', 'cargo check --target aarch64-unknown-linux-gnu']
+      ]
+    },
+    trait: {
+      name: "crates/landscape-db/src/lib.rs",
+      purpose: "The seam that keeps everything testable with nothing installed.",
+      lines: [
+        ['c', '/// Everything the application needs from storage.'],
+        ['c', '/// Deliberately narrow: a wide trait is expensive to implement twice,'],
+        ['c', '/// and the second implementation is what makes local testing free.'],
+        ['k', '#[async_trait]'],
+        ['k', 'pub trait Store: Send + Sync + Debug {'],
+        ['f', '    async fn enqueue(&self, new: &NewAnalysis) -> Result<Analysis>;'],
+        ['f', '    async fn get(&self, id: AnalysisId) -> Result<Analysis>;'],
+        ['c', ''],
+        ['c', '    /// Claim the oldest queued analysis, atomically.'],
+        ['c', '    /// Two workers must never receive the same one.'],
+        ['f', '    async fn claim_next(&self) -> Result<Option<Analysis>>;'],
+        ['f', '    async fn complete(&self, id: AnalysisId, report: &Report) -> Result<()>;'],
+        ['f', '    async fn fail(&self, id: AnalysisId, reason: &str) -> Result<()>;'],
+        ['k', '}']
+      ]
+    },
+    claim: {
+      name: "crates/landscape-core/src/report.rs",
+      purpose: "An unsourced sentence is not representable.",
+      lines: [
+        ['c', '/// One assertion, with the evidence that supports it.'],
+        ['c', '///'],
+        ['c', '/// There is no way to construct a Claim without a source label and a'],
+        ['c', '/// verbatim quote. That is the point: an unsourced sentence cannot be'],
+        ['c', '/// represented, so it cannot reach a reader by accident.'],
+        ['k', 'pub struct Claim {'],
+        ['f', '    pub text: String,'],
+        ['f', '    pub source_label: String,      '], ['c', '// required'],
+        ['f', '    pub evidence_quote: String,    '], ['c', '// required, verbatim'],
+        ['f', '    pub confidence: Confidence,'],
+        ['f', '    pub as_of: DateTime<Utc>,'],
+        ['k', '}']
+      ]
+    },
+    queue: {
+      name: "crates/landscape-db/src/pg.rs",
+      purpose: "The queue is a column, not a service.",
+      lines: [
+        ['c', '// SKIP LOCKED is what makes this safe from several workers at once:'],
+        ['c', '// a row another transaction holds is passed over rather than waited'],
+        ['c', '// on, so workers never queue behind each other for the same job.'],
+        ['s', 'UPDATE analyses SET status = $1, started_at = now()'],
+        ['s', 'WHERE id = ('],
+        ['s', '    SELECT id FROM analyses'],
+        ['s', '    WHERE status = $2'],
+        ['s', '    ORDER BY created_at'],
+        ['t', '    FOR UPDATE SKIP LOCKED'],
+        ['s', '    LIMIT 1'],
+        ['s', ')'],
+        ['s', 'RETURNING id, prompt, status, created_at, report']
+      ]
+    },
+    negative: {
+      name: "crates/landscape/src/main.rs",
+      purpose: "The empty report is empty honestly.",
+      lines: [
+        ['c', '/// A report shaped exactly like a real one, containing only what is'],
+        ['c', '/// actually known. The pipeline that fills this in is Phase 1.'],
+        ['k', 'fn placeholder_report(prompt: &str) -> Report {'],
+        ['f', '    Report {'],
+        ['f', '        sections: vec!['],
+        ['t', '            Section::not_found('],
+        ['s', '                "pricing", "Prices",'],
+        ['s', '                vec!["nothing was fetched: the gathering'],
+        ['s', '                      pipeline is not built yet"],'],
+        ['t', '            ),'],
+        ['f', '        ],'],
+        ['f', '        sources: Vec::new(),'],
+        ['f', '    }'],
+        ['k', '}']
+      ]
+    },
+    test: {
+      name: "crates/landscape-api/src/routes.rs",
+      purpose: "The whole HTTP path, tested with no database.",
+      lines: [
+        ['k', '#[tokio::test]'],
+        ['k', 'async fn an_internal_failure_never_leaks_detail() {'],
+        ['f', '    let response = ApiError::Internal('],
+        ['s', '        "connection string postgres://user:hunter2@db".to_owned()'],
+        ['f', '    ).into_response();'],
+        ['c', ''],
+        ['f', '    let text = json_body(response).await.to_string();'],
+        ['t', '    assert!(!text.contains("hunter2"));'],
+        ['t', '    assert!(!text.contains("postgres://"));'],
+        ['k', '}']
+      ]
+    },
+    run: {
+      name: "README.md",
+      purpose: "The whole application, no database, one command.",
+      lines: [
+        ['c', '# The short way - no database'],
+        ['t', '$ cargo run -- dev --store memory'],
+        ['c', ''],
+        ['c', '# A second terminal for the frontend'],
+        ['t', '$ cd web && npm install && npm run dev'],
+        ['c', ''],
+        ['c', '# Every test. Nothing needs to be running.'],
+        ['t', '$ cargo test'],
+        ['f', '   84 passed; 0 failed'],
+      ]
+    }
+  };
+
+  function show(key) {
+    var f = FILES[key];
+    if (!f) return;
+    $("fname").textContent = f.name;
+    $("purpose").textContent = f.purpose;
+    var html = "";
+    for (var i = 0; i < f.lines.length; i++) {
+      html += '<span class="ln ' + f.lines[i][0] + '">' + esc(f.lines[i][1]) + "</span>";
+    }
+    $("code").innerHTML = html;
+  }
+
+  function esc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  var spotted = null;
+  function spot(sel) {
+    clearSpot();
+    var el = document.querySelector(sel);
+    if (!el) return;
+    spotted = el;
+    el.classList.add("spotted");
+  }
+  function clearSpot() {
+    if (spotted) { spotted.classList.remove("spotted"); spotted = null; }
+  }
+
+  function act(spec) {
+    if (!spec || spec === "hold") return;
+    var c = spec.indexOf(":"), verb = c < 0 ? spec : spec.slice(0, c);
+    var arg = c < 0 ? "" : spec.slice(c + 1);
+    if (verb !== "spot") clearSpot();
+    if (verb === "file") show(arg);
+    else if (verb === "spot") spot(arg);
+  }
+
+  // Same beat shape as the product films: kind drives timing, action drives the picture.
+  var BEATS = [
+    { kind: "recognition", a: "file:problem",   c: "A model can pass every check and still be wrong." },
+    { kind: "means",       a: "spot:#code",     c: "Fast. Always readable. Always the right shape." },
+    { kind: "means",       a: "hold",           c: "The shape of an answer says nothing about its truth." },
+
+    { kind: "turn",        a: "spot:#t-golden", c: "So: ten real pages, answers written by hand." },
+    { kind: "result",      a: "file:subjects",  c: "Three publish no price at all." },
+    { kind: "means",       a: "spot:#code",     c: "On one, a real price for a different product." },
+    { kind: "means",       a: "hold",           c: "Resisting that is harder than not inventing." },
+
+    { kind: "result",      a: "file:truncation", c: "The first score was low. Our fault." },
+    { kind: "means",       a: "spot:#code",     c: "Asked for four facts, it wrote two and stopped." },
+    { kind: "means",       a: "hold",           c: "Silence looked exactly like an honest gap." },
+
+    { kind: "result",      a: "file:verdict",   c: "Fixed. Now the faulty copy scores ten percent." },
+    { kind: "means",       a: "spot:#code",     c: "The good copy, same speed, scores eighty-seven." },
+    { kind: "means",       a: "hold",           c: "That gap used to be a note somebody had to read." },
+
+    { kind: "result",      a: "file:honest",    c: "One failure is worth understanding." },
+    { kind: "means",       a: "spot:#code",     c: "It quoted a price correctly, from the wrong plan." },
+    { kind: "means",       a: "hold",           c: "Nothing invented. That is the hard case." },
+
+    { kind: "result",      a: "file:selfcheck", c: "So the set checks itself first." },
+    { kind: "means",       a: "spot:#code",     c: "Every answer must really be on its page." },
+
+    { kind: "result",      a: "file:union",     c: "One tidy idea was measured and dropped." },
+    { kind: "means",       a: "spot:#code",     c: "Forbidding the bad answer made the good one rarer." },
+
+    { kind: "close",       a: "hold",           c: "The next faulty model is caught by a test." }
+  ];
+
+  // Timings use the same rules as the product films. `prototype/build.py` holds the
+  // authoritative constants and writes the captions actually shipped with the film; these
+  // exist only so the page previews at the right speed, and must be changed with it.
+  var t = 0;
+  BEATS.forEach(function (b) {
+    var d = (b.kind === "result" || b.kind === "means") ? 3.8 : 2.6;
+    if (/\d/.test(b.c)) d = Math.max(d, 3.8);
+    d = Math.max(d, b.c.length / 14 + 0.6);
+    if (b.a.indexOf("spot:") === 0 || b.a.indexOf("file:") === 0) d += 1.3;
+    b.t = Math.round(t * 10) / 10;
+    b.d = Math.round(d * 10) / 10;
+    t += b.d;
+  });
+  var TOTAL = Math.round(t * 10) / 10;
+
+  var timers = [];
+  function playDemo() {
+    timers.forEach(clearTimeout); timers = [];
+    clearSpot();
+    $("capBar").classList.add("on");
+    show("problem");
+    BEATS.forEach(function (b) {
+      timers.push(setTimeout(function () {
+        try { act(b.a); } catch (e) {}
+        $("capText").textContent = b.c;
+      }, b.t * 1000));
+    });
+    timers.push(setTimeout(function () {
+      clearSpot();
+      $("capText").textContent = "The full source is in the pull request.";
+    }, TOTAL * 1000));
+  }
+
+  show("problem");
+
+  // The same two globals the product prototype exposes, so record-demo.mjs and build.py
+  // work against this page unchanged.
+  window.__playDemo = playDemo;
+  window.__chapters = [{
+    id: "code", n: 1,
+    title: "Is the model right?",
+    blurb: "A model that passed every check we had was returning nonsense. This adds the check that catches it: ten real pages with answers written by hand, the two bugs found on the way in, and one tidy idea that measured worse and was dropped.",
+    seconds: TOTAL + 3
+  }];
+  window.__beats = BEATS;
+})();
+</script>

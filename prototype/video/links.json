@@ -1,0 +1,18 @@
+{
+  "_note": "Published artifact URLs, keyed by film id from docs/Demo_Walkthrough.md §5. Publish a film, paste its URL here, rebuild so the pages cross-link.",
+
+  "idea":      "https://claude.ai/code/artifact/81623bc6-d5a4-4992-bcf7-683447cef188",
+  "prices":    "https://claude.ai/code/artifact/7bf79646-78d3-4dd7-b7b1-6d4fcfd942aa",
+  "features":  "https://claude.ai/code/artifact/008f570f-86c6-46ba-819f-d48d6ba49912",
+  "changes":   "https://claude.ai/code/artifact/60111485-9673-4c52-8cab-c647c3fc046e",
+  "talking":   "https://claude.ai/code/artifact/827fd2b5-9506-4bc7-b409-5c05a26930cb",
+  "absence":   "https://claude.ai/code/artifact/4bc990ed-0c42-4e4f-863a-11189e0683f7",
+  "questions": "https://claude.ai/code/artifact/2694640e-f166-4faa-a2e2-8242ce3d6ae1",
+  "checking":  "https://claude.ai/code/artifact/af2cec45-83a4-4569-8b37-49ff8a7a766f",
+  "asking":    "https://claude.ai/code/artifact/a90fe798-9249-4315-993a-bcdbce2a61c3",
+  "alerts":    "https://claude.ai/code/artifact/472aff10-418a-4aa9-ba92-8a39e32b0d4a",
+  "cost":      "https://claude.ai/code/artifact/28ca9c15-23bb-46d7-aa08-f241a9f1d19a",
+  "ways":      "https://claude.ai/code/artifact/23992c78-0e6e-41a6-93c6-5d8202a6db10",
+
+  "prototype": "https://claude.ai/code/artifact/2bd91da4-2370-4b8b-8d59-26619a93eb7e"
+}

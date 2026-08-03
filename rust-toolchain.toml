@@ -1,0 +1,10 @@
+# Pinned so every machine and CI runner builds with the same compiler. rustup reads this
+# automatically and installs the toolchain on first `cargo` invocation, so a fresh clone
+# needs no setup step beyond having rustup.
+#
+# Raise this deliberately, not incidentally: a compiler bump is a change worth its own
+# commit and its own CI run.
+[toolchain]
+channel = "1.97.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

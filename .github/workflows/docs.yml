@@ -1,0 +1,44 @@
+name: Docs
+
+# Instructions rot silently. Two bugs reached a reader through a correct binary and a
+# stale README, so the README is now executed rather than trusted, and a pull request
+# description is linted for the same mistakes.
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+    # `edited` matters: a description is usually fixed after the PR is opened, and the
+    # check should re-run when it is.
+    types: [opened, edited, synchronize, reopened]
+
+jobs:
+  readme:
+    name: the README actually works
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Static checks
+        # Ports and subcommands in the prose must match the code. No server needed.
+        run: cargo test -p landscape --test docs
+
+      - name: Run every documented command
+        # Boots the real binary on an OS-assigned port and runs each documented curl
+        # against it, asserting none of them returns a 4xx or 5xx.
+        run: cargo test -p landscape --test docs -- --ignored
+
+  pr-body:
+    name: the pull request description
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint the description
+        env:
+          # Passed through the environment, never interpolated into the script. A PR body
+          # is untrusted input, and `${{ }}` inside a run block would let it execute.
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: python3 scripts/lint_instructions.py --stdin-name "the PR description" <<< "$PR_BODY"

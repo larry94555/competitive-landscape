@@ -1,0 +1,29 @@
+[package]
+name = "landscape-api"
+description = "HTTP surface: axum routers, request validation, error mapping."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+# Internal to this workspace; never goes to crates.io.
+publish = false
+
+[dependencies]
+landscape-core.workspace = true
+landscape-db.workspace = true
+
+axum.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+tower = { version = "0.5", features = ["util"] }
+
+[lints]
+workspace = true

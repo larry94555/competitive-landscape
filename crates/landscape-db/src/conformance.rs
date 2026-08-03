@@ -1,0 +1,197 @@
+//! One test body, run against every [`Store`] implementation.
+//!
+//! Two implementations of the same trait drift. Writing the behaviour once and running it
+//! against both is the cheapest way to keep the in-memory store honest — if it stops
+//! matching Postgres, the API's fast tests stop meaning anything.
+//!
+//! This lives in `src/` rather than `tests/` so both the unit test in `memory.rs` and the
+//! Postgres integration test can call it.
+
+#![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+// This module is test scaffolding: an assertion failure here must abort loudly.
+
+use landscape_core::{AnalysisStatus, NewAnalysis, Report};
+
+use crate::Store;
+
+fn sample_report(subject: &str) -> Report {
+    Report {
+        subject: subject.to_owned(),
+        searched_as: "ordering software for small farms".to_owned(),
+        generated_at: chrono::Utc::now(),
+        model_id: "test".to_owned(),
+        prompt_version: 1,
+        sections: Vec::new(),
+        sources: Vec::new(),
+    }
+}
+
+fn prompt(text: &str) -> NewAnalysis {
+    NewAnalysis::parse(text).unwrap_or_else(|e| panic!("test prompt {text:?} is invalid: {e}"))
+}
+
+/// Exercise the whole contract. Panics with a description on the first difference.
+pub async fn run(store: &impl Store) {
+    // --- enqueue and read back -------------------------------------------------
+    let a = store
+        .enqueue(&prompt("an app that helps small farms sell to restaurants"))
+        .await
+        .expect("enqueue");
+    assert_eq!(a.status, AnalysisStatus::Queued, "a new analysis is queued");
+    assert!(a.report.is_none(), "a new analysis has no report");
+
+    let fetched = store.get(a.id).await.expect("get after enqueue");
+    assert_eq!(fetched.id, a.id);
+    assert_eq!(fetched.prompt, a.prompt, "the prompt survives storage");
+
+    // --- an unknown id is not found, rather than a silent empty ----------------
+    let missing = landscape_core::AnalysisId::new();
+    assert!(
+        store.get(missing).await.is_err(),
+        "an unknown id must be an error, not a default value"
+    );
+
+    // --- claiming is FIFO ------------------------------------------------------
+    let b = store
+        .enqueue(&prompt(
+            "a tool that chases unpaid invoices for freelancers",
+        ))
+        .await
+        .expect("enqueue second");
+
+    let first = store
+        .claim_next()
+        .await
+        .expect("claim")
+        .expect("one queued");
+    assert_eq!(
+        first.id, a.id,
+        "the oldest queued analysis is claimed first"
+    );
+    assert_eq!(
+        first.status,
+        AnalysisStatus::Running,
+        "claiming marks it running"
+    );
+
+    // --- a claimed analysis is never handed out twice --------------------------
+    let second = store
+        .claim_next()
+        .await
+        .expect("claim")
+        .expect("one queued");
+    assert_eq!(
+        second.id, b.id,
+        "the second claim gets the next one, not a repeat"
+    );
+
+    let third = store.claim_next().await.expect("claim");
+    assert!(third.is_none(), "an empty queue yields nothing");
+
+    // --- completing attaches the report ----------------------------------------
+    let report = sample_report(&a.prompt);
+    store.complete(a.id, &report).await.expect("complete");
+
+    let done = store.get(a.id).await.expect("get after complete");
+    assert_eq!(done.status, AnalysisStatus::Complete);
+    let stored = done
+        .report
+        .expect("a completed analysis carries its report");
+    assert_eq!(
+        stored.subject, report.subject,
+        "the report survives storage"
+    );
+    assert_eq!(
+        stored.searched_as, report.searched_as,
+        "searched_as survives storage"
+    );
+
+    // --- failing is terminal and records nothing user-facing -------------------
+    store.fail(b.id, "network unreachable").await.expect("fail");
+    let failed = store.get(b.id).await.expect("get after fail");
+    assert_eq!(failed.status, AnalysisStatus::Failed);
+    assert!(
+        failed.report.is_none(),
+        "a failed analysis must not carry a partial report"
+    );
+
+    // --- counting ---------------------------------------------------------------
+    assert_eq!(
+        store
+            .count_with_status(AnalysisStatus::Complete)
+            .await
+            .expect("count"),
+        1
+    );
+    assert_eq!(
+        store
+            .count_with_status(AnalysisStatus::Queued)
+            .await
+            .expect("count"),
+        0
+    );
+
+    // --- a completed analysis is not re-claimed --------------------------------
+    assert!(
+        store.claim_next().await.expect("claim").is_none(),
+        "terminal analyses must never be claimed again"
+    );
+
+    // --- a job whose worker died comes back ------------------------------------
+    // A worker killed mid-analysis leaves its row `running` with nothing to finish it.
+    // Nothing failed, so no error is recorded; the row is simply stranded and the reader
+    // watches a spinner that never resolves.
+    let stranded = store
+        .enqueue(&prompt("a service for booking guitar lessons online"))
+        .await
+        .expect("enqueue");
+    let claimed = store
+        .claim_next()
+        .await
+        .expect("claim")
+        .expect("one queued");
+    assert_eq!(claimed.status, AnalysisStatus::Running);
+
+    // Nothing is old enough yet, so nothing moves. A reclaimer that fires early would
+    // hand a second worker a job the first is still working on.
+    let none_yet = store
+        .reclaim_stale(chrono::Duration::hours(1))
+        .await
+        .expect("reclaim");
+    assert_eq!(none_yet, 0, "a job that just started must not be reclaimed");
+    assert_eq!(
+        store.get(stranded.id).await.expect("get").status,
+        AnalysisStatus::Running
+    );
+
+    // With a zero threshold everything running is overdue.
+    let reclaimed = store
+        .reclaim_stale(chrono::Duration::zero())
+        .await
+        .expect("reclaim");
+    assert_eq!(reclaimed, 1, "the stranded analysis should come back");
+    assert_eq!(
+        store.get(stranded.id).await.expect("get").status,
+        AnalysisStatus::Queued,
+        "a reclaimed analysis is queued again, not failed - nothing has gone wrong with it"
+    );
+
+    // And it is claimable again, which is the whole point.
+    let again = store.claim_next().await.expect("claim").expect("requeued");
+    assert_eq!(again.id, stranded.id);
+
+    // Terminal analyses are never touched, however old.
+    let terminal_untouched = store
+        .reclaim_stale(chrono::Duration::zero())
+        .await
+        .expect("reclaim");
+    assert_eq!(
+        terminal_untouched, 1,
+        "only the running one; complete and failed stay put"
+    );
+    assert_eq!(
+        store.get(a.id).await.expect("get").status,
+        AnalysisStatus::Complete,
+        "a completed analysis must never be reclaimed"
+    );
+}

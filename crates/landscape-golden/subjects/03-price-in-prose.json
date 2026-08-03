@@ -1,0 +1,11 @@
+{
+  "id": "price-in-prose",
+  "why": "The price is real and stated once, in the middle of a paragraph, with no table and no currency column to anchor on. Tests reading rather than pattern-matching a layout — and a page like this is what most small competitors actually publish.",
+  "ask": "Market Garden",
+  "source": "How Market Garden works\n\nWe built Market Garden for growers who sell to restaurants directly and were tired of doing it over text messages. You list what you will have available, kitchens in your area commit the evening before, and you harvest against orders you already hold rather than against a guess.\n\nWe charge $35 a month for it, with no commission on what you sell, because taking a cut of a grower's margin felt like the wrong way to build this. There is no contract and no minimum term.\n\nWe are a team of four in Vermont. If you want to talk to a person before signing up, there is a number at the bottom of this page and one of us will answer it.",
+  "expect": {
+    "plan_name": "Market Garden",
+    "price_usd": 35.0,
+    "billing_period": "monthly"
+  }
+}
