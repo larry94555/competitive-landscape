@@ -45,6 +45,45 @@ jobs:
       - name: Build release
         run: cargo build --release
 
+  aarch64:
+    name: cross-compile for the target hardware
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      # The production host is an Oracle Ampere A1: 4 OCPU aarch64. ROADMAP.md wants this
+      # from the first commit, because a Rust build that has only ever run on x86 finds its
+      # first ARM-only problem in production — usually in a transitive C dependency.
+      - name: Add the target
+        run: rustup target add aarch64-unknown-linux-gnu
+      - name: Install the cross linker
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+      - name: Check
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        # `check` rather than `build`: it catches the dependency and codegen problems this
+        # is for, in a fraction of the time. A full cross build belongs in the release job.
+        run: cargo check --workspace --all-features --target aarch64-unknown-linux-gnu
+
+  supply-chain:
+    name: supply chain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Advisories, licences, sources
+        # Licences matter beyond the usual here: this runs an open-weights model
+        # commercially, and the same discipline has to apply to the dependency tree.
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories licences bans sources
+
+      - name: Secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   postgres:
     name: rust (against postgres)
     runs-on: ubuntu-latest
@@ -67,6 +106,10 @@ jobs:
       - name: Conformance against a real database
         # The in-memory store is only worth trusting if it behaves like Postgres. This runs
         # the same contract against both; without it the fast tests slowly become fiction.
+        #
+        # `--ignored` also picks up the README execution test. It does NOT pick up the
+        # llama-server tests, which skip themselves when no model server is reachable —
+        # CI has no GPU-free budget for a 4B model and should not pretend otherwise.
         run: cargo test --all-features -- --ignored
 
   web:
@@ -86,5 +129,9 @@ jobs:
       - run: npm ci
       - name: Typecheck
         run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Test
+        run: npm test
       - name: Build
         run: npm run build
