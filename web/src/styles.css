@@ -61,3 +61,15 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 cite { font-family: ui-monospace, monospace; font-size: 0.8rem; color: var(--accent); font-style: normal; }
 
 [role="alert"] { color: #8a3324; }
+
+/* The failure reference. Selectable and monospaced because the only thing anyone does
+   with it is copy it into a message — and a retyped reference has a digit wrong. */
+.reference {
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+  background: #f4e4e0;
+  border: 1px solid #d9b3aa;
+  border-radius: 3px;
+  padding: 0.1rem 0.4rem;
+  user-select: all;
+}

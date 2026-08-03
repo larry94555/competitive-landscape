@@ -36,6 +36,26 @@ function stubAccepting(): void {
   );
 }
 
+/** A `fetch` that fails the way the API fails when something breaks at our end. */
+function stubBreaking(): void {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() =>
+      Promise.resolve({
+        ok: false,
+        status: 500,
+        json: () =>
+          Promise.resolve({
+            error: "Something went wrong at our end.",
+            remedy:
+              "Nothing you did caused this. Try again shortly — and if you tell us, quote 9f2c11ab7d04 and we can find exactly what happened.",
+            reference: "9f2c11ab7d04",
+          }),
+      } as Response),
+    ),
+  );
+}
+
 /** A `fetch` that rejects the POST the way the API rejects a short prompt. */
 function stubRejecting(): void {
   vi.stubGlobal(
@@ -94,6 +114,33 @@ describe("submitting an idea", () => {
       /at least 8 characters/,
     );
     expect(box().value).toBe("a crm");
+  });
+
+  it("shows the reference when something breaks at our end", async () => {
+    // A reference the reader never sees is a reference they cannot quote, which leaves us
+    // with "it broke this afternoon" against a log holding every other request.
+    stubBreaking();
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("9f2c11ab7d04");
+  });
+
+  it("keeps what was typed when the failure was ours", async () => {
+    // Doubly true here: they did nothing wrong, so making them retype would be perverse.
+    stubBreaking();
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+
+    await screen.findByRole("alert");
+    expect(box().value).toBe(IDEA);
   });
 
   it("will not submit an empty box", async () => {

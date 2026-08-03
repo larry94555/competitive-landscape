@@ -58,7 +58,19 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "landscape=info,tower_http=info".into()),
+                // Every workspace crate is named, because `landscape=info` does **not**
+                // match `landscape_api` — an `EnvFilter` directive matches a target and
+                // its `::` children, and `landscape_api` is a sibling, not a child.
+                //
+                // That cost an hour: request ids were being attached correctly and the
+                // log lines carrying them were filtered out before they were written, so
+                // the whole mechanism looked broken from the outside while every unit
+                // test passed. A default that hides our own crates is not a default.
+                .unwrap_or_else(|_| {
+                    "landscape=info,landscape_api=info,landscape_db=info,\
+                     landscape_llm=info,tower_http=info"
+                        .into()
+                }),
         )
         // Logs to stderr, so stdout stays free for anything a command needs to emit as
         // data. `fmt()` defaults to stdout, which would mean a future `landscape schema`
@@ -139,8 +151,9 @@ async fn run(role: Role, store: Arc<dyn Store>) -> Result<()> {
 async fn serve(store: Arc<dyn Store>) -> Result<()> {
     let addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| DEFAULT_ADDR.to_owned());
 
+    // Tracing lives inside `router()` alongside the request id, so the two cannot be
+    // ordered wrongly here — see the note there.
     let app = router(AppState { store })
-        .layer(tower_http::trace::TraceLayer::new_for_http())
         // The dev frontend runs on a different port, so the browser treats it as another
         // origin. Permissive is fine while everything is served from localhost; this
         // tightens to an allow-list before anything is deployed.

@@ -51,16 +51,30 @@ export interface Analysis {
 export interface ApiErrorBody {
   readonly error: string;
   readonly remedy?: string;
+  /**
+   * Present on internal failures only, and the same value as the `x-request-id` header.
+   * Every log line the failed request wrote carries it.
+   */
+  readonly reference?: string;
 }
 
 /** An error carrying a message already written for a person to read. */
 export class ApiError extends Error {
   readonly remedy: string | undefined;
+  /**
+   * The server's reference for this failure.
+   *
+   * Shown to the reader rather than only logged. Someone who can quote a reference turns
+   * an unanswerable report — "it broke this afternoon" — into one line of a log search,
+   * and they will only quote it if we put it in front of them.
+   */
+  readonly reference: string | undefined;
 
-  constructor(message: string, remedy?: string) {
+  constructor(message: string, remedy?: string, reference?: string) {
     super(message);
     this.name = "ApiError";
     this.remedy = remedy;
+    this.reference = reference;
   }
 }
 
@@ -75,6 +89,7 @@ async function readError(response: Response): Promise<never> {
   throw new ApiError(
     body.error ?? "The server could not be reached.",
     body.remedy ?? "Check that the API is running, then try again.",
+    body.reference,
   );
 }
 

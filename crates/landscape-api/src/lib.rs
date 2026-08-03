@@ -7,7 +7,9 @@
 
 mod error;
 mod extract;
+pub mod request_id;
 mod routes;
 
 pub use error::ApiError;
+pub use request_id::RequestId;
 pub use routes::{router, AppState};

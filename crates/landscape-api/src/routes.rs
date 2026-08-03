@@ -28,12 +28,22 @@ impl std::fmt::Debug for AppState {
 }
 
 /// Every route the server serves.
+///
+/// Both observability layers are applied here rather than in the binary. Wiring them where
+/// the server is assembled would leave every test in this crate running without them, so
+/// the tests would pass while asserting the behaviour of a slightly different application
+/// than the one that ships — and the first thing to break would be the error path, which
+/// is the part hardest to notice.
+///
+/// The layer writes the access line itself rather than delegating to `tower_http`'s
+/// `TraceLayer`; [`crate::request_id::layer`] records why.
 pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(health))
         .route("/api/analyses", post(create_analysis))
         .route("/api/analyses/{id}", get(get_analysis))
         .with_state(state)
+        .layer(axum::middleware::from_fn(crate::request_id::layer))
 }
 
 #[derive(Debug, Serialize)]
@@ -319,6 +329,137 @@ mod tests {
         assert!(
             !text.contains("postgres://"),
             "internal detail leaked: {text}"
+        );
+    }
+
+    #[tokio::test]
+    async fn every_response_carries_a_request_id() {
+        let response = app()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/health")
+                    .body(Body::empty())
+                    .expect("build request"),
+            )
+            .await
+            .expect("response");
+
+        let id = response
+            .headers()
+            .get("x-request-id")
+            .expect("every response carries a request id")
+            .to_str()
+            .expect("ascii");
+        assert_eq!(id.len(), 12, "unexpected id shape: {id}");
+    }
+
+    #[tokio::test]
+    async fn an_id_supplied_by_a_proxy_is_the_one_we_answer_under() {
+        // Caddy will sit in front of this. If it stamped one id and we logged another,
+        // correlating the two would need a join nobody has written.
+        let response = app()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/health")
+                    .header("x-request-id", "abc123def456")
+                    .body(Body::empty())
+                    .expect("build request"),
+            )
+            .await
+            .expect("response");
+
+        assert_eq!(
+            response.headers().get("x-request-id").expect("id"),
+            "abc123def456"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_forged_id_is_replaced_rather_than_echoed() {
+        // A newline in the header would let a caller write their own line into our log.
+        // The rejection has to happen end to end, not only in the parser's unit test.
+        let response = app()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/health")
+                    .header("x-request-id", "aaa\tERROR forged")
+                    .body(Body::empty())
+                    .expect("build request"),
+            )
+            .await
+            .expect("response");
+
+        let id = response
+            .headers()
+            .get("x-request-id")
+            .expect("id")
+            .to_str()
+            .expect("ascii");
+        assert!(!id.contains("forged"), "a forged id was echoed: {id}");
+        assert_eq!(id.len(), 12);
+    }
+
+    #[tokio::test]
+    async fn an_internal_failure_returns_a_reference_that_matches_its_header() {
+        // The whole point. The number on the screen has to be the number in the log, and
+        // the header is the only other place it is published — so if those two disagree,
+        // one of them is misleading whoever is trying to find the failure.
+        //
+        // A handler that simply fails, rather than a store rigged to break: the mapping
+        // from an internal error to a response is the subject, and routing a real failure
+        // through storage to reach it would test three things to assert one.
+        let app = Router::new()
+            .route(
+                "/boom",
+                get(|| async { Err::<(), ApiError>(ApiError::Internal("a secret".to_owned())) }),
+            )
+            .layer(axum::middleware::from_fn(crate::request_id::layer));
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/boom")
+                    .body(Body::empty())
+                    .expect("build request"),
+            )
+            .await
+            .expect("response");
+
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        let header = response
+            .headers()
+            .get("x-request-id")
+            .expect("id")
+            .to_str()
+            .expect("ascii")
+            .to_owned();
+
+        let body = json_body(response).await;
+        let reference = body
+            .get("reference")
+            .and_then(|r| r.as_str())
+            .expect("an internal failure carries a reference");
+        assert_eq!(reference, header);
+        assert!(
+            body["remedy"].as_str().expect("remedy").contains(reference),
+            "the remedy should tell the reader what to quote: {body}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_rejected_prompt_carries_no_reference() {
+        // A reference here would tell someone who mistyped that they have found a fault
+        // worth reporting. They have found a typo, and the message already says so.
+        let response = app()
+            .oneshot(post_analysis("a crm"))
+            .await
+            .expect("response");
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let body = json_body(response).await;
+        assert!(
+            body.get("reference").is_none(),
+            "a 400 should not carry a reference: {body}"
         );
     }
 }

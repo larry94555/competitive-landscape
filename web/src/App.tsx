@@ -72,6 +72,17 @@ export default function App(): React.JSX.Element {
         <p role="alert">
           {error.message}
           {error.remedy && <span> {error.remedy}</span>}
+          {/*
+            Selectable, monospaced and on its own line, because the only thing a reader
+            ever does with this is copy it into a message to us. A reference buried in a
+            sentence gets retyped, and a retyped reference has a digit wrong.
+          */}
+          {error.reference && (
+            <>
+              {" "}
+              <code className="reference">{error.reference}</code>
+            </>
+          )}
         </p>
       )}
 
