@@ -1,0 +1,297 @@
+<title>Landscape — Code Tour</title>
+<style>
+  :root{--ground:#0D1311;--surface:#131C19;--ink:#E8EFEB;--ink-soft:#B8C5BF;--muted:#7F8F88;
+    --rule:#233029;--accent:#4FBFA3;--accent-soft:#12302A;--warn:#D9A441;--flag:#E0765B;
+    --mono:ui-monospace,"Cascadia Mono",Menlo,Consolas,monospace;
+    --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);line-height:1.55}
+
+  .banner{background:var(--accent-soft);color:var(--accent);font-family:var(--mono);
+    font-size:.78rem;letter-spacing:.04em;padding:.5rem 1rem;text-align:center;
+    border-bottom:1px solid var(--rule)}
+
+  .wrap{display:grid;grid-template-columns:19rem 1fr;min-height:calc(100vh - 2.4rem)}
+
+  .tree{border-right:1px solid var(--rule);padding:1.2rem 1rem;font-family:var(--mono);font-size:.8rem}
+  .tree h2{font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+    margin:0 0 .9rem;font-weight:600}
+  .tree .row{padding:.28rem .5rem;border-radius:3px;color:var(--ink-soft);white-space:nowrap}
+  .tree .row.dir{color:var(--muted)}
+  .tree .row .note{color:var(--muted);font-size:.72rem}
+
+  .pane{padding:1.4rem 1.6rem;overflow:hidden}
+  .filename{font-family:var(--mono);font-size:.82rem;color:var(--accent);margin-bottom:.15rem}
+  .purpose{font-size:.86rem;color:var(--muted);margin-bottom:1rem;max-width:70ch}
+
+  pre{margin:0;font-family:var(--mono);font-size:.84rem;line-height:1.62;
+    background:var(--surface);border:1px solid var(--rule);border-radius:4px;
+    padding:1rem 1.1rem;overflow:hidden;white-space:pre}
+  .ln{display:block;padding:0 .35rem;border-radius:2px}
+  .k{color:#7FD6BF}.s{color:var(--warn)}.c{color:var(--muted);font-style:italic}
+  .t{color:#9DC6F0}.f{color:#E8EFEB}
+
+  /* Same highlight mechanism as the product films: a class on the element, so it is
+     correct by construction rather than measured against a moving page. */
+  .spotted{outline:2px solid var(--accent)!important;outline-offset:3px;border-radius:3px;
+    background:rgba(79,191,163,.13)!important}
+
+  .cap-bar{position:fixed;left:0;right:0;bottom:0;background:rgba(6,10,9,.94);
+    border-top:1px solid var(--rule);padding:.85rem 1.2rem;display:none}
+  .cap-bar.on{display:block}
+  .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
+</style>
+
+<div class="banner" id="banner">CODE TOUR — the starter skeleton</div>
+
+<div class="wrap">
+  <aside class="tree">
+    <h2>Repository</h2>
+    <div class="row dir" id="t-crates">crates/</div>
+    <div class="row" id="t-core">&nbsp;&nbsp;landscape-core<span class="note"> types</span></div>
+    <div class="row" id="t-db">&nbsp;&nbsp;landscape-db<span class="note"> storage</span></div>
+    <div class="row" id="t-api">&nbsp;&nbsp;landscape-api<span class="note"> http</span></div>
+    <div class="row" id="t-bin">&nbsp;&nbsp;landscape<span class="note"> the binary</span></div>
+    <div class="row dir" id="t-mig">migrations/</div>
+    <div class="row dir" id="t-web">web/<span class="note"> react + ts</span></div>
+    <div class="row dir" id="t-docs">docs/<span class="note"> the spec</span></div>
+  </aside>
+
+  <main class="pane">
+    <div class="filename" id="fname">&nbsp;</div>
+    <div class="purpose" id="purpose">&nbsp;</div>
+    <pre id="code"></pre>
+  </main>
+</div>
+
+<div class="cap-bar" id="capBar"><div class="cap-text" id="capText"></div></div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+
+  // Real excerpts from the committed code. Kept short: a tour that shows whole files
+  // shows nothing, because nobody reads a screen of code while being talked at.
+  var FILES = {
+    trait: {
+      name: "crates/landscape-db/src/lib.rs",
+      purpose: "The seam that keeps everything testable with nothing installed.",
+      lines: [
+        ['c', '/// Everything the application needs from storage.'],
+        ['c', '/// Deliberately narrow: a wide trait is expensive to implement twice,'],
+        ['c', '/// and the second implementation is what makes local testing free.'],
+        ['k', '#[async_trait]'],
+        ['k', 'pub trait Store: Send + Sync + Debug {'],
+        ['f', '    async fn enqueue(&self, new: &NewAnalysis) -> Result<Analysis>;'],
+        ['f', '    async fn get(&self, id: AnalysisId) -> Result<Analysis>;'],
+        ['c', ''],
+        ['c', '    /// Claim the oldest queued analysis, atomically.'],
+        ['c', '    /// Two workers must never receive the same one.'],
+        ['f', '    async fn claim_next(&self) -> Result<Option<Analysis>>;'],
+        ['f', '    async fn complete(&self, id: AnalysisId, report: &Report) -> Result<()>;'],
+        ['f', '    async fn fail(&self, id: AnalysisId, reason: &str) -> Result<()>;'],
+        ['k', '}']
+      ]
+    },
+    claim: {
+      name: "crates/landscape-core/src/report.rs",
+      purpose: "An unsourced sentence is not representable.",
+      lines: [
+        ['c', '/// One assertion, with the evidence that supports it.'],
+        ['c', '///'],
+        ['c', '/// There is no way to construct a Claim without a source label and a'],
+        ['c', '/// verbatim quote. That is the point: an unsourced sentence cannot be'],
+        ['c', '/// represented, so it cannot reach a reader by accident.'],
+        ['k', 'pub struct Claim {'],
+        ['f', '    pub text: String,'],
+        ['f', '    pub source_label: String,      '], ['c', '// required'],
+        ['f', '    pub evidence_quote: String,    '], ['c', '// required, verbatim'],
+        ['f', '    pub confidence: Confidence,'],
+        ['f', '    pub as_of: DateTime<Utc>,'],
+        ['k', '}']
+      ]
+    },
+    queue: {
+      name: "crates/landscape-db/src/pg.rs",
+      purpose: "The queue is a column, not a service.",
+      lines: [
+        ['c', '// SKIP LOCKED is what makes this safe from several workers at once:'],
+        ['c', '// a row another transaction holds is passed over rather than waited'],
+        ['c', '// on, so workers never queue behind each other for the same job.'],
+        ['s', 'UPDATE analyses SET status = $1, started_at = now()'],
+        ['s', 'WHERE id = ('],
+        ['s', '    SELECT id FROM analyses'],
+        ['s', '    WHERE status = $2'],
+        ['s', '    ORDER BY created_at'],
+        ['t', '    FOR UPDATE SKIP LOCKED'],
+        ['s', '    LIMIT 1'],
+        ['s', ')'],
+        ['s', 'RETURNING id, prompt, status, created_at, report']
+      ]
+    },
+    negative: {
+      name: "crates/landscape/src/main.rs",
+      purpose: "The empty report is empty honestly.",
+      lines: [
+        ['c', '/// A report shaped exactly like a real one, containing only what is'],
+        ['c', '/// actually known. The pipeline that fills this in is Phase 1.'],
+        ['k', 'fn placeholder_report(prompt: &str) -> Report {'],
+        ['f', '    Report {'],
+        ['f', '        sections: vec!['],
+        ['t', '            Section::not_found('],
+        ['s', '                "pricing", "Prices",'],
+        ['s', '                vec!["nothing was fetched: the gathering'],
+        ['s', '                      pipeline is not built yet"],'],
+        ['t', '            ),'],
+        ['f', '        ],'],
+        ['f', '        sources: Vec::new(),'],
+        ['f', '    }'],
+        ['k', '}']
+      ]
+    },
+    test: {
+      name: "crates/landscape-api/src/routes.rs",
+      purpose: "The whole HTTP path, tested with no database.",
+      lines: [
+        ['k', '#[tokio::test]'],
+        ['k', 'async fn an_internal_failure_never_leaks_detail() {'],
+        ['f', '    let response = ApiError::Internal('],
+        ['s', '        "connection string postgres://user:hunter2@db".to_owned()'],
+        ['f', '    ).into_response();'],
+        ['c', ''],
+        ['f', '    let text = json_body(response).await.to_string();'],
+        ['t', '    assert!(!text.contains("hunter2"));'],
+        ['t', '    assert!(!text.contains("postgres://"));'],
+        ['k', '}']
+      ]
+    },
+    run: {
+      name: "README.md",
+      purpose: "The whole application, no database, one command.",
+      lines: [
+        ['c', '# The short way - no database'],
+        ['t', '$ cargo run -- dev --store memory'],
+        ['c', ''],
+        ['c', '# A second terminal for the frontend'],
+        ['t', '$ cd web && npm install && npm run dev'],
+        ['c', ''],
+        ['c', '# Every test. Nothing needs to be running.'],
+        ['t', '$ cargo test'],
+        ['f', '   27 passed; 0 failed'],
+      ]
+    }
+  };
+
+  function show(key) {
+    var f = FILES[key];
+    if (!f) return;
+    $("fname").textContent = f.name;
+    $("purpose").textContent = f.purpose;
+    var html = "";
+    for (var i = 0; i < f.lines.length; i++) {
+      html += '<span class="ln ' + f.lines[i][0] + '">' + esc(f.lines[i][1]) + "</span>";
+    }
+    $("code").innerHTML = html;
+  }
+
+  function esc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  var spotted = null;
+  function spot(sel) {
+    clearSpot();
+    var el = document.querySelector(sel);
+    if (!el) return;
+    spotted = el;
+    el.classList.add("spotted");
+  }
+  function clearSpot() {
+    if (spotted) { spotted.classList.remove("spotted"); spotted = null; }
+  }
+
+  function act(spec) {
+    if (!spec || spec === "hold") return;
+    var c = spec.indexOf(":"), verb = c < 0 ? spec : spec.slice(0, c);
+    var arg = c < 0 ? "" : spec.slice(c + 1);
+    if (verb !== "spot") clearSpot();
+    if (verb === "file") show(arg);
+    else if (verb === "spot") spot(arg);
+  }
+
+  // Same beat shape as the product films: kind drives timing, action drives the picture.
+  var BEATS = [
+    { kind: "recognition", a: "hold",          c: "This is the code that runs behind the demo." },
+    { kind: "turn",        a: "spot:#t-crates", c: "Four Rust crates, a React frontend, and the specification it was built from." },
+    { kind: "point",       a: "spot:#t-core",  c: "Types first. No database, no network, nothing to install to test it." },
+
+    { kind: "result",      a: "file:claim",    c: "This is a Claim. Every sentence in a report is one." },
+    { kind: "means",       a: "spot:#code",    c: "It cannot be built without a source label and a quote from that source." },
+    { kind: "means",       a: "hold",          c: "So a sentence with no evidence behind it cannot be written down at all." },
+
+    { kind: "result",      a: "file:trait",    c: "This is how the application reaches storage." },
+    { kind: "means",       a: "spot:#code",    c: "Six methods. There are two implementations: Postgres, and one in memory." },
+    { kind: "means",       a: "hold",          c: "Every test uses the memory one, so the tests need nothing running." },
+
+    { kind: "result",      a: "file:queue",    c: "The queue is a column in the database, not a separate service." },
+    { kind: "means",       a: "spot:#code",    c: "Skip locked lets several workers claim jobs at once without collisions." },
+    { kind: "means",       a: "hold",          c: "One fewer thing to run, and one fewer thing to pay for." },
+
+    { kind: "result",      a: "file:negative", c: "A finished report today contains nothing." },
+    { kind: "means",       a: "spot:#code",    c: "It says so, and lists what it would have checked. Same as a real gap." },
+    { kind: "means",       a: "hold",          c: "The reading pipeline is next. The shape it fills is already here." },
+
+    { kind: "result",      a: "file:test",     c: "This test checks that a failure never shows a reader our internals." },
+    { kind: "means",       a: "spot:#code",    c: "It asserts a database password cannot appear in a response." },
+
+    { kind: "close",       a: "file:run",      c: "Two commands to run it. Nothing else to install." },
+    { kind: "close",       a: "spot:#code",    c: "Twenty-seven tests, no database, no keys, no accounts." }
+  ];
+
+  // Timings computed from the same rules as the product films: base 3.2s, payoff 4.8s,
+  // reading room of characters over fourteen plus 0.8, and 1.6s to settle after a move.
+  var t = 0;
+  BEATS.forEach(function (b) {
+    var d = (b.kind === "result" || b.kind === "means") ? 4.8 : 3.2;
+    if (/\d/.test(b.c)) d = Math.max(d, 4.8);
+    d = Math.max(d, b.c.length / 14 + 0.8);
+    if (b.a.indexOf("spot:") === 0 || b.a.indexOf("file:") === 0) d += 1.2;
+    b.t = Math.round(t * 10) / 10;
+    b.d = Math.round(d * 10) / 10;
+    t += b.d;
+  });
+  var TOTAL = Math.round(t * 10) / 10;
+
+  var timers = [];
+  function playDemo() {
+    timers.forEach(clearTimeout); timers = [];
+    clearSpot();
+    $("capBar").classList.add("on");
+    show("claim");
+    BEATS.forEach(function (b) {
+      timers.push(setTimeout(function () {
+        try { act(b.a); } catch (e) {}
+        $("capText").textContent = b.c;
+      }, b.t * 1000));
+    });
+    timers.push(setTimeout(function () {
+      clearSpot();
+      $("capText").textContent = "The full source is in the pull request.";
+    }, TOTAL * 1000));
+  }
+
+  show("claim");
+
+  // The same two globals the product prototype exposes, so record-demo.mjs and build.py
+  // work against this page unchanged.
+  window.__playDemo = playDemo;
+  window.__chapters = [{
+    id: "code", n: 1,
+    title: "The starter code",
+    blurb: "A walk through the skeleton: what each crate is for, the two decisions that shape it, and how to run the whole thing locally.",
+    seconds: TOTAL + 3
+  }];
+  window.__beats = BEATS;
+})();
+</script>

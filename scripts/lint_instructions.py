@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+"""Lint shell commands in prose without executing them.
+
+A pull request description is untrusted input — it can be written by anyone who opens a
+PR — so this reads and checks, and never runs, what it finds. The README gets the stronger
+treatment (actually executed) in `crates/landscape/tests/docs.rs`, because the README is
+in the repository and goes through review.
+
+    python3 scripts/lint_instructions.py README.md docs/*.md
+    python3 scripts/lint_instructions.py --stdin-name "the PR description" < body.md
+
+Exit code 1 if anything is wrong, with the line quoted.
+"""
+
+from __future__ import annotations
+
+import argparse
+import io
+import re
+import sys
+
+# The port the binary listens on, read from the source rather than repeated here. Two
+# copies of a constant is what caused the bug this script exists to prevent.
+MAIN_RS = 'crates/landscape/src/main.rs'
+
+
+def api_port(default: str = '8787') -> str:
+    try:
+        src = io.open(MAIN_RS, encoding='utf-8').read()
+    except OSError:
+        return default
+    m = re.search(r'const DEFAULT_ADDR:\s*&str\s*=\s*"([^"]+)"', src)
+    return m.group(1).rsplit(':', 1)[-1] if m else default
+
+
+def commands(text: str) -> list[tuple[int, str]]:
+    """Shell commands inside ```bash fences, with `\\` continuations joined."""
+    out: list[tuple[int, str]] = []
+    inside = False
+    pending = ''
+    start = 0
+    for n, raw in enumerate(text.splitlines(), start=1):
+        line = raw.strip()
+        if line.startswith('```'):
+            inside = line.startswith('```bash') or line.startswith('```sh')
+            continue
+        if not inside or not line or line.startswith('#'):
+            continue
+        if not pending:
+            start = n
+        if line.endswith('\\'):
+            pending += line[:-1].rstrip() + ' '
+            continue
+        out.append((start, pending + line))
+        pending = ''
+    if pending:
+        out.append((start, pending.strip()))
+    return out
+
+
+def check(text: str, where: str) -> list[str]:
+    port = api_port()
+    problems: list[str] = []
+
+    for line_no, cmd in commands(text):
+        at = f'{where}:{line_no}'
+
+        # A POST with a body and no content-type is rejected. Documenting one documents
+        # a failure — this is exactly what shipped.
+        if 'curl' in cmd and ' -d ' in cmd and 'content-type' not in cmd.lower():
+            problems.append(
+                f'{at}: sends a body with no content-type header, which the API rejects\n'
+                f'    {cmd}\n'
+                f"    fix: add -H 'content-type: application/json'"
+            )
+
+        # A command addressing our API on someone else's port reaches someone else's
+        # program. Port 8080 in particular is llama.cpp's default.
+        if '/api/' in cmd:
+            found = re.findall(r'(?:localhost|127\.0\.0\.1|\[::1\]):(\d+)', cmd)
+            for got in found:
+                if got != port:
+                    hint = ' (8080 is llama.cpp\'s default)' if got == '8080' else ''
+                    problems.append(
+                        f'{at}: talks to /api/ on port {got}, but the API listens on '
+                        f'{port}{hint}\n    {cmd}'
+                    )
+
+        # A subcommand that no longer exists.
+        m = re.match(r'cargo run\s+--\s+([a-z-]+)', cmd)
+        if m:
+            role = m.group(1)
+            try:
+                src = io.open(MAIN_RS, encoding='utf-8').read()
+            except OSError:
+                src = ''
+            if src and f'Some("{role}")' not in src:
+                problems.append(f'{at}: documents `cargo run -- {role}`, which is not a command\n    {cmd}')
+
+    return problems
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument('files', nargs='*', help='files to check; omit to read stdin')
+    ap.add_argument('--stdin-name', default='stdin', help='what to call stdin in messages')
+    args = ap.parse_args()
+
+    problems: list[str] = []
+    if args.files:
+        for path in args.files:
+            problems += check(io.open(path, encoding='utf-8').read(), path)
+    else:
+        problems += check(sys.stdin.read(), args.stdin_name)
+
+    if not problems:
+        print('instructions look runnable.')
+        return 0
+
+    print(f'{len(problems)} problem(s) in the instructions:\n')
+    for p in problems:
+        print(f'  {p}\n')
+    print('These are commands a reader will paste. A wrong one wastes their time and')
+    print('looks like the software is broken.')
+    return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

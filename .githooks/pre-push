@@ -1,0 +1,20 @@
+#!/bin/sh
+# Fast checks before anything leaves the machine. CI is the real gate; this just saves a
+# round trip when the mistake is an obvious one.
+#
+# Enable once per clone:
+#     git config core.hooksPath .githooks
+#
+# Skip deliberately when you need to:  git push --no-verify
+
+set -e
+
+echo "pre-push: linting instructions…"
+python3 scripts/lint_instructions.py README.md 2>/dev/null \
+  || python scripts/lint_instructions.py README.md
+
+echo "pre-push: fmt + the fast doc tests…"
+cargo fmt --all --check
+cargo test -p landscape --test docs --quiet
+
+echo "pre-push: ok"

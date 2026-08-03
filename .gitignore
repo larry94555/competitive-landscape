@@ -1,3 +1,19 @@
+# Build output
 node_modules/
+web/node_modules
+web/dist
+/target
+**/*.rs.bk
+
+# Local config — .env.example is committed, .env is not
+.env
+
+# Scratch
 prototype/demo-page.html
-package-lock.json
+
+# Lockfiles are deliberately NOT ignored. This is an application, not a library: the exact
+# dependency versions are part of what makes a build reproducible, and `npm ci` refuses to
+# run without one. `package-lock.json` was ignored here from before there was any code,
+# which broke CI's dependency cache and would have broken `npm ci` one step later.
+#   Cargo.lock             committed
+#   web/package-lock.json  committed
