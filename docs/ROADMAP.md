@@ -33,7 +33,7 @@ TypeScript + React frontend · Rust backend · local llama.cpp inference on Orac
 | [QUALITY_GUARDRAILS.md](QUALITY_GUARDRAILS.md) | Quality & trust guardrails (**E**): anti-hallucination stack, evaluation, feedback loops, legal posture |
 | [FACT_CHECKING.md](FACT_CHECKING.md) | Information gathering & fact-checking: source discovery, the two-axis trust model, competitive-set derivation, the nine-level verification pipeline, misinformation/disinformation handling, and how a reader independently confirms every claim |
 | [Fable_Evaluation.md](Fable_Evaluation.md) · [Evaluation_Action_Plan.md](Evaluation_Action_Plan.md) | Pre-implementation evaluation of the whole plan, and the disposition of every finding with its impact on implementation |
-| [CODING_QUALITY.md](CODING_QUALITY.md) | The code quality standard: simplicity budgets, design patterns, testing, linting, Sonar, hooks, ADRs, the tutorial, review process, and the agent contract |
+| [CODING_QUALITY.md](CODING_QUALITY.md) | The code quality standard: simplicity budgets, design patterns, testing, linting, hooks, ADRs, the tutorial, review process, and the agent contract |
 
 ---
 
@@ -215,14 +215,20 @@ holding it.
 - Cargo workspace per [ARCHITECTURE.md](ARCHITECTURE.md) §3.2; Vite + React + TS strict
   scaffold; GitHub Actions CI (`fmt`, `clippy -D warnings`, `test`, `audit`, `deny`,
   `tsc`, `eslint`, `vitest`).
-- **Quality toolchain from commit one** per [CODING_QUALITY.md](CODING_QUALITY.md): workspace
+- ~~**Quality toolchain from commit one** per [CODING_QUALITY.md](CODING_QUALITY.md): workspace
   clippy lints (`unsafe_code = forbid`, `unwrap_used = deny`), `tsc --strict`, ESLint
-  type-checked rules, `lefthook` pre-commit hooks, `gitleaks`, `cargo deny`, SonarCloud
-  quality gate on new code, coverage reporting, and the budget-annotation report. **Retrofitting
-  a quality bar onto an existing codebase does not work** — the gates must predate the code.
+  type-checked rules, pre-commit hooks, `gitleaks`, `cargo deny`, coverage reporting, and the
+  budget-annotation report.~~ **Done**, and the gates did predate the code — every one was
+  green on an empty repository, which is what made that exit criterion meetable.
+  **SonarCloud was dropped** rather than delivered: by the end of Phase 0 the checks it would
+  have added were green elsewhere, and the one thing genuinely given up — duplication
+  detection — is recorded as such in [ADR 0006](decisions/0006-no-sonarcloud.md).
+  Coverage is **reported, not gated**, for the reason CODING_QUALITY §6.2 already gave.
+  **Retrofitting a quality bar onto an existing codebase does not work** — the gates must
+  predate the code.
 - ~~`docs/decisions/` initialised with the ADR template, and `docs/TUTORIAL.md` skeleton with
   its CI link-checker, so both grow with the code rather than being written at the end.~~
-  **Done** — five ADRs, [TUTORIAL.md](TUTORIAL.md), and `scripts/check_links.py` resolving
+  **Done** — six ADRs, [TUTORIAL.md](TUTORIAL.md), and `scripts/check_links.py` resolving
   every internal link *and heading anchor* on every push. It found a broken one on its first
   run.
 - ~~**CI speed, in payoff order** — the Rust build dominates, so optimize it first:
