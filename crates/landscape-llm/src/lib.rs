@@ -141,6 +141,7 @@ impl LlamaClient {
         let mut schema = serde_json::to_value(schemars::schema_for!(T))
             .unwrap_or_else(|_| json!({ "type": "object" }));
         tighten_integer_bounds(&mut schema);
+        require_every_property(&mut schema);
         let raw = self
             .complete(prompt, &Constraint::JsonSchema(schema), decode)
             .await?;
@@ -265,6 +266,60 @@ fn tighten_integer_bounds(value: &mut serde_json::Value) {
         serde_json::Value::Array(items) => {
             for v in items {
                 tighten_integer_bounds(v);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Make every declared property required.
+///
+/// `required` is a *validation* concept: it says which keys a document must contain for it
+/// to be accepted, and an absent key is permitted unless listed. `schemars` therefore leaves
+/// `Option<T>` fields out of `required`, which is exactly right for checking a document and
+/// exactly wrong for generating one.
+///
+/// When the grammar permits omitting a key, a model omits it — and `serde` deserialises a
+/// missing key into `None`, the same value an explicit `null` produces. The two are
+/// indistinguishable after parsing, so a model that simply stopped writing looks identical
+/// to one that read the page and found nothing there.
+///
+/// Found by measurement. On a four-field extraction where every field was optional, both
+/// Qwen3-1.7B and Qwen3-4B emitted the first two keys and closed the object:
+///
+/// ```text
+/// {"plan_name": "Grower", "price_usd": 49}       <- billing_period and evidence_quote absent
+/// ```
+///
+/// Scored naively that is two correct answers and two honest abstentions. It is neither.
+/// With every property required, the same models on the same prompt answer all four.
+///
+/// This does not force a value: `Option<T>` still serialises as `["string","null"]`, so
+/// `null` remains available. It forces a *decision* — the model must write the key and then
+/// choose between a value and `null`, rather than declining to mention it. Which is the
+/// whole design of [`landscape_core::PricingExtraction`]: a gap has to be stated to be
+/// reported.
+///
+/// See `docs/decisions/0004-require-every-property.md`.
+fn require_every_property(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(map) => {
+            if let Some(names) = map.get("properties").and_then(|p| p.as_object()).map(|p| {
+                p.keys()
+                    .map(|k| serde_json::Value::String(k.clone()))
+                    .collect::<Vec<_>>()
+            }) {
+                if !names.is_empty() {
+                    map.insert("required".to_owned(), serde_json::Value::Array(names));
+                }
+            }
+            for v in map.values_mut() {
+                require_every_property(v);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for v in items {
+                require_every_property(v);
             }
         }
         _ => {}
@@ -417,5 +472,90 @@ mod tests {
             LlamaClient::new("http://127.0.0.1:8080/").base(),
             "http://127.0.0.1:8080"
         );
+    }
+
+    /// Every field optional — the shape a real extraction has, because every fact on a
+    /// page is a fact that might not be on that page.
+    #[derive(Debug, Deserialize, JsonSchema)]
+    #[allow(dead_code)]
+    struct AllOptional {
+        first: Option<String>,
+        second: Option<f64>,
+        third: Option<String>,
+    }
+
+    #[test]
+    fn schemars_leaves_optional_fields_out_of_required() {
+        // Not a complaint about schemars — this is correct for validation. It is asserted
+        // because the fix below only makes sense if this is why the fix is needed, and if
+        // schemars ever changes, the fix becomes a no-op nobody notices.
+        let schema = serde_json::to_value(schemars::schema_for!(AllOptional)).expect("schema");
+        assert!(
+            schema.get("required").is_none(),
+            "the premise of require_every_property no longer holds: {schema:#}"
+        );
+    }
+
+    #[test]
+    fn every_property_becomes_required() {
+        // Without this, a model writes the first key or two and closes the object. The
+        // missing keys parse as None, so truncation is indistinguishable from abstention.
+        let mut schema = serde_json::to_value(schemars::schema_for!(AllOptional)).expect("schema");
+        require_every_property(&mut schema);
+
+        let required = schema["required"].as_array().expect("required is set");
+        assert_eq!(required.len(), 3, "{schema:#}");
+        for field in ["first", "second", "third"] {
+            assert!(
+                required.iter().any(|r| r == field),
+                "{field} is not required: {schema:#}"
+            );
+        }
+    }
+
+    #[test]
+    fn requiring_a_key_does_not_forbid_a_null_value() {
+        // The distinction the whole change rests on. `required` governs the presence of
+        // the key, not the value behind it — so honesty is still expressible, it just has
+        // to be written down rather than implied by silence.
+        let mut schema = serde_json::to_value(schemars::schema_for!(AllOptional)).expect("schema");
+        require_every_property(&mut schema);
+        let types = &schema["properties"]["first"]["type"];
+        assert!(
+            types
+                .as_array()
+                .is_some_and(|t| t.iter().any(|x| x == "null")),
+            "null must remain a legal value: {types}"
+        );
+    }
+
+    #[test]
+    fn nested_objects_are_required_too() {
+        // A report is objects inside arrays inside objects. Fixing only the top level
+        // would leave every nested extraction with the original problem.
+        let mut schema = serde_json::json!({
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": { "a": { "type": "string" }, "b": { "type": "string" } }
+                    }
+                }
+            }
+        });
+        require_every_property(&mut schema);
+        let inner = &schema["properties"]["items"]["items"]["required"];
+        assert_eq!(inner, &serde_json::json!(["a", "b"]));
+    }
+
+    #[test]
+    fn a_schema_with_no_properties_is_left_alone() {
+        // An empty `required: []` is legal but pointless, and llama.cpp's converter has
+        // no reason to be handed one.
+        let mut schema = serde_json::json!({ "type": "string" });
+        require_every_property(&mut schema);
+        assert_eq!(schema, serde_json::json!({ "type": "string" }));
     }
 }
