@@ -1,0 +1,11 @@
+{
+  "id": "two-currencies",
+  "why": "The euro figure comes first and is the larger-looking number. The field is named price_usd, so the currency is part of the question rather than a detail — and a report that quietly reads euros as dollars is wrong in a way no reader can see.",
+  "ask": "Kitchen Link Standard",
+  "source": "Kitchen Link Standard\n\nEurope: EUR 25 per month.\nUnited States: USD 29 per month.\nUnited Kingdom: GBP 22 per month.\n\nYour region is set from your billing address and cannot be changed after signup. All three prices buy the same plan: unlimited kitchens, order consolidation, and next-morning delivery windows. Local sales tax is added at checkout where it applies.",
+  "expect": {
+    "plan_name": "Kitchen Link Standard",
+    "price_usd": 29.0,
+    "billing_period": "monthly"
+  }
+}

@@ -65,20 +65,34 @@ Timings are **derived** from these rules. No step time is written by hand.
 
 | Rule | Value |
 |---|---|
-| Base beat | **3.2s** |
-| `result` and `means` beats | **4.8s** |
-| Any line containing a number | **at least 4.8s** |
-| After a scroll or highlight | **+1.6s** to settle before the narration lands |
-| Reading room | at least `characters ÷ 14` seconds, plus 0.8 |
-| Film length | **35–70s** |
+| Base beat | **2.6s** |
+| `result` and `means` beats | **3.8s** |
+| Any line containing a number | **at least 3.8s** |
+| After a scroll or highlight | **+1.3s** to settle before the narration lands |
+| Reading room | at least `characters ÷ 14` seconds, plus 0.6 |
+| Film length | **28–70s** |
 | Results per film | **2–4** |
 
-Every floor above is **20% shorter than the first cut**, which left too long a gap between
-points. Only the *slack* was cut: the `÷ 14` reading rate is untouched, so a caption still gets
-the time it takes to read. Shortening that would make captions unreadable rather than brisk.
+Every floor above has been **cut 20% twice**, and now sits at roughly two thirds of the first
+cut. Only the *slack* has ever been cut: the `÷ 14` reading rate is untouched, so a caption
+still gets the time it takes to read. Shortening that would not make a film brisk, it would
+make it unreadable — which plays as *slower*, because the viewer rewinds.
+
+**The bigger saving is fewer words, not shorter gaps.** The reading floor dominates once the
+slack is this tight, so a long caption sets its own pace no matter what these numbers say.
+Cutting the code tour's captions took it from 125s to 101s; the pacing change alone had moved
+it about a second per beat.
+
+**The floor moves with the pacing; the ceiling does not.** 28s asks whether a film has enough
+in it to be worth starting, and cutting slack shortens a film without removing a beat — so the
+floor has to follow or it flags films for saying exactly what they said before. 70s is how
+long someone will actually watch, which no editing decision of ours changes.
 
 **Scroll, settle, then speak.** The first cut narrated while the page was still moving, which
-is most of why nothing registered. The +1.6s is that rule made mechanical.
+is most of why nothing registered. The +1.3s is that rule made mechanical.
+
+`prototype/build.py` holds these as constants and `build-code-tour.py` imports them. They were
+duplicated once, and a pacing change silently left one film at the old timing.
 
 ---
 
@@ -373,7 +387,7 @@ prototype/demo-*.html             one page per film
 
 - a `result` beat with no `means` after it
 - more than 4 results in a film
-- a film outside 35–70 seconds
+- a film outside 28–70 seconds
 - a caption too long to read in its own slot
 - banned vocabulary ([Video_Guidelines.md](Video_Guidelines.md) §2.2)
 - an action referring to a selector the prototype does not contain
@@ -394,7 +408,7 @@ enforced by `--check`; the rest need a person.
 
 - [ ] Every `result` is followed by a `means`
 - [ ] Four or fewer results per film
-- [ ] Every film lands between 35 and 70 seconds
+- [ ] Every film lands between 28 and 70 seconds
 - [ ] Every caption is readable in the time it is on screen
 - [ ] Every selector exists in the prototype
 - [ ] **Does any line claim a benefit?** Time saved, money made, risk avoided, or what the

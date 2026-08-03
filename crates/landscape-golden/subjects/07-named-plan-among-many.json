@@ -1,0 +1,11 @@
+{
+  "id": "named-plan-among-many",
+  "why": "Five plans, and the one asked for is neither first nor last nor cheapest nor dearest. A model that has stopped reading and started guessing lands on the first or the most prominent price, so the correct answer here is specifically the one that guessing does not produce.",
+  "ask": "Cooperative",
+  "source": "Compare plans\n\nSolo — $15 per month. One grower, one route.\nMarket — $39 per month. Up to three growers, three routes.\nCooperative — $79 per month. Up to twelve growers, unlimited routes, shared inventory across members, and a single invoice for the co-op.\nRegional — $199 per month. Unlimited growers, multi-region routing, and priority support.\nEnterprise — custom pricing.\n\nEvery plan is billed monthly in US dollars. Annual billing saves two months and can be arranged by writing to us. Plans can be changed at any time and take effect at the next renewal.",
+  "expect": {
+    "plan_name": "Cooperative",
+    "price_usd": 79.0,
+    "billing_period": "monthly"
+  }
+}

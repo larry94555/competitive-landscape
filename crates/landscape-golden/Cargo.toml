@@ -1,0 +1,25 @@
+[package]
+name = "landscape-golden"
+# Not published, and `cargo-deny` needs telling. `bans.allow-wildcard-paths` permits the
+# path dependencies every crate here uses, but only for private crates — crates.io forbids
+# path deps, so a publishable crate with one is a real error. Without this line the
+# supply-chain job fails on a package that was never going anywhere near a registry.
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Fixed pages, known answers, and a score. What constrained decoding cannot check."
+
+[dependencies]
+landscape-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+landscape-llm.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true

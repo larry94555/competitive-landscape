@@ -1,0 +1,11 @@
+{
+  "id": "contact-sales",
+  "why": "The plan exists and is described in detail, but no price is published. This is the single most common real case on a competitor's pricing page, and the one where an invented number does the most damage: a reader comparing our report against the page sees a figure that is not there and stops trusting everything else on the page.",
+  "ask": "Enterprise",
+  "source": "Plans\n\nGrower — $49 per month. Unlimited orders, up to five delivery routes, and the demand forecast.\n\nEnterprise — Built for grower co-operatives and distributors running more than fifty routes. Includes everything in Grower, plus single sign-on, a private data region, custom contract terms, an uptime commitment, and onboarding delivered by our team. Contact sales for pricing.\n\nEvery plan includes unlimited seats. Annual agreements are available on request.",
+  "expect": {
+    "plan_name": "Enterprise",
+    "price_usd": null,
+    "billing_period": null
+  }
+}

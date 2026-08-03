@@ -1,0 +1,11 @@
+{
+  "id": "plain-table",
+  "why": "The baseline. A price stated plainly in a pricing table, with the period on the same line. A model that cannot do this one cannot do any of them, so a failure here means the harness is wrong before it means the model is.",
+  "ask": "Grower",
+  "source": "Pricing\n\nStarter — $19 per month. Up to 25 orders a month, one delivery route, email support.\n\nGrower — $49 per month. Unlimited orders, up to five delivery routes, email and phone support, and access to the demand forecast.\n\nHarvest — $129 per month. Everything in Grower, plus multi-site inventory, a dedicated account manager, and same-day route changes.\n\nAll plans are billed in US dollars and can be cancelled at any time. Prices shown exclude sales tax where applicable. There is no setup fee on any plan.",
+  "expect": {
+    "plan_name": "Grower",
+    "price_usd": 49.0,
+    "billing_period": "monthly"
+  }
+}

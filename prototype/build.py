@@ -20,16 +20,34 @@ VIDEO = os.path.join(HERE, 'video')
 OFFSET = 1.5           # page load + settle before the recorder starts the film
 
 # --- pacing rules, Demo_Walkthrough.md §3 -------------------------------------
-# Every floor below is 20% shorter than the first cut, which paused too long between
-# points. Only the SLACK was cut: CPS is untouched, so a caption still gets the time
-# it takes to read. Shortening that instead would just make captions unreadable.
-BASE = 3.2             # every beat
-PAYOFF = 4.8           # result and means beats
-NUMBER = 4.8           # any line containing a digit
-SETTLE = 1.6           # after a scroll or a highlight
-CPS = 14.0             # characters a second, reading aloud - NOT reduced
-PAD = 0.8              # breathing room after a caption is readable
-FILM_MIN, FILM_MAX = 35.0, 70.0
+# Cut twice now, 20% each time: these floors are ~64% of the first cut, which paused
+# long enough between points that the films felt slow.
+#
+# Only the SLACK has ever been cut. **CPS is untouched and must stay that way** — it is
+# the one number that decides whether a caption can be read at all, and the others are
+# only decisions about how long to wait afterwards. Cutting CPS would not make the film
+# tighter, it would make it unreadable, which reads as *slower* because the viewer
+# rewinds.
+#
+# `build-code-tour.py` imports these rather than keeping its own copy. Two sets of
+# pacing constants drift, and the drift is invisible until someone watches both films
+# back to back.
+BASE = 2.6             # every beat
+PAYOFF = 3.8           # result and means beats
+NUMBER = 3.8           # any line containing a digit
+SETTLE = 1.3           # after a scroll or a highlight
+CPS = 14.0             # characters a second, reading aloud - NEVER reduced
+PAD = 0.6              # breathing room after a caption is readable
+# The floor tracks the pacing; the ceiling does not, and the asymmetry is the point.
+#
+# FILM_MIN asks "does this film have enough in it to be worth starting?", and it was
+# calibrated against the original pacing. Cutting the slack shortens every film by about
+# a fifth without removing a single beat, so a floor that stayed at 35s would flag three
+# films for saying exactly as much as they said yesterday. It moves with the pacing.
+#
+# FILM_MAX is not about pacing at all. It is how long someone will actually watch, which
+# no editing decision of ours changes. It stays where it is.
+FILM_MIN, FILM_MAX = 28.0, 70.0
 MAX_RESULTS = 4
 
 KINDS = {'recognition', 'frustration', 'turn', 'action', 'wait', 'result', 'means', 'point', 'close', 'next'}

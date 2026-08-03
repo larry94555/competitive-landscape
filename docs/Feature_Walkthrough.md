@@ -22,6 +22,7 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | The queue: one worker claims each job exactly once | **Yes** |
 | Persistence across a restart | **Yes**, with Postgres |
 | Constrained model output, guaranteed to fit a Rust type | **Yes**, with `llama-server` |
+| Scoring a model on whether its answers are *true* | **Yes**, with `llama-server` |
 | Reading real web pages | No — not built |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
 | Accounts, quotas, payment | No |
@@ -460,13 +461,75 @@ quantisation of Qwen3-1.7B returned perfectly-formed JSON containing
 
 ---
 
+## Part 8A — Is the model actually *right*?
+
+Everything in Part 8 measures shape and speed. Neither can tell you whether an answer is
+true. This part can.
+
+**Do this** — no model needed:
+
+```bash
+cargo test -p landscape-golden
+```
+
+**You should see 22 passing.** These check the *golden set itself*: that every reference
+answer really appears on its page, that at least three subjects publish no price, that every
+subject explains in prose why it exists. A measuring instrument nobody calibrates produces
+numbers that are worse than none, because they get believed.
+
+**Now score a running model:**
+
+```bash
+cargo test -p landscape-golden --test against_a_model -- --ignored --nocapture
+```
+
+**You should see** a scorecard — ten frozen pricing pages, four columns each:
+
+```
+subject                            plan price period quote
+plain-table                        ok   ok    ok     ok      7210 ms
+contact-sales                      ok   FAB   FAB    ok      7618 ms
+...
+fields correct 87%   perfect 7/10   median 7513 ms
+invented prices 1   any fabrication 2
+```
+
+**`FAB` is the column to read.** It means the page says nothing and the model filled the
+field in anyway. Three of the ten pages publish no price at all, and one of those three
+shows a real, correctly formatted price — for a *different product* on the same page.
+
+**The run fails on exactly one thing:** a price returned for a plan whose page publishes
+none. Not on wrong answers, not on misses. A test that fails for a reason you consider
+negotiable is a test you learn to ignore, and this one has to survive being run against
+whatever model someone happens to have loaded.
+
+**So it is expected to be red against Qwen3-1.7B and green against Qwen3-4B.** That is the
+finding, not a broken test. When the 1.7B fails `contact-sales` it returns `$49` — the price
+of the plan directly above on the page — and quotes that line *verbatim*. It did not invent
+anything. It answered a neighbouring question well.
+
+That is the failure worth understanding before trusting any of this: a fabricated number
+often looks wrong, while a correctly-quoted number attached to the wrong plan looks exactly
+like a right answer.
+
+**Every failure prints what came back**, next to what was expected and why the subject is in
+the set — so a red run explains itself rather than sending you off to re-run it by hand.
+
+**To explore a model that fabricates** without editing the test:
+
+```bash
+GOLDEN_MAX_FABRICATIONS=99 cargo test -p landscape-golden --test against_a_model -- --ignored --nocapture
+```
+
+---
+
 ## Part 9 — What the tests prove
 
 ```bash
 cargo test
 ```
 
-**You should see 38 passing, with nothing running.**
+**You should see 84 passing, with nothing running.**
 
 Worth knowing what a few of them are actually for:
 
@@ -477,6 +540,9 @@ Worth knowing what a few of them are actually for:
 | `no_reader_description_judges_the_publisher` | Enforces the language rule from `FACT_CHECKING.md` — we say what we confirmed, never that a site is bad |
 | `length_is_measured_in_characters_not_bytes` | Eight accented characters are 16 bytes; measuring bytes would reject them and accept the ASCII equivalent |
 | `every_documented_curl_actually_works` | Runs every command in `README.md` against the real binary |
+| `every_expected_answer_is_actually_on_the_page` | Checks the golden set's own answers, so a correct model cannot be scored wrong and then "fixed" |
+| `every_property_becomes_required` | A model that stops writing after two keys parses as a model that found nothing. This is what stops that |
+| `filling_in_a_price_the_page_does_not_state_is_a_fabrication` | The scoring rule the whole golden set turns on, tested without a model |
 
 The last one exists because two bugs once reached a reader through correct code and a stale
 README. Run it with:
@@ -522,6 +588,8 @@ python prototype/build.py --preview
 | 7 — survives a restart with Postgres | | |
 | 8 — 100 generations, 0 parse failures | | |
 | 8 — `landscape-bench` reports three error kinds separately | | |
+| 8A — golden set validates itself, 22 passing, no model | | |
+| 8A — scorecard prints; `FAB` on the abstention subjects reads as expected | | |
 | 9 — `cargo test` green with nothing running | | |
 
 **If something differs from what is written here, that is a bug.** Every command above was run

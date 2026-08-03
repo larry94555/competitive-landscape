@@ -90,7 +90,39 @@ context, a bigger KV cache, a second copy started before the first exited — pu
 **Swap must stay off.** A model that swaps does not fail, it goes a hundred times slower,
 which presents as "the site is down" while every health check passes.
 
-### 2.3 Answering, but far too slowly
+### 2.3 Answering, and wrong
+
+**Symptom.** Everything is green. Health checks pass, nothing fails to parse, latency is
+normal or better — and the reports contain nonsense, or prices that are not on the pages
+they cite.
+
+**This is the failure mode that looks like health.** It has happened once already: a
+defective quantisation of Qwen3-1.7B was the *fastest* model on the bench and returned
+schema-valid garbage. Constrained decoding guarantees the shape of an answer and nothing
+about its truth, so every monitor built around shape reports fine.
+
+**Check.** Score the model against the golden set:
+
+```bash
+LLAMA_URL=http://127.0.0.1:8080 \
+  cargo test -p landscape-golden --test against_a_model -- --ignored --nocapture
+```
+
+Compare against [BENCHMARKS.md](BENCHMARKS.md) Run 3. Qwen3-4B scored 90% of fields with 0
+invented prices; anything near 10% is a broken model or quantization, not a bad day.
+
+**Fix.**
+- Confirm the loaded file is the one intended: `curl -s http://127.0.0.1:8080/v1/models`.
+  A model swapped by a redownload or a changed symlink is the usual cause.
+- Prefer an official quantization over a third-party re-quantization. The `unsloth` Q4_K_M
+  build failed where the official Q8_0 of the same model was flawless.
+- Roll back to the previous model file before debugging further. A wrong answer reaches a
+  reader; a stopped service does not.
+
+**Do not judge a model swap on latency alone.** That is exactly the mistake this section
+exists to prevent, and the golden set is the only instrument here that would have caught it.
+
+### 2.4 Answering, but far too slowly
 
 **Symptom.** Requests complete but analyses take many times the expected wall clock.
 
