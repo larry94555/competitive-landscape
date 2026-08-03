@@ -605,6 +605,19 @@ cargo test
 
 **You should see 97 passing, with nothing running.**
 
+CI runs the same tests through `cargo nextest run`, which is faster and gives each test its
+own process — so a test that panics is reported as a failure instead of taking the run down
+with it. If you want CI's exact behaviour locally:
+
+```bash
+cargo install cargo-nextest --locked
+cargo nextest run --all-features
+```
+
+**`97 tests run: 97 passed, 6 skipped`** — the six are the `#[ignore]`d ones that need a
+database or a model. `cargo test --all-features --doc` runs alongside it, because nextest
+does not run doctests.
+
 Worth knowing what a few of them are actually for:
 
 | Test | What it protects |

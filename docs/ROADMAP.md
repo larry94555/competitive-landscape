@@ -225,9 +225,13 @@ holding it.
   **Done** — five ADRs, [TUTORIAL.md](TUTORIAL.md), and `scripts/check_links.py` resolving
   every internal link *and heading anchor* on every push. It found a broken one on its first
   run.
-- **CI speed, in payoff order** — the Rust build dominates, so optimize it first:
+- ~~**CI speed, in payoff order** — the Rust build dominates, so optimize it first:
   `Swatinem/rust-cache` (or `sccache`), Rust and frontend as parallel jobs,
-  `cargo-nextest` in place of `cargo test`, `cargo check` before `cargo build` on PRs.
+  `cargo-nextest` in place of `cargo test`, `cargo check` before `cargo build` on PRs.~~
+  **Done** — `rust-cache`, parallel jobs, and `cargo-nextest` with an explicit
+  `cargo test --doc` beside it, because nextest does not run doctests and dropping them
+  silently is how a suite shrinks without a decision. Coverage via `cargo llvm-cov`,
+  **reported and not gated**.
   Then `bun install` for the frontend (~15–30s), after verifying it behaves on Windows
   and does not break Playwright's postinstall browser download — npm is the fallback.
 - Start `RUNBOOK.md` (R7 promises one; it has never been scheduled). It grows with the system:

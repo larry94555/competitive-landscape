@@ -1,0 +1,28 @@
+# nextest configuration.
+#
+# Deliberately small. Every setting here is one somebody would otherwise discover the hard
+# way, and nothing is set because it appeared in an example.
+
+[profile.default]
+# Print the output of failures immediately rather than only in the summary. The summary is
+# fine for one failure and useless for six, because the interesting one has scrolled past.
+failure-output = "immediate-final"
+
+# A test that has not finished in 60 seconds on a laptop is wedged, not slow — the whole
+# default suite runs in under a second.
+#
+# Warn, never kill. `terminate-after` is deliberately absent rather than set to 0, which
+# nextest rejects: the `#[ignore]`d tests that talk to a model server legitimately take
+# minutes, and a timeout that killed those would make the escape hatch useless.
+slow-timeout = { period = "60s" }
+
+# No retries. A flaky test that is quietly retried is a bug we have agreed not to find,
+# and this suite has no network and no clock dependence, so a failure here is real.
+retries = 0
+
+[profile.ci]
+# CI prints every test, passing or not. Locally that is noise; in a log somebody is reading
+# three days later because something went wrong, the absence of a test is the finding.
+status-level = "all"
+final-status-level = "slow"
+fail-fast = false

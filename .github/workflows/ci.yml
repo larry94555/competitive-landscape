@@ -44,10 +44,32 @@ jobs:
         # vague rather than broken. Roadmap Phase 0 asks for this alongside TUTORIAL.md.
         run: python3 scripts/check_links.py
 
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest,cargo-llvm-cov
+
       - name: Test
         # No services. Every test runs against the in-memory store, which is why this job
         # takes seconds and why a contributor can reproduce it exactly on a laptop.
-        run: cargo test --all-features
+        #
+        # `nextest` runs each test in its own process, which buys two things beyond speed:
+        # a test that panics the process is reported as a failure rather than taking the
+        # whole run down with it, and tests cannot leak state into each other through
+        # statics or environment variables. This workspace has real shared state to leak —
+        # `MemoryStore` and the `LLAMA_URL` env var — so that isolation is worth having.
+        run: cargo nextest run --all-features
+
+      - name: Doc tests
+        # nextest does not run doctests. Without this line they would silently stop being
+        # checked the moment `cargo test` was replaced, which is the classic way a test
+        # suite quietly shrinks.
+        run: cargo test --all-features --doc
+
+      - name: Coverage
+        # Reported, not gated. A coverage threshold on a young codebase buys tests written
+        # to move a number rather than to catch a fault — see CODING_QUALITY.md. What this
+        # is for is noticing a *drop*: a PR that adds a module and no tests for it.
+        run: cargo llvm-cov nextest --all-features --summary-only
 
       - name: Build release
         run: cargo build --release
@@ -118,6 +140,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
       - name: Conformance against a real database
         # The in-memory store is only worth trusting if it behaves like Postgres. This runs
         # the same contract against both; without it the fast tests slowly become fiction.
@@ -127,7 +152,13 @@ jobs:
         # server). Those skip themselves when nothing is reachable, and say so in the log.
         # `LLAMA_REQUIRED` is deliberately NOT set here; a job that does provide a model
         # server should set it, so a dead server fails loudly instead of passing quietly.
-        run: cargo test --all-features -- --ignored
+        #
+        # `--run-ignored only` is the faithful translation of `cargo test -- --ignored`.
+        # nextest offers three values where libtest had a flag — `default`, `only`, `all` —
+        # and `all` would additionally re-run the whole fast suite that the `rust` job has
+        # already run. Both spellings pass, so the wrong one costs minutes per push and
+        # never announces itself.
+        run: cargo nextest run --all-features --run-ignored only
 
   web:
     name: web
