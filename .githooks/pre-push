@@ -10,8 +10,8 @@
 set -e
 
 echo "pre-push: linting instructions…"
-python3 scripts/lint_instructions.py README.md 2>/dev/null \
-  || python scripts/lint_instructions.py README.md
+python3 scripts/lint_instructions.py README.md docs/Feature_Walkthrough.md 2>/dev/null \
+  || python scripts/lint_instructions.py README.md docs/Feature_Walkthrough.md
 
 echo "pre-push: fmt + the fast doc tests…"
 cargo fmt --all --check

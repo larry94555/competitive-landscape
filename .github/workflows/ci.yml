@@ -35,7 +35,7 @@ jobs:
       - name: Lint the instructions
         # The README is a set of commands people paste. A stale one looks like the
         # software is broken, so it is checked like code.
-        run: python3 scripts/lint_instructions.py README.md
+        run: python3 scripts/lint_instructions.py README.md docs/Feature_Walkthrough.md
 
       - name: Test
         # No services. Every test runs against the in-memory store, which is why this job

@@ -272,6 +272,8 @@ The code implements a specification written first. Start with
 | [FACT_CHECKING.md](docs/FACT_CHECKING.md) | Source dispositions and auditable negatives |
 | [IDEA_ANALYSIS.md](docs/IDEA_ANALYSIS.md) | The eight levels, and what we refuse to answer |
 | [CODING_QUALITY.md](docs/CODING_QUALITY.md) | The standard this code is held to |
+| [Feature_Walkthrough.md](docs/Feature_Walkthrough.md) | **Test every feature that exists today, by hand.** Start here if you want to see what works |
+| [RUNBOOK.md](docs/RUNBOOK.md) | What to do when something breaks |
 | [Demo_Walkthrough.md](docs/Demo_Walkthrough.md) | The demo films, and the build that compiles them |
 
 ---
