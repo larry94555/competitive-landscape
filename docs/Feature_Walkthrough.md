@@ -299,7 +299,11 @@ The actual cause — a database error, a connection string — is logged and **n
 Before this, both halves of that were true and nothing joined them.
 
 **In the browser**, the reference appears in the error message as a selectable monospace
-chip, because the only thing anyone ever does with it is copy it into a message. See Part 5.
+chip, because the only thing anyone ever does with it is copy it into a message.
+
+**Only a 5xx carries one.** Every rejection in Part 5 is a 4xx and has no `reference` — a
+rejected prompt is fully explained by its own message, and a reference number there would
+tell someone who mistyped that they have found a fault worth reporting.
 
 `docs/decisions/0005-observability-on-a-24gb-box.md` records why correlated logs, and not a
 metrics stack: three resident models leave no spare RAM on a 24 GB box.
@@ -345,6 +349,11 @@ and a verbatim quote from that source. An unsourced sentence is not merely disco
 ## Part 5 — Every way to be told no
 
 Each of these is worth running once: the point is that none returns a bare error.
+
+**None of them carries a `reference` either**, and that is deliberate — every one is a 4xx,
+meaning you can fix it yourself from what the message already says. The reference in
+[Part 3B](#part-3b--find-one-request-in-the-log) is for the other case: something broke at
+our end and there is nothing useful you can do except tell us which failure it was.
 
 **A prompt that is too short:**
 
