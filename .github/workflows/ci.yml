@@ -107,9 +107,11 @@ jobs:
         # The in-memory store is only worth trusting if it behaves like Postgres. This runs
         # the same contract against both; without it the fast tests slowly become fiction.
         #
-        # `--ignored` also picks up the README execution test. It does NOT pick up the
-        # llama-server tests, which skip themselves when no model server is reachable —
-        # CI has no GPU-free budget for a 4B model and should not pretend otherwise.
+        # `--ignored` is a blunt instrument: it also sweeps up the README execution test
+        # (fine, it needs nothing) and the llama-server tests (not fine — CI runs no model
+        # server). Those skip themselves when nothing is reachable, and say so in the log.
+        # `LLAMA_REQUIRED` is deliberately NOT set here; a job that does provide a model
+        # server should set it, so a dead server fails loudly instead of passing quietly.
         run: cargo test --all-features -- --ignored
 
   web:

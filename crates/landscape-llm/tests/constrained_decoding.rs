@@ -78,19 +78,40 @@ fn cases() -> Vec<Case> {
     out
 }
 
+/// A reachable server, or `None` — having said clearly why not.
+///
+/// `#[ignore]` is not enough on its own. CI runs `cargo test -- --ignored` to pick up the
+/// Postgres conformance and README tests, and that sweeps these up too. A missing model
+/// server then fails a job that has nothing to do with models — which is what happened, and
+/// it is a bad failure because it says "the tests are broken" when nothing is.
+///
+/// So absence skips by default. Set `LLAMA_REQUIRED=1` to make it a hard failure instead:
+/// a job that deliberately provides a model server should not silently pass when the server
+/// dies. Skipping quietly in *that* case would be the same mistake in the other direction.
+async fn server_or_skip() -> Option<LlamaClient> {
+    let client = LlamaClient::from_env();
+    if client.is_ready().await {
+        return Some(client);
+    }
+    assert!(
+        std::env::var("LLAMA_REQUIRED").is_err(),
+        "LLAMA_REQUIRED is set, but no llama-server is reachable at {}",
+        client.base()
+    );
+    eprintln!(
+        "SKIPPED: no llama-server at {}. Start one and re-run, or set LLAMA_URL:\n  \
+         llama-server -hf Qwen/Qwen3-4B-GGUF:Q4_K_M --host 127.0.0.1 --port 8080",
+        client.base()
+    );
+    None
+}
+
 #[tokio::test]
 #[ignore = "needs a running llama-server; see the module docs"]
 async fn one_hundred_constrained_generations_all_parse() {
-    let client = LlamaClient::from_env();
-
-    if !client.is_ready().await {
-        panic!(
-            "no llama-server at {}. Start one, or set LLAMA_URL.\n\
-             This test is #[ignore]d by default precisely so its absence never fails a\n\
-             normal `cargo test`.",
-            client.base()
-        );
-    }
+    let Some(client) = server_or_skip().await else {
+        return;
+    };
 
     let decode = Decode {
         max_tokens: 160,
@@ -173,10 +194,9 @@ async fn one_hundred_constrained_generations_all_parse() {
 #[tokio::test]
 #[ignore = "needs a running llama-server"]
 async fn the_model_cannot_invent_an_enum_variant() {
-    let client = LlamaClient::from_env();
-    if !client.is_ready().await {
-        panic!("no llama-server at {}", client.base());
-    }
+    let Some(client) = server_or_skip().await else {
+        return;
+    };
 
     let decode = Decode {
         max_tokens: 160,
