@@ -68,8 +68,16 @@ jobs:
   supply-chain:
     name: supply chain
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          # gitleaks scans a commit RANGE, so it needs the commits in that range. The
+          # default shallow clone (depth 1) has none of them: it reports "scanned ~0 bytes",
+          # finds nothing because there is nothing to look at, and then exits non-zero.
+          # A green "no leaks found" from an empty scan would be worse than this failure.
+          fetch-depth: 0
       - uses: Swatinem/rust-cache@v2
 
       - name: Advisories, licences, sources
