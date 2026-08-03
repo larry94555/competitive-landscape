@@ -14,11 +14,13 @@ pub mod analysis;
 pub mod extract;
 pub mod report;
 pub mod source;
+pub mod subject;
 
 pub use analysis::{Analysis, AnalysisId, AnalysisStatus, NewAnalysis};
 pub use extract::{BillingPeriod, PricingExtraction};
 pub use report::{Claim, Confidence, Report, Section, SectionStatus};
 pub use source::{Disposition, Source};
+pub use subject::{resolve, Candidate, Resolution};
 
 use thiserror::Error;
 

@@ -24,6 +24,7 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | Constrained model output, guaranteed to fit a Rust type | **Yes**, with `llama-server` |
 | Trace one request through the log by its reference | **Yes** |
 | Scoring a model on whether its answers are *true* | **Yes**, with `llama-server` |
+| Deciding *who* a report is about, before fetching | Logic only — no UI yet, see below |
 | Reading real web pages | No — not built |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
 | Accounts, quotas, payment | No |
@@ -34,6 +35,20 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 **The empty report is the feature, not a gap.** Sections render as "nothing found" with a list
 of what was checked, which is exactly how a real run reports a real gap. The honest case is
 built first, so it never has to be retrofitted over a happy path.
+
+**One row above says "logic only", and it is worth being clear about.** The
+*disambiguation gate* — the code that decides whether we know which company a report is
+about, and refuses to continue when two candidates are too close — exists and is fully
+tested. **You cannot exercise it from the UI**, because nothing yet produces candidates for
+it to judge; that needs the fetching the gate exists to authorise. It is built first on
+purpose, and the only thing you can run today is its tests:
+
+```bash
+cargo nextest run -p landscape-core subject
+```
+
+**12 tests**, covering the case that matters: two candidates within the margin produce a
+question rather than a report.
 
 Everything in the demo films is a **prototype** with invented data. It is not this code.
 

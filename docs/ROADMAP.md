@@ -237,11 +237,18 @@ holding it.
 - Start `RUNBOOK.md` (R7 promises one; it has never been scheduled). It grows with the system:
   the three known llama.cpp failure modes, restore-from-backup, and how to put the product into
   a safe read-only away mode (§2A.4).
-- **Provision the Oracle Always Free A1** (4 OCPU / 24 GB / aarch64) *first* — A1 capacity is
-  scarce in popular regions and this can take several attempts. **Convert the account to
-  Pay-As-You-Go before building on it**, so Always Free resources are not reclaimed; staying
-  inside the free limits still bills €0. Then Caddy, Postgres 16, Redis, systemd units,
-  swap disabled, `pg_dump`→B2/R2 backups **plus a restore drill**.
+- ~~**Provision the Oracle Always Free A1**~~ — **done** (Larry, 2026-08-03). The account
+  exists and is already running another project.
+  **Still open on that box, and none of it verified from here:** confirm the shape really is
+  `VM.Standard.A1.Flex` at 4 OCPU / 24 GB aarch64 and not a smaller x86 instance; confirm the
+  account is **Pay-As-You-Go**, since Always Free resources are reclaimed when a trial ends
+  and R11 depends on holding this one. Then Caddy, Postgres 16, Redis, systemd units, swap
+  disabled, `pg_dump`→B2/R2 backups **plus a restore drill**.
+  > **Blocked on access, not on provisioning.** Nothing in this workspace can reach the
+  > instance — no SSH key, no `~/.oci`, and no host recorded anywhere. What is needed is the
+  > address, the SSH user and key, and the two confirmations above. Alternatively the two
+  > harnesses can be run on the box by hand and their output pasted back, which unblocks the
+  > bake-off, the prefill figures and the `q8_0` KV decision without any access at all.
 - Target **`aarch64-unknown-linux-gnu`** in CI from the first commit. A Rust build that has
   only ever run on x86 finds its first ARM bug in production.
 - Build `llama-server` on the host with ARM `dotprod`/`i8mm` enabled; three supervised
@@ -364,6 +371,12 @@ the single most important phase; everything after it is commerce and polish.
 - **Entity resolution before any fetch**, with the disambiguation gate
   ([FACT_CHECKING.md](FACT_CHECKING.md) §3.1) — wrong entity resolution produces a report that
   is wrong throughout yet internally consistent and fully cited.
+  **The gate is built** — `landscape-core::subject`, pure and fully unit-tested: given scored
+  candidates it resolves, asks, or reports nothing found, and a caller cannot reach the
+  entity without handling the other two. **Candidate generation is not**, because that needs
+  the fetching this gate exists to authorise. Built in this order deliberately: written
+  afterwards, the check would be bolted onto a pipeline that already runs without it, and
+  every path predating the check is a path that can skip it.
 - Source discovery: **structured probes first** (`/pricing`, `/changelog`, `sitemap.xml`,
   `llms.txt`, docs, status, public ATS boards), templated search second (SearXNG self-hosted),
   adapters third. Probes are deterministic, free, and hit primary sources; search fills gaps
