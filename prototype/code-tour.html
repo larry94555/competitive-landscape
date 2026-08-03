@@ -42,7 +42,7 @@
   .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
 </style>
 
-<div class="banner" id="banner">CODE TOUR — the model path</div>
+<div class="banner" id="banner">CODE TOUR — what measurement found</div>
 
 <div class="wrap">
   <aside class="tree">
@@ -52,6 +52,7 @@
     <div class="row" id="t-db">&nbsp;&nbsp;landscape-db<span class="note"> storage</span></div>
     <div class="row" id="t-api">&nbsp;&nbsp;landscape-api<span class="note"> http</span></div>
     <div class="row" id="t-llm">&nbsp;&nbsp;landscape-llm<span class="note"> the model</span></div>
+    <div class="row" id="t-bench">&nbsp;&nbsp;landscape-bench<span class="note"> measuring it</span></div>
     <div class="row" id="t-bin">&nbsp;&nbsp;landscape<span class="note"> the binary</span></div>
     <div class="row dir" id="t-mig">migrations/</div>
     <div class="row dir" id="t-web">web/<span class="note"> react + ts</span></div>
@@ -75,6 +76,84 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
+    garbage: {
+      name: "the first result",
+      purpose: "A smaller model looked slower AND wrong. Both were false.",
+      lines: [
+        ['c', '// Qwen3-1.7B, unsloth Q4_K_M. Schema-valid. Entirely wrong.'],
+        ['s', '{"plan_name": "/:D!01:56:G>!#9*2-@1F-08@E5A0\'(5,#0#D>9G",'],
+        ['s', ' "price_usd": 9, "billing_period": "monthly"}'],
+        ['c', ''],
+        ['c', '// The SAME model, official Q8_0 build:'],
+        ['t', '{"plan_name": "Starter", "price_usd": 39,'],
+        ['t', ' "billing_period": "monthly", "order_limit": 25}'],
+        ['c', ''],
+        ['c', '// A broken quantisation, not a model too small.'],
+        ['f', '// Constrained decoding guarantees SHAPE. Never content.']
+      ]
+    },
+    tiering: {
+      name: "docs/BENCHMARKS.md",
+      purpose: "With a working build, the small model is much faster.",
+      lines: [
+        ['f', '  model                 span (400 tokens in)   fits in 120s'],
+        ['f', '  ------------------------------------------------------------'],
+        ['t', '  Qwen3-1.7B Q8_0        3.8 s                  32 extractions'],
+        ['f', '  Qwen3-4B  Q4_K_M      12.6 s                  10 extractions'],
+        ['c', ''],
+        ['c', '// The three-tier design is worth building.'],
+        ['c', '// Earlier pessimism measured a 4B doing a 1.7B job.'],
+        ['s', '// Still not the target hardware. 8 x86 threads != 4 ARM cores.']
+      ]
+    },
+    bounds: {
+      name: "crates/landscape-llm/src/lib.rs",
+      purpose: "The constraint was never broken. It was never told the limit.",
+      lines: [
+        ['c', '// schemars describes a u32 like this:'],
+        ['f', '   {"type":"integer","format":"uint32","minimum":0}'],
+        ['c', '// llama.cpp reads minimum/maximum and ignores format.'],
+        ['c', '// So the sampler was told "any integer >= 0", and produced:'],
+        ['s', '   "order_limit": 1000000000000000      // 6 of 20 runs'],
+        ['c', ''],
+        ['k', 'fn tighten_integer_bounds(value: &mut Value) {'],
+        ['f', '    // add the maximum the format implies'],
+        ['k', '}'],
+        ['c', ''],
+        ['t', '// Same model, same prompts, after: 0 of 20.']
+      ]
+    },
+    reclaim: {
+      name: "crates/landscape-db/src/lib.rs",
+      purpose: "A worker that dies no longer strands its work.",
+      lines: [
+        ['c', '/// Return analyses running longer than max_age to the queue.'],
+        ['c', '///'],
+        ['c', '/// A worker killed mid-analysis leaves its row running with'],
+        ['c', '/// nothing to finish it. Nothing failed, so no error is'],
+        ['c', '/// recorded - the row is simply stranded, and the reader'],
+        ['c', '/// watches a spinner that never resolves.'],
+        ['k', 'async fn reclaim_stale(&self, max_age: Duration)'],
+        ['k', '    -> Result<u64>;'],
+        ['c', ''],
+        ['c', '// Time-based, not heartbeat: a heartbeat is a second thing'],
+        ['c', '// that can fail.']
+      ]
+    },
+    counts: {
+      name: "crates/landscape-bench/src/main.rs",
+      purpose: "Three failures that must never be one number.",
+      lines: [
+        ['t', '  unparseable      0   (the constraint failing)'],
+        ['t', '  transport errors 0   (the server, not the constraint)'],
+        ['t', '  wrong contents   0   (accuracy, not shape)'],
+        ['c', ''],
+        ['c', '// An earlier version counted all three as "parse failures".'],
+        ['c', '// It would have reported a healthy server timing out as'],
+        ['c', '// evidence that constrained decoding was broken.'],
+        ['f', '// The measuring instrument needs checking too.']
+      ]
+    },
     generate: {
       name: "crates/landscape-llm/src/lib.rs",
       purpose: "The schema comes from the type, so the two cannot drift apart.",
@@ -308,28 +387,28 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "hold",           c: "This covers what changed since the last film." },
-    { kind: "turn",        a: "spot:#t-llm",    c: "One new crate. It is how the application talks to the model." },
+    { kind: "recognition", a: "hold",          c: "This is what happened when the code was actually measured." },
+    { kind: "turn",        a: "spot:#t-bench", c: "A new crate whose only job is running the model and timing it." },
 
-    { kind: "result",      a: "file:generate",  c: "Every fact in a report comes back through this function." },
-    { kind: "means",       a: "spot:#code",     c: "The schema is built from the Rust type you asked for." },
-    { kind: "means",       a: "hold",           c: "So changing the type changes what the model may produce, in the same commit." },
+    { kind: "result",      a: "file:garbage",  c: "The first run said a smaller model was slower, and got everything wrong." },
+    { kind: "means",       a: "spot:#code",    c: "It was a faulty download. The same model, built properly, was perfect." },
+    { kind: "means",       a: "hold",          c: "The output was the right shape either way. Shape is all the checking guarantees." },
 
-    { kind: "result",      a: "file:proof",     c: "This is the test that had to pass before anything else was built." },
-    { kind: "means",       a: "spot:#code",     c: "A hundred generations. Every one parsed. None had the wrong contents." },
-    { kind: "means",       a: "hold",           c: "The enum is the point: nothing else stops a model returning a fourth option." },
+    { kind: "result",      a: "file:tiering",  c: "With a working copy, the small model is three times faster." },
+    { kind: "means",       a: "spot:#code",    c: "About thirty pieces of information per report instead of ten." },
+    { kind: "means",       a: "hold",          c: "So the plan to use a small model for the easy work is worth keeping." },
 
-    { kind: "result",      a: "file:latency",   c: "The same run found something less welcome." },
-    { kind: "means",       a: "spot:#code",     c: "Eleven seconds for one extraction, on a machine faster than the real one." },
-    { kind: "means",       a: "hold",           c: "It is written down as a problem rather than left under the passing result." },
+    { kind: "result",      a: "file:bounds",   c: "Then a third of answers stopped fitting the type they were meant to." },
+    { kind: "means",       a: "spot:#code",    c: "The number describing the limit was never passed on, so there was no limit." },
+    { kind: "means",       a: "hold",          c: "Six failures in twenty became none. The bigger model had never tripped it." },
 
-    { kind: "result",      a: "file:skip",      c: "This test needs a model server. The build machine has none." },
-    { kind: "means",       a: "spot:#code",     c: "So it skips and says why, unless something tells it the server should be there." },
+    { kind: "result",      a: "file:counts",   c: "The measuring tool had its own fault." },
+    { kind: "means",       a: "spot:#code",    c: "It counted three different problems as one, which would have blamed the wrong thing." },
 
-    { kind: "result",      a: "file:gates",     c: "The checks that run on every change." },
-    { kind: "means",       a: "spot:#code",     c: "Including a build for the Arm chip the service will actually run on." },
+    { kind: "result",      a: "file:reclaim",  c: "Separately: a job whose worker dies used to wait forever." },
+    { kind: "means",       a: "spot:#code",    c: "Nothing failed, so nothing was recorded. It now goes back in the queue." },
 
-    { kind: "close",       a: "hold",           c: "The model path works. How long it takes is the open question." }
+    { kind: "close",       a: "hold",          c: "Four faults, all found by running it rather than reading it." }
   ];
 
   // Timings computed from the same rules as the product films: base 3.2s, payoff 4.8s,
@@ -351,7 +430,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("generate");
+    show("garbage");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -364,15 +443,15 @@
     }, TOTAL * 1000));
   }
 
-  show("generate");
+  show("garbage");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "The model path",
-    blurb: "The crate that talks to the model, the test that had to pass before anything was built on it, and the timing problem the same test uncovered.",
+    title: "What measurement found",
+    blurb: "A benchmark harness, and the four faults it uncovered: a faulty model download, a missing limit that broke a third of answers, a measuring tool that blamed the wrong thing, and work that was stranded when a worker died.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;
