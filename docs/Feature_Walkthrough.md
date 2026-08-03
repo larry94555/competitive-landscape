@@ -114,9 +114,15 @@ options, no navigation. **Analyse** is greyed out until you type something.
 3. Two sections, each saying **Nothing found in public sources**, each listing what was
    checked
 
+**The box empties**, but your idea stays on screen as the heading.
+
 **Why it matters.** This is the whole loop: your text became a job, a worker picked it up, and
 a report came back — with the page polling until it settled. The report is empty because
 nothing fetches yet, but the *shape* is the real one.
+
+The box clearing is deliberate. Without an account you get one analysis a day, and an empty
+box is what says so — a box still holding your words invites you to press Analyse again and
+be refused.
 
 ### Now break it
 
@@ -125,6 +131,9 @@ nothing fetches yet, but the *shape* is the real one.
 **You should see:**
 
 > a prompt must contain at least 8 characters, got 5 Edit what you typed and try again.
+
+**And what you typed is still there.** Rejection does *not* clear the box: you have to edit
+it, and retyping something you just wrote is a worse punishment than a typo deserves.
 
 **Why it matters.** The message says the limit *and* what to do. It comes from the server, not
 from the frontend inventing its own wording — so there is one rule, in one place, and the UI
@@ -439,8 +448,8 @@ python prototype/build.py --preview
 | Part | Works? | Notes |
 |---|---|---|
 | 1 — starts, health answers | | |
-| 2 — web UI, submit, completes | | |
-| 2 — short prompt rejected in the UI | | |
+| 2 — web UI, submit, completes, box clears | | |
+| 2 — short prompt rejected in the UI, box NOT cleared | | |
 | 3 — API create and read back | | |
 | 4 — report shows `checked`, no invented claims | | |
 | 5 — all seven rejections carry a remedy | | |

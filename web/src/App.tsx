@@ -26,6 +26,13 @@ export default function App(): React.JSX.Element {
     setSubmitting(true);
     try {
       setAnalysis(await createAnalysis(prompt));
+      // Clear only once it has been accepted. The empty box is what tells an
+      // unregistered reader they have spent their one analysis — a box still holding
+      // their words invites them to press Analyse again and be refused.
+      //
+      // On failure the text stays: they have to edit it, and retyping something they
+      // just wrote is a worse punishment for a typo than the typo deserved.
+      setPrompt("");
     } catch (e) {
       setError(
         e instanceof ApiError ? e : new ApiError("Something went wrong."),
