@@ -109,6 +109,22 @@ curl -s http://127.0.0.1:8787/api/health
 the process can reach its database. A health check that only proves the process is running
 will report healthy while every request fails.
 
+### Start an analysis
+
+```bash
+curl -sX POST http://127.0.0.1:8787/api/analyses   -H 'content-type: application/json'   -d '{"prompt":"an app that helps small farms sell directly to local restaurants"}'
+```
+
+Take the `id` from the response and read it back a second later — it will be `complete`.
+
+**The `content-type` header is required.** Leaving it off is the most common way to hit this
+endpoint by hand, so the rejection names the missing header rather than making you guess:
+
+```json
+{ "error": "This endpoint takes JSON, and the request did not say it was sending any.",
+  "remedy": "Add -H 'content-type: application/json' to the request." }
+```
+
 ---
 
 ## Test it

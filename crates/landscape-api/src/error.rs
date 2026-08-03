@@ -15,6 +15,11 @@ use serde::Serialize;
 pub enum ApiError {
     /// The request was understood and rejected. The message is shown to the user.
     BadRequest(String),
+    /// As above, but the caller supplies the remedy because it knows the specific mistake.
+    BadRequestWithRemedy {
+        message: String,
+        remedy: String,
+    },
     NotFound,
     /// Something broke on our side. The detail is logged, never returned.
     Internal(String),
@@ -36,6 +41,13 @@ impl IntoResponse for ApiError {
                 Body {
                     error: message,
                     remedy: Some("Edit what you typed and try again.".to_owned()),
+                },
+            ),
+            Self::BadRequestWithRemedy { message, remedy } => (
+                StatusCode::BAD_REQUEST,
+                Body {
+                    error: message,
+                    remedy: Some(remedy),
                 },
             ),
             Self::NotFound => (

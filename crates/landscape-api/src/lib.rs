@@ -6,6 +6,7 @@
 //! laptop is a request path nobody exercises.
 
 mod error;
+mod extract;
 mod routes;
 
 pub use error::ApiError;

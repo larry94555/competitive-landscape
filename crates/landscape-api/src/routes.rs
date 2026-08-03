@@ -14,6 +14,7 @@ use landscape_db::Store;
 use serde::{Deserialize, Serialize};
 
 use crate::error::ApiError;
+use crate::extract::Json as ValidJson;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -63,7 +64,7 @@ struct CreateAnalysis {
 
 async fn create_analysis(
     State(state): State<AppState>,
-    Json(body): Json<CreateAnalysis>,
+    ValidJson(body): ValidJson<CreateAnalysis>,
 ) -> Result<(StatusCode, Json<Analysis>), ApiError> {
     let new = NewAnalysis::parse(&body.prompt)?;
     let analysis = state.store.enqueue(&new).await?;
@@ -174,6 +175,76 @@ mod tests {
             body["remedy"].is_string(),
             "a rejection tells them what to do"
         );
+    }
+
+    #[tokio::test]
+    async fn a_body_sent_without_the_json_header_says_so_in_json() {
+        // curl without -H content-type is the single most common way to hit this endpoint
+        // by hand. axum's own rejection is plain text with no remedy, which breaks the
+        // contract every other rejection here keeps.
+        let res = app()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/analyses")
+                    .body(Body::from(r#"{"prompt":"a crm"}"#))
+                    .expect("build request"),
+            )
+            .await
+            .expect("response");
+
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+        let body = json_body(res).await;
+        let remedy = body["remedy"].as_str().expect("a remedy is offered");
+        assert!(
+            remedy.contains("content-type"),
+            "the remedy should name the missing header, got {remedy:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_malformed_body_is_told_apart_from_a_missing_header() {
+        let res = app()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/analyses")
+                    .header("content-type", "application/json")
+                    .body(Body::from("{not json"))
+                    .expect("build request"),
+            )
+            .await
+            .expect("response");
+
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+        let body = json_body(res).await;
+        let message = body["error"].as_str().expect("error is a string");
+        assert!(
+            message.contains("valid JSON"),
+            "a syntax error should say so rather than blaming the header, got {message:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_body_missing_the_prompt_field_says_which_field() {
+        let res = app()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/analyses")
+                    .header("content-type", "application/json")
+                    .body(Body::from(r#"{"idea":"a crm"}"#))
+                    .expect("build request"),
+            )
+            .await
+            .expect("response");
+
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+        let remedy = json_body(res).await["remedy"]
+            .as_str()
+            .expect("a remedy is offered")
+            .to_owned();
+        assert!(remedy.contains("prompt"), "got {remedy:?}");
     }
 
     #[tokio::test]
