@@ -271,9 +271,19 @@ takes down work a user is waiting on. Test modules opt out explicitly, because p
 how a test reports failure.
 
 **Coverage is reported, never gated.** `cargo llvm-cov` runs on every push and prints a
-summary. There is no threshold, on purpose: a percentage target on a codebase this young
-buys tests written to move a number rather than to catch a fault. What the number is for is
-noticing a **drop** — a change that adds a module and no tests for it.
+summary — currently **77.8%** of regions. There is no threshold, on purpose: a percentage
+target on a codebase this young buys tests written to move a number rather than to catch a
+fault. What the number is for is noticing a **drop** — a change that adds a module and no
+tests for it.
+
+```bash
+cargo llvm-cov nextest --all-features --summary-only
+```
+
+**It understates, and knowing why matters more than the figure.** It measures the fast suite
+only, so `landscape-db/src/pg.rs` reads **0%** — every line of it is covered by the same
+conformance contract as the in-memory store, in a separate CI job against a real database.
+Reading that 0% as "untested" would be exactly backwards.
 
 **Retries are off** (`.config/nextest.toml`). A flaky test that is quietly retried is a bug
 we have agreed not to find. Nothing in this suite touches the network or the clock, so a

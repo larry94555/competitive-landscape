@@ -69,6 +69,16 @@ jobs:
         # Reported, not gated. A coverage threshold on a young codebase buys tests written
         # to move a number rather than to catch a fault — see CODING_QUALITY.md. What this
         # is for is noticing a *drop*: a PR that adds a module and no tests for it.
+        #
+        # **This number understates, and by design.** It measures the fast suite only, so
+        # `landscape-db/src/pg.rs` reads 0% — every line of it is exercised by the same
+        # conformance contract as the in-memory store, in the `rust (against postgres)`
+        # job, which runs separately. `landscape/src/main.rs` is low for the same reason:
+        # the binary is driven by the `#[ignore]`d README execution test.
+        #
+        # Left uncombined on purpose. Merging the two runs into one figure would need the
+        # database job to produce and upload a profile, which is real complexity in
+        # exchange for a prettier number — and the number is not the point.
         run: cargo llvm-cov nextest --all-features --summary-only
 
       - name: Build release
