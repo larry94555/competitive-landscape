@@ -20,8 +20,7 @@ VIDEO = os.path.join(HERE, 'video')
 OFFSET = 1.5           # page load + settle before the recorder starts the film
 
 # --- pacing rules, Demo_Walkthrough.md §3 -------------------------------------
-# Cut twice now, 20% each time: these floors are ~64% of the first cut, which paused
-# long enough between points that the films felt slow.
+# Cut three times: 20%, 20%, then 30%. These floors are ~45% of the first cut.
 #
 # Only the SLACK has ever been cut. **CPS is untouched and must stay that way** — it is
 # the one number that decides whether a caption can be read at all, and the others are
@@ -29,15 +28,21 @@ OFFSET = 1.5           # page load + settle before the recorder starts the film
 # tighter, it would make it unreadable, which reads as *slower* because the viewer
 # rewinds.
 #
+# **The slack is now nearly gone, and that changes what the next cut has to be.** At these
+# values the reading floor decides almost every beat: `characters ÷ CPS + PAD` already
+# exceeds BASE for any caption past about 28 characters. Another cut here would move
+# almost nothing. Shortening the captions is the lever from this point on — which is what
+# Video_Text_Best_Practices.md asks for anyway, so the two agree.
+#
 # `build-code-tour.py` imports these rather than keeping its own copy. Two sets of
 # pacing constants drift, and the drift is invisible until someone watches both films
 # back to back.
-BASE = 2.6             # every beat
-PAYOFF = 3.8           # result and means beats
-NUMBER = 3.8           # any line containing a digit
-SETTLE = 1.3           # after a scroll or a highlight
+BASE = 1.8             # every beat
+PAYOFF = 2.7           # result and means beats
+NUMBER = 2.7           # any line containing a digit
+SETTLE = 0.9           # after a scroll or a highlight
 CPS = 14.0             # characters a second, reading aloud - NEVER reduced
-PAD = 0.6              # breathing room after a caption is readable
+PAD = 0.45             # breathing room after a caption is readable
 # The floor tracks the pacing; the ceiling does not, and the asymmetry is the point.
 #
 # FILM_MIN asks "does this film have enough in it to be worth starting?", and it was
@@ -47,7 +52,7 @@ PAD = 0.6              # breathing room after a caption is readable
 #
 # FILM_MAX is not about pacing at all. It is how long someone will actually watch, which
 # no editing decision of ours changes. It stays where it is.
-FILM_MIN, FILM_MAX = 28.0, 70.0
+FILM_MIN, FILM_MAX = 20.0, 70.0
 MAX_RESULTS = 4
 
 KINDS = {'recognition', 'frustration', 'turn', 'action', 'wait', 'result', 'means', 'point', 'close', 'next'}

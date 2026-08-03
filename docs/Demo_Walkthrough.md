@@ -65,31 +65,38 @@ Timings are **derived** from these rules. No step time is written by hand.
 
 | Rule | Value |
 |---|---|
-| Base beat | **2.6s** |
-| `result` and `means` beats | **3.8s** |
-| Any line containing a number | **at least 3.8s** |
-| After a scroll or highlight | **+1.3s** to settle before the narration lands |
-| Reading room | at least `characters ÷ 14` seconds, plus 0.6 |
-| Film length | **28–70s** |
+| Base beat | **1.8s** |
+| `result` and `means` beats | **2.7s** |
+| Any line containing a number | **at least 2.7s** |
+| After a scroll or highlight | **+0.9s** to settle before the narration lands |
+| Reading room | at least `characters ÷ 14` seconds, plus 0.45 |
+| Film length | **20–70s** |
 | Results per film | **2–4** |
 
-Every floor above has been **cut 20% twice**, and now sits at roughly two thirds of the first
-cut. Only the *slack* has ever been cut: the `÷ 14` reading rate is untouched, so a caption
-still gets the time it takes to read. Shortening that would not make a film brisk, it would
-make it unreadable — which plays as *slower*, because the viewer rewinds.
+Every floor above has been **cut three times — 20%, 20%, then 30%** — and now sits at about
+45% of the first cut. Only the *slack* has ever been cut: the `÷ 14` reading rate is
+untouched, so a caption still gets the time it takes to read. Shortening that would not make
+a film brisk, it would make it unreadable — which plays as *slower*, because the viewer
+rewinds.
 
-**The bigger saving is fewer words, not shorter gaps.** The reading floor dominates once the
-slack is this tight, so a long caption sets its own pace no matter what these numbers say.
-Cutting the code tour's captions took it from 125s to 101s; the pacing change alone had moved
-it about a second per beat.
+**The slack is now nearly gone, and that changes what the next cut has to be.** At these
+values `characters ÷ 14 + 0.45` already exceeds the base beat for any caption past about
+28 characters, so the reading floor — not these constants — decides most beats. The third cut
+took the code tour from 101s to 75s, and roughly half of that came from writing fewer words
+rather than from the numbers.
 
-**The floor moves with the pacing; the ceiling does not.** 28s asks whether a film has enough
+**So the lever from here is the captions, not the pacing.** Another cut to these floors would
+move almost nothing. That is the same instruction
+[Video_Text_Best_Practices.md](Video_Text_Best_Practices.md) already gives, arrived at from
+the other direction.
+
+**The floor moves with the pacing; the ceiling does not.** 20s asks whether a film has enough
 in it to be worth starting, and cutting slack shortens a film without removing a beat — so the
 floor has to follow or it flags films for saying exactly what they said before. 70s is how
 long someone will actually watch, which no editing decision of ours changes.
 
 **Scroll, settle, then speak.** The first cut narrated while the page was still moving, which
-is most of why nothing registered. The +1.3s is that rule made mechanical.
+is most of why nothing registered. The +0.9s is that rule made mechanical.
 
 `prototype/build.py` holds these as constants and `build-code-tour.py` imports them. They were
 duplicated once, and a pacing change silently left one film at the old timing.
@@ -387,7 +394,7 @@ prototype/demo-*.html             one page per film
 
 - a `result` beat with no `means` after it
 - more than 4 results in a film
-- a film outside 28–70 seconds
+- a film outside 20–70 seconds
 - a caption too long to read in its own slot
 - banned vocabulary ([Video_Guidelines.md](Video_Guidelines.md) §2.2)
 - an action referring to a selector the prototype does not contain
@@ -408,7 +415,7 @@ enforced by `--check`; the rest need a person.
 
 - [ ] Every `result` is followed by a `means`
 - [ ] Four or fewer results per film
-- [ ] Every film lands between 28 and 70 seconds
+- [ ] Every film lands between 20 and 70 seconds
 - [ ] Every caption is readable in the time it is on screen
 - [ ] Every selector exists in the prototype
 - [ ] **Does any line claim a benefit?** Time saved, money made, risk avoided, or what the
