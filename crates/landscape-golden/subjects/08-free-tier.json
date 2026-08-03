@@ -1,0 +1,11 @@
+{
+  "id": "free-tier",
+  "why": "A published price of zero. Zero and \"not published\" are different findings that a careless type collapses into one, and this subject is the reason PricingExtraction distinguishes Some(0.0) from None. A free tier is a competitive fact — often the most important one on the page — and reporting it as \"no pricing found\" loses it.",
+  "ask": "Free",
+  "source": "Plans\n\nFree — $0 per month, forever. One grower, up to ten orders a month, and a single delivery route. No card required to start, and we do not ask for one until you outgrow it.\n\nMarket — $39 per month. Up to three growers and three routes.\n\nRegional — $199 per month. Unlimited growers and multi-region routing.\n\nThe free plan is not a trial. It does not expire, and accounts that stay inside its limits are never charged.",
+  "expect": {
+    "plan_name": "Free",
+    "price_usd": 0.0,
+    "billing_period": "monthly"
+  }
+}

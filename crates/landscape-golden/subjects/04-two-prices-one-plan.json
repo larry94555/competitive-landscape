@@ -1,0 +1,11 @@
+{
+  "id": "two-prices-one-plan",
+  "why": "One plan quoted two ways — an annual total and the monthly figure it works out to. Both numbers are correct, so a model cannot be wrong about the arithmetic, only about which number answers the question. The page leads with the annual price, so that is what a reader comparing pages would take.",
+  "ask": "Route Pro annual",
+  "source": "Route Pro\n\nRoute Pro annual — $468 per year, which works out to $39 a month. Billed once, at signup.\n\nRoute Pro monthly — $49 a month, billed monthly, cancel whenever you like.\n\nThe annual plan is the same product; you are paying up front for a discount. Both include unlimited routes, the demand forecast, and phone support during weekday hours. Switching between them is possible at any renewal.",
+  "expect": {
+    "plan_name": "Route Pro annual",
+    "price_usd": 468.0,
+    "billing_period": "yearly"
+  }
+}

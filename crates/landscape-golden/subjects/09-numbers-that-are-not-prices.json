@@ -1,0 +1,11 @@
+{
+  "id": "numbers-that-are-not-prices",
+  "why": "A page dense with numbers and containing no price at all — a founding year, a headcount, a phone number, a street number, a volume of produce, and a dollar figure that describes the growers' revenue rather than our subject's price. The right answer is to return nothing, which is the hardest thing to ask of a model that has been given a schema with a price field in it. If any subject in this set is going to expose a model that fills fields to be helpful, it is this one.",
+  "ask": "Fieldwise",
+  "source": "About Fieldwise\n\nFieldwise was founded in 2019 and has 42 employees across two offices. Our headquarters is at 1200 Preston Road, Suite 300, and you can reach the team on (802) 555-0148 during weekday hours.\n\nGrowers on Fieldwise moved 18,000 tons of produce last year and collectively invoiced more than $40 million to restaurant kitchens through the platform. The average grower on Fieldwise works 60 acres and sells to 14 kitchens.\n\nWe are hiring for 6 roles. Pricing is not listed on this page — see the plans page for current rates.",
+  "expect": {
+    "plan_name": "Fieldwise",
+    "price_usd": null,
+    "billing_period": null
+  }
+}

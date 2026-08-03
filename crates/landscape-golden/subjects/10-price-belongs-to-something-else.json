@@ -1,0 +1,11 @@
+{
+  "id": "price-belongs-to-something-else",
+  "why": "The page carries a real, prominent, correctly formatted price — for a hardware accessory. The plan itself is quote-only. Subject 09 asks a model to resist inventing a number; this one asks it to resist a number that is right there and looks exactly like the answer. Attaching a competitor's $249 label printer to their software plan is a plausible, confident, entirely wrong claim of the kind a reader has no way to catch.",
+  "ask": "Cold Chain",
+  "source": "Cold Chain\n\nCold Chain adds temperature logging to every delivery: sensors ride with the crates, readings are recorded against the order, and a kitchen can see the chain of custody before it accepts a drop.\n\nPricing for Cold Chain depends on fleet size and the number of sensors deployed. Talk to us and we will put together a quote.\n\nHardware is sold separately. The temperature sensor is $249 each, and the crate mount is $18. Both ship within a week and carry a two-year warranty. Sensors bought elsewhere are not supported.",
+  "expect": {
+    "plan_name": "Cold Chain",
+    "price_usd": null,
+    "billing_period": null
+  }
+}
