@@ -92,6 +92,22 @@ impl Store for MemoryStore {
         Ok(())
     }
 
+    async fn reclaim_stale(&self, max_age: chrono::Duration) -> Result<u64> {
+        let cutoff = chrono::Utc::now() - max_age;
+        let mut map = self.lock();
+        let mut n = 0_u64;
+        for entry in map.values_mut() {
+            // `started_at` is not tracked here, so `created_at` stands in. It is always
+            // earlier, which makes this store slightly more eager to reclaim than Postgres
+            // — erring toward retrying a job rather than stranding one.
+            if entry.status == AnalysisStatus::Running && entry.created_at < cutoff {
+                entry.status = AnalysisStatus::Queued;
+                n += 1;
+            }
+        }
+        Ok(n)
+    }
+
     async fn count_with_status(&self, status: AnalysisStatus) -> Result<i64> {
         let n = self.lock().values().filter(|a| a.status == status).count();
         Ok(i64::try_from(n).unwrap_or(i64::MAX))

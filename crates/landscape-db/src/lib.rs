@@ -59,6 +59,19 @@ pub trait Store: Send + Sync + std::fmt::Debug {
     /// Mark an analysis failed. The reason is recorded for operators, not for readers.
     async fn fail(&self, id: AnalysisId, reason: &str) -> Result<()>;
 
+    /// Return analyses that have been `running` longer than `max_age` to the queue.
+    ///
+    /// A worker that is killed mid-analysis leaves its row `running` with nothing to
+    /// finish it. Without this the row is stranded permanently: the user watches a
+    /// spinner that will never resolve, and no error is ever recorded because nothing
+    /// failed — the process simply stopped existing.
+    ///
+    /// Returns how many were reclaimed. Deliberately time-based rather than
+    /// heartbeat-based: a heartbeat is a second thing that can fail, and at this scale
+    /// "it has been running implausibly long" is the same signal for a tenth of the
+    /// machinery.
+    async fn reclaim_stale(&self, max_age: chrono::Duration) -> Result<u64>;
+
     /// Count analyses in a given state. Used by the health endpoint and by tests.
     async fn count_with_status(&self, status: AnalysisStatus) -> Result<i64>;
 }

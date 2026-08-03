@@ -22,11 +22,14 @@ which is the same treatment a real run gives a real gap.
 ### The short way — no database
 
 ```bash
-cargo run -- dev --store memory
+cargo run -p landscape -- dev --store memory
 ```
 
 That is the entire setup. It starts the API and a worker in one process sharing an
 in-memory store, on <http://127.0.0.1:8787>.
+
+`-p landscape` is needed because the workspace builds two binaries — the application and
+`landscape-bench`. Without it cargo cannot tell which one you meant.
 
 Then, in a second terminal:
 
@@ -47,20 +50,20 @@ Nothing is saved when you stop it. That is the trade for needing no database.
 ```bash
 docker compose up -d db
 cp .env.example .env
-cargo run -- dev
+cargo run -p landscape -- dev
 ```
 
 Migrations run automatically on boot. To apply them without starting anything:
 
 ```bash
-cargo run -- migrate
+cargo run -p landscape -- migrate
 ```
 
 To run the pieces separately, as production does:
 
 ```bash
-cargo run -- serve      # terminal 1
-cargo run -- worker     # terminal 2
+cargo run -p landscape -- serve      # terminal 1
+cargo run -p landscape -- worker     # terminal 2
 ```
 
 ### Postgres without Docker
@@ -86,10 +89,10 @@ applies with the system package manager, or Postgres.app.
 
 | Command | What it does |
 |---|---|
-| `cargo run -- dev` | API and worker in one process. **Use this locally.** |
-| `cargo run -- serve` | The HTTP API alone |
-| `cargo run -- worker` | Claims queued analyses and runs them |
-| `cargo run -- migrate` | Applies migrations and exits |
+| `cargo run -p landscape -- dev` | API and worker in one process. **Use this locally.** |
+| `cargo run -p landscape -- serve` | The HTTP API alone |
+| `cargo run -p landscape -- worker` | Claims queued analyses and runs them |
+| `cargo run -p landscape -- migrate` | Applies migrations and exits |
 
 Add `--store memory` to any of them to skip Postgres entirely.
 
@@ -137,6 +140,11 @@ curl -sX POST http://127.0.0.1:8787/api/analyses \
 ```
 
 Take the `id` from the response and read it back a second later — it will be `complete`.
+
+**On Windows, that command needs a different shell or a different form.** The `\`
+continuations and single quotes above are POSIX syntax; `cmd.exe` and PowerShell both reject
+them, and PowerShell additionally aliases `curl` to `Invoke-WebRequest`.
+[`Feature_Walkthrough.md` Part 3A](docs/Feature_Walkthrough.md) has forms verified on both.
 
 **The `content-type` header is required.** Leaving it off is the most common way to hit this
 endpoint by hand, so the rejection names the missing header rather than making you guess:
@@ -223,6 +231,8 @@ crates/
   landscape-core/   domain types and the report schema. No I/O — pure, fully unit-tested
   landscape-db/     the Store trait, an in-memory implementation, and Postgres
   landscape-api/    axum routers, request validation, error mapping
+  landscape-llm/    constrained generation: a Rust type in, that type out
+  landscape-bench/  measures what a llama-server can actually do
   landscape/        the binary: dev | serve | worker | migrate
 migrations/         SQL, applied on boot
 web/                Vite + React + TypeScript (strict)

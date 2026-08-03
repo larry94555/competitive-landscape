@@ -52,7 +52,12 @@ def commands(text: str) -> list[tuple[int, str]]:
     for n, raw in enumerate(text.splitlines(), start=1):
         line = raw.strip()
         if line.startswith('```'):
-            inside = line.startswith('```bash') or line.startswith('```sh')
+            # Windows fences document the same requests and get the same checks:
+            # a wrong port in a .bat block misleads exactly as much.
+            inside = any(
+                line.startswith(f'```{lang}')
+                for lang in ('bash', 'sh', 'bat', 'cmd', 'powershell')
+            )
             continue
         if inside and line.startswith(MARKER):
             skip_next = True
@@ -76,8 +81,21 @@ def commands(text: str) -> list[tuple[int, str]]:
     return out
 
 
+def workspace_binaries() -> int:
+    """How many binaries `cargo run` would have to choose between."""
+    import glob
+    import os
+    n = 0
+    for manifest in glob.glob('crates/*/Cargo.toml'):
+        body = io.open(manifest, encoding='utf-8').read()
+        if '[[bin]]' in body or os.path.exists(os.path.join(os.path.dirname(manifest), 'src', 'main.rs')):
+            n += 1
+    return n
+
+
 def check(text: str, where: str) -> list[str]:
     port = api_port()
+    binaries = workspace_binaries()
     problems: list[str] = []
 
     for line_no, cmd in commands(text):
@@ -104,10 +122,27 @@ def check(text: str, where: str) -> list[str]:
                         f'{port}{hint}\n    {cmd}'
                     )
 
-        # A subcommand that no longer exists.
-        m = re.match(r'cargo run\s+--\s+([a-z-]+)', cmd)
-        if m:
-            role = m.group(1)
+        # A bare `cargo run` cannot choose between several binaries. Adding a second one
+        # to the workspace silently broke every documented command; this is the check.
+        if (
+            cmd.startswith('cargo run')
+            and binaries > 1
+            and ' -p ' not in cmd
+            and ' --bin ' not in cmd
+        ):
+            problems.append(
+                f'{at}: this workspace builds {binaries} binaries, so a bare '
+                f'`cargo run` cannot pick one\n'
+                f'    {cmd}\n'
+                f'    fix: `cargo run -p landscape -- ...`'
+            )
+
+        # A subcommand that no longer exists. Only the application has subcommands —
+        # other binaries in the workspace take flags, and checking those against the
+        # application's roles reports `--runs` as an unknown command.
+        m = re.match(r'cargo run\s+(?:-p\s+(?P<pkg>\S+)\s+)?--\s+(?P<role>[a-z][a-z-]*)', cmd)
+        if m and m.group('pkg') in (None, 'landscape'):
+            role = m.group('role')
             try:
                 src = io.open(MAIN_RS, encoding='utf-8').read()
             except OSError:

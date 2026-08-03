@@ -1,65 +1,65 @@
 WEBVTT
 
 1
-00:00:01.500 --> 00:00:05.500
-This covers what changed since the last film.
+00:00:01.500 --> 00:00:06.400
+This is what happened when the code was actually measured.
 
 2
-00:00:05.500 --> 00:00:11.800
-One new crate. It is how the application talks to the model.
+00:00:06.400 --> 00:00:12.800
+A new crate whose only job is running the model and timing it.
 
 3
-00:00:11.800 --> 00:00:17.800
-Every fact in a report comes back through this function.
+00:00:12.800 --> 00:00:19.900
+The first run said a smaller model was slower, and got everything wrong.
 
 4
-00:00:17.800 --> 00:00:23.800
-The schema is built from the Rust type you asked for.
+00:00:19.900 --> 00:00:26.900
+It was a faulty download. The same model, built properly, was perfect.
 
 5
-00:00:23.800 --> 00:00:30.000
-So changing the type changes what the model may produce, in the same commit.
+00:00:26.900 --> 00:00:33.400
+The output was the right shape either way. Shape is all the checking guarantees.
 
 6
-00:00:30.000 --> 00:00:36.600
-This is the test that had to pass before anything else was built.
+00:00:33.400 --> 00:00:39.600
+With a working copy, the small model is three times faster.
 
 7
-00:00:36.600 --> 00:00:43.500
-A hundred generations. Every one parsed. None had the wrong contents.
+00:00:39.600 --> 00:00:46.000
+About thirty pieces of information per report instead of ten.
 
 8
-00:00:43.500 --> 00:00:49.700
-The enum is the point: nothing else stops a model returning a fourth option.
+00:00:46.000 --> 00:00:51.700
+So the plan to use a small model for the easy work is worth keeping.
 
 9
-00:00:49.700 --> 00:00:55.700
-The same run found something less welcome.
+00:00:51.700 --> 00:00:58.600
+Then a third of answers stopped fitting the type they were meant to.
 
 10
-00:00:55.700 --> 00:01:02.900
-Eleven seconds for one extraction, on a machine faster than the real one.
+00:00:58.600 --> 00:01:06.000
+The number describing the limit was never passed on, so there was no limit.
 
 11
-00:01:02.900 --> 00:01:09.000
-It is written down as a problem rather than left under the passing result.
+00:01:06.000 --> 00:01:12.100
+Six failures in twenty became none. The bigger model had never tripped it.
 
 12
-00:01:09.000 --> 00:01:15.200
-This test needs a model server. The build machine has none.
+00:01:12.100 --> 00:01:18.100
+The measuring tool had its own fault.
 
 13
-00:01:15.200 --> 00:01:22.800
-So it skips and says why, unless something tells it the server should be there.
+00:01:18.100 --> 00:01:26.100
+It counted three different problems as one, which would have blamed the wrong thing.
 
 14
-00:01:22.800 --> 00:01:28.800
-The checks that run on every change.
+00:01:26.100 --> 00:01:32.200
+Separately: a job whose worker dies used to wait forever.
 
 15
-00:01:28.800 --> 00:01:35.700
-Including a build for the Arm chip the service will actually run on.
+00:01:32.200 --> 00:01:39.300
+Nothing failed, so nothing was recorded. It now goes back in the queue.
 
 16
-00:01:35.700 --> 00:01:40.900
-The model path works. How long it takes is the open question.
+00:01:39.300 --> 00:01:44.400
+Four faults, all found by running it rather than reading it.

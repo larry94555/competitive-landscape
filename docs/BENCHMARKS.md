@@ -1,102 +1,127 @@
 # Landscape — Benchmarks
 
-> Real numbers, with the hardware they were measured on. `docs/ROADMAP.md` Phase 0 requires
-> this file to exist before a model is chosen, because every latency figure in the
-> specification is currently an estimate.
+> Real numbers, with the hardware they came from. `docs/ROADMAP.md` Phase 0 requires this
+> file before a model is chosen, because every latency figure in the specification is
+> otherwise an estimate.
 >
-> **Nothing here has been measured on the target hardware yet.** The A1 is not provisioned.
-> These are laptop numbers, and they are recorded because a baseline that exists beats an
-> estimate that does not — not because they answer the question.
+> **Still nothing measured on the target hardware.** The A1 is not provisioned. These are
+> laptop numbers and are labelled as such.
+
+Reproduce anything here with:
+
+```bash
+cargo run -p landscape-bench -- --runs 20 --label "what this is"
+```
+
+`LLAMA_URL` selects the server.
 
 ---
 
-## Run 1 — constrained decoding, x86 laptop
+## Run 2 — the tiering thesis, tested
 
-**Date:** 2026-08-03
-**Purpose:** the Phase 0 exit criterion — *"grammar-constrained JSON round-trip working from
-Rust with 0 parse failures over 100 runs."*
+**Date:** 2026-08-03 · **Host:** Windows 11 laptop, x86-64, 8 threads, CPU only — **not the
+target hardware** · **Task:** extract a `PricingFact` (string, f64, 3-variant enum,
+`Option<u32>`) under constrained decoding.
 
-### Setup
+> [!WARNING]
+> **Confound, stated up front.** These runs happened with **three `llama-server` processes
+> resident** on one laptop, competing for the same cores. Absolute latencies are therefore
+> pessimistic. The *comparison* between models is fair — all three ran under the same
+> contention — but do not read any single figure as what one model alone would do. Run 1
+> measured the same 4B task at **10.9s** median with only one server up, against **12.6s**
+> here.
 
-| | |
-|---|---|
-| Host | Windows 11 laptop, x86-64 — **not the target hardware** |
-| Model | Qwen3-4B-Q4_K_M (GGUF) |
-| Server | `llama-server`, `--gpu-layers 0` (CPU only), `--ctx-size 12288`, `--threads 8`, `--threads-batch 12`, `--parallel 1`, `--cache-type-k q8_0`, `--cache-type-v q8_0`, `--flash-attn on`, `--cache-prompt` |
-| Client | `landscape-llm`, `/completion` with `json_schema`, temperature 0.1 |
-| Task | Extract a `PricingFact` — string, f64, 3-variant enum, `Option<u32>` — from a one-sentence pricing line |
-| Runs | 100, with varied inputs so the prompt cache cannot carry the result |
+| Model | Shape | Median | p95 | Unparseable | Wrong contents |
+|---|---|---|---|---|---|
+| **Qwen3-1.7B Q8_0** | span (~400 tok) | **3.8 s** | 4.4 s | 0/20 | 0/20 |
+| Qwen3-1.7B Q8_0 | sentence | 4.6 s | 5.7 s | 0/20 | 0/20 |
+| Qwen3-4B Q4_K_M | span (~400 tok) | 12.6 s | 18.5 s | 0/20 | 0/20 |
+| Qwen3-4B Q4_K_M | sentence | 16.6 s | 25.6 s | 0/20 | 0/20 |
+| ~~Qwen3-1.7B Q4_K_M (`unsloth`)~~ | either | 12–16 s | — | 1/20 | **20/20** |
 
-### Result
+### What this settles
+
+**The tiering thesis holds.** A 1.7B router is **~3.3× faster** than the 4B on the realistic
+span shape, at no measured cost in accuracy on this task. `ARCHITECTURE.md` §4.7's three-tier
+design is worth building.
+
+**In budget terms:** 120 seconds buys roughly **32 extractions** on the 1.7B against **10** on
+the 4B — before any fetching, and under three-way contention. Run 1's pessimism about the
+90–180s promise was premature: it measured a 4B doing a 1.7B's job.
+
+**Longer prompts did not cost proportionally more.** The span shape is roughly 13× the
+sentence shape in characters, and was *faster* on both models. Prefill on x86 with 8 threads
+is not the binding constraint the architecture expects it to be on 4 ARM cores — **which is
+exactly why this must be re-run on the A1 before anything is concluded.**
+
+### Two findings that cost more than the timings
+
+**A defective quantisation produces schema-valid garbage.** The `unsloth` Q4_K_M build of
+Qwen3-1.7B returned things like:
+
+```json
+{"plan_name": "/:D!01:56:G>!#9*2-@1F-08@E5A0'(5,#0#D>9G", "price_usd": 9, ...}
+```
+
+Perfectly shaped. Entirely wrong. **Constrained decoding guarantees shape, never content** —
+so a broken model or quantisation sails straight through the one mechanism that looks like it
+should catch it. The official Q8_0 of the *same model* was flawless.
+
+The practical consequence: **a model swap needs an accuracy check, not just a latency
+check.** `landscape-bench` now reports `wrong contents` separately for that reason, and the
+golden set exists to make the check meaningful.
+
+**`schemars` does not bound its integers, and llama.cpp does not infer the bound.** A `u32`
+becomes `{"type":"integer","format":"uint32","minimum":0}` — with no `maximum`. The grammar
+therefore permits integers no `u32` can hold, and the 1.7B produced
+`"order_limit": 1000000000000000` in **6 of 20** runs. `serde` rejected them, surfacing as
+`LlmError::Unparseable` — which reads as *"constrained decoding is broken"* when the
+constraint was simply never told the real limit.
+
+`landscape-llm` now adds the missing bounds before sending the schema. Same model, same
+prompts, after the fix: **0 of 20**. See [ADR 0003](decisions/0003-bound-integer-schemas.md).
+
+The larger model happened not to hit it. That is precisely how a bug like this reaches
+production.
+
+---
+
+## Run 1 — constrained decoding, the exit criterion
+
+**Date:** 2026-08-03 · Qwen3-4B-Q4_K_M, single server, same laptop.
 
 | Measure | Value |
 |---|---|
 | **Parse failures** | **0 / 100** |
 | Content mismatches | 0 / 100 |
-| Median latency | **10.9 s** |
-| p95 latency | **17.2 s** |
-| Total wall clock | 1164 s |
+| Median latency | 10.9 s |
+| p95 | 17.2 s |
 
-A second test drove the same type at temperature 0.9 — high on purpose — ten times. Every
-response parsed, and the enum never left its three variants.
+Plus ten runs at temperature 0.9 in which a three-variant enum never wandered outside its
+three variants.
 
-### What this establishes
-
-**The spine works.** Rust struct → `schemars` schema → llama.cpp's GBNF → constrained sample →
-parsed back into the struct, with no retry logic and no defensive re-parsing anywhere in the
-path. Zero failures is the number that matters: at 1%, a report carrying 40 extracted values
-loses something more often than not.
-
-The enum result is worth its own line. Nothing but the grammar stops a model returning
-`"weekly"` for a period that is not in the type, and if that were possible every enum in the
-report schema would need defensive re-mapping downstream.
-
-### What this does not establish, and the number that should worry us
-
-**11 seconds median for one short extraction, on a laptop that is faster than the target.**
-
-The A1 has 4 ARM cores against this machine's 8 x86 threads, so the target is expected to be
-*slower*, not faster. `ARCHITECTURE.md` §4.4 estimates a 90–180 second end-to-end analysis.
-At this rate that budget buys **8–16 extractions**, before any fetching, before the
-synthesiser, and with nothing left for the router.
-
-Three things could close the gap, and they should be measured rather than assumed:
-
-1. **This is the 4B extractor doing a 1.7B router's job.** The prompts are trivial; the
-   right comparison is Qwen3-1.7B on the same task.
-2. **Prefill dominates, and these prompts are short.** A realistic 400-token span window may
-   not cost proportionally more than a 30-token sentence — or may cost far more. Unmeasured.
-3. **`--parallel 1`.** Aggregate throughput at `--parallel 2/4/8` is the number that decides
-   how many extractions fit in a report, and it is not this number.
-
-**The honest reading:** the exit criterion about *correctness* is met. The exit criterion
-about *latency* — "a measured, realistic end-to-end latency estimate, and a written, honest
-decision on what the Rung-0 latency promise will be" — is **not**, and this run is the first
-evidence that it may be the harder one. The roadmap's instruction for that case is explicit:
-cut scope per analysis, do not quietly ship a promise the hardware cannot keep.
-
-### Reproduce
+**This is the Phase 0 exit criterion for constrained decoding, and it is met.** Rust struct →
+`schemars` schema → llama.cpp's GBNF → constrained sample → parsed back, with no retry logic
+and no defensive re-parsing anywhere in the path.
 
 ```bash
-llama-server -hf Qwen/Qwen3-4B-GGUF:Q4_K_M --host 127.0.0.1 --port 8080 --gpu-layers 0
 cargo test -p landscape-llm -- --ignored --nocapture
 ```
-
-`LLAMA_URL` overrides the server address.
 
 ---
 
 ## Still to measure — all of it on the A1
 
-Per `ROADMAP.md` Phase 0. None of this is done.
+None of this is done. It is the remainder of Phase 0's model work.
 
 - [ ] Provision the A1 and convert to Pay-As-You-Go
-- [ ] Prefill and generation tok/s per candidate model × quantization
-- [ ] Q4_K_M **and** Q4_0 — ARM repacking may make the lower-quality format faster; measure
-- [ ] Qwen3 1.7B / 4B / 8B / 14B, plus Gemma 3 4B/12B and Llama 3.2 3B. **Licence review
-      first** — a model we cannot use commercially is not a candidate
-- [ ] Realistic prompt shapes: 400-token span → 100-token JSON, and 4k-token bundle → 700 out
+- [ ] Re-run everything above on 4 ARM cores. **Prefill is expected to behave differently**,
+      and the tiering conclusion depends on it
+- [ ] Prefill and generation tok/s separately, rather than end-to-end latency
+- [ ] `Q4_K_M` **and** `Q4_0` — ARM repacking may make the lower-quality format faster
+- [ ] Qwen3 1.7B / 4B / 8B / 14B, Gemma 3 4B/12B, Llama 3.2 3B. **Licence review first**
 - [ ] Aggregate throughput at `--parallel 1/2/4/8`
-- [ ] Resident RAM per model, against the ~17 GB budget for three
+- [ ] Resident RAM for three models against the ~17 GB budget
 - [ ] `q8_0` KV cache quantization validated against the golden set
 - [ ] Time-to-first-token
+- [ ] One server at a time, so the numbers are not contended

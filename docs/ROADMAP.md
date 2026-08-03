@@ -269,26 +269,52 @@ structural, and retrofitting them is expensive.
 **Instrumentation & eval:** the benchmark harness *is* the deliverable. Publish an internal
 `docs/BENCHMARKS.md` with real numbers and the chosen model + quantization, with reasoning.
 
-**Exit criteria**
-- A documented three-model choice (Router / Extractor / Synthesizer) with measured prefill
+**Exit criteria** — status as of 2026-08-03
+
+- ☐ A documented three-model choice (Router / Extractor / Synthesizer) with measured prefill
   and generation tok/s on the A1, at the chosen `--parallel`, fitting the ~17 GB budget.
-- **A measured, realistic end-to-end latency estimate**, and a written, honest decision on
+  **Blocked on the A1.** The tiering thesis is now supported on a laptop — a 1.7B router is
+  ~3.3× faster than the 4B at no measured accuracy cost ([BENCHMARKS.md](BENCHMARKS.md)
+  Run 2) — but 8 x86 threads are not 4 ARM cores and the numbers do not transfer.
+- ☐ **A measured, realistic end-to-end latency estimate**, and a written, honest decision on
   what the Rung-0 latency promise will be. If the measurement is materially worse than the
   90–180s estimate in ARCHITECTURE §4.4, the response is to cut scope per analysis (fewer
   sources, tighter span windows, smaller synthesizer) — **not** to quietly ship a promise the
   hardware cannot keep.
-- Grammar-constrained JSON round-trip working from Rust with 0 parse failures over 100 runs.
-- A written decision on the observability backend: `tracing` instrumentation is fixed, but
+  **Partial.** One extraction takes ~3.8s on the router tier under contention, so 120s buys
+  roughly 32 of them before any fetching. No end-to-end figure until there is a pipeline to
+  measure end to end.
+- ☑ **Grammar-constrained JSON round-trip working from Rust with 0 parse failures over 100
+  runs.** Done — Qwen3-4B-Q4_K_M, 100/100, plus 10 runs at temperature 0.9 in which a
+  three-variant enum never wandered. `crates/landscape-llm`, and
+  [ADR 0002](decisions/0002-constrained-decoding-via-llama-cpp.md).
+- ☐ A written decision on the observability backend: `tracing` instrumentation is fixed, but
   self-hosted Prometheus/Grafana/Tempo competes for RAM with the model on a 24 GB box.
   On this hardware the answer is almost certainly "hosted error tracking only, for now."
-- `q8_0` KV quantization decided on evidence, and the `--mlock` + no-swap configuration
-  verified under load.
-- **Concierge track: ≥5 reports delivered to real people**, with their reactions recorded —
+- ☐ `q8_0` KV quantization decided on evidence, and the `--mlock` + no-swap configuration
+  verified under load. **Blocked on the A1.**
+- ☐ **Concierge track: ≥5 reports delivered to real people**, with their reactions recorded —
   what they read first, what they ignored, what they asked for, whether they would pay.
-- **Review-platform access decision recorded**, with the discovery channel ranking updated to
-  match reality.
-- Every merge gate in [CODING_QUALITY.md](CODING_QUALITY.md) §10.4 green on an empty
-  repository, so the first real PR meets the bar rather than establishing a lower one.
+  **Not started. This is the G1 gate and the highest-risk open item.**
+- ☐ **Review-platform access decision recorded**, with the discovery channel ranking updated to
+  match reality. **Track D, not started.**
+- ☑ **Every merge gate in [CODING_QUALITY.md](CODING_QUALITY.md) §10.4 green on an empty
+  repository**, so the first real PR meets the bar rather than establishing a lower one.
+  Done — `fmt`, `clippy -D warnings`, `test`, `cargo-deny`, `gitleaks`, `eslint`, `vitest`,
+  `tsc --strict`, and an **aarch64 cross-compile** all gate every push.
+
+**Also delivered, beyond the original list**
+
+- `landscape-bench` — the benchmark harness, ready to point at the A1.
+- Two findings that only measurement could produce, both in [BENCHMARKS.md](BENCHMARKS.md):
+  a **defective quantisation produced schema-valid garbage** (shape guarantees are not
+  accuracy guarantees), and **`schemars` omits integer bounds** so the sampler produced
+  values the Rust type could not hold — 6/20 failures, now 0/20
+  ([ADR 0003](decisions/0003-bound-integer-schemas.md)).
+- Stale-analysis reclaim: a worker killed mid-run no longer strands its row in `running`
+  forever. Found while writing [RUNBOOK.md](RUNBOOK.md), fixed, and in the store contract.
+- [Feature_Walkthrough.md](Feature_Walkthrough.md) — every feature that exists, testable by
+  hand, with every command executed before being written down.
 
 **Cost posture:** **€0/mo infra**, ~€15 domain. No revenue. See §6.4.
 

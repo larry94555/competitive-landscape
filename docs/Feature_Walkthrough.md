@@ -37,6 +37,25 @@ Everything in the demo films is a **prototype** with invented data. It is not th
 
 ---
 
+## Which shell
+
+**This matters on Windows, and the commands below are written for one shell.**
+
+Every `curl` in this document uses POSIX syntax — single quotes around the JSON, `\` to
+continue a line. That works in **Git Bash, WSL, macOS and Linux**. It does **not** work in
+`cmd.exe` or PowerShell, and the failure is confusing rather than obvious: `cmd` treats `\`
+as the end of the command and runs the next line as a separate one, so you get a rejection
+from the API followed by *"'-H' is not recognized"*.
+
+If you are on Windows, either **use Git Bash** — simplest, and everything below works
+unchanged — or use the per-shell forms in [Part 3A](#part-3a--the-same-request-in-cmdexe-or-powershell).
+
+> **PowerShell has an extra trap.** In Windows PowerShell 5.1, `curl` is an *alias for
+> `Invoke-WebRequest`*, not curl at all. You need `curl.exe`, and even then PowerShell eats
+> the quotes around a JSON body. Part 3A gives two forms that work.
+
+---
+
 ## Setup
 
 You need **Rust** and **Node**. Nothing else for Part 1–6.
@@ -58,7 +77,7 @@ If a step goes wrong, `docs/RUNBOOK.md` §5 lists the common local problems.
 **Do this.** One terminal, and no database:
 
 ```bash
-cargo run -- dev --store memory
+cargo run -p landscape -- dev --store memory
 ```
 
 **You should see:**
@@ -114,9 +133,15 @@ options, no navigation. **Analyse** is greyed out until you type something.
 3. Two sections, each saying **Nothing found in public sources**, each listing what was
    checked
 
+**The box empties**, but your idea stays on screen as the heading.
+
 **Why it matters.** This is the whole loop: your text became a job, a worker picked it up, and
 a report came back — with the page polling until it settled. The report is empty because
 nothing fetches yet, but the *shape* is the real one.
+
+The box clearing is deliberate. Without an account you get one analysis a day, and an empty
+box is what says so — a box still holding your words invites you to press Analyse again and
+be refused.
 
 ### Now break it
 
@@ -125,6 +150,9 @@ nothing fetches yet, but the *shape* is the real one.
 **You should see:**
 
 > a prompt must contain at least 8 characters, got 5 Edit what you typed and try again.
+
+**And what you typed is still there.** Rejection does *not* clear the box: you have to edit
+it, and retyping something you just wrote is a worse punishment than a typo deserves.
 
 **Why it matters.** The message says the limit *and* what to do. It comes from the server, not
 from the frontend inventing its own wording — so there is one rule, in one place, and the UI
@@ -164,6 +192,51 @@ curl -s localhost:8787/api/analyses/PASTE_THE_ID_HERE
 
 **Why it matters.** `report` is `null` while queued and an object once complete. It is never a
 half-filled shape — a partial report is not representable.
+
+---
+
+## Part 3A — The same request in cmd.exe or PowerShell
+
+Skip this if you are in Git Bash, WSL, macOS or Linux — Part 3 already worked.
+
+**Every command here was run on Windows before being written down.**
+
+### cmd.exe
+
+Double quotes outside, escaped double quotes inside. No single quotes, and `^` — not `\` —
+continues a line:
+
+```bat
+curl -s -X POST localhost:8787/api/analyses -H "content-type: application/json" -d "{\"prompt\":\"an app that helps small farms sell to local restaurants\"}"
+```
+
+Doubling the inner quotes works too, if you find it easier to read:
+
+```bat
+curl -s -X POST localhost:8787/api/analyses -H "content-type: application/json" -d "{""prompt"":""an app that helps small farms sell to local restaurants""}"
+```
+
+### PowerShell
+
+`curl.exe`, not `curl` — and `--%` stops PowerShell parsing the rest, which is what keeps the
+quotes intact:
+
+```powershell
+curl.exe --% -s -X POST localhost:8787/api/analyses -H "content-type: application/json" -d "{\"prompt\":\"an app that helps small farms sell to local restaurants\"}"
+```
+
+Or skip curl entirely and use PowerShell's own client, which needs no quoting gymnastics:
+
+```powershell
+$body = @{ prompt = 'an app that helps small farms sell to local restaurants' } | ConvertTo-Json
+Invoke-RestMethod -Uri http://localhost:8787/api/analyses -Method Post -ContentType 'application/json' -Body $body
+```
+
+**GET requests are fine everywhere** — no body, no quoting:
+
+```bat
+curl -s localhost:8787/api/health
+```
 
 ---
 
@@ -276,7 +349,7 @@ the same situation, and distinguishing them only tells a prober what our ids loo
 **Do this.** Stop the `dev` process. Start only the API:
 
 ```bash
-cargo run -- serve --store memory
+cargo run -p landscape -- serve --store memory
 ```
 
 Submit an analysis, then read it back after a few seconds.
@@ -294,7 +367,7 @@ why `dev` exists: it runs both halves in one process sharing one store.
 `queued: 1` in the health response is how you tell "nothing is running" from "everything is
 broken" without reading a log.
 
-Now stop it and go back to `cargo run -- dev --store memory`. Same submission, completes.
+Now stop it and go back to `cargo run -p landscape -- dev --store memory`. Same submission, completes.
 
 ---
 
@@ -316,7 +389,7 @@ failure that presents as a hang rather than an error.
 
 ```bash
 cp .env.example .env
-cargo run -- dev
+cargo run -p landscape -- dev
 ```
 
 Migrations apply on boot.
@@ -368,6 +441,22 @@ what has not yet been measured. It is the open question in this project.
 
 **No `llama-server`?** The test skips and tells you how to start one. It does not fail — that
 is why CI, which runs no model, stays green.
+
+### Measure it yourself
+
+```bash
+cargo run -p landscape-bench -- --runs 20 --label "my laptop"
+```
+
+Two prompt shapes: a single sentence, and a realistic ~400-token span window. It reports
+median and p95 latency, and — separately — how many outputs **failed the constraint**, how
+many hit a **transport error**, and how many parsed but had the **wrong contents**.
+
+**Those three are counted apart on purpose.** An earlier version lumped them together and
+reported a healthy server's timeouts as evidence that constrained decoding was broken. And
+the last one exists because a shape guarantee is not an accuracy guarantee: a defective
+quantisation of Qwen3-1.7B returned perfectly-formed JSON containing
+`"plan_name": "/:D!01:56:G>!#9*2-@1F-08@E5A0'"`. See `docs/BENCHMARKS.md`.
 
 ---
 
@@ -423,14 +512,16 @@ python prototype/build.py --preview
 | Part | Works? | Notes |
 |---|---|---|
 | 1 — starts, health answers | | |
-| 2 — web UI, submit, completes | | |
-| 2 — short prompt rejected in the UI | | |
+| 2 — web UI, submit, completes, box clears | | |
+| 2 — short prompt rejected in the UI, box NOT cleared | | |
 | 3 — API create and read back | | |
+| 3A — the same request in your shell, if on Windows | | |
 | 4 — report shows `checked`, no invented claims | | |
 | 5 — all seven rejections carry a remedy | | |
 | 6 — `serve` alone leaves it queued | | |
 | 7 — survives a restart with Postgres | | |
 | 8 — 100 generations, 0 parse failures | | |
+| 8 — `landscape-bench` reports three error kinds separately | | |
 | 9 — `cargo test` green with nothing running | | |
 
 **If something differs from what is written here, that is a bug.** Every command above was run

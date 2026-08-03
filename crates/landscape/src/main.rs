@@ -191,11 +191,36 @@ fn bind_failure_help(addr: &str) -> String {
 /// with, a one-second poll costs nothing measurable and removes a whole class of
 /// missed-wakeup bug; `LISTEN`/`NOTIFY` is worth adding when the queue is busy enough for
 /// the latency to matter.
+/// How long an analysis may be `running` before another worker may take it.
+///
+/// Generous on purpose. Reclaiming too early hands a second worker a job the first is
+/// still doing, which is worse than a slow one: the reader gets a report built twice, and
+/// the machine spends prefill it does not have. Twenty minutes is well past the 90-180s a
+/// healthy analysis should take, so anything beyond it is a dead worker rather than a slow
+/// one.
+const STALE_AFTER: i64 = 20 * 60;
+
 async fn worker(store: Arc<dyn Store>) -> Result<()> {
     tracing::info!("worker started");
     let mut shutdown = Box::pin(shutdown_signal());
+    let mut sweep = tokio::time::interval(std::time::Duration::from_secs(60));
 
     loop {
+        // Cheap and idempotent: several workers running this concurrently is harmless,
+        // because the UPDATE only matches rows that are still stale when it runs.
+        if sweep.poll_tick(&mut std::task::Context::from_waker(std::task::Waker::noop()))
+            != std::task::Poll::Pending
+        {
+            match store
+                .reclaim_stale(chrono::Duration::seconds(STALE_AFTER))
+                .await
+            {
+                Ok(0) => {}
+                Ok(n) => tracing::warn!(count = n, "requeued analyses whose worker died"),
+                Err(e) => tracing::error!(error = %e, "could not sweep for stale analyses"),
+            }
+        }
+
         tokio::select! {
             () = &mut shutdown => {
                 tracing::info!("worker stopping");

@@ -45,13 +45,17 @@ psql "$DATABASE_URL" -c "SELECT status, count(*) FROM analyses GROUP BY status"
 - Worker running, queue growing → it is stuck on one analysis. Find it:
   `SELECT id, started_at FROM analyses WHERE status='running' ORDER BY started_at`.
   Anything running for more than ~20 minutes is wedged; the model call is the usual reason.
-- **In development, this is nearly always the wrong command.** `cargo run -- serve` with
+- **In development, this is nearly always the wrong command.** `cargo run -p landscape -- serve` with
   `--store memory` gives the API its own in-process store, so a separate worker never sees
-  its queue. Use `cargo run -- dev`.
+  its queue. Use `cargo run -p landscape -- dev`.
 
-> **Not yet implemented:** nothing currently reclaims an analysis whose worker died. The row
-> stays `running` forever. A `started_at` timeout that returns it to `queued` is needed
-> before the first deploy — it is not written yet, and this is the note that says so.
+**A worker that died mid-analysis is handled.** The worker sweeps once a minute and returns
+anything `running` for more than 20 minutes to the queue — `reclaim_stale` in
+`landscape-db`. The threshold is deliberately well past a healthy run: reclaiming early
+would hand a second worker a job the first is still doing.
+
+So a row stuck at `running` for **under** 20 minutes is a slow analysis, and one stuck for
+longer means the sweep is not running — check the worker is alive at all.
 
 ---
 
@@ -141,7 +145,7 @@ reports, refuse new ones, and say so plainly.
 | Symptom | Cause | Fix |
 |---|---|---|
 | `could not bind 127.0.0.1:8787` | Something else on the port | The error prints the command to find it |
-| Analyses stay `queued` | `serve` and `worker` as separate processes with `--store memory` | `cargo run -- dev` |
+| Analyses stay `queued` | `serve` and `worker` as separate processes with `--store memory` | `cargo run -p landscape -- dev` |
 | `DATABASE_URL is not set` | No `.env` | `cp .env.example .env`, or add `--store memory` |
 | `docker compose` hangs, no error | Docker Desktop's privileged service is stopped | `Set-Service com.docker.service -StartupType Automatic; Start-Service com.docker.service` as Administrator — or use the WSL Postgres path in `README.md` |
 | Postgres tests fail on claim order | Two tests sharing a schema | Each test creates its own; if a run was killed, stale `test_*` schemas may remain |

@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "The model path",
-    "blurb": "The crate that talks to the model, the test that had to pass before anything was built on it, and the timing problem the same test uncovered.",
-    "seconds": 102.4
+    "title": "What measurement found",
+    "blurb": "A benchmark harness, and the four faults it uncovered: a faulty model download, a missing limit that broke a third of answers, a measuring tool that blamed the wrong thing, and work that was stranded when a worker died.",
+    "seconds": 105.9
   }
 ]

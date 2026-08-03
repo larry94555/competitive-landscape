@@ -138,8 +138,9 @@ impl LlamaClient {
     where
         T: JsonSchema + DeserializeOwned,
     {
-        let schema = serde_json::to_value(schemars::schema_for!(T))
+        let mut schema = serde_json::to_value(schemars::schema_for!(T))
             .unwrap_or_else(|_| json!({ "type": "object" }));
+        tighten_integer_bounds(&mut schema);
         let raw = self
             .complete(prompt, &Constraint::JsonSchema(schema), decode)
             .await?;
@@ -201,6 +202,72 @@ impl LlamaClient {
             .and_then(|c| c.as_str())
             .map(str::to_owned)
             .ok_or(LlmError::Empty)
+    }
+}
+
+/// Give bounded integer formats an explicit `maximum`.
+///
+/// `schemars` describes a `u32` as `{"type":"integer","format":"uint32","minimum":0}` —
+/// the format carries the upper bound, but the schema does not state it. llama.cpp's
+/// converter builds its grammar from `minimum`/`maximum` and ignores `format`, so the
+/// sampler happily produces integers no `u32` can hold. `serde` then rejects them, and the
+/// result surfaces as [`LlmError::Unparseable`] — which reads as "constrained decoding is
+/// broken" when in fact the constraint was never told the real limit.
+///
+/// Found by measurement, not by reading: a 1.7B model returned `"order_limit":
+/// 1000000000000000` for an `Option<u32>` in roughly a third of runs. A larger model
+/// happened not to, which is exactly how a bug like this reaches production.
+///
+/// `docs/decisions/0002` names "tight numeric bounds" as the thing that would make
+/// delegating the conversion the wrong call. This closes it centrally instead, so no
+/// report type has to remember an annotation.
+fn tighten_integer_bounds(value: &mut serde_json::Value) {
+    // (format, inclusive maximum). i64/u64 exceed what an f64 can represent exactly, so
+    // they are left alone: an imprecise bound would be worse than none.
+    const BOUNDS: [(&str, u64); 6] = [
+        ("uint8", u8::MAX as u64),
+        ("uint16", u16::MAX as u64),
+        ("uint32", u32::MAX as u64),
+        ("int8", i8::MAX as u64),
+        ("int16", i16::MAX as u64),
+        ("int32", i32::MAX as u64),
+    ];
+
+    match value {
+        serde_json::Value::Object(map) => {
+            // Read the format out before mutating, so the immutable borrow ends first.
+            let bound = map
+                .get("format")
+                .and_then(|f| f.as_str())
+                .and_then(|format| {
+                    BOUNDS
+                        .iter()
+                        .find(|(name, _)| *name == format)
+                        .map(|(name, max)| (*name, *max))
+                });
+
+            if let Some((format, max)) = bound {
+                map.entry("maximum").or_insert_with(|| json!(max));
+                // Signed formats need the floor too; schemars omits it.
+                if format.starts_with("int") {
+                    let floor = match format {
+                        "int8" => i64::from(i8::MIN),
+                        "int16" => i64::from(i16::MIN),
+                        _ => i64::from(i32::MIN),
+                    };
+                    map.entry("minimum").or_insert_with(|| json!(floor));
+                }
+            }
+            for v in map.values_mut() {
+                tighten_integer_bounds(v);
+            }
+        }
+        serde_json::Value::Array(items) => {
+            for v in items {
+                tighten_integer_bounds(v);
+            }
+        }
+        _ => {}
     }
 }
 
@@ -272,6 +339,76 @@ mod tests {
             .and_then(|p| p.as_object())
             .expect("schema has properties");
         assert!(props.contains_key("name") && props.contains_key("count"));
+    }
+
+    /// Exists only so `schema_for!` has something to describe. The fields are never read —
+    /// their *types* are the whole point, and each one covers a different case:
+    /// a plain bounded integer, one nested inside `Option`, a signed type needing both
+    /// ends, and a width too large to bound safely.
+    #[derive(Debug, Deserialize, JsonSchema)]
+    #[allow(dead_code)]
+    struct Bounded {
+        small: u32,
+        maybe: Option<u32>,
+        signed: i16,
+        wide: u64,
+    }
+
+    #[test]
+    fn a_u32_field_gains_the_maximum_its_type_implies() {
+        // The bug this exists for: without a maximum, the grammar allows integers no u32
+        // can hold, and the overflow surfaces as if the constraint had failed.
+        let mut schema = serde_json::to_value(schemars::schema_for!(Bounded)).expect("schema");
+        tighten_integer_bounds(&mut schema);
+
+        let small = &schema["properties"]["small"];
+        assert_eq!(small["maximum"], serde_json::json!(u32::MAX as u64));
+        assert_eq!(small["minimum"], serde_json::json!(0.0));
+    }
+
+    #[test]
+    fn an_optional_u32_is_bounded_too() {
+        // Option<T> nests the type inside anyOf/allOf, so a walk that only looked at
+        // top-level properties would miss exactly the field that caused the failure.
+        let mut schema = serde_json::to_value(schemars::schema_for!(Bounded)).expect("schema");
+        tighten_integer_bounds(&mut schema);
+        let text = schema.to_string();
+        let bounds = text.matches("\"maximum\"").count();
+        assert!(
+            bounds >= 3,
+            "expected small, maybe and signed to be bounded; schema was {text}"
+        );
+    }
+
+    #[test]
+    fn a_signed_field_gains_both_ends() {
+        let mut schema = serde_json::to_value(schemars::schema_for!(Bounded)).expect("schema");
+        tighten_integer_bounds(&mut schema);
+        let signed = &schema["properties"]["signed"];
+        assert_eq!(signed["maximum"], serde_json::json!(i16::MAX as u64));
+        assert_eq!(signed["minimum"], serde_json::json!(i64::from(i16::MIN)));
+    }
+
+    #[test]
+    fn a_u64_is_left_alone() {
+        // u64::MAX cannot be represented exactly as an f64, and JSON numbers are f64. An
+        // imprecise bound would be worse than none: it would reject values that fit.
+        let mut schema = serde_json::to_value(schemars::schema_for!(Bounded)).expect("schema");
+        tighten_integer_bounds(&mut schema);
+        assert!(
+            schema["properties"]["wide"].get("maximum").is_none(),
+            "u64 must not be given a lossy bound"
+        );
+    }
+
+    #[test]
+    fn an_existing_bound_is_never_overwritten() {
+        // A type that declares its own range knows better than a format guess.
+        let mut schema = serde_json::json!({
+            "type": "integer", "format": "uint32", "maximum": 100
+        });
+        tighten_integer_bounds(&mut schema);
+        assert_eq!(schema["maximum"], serde_json::json!(100));
     }
 
     #[test]
