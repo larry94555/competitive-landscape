@@ -65,38 +65,47 @@ Timings are **derived** from these rules. No step time is written by hand.
 
 | Rule | Value |
 |---|---|
-| Base beat | **1.8s** |
-| `result` and `means` beats | **2.7s** |
-| Any line containing a number | **at least 2.7s** |
-| After a scroll or highlight | **+0.9s** to settle before the narration lands |
-| Reading room | at least `characters ÷ 14` seconds, plus 0.45 |
-| Film length | **20–70s** |
+| Base beat | **1.3s** |
+| `result` and `means` beats | **1.9s** |
+| Any line containing a number | **at least 1.9s** |
+| After a scroll or highlight | **+0.65s** to settle before the narration lands |
+| Reading room | at least `characters ÷ 14` seconds, plus 0.32 |
+| Film length | **16–70s** |
 | Results per film | **2–4** |
 
-Every floor above has been **cut three times — 20%, 20%, then 30%** — and now sits at about
-45% of the first cut. Only the *slack* has ever been cut: the `÷ 14` reading rate is
+Every floor above has been **cut four times — 20%, 20%, 30%, 30%** — and now sits at about
+31% of the first cut. Only the *slack* has ever been cut: the `÷ 14` reading rate is
 untouched, so a caption still gets the time it takes to read. Shortening that would not make
 a film brisk, it would make it unreadable — which plays as *slower*, because the viewer
 rewinds.
 
-**The slack is now nearly gone, and that changes what the next cut has to be.** At these
-values `characters ÷ 14 + 0.45` already exceeds the base beat for any caption past about
-28 characters, so the reading floor — not these constants — decides most beats. The third cut
-took the code tour from 101s to 75s, and roughly half of that came from writing fewer words
-rather than from the numbers.
+**The fourth cut measured what these constants are worth**, by accident. The same 30%
+reduction was applied to everything, but only the code tour's captions were rewritten:
 
-**So the lever from here is the captions, not the pacing.** Another cut to these floors would
-move almost nothing. That is the same instruction
-[Video_Text_Best_Practices.md](Video_Text_Best_Practices.md) already gives, arrived at from
-the other direction.
+| | Pacing cut | Captions rewritten | Result |
+|---|---|---|---|
+| The twelve product films | 30% | no | **6.1% shorter** (460.0s → 431.9s) |
+| The code tour | 30% | yes, 19 → 16 | **28.7% shorter** (75.5s → 53.8s) |
 
-**The floor moves with the pacing; the ceiling does not.** 20s asks whether a film has enough
+**A 30% cut to these numbers buys about 6%.** The reading floor decides nearly every beat
+now, so the constants are not what a film's length is made of. Words are.
+
+**The slack is spent. Do not cut these again.** At these values `characters ÷ 14 + 0.32`
+exceeds the base beat for any caption past about 14 characters, which is nearly all of them.
+A fifth cut would buy a percent or two and start eating the settle time that makes a scroll
+readable.
+
+**The lever is the captions** — the same instruction
+[Video_Text_Best_Practices.md](Video_Text_Best_Practices.md) already gives, *use as few words
+as possible*, arrived at from the other direction and now with a number on it.
+
+**The floor moves with the pacing; the ceiling does not.** 16s asks whether a film has enough
 in it to be worth starting, and cutting slack shortens a film without removing a beat — so the
 floor has to follow or it flags films for saying exactly what they said before. 70s is how
 long someone will actually watch, which no editing decision of ours changes.
 
 **Scroll, settle, then speak.** The first cut narrated while the page was still moving, which
-is most of why nothing registered. The +0.9s is that rule made mechanical.
+is most of why nothing registered. The +0.65s is that rule made mechanical.
 
 `prototype/build.py` holds these as constants and `build-code-tour.py` imports them. They were
 duplicated once, and a pacing change silently left one film at the old timing.
@@ -394,7 +403,7 @@ prototype/demo-*.html             one page per film
 
 - a `result` beat with no `means` after it
 - more than 4 results in a film
-- a film outside 20–70 seconds
+- a film outside 16–70 seconds
 - a caption too long to read in its own slot
 - banned vocabulary ([Video_Guidelines.md](Video_Guidelines.md) §2.2)
 - an action referring to a selector the prototype does not contain
@@ -415,7 +424,7 @@ enforced by `--check`; the rest need a person.
 
 - [ ] Every `result` is followed by a `means`
 - [ ] Four or fewer results per film
-- [ ] Every film lands between 20 and 70 seconds
+- [ ] Every film lands between 16 and 70 seconds
 - [ ] Every caption is readable in the time it is on screen
 - [ ] Every selector exists in the prototype
 - [ ] **Does any line claim a benefit?** Time saved, money made, risk avoided, or what the

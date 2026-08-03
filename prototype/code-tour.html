@@ -42,7 +42,7 @@
   .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
 </style>
 
-<div class="banner" id="banner">CODE TOUR — finding a failure</div>
+<div class="banner" id="banner">CODE TOUR — the first code with an attacker</div>
 
 <div class="wrap">
   <aside class="tree">
@@ -53,6 +53,7 @@
     <div class="row" id="t-api">&nbsp;&nbsp;landscape-api<span class="note"> http</span></div>
     <div class="row" id="t-llm">&nbsp;&nbsp;landscape-llm<span class="note"> the model</span></div>
     <div class="row" id="t-bench">&nbsp;&nbsp;landscape-bench<span class="note"> how fast</span></div>
+    <div class="row" id="t-fetch">&nbsp;&nbsp;landscape-fetch<span class="note"> the outside world</span></div>
     <div class="row" id="t-golden">&nbsp;&nbsp;landscape-golden<span class="note"> whether it is right</span></div>
     <div class="row" id="t-bin">&nbsp;&nbsp;landscape<span class="note"> the binary</span></div>
     <div class="row dir" id="t-mig">migrations/</div>
@@ -77,121 +78,105 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    silent: {
+    attacker: {
       name: "the problem",
-      purpose: "Both of these were true. Nothing connected them.",
+      purpose: "We fetch URLs strangers name. That is the whole product.",
       lines: [
-        ['c', '// What the reader was told:'],
-        ['t', '{ "error": "Something went wrong at our end." }'],
+        ['c', '// A reader can ask us to fetch anything. Including:'],
+        ['s', 'http://169.254.169.254/latest/meta-data/'],
         ['c', ''],
-        ['c', '// What we wrote down:'],
-        ['t', 'ERROR request failed detail="connection refused"'],
+        ['c', '// On most cloud providers that address hands out'],
+        ['c', '// credentials to whatever asks. We are inside the'],
+        ['c', '// network. The reader is not.'],
         ['c', ''],
-        ['c', '// Someone writes in: "it broke this afternoon."'],
-        ['s', '// Against a log holding every other request.'],
-        ['f', '// The information existed. It was not addressable.']
+        ['f', '// This is not a risk we might face. It is the one'],
+        ['f', '// we are guaranteed to face.']
       ]
     },
-    reference: {
-      name: "crates/landscape-api/src/error.rs",
-      purpose: "Give the reader something to quote.",
+    rebind: {
+      name: "crates/landscape-fetch/src/guard.rs",
+      purpose: "Checking the address is not enough. You must use it.",
       lines: [
-        ['t', '{ "error": "Something went wrong at our end.",'],
-        ['t', '  "remedy": "... quote 9f2c11ab7d04 and we can find'],
-        ['t', '             exactly what happened.",'],
-        ['t', '  "reference": "9f2c11ab7d04" }'],
+        ['c', '// The obvious version:'],
+        ['s', '   resolve -> check -> hand the URL to a client'],
+        ['c', '// The client resolves again. An attacker who owns the'],
+        ['c', '// nameserver answers differently the second time.'],
         ['c', ''],
-        ['c', '// The same twelve characters are on the log line,'],
-        ['c', '// and on the x-request-id header.'],
-        ['f', '// The cause itself is still never returned.']
+        ['k', 'pub struct Verdict { ip: IpAddr }'],
+        ['f', '    // carries the address that was checked'],
+        ['c', ''],
+        ['f', '// So the socket goes where the guard looked.']
       ]
     },
-    forged: {
-      name: "crates/landscape-api/src/request_id.rs",
-      purpose: "An id from outside is checked before it is trusted.",
+    allrecords: {
+      name: "crates/landscape-fetch/src/lib.rs",
+      purpose: "Every address, not the first one.",
       lines: [
-        ['c', '// A proxy in front of us can supply one.'],
-        ['c', '// So can anybody else.'],
-        ['s', 'x-request-id: aaa[newline]ERROR request failed'],
+        ['c', '// A hostname can answer with two addresses:'],
+        ['t', '   93.184.216.34     public'],
+        ['s', '   127.0.0.1         not'],
         ['c', ''],
-        ['c', '// That newline writes a line of their choosing into'],
-        ['c', '// our log. A convincing forged error.'],
+        ['c', '// Checking whichever came back first is a coin flip.'],
         ['c', ''],
-        ['k', 'fn accept(raw: &str) -> Option<RequestId>'],
-        ['f', '    // hex, dashes, 64 max. An allow-list.'],
-        ['f', '// A list of what to strip is never complete.']
+        ['k', 'for addr in addrs { guard::check(*addr)?; }'],
+        ['f', '// All of them, or none of them.']
       ]
     },
-    invisible: {
-      name: "crates/landscape/src/main.rs",
-      purpose: "The ids were perfect. Nothing wrote them down.",
+    redirects: {
+      name: "crates/landscape-fetch/src/fetcher.rs",
+      purpose: "A redirect is a new URL from the same stranger.",
       lines: [
-        ['s', '"landscape=info"'],
-        ['c', '// Does NOT match landscape_api. A filter matches a'],
-        ['c', '// name and its children; landscape_api is a sibling.'],
+        ['c', '// Automatic following checks the first address and'],
+        ['c', '// connects to the last one.'],
         ['c', ''],
-        ['c', '// So every line from the API crate was discarded'],
-        ['c', '// before it was ever written.'],
+        ['s', 'https://harmless.example  ->  169.254.169.254'],
         ['c', ''],
-        ['f', '// Every test passed. The feature did nothing.']
+        ['k', '.redirect(Policy::none())'],
+        ['f', '    // every hop re-enters every check'],
+        ['c', ''],
+        ['f', '// Five hops, then we stop being led.']
       ]
     },
-    debuglevel: {
-      name: "crates/landscape-api/src/routes.rs",
-      purpose: "The second reason the log was empty.",
+    robots: {
+      name: "crates/landscape-fetch/src/robots.rs",
+      purpose: "A commitment, not a risk position.",
       lines: [
-        ['c', '// The borrowed request logger writes at DEBUG.'],
-        ['c', '// Our default level is INFO. So: nothing.'],
+        ['c', '// 404 means no rules exist. Everything allowed.'],
+        ['t', '   404  ->  allowed'],
         ['c', ''],
-        ['c', '// It writes its own line now, inside the span:'],
-        ['t', 'INFO request{request_id=0b9a3289e49a}: handled'],
-        ['t', '     method=GET path="/api/health" status=200'],
+        ['c', '// 500 means we cannot read what the site wants.'],
+        ['s', '   500  ->  disallowed'],
         ['c', ''],
-        ['f', '// One span per request. Our level, our fields.']
+        ['c', '// The polite reading of "I am struggling"'],
+        ['f', '// is not "carry on".']
       ]
     },
-    tradeoff: {
-      name: "docs/decisions/0005",
-      purpose: "Why logs, and not a wall of dashboards.",
+    coverage: {
+      name: "the guard, measured",
+      purpose: "The one file with no exemption path.",
       lines: [
-        ['f', '  24 GB machine'],
-        ['f', '  --------------------------------------'],
-        ['t', '  three models            ~17 GB'],
-        ['t', '  database, api, worker     the rest'],
-        ['s', '  metrics stack            2-4 GB   <- no room'],
+        ['f', '  guard.rs    regions  303   missed 0   100.00%'],
+        ['f', '              lines    167   missed 0   100.00%'],
         ['c', ''],
-        ['c', '// A dashboard tells us the product is unwell.'],
-        ['f', '// Nothing on it fixes the product.'],
+        ['c', '// Written pure - address in, verdict out - which is'],
+        ['c', '// what makes 100% reachable without a network.'],
         ['c', ''],
-        ['c', '// Written down: we give up aggregate questions.']
+        ['f', '// 48 tests. The first one is the metadata endpoint.']
       ]
     },
-    links: {
-      name: "scripts/check_links.py",
-      purpose: "271 links. One was broken.",
+    tryit: {
+      name: "landscape fetch <url>",
+      purpose: "Watch it decide, on your own machine.",
       lines: [
-        ['c', '// A dead file link fails loudly when clicked.'],
-        ['c', '// A dead ANCHOR drops you at the top of a long page'],
-        ['c', '// with no sign anything is wrong - so you decide the'],
-        ['c', '// reference was vague rather than broken.'],
+        ['t', '$ landscape fetch http://169.254.169.254/'],
+        ['s', 'refused That address is link-local.'],
         ['c', ''],
-        ['s', 'FACT_CHECKING.md:326 -> no such file: /methodology'],
+        ['t', '$ landscape fetch https://www.google.com/search'],
+        ['s', 'refused google.com asks crawlers not to fetch'],
         ['c', ''],
-        ['f', '// A mockup button that had become a real link.']
-      ]
-    },
-    tutorial: {
-      name: "docs/TUTORIAL.md",
-      purpose: "An hour, from a clone to changing the code.",
-      lines: [
-        ['f', '  1. Run it                  no database, no key'],
-        ['f', '  2. Follow one request      browser to log line'],
-        ['f', '  3. Why the report is empty on purpose'],
-        ['t', '  4. Break something         watch a test catch it'],
-        ['f', '  5. The two harnesses       fast, and correct'],
-        ['c', ''],
-        ['c', '// Both breakages were run. They do fail, and they'],
-        ['f', '// say what the rule was for.']
+        ['t', '$ landscape fetch https://example.com/'],
+        ['f', 'status  200'],
+        ['f', 'bytes   559']
       ]
     }
   };
@@ -235,33 +220,29 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:silent",     c: "An error told you nothing you could look up." },
-    { kind: "means",       a: "spot:#code",      c: "We logged the cause. You saw a shrug." },
-    { kind: "means",       a: "hold",            c: "Both true. Nothing joined them." },
+    { kind: "recognition", a: "file:attacker",   c: "We fetch whatever a stranger names." },
+    { kind: "means",       a: "spot:#code",      c: "Including addresses only we can reach." },
+    { kind: "means",       a: "hold",            c: "Guaranteed, not hypothetical." },
 
-    { kind: "turn",        a: "file:reference",  c: "Now every failure hands you a reference." },
-    { kind: "means",       a: "spot:#code",      c: "The same characters are on the log line." },
-    { kind: "means",       a: "hold",            c: "The cause itself is still never returned." },
+    { kind: "turn",        a: "file:rebind",     c: "Checking an address is not enough." },
+    { kind: "means",       a: "spot:#code",      c: "The client resolves again. So we pin it." },
 
-    { kind: "result",      a: "file:forged",     c: "An id from outside is checked first." },
-    { kind: "means",       a: "spot:#code",      c: "A newline would let a caller write our log." },
+    { kind: "result",      a: "file:allrecords", c: "And every address, not the first." },
+    { kind: "means",       a: "spot:#code",      c: "One public, one loopback, is an attack." },
 
-    { kind: "result",      a: "file:invisible",  c: "Then it did nothing at all." },
-    { kind: "means",       a: "spot:#code",      c: "Our own crate was filtered out of the log." },
-    { kind: "means",       a: "hold",            c: "Every test passed. Only running it showed this." },
+    { kind: "result",      a: "file:redirects",  c: "A redirect is a new URL from the same stranger." },
+    { kind: "means",       a: "spot:#code",      c: "Every hop starts the checks again." },
 
-    { kind: "result",      a: "file:debuglevel", c: "A second reason the log was empty." },
-    { kind: "means",       a: "spot:#code",      c: "It writes its own line now, one per request." },
+    { kind: "result",      a: "file:robots",     c: "Robots is a commitment, not a risk." },
+    { kind: "means",       a: "spot:#code",      c: "A site that is unwell is left alone." },
 
-    { kind: "result",      a: "file:tradeoff",   c: "Why logs, and not dashboards." },
-    { kind: "means",       a: "spot:#code",      c: "Three models leave no room. They are the product." },
+    { kind: "result",      a: "file:coverage",   c: "The guard is covered completely." },
+    { kind: "means",       a: "spot:#code",      c: "Pure code. No network to test around." },
 
-    { kind: "result",      a: "file:links",      c: "Every link in the docs now resolves." },
-    { kind: "means",       a: "spot:#code",      c: "One of two hundred and seventy-one did not." },
+    { kind: "result",      a: "file:tryit",      c: "You can watch it decide." },
+    { kind: "means",       a: "spot:#code",      c: "One command, three answers." },
 
-    { kind: "result",      a: "file:tutorial",   c: "And an hour-long path in, for anyone new." },
-
-    { kind: "close",       a: "hold",            c: "A reported fault is now one search." }
+    { kind: "close",       a: "hold",            c: "Fetching is now safe to build on." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -269,10 +250,10 @@
   // exist only so the page previews at the right speed, and must be changed with it.
   var t = 0;
   BEATS.forEach(function (b) {
-    var d = (b.kind === "result" || b.kind === "means") ? 2.7 : 1.8;
-    if (/\d/.test(b.c)) d = Math.max(d, 2.7);
-    d = Math.max(d, b.c.length / 14 + 0.45);
-    if (b.a.indexOf("spot:") === 0 || b.a.indexOf("file:") === 0) d += 0.9;
+    var d = (b.kind === "result" || b.kind === "means") ? 1.9 : 1.3;
+    if (/\d/.test(b.c)) d = Math.max(d, 1.9);
+    d = Math.max(d, b.c.length / 14 + 0.32);
+    if (b.a.indexOf("spot:") === 0 || b.a.indexOf("file:") === 0) d += 0.65;
     b.t = Math.round(t * 10) / 10;
     b.d = Math.round(d * 10) / 10;
     t += b.d;
@@ -284,7 +265,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("silent");
+    show("attacker");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -297,15 +278,15 @@
     }, TOTAL * 1000));
   }
 
-  show("silent");
+  show("attacker");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "Finding a failure",
-    blurb: "An error that told you nothing you could look up, and what it took to fix that: a reference on every failure, two bugs that only running it could find, and the reason this project logs rather than builds dashboards.",
+    title: "The first code with an attacker",
+    blurb: "We are a service whose whole purpose is fetching URLs that strangers name. This is the guard that stops that being useful to them, the robots commitment that keeps us welcome, and the one file in this project with no coverage exemption.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;
