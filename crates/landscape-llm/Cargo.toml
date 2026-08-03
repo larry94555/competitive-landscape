@@ -1,6 +1,6 @@
 [package]
-name = "landscape-db"
-description = "Storage. A Store trait, an in-memory implementation for tests, and Postgres."
+name = "landscape-llm"
+description = "Talking to llama-server with the output constrained to a Rust type."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,19 +10,15 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-landscape-core.workspace = true
-
-async-trait.workspace = true
-chrono.workspace = true
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+schemars.workspace = true
+serde.workspace = true
 serde_json.workspace = true
-sqlx.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
-uuid.workspace = true
 
 [dev-dependencies]
-landscape-core.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tokio.workspace = true
 
 [lints]
 workspace = true

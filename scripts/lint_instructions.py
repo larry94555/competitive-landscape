@@ -33,18 +33,36 @@ def api_port(default: str = '8787') -> str:
     return m.group(1).rsplit(':', 1)[-1] if m else default
 
 
+# A walkthrough teaches partly by showing what a failure looks like, so some of its commands
+# are meant to be wrong. Marking them individually beats exempting a whole file: the marker
+# says "this one is deliberate", and every unmarked command in the file is still checked.
+MARKER = '# expect-failure'
+
+
 def commands(text: str) -> list[tuple[int, str]]:
-    """Shell commands inside ```bash fences, with `\\` continuations joined."""
+    """Shell commands inside ```bash fences, with `\\` continuations joined.
+
+    A command preceded by `# expect-failure` is skipped. Without that, the only way to
+    document an error would be to stop checking the file that documents it."""
     out: list[tuple[int, str]] = []
     inside = False
     pending = ''
     start = 0
+    skip_next = False
     for n, raw in enumerate(text.splitlines(), start=1):
         line = raw.strip()
         if line.startswith('```'):
             inside = line.startswith('```bash') or line.startswith('```sh')
             continue
+        if inside and line.startswith(MARKER):
+            skip_next = True
+            continue
         if not inside or not line or line.startswith('#'):
+            continue
+        if skip_next:
+            # Consume the whole command, continuations included.
+            if not line.endswith('\\'):
+                skip_next = False
             continue
         if not pending:
             start = n

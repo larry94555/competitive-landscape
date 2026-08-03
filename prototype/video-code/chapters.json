@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "The starter code",
-    "blurb": "A walk through the skeleton: what each crate is for, the two decisions that shape it, and how to run the whole thing locally.",
-    "seconds": 119.7
+    "title": "The model path",
+    "blurb": "The crate that talks to the model, the test that had to pass before anything was built on it, and the timing problem the same test uncovered.",
+    "seconds": 102.4
   }
 ]

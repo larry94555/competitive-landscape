@@ -4,6 +4,7 @@ members = [
     "crates/landscape-core",
     "crates/landscape-db",
     "crates/landscape-api",
+    "crates/landscape-llm",
     "crates/landscape",
 ]
 
@@ -18,6 +19,7 @@ repository = "https://github.com/larry94555/competitive-landscape"
 landscape-core = { path = "crates/landscape-core" }
 landscape-db = { path = "crates/landscape-db" }
 landscape-api = { path = "crates/landscape-api" }
+landscape-llm = { path = "crates/landscape-llm" }
 
 anyhow = "1"
 async-trait = "0.1"

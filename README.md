@@ -63,6 +63,25 @@ cargo run -- serve      # terminal 1
 cargo run -- worker     # terminal 2
 ```
 
+### Postgres without Docker
+
+Docker is one way to get a database, not the only one, and on Windows it is the least
+reliable one — Docker Desktop's privileged service silently failing to start leaves named
+pipes that exist but answer nothing, which looks like a hang rather than an error.
+
+If you have WSL2, install Postgres in the distro you already have. WSL2 forwards
+`localhost:5432` to Windows, so `DATABASE_URL` is unchanged and nothing else moves:
+
+```bash
+sudo apt update && sudo apt install -y postgresql
+sudo service postgresql start
+sudo -u postgres psql -c "CREATE USER landscape WITH PASSWORD 'landscape' SUPERUSER"
+sudo -u postgres createdb -O landscape landscape
+```
+
+The connection string in `.env.example` then works as written. On Linux and macOS the same
+applies with the system package manager, or Postgres.app.
+
 ### Commands
 
 | Command | What it does |
@@ -253,6 +272,8 @@ The code implements a specification written first. Start with
 | [FACT_CHECKING.md](docs/FACT_CHECKING.md) | Source dispositions and auditable negatives |
 | [IDEA_ANALYSIS.md](docs/IDEA_ANALYSIS.md) | The eight levels, and what we refuse to answer |
 | [CODING_QUALITY.md](docs/CODING_QUALITY.md) | The standard this code is held to |
+| [Feature_Walkthrough.md](docs/Feature_Walkthrough.md) | **Test every feature that exists today, by hand.** Start here if you want to see what works |
+| [RUNBOOK.md](docs/RUNBOOK.md) | What to do when something breaks |
 | [Demo_Walkthrough.md](docs/Demo_Walkthrough.md) | The demo films, and the build that compiles them |
 
 ---

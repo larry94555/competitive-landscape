@@ -42,7 +42,7 @@
   .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
 </style>
 
-<div class="banner" id="banner">CODE TOUR — the starter skeleton</div>
+<div class="banner" id="banner">CODE TOUR — the model path</div>
 
 <div class="wrap">
   <aside class="tree">
@@ -51,6 +51,7 @@
     <div class="row" id="t-core">&nbsp;&nbsp;landscape-core<span class="note"> types</span></div>
     <div class="row" id="t-db">&nbsp;&nbsp;landscape-db<span class="note"> storage</span></div>
     <div class="row" id="t-api">&nbsp;&nbsp;landscape-api<span class="note"> http</span></div>
+    <div class="row" id="t-llm">&nbsp;&nbsp;landscape-llm<span class="note"> the model</span></div>
     <div class="row" id="t-bin">&nbsp;&nbsp;landscape<span class="note"> the binary</span></div>
     <div class="row dir" id="t-mig">migrations/</div>
     <div class="row dir" id="t-web">web/<span class="note"> react + ts</span></div>
@@ -74,6 +75,91 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
+    generate: {
+      name: "crates/landscape-llm/src/lib.rs",
+      purpose: "The schema comes from the type, so the two cannot drift apart.",
+      lines: [
+        ['c', '/// Generate a T, with the sampler prevented from producing'],
+        ['c', '/// anything that is not one.'],
+        ['k', 'pub async fn generate<T>(&self, prompt: &str, decode: &Decode)'],
+        ['k', '    -> Result<T>'],
+        ['k', 'where'],
+        ['f', '    T: JsonSchema + DeserializeOwned,'],
+        ['k', '{'],
+        ['t', '    let schema = serde_json::to_value(schemars::schema_for!(T))?;'],
+        ['f', '    let raw = self.complete('],
+        ['f', '        prompt, &Constraint::JsonSchema(schema), decode'],
+        ['f', '    ).await?;'],
+        ['t', '    parse(&raw)'],
+        ['k', '}']
+      ]
+    },
+    proof: {
+      name: "crates/landscape-llm/tests/constrained_decoding.rs",
+      purpose: "The Phase 0 exit criterion, run against a real model.",
+      lines: [
+        ['c', '// A three-variant enum. Nothing but the grammar stops a model'],
+        ['c', '// returning a fourth.'],
+        ['k', 'enum BillingPeriod { Monthly, Yearly, OneOff }'],
+        ['c', ''],
+        ['f', '  runs                 100'],
+        ['t', '  parse failures       0'],
+        ['t', '  content mismatches   0'],
+        ['f', '  median latency       10855 ms'],
+        ['f', '  p95 latency          17201 ms'],
+        ['c', ''],
+        ['c', '// Plus ten runs at temperature 0.9. The enum never wandered.']
+      ]
+    },
+    latency: {
+      name: "docs/BENCHMARKS.md",
+      purpose: "The number that should worry us, written down rather than buried.",
+      lines: [
+        ['s', '11 seconds median for ONE short extraction,'],
+        ['s', 'on a laptop with twice the threads of the target.'],
+        ['c', ''],
+        ['c', 'The architecture budgets 90-180s end to end.'],
+        ['c', 'That buys 8-16 extractions. Before any fetching.'],
+        ['c', 'Before the synthesiser. Nothing left for the router.'],
+        ['c', ''],
+        ['t', 'Three things could close it. None is measured:'],
+        ['f', '  1. a 4B doing a 1.7B router job'],
+        ['f', '  2. prefill on much shorter prompts than real ones'],
+        ['f', '  3. --parallel 1']
+      ]
+    },
+    skip: {
+      name: "crates/landscape-llm/tests/constrained_decoding.rs",
+      purpose: "A test that needs a service it may not have.",
+      lines: [
+        ['c', '/// Absence skips by default: CI runs --ignored to pick up other'],
+        ['c', '/// tests, and sweeps these up with it. A missing model server'],
+        ['c', '/// should not fail a job that has nothing to do with models.'],
+        ['c', '///'],
+        ['c', '/// LLAMA_REQUIRED=1 makes it a hard failure instead - a job that'],
+        ['c', '/// does provide a server must not pass quietly when it dies.'],
+        ['k', 'async fn server_or_skip() -> Option<LlamaClient> {'],
+        ['f', '    if client.is_ready().await { return Some(client); }'],
+        ['t', '    assert!(std::env::var("LLAMA_REQUIRED").is_err(), ...);'],
+        ['f', '    eprintln!("SKIPPED: no llama-server at {}", client.base());'],
+        ['f', '    None'],
+        ['k', '}']
+      ]
+    },
+    gates: {
+      name: ".github/workflows/ci.yml",
+      purpose: "What has to be true before anything merges.",
+      lines: [
+        ['t', 'cargo fmt --check          cargo clippy -D warnings'],
+        ['t', 'cargo test                 cargo deny check'],
+        ['t', 'gitleaks                   eslint + vitest'],
+        ['c', ''],
+        ['c', '# The production host is an Ampere A1: 4 OCPU aarch64.'],
+        ['c', '# A build that has only ever run on x86 finds its first'],
+        ['c', '# ARM problem in production.'],
+        ['s', 'cargo check --target aarch64-unknown-linux-gnu']
+      ]
+    },
     trait: {
       name: "crates/landscape-db/src/lib.rs",
       purpose: "The seam that keeps everything testable with nothing installed.",
@@ -222,31 +308,28 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "hold",          c: "This is the code that runs behind the demo." },
-    { kind: "turn",        a: "spot:#t-crates", c: "Four Rust crates, a React frontend, and the specification it was built from." },
-    { kind: "point",       a: "spot:#t-core",  c: "Types first. No database, no network, nothing to install to test it." },
+    { kind: "recognition", a: "hold",           c: "This covers what changed since the last film." },
+    { kind: "turn",        a: "spot:#t-llm",    c: "One new crate. It is how the application talks to the model." },
 
-    { kind: "result",      a: "file:claim",    c: "This is a Claim. Every sentence in a report is one." },
-    { kind: "means",       a: "spot:#code",    c: "It cannot be built without a source label and a quote from that source." },
-    { kind: "means",       a: "hold",          c: "So a sentence with no evidence behind it cannot be written down at all." },
+    { kind: "result",      a: "file:generate",  c: "Every fact in a report comes back through this function." },
+    { kind: "means",       a: "spot:#code",     c: "The schema is built from the Rust type you asked for." },
+    { kind: "means",       a: "hold",           c: "So changing the type changes what the model may produce, in the same commit." },
 
-    { kind: "result",      a: "file:trait",    c: "This is how the application reaches storage." },
-    { kind: "means",       a: "spot:#code",    c: "Six methods. There are two implementations: Postgres, and one in memory." },
-    { kind: "means",       a: "hold",          c: "Every test uses the memory one, so the tests need nothing running." },
+    { kind: "result",      a: "file:proof",     c: "This is the test that had to pass before anything else was built." },
+    { kind: "means",       a: "spot:#code",     c: "A hundred generations. Every one parsed. None had the wrong contents." },
+    { kind: "means",       a: "hold",           c: "The enum is the point: nothing else stops a model returning a fourth option." },
 
-    { kind: "result",      a: "file:queue",    c: "The queue is a column in the database, not a separate service." },
-    { kind: "means",       a: "spot:#code",    c: "Skip locked lets several workers claim jobs at once without collisions." },
-    { kind: "means",       a: "hold",          c: "One fewer thing to run, and one fewer thing to pay for." },
+    { kind: "result",      a: "file:latency",   c: "The same run found something less welcome." },
+    { kind: "means",       a: "spot:#code",     c: "Eleven seconds for one extraction, on a machine faster than the real one." },
+    { kind: "means",       a: "hold",           c: "It is written down as a problem rather than left under the passing result." },
 
-    { kind: "result",      a: "file:negative", c: "A finished report today contains nothing." },
-    { kind: "means",       a: "spot:#code",    c: "It says so, and lists what it would have checked. Same as a real gap." },
-    { kind: "means",       a: "hold",          c: "The reading pipeline is next. The shape it fills is already here." },
+    { kind: "result",      a: "file:skip",      c: "This test needs a model server. The build machine has none." },
+    { kind: "means",       a: "spot:#code",     c: "So it skips and says why, unless something tells it the server should be there." },
 
-    { kind: "result",      a: "file:test",     c: "This test checks that a failure never shows a reader our internals." },
-    { kind: "means",       a: "spot:#code",    c: "It asserts a database password cannot appear in a response." },
+    { kind: "result",      a: "file:gates",     c: "The checks that run on every change." },
+    { kind: "means",       a: "spot:#code",     c: "Including a build for the Arm chip the service will actually run on." },
 
-    { kind: "close",       a: "file:run",      c: "Two commands to run it. Nothing else to install." },
-    { kind: "close",       a: "spot:#code",    c: "Twenty-seven tests, no database, no keys, no accounts." }
+    { kind: "close",       a: "hold",           c: "The model path works. How long it takes is the open question." }
   ];
 
   // Timings computed from the same rules as the product films: base 3.2s, payoff 4.8s,
@@ -268,7 +351,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("claim");
+    show("generate");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -281,15 +364,15 @@
     }, TOTAL * 1000));
   }
 
-  show("claim");
+  show("generate");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "The starter code",
-    blurb: "A walk through the skeleton: what each crate is for, the two decisions that shape it, and how to run the whole thing locally.",
+    title: "The model path",
+    blurb: "The crate that talks to the model, the test that had to pass before anything was built on it, and the timing problem the same test uncovered.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

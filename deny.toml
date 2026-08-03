@@ -1,0 +1,59 @@
+# cargo-deny: licences, advisories, and duplicate dependencies.
+#
+# Note the section below is [licenses], American-spelled: that is cargo-deny’s key, not a
+# choice. Prose here uses British spelling like the rest of the repository.
+#
+# Licence checking matters here beyond the usual: this product runs an open-weights model
+# commercially, and `docs/ROADMAP.md` requires licence review *before* benchmarking a
+# candidate — a model or crate we cannot use commercially is not a candidate. The same
+# discipline applies to the dependency tree.
+
+[graph]
+targets = [
+    { triple = "x86_64-unknown-linux-gnu" },
+    # The A1 is aarch64. A tree that has only ever been resolved for x86 finds its first
+    # ARM-only dependency problem on the production host.
+    { triple = "aarch64-unknown-linux-gnu" },
+    { triple = "x86_64-pc-windows-msvc" },
+]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = []
+
+[licenses]
+version = 2
+# Permissive only. Anything copyleft in a binary we distribute is a decision, not a default,
+# and it should surface as a build failure rather than as a surprise later.
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "MIT-0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "CDLA-Permissive-2.0",
+]
+confidence-threshold = 0.9
+exceptions = []
+
+[bans]
+multiple-versions = "warn"
+# A wildcard on an external crate means any future version is acceptable, which is a real
+# supply-chain risk. On our own path dependencies it means nothing — there is no registry
+# to resolve against — so those are exempted rather than the rule being weakened.
+wildcards = "deny"
+allow-wildcard-paths = true
+# One TLS stack. Two means two sets of CVEs to track and a larger binary for no benefit.
+deny = [{ name = "openssl-sys", reason = "rustls is the chosen TLS stack; see ARCHITECTURE.md" }]
+skip = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
