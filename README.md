@@ -236,8 +236,15 @@ git config core.hooksPath .githooks
 cargo fmt --all --check
 cargo clippy --all-targets --all-features -- -D warnings
 cargo test --all-features
+cargo deny check advisories licenses bans sources
 cd web && npm run typecheck && npm run build
 ```
+
+**Run `cargo deny` with exactly those four checks.** Dropping `bans` is the tempting one —
+it is about duplicate and wildcard dependencies rather than security — and it is the check a
+new crate fails. Adding one without `publish = false` trips `allow-wildcard-paths`, which
+only applies to private crates, and a local run that omitted `bans` reported everything
+green.
 
 `unwrap`, `expect`, `panic` and `todo` are **denied**, not warned — a panic in a handler
 takes down work a user is waiting on. Test modules opt out explicitly, because panicking is

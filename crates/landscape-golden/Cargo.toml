@@ -1,5 +1,10 @@
 [package]
 name = "landscape-golden"
+# Not published, and `cargo-deny` needs telling. `bans.allow-wildcard-paths` permits the
+# path dependencies every crate here uses, but only for private crates — crates.io forbids
+# path deps, so a publishable crate with one is a real error. Without this line the
+# supply-chain job fails on a package that was never going anywhere near a registry.
+publish = false
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
