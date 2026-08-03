@@ -323,7 +323,7 @@ Expanded:
 > confirm an author, a publication date, or cited sources. It also states $6.00/user/month,
 > which we were unable to reconcile with Shortcut's own current pricing page ($8.50, fetched
 > 2026-07-31).
-> [Show what we found] · [What are our criteria?](/methodology)
+> [Show what we found] · [What are our criteria? → /methodology]
 
 **Three rules keep this from becoming a liability of its own:**
 
