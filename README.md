@@ -246,10 +246,19 @@ git config core.hooksPath .githooks
 ```bash
 cargo fmt --all --check
 cargo clippy --all-targets --all-features -- -D warnings
-cargo test --all-features
+cargo nextest run --all-features
+cargo test --all-features --doc
 cargo deny check advisories licenses bans sources
 cd web && npm run typecheck && npm run build
 ```
+
+`cargo test` still works and is what the rest of this README documents — **`nextest` is a
+faster runner for the same tests**, not a different suite. Install it with
+`cargo install cargo-nextest --locked` if you want CI's exact behaviour locally.
+
+**The `--doc` line is not optional.** `nextest` does not run doctests, so replacing
+`cargo test` with it silently stops checking them. That is the classic way a test suite
+shrinks without anyone deciding to shrink it.
 
 **Run `cargo deny` with exactly those four checks.** Dropping `bans` is the tempting one —
 it is about duplicate and wildcard dependencies rather than security — and it is the check a
@@ -260,6 +269,25 @@ green.
 `unwrap`, `expect`, `panic` and `todo` are **denied**, not warned — a panic in a handler
 takes down work a user is waiting on. Test modules opt out explicitly, because panicking is
 how a test reports failure.
+
+**Coverage is reported, never gated.** `cargo llvm-cov` runs on every push and prints a
+summary — currently **77.8%** of regions. There is no threshold, on purpose: a percentage
+target on a codebase this young buys tests written to move a number rather than to catch a
+fault. What the number is for is noticing a **drop** — a change that adds a module and no
+tests for it.
+
+```bash
+cargo llvm-cov nextest --all-features --summary-only
+```
+
+**It understates, and knowing why matters more than the figure.** It measures the fast suite
+only, so `landscape-db/src/pg.rs` reads **0%** — every line of it is covered by the same
+conformance contract as the in-memory store, in a separate CI job against a real database.
+Reading that 0% as "untested" would be exactly backwards.
+
+**Retries are off** (`.config/nextest.toml`). A flaky test that is quietly retried is a bug
+we have agreed not to find. Nothing in this suite touches the network or the clock, so a
+failure is real.
 
 ---
 
