@@ -1,5 +1,8 @@
 # cargo-deny: licences, advisories, and duplicate dependencies.
 #
+# Note the section below is [licenses], American-spelled: that is cargo-deny’s key, not a
+# choice. Prose here uses British spelling like the rest of the repository.
+#
 # Licence checking matters here beyond the usual: this product runs an open-weights model
 # commercially, and `docs/ROADMAP.md` requires licence review *before* benchmarking a
 # candidate — a model or crate we cannot use commercially is not a candidate. The same
@@ -20,7 +23,7 @@ version = 2
 yanked = "deny"
 ignore = []
 
-[licences]
+[licenses]
 version = 2
 # Permissive only. Anything copyleft in a binary we distribute is a decision, not a default,
 # and it should surface as a build failure rather than as a surprise later.
@@ -41,7 +44,11 @@ exceptions = []
 
 [bans]
 multiple-versions = "warn"
+# A wildcard on an external crate means any future version is acceptable, which is a real
+# supply-chain risk. On our own path dependencies it means nothing — there is no registry
+# to resolve against — so those are exempted rather than the rule being weakened.
 wildcards = "deny"
+allow-wildcard-paths = true
 # One TLS stack. Two means two sets of CVEs to track and a larger binary for no benefit.
 deny = [{ name = "openssl-sys", reason = "rustls is the chosen TLS stack; see ARCHITECTURE.md" }]
 skip = []

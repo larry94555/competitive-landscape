@@ -77,7 +77,7 @@ jobs:
         # commercially, and the same discipline has to apply to the dependency tree.
         uses: EmbarkStudios/cargo-deny-action@v2
         with:
-          command: check advisories licences bans sources
+          command: check advisories licenses bans sources
 
       - name: Secrets
         uses: gitleaks/gitleaks-action@v2
