@@ -26,7 +26,7 @@ cargo run -- dev --store memory
 ```
 
 That is the entire setup. It starts the API and a worker in one process sharing an
-in-memory store, on <http://127.0.0.1:8080>.
+in-memory store, on <http://127.0.0.1:8787>.
 
 Then, in a second terminal:
 
@@ -77,13 +77,28 @@ Add `--store memory` to any of them to skip Postgres entirely.
 | Variable | Default | Notes |
 |---|---|---|
 | `DATABASE_URL` | *(none)* | Required unless `--store memory` |
-| `BIND_ADDR` | `127.0.0.1:8080` | Change if the port is taken |
+| `BIND_ADDR` | `127.0.0.1:8787` | Change if the port is taken |
 | `RUST_LOG` | `landscape=info` | `landscape=debug` for query-level detail |
+
+### Ports
+
+| Port | What |
+|---|---|
+| **8787** | This API |
+| 5173 | Vite dev server |
+| 5432 | Postgres |
+| 8080+ | `llama-server` — llama.cpp's default, and this project runs several |
+
+**The API deliberately avoids 8080.** It is llama.cpp's default, and the architecture runs
+`llama-server` sidecars on the same machine, so anything defaulting there collides with the
+one process the application cannot work without.
+
+If a port is taken anyway, the error says how to find the process holding it.
 
 ### Check it is up
 
 ```bash
-curl -s http://127.0.0.1:8080/api/health
+curl -s http://127.0.0.1:8787/api/health
 ```
 
 ```json

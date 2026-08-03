@@ -23,7 +23,15 @@ use landscape_api::{router, AppState};
 use landscape_core::{Report, Section};
 use landscape_db::{MemoryStore, PgStore, Store};
 
-const DEFAULT_ADDR: &str = "127.0.0.1:8080";
+/// Where the API listens unless `BIND_ADDR` says otherwise.
+///
+/// Deliberately **not** 8080. That is llama.cpp's default, and this application is designed
+/// to run `llama-server` sidecars on the same machine — the architecture plans three
+/// resident models, which will take 8080 upward. Defaulting the API there would collide
+/// with the one process it cannot run without.
+///
+/// The rest of the map: 5173 Vite, 5432 Postgres, 8080+ llama-server.
+const DEFAULT_ADDR: &str = "127.0.0.1:8787";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Role {
@@ -133,13 +141,36 @@ async fn serve(store: Arc<dyn Store>) -> Result<()> {
 
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
-        .with_context(|| format!("could not bind {addr}. Is something already using it?"))?;
+        .with_context(|| bind_failure_help(&addr))?;
 
     tracing::info!("listening on http://{addr}");
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await
         .context("server stopped unexpectedly")
+}
+
+/// What to say when the port is taken.
+///
+/// "Is something already using it?" is a question, and the person reading it cannot answer
+/// it without knowing the incantation for their platform. So give them the incantation,
+/// and name the process most likely to be responsible — during development on this project
+/// that is nearly always `llama-server`, which defaults to 8080.
+fn bind_failure_help(addr: &str) -> String {
+    let port = addr.rsplit(':').next().unwrap_or(addr);
+    let finder = if cfg!(windows) {
+        format!("netstat -ano | findstr :{port}      then: tasklist /FI \"PID eq <pid>\"")
+    } else {
+        format!("lsof -i :{port}")
+    };
+    format!(
+        "could not bind {addr} - something else is already listening there.\n\n\
+         Find it with:\n    {finder}\n\n\
+         Then either stop it, or pick another port:\n    \
+         BIND_ADDR=127.0.0.1:8788 cargo run -- dev --store memory\n\n\
+         Note: port 8080 is llama.cpp's default, so a running llama-server is the usual \
+         culprit. This binary avoids 8080 for that reason."
+    )
 }
 
 /// Claim queued analyses and run them.
