@@ -4,83 +4,83 @@
     "n": 1,
     "title": "Do you have an idea you want to explore?",
     "blurb": "One box, one question, and a report on the companies already doing it.",
-    "seconds": 62.7
+    "seconds": 55.9
   },
   {
     "id": "prices",
     "n": 2,
     "title": "What do they charge?",
     "blurb": "The price table, a company that publishes none, and a figure from a blog kept separate.",
-    "seconds": 50.4
+    "seconds": 44.3
   },
   {
     "id": "features",
     "n": 3,
     "title": "What does each one do?",
     "blurb": "The feature grid, and what each of the five kinds of cell means.",
-    "seconds": 46.1
+    "seconds": 39.9
   },
   {
     "id": "changes",
     "n": 4,
     "title": "What has changed recently?",
     "blurb": "Dated changes, a company that publishes none, and what reviewers ask for.",
-    "seconds": 48.1
+    "seconds": 42.9
   },
   {
     "id": "talking",
     "n": 5,
     "title": "What are people saying?",
     "blurb": "Posts from people with the problem, one project still active and one abandoned.",
-    "seconds": 59.2
+    "seconds": 50.8
   },
   {
     "id": "absence",
     "n": 6,
     "title": "Where does the idea not appear?",
     "blurb": "Searches that found nothing, why some places are left out, and three sites not searched.",
-    "seconds": 59.4
+    "seconds": 53.5
   },
   {
     "id": "questions",
     "n": 7,
     "title": "What questions does it raise?",
     "blurb": "Eight levels of checking, the two it does not answer, and the questions it poses instead.",
-    "seconds": 58.4
+    "seconds": 51.6
   },
   {
     "id": "checking",
     "n": 8,
     "title": "Where did each fact come from?",
     "blurb": "Citations that open onto the sentence, the source list, and the page that could not be read.",
-    "seconds": 40.3
+    "seconds": 35.5
   },
   {
     "id": "asking",
     "n": 9,
     "title": "Can questions be asked afterwards?",
     "blurb": "Follow-up questions answered from the pages already read, and one it declines.",
-    "seconds": 39.7
+    "seconds": 35.2
   },
   {
     "id": "alerts",
     "n": 10,
     "title": "What happens when something changes?",
     "blurb": "An email when a watched page moves, showing both versions with dates.",
-    "seconds": 39.1
+    "seconds": 34.4
   },
   {
     "id": "cost",
     "n": 11,
     "title": "What does it cost?",
     "blurb": "One report a day with no account, and what an account or a subscription changes.",
-    "seconds": 35.4
+    "seconds": 29.7
   },
   {
     "id": "ways",
     "n": 12,
     "title": "Other ways to start",
     "blurb": "Naming the competitors, pasting a website, or both, shown after the plain path.",
-    "seconds": 38.2
+    "seconds": 33.8
   }
 ]

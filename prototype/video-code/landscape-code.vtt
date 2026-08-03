@@ -1,85 +1,77 @@
 WEBVTT
 
 1
-00:00:01.500 --> 00:00:06.800
-A model can pass every check and still be wrong.
+00:00:01.500 --> 00:00:06.000
+An error told you nothing you could look up.
 
 2
-00:00:06.800 --> 00:00:12.000
-Fast. Always readable. Always the right shape.
+00:00:06.000 --> 00:00:10.000
+We logged the cause. You saw a shrug.
 
 3
-00:00:12.000 --> 00:00:16.300
-The shape of an answer says nothing about its truth.
+00:00:10.000 --> 00:00:12.700
+Both true. Nothing joined them.
 
 4
-00:00:16.300 --> 00:00:21.300
-So: ten real pages, answers written by hand.
+00:00:12.700 --> 00:00:16.900
+Now every failure hands you a reference.
 
 5
-00:00:21.300 --> 00:00:26.400
-Three publish no price at all.
+00:00:16.900 --> 00:00:21.100
+The same characters are on the log line.
 
 6
-00:00:26.400 --> 00:00:31.500
-On one, a real price for a different product.
+00:00:21.100 --> 00:00:24.500
+The cause itself is still never returned.
 
 7
-00:00:31.500 --> 00:00:35.300
-Resisting that is harder than not inventing.
+00:00:24.500 --> 00:00:28.400
+An id from outside is checked first.
 
 8
-00:00:35.300 --> 00:00:40.400
-The first score was low. Our fault.
+00:00:28.400 --> 00:00:32.800
+A newline would let a caller write our log.
 
 9
-00:00:40.400 --> 00:00:45.700
-Asked for four facts, it wrote two and stopped.
+00:00:32.800 --> 00:00:36.400
+Then it did nothing at all.
 
 10
-00:00:45.700 --> 00:00:49.500
-Silence looked exactly like an honest gap.
+00:00:36.400 --> 00:00:40.800
+Our own crate was filtered out of the log.
 
 11
-00:00:49.500 --> 00:00:54.700
-Fixed. Now the faulty copy scores ten percent.
+00:00:40.800 --> 00:00:44.600
+Every test passed. Only running it showed this.
 
 12
-00:00:54.700 --> 00:01:00.000
-The good copy, same speed, scores eighty-seven.
+00:00:44.600 --> 00:00:48.400
+A second reason the log was empty.
 
 13
-00:01:00.000 --> 00:01:04.000
-That gap used to be a note somebody had to read.
+00:00:48.400 --> 00:00:52.900
+It writes its own line now, one per request.
 
 14
-00:01:04.000 --> 00:01:09.100
-One failure is worth understanding.
+00:00:52.900 --> 00:00:56.500
+Why logs, and not dashboards.
 
 15
-00:01:09.100 --> 00:01:14.500
-It quoted a price correctly, from the wrong plan.
+00:00:56.500 --> 00:01:01.400
+Three models leave no room. They are the product.
 
 16
-00:01:14.500 --> 00:01:18.300
-Nothing invented. That is the hard case.
+00:01:01.400 --> 00:01:05.300
+Every link in the docs now resolves.
 
 17
-00:01:18.300 --> 00:01:23.400
-So the set checks itself first.
+00:01:05.300 --> 00:01:09.700
+One of two hundred and seventy-one did not.
 
 18
-00:01:23.400 --> 00:01:28.500
-Every answer must really be on its page.
+00:01:09.700 --> 00:01:14.000
+And an hour-long path in, for anyone new.
 
 19
-00:01:28.500 --> 00:01:33.600
-One tidy idea was measured and dropped.
-
-20
-00:01:33.600 --> 00:01:39.100
-Forbidding the bad answer made the good one rarer.
-
-21
-00:01:39.100 --> 00:01:42.700
-The next faulty model is caught by a test.
+00:01:14.000 --> 00:01:17.000
+A reported fault is now one search.

@@ -35,7 +35,14 @@ jobs:
       - name: Lint the instructions
         # The README is a set of commands people paste. A stale one looks like the
         # software is broken, so it is checked like code.
-        run: python3 scripts/lint_instructions.py README.md docs/Feature_Walkthrough.md
+        run: python3 scripts/lint_instructions.py README.md docs/Feature_Walkthrough.md docs/TUTORIAL.md
+
+      - name: Check the links
+        # Every internal link and heading anchor across all the documentation. A dead file
+        # link fails loudly the first time someone clicks it; a dead *anchor* silently
+        # drops the reader at the top of a long page, and they conclude the reference was
+        # vague rather than broken. Roadmap Phase 0 asks for this alongside TUTORIAL.md.
+        run: python3 scripts/check_links.py
 
       - name: Test
         # No services. Every test runs against the in-memory store, which is why this job

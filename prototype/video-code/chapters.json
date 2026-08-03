@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "Is the model right?",
-    "blurb": "A model that passed every check we had was returning nonsense. This adds the check that catches it: ten real pages with answers written by hand, the two bugs found on the way in, and one tidy idea that measured worse and was dropped.",
-    "seconds": 104.2
+    "title": "Finding a failure",
+    "blurb": "An error that told you nothing you could look up, and what it took to fix that: a reference on every failure, two bugs that only running it could find, and the reason this project logs rather than builds dashboards.",
+    "seconds": 78.5
   }
 ]

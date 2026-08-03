@@ -17,3 +17,8 @@ prototype/demo-page.html
 # which broke CI's dependency cache and would have broken `npm ci` one step later.
 #   Cargo.lock             committed
 #   web/package-lock.json  committed
+
+# Python bytecode. `build-code-tour.py` imports `build.py` for the pacing constants,
+# which makes CPython write one of these next to it.
+__pycache__/
+*.pyc

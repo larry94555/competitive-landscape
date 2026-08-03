@@ -31,6 +31,13 @@ struct Body {
     /// What the reader can do next. Present whenever there is a useful answer.
     #[serde(skip_serializing_if = "Option::is_none")]
     remedy: Option<String>,
+    /// The request id, on internal failures only.
+    ///
+    /// Deliberately absent from 4xx: a rejected prompt is fully explained by its own
+    /// message, and a reference number there would suggest the reader has hit something
+    /// worth reporting when they have hit something they can fix themselves.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reference: Option<String>,
 }
 
 impl IntoResponse for ApiError {
@@ -41,6 +48,7 @@ impl IntoResponse for ApiError {
                 Body {
                     error: message,
                     remedy: Some("Edit what you typed and try again.".to_owned()),
+                    reference: None,
                 },
             ),
             Self::BadRequestWithRemedy { message, remedy } => (
@@ -48,6 +56,7 @@ impl IntoResponse for ApiError {
                 Body {
                     error: message,
                     remedy: Some(remedy),
+                    reference: None,
                 },
             ),
             Self::NotFound => (
@@ -55,16 +64,33 @@ impl IntoResponse for ApiError {
                 Body {
                     error: "No analysis with that reference.".to_owned(),
                     remedy: Some("It may have been removed. Start a new one.".to_owned()),
+                    reference: None,
                 },
             ),
             Self::Internal(detail) => {
-                // Logged here, deliberately not returned.
+                // The detail is logged and never returned. What *is* returned is the
+                // request id, which appears on this log line too — so the sentence the
+                // reader can quote leads straight to the sentence they cannot see.
+                //
+                // Without it both halves are true and neither is reachable from the other,
+                // which is the state this whole mechanism exists to end.
                 tracing::error!(detail, "request failed");
+                let reference = crate::request_id::current().map(|id| id.to_string());
+                let remedy = match &reference {
+                    Some(id) => format!(
+                        "Nothing you did caused this. Try again shortly — and if you tell us, \
+                         quote {id} and we can find exactly what happened."
+                    ),
+                    // Outside a request there is no id. Better to drop the sentence than
+                    // to invite someone to quote a reference that leads nowhere.
+                    None => "Nothing you did caused this. Try again shortly.".to_owned(),
+                };
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Body {
                         error: "Something went wrong at our end.".to_owned(),
-                        remedy: Some("Nothing you did caused this. Try again shortly.".to_owned()),
+                        remedy: Some(remedy),
+                        reference,
                     },
                 )
             }

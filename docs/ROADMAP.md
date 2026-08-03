@@ -220,8 +220,11 @@ holding it.
   type-checked rules, `lefthook` pre-commit hooks, `gitleaks`, `cargo deny`, SonarCloud
   quality gate on new code, coverage reporting, and the budget-annotation report. **Retrofitting
   a quality bar onto an existing codebase does not work** — the gates must predate the code.
-- `docs/decisions/` initialised with the ADR template, and `docs/TUTORIAL.md` skeleton with
-  its CI link-checker, so both grow with the code rather than being written at the end.
+- ~~`docs/decisions/` initialised with the ADR template, and `docs/TUTORIAL.md` skeleton with
+  its CI link-checker, so both grow with the code rather than being written at the end.~~
+  **Done** — five ADRs, [TUTORIAL.md](TUTORIAL.md), and `scripts/check_links.py` resolving
+  every internal link *and heading anchor* on every push. It found a broken one on its first
+  run.
 - **CI speed, in payoff order** — the Rust build dominates, so optimize it first:
   `Swatinem/rust-cache` (or `sccache`), Rust and frontend as parallel jobs,
   `cargo-nextest` in place of `cargo test`, `cargo check` before `cargo build` on PRs.
@@ -292,9 +295,13 @@ structural, and retrofitting them is expensive.
   runs.** Done — Qwen3-4B-Q4_K_M, 100/100, plus 10 runs at temperature 0.9 in which a
   three-variant enum never wandered. `crates/landscape-llm`, and
   [ADR 0002](decisions/0002-constrained-decoding-via-llama-cpp.md).
-- ☐ A written decision on the observability backend: `tracing` instrumentation is fixed, but
-  self-hosted Prometheus/Grafana/Tempo competes for RAM with the model on a 24 GB box.
-  On this hardware the answer is almost certainly "hosted error tracking only, for now."
+- ☑ **A written decision on the observability backend.** Done —
+  [ADR 0005](decisions/0005-observability-on-a-24gb-box.md): correlated structured logs and
+  hosted error tracking, **no self-hosted metrics stack** while three resident models leave
+  no spare RAM on a 24 GB box. Implemented rather than only written: every request carries an
+  id through its `tracing` span, the `x-request-id` header, and — the part usually skipped —
+  the body of a 5xx, so the person reading the screen has something to quote. What we give up
+  is named in the ADR: aggregate questions are not answerable from logs alone.
 - ☐ `q8_0` KV quantization decided on evidence, and the `--mlock` + no-swap configuration
   verified under load. **Blocked on the A1** — but the instrument it needs now exists: the
   golden set is what "decided on evidence" means here, and a KV-quantization decision made
@@ -328,6 +335,12 @@ structural, and retrofitting them is expensive.
   ([ADR 0004](decisions/0004-require-every-property.md)).
 - Stale-analysis reclaim: a worker killed mid-run no longer strands its row in `running`
   forever. Found while writing [RUNBOOK.md](RUNBOOK.md), fixed, and in the store contract.
+- **A reference on every failure.** An internal error used to log its detail and tell the
+  reader *"Something went wrong at our end"* — both true, and nothing joining them. Every
+  request now carries an id into its span, its response header, and the body of a 5xx. Two
+  bugs surfaced only by running it, neither visible to a unit test: the default log filter
+  excluded our own `landscape_api` target, and `tower_http`'s `TraceLayer` logs at `DEBUG`,
+  so ids were being attached perfectly to lines nothing ever wrote.
 - [Feature_Walkthrough.md](Feature_Walkthrough.md) — every feature that exists, testable by
   hand, with every command executed before being written down.
 
