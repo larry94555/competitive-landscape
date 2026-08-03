@@ -257,8 +257,9 @@ holding it.
 - Prove GBNF constrained decoding end-to-end: Rust struct → `schemars` JSON Schema →
   GBNF → llama-server → parsed back into the struct. This is the spine of the product;
   validate it before anything else is built on it.
-- Hand-build **10 golden-set subjects** with frozen HTML fixtures and human-written
-  reference sheets.
+- ~~Hand-build **10 golden-set subjects** with frozen HTML fixtures and human-written
+  reference sheets.~~ **Done** — `crates/landscape-golden`, and
+  [BENCHMARKS.md](BENCHMARKS.md) Run 3.
 
 **UX polish:** design tokens, typography scale, the report layout in Figma or static HTML.
 Decide the visual language for citations, confidence, and "not found" *now* — they are
@@ -273,9 +274,12 @@ structural, and retrofitting them is expensive.
 
 - ☐ A documented three-model choice (Router / Extractor / Synthesizer) with measured prefill
   and generation tok/s on the A1, at the chosen `--parallel`, fitting the ~17 GB budget.
-  **Blocked on the A1.** The tiering thesis is now supported on a laptop — a 1.7B router is
-  ~3.3× faster than the 4B at no measured accuracy cost ([BENCHMARKS.md](BENCHMARKS.md)
-  Run 2) — but 8 x86 threads are not 4 ARM cores and the numbers do not transfer.
+  **Blocked on the A1**, but no longer blocked on evidence. The tiering thesis holds — a
+  1.7B router is ~3.3× faster than the 4B (Run 2) — and Run 3 draws the boundary Run 2 could
+  not see: **the 1.7B returns a price for a plan that publishes none**, taking it from the
+  plan above on the same page and quoting that line verbatim. It is a viable Router and not
+  a viable Extractor. 8 x86 threads are still not 4 ARM cores, so the *timings* do not
+  transfer; the accuracy finding does.
 - ☐ **A measured, realistic end-to-end latency estimate**, and a written, honest decision on
   what the Rung-0 latency promise will be. If the measurement is materially worse than the
   90–180s estimate in ARCHITECTURE §4.4, the response is to cut scope per analysis (fewer
@@ -292,7 +296,9 @@ structural, and retrofitting them is expensive.
   self-hosted Prometheus/Grafana/Tempo competes for RAM with the model on a 24 GB box.
   On this hardware the answer is almost certainly "hosted error tracking only, for now."
 - ☐ `q8_0` KV quantization decided on evidence, and the `--mlock` + no-swap configuration
-  verified under load. **Blocked on the A1.**
+  verified under load. **Blocked on the A1** — but the instrument it needs now exists: the
+  golden set is what "decided on evidence" means here, and a KV-quantization decision made
+  on latency alone would repeat the mistake Run 3 was built to prevent.
 - ☐ **Concierge track: ≥5 reports delivered to real people**, with their reactions recorded —
   what they read first, what they ignored, what they asked for, whether they would pay.
   **Not started. This is the G1 gate and the highest-risk open item.**
@@ -306,11 +312,20 @@ structural, and retrofitting them is expensive.
 **Also delivered, beyond the original list**
 
 - `landscape-bench` — the benchmark harness, ready to point at the A1.
-- Two findings that only measurement could produce, both in [BENCHMARKS.md](BENCHMARKS.md):
+- `landscape-golden` — ten frozen pages, hand-written answers, and a score. The set
+  **validates itself** with no model running: every reference answer must appear verbatim on
+  its page, at least three subjects must require abstaining, and every subject must justify
+  its own existence in prose. It scores the defective quantisation at **10%** against 87%
+  for the official build of the same model at the same speed — the failure Run 2 could only
+  record in a comment is now one a test fails on.
+- Three findings that only measurement could produce, all in [BENCHMARKS.md](BENCHMARKS.md):
   a **defective quantisation produced schema-valid garbage** (shape guarantees are not
-  accuracy guarantees), and **`schemars` omits integer bounds** so the sampler produced
-  values the Rust type could not hold — 6/20 failures, now 0/20
-  ([ADR 0003](decisions/0003-bound-integer-schemas.md)).
+  accuracy guarantees); **`schemars` omits integer bounds** so the sampler produced values
+  the Rust type could not hold — 6/20 failures, now 0/20
+  ([ADR 0003](decisions/0003-bound-integer-schemas.md)); and **`schemars` omits optional
+  fields from `required`**, so models simply stopped writing after two keys and `serde`
+  parsed the silence as an honest "not found" — 53% → 73% on the same model
+  ([ADR 0004](decisions/0004-require-every-property.md)).
 - Stale-analysis reclaim: a worker killed mid-run no longer strands its row in `running`
   forever. Found while writing [RUNBOOK.md](RUNBOOK.md), fixed, and in the store contract.
 - [Feature_Walkthrough.md](Feature_Walkthrough.md) — every feature that exists, testable by

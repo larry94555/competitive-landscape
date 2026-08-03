@@ -7,13 +7,105 @@
 > **Still nothing measured on the target hardware.** The A1 is not provisioned. These are
 > laptop numbers and are labelled as such.
 
-Reproduce anything here with:
+Two harnesses, measuring different things. Timings come from the first; whether the answers
+are *true* comes from the second, and nothing in the first can tell you.
 
 ```bash
 cargo run -p landscape-bench -- --runs 20 --label "what this is"
 ```
 
-`LLAMA_URL` selects the server.
+```bash
+cargo test -p landscape-golden --test against_a_model -- --ignored --nocapture
+```
+
+`LLAMA_URL` selects the server for both.
+
+---
+
+## Run 3 — the golden set, and what shape tests could never see
+
+**Date:** 2026-08-03 · **Host:** same laptop, three `llama-server` processes resident ·
+**Task:** ten frozen pricing pages, one plan each, scored against hand-written references.
+
+```bash
+LLAMA_URL=http://127.0.0.1:8080 \
+  cargo test -p landscape-golden --test against_a_model -- --ignored --nocapture
+```
+
+Prompt **v2**. Seed 7, temperature 0. Verdicts are reproducible — two consecutive 4B runs
+produced byte-identical verdict tables, differing only in latency.
+
+| Model | Fields correct | Perfect subjects | **Invented prices** | Any fabrication | Median |
+|---|---|---|---|---|---|
+| Qwen3-4B Q4_K_M | **90%** | 8 / 10 | **0** | 1 | 11.7 s |
+| Qwen3-1.7B Q8_0 | 87% | 7 / 10 | **1** | 2 | 7.5 s |
+| ~~Qwen3-1.7B Q4_K_M (`unsloth`)~~ | **10%** | 0 / 10 | **3** | 8 | 5.7 s |
+
+### The result this was built for
+
+**Run 2 gave the defective quantisation a clean bill of health on every measure it had:**
+0/20 unparseable, and the *fastest* median in the table. Only a hand-written note recorded
+that its output was garbage.
+
+The golden set scores it at **10%**, against 87% for the official quantisation of the same
+model at the same size and the same speed. That gap is now a number a test can fail on
+rather than a comment somebody has to read.
+
+The value is not that we caught this one — we already had. It is that the next one gets
+caught by machinery instead of by luck.
+
+### The 4B is the only model here that can be trusted with a price
+
+The single assertion in the golden-set test is that no price is returned for a plan whose
+page publishes none. **Qwen3-4B passes it. Qwen3-1.7B Q8_0 does not**, and the way it fails
+is worth reading:
+
+| | expected | returned |
+|---|---|---|
+| `contact-sales`, plan `Enterprise` | no price | **$49 / monthly** |
+
+$49 is the price of *Grower*, the plan directly above it on the page, and the model quoted
+that line verbatim. It did not hallucinate — it answered a neighbouring question and
+supported the answer honestly. Every fact in the output is true of *something* on the page.
+
+That failure mode matters more than a hallucination would. A fabricated number often looks
+wrong; a correctly-quoted number attached to the wrong plan looks exactly like a correct
+answer, including to the quote-fidelity check, which passes it.
+
+**So the tiering thesis from Run 2 survives, but with a boundary Run 2 could not see.** The
+1.7B is 1.6× faster and nearly as accurate in aggregate — and aggregate accuracy is the
+wrong measure for the tier that assigns a dollar figure to a named company. A 1.7B router
+picking which spans to read is still well supported. A 1.7B extractor is not.
+
+### What v2 of the prompt changed, including what it cost
+
+Both good models returned `billing_period: "monthly"` for plans they had *correctly*
+reported as having no published price — an invalid state, and one the type cannot forbid
+(see [ADR 0004](decisions/0004-require-every-property.md) for why the tagged-union fix
+measured worse). v2 states the invariant in prose instead.
+
+| | v1 | v2 |
+|---|---|---|
+| Qwen3-4B — perfect subjects | 7 / 10 | **8 / 10** |
+| Qwen3-4B — fabrications | 3 | **1** |
+| Qwen3-1.7B Q8_0 — fields correct | 73% | **87%** |
+
+**It was not free.** The 4B now returns nothing at all for `plain-table` — the easiest
+subject in the set, a price in a plain table — where v1 answered it correctly. Reproducible
+across both runs. Three added lines of caution bought two fewer fabrications and one new
+silence on the simplest possible case, which is the trade constrained extraction seems to
+offer everywhere: abstention and coverage move together.
+
+Recorded rather than tuned away. Chasing it with a fourth prompt revision would be fitting
+the prompt to ten pages we wrote ourselves.
+
+### What the set does not tell us
+
+It has ten subjects, all pricing, all in English, all written by the same person on the same
+afternoon — so it shares that person's blind spots, and a model could score 100% on it while
+failing on the first real page it meets. It is a floor, not a certificate. `ROADMAP.md`
+takes it to 25 subjects in Phase 1 and 50 in Phase 2, and the first user-reported error
+belongs in it the day it arrives.
 
 ---
 
@@ -125,3 +217,14 @@ None of this is done. It is the remainder of Phase 0's model work.
 - [ ] `q8_0` KV cache quantization validated against the golden set
 - [ ] Time-to-first-token
 - [ ] One server at a time, so the numbers are not contended
+
+Run 3 adds two of its own:
+
+- [ ] **Field order as a lever.** llama.cpp walks properties in the order the schema
+      serialises them, and `serde_json`'s sorted maps currently pick that order for us.
+      `preserve_order` would hand it back. Quote-first (read, then answer) against
+      quote-last (answer, then justify) is a measurable question, and a hand probe showed
+      quote-first spends the whole token budget quoting — so it needs a `maxLength` too
+- [ ] **Whether the 1.7B's plan confusion survives better prompting**, or is a size limit.
+      This decides whether the Extractor tier can ever be a 1.7B, which is the difference
+      between ~7 s and ~12 s per span on the numbers above

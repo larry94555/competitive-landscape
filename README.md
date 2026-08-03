@@ -180,6 +180,27 @@ Those tests are `#[ignore]`d so the default run stays fast and dependency-free; 
 against a real Postgres on every push. Without that, the fast tests would slowly become
 fiction.
 
+### Scoring a model
+
+With a `llama-server` running, score it against the golden set:
+
+```bash
+cargo test -p landscape-golden --test against_a_model -- --ignored --nocapture
+```
+
+`--nocapture` is the point — the scorecard is the output. The run **fails on one thing**: a
+price returned for a plan whose page publishes none. Everything else is printed for reading.
+
+Today Qwen3-4B passes and Qwen3-1.7B does not, and the way the 1.7B fails is instructive:
+it returns the price of the plan *above* the one asked about, quoting that line correctly.
+Nothing was hallucinated. See [BENCHMARKS.md](docs/BENCHMARKS.md) Run 3.
+
+The set also checks itself, and that half needs no model at all:
+
+```bash
+cargo test -p landscape-golden
+```
+
 ### The documentation is tested
 
 Two bugs once reached a reader through correct code and a stale README: a port that had
@@ -232,7 +253,8 @@ crates/
   landscape-db/     the Store trait, an in-memory implementation, and Postgres
   landscape-api/    axum routers, request validation, error mapping
   landscape-llm/    constrained generation: a Rust type in, that type out
-  landscape-bench/  measures what a llama-server can actually do
+  landscape-bench/  measures how fast a llama-server is
+  landscape-golden/ measures whether it is right. Ten frozen pages, known answers
   landscape/        the binary: dev | serve | worker | migrate
 migrations/         SQL, applied on boot
 web/                Vite + React + TypeScript (strict)
@@ -257,6 +279,13 @@ sentence is not representable, so it cannot reach a reader by accident.
 **Errors never leak internals.** A database failure becomes "Something went wrong at our
 end" plus a remedy; the detail is logged. There is a test asserting a connection string
 cannot appear in a response body.
+
+**Constrained decoding guarantees shape, never truth.** A model is forced to return the
+right *type*; nothing about that makes the values in it correct. A defective quantisation
+once passed every check we had — fast, always parseable, schema-valid throughout, and
+wrong. `landscape-golden` is the other half: ten frozen pages with known answers, three of
+which publish no price at all, because the failure that would sink this product is a
+confident dollar figure attached to a company that never named one.
 
 ---
 
