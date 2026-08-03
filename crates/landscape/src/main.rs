@@ -60,6 +60,13 @@ async fn main() -> Result<()> {
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| "landscape=info,tower_http=info".into()),
         )
+        // Logs to stderr, so stdout stays free for anything a command needs to emit as
+        // data. `fmt()` defaults to stdout, which would mean a future `landscape schema`
+        // printing JSON with log lines spliced through it.
+        .with_writer(std::io::stderr)
+        // Colour codes are for a terminal. Anything reading this output through a pipe -
+        // a log collector, or the test that parses the bound port - gets plain text.
+        .with_ansi(std::io::IsTerminal::is_terminal(&std::io::stderr()))
         .init();
 
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -143,7 +150,12 @@ async fn serve(store: Arc<dyn Store>) -> Result<()> {
         .await
         .with_context(|| bind_failure_help(&addr))?;
 
-    tracing::info!("listening on http://{addr}");
+    // Log what was actually bound, not what was asked for. With BIND_ADDR=127.0.0.1:0 the
+    // OS picks the port, and the docs test relies on reading it back from this line.
+    let bound = listener
+        .local_addr()
+        .map_or_else(|_| addr.clone(), |a| a.to_string());
+    tracing::info!("listening on http://{bound}");
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await

@@ -112,7 +112,9 @@ will report healthy while every request fails.
 ### Start an analysis
 
 ```bash
-curl -sX POST http://127.0.0.1:8787/api/analyses   -H 'content-type: application/json'   -d '{"prompt":"an app that helps small farms sell directly to local restaurants"}'
+curl -sX POST http://127.0.0.1:8787/api/analyses \
+  -H 'content-type: application/json' \
+  -d '{"prompt":"an app that helps small farms sell to local restaurants"}'
 ```
 
 Take the `id` from the response and read it back a second later — it will be `complete`.
@@ -150,6 +152,35 @@ DATABASE_URL=postgres://landscape:landscape@127.0.0.1:5432/landscape \
 Those tests are `#[ignore]`d so the default run stays fast and dependency-free; CI runs them
 against a real Postgres on every push. Without that, the fast tests would slowly become
 fiction.
+
+### The documentation is tested
+
+Two bugs once reached a reader through correct code and a stale README: a port that had
+moved, and a documented `curl` missing its `content-type` header. No unit test could catch
+either, because both were in prose.
+
+So the README is executed. `crates/landscape/tests/docs.rs` parses every fenced `bash`
+block, boots the binary on an OS-assigned port, and runs each documented command against
+it — asserting none returns a 4xx. Three faster checks need nothing running: the port in
+the prose matches `DEFAULT_ADDR`, every `cargo run -- X` is a real subcommand, and no
+documented POST omits its content-type.
+
+```bash
+cargo test -p landscape --test docs
+```
+
+Pull request descriptions get the same treatment, but linted rather than executed — a PR
+body is untrusted input:
+
+```bash
+python3 scripts/lint_instructions.py README.md
+```
+
+For fast local feedback, enable the pre-push hook once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
 
 ### Everything CI runs
 

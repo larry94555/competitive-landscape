@@ -791,6 +791,7 @@ dependencies = [
  "landscape-api",
  "landscape-core",
  "landscape-db",
+ "serde_json",
  "tokio",
  "tower-http",
  "tracing",

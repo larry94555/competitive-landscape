@@ -32,6 +32,11 @@ jobs:
         # else fail too, so a warning cannot accumulate quietly across commits.
         run: cargo clippy --all-targets --all-features -- -D warnings
 
+      - name: Lint the instructions
+        # The README is a set of commands people paste. A stale one looks like the
+        # software is broken, so it is checked like code.
+        run: python3 scripts/lint_instructions.py README.md
+
       - name: Test
         # No services. Every test runs against the in-memory store, which is why this job
         # takes seconds and why a contributor can reproduce it exactly on a laptop.
