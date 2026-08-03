@@ -11,10 +11,12 @@
 //! diverge; one generated copy cannot.
 
 pub mod analysis;
+pub mod extract;
 pub mod report;
 pub mod source;
 
 pub use analysis::{Analysis, AnalysisId, AnalysisStatus, NewAnalysis};
+pub use extract::{BillingPeriod, PricingExtraction};
 pub use report::{Claim, Confidence, Report, Section, SectionStatus};
 pub use source::{Disposition, Source};
 
