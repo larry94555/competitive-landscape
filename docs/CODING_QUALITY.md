@@ -255,8 +255,11 @@ easy to state and hard to satisfy by example: *no input resolves to a non-public
 
 ### 6.2 Coverage **[CI]**
 
-- **New-code coverage ≥ 80%** — the "clean as you code" model. A blunt global target
-  encourages tests on trivia; a new-code gate puts effort where change happens.
+- **New-code coverage ≥ 80% as a target, not a gate** — the "clean as you code" model. A
+  blunt global target encourages tests on trivia; aiming the effort at new code puts it where
+  change happens. It is not enforced in CI, for the reason three bullets down: a number that
+  can be satisfied by assertion-free tests is a number that can be satisfied dishonestly, and
+  a gate turns that from a possibility into an incentive. [ADR 0006](decisions/0006-no-sonarcloud.md).
 - **100% on**: the claim verifier, the SSRF guard, quota/entitlement arithmetic, BYOK
   credential handling, webhook idempotency. Non-negotiable, no exemption path.
 - Coverage is a **floor detector, not a quality measure.** 90% coverage of assertion-free
@@ -336,21 +339,24 @@ Denied: `any` (use `unknown` and narrow), non-null `!`, `@ts-ignore` (`@ts-expec
 a reason is fine), default exports (except route modules), barrel files (they defeat
 tree-shaking and hide cycles), and hand-editing anything under `shared/types/`.
 
-### 7.3 Sonar **[CI]**
+### 7.3 No third-party static-analysis service **[decided]**
 
-SonarCloud (free for public repositories) provides what per-language linters do not: **the
-clean-as-you-code quality gate**, cross-file duplication detection, cognitive-complexity
-tracking, and a trend line for technical debt.
+This section specified SonarCloud as a merge gate. **It has been removed** — see
+[ADR 0006](decisions/0006-no-sonarcloud.md).
 
-- **Quality gate on new code**: 0 new bugs, 0 new vulnerabilities, ≤ 3% duplication,
-  new-code coverage ≥ 80%, maintainability rating A. **The gate blocks merge.**
-- Applied to the TypeScript side natively. **Sonar's Rust analysis has been improving but
-  should be verified against its current state in Phase 0** — clippy remains the primary Rust
-  linter regardless, and Sonar can ingest clippy output where native support falls short.
-  Do not let a Sonar limitation become an excuse for a weaker Rust gate; clippy `pedantic` is
-  already stricter than most Sonar Rust rules.
-- **Legacy debt is not a merge blocker.** Only new code is gated. This is what keeps the gate
-  credible instead of permanently red and therefore ignored.
+The short version: the three things it was here for were the clean-as-you-code gate,
+duplication detection, and cognitive-complexity tracking. The first is a way of introducing a
+quality bar to a codebase that does not have one, and this repository had **every gate green
+on an empty repository** before the first line of application code. The third overlaps
+clippy's complexity lints, which are denied rather than warned.
+
+The second — **duplication detection — is genuinely given up**, and is the honest cost. The
+mitigation is not another tool: the two-copies-of-a-constant failures this project has
+actually suffered were each fixed by making the second copy impossible, not by measuring
+similarity.
+
+Reversible, and cheap to reverse. If duplication becomes a real problem, supersede ADR 0006
+rather than quietly ignoring it.
 
 ### 7.4 Secret scanning **[HOOK]** **[CI]**
 
@@ -750,10 +756,20 @@ Every PR. A reviewer who cannot answer yes to all of these does not approve.
 
 ### 10.4 Merge gates **[CI]**
 
-`fmt` · `clippy -D warnings` · `tsc` · `eslint` · unit + integration tests · new-code coverage
-≥ 80% · Sonar quality gate · `cargo deny` · `cargo audit` · `gitleaks` · budget report ·
-tutorial link check · **demo video for user-visible changes** (§9.5) · **golden-set eval for
-anything touching the analysis pipeline**.
+`fmt` · `clippy -D warnings` · `tsc` · `eslint` · unit + integration tests · `cargo deny` ·
+`cargo audit` · `gitleaks` · budget report · tutorial link check · **demo video for
+user-visible changes** (§9.5) · **golden-set eval for anything touching the analysis
+pipeline**.
+
+**Coverage is reported here, not gated.** This list previously said "new-code coverage ≥ 80%"
+alongside the Sonar gate that would have enforced it; both are gone. The reason is §6.2's
+own: *90% coverage of assertion-free tests is worse than 60% of real ones, because it
+silences the alarm.* `cargo llvm-cov` prints a summary on every push, and what the number is
+for is noticing a **drop**.
+
+**The 100% requirements in §6.2 are unchanged** and are not coverage targets in this sense —
+the claim verifier, the SSRF guard, quota arithmetic, BYOK handling and webhook idempotency
+have no exemption path. None of them exists yet.
 
 Merges are **squash-only**, with a message explaining *why*. The commit log is documentation.
 
