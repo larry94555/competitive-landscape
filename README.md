@@ -224,6 +224,17 @@ body is untrusted input:
 python3 scripts/lint_instructions.py README.md
 ```
 
+Every internal link and heading anchor across all the documentation is resolved too:
+
+```bash
+python3 scripts/check_links.py
+```
+
+The anchors are the half worth having. A link to a deleted file breaks loudly the first time
+someone clicks it; a link to `#4.7` in a document that has renumbered its sections drops the
+reader at the top of a long page with no sign anything is wrong, and they conclude the
+cross-reference was vague rather than broken. It found one on its first run.
+
 For fast local feedback, enable the pre-push hook once per clone:
 
 ```bash
@@ -313,6 +324,7 @@ The code implements a specification written first. Start with
 
 | Document | Covers |
 |---|---|
+| [TUTORIAL.md](docs/TUTORIAL.md) | **An hour from a fresh clone to changing the code.** Start here if you are new |
 | [PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md) | User flows and the report schema |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | The stack, and why each piece is there |
 | [FACT_CHECKING.md](docs/FACT_CHECKING.md) | Source dispositions and auditable negatives |

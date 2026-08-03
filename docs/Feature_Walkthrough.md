@@ -22,6 +22,7 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | The queue: one worker claims each job exactly once | **Yes** |
 | Persistence across a restart | **Yes**, with Postgres |
 | Constrained model output, guaranteed to fit a Rust type | **Yes**, with `llama-server` |
+| Trace one request through the log by its reference | **Yes** |
 | Scoring a model on whether its answers are *true* | **Yes**, with `llama-server` |
 | Reading real web pages | No — not built |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
@@ -62,7 +63,7 @@ unchanged — or use the per-shell forms in [Part 3A](#part-3a--the-same-request
 You need **Rust** and **Node**. Nothing else for Part 1–6.
 
 ```bash
-git switch docs/initial-roadmap
+git switch main
 cargo build
 cd web && npm install && cd ..
 ```
@@ -238,6 +239,70 @@ Invoke-RestMethod -Uri http://localhost:8787/api/analyses -Method Post -ContentT
 ```bat
 curl -s localhost:8787/api/health
 ```
+
+---
+
+## Part 3B — Find one request in the log
+
+Every response carries a reference. This is how a fault someone reports becomes a fault you
+can look at.
+
+**Do this:**
+
+```bash
+curl -s -D - -o /dev/null http://127.0.0.1:8787/api/health
+```
+
+**You should see**, among the headers:
+
+```
+x-request-id: 0b9a3289e49a
+```
+
+And in the terminal running the server, the same twelve characters:
+
+```
+INFO request{request_id=0b9a3289e49a}: landscape_api::request_id: handled method=GET path="/api/health" status=200 took_ms=0
+```
+
+**Now pick your own**, which is handy when you are about to do something and want to find it
+afterwards:
+
+```bash
+curl -s -o /dev/null -H "x-request-id: walkthrough01" http://127.0.0.1:8787/api/health
+```
+
+The log line now reads `request{request_id=walkthrough01}`. We accept an id from in front of
+us so a proxy can stamp one and have us log under the same value.
+
+**Now try to forge one:**
+
+```bash
+curl -s -D - -o /dev/null -H "x-request-id: aaa bbb" http://127.0.0.1:8787/api/health
+```
+
+**You should get a fresh generated id, not `aaa bbb`.** An inbound id is checked before it is
+trusted — hex, dashes, at most 64 characters. A space is harmless; a **newline** is not,
+because it would let a caller append a line of their own writing to our log, including a
+convincing forged error. The rule is a narrow allow-list rather than a list of characters to
+strip, since that second form is the one that is always incomplete.
+
+**Why it matters.** When something breaks at our end you are told so, and told what to quote:
+
+```json
+{ "error": "Something went wrong at our end.",
+  "remedy": "Nothing you did caused this. Try again shortly — and if you tell us, quote 9f2c11ab7d04 and we can find exactly what happened.",
+  "reference": "9f2c11ab7d04" }
+```
+
+The actual cause — a database error, a connection string — is logged and **never** returned.
+Before this, both halves of that were true and nothing joined them.
+
+**In the browser**, the reference appears in the error message as a selectable monospace
+chip, because the only thing anyone ever does with it is copy it into a message. See Part 5.
+
+`docs/decisions/0005-observability-on-a-24gb-box.md` records why correlated logs, and not a
+metrics stack: three resident models leave no spare RAM on a 24 GB box.
 
 ---
 
@@ -529,7 +594,7 @@ GOLDEN_MAX_FABRICATIONS=99 cargo test -p landscape-golden --test against_a_model
 cargo test
 ```
 
-**You should see 84 passing, with nothing running.**
+**You should see 97 passing, with nothing running.**
 
 Worth knowing what a few of them are actually for:
 
@@ -582,6 +647,8 @@ python prototype/build.py --preview
 | 2 — short prompt rejected in the UI, box NOT cleared | | |
 | 3 — API create and read back | | |
 | 3A — the same request in your shell, if on Windows | | |
+| 3B — request id in the header matches the log line | | |
+| 3B — a forged id (`aaa bbb`) is replaced, not echoed | | |
 | 4 — report shows `checked`, no invented claims | | |
 | 5 — all seven rejections carry a remedy | | |
 | 6 — `serve` alone leaves it queued | | |
