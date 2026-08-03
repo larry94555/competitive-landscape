@@ -42,7 +42,7 @@
   .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
 </style>
 
-<div class="banner" id="banner">CODE TOUR — what measurement found</div>
+<div class="banner" id="banner">CODE TOUR — is the model right?</div>
 
 <div class="wrap">
   <aside class="tree">
@@ -52,7 +52,8 @@
     <div class="row" id="t-db">&nbsp;&nbsp;landscape-db<span class="note"> storage</span></div>
     <div class="row" id="t-api">&nbsp;&nbsp;landscape-api<span class="note"> http</span></div>
     <div class="row" id="t-llm">&nbsp;&nbsp;landscape-llm<span class="note"> the model</span></div>
-    <div class="row" id="t-bench">&nbsp;&nbsp;landscape-bench<span class="note"> measuring it</span></div>
+    <div class="row" id="t-bench">&nbsp;&nbsp;landscape-bench<span class="note"> how fast</span></div>
+    <div class="row" id="t-golden">&nbsp;&nbsp;landscape-golden<span class="note"> whether it is right</span></div>
     <div class="row" id="t-bin">&nbsp;&nbsp;landscape<span class="note"> the binary</span></div>
     <div class="row dir" id="t-mig">migrations/</div>
     <div class="row dir" id="t-web">web/<span class="note"> react + ts</span></div>
@@ -76,20 +77,116 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    garbage: {
-      name: "the first result",
-      purpose: "A smaller model looked slower AND wrong. Both were false.",
+    problem: {
+      name: "the problem",
+      purpose: "Everything we could check said this model was fine.",
       lines: [
-        ['c', '// Qwen3-1.7B, unsloth Q4_K_M. Schema-valid. Entirely wrong.'],
+        ['c', '// A faulty copy of a small model. Every check we had:'],
+        ['t', '  always parseable      yes'],
+        ['t', '  right shape           yes'],
+        ['t', '  fastest in the table  yes'],
+        ['c', ''],
+        ['c', '// And the answers it gave:'],
         ['s', '{"plan_name": "/:D!01:56:G>!#9*2-@1F-08@E5A0\'(5,#0#D>9G",'],
-        ['s', ' "price_usd": 9, "billing_period": "monthly"}'],
+        ['s', ' "price_usd": 9}'],
         ['c', ''],
-        ['c', '// The SAME model, official Q8_0 build:'],
-        ['t', '{"plan_name": "Starter", "price_usd": 39,'],
-        ['t', ' "billing_period": "monthly", "order_limit": 25}'],
+        ['f', '// Forcing the shape of an answer says nothing about its truth.']
+      ]
+    },
+    subjects: {
+      name: "crates/landscape-golden/subjects/",
+      purpose: "Ten real pages, frozen, with the answers written by hand.",
+      lines: [
+        ['f', '  01-plain-table              a price, plainly stated'],
+        ['f', '  03-price-in-prose           no table to pattern-match'],
+        ['f', '  05-two-currencies           euros first, dollars second'],
+        ['f', '  06-discounted-price         old price written before new'],
+        ['t', '  08-free-tier                zero is a price, not a gap'],
+        ['t', '  02-contact-sales            no price published'],
+        ['t', '  09-numbers-that-are-not-prices'],
+        ['t', '  10-price-belongs-to-something-else'],
         ['c', ''],
-        ['c', '// A broken quantisation, not a model too small.'],
-        ['f', '// Constrained decoding guarantees SHAPE. Never content.']
+        ['c', '// Three of ten publish no price at all. On the last one,'],
+        ['c', '// a real price for a DIFFERENT product sits on the page.']
+      ]
+    },
+    truncation: {
+      name: "crates/landscape-llm/src/lib.rs",
+      purpose: "The first score was 53%. The harness was wrong, not the model.",
+      lines: [
+        ['c', '// Asked for four fields, the model returned two:'],
+        ['s', '{"plan_name": "Grower", "price_usd": 49}'],
+        ['c', ''],
+        ['c', '// Not null. Absent. And a missing key parses as "none",'],
+        ['c', '// which is exactly what "the page does not say" looks like.'],
+        ['c', ''],
+        ['k', 'fn require_every_property(value: &mut Value) {'],
+        ['f', '    // the key must be written; null is still allowed'],
+        ['k', '}'],
+        ['c', ''],
+        ['t', '// 53% -> 73%. Nothing about the model changed.']
+      ]
+    },
+    verdict: {
+      name: "the scorecard",
+      purpose: "The same model, two builds. One number tells them apart.",
+      lines: [
+        ['f', '  model                       fields   invented prices'],
+        ['f', '  --------------------------------------------------------'],
+        ['t', '  Qwen3-4B    Q4_K_M            90%          0'],
+        ['t', '  Qwen3-1.7B  Q8_0              87%          1'],
+        ['s', '  Qwen3-1.7B  Q4_K_M (faulty)   10%          3'],
+        ['c', ''],
+        ['c', '// Same size. Same speed. Same shape guarantees.'],
+        ['f', '// The gap is now something a test can fail on.']
+      ]
+    },
+    honest: {
+      name: "crates/landscape-golden/subjects/02-contact-sales.json",
+      purpose: "How the small model fails is worse than inventing.",
+      lines: [
+        ['c', '// The page, asked about "Enterprise":'],
+        ['f', '  Grower - $49 per month. Unlimited orders.'],
+        ['f', '  Enterprise - ... Contact sales for pricing.'],
+        ['c', ''],
+        ['c', '// The small model answered:'],
+        ['s', '  price   $49'],
+        ['s', '  quote   "Grower - $49 per month. Unlimited orders."'],
+        ['c', ''],
+        ['c', '// Nothing invented. The quote is real, word for word.'],
+        ['f', '// It answered about the plan one line above.']
+      ]
+    },
+    selfcheck: {
+      name: "crates/landscape-golden/tests/the_set_itself.rs",
+      purpose: "A ruler nobody checks is worse than no ruler.",
+      lines: [
+        ['k', 'fn every_expected_answer_is_actually_on_the_page()'],
+        ['f', '    // otherwise a correct model scores as wrong,'],
+        ['f', '    // and then we "fix" the model'],
+        ['c', ''],
+        ['k', 'fn at_least_three_subjects_publish_no_price()'],
+        ['k', 'fn every_subject_says_why_it_exists()'],
+        ['c', ''],
+        ['c', '// The hard pages are the ones that fail, so they are the'],
+        ['c', '// ones under quiet pressure to be deleted - which is'],
+        ['f', '// exactly when they were doing their job.']
+      ]
+    },
+    union: {
+      name: "what we tried and did not keep",
+      purpose: "A type that forbids the bad answer made the good one rarer.",
+      lines: [
+        ['c', '// Both models gave a billing period for plans with no price.'],
+        ['c', '// The tidy fix: make that impossible to express.'],
+        ['k', 'enum Price { Published { amount, period }, NotPublished }'],
+        ['c', ''],
+        ['c', '// On a page plainly reading "$49 per month", the larger'],
+        ['c', '// model then answered:'],
+        ['s', '  "price": "not_published"'],
+        ['c', ''],
+        ['f', '// One cheap word competes with a whole nested answer.'],
+        ['f', '// Guarantees a compiler enforces are free. These are not.']
       ]
     },
     tiering: {
@@ -343,7 +440,7 @@
         ['c', ''],
         ['c', '# Every test. Nothing needs to be running.'],
         ['t', '$ cargo test'],
-        ['f', '   27 passed; 0 failed'],
+        ['f', '   84 passed; 0 failed'],
       ]
     }
   };
@@ -387,38 +484,45 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "hold",          c: "This is what happened when the code was actually measured." },
-    { kind: "turn",        a: "spot:#t-bench", c: "A new crate whose only job is running the model and timing it." },
+    { kind: "recognition", a: "file:problem",   c: "A model can pass every check and still be wrong." },
+    { kind: "means",       a: "spot:#code",     c: "Fast. Always readable. Always the right shape." },
+    { kind: "means",       a: "hold",           c: "The shape of an answer says nothing about its truth." },
 
-    { kind: "result",      a: "file:garbage",  c: "The first run said a smaller model was slower, and got everything wrong." },
-    { kind: "means",       a: "spot:#code",    c: "It was a faulty download. The same model, built properly, was perfect." },
-    { kind: "means",       a: "hold",          c: "The output was the right shape either way. Shape is all the checking guarantees." },
+    { kind: "turn",        a: "spot:#t-golden", c: "So: ten real pages, answers written by hand." },
+    { kind: "result",      a: "file:subjects",  c: "Three publish no price at all." },
+    { kind: "means",       a: "spot:#code",     c: "On one, a real price for a different product." },
+    { kind: "means",       a: "hold",           c: "Resisting that is harder than not inventing." },
 
-    { kind: "result",      a: "file:tiering",  c: "With a working copy, the small model is three times faster." },
-    { kind: "means",       a: "spot:#code",    c: "About thirty pieces of information per report instead of ten." },
-    { kind: "means",       a: "hold",          c: "So the plan to use a small model for the easy work is worth keeping." },
+    { kind: "result",      a: "file:truncation", c: "The first score was low. Our fault." },
+    { kind: "means",       a: "spot:#code",     c: "Asked for four facts, it wrote two and stopped." },
+    { kind: "means",       a: "hold",           c: "Silence looked exactly like an honest gap." },
 
-    { kind: "result",      a: "file:bounds",   c: "Then a third of answers stopped fitting the type they were meant to." },
-    { kind: "means",       a: "spot:#code",    c: "The number describing the limit was never passed on, so there was no limit." },
-    { kind: "means",       a: "hold",          c: "Six failures in twenty became none. The bigger model had never tripped it." },
+    { kind: "result",      a: "file:verdict",   c: "Fixed. Now the faulty copy scores ten percent." },
+    { kind: "means",       a: "spot:#code",     c: "The good copy, same speed, scores eighty-seven." },
+    { kind: "means",       a: "hold",           c: "That gap used to be a note somebody had to read." },
 
-    { kind: "result",      a: "file:counts",   c: "The measuring tool had its own fault." },
-    { kind: "means",       a: "spot:#code",    c: "It counted three different problems as one, which would have blamed the wrong thing." },
+    { kind: "result",      a: "file:honest",    c: "One failure is worth understanding." },
+    { kind: "means",       a: "spot:#code",     c: "It quoted a price correctly, from the wrong plan." },
+    { kind: "means",       a: "hold",           c: "Nothing invented. That is the hard case." },
 
-    { kind: "result",      a: "file:reclaim",  c: "Separately: a job whose worker dies used to wait forever." },
-    { kind: "means",       a: "spot:#code",    c: "Nothing failed, so nothing was recorded. It now goes back in the queue." },
+    { kind: "result",      a: "file:selfcheck", c: "So the set checks itself first." },
+    { kind: "means",       a: "spot:#code",     c: "Every answer must really be on its page." },
 
-    { kind: "close",       a: "hold",          c: "Four faults, all found by running it rather than reading it." }
+    { kind: "result",      a: "file:union",     c: "One tidy idea was measured and dropped." },
+    { kind: "means",       a: "spot:#code",     c: "Forbidding the bad answer made the good one rarer." },
+
+    { kind: "close",       a: "hold",           c: "The next faulty model is caught by a test." }
   ];
 
-  // Timings computed from the same rules as the product films: base 3.2s, payoff 4.8s,
-  // reading room of characters over fourteen plus 0.8, and 1.6s to settle after a move.
+  // Timings use the same rules as the product films. `prototype/build.py` holds the
+  // authoritative constants and writes the captions actually shipped with the film; these
+  // exist only so the page previews at the right speed, and must be changed with it.
   var t = 0;
   BEATS.forEach(function (b) {
-    var d = (b.kind === "result" || b.kind === "means") ? 4.8 : 3.2;
-    if (/\d/.test(b.c)) d = Math.max(d, 4.8);
-    d = Math.max(d, b.c.length / 14 + 0.8);
-    if (b.a.indexOf("spot:") === 0 || b.a.indexOf("file:") === 0) d += 1.2;
+    var d = (b.kind === "result" || b.kind === "means") ? 3.8 : 2.6;
+    if (/\d/.test(b.c)) d = Math.max(d, 3.8);
+    d = Math.max(d, b.c.length / 14 + 0.6);
+    if (b.a.indexOf("spot:") === 0 || b.a.indexOf("file:") === 0) d += 1.3;
     b.t = Math.round(t * 10) / 10;
     b.d = Math.round(d * 10) / 10;
     t += b.d;
@@ -430,7 +534,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("garbage");
+    show("problem");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -443,15 +547,15 @@
     }, TOTAL * 1000));
   }
 
-  show("garbage");
+  show("problem");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "What measurement found",
-    blurb: "A benchmark harness, and the four faults it uncovered: a faulty model download, a missing limit that broke a third of answers, a measuring tool that blamed the wrong thing, and work that was stranded when a worker died.",
+    title: "Is the model right?",
+    blurb: "A model that passed every check we had was returning nonsense. This adds the check that catches it: ten real pages with answers written by hand, the two bugs found on the way in, and one tidy idea that measured worse and was dropped.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

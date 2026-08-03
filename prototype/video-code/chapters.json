@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "What measurement found",
-    "blurb": "A benchmark harness, and the four faults it uncovered: a faulty model download, a missing limit that broke a third of answers, a measuring tool that blamed the wrong thing, and work that was stranded when a worker died.",
-    "seconds": 105.9
+    "title": "Is the model right?",
+    "blurb": "A model that passed every check we had was returning nonsense. This adds the check that catches it: ten real pages with answers written by hand, the two bugs found on the way in, and one tidy idea that measured worse and was dropped.",
+    "seconds": 104.2
   }
 ]

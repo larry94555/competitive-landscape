@@ -11,17 +11,28 @@ import io
 import json
 import os
 import re
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import build  # noqa: E402  — for the pacing constants, so there is one copy of them
+
 PAGE = os.path.join(HERE, 'code-tour.html')
 VIDEO = os.path.join(HERE, 'video-code')
 OFFSET = 1.5  # page load and settle before the recorder starts the film
 
 
 def beats():
-    """Read the beat list straight out of the page, so it is defined in one place."""
+    """Read the beat list straight out of the page, so it is defined in one place.
+
+    Delimited by the array's own closing bracket rather than by the comment that used to
+    follow it. Rewording a comment broke this build once, which is a silly way for a film
+    to stop being buildable.
+    """
     src = io.open(PAGE, encoding='utf-8').read()
-    block = src[src.index('var BEATS = ['):src.index('// Timings computed')]
+    start = src.index('var BEATS = [')
+    end = src.index('\n  ];', start)
+    block = src[start:end]
     out = []
     for m in re.finditer(r'\{\s*kind:\s*"([a-z]+)",\s*a:\s*"([^"]+)",\s*c:\s*"([^"]*)"\s*\}', block):
         out.append({'kind': m.group(1), 'a': m.group(2), 'c': m.group(3)})
@@ -31,15 +42,20 @@ def beats():
 
 
 def lay_out(bs):
-    """Same pacing rules as docs/Demo_Walkthrough.md §3, applied here too."""
+    """Same pacing rules as docs/Demo_Walkthrough.md §3, applied here too.
+
+    The constants are imported rather than repeated. They were repeated once, and a
+    change to one film's pacing silently left the other at the old timing — the same
+    two-copies-of-a-constant problem that has cost this project a day more than once.
+    """
     t = 0.0
     for b in bs:
-        d = 4.8 if b['kind'] in ('result', 'means') else 3.2
+        d = build.PAYOFF if b['kind'] in ('result', 'means') else build.BASE
         if re.search(r'\d', b['c']):
-            d = max(d, 4.8)
-        d = max(d, len(b['c']) / 14.0 + 0.8)
+            d = max(d, build.NUMBER)
+        d = max(d, len(b['c']) / build.CPS + build.PAD)
         if b['a'].startswith(('spot:', 'file:')):
-            d += 1.2
+            d += build.SETTLE
         b['t'] = round(t, 1)
         b['d'] = round(d, 1)
         t += b['d']
