@@ -262,8 +262,13 @@ holding it.
 - Bake-off across **Qwen3-1.7B / 4B / 8B / 14B**, plus **Gemma 3 4B/12B** and
   **Llama 3.2 3B** as alternates, at **Q4_K_M *and* Q4_0** (ARM repacking may make the
   lower-quality format the faster one — measure, don't assume), with a Q8_0 reference.
-  **License review precedes benchmarking** — a model we cannot use commercially is not a
-  candidate.
+  ~~**License review precedes benchmarking**~~ — **done**,
+  [ADR 0007](decisions/0007-model-licences.md). All three families are usable; **Qwen3 is
+  Apache-2.0 with no conditions**, while Gemma 3 requires passing Google's use restrictions
+  into our own ToS and reserves Google the right to **restrict our usage remotely** — which
+  reintroduces the third-party dependency the local-model decision was taken to avoid. The
+  bake-off is therefore not "measure and pick the fastest".
+  **The commands to run it are written**: [A1_BAKEOFF.md](A1_BAKEOFF.md).
 - **Prefill is the thing to measure most carefully.** On 4 ARM cores it dominates, and the
   span-pre-selection design (§5.4) lives or dies on these numbers.
 - Validate `q8_0` KV cache quantization against the golden set — three resident models share
