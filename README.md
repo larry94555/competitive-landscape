@@ -223,6 +223,8 @@ crates/
   landscape-core/   domain types and the report schema. No I/O — pure, fully unit-tested
   landscape-db/     the Store trait, an in-memory implementation, and Postgres
   landscape-api/    axum routers, request validation, error mapping
+  landscape-llm/    constrained generation: a Rust type in, that type out
+  landscape-bench/  measures what a llama-server can actually do
   landscape/        the binary: dev | serve | worker | migrate
 migrations/         SQL, applied on boot
 web/                Vite + React + TypeScript (strict)

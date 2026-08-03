@@ -369,6 +369,22 @@ what has not yet been measured. It is the open question in this project.
 **No `llama-server`?** The test skips and tells you how to start one. It does not fail — that
 is why CI, which runs no model, stays green.
 
+### Measure it yourself
+
+```bash
+cargo run -p landscape-bench -- --runs 20 --label "my laptop"
+```
+
+Two prompt shapes: a single sentence, and a realistic ~400-token span window. It reports
+median and p95 latency, and — separately — how many outputs **failed the constraint**, how
+many hit a **transport error**, and how many parsed but had the **wrong contents**.
+
+**Those three are counted apart on purpose.** An earlier version lumped them together and
+reported a healthy server's timeouts as evidence that constrained decoding was broken. And
+the last one exists because a shape guarantee is not an accuracy guarantee: a defective
+quantisation of Qwen3-1.7B returned perfectly-formed JSON containing
+`"plan_name": "/:D!01:56:G>!#9*2-@1F-08@E5A0'"`. See `docs/BENCHMARKS.md`.
+
 ---
 
 ## Part 9 — What the tests prove
@@ -431,6 +447,7 @@ python prototype/build.py --preview
 | 6 — `serve` alone leaves it queued | | |
 | 7 — survives a restart with Postgres | | |
 | 8 — 100 generations, 0 parse failures | | |
+| 8 — `landscape-bench` reports three error kinds separately | | |
 | 9 — `cargo test` green with nothing running | | |
 
 **If something differs from what is written here, that is a bug.** Every command above was run

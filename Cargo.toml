@@ -5,6 +5,7 @@ members = [
     "crates/landscape-db",
     "crates/landscape-api",
     "crates/landscape-llm",
+    "crates/landscape-bench",
     "crates/landscape",
 ]
 
@@ -20,6 +21,7 @@ landscape-core = { path = "crates/landscape-core" }
 landscape-db = { path = "crates/landscape-db" }
 landscape-api = { path = "crates/landscape-api" }
 landscape-llm = { path = "crates/landscape-llm" }
+landscape-bench = { path = "crates/landscape-bench" }
 
 anyhow = "1"
 async-trait = "0.1"

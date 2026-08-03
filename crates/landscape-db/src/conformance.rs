@@ -136,4 +136,62 @@ pub async fn run(store: &impl Store) {
         store.claim_next().await.expect("claim").is_none(),
         "terminal analyses must never be claimed again"
     );
+
+    // --- a job whose worker died comes back ------------------------------------
+    // A worker killed mid-analysis leaves its row `running` with nothing to finish it.
+    // Nothing failed, so no error is recorded; the row is simply stranded and the reader
+    // watches a spinner that never resolves.
+    let stranded = store
+        .enqueue(&prompt("a service for booking guitar lessons online"))
+        .await
+        .expect("enqueue");
+    let claimed = store
+        .claim_next()
+        .await
+        .expect("claim")
+        .expect("one queued");
+    assert_eq!(claimed.status, AnalysisStatus::Running);
+
+    // Nothing is old enough yet, so nothing moves. A reclaimer that fires early would
+    // hand a second worker a job the first is still working on.
+    let none_yet = store
+        .reclaim_stale(chrono::Duration::hours(1))
+        .await
+        .expect("reclaim");
+    assert_eq!(none_yet, 0, "a job that just started must not be reclaimed");
+    assert_eq!(
+        store.get(stranded.id).await.expect("get").status,
+        AnalysisStatus::Running
+    );
+
+    // With a zero threshold everything running is overdue.
+    let reclaimed = store
+        .reclaim_stale(chrono::Duration::zero())
+        .await
+        .expect("reclaim");
+    assert_eq!(reclaimed, 1, "the stranded analysis should come back");
+    assert_eq!(
+        store.get(stranded.id).await.expect("get").status,
+        AnalysisStatus::Queued,
+        "a reclaimed analysis is queued again, not failed - nothing has gone wrong with it"
+    );
+
+    // And it is claimable again, which is the whole point.
+    let again = store.claim_next().await.expect("claim").expect("requeued");
+    assert_eq!(again.id, stranded.id);
+
+    // Terminal analyses are never touched, however old.
+    let terminal_untouched = store
+        .reclaim_stale(chrono::Duration::zero())
+        .await
+        .expect("reclaim");
+    assert_eq!(
+        terminal_untouched, 1,
+        "only the running one; complete and failed stay put"
+    );
+    assert_eq!(
+        store.get(a.id).await.expect("get").status,
+        AnalysisStatus::Complete,
+        "a completed analysis must never be reclaimed"
+    );
 }

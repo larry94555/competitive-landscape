@@ -166,6 +166,26 @@ impl Store for PgStore {
         Ok(())
     }
 
+    async fn reclaim_stale(&self, max_age: chrono::Duration) -> Result<u64> {
+        // `started_at` rather than `created_at`: a job that waited an hour in the queue
+        // before a worker picked it up has not been running for an hour.
+        let done = sqlx::query(
+            "UPDATE analyses SET status = $1, started_at = NULL
+             WHERE status = $2 AND started_at < now() - $3::interval",
+        )
+        .bind(AnalysisStatus::Queued.as_db_str())
+        .bind(AnalysisStatus::Running.as_db_str())
+        .bind(format!("{} seconds", max_age.num_seconds()))
+        .execute(&self.pool)
+        .await?;
+
+        let n = done.rows_affected();
+        if n > 0 {
+            tracing::warn!(count = n, "returned stale running analyses to the queue");
+        }
+        Ok(n)
+    }
+
     async fn count_with_status(&self, status: AnalysisStatus) -> Result<i64> {
         let row = sqlx::query("SELECT count(*) AS n FROM analyses WHERE status = $1")
             .bind(status.as_db_str())
