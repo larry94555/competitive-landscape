@@ -17,6 +17,7 @@ path = "src/main.rs"
 landscape-api.workspace = true
 landscape-core.workspace = true
 landscape-db.workspace = true
+landscape-fetch.workspace = true
 
 anyhow.workspace = true
 axum.workspace = true
