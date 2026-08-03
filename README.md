@@ -22,11 +22,14 @@ which is the same treatment a real run gives a real gap.
 ### The short way — no database
 
 ```bash
-cargo run -- dev --store memory
+cargo run -p landscape -- dev --store memory
 ```
 
 That is the entire setup. It starts the API and a worker in one process sharing an
 in-memory store, on <http://127.0.0.1:8787>.
+
+`-p landscape` is needed because the workspace builds two binaries — the application and
+`landscape-bench`. Without it cargo cannot tell which one you meant.
 
 Then, in a second terminal:
 
@@ -47,20 +50,20 @@ Nothing is saved when you stop it. That is the trade for needing no database.
 ```bash
 docker compose up -d db
 cp .env.example .env
-cargo run -- dev
+cargo run -p landscape -- dev
 ```
 
 Migrations run automatically on boot. To apply them without starting anything:
 
 ```bash
-cargo run -- migrate
+cargo run -p landscape -- migrate
 ```
 
 To run the pieces separately, as production does:
 
 ```bash
-cargo run -- serve      # terminal 1
-cargo run -- worker     # terminal 2
+cargo run -p landscape -- serve      # terminal 1
+cargo run -p landscape -- worker     # terminal 2
 ```
 
 ### Postgres without Docker
@@ -86,10 +89,10 @@ applies with the system package manager, or Postgres.app.
 
 | Command | What it does |
 |---|---|
-| `cargo run -- dev` | API and worker in one process. **Use this locally.** |
-| `cargo run -- serve` | The HTTP API alone |
-| `cargo run -- worker` | Claims queued analyses and runs them |
-| `cargo run -- migrate` | Applies migrations and exits |
+| `cargo run -p landscape -- dev` | API and worker in one process. **Use this locally.** |
+| `cargo run -p landscape -- serve` | The HTTP API alone |
+| `cargo run -p landscape -- worker` | Claims queued analyses and runs them |
+| `cargo run -p landscape -- migrate` | Applies migrations and exits |
 
 Add `--store memory` to any of them to skip Postgres entirely.
 

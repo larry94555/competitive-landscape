@@ -58,7 +58,7 @@ If a step goes wrong, `docs/RUNBOOK.md` §5 lists the common local problems.
 **Do this.** One terminal, and no database:
 
 ```bash
-cargo run -- dev --store memory
+cargo run -p landscape -- dev --store memory
 ```
 
 **You should see:**
@@ -276,7 +276,7 @@ the same situation, and distinguishing them only tells a prober what our ids loo
 **Do this.** Stop the `dev` process. Start only the API:
 
 ```bash
-cargo run -- serve --store memory
+cargo run -p landscape -- serve --store memory
 ```
 
 Submit an analysis, then read it back after a few seconds.
@@ -294,7 +294,7 @@ why `dev` exists: it runs both halves in one process sharing one store.
 `queued: 1` in the health response is how you tell "nothing is running" from "everything is
 broken" without reading a log.
 
-Now stop it and go back to `cargo run -- dev --store memory`. Same submission, completes.
+Now stop it and go back to `cargo run -p landscape -- dev --store memory`. Same submission, completes.
 
 ---
 
@@ -316,7 +316,7 @@ failure that presents as a hang rather than an error.
 
 ```bash
 cp .env.example .env
-cargo run -- dev
+cargo run -p landscape -- dev
 ```
 
 Migrations apply on boot.

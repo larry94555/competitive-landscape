@@ -84,18 +84,71 @@ fn the_readme_port_matches_the_binary_default() {
     );
 }
 
+/// The subcommand from a documented `cargo run`, however the package is selected.
+fn documented_role(command: &str) -> Option<&str> {
+    let rest = command.strip_prefix("cargo run ")?;
+    let after = rest.split(" -- ").nth(1)?;
+    after.split_whitespace().next()
+}
+
 #[test]
 fn every_documented_cargo_command_is_a_real_role() {
     // Catches a README that still tells you to run a subcommand that was renamed.
     let main_rs = include_str!("../src/main.rs");
     for command in documented_commands() {
-        let Some(rest) = command.strip_prefix("cargo run -- ") else {
+        let Some(role) = documented_role(&command) else {
             continue;
         };
-        let role = rest.split_whitespace().next().unwrap_or_default();
         assert!(
             main_rs.contains(&format!("Some(\"{role}\")")),
-            "README documents `cargo run -- {role}`, which the binary does not accept"
+            "README documents `cargo run … -- {role}`, which the binary does not accept"
+        );
+    }
+}
+
+/// Count the binaries `cargo run` could choose between at the workspace root.
+fn workspace_binary_count() -> usize {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(std::path::Path::parent)
+        .map(std::path::Path::to_path_buf)
+        .expect("the crate lives two levels below the workspace root");
+
+    let crates = root.join("crates");
+    let Ok(entries) = std::fs::read_dir(&crates) else {
+        return 0;
+    };
+
+    entries
+        .filter_map(std::result::Result::ok)
+        .filter(|e| {
+            // A crate produces a binary if it declares one or has src/main.rs.
+            let dir = e.path();
+            let manifest = std::fs::read_to_string(dir.join("Cargo.toml")).unwrap_or_default();
+            manifest.contains("[[bin]]") || dir.join("src/main.rs").exists()
+        })
+        .count()
+}
+
+#[test]
+fn a_documented_cargo_run_is_not_ambiguous() {
+    // The bug this exists for: adding a second binary to the workspace made a bare
+    // `cargo run` fail with "could not determine which binary to run", and every
+    // documented command still said `cargo run --`. Nothing caught it, because the other
+    // docs tests launch the binary by path and never go through cargo at all.
+    let binaries = workspace_binary_count();
+    if binaries <= 1 {
+        return; // A bare `cargo run` is unambiguous, so there is nothing to enforce.
+    }
+
+    for command in documented_commands() {
+        if !command.starts_with("cargo run") {
+            continue;
+        }
+        assert!(
+            command.contains(" -p ") || command.contains(" --bin "),
+            "this workspace builds {binaries} binaries, so `cargo run` cannot pick one. \
+             Documented command needs `-p landscape`:\n    {command}"
         );
     }
 }
