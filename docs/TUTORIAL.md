@@ -36,7 +36,8 @@ INFO landscape: listening on http://127.0.0.1:8787
 matters: with `--store memory` each process gets its own map, so running `serve` and `worker`
 separately would give you an analysis that stays `queued` for ever. One process, one store.
 
-`-p landscape` is needed because the workspace builds three binaries.
+`-p landscape` is needed because the workspace builds two binaries — the application and
+`landscape-bench` — and a bare `cargo run` cannot choose between them.
 
 In a second terminal:
 
@@ -178,7 +179,8 @@ browser as a connection string is a security problem, not just an untidy message
 
 ## 5. The two harnesses
 
-Both need a `llama-server`; both skip cleanly without one.
+Both need a `llama-server`, and they behave differently without one — which is correct,
+and worth knowing before you run them:
 
 ```bash
 cargo run -p landscape-bench -- --runs 20 --label "my laptop"
@@ -187,12 +189,19 @@ cargo run -p landscape-bench -- --runs 20 --label "my laptop"
 Measures **how fast**. Prefill dominates on the target hardware, so it reports the realistic
 ~400-token span shape separately from a one-sentence prompt.
 
+**Without a model this exits 1 with a message telling you how to start one.** It is a command
+you ran on purpose; silently doing nothing would be the unhelpful answer.
+
 ```bash
 cargo test -p landscape-golden --test against_a_model -- --ignored --nocapture
 ```
 
 Measures **whether it is right** — ten frozen pricing pages with answers written by hand.
 Three of the ten publish no price at all.
+
+**Without a model this passes, printing `SKIPPED` and how to start one.** The opposite choice
+from the benchmark, for the opposite reason: this runs under `cargo test`, and a test suite
+that fails on a laptop with no model is a test suite people stop running.
 
 **You need both, and the second is the one that is usually missing.** A defective
 quantisation of Qwen3-1.7B once passed every check we had: fastest in the table, never failed
