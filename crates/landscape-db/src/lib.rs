@@ -16,7 +16,7 @@ pub use memory::MemoryStore;
 pub use pg::PgStore;
 
 use async_trait::async_trait;
-use landscape_core::{Analysis, AnalysisId, AnalysisStatus, NewAnalysis, Report};
+use landscape_core::{Analysis, AnalysisId, AnalysisStatus, Failure, NewAnalysis, Report};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -68,8 +68,13 @@ pub trait Store: Send + Sync + std::fmt::Debug {
     /// Attach a finished report and mark the analysis complete.
     async fn complete(&self, id: AnalysisId, report: &Report) -> Result<()>;
 
-    /// Mark an analysis failed. The reason is recorded for operators, not for readers.
-    async fn fail(&self, id: AnalysisId, reason: &str) -> Result<()>;
+    /// Mark an analysis failed.
+    ///
+    /// Two arguments because they have two audiences. `reason` is for operators and is never
+    /// shown verbatim — `migrations/0001_init.sql` says so. `kind` is the *situation*, from a
+    /// closed set, so the interface can write a sentence a reader can act on without
+    /// anything internal leaking into it.
+    async fn fail(&self, id: AnalysisId, kind: Failure, reason: &str) -> Result<()>;
 
     /// Return analyses that have been `running` longer than `max_age` to the queue.
     ///

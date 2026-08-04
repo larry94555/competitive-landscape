@@ -11,7 +11,7 @@
 //! schema settles; until then a build that always works is worth more.
 
 use async_trait::async_trait;
-use landscape_core::{Analysis, AnalysisId, AnalysisStatus, NewAnalysis, Report};
+use landscape_core::{Analysis, AnalysisId, AnalysisStatus, Failure, NewAnalysis, Report};
 use sqlx::{postgres::PgPoolOptions, PgPool, Row};
 
 use crate::{Result, Store, StoreError};
@@ -74,16 +74,22 @@ fn analysis_from_row(row: &sqlx::postgres::PgRow) -> Result<Analysis> {
         ),
     };
 
+    let failure: Option<String> = row.try_get("failure_kind")?;
     Ok(Analysis {
         id: AnalysisId(row.try_get("id")?),
         prompt: row.try_get("prompt")?,
         status,
         created_at: row.try_get("created_at")?,
         report,
+        // Only meaningful on a failed row. A kind left behind by a retry that later
+        // succeeded would tell a reader an analysis they can see failed.
+        failure: (status == AnalysisStatus::Failed)
+            .then(|| failure.as_deref().map(Failure::from_db_str))
+            .flatten(),
     })
 }
 
-const COLUMNS: &str = "id, prompt, status, created_at, report";
+const COLUMNS: &str = "id, prompt, status, created_at, report, failure_kind";
 
 #[async_trait]
 impl Store for PgStore {
@@ -164,13 +170,15 @@ impl Store for PgStore {
         Ok(())
     }
 
-    async fn fail(&self, id: AnalysisId, reason: &str) -> Result<()> {
+    async fn fail(&self, id: AnalysisId, kind: Failure, reason: &str) -> Result<()> {
         let done = sqlx::query(
-            "UPDATE analyses SET status = $1, failure_reason = $2, finished_at = now()
-             WHERE id = $3",
+            "UPDATE analyses SET status = $1, failure_reason = $2, failure_kind = $3,
+                    finished_at = now()
+             WHERE id = $4",
         )
         .bind(AnalysisStatus::Failed.as_db_str())
         .bind(reason)
+        .bind(kind.as_db_str())
         .bind(id.0)
         .execute(&self.pool)
         .await?;

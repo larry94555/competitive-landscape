@@ -3,8 +3,10 @@ import {
   ApiError,
   createAnalysis,
   getAnalysis,
-  isTerminal,
+  watchAnalysis,
   type Analysis,
+  type AnalysisStatus,
+  type Section,
 } from "./api";
 
 /**
@@ -42,10 +44,7 @@ export default function App(): React.JSX.Element {
     }
   }, [prompt]);
 
-  const id = analysis?.id ?? null;
-  const status = analysis?.status ?? null;
-  const settled = status !== null && isTerminal(status);
-  usePoll(id, settled, setAnalysis);
+  const { status, sections } = useReport(analysis, setAnalysis);
 
   return (
     <main>
@@ -86,51 +85,97 @@ export default function App(): React.JSX.Element {
         </p>
       )}
 
-      {analysis && <AnalysisView analysis={analysis} />}
+      {analysis && (
+        <AnalysisView analysis={analysis} status={status} sections={sections} />
+      )}
     </main>
   );
 }
 
 /**
- * Poll until the analysis reaches an end state.
+ * Watch a report being written, and fetch it once it is.
  *
- * Polling rather than SSE while the run takes seconds. It becomes a stream when runs take
- * minutes and a reader is watching sources arrive — that is a Phase 1 change, and the
- * shape of this hook does not need to change for it.
+ * **The stream carries sections; the fetch carries the truth.** A section arrives as soon as
+ * it has claims, which is what a reader is waiting for. What the stream deliberately does not
+ * send is the sections that found nothing — those carry a "we checked and there was nothing"
+ * note that is only true once the run is over, and showing it early would tell somebody we
+ * had finished looking when we had not.
+ *
+ * So the final `getAnalysis` is not a fallback. It is the step that turns what a reader has
+ * been watching into the report, coverage notes and all.
  */
-function usePoll(
-  id: string | null,
-  settled: boolean,
-  onUpdate: (a: Analysis) => void,
-): void {
-  const onUpdateRef = useRef(onUpdate);
-  onUpdateRef.current = onUpdate;
+function useReport(
+  analysis: Analysis | null,
+  onFinished: (a: Analysis) => void,
+): { status: AnalysisStatus | null; sections: readonly Section[] } {
+  const [status, setStatus] = useState<AnalysisStatus | null>(null);
+  const [sections, setSections] = useState<readonly Section[]>([]);
+  const onFinishedRef = useRef(onFinished);
+  onFinishedRef.current = onFinished;
+
+  const id = analysis?.id ?? null;
+  const settled = analysis?.report != null || analysis?.failure != null;
 
   useEffect(() => {
     if (id === null || settled) return;
 
+    setStatus(null);
+    setSections([]);
     let cancelled = false;
-    const timer = setInterval(() => {
-      void getAnalysis(id)
-        .then((next) => {
-          // A response that arrives after unmount must not set state.
-          if (!cancelled) onUpdateRef.current(next);
-        })
-        .catch(() => {
-          // A single failed poll is not worth showing: the next one usually succeeds,
-          // and a flickering error is worse than a slightly stale view.
+
+    const close = watchAnalysis(id, {
+      onStatus: (next) => {
+        if (!cancelled) setStatus(next);
+      },
+      onSection: (section) => {
+        if (cancelled) return;
+        // Arrival order, and the newest version of each. A section is sent again as it
+        // grows: pinning the first copy left "What it does: 1 item" on screen for two
+        // minutes while eight more were read, which reads as a section that is finished.
+        setSections((current) => {
+          const at = current.findIndex((s) => s.key === section.key);
+          if (at === -1) return [...current, section];
+          const next = [...current];
+          next[at] = section;
+          return next;
         });
-    }, 1000);
+      },
+      onDone: () => {
+        if (cancelled) return;
+        void getAnalysis(id)
+          .then((finished) => {
+            if (!cancelled) onFinishedRef.current(finished);
+          })
+          .catch(() => {
+            // The reader keeps what the stream already gave them. A red banner over a
+            // report they can see would be worse than a report that stops updating.
+          });
+      },
+    });
 
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      close();
     };
   }, [id, settled]);
+
+  return { status, sections };
 }
 
-function AnalysisView({ analysis }: { analysis: Analysis }): React.JSX.Element {
+function AnalysisView({
+  analysis,
+  status,
+  sections,
+}: {
+  analysis: Analysis;
+  status: AnalysisStatus | null;
+  sections: readonly Section[];
+}): React.JSX.Element {
   const { report } = analysis;
+  // The finished report once it exists, and what the stream has delivered until then. Both
+  // are the same shape, which is why the rendering below does not know which it has.
+  const showing = report?.sections ?? sections;
+  const live = report == null && analysis.failure == null;
 
   return (
     <section aria-live="polite">
@@ -142,12 +187,12 @@ function AnalysisView({ analysis }: { analysis: Analysis }): React.JSX.Element {
         </p>
       )}
 
-      <p className="status">{describe(analysis.status)}</p>
+      <p className="status">{describe(status ?? analysis.status, analysis.failure)}</p>
 
-      {report?.sections.map((section) => (
+      {showing.map((section) => (
         <article key={section.key}>
           <h3>{section.title}</h3>
-          {section.status === "not_found_in_public_sources" ? (
+          {section.claims.length === 0 ? (
             <div className="gap">
               <strong>Nothing found in public sources.</strong>
               {section.checked.length > 0 && (
@@ -163,17 +208,35 @@ function AnalysisView({ analysis }: { analysis: Analysis }): React.JSX.Element {
               {section.claims.map((claim) => (
                 <li key={`${claim.source_label}-${claim.text}`}>
                   {claim.text} <cite>[{claim.source_label}]</cite>
+                  {claim.evidence_quote !== "" && (
+                    <blockquote>{claim.evidence_quote}</blockquote>
+                  )}
                 </li>
               ))}
             </ul>
           )}
         </article>
       ))}
+
+      {/*
+        While it runs, say what is still coming. An empty space below three sections reads
+        as "that is all there is", and the reader closes the tab before the fourth arrives.
+      */}
+      {live && (
+        <p className="pending">
+          {showing.length === 0
+            ? "Reading the first pages…"
+            : "Still reading. More sections will appear here."}
+        </p>
+      )}
     </section>
   );
 }
 
-function describe(status: Analysis["status"]): string {
+function describe(
+  status: AnalysisStatus,
+  failure: Analysis["failure"],
+): string {
   switch (status) {
     case "queued":
       return "Queued.";
@@ -182,6 +245,10 @@ function describe(status: Analysis["status"]): string {
     case "complete":
       return "Done.";
     case "failed":
-      return "This one did not finish. Nothing you did caused it.";
+      // Two different failures, and telling somebody "nothing you did caused it" when they
+      // typed a description we could not resolve sends them away with no way forward.
+      return failure === "no_subject"
+        ? "We could not work out which company you meant. Try naming its website — for example, basecamp.com."
+        : "This one did not finish. Nothing you did caused it.";
   }
 }

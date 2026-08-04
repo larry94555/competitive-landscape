@@ -80,6 +80,49 @@ impl AnalysisStatus {
     }
 }
 
+/// Why an analysis failed, in the only terms a reader can act on.
+///
+/// **Not the operator's reason.** `migrations/0001_init.sql` is explicit that
+/// `failure_reason` is recorded for operators and never shown verbatim, because what somebody
+/// is told about a failure is a presentation decision rather than a database field. This is
+/// the other half of that rule: a small, closed set of *situations*, so the interface can
+/// write a sentence for each and nothing internal leaks into it.
+///
+/// The distinction it exists for: one of these is our fault and one is the reader's to fix,
+/// and telling somebody *"nothing you did caused it"* when they typed a description we cannot
+/// resolve sends them away with no way forward.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Failure {
+    /// The prompt named no company we could identify. **The reader can fix this.**
+    NoSubject,
+    /// Anything else. The reader can only try again.
+    Internal,
+}
+
+impl Failure {
+    /// The string stored in Postgres, explicit for the same reason [`AnalysisStatus`]'s is.
+    #[must_use]
+    pub const fn as_db_str(self) -> &'static str {
+        match self {
+            Self::NoSubject => "no_subject",
+            Self::Internal => "internal",
+        }
+    }
+
+    /// Parse a value read back from Postgres.
+    ///
+    /// An unrecognised kind reads as [`Failure::Internal`] rather than nothing: a row written
+    /// by a newer version must not make an older one claim the analysis succeeded.
+    #[must_use]
+    pub fn from_db_str(s: &str) -> Self {
+        match s {
+            "no_subject" => Self::NoSubject,
+            _ => Self::Internal,
+        }
+    }
+}
+
 /// A validated request to analyse something.
 ///
 /// The only way to build one is [`NewAnalysis::parse`], so an unvalidated prompt cannot
@@ -129,6 +172,9 @@ pub struct Analysis {
     pub created_at: chrono::DateTime<chrono::Utc>,
     /// Present once the run finishes. Absent while queued or running, and on failure.
     pub report: Option<crate::report::Report>,
+    /// Which *situation* a failed analysis is in, so the interface can say something useful.
+    /// `None` unless the status is `Failed`.
+    pub failure: Option<Failure>,
 }
 
 #[cfg(test)]
@@ -136,6 +182,19 @@ pub struct Analysis {
 // Panicking IS how a test reports failure. The lints stay denied everywhere else.
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_failure_kind_survives_a_round_trip_through_the_database() {
+        for f in [Failure::NoSubject, Failure::Internal] {
+            assert_eq!(Failure::from_db_str(f.as_db_str()), f);
+        }
+    }
+
+    #[test]
+    fn an_unknown_failure_kind_reads_as_internal() {
+        // A row written by a newer version must not make an older one claim success.
+        assert_eq!(Failure::from_db_str("something_new"), Failure::Internal);
+    }
 
     #[test]
     fn a_reasonable_prompt_is_accepted() {

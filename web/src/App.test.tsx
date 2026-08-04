@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -14,11 +14,69 @@ function queued(): Analysis {
     status: "queued",
     created_at: "2026-08-03T00:00:00Z",
     report: null,
+    failure: null,
+  };
+}
+
+/**
+ * A stand-in for the browser's `EventSource`.
+ *
+ * jsdom has none, so without this every test would take the "no EventSource" branch and the
+ * streaming path — the thing a reader actually watches — would never be exercised.
+ */
+class FakeEventSource {
+  static last: FakeEventSource | null = null;
+  readonly url: string;
+  closed = false;
+  onerror: (() => void) | null = null;
+  private readonly listeners = new Map<string, (e: MessageEvent<string>) => void>();
+
+  constructor(url: string) {
+    this.url = url;
+    FakeEventSource.last = this;
+  }
+
+  addEventListener(type: string, fn: (e: MessageEvent<string>) => void): void {
+    this.listeners.set(type, fn);
+  }
+
+  close(): void {
+    this.closed = true;
+  }
+
+  /** Push one event, the way the server would. */
+  send(type: string, data: string): void {
+    this.listeners.get(type)?.({ data } as MessageEvent<string>);
+  }
+}
+
+function stubEventSource(): void {
+  FakeEventSource.last = null;
+  vi.stubGlobal("EventSource", FakeEventSource);
+}
+
+function section(key: string, title: string, claim: string) {
+  return {
+    key,
+    title,
+    status: "populated" as const,
+    claims: [
+      {
+        text: claim,
+        source_label: "S1",
+        evidence_quote: "",
+        confidence: "high" as const,
+        as_of: "2026-08-04T00:00:00Z",
+      },
+    ],
+    checked: [],
+    notes: [],
   };
 }
 
 /** A `fetch` that accepts the POST and reports the analysis complete thereafter. */
 function stubAccepting(): void {
+  stubEventSource();
   vi.stubGlobal(
     "fetch",
     vi.fn((_url: string, init?: RequestInit) =>
@@ -38,6 +96,7 @@ function stubAccepting(): void {
 
 /** A `fetch` that fails the way the API fails when something breaks at our end. */
 function stubBreaking(): void {
+  stubEventSource();
   vi.stubGlobal(
     "fetch",
     vi.fn(() =>
@@ -58,6 +117,7 @@ function stubBreaking(): void {
 
 /** A `fetch` that rejects the POST the way the API rejects a short prompt. */
 function stubRejecting(): void {
+  stubEventSource();
   vi.stubGlobal(
     "fetch",
     vi.fn(() =>
@@ -160,5 +220,169 @@ describe("submitting an idea", () => {
     // The submitted idea is still visible even though the box is empty — clearing the
     // input must not mean losing sight of what was asked.
     expect(await screen.findByText(IDEA)).toBeInTheDocument();
+  });
+});
+
+describe("watching a report being written", () => {
+  it("shows a section as soon as it arrives, before the run is over", async () => {
+    // The whole point of the stream. PRODUCT_SPEC §2.1A: first content in twenty to forty
+    // seconds, not everything at ninety.
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    const stream = FakeEventSource.last!;
+    act(() => stream.send("status", "running"));
+    act(() => stream.send(
+      "section",
+      JSON.stringify(section("pricing", "Pricing & packaging", "Pro costs $15")),
+    ));
+
+    expect(await screen.findByText("Pricing & packaging")).toBeInTheDocument();
+    expect(screen.getByText(/Pro costs \$15/)).toBeInTheDocument();
+    // And it says more is coming, so three sections do not read as the whole report.
+    expect(screen.getByText(/Still reading/)).toBeInTheDocument();
+  });
+
+  it("says what it is doing before anything has arrived", async () => {
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+
+    expect(await screen.findByText(/Reading the first pages/)).toBeInTheDocument();
+  });
+
+  it("replaces a section as it grows rather than repeating it", async () => {
+    // Watching a real run showed why this matters: a section sent once said "1 item" and
+    // sat there for two minutes while eight more were read, which reads as finished.
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    const first = section("pricing", "Pricing & packaging", "Pro costs $15");
+    act(() => FakeEventSource.last!.send("section", JSON.stringify(first)));
+    await screen.findByText(/Pro costs \$15/);
+
+    const grown = {
+      ...first,
+      claims: [
+        ...first.claims,
+        { ...first.claims[0], text: "Business costs $19" },
+      ],
+    };
+    act(() => FakeEventSource.last!.send("section", JSON.stringify(grown)));
+
+    expect(await screen.findByText(/Business costs \$19/)).toBeInTheDocument();
+    expect(screen.getAllByText("Pricing & packaging")).toHaveLength(1);
+    expect(screen.getByText(/Pro costs \$15/)).toBeInTheDocument();
+  });
+
+  it("closes the stream when the run is done", async () => {
+    // A stream left open against a finished analysis is a connection nobody is reading.
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    act(() => FakeEventSource.last!.send("done", ""));
+    expect(FakeEventSource.last!.closed).toBe(true);
+    // And the finished report is fetched, which is where the coverage notes live.
+    await waitFor(() => expect(screen.getByText("Done.")).toBeInTheDocument());
+  });
+
+  it("keeps what arrived when the stream drops", async () => {
+    // A proxy that buffers, a laptop that slept. The reader keeps their sections and the
+    // fetch puts the rest right — a red banner over a readable report would be worse.
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    act(() => FakeEventSource.last!.send(
+      "section",
+      JSON.stringify(section("changes", "Recent public changes", "Shipped annotations")),
+    ));
+    await screen.findByText("Recent public changes");
+
+    act(() => FakeEventSource.last!.onerror?.());
+    expect(screen.getByText("Recent public changes")).toBeInTheDocument();
+  });
+});
+
+describe("when it does not finish", () => {
+  it("tells a reader who named no company what to do instead", async () => {
+    // The failure they can fix. "Nothing you did caused it" would be both wrong and a
+    // dead end.
+    stubEventSource();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) =>
+        Promise.resolve({
+          ok: true,
+          status: init?.method === "POST" ? 201 : 200,
+          json: () =>
+            Promise.resolve(
+              init?.method === "POST"
+                ? queued()
+                : { ...queued(), status: "failed", failure: "no_subject" },
+            ),
+        } as Response),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    act(() => FakeEventSource.last!.send("done", ""));
+
+    expect(
+      await screen.findByText(/could not work out which company/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/basecamp\.com/)).toBeInTheDocument();
+  });
+
+  it("takes the blame when the failure was ours", async () => {
+    stubEventSource();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) =>
+        Promise.resolve({
+          ok: true,
+          status: init?.method === "POST" ? 201 : 200,
+          json: () =>
+            Promise.resolve(
+              init?.method === "POST"
+                ? queued()
+                : { ...queued(), status: "failed", failure: "internal" },
+            ),
+        } as Response),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    act(() => FakeEventSource.last!.send("done", ""));
+
+    expect(
+      await screen.findByText(/Nothing you did caused it/),
+    ).toBeInTheDocument();
   });
 });

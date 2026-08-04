@@ -38,6 +38,14 @@ fn decode() -> landscape_llm::Decode {
     }
 }
 
+/// Reports the facts a page has yielded so far, each time one more arrives.
+///
+/// **Per window, not per page.** Watching a real run through the browser showed why: the
+/// first page of `plausible.io` is twelve capability windows, and a reader saw nothing for
+/// four minutes while they were read one at a time. `PRODUCT_SPEC.md` §2.1A asks for content
+/// in twenty to forty seconds, and a page is far too large a unit to deliver that.
+pub(crate) type Progress<'a> = &'a mut dyn FnMut(&[crate::Finding]);
+
 /// Read one page for one question.
 pub(crate) async fn extract(
     llm: &landscape_llm::LlamaClient,
@@ -45,12 +53,13 @@ pub(crate) async fn extract(
     url: &str,
     markdown: &str,
     today: NaiveDate,
+    so_far: Progress<'_>,
 ) -> Outcome {
     match question {
-        Answers::Pricing => pricing(llm, url, markdown).await,
-        Answers::Features => features(llm, url, markdown).await,
+        Answers::Pricing => pricing(llm, url, markdown, so_far).await,
+        Answers::Features => features(llm, url, markdown, so_far).await,
         Answers::Changes => changes(markdown, today),
-        Answers::Identity => identity(llm, url, markdown).await,
+        Answers::Identity => identity(llm, url, markdown, so_far).await,
         _ => Outcome {
             claims: Vec::new(),
             summary: format!("no extractor yet for {} pages", question.name()),
@@ -61,7 +70,12 @@ pub(crate) async fn extract(
 }
 
 /// Every plan the page publishes, one window each.
-async fn pricing(llm: &landscape_llm::LlamaClient, url: &str, markdown: &str) -> Outcome {
+async fn pricing(
+    llm: &landscape_llm::LlamaClient,
+    url: &str,
+    markdown: &str,
+    so_far: Progress<'_>,
+) -> Outcome {
     let spans = landscape_extract::span::every_plan(markdown);
     if spans.is_empty() {
         return Outcome {
@@ -85,6 +99,10 @@ async fn pricing(llm: &landscape_llm::LlamaClient, url: &str, markdown: &str) ->
                     unsupported += 1;
                 }
                 extracted.push(got);
+                // One plan is enough to put the section on somebody's screen.
+                so_far(&crate::claims_from_pricing(&PagePricing::assembled(
+                    extracted.clone(),
+                )));
             }
             Err(e) => details.push(format!("model error: {e}")),
         }
@@ -114,7 +132,12 @@ async fn pricing(llm: &landscape_llm::LlamaClient, url: &str, markdown: &str) ->
 }
 
 /// Every capability the page names, one window each.
-async fn features(llm: &landscape_llm::LlamaClient, url: &str, markdown: &str) -> Outcome {
+async fn features(
+    llm: &landscape_llm::LlamaClient,
+    url: &str,
+    markdown: &str,
+    so_far: Progress<'_>,
+) -> Outcome {
     let found = landscape_extract::capability::every_capability(markdown);
     if found.windows.is_empty() {
         return Outcome {
@@ -143,6 +166,10 @@ async fn features(llm: &landscape_llm::LlamaClient, url: &str, markdown: &str) -
                     unsupported += 1;
                 }
                 extracted.push(got);
+                so_far(&crate::claims_from_features(&PageFeatures::assembled(
+                    extracted.clone(),
+                    found.considered,
+                )));
             }
             Err(e) => details.push(format!("model error: {e}")),
         }
@@ -270,7 +297,12 @@ fn changes(markdown: &str, today: NaiveDate) -> Outcome {
 }
 
 /// Who they are, where, how big — one window per fact.
-async fn identity(llm: &landscape_llm::LlamaClient, url: &str, markdown: &str) -> Outcome {
+async fn identity(
+    llm: &landscape_llm::LlamaClient,
+    url: &str,
+    markdown: &str,
+    so_far: Progress<'_>,
+) -> Outcome {
     let windows = landscape_extract::identity::every_fact(markdown);
     if windows.is_empty() {
         return Outcome {
@@ -299,6 +331,9 @@ async fn identity(llm: &landscape_llm::LlamaClient, url: &str, markdown: &str) -
                     unsupported += 1;
                 }
                 extracted.push(kept);
+                so_far(&crate::claims_from_identity(&PageIdentity::assembled(
+                    extracted.clone(),
+                )));
             }
             Err(e) => details.push(format!("model error: {e}")),
         }

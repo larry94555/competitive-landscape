@@ -24,10 +24,12 @@
 //! event: done        nothing else is coming
 //! ```
 //!
-//! **A section is sent once, when it first has something in it.** A reader watching a report
-//! fill in never sees the same heading arrive twice.
+//! **A section is sent when it first has something in it, and again whenever it grows.**
+//! Watching a real run in a browser is what settled that: sending it once put *"What it does:
+//! 1 item"* on screen and left it there for two minutes while eight more capabilities were
+//! read. A section that arrives and then freezes reads as a section that is finished.
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
@@ -72,7 +74,9 @@ pub(crate) async fn stream(
     let store = Arc::clone(&state.store);
     let stream = async_stream::stream! {
         let started = std::time::Instant::now();
-        let mut sent_sections: HashSet<String> = HashSet::new();
+        // key -> how many claims the reader has been sent, so a growing section is resent
+        // and a static one is not.
+        let mut sent_sections: HashMap<String, usize> = HashMap::new();
         let mut sent_status: Option<AnalysisStatus> = None;
 
         loop {
@@ -98,7 +102,9 @@ pub(crate) async fn stream(
                         // for a question still being read.
                         continue;
                     }
-                    if sent_sections.insert(section.key.clone()) {
+                    let sent = sent_sections.get(&section.key).copied();
+                    if sent != Some(section.claims.len()) {
+                        sent_sections.insert(section.key.clone(), section.claims.len());
                         yield Ok(section_event(section));
                     }
                 }

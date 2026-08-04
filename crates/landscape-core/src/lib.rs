@@ -17,7 +17,7 @@ pub mod report;
 pub mod source;
 pub mod subject;
 
-pub use analysis::{Analysis, AnalysisId, AnalysisStatus, NewAnalysis};
+pub use analysis::{Analysis, AnalysisId, AnalysisStatus, Failure, NewAnalysis};
 pub use coverage::{Attempt, Coverage};
 pub use extract::{
     BillingPeriod, Change, FeatureExtraction, IdentityExtraction, PageChanges, PageFeatures,
