@@ -277,6 +277,9 @@ holding it.
   **The commands to run it are written**: [A1_BAKEOFF.md](A1_BAKEOFF.md).
 - **Prefill is the thing to measure most carefully.** On 4 ARM cores it dominates, and the
   span-pre-selection design (§5.4) lives or dies on these numbers.
+  **Span pre-selection now exists** and cuts a 1729-word page to a ~260-word window, so the
+  prefill the A1 has to do per source is roughly a seventh of what Run 2 measured. The
+  bake-off numbers should be read against the window, not the page.
 - Validate `q8_0` KV cache quantization against the golden set — three resident models share
   a tight KV budget, so this decision cannot be deferred as it could on a 64 GB box.
 - Prove GBNF constrained decoding end-to-end: Rust struct → `schemars` JSON Schema →
@@ -409,11 +412,16 @@ the single most important phase; everything after it is commerce and polish.
   thin report is shipped marked rather than silently guessed.
 - Polite fetch + extraction pipeline.
 - Map-reduce analysis: per-source structured extraction → section synthesis.
-  **Blocked on span pre-selection, and that is a new finding.** Run 5: the 4B model that
-  scores 90% on the golden set returned *"no price published"* for a page showing `$299/month`
-  — and returned it correctly when given the 39-word span instead of the 1729-word page.
-  Extraction on real pages does not currently work without §5.4's span window, which moves it
-  from an optimisation to a prerequisite.
+  **Span pre-selection is built** — `landscape-extract::span`, [BENCHMARKS.md](BENCHMARKS.md)
+  Run 6. `basecamp.com/pricing` went from *"no price published"* to **"Pro at $15"**, which is
+  correct.
+  **What remains is the shape of the type, not the window.** That page publishes two plans —
+  `$15/user` Pro and `$299/month` Pro Unlimited — and `PricingExtraction` models one, so the
+  window picks a plan and the other is invisible. **Extracting all the plans on a page needs a
+  different type**, and that is the next piece of work.
+  Also still to come: per-source extraction for the other five question kinds. `read`
+  currently says *"not a pricing page — no extractor yet"* rather than running a pricing
+  extractor over a docs page, which produced a plan that does not exist.
 - All seven report sections, streamed over SSE.
 - Anonymous rate limit (2/day), share URL.
 
