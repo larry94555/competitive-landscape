@@ -42,7 +42,7 @@
   .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
 </style>
 
-<div class="banner" id="banner">CODE TOUR — the right page</div>
+<div class="banner" id="banner">CODE TOUR — what shipped, and when</div>
 
 <div class="wrap">
   <aside class="tree">
@@ -80,107 +80,105 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    wrong: {
-      name: "two findings we could not fix",
-      purpose: "Both of them were upstream.",
+    third: {
+      name: "the third question",
+      purpose: "What shipped, and when.",
       lines: [
-        ['s', '  linear   read a setup guide for features'],
-        ['s', '  todoist  read its prices in Czech'],
+        ['c', '// Section 5.4, on dates:'],
         ['c', ''],
-        ['c', '// An extractor pointed at the wrong page'],
-        ['f', '// has two options. A wrong answer,'],
-        ['f', '// and silence. It had produced both.']
+        ['f', '  the most common LLM fabrication'],
+        ['f', '  in recent changes, and trivially'],
+        ['f', '  verifiable'],
+        ['c', ''],
+        ['f', '// So no model runs here at all.']
       ]
     },
-    slot: {
-      name: "the page that was there all along",
-      purpose: "linear.app/features. Never read.",
+    shape: {
+      name: "two changelogs, one shape",
+      purpose: "A date, then a heading.",
       lines: [
-        ['c', '// Anything under /docs counted as'],
-        ['c', '// answering what the product does.'],
+        ['t', '  - Jul 14, 2026            plausible'],
+        ['t', '  ## Add notes to your traffic chart'],
         ['c', ''],
-        ['s', '// llms.txt outranks a probe, so the'],
-        ['s', '// setup guide won the slot every time.'],
+        ['t', '  July 31, 2026             notion'],
+        ['t', '  ## AI Meeting Notes can now trigger'],
         ['c', ''],
-        ['f', '// Both feature sources were documentation.']
+        ['f', '// Six date formats. All of them parsed.']
       ]
     },
-    depth: {
-      name: "crates/landscape-discover/probes.rs",
-      purpose: "Docs answer a different question.",
+    promise: {
+      name: "the sentence to be careful about",
+      purpose: "It is in Notion's changelog.",
       lines: [
-        ['c', '// How do I use this  <- documentation'],
-        ['c', '// What does it do    <- the front page'],
+        ['s', '  Starting August 11 2026, Workers'],
+        ['s', '  will run on Notion credits.'],
         ['c', ''],
-        ['t', '  depth(path) <= 1'],
+        ['c', '// A date in a sentence. A promise.'],
         ['c', ''],
-        ['f', '// /docs stays. /docs/mcp.md goes.']
+        ['f', '// Filed as a shipped feature, that is'],
+        ['f', '// the worst thing this could do.']
       ]
     },
-    found: {
-      name: "and then it was read",
-      purpose: "Eight capabilities. First time.",
+    rule: {
+      name: "crates/landscape-extract/changes.rs",
+      purpose: "The line has to be a date.",
       lines: [
-        ['f', '  Planning     Building     Insights'],
-        ['f', '  Mobile       Security     Linear Asks'],
-        ['f', '  Customer Requests'],
+        ['c', '// Not: contains a date.'],
+        ['c', '// Starts with one, alone or before'],
+        ['c', '// a separator and a title.'],
         ['c', ''],
-        ['c', '// No dropped names. No unverified quotes.'],
-        ['c', ''],
-        ['c', '// That page had been there since Run 5.']
+        ['f', '  - Jul 14, 2026                 yes'],
+        ['f', '  2026-07-14 - Shipped it        yes'],
+        ['s', '  Starting August 11 2026, ...   no']
       ]
     },
-    danish: {
-      name: "the same page, in Czech and Danish",
-      purpose: "The English one was never read.",
+    window: {
+      name: "four in ninety days",
+      purpose: "And thirty-six older.",
       lines: [
-        ['s', '  todoist.com/cs/pricing'],
-        ['s', '  todoist.com/da/pricing'],
+        ['t', '  plausible.io/changelog'],
+        ['f', '  4 change(s) in 90 days, 36 older'],
+        ['f', '  read 40 of 70 dated entries'],
         ['c', ''],
-        ['c', '// Two of eight slots. One page.'],
-        ['c', ''],
-        ['f', '// A locale is a variant of a page,'],
-        ['f', '// not a different page.']
+        ['c', '// Four on its own reads as a quiet'],
+        ['f', '// quarter, at a company shipping weekly.']
       ]
     },
-    filter: {
-      name: "the filter that would have been wrong",
-      purpose: "Some sites publish only /de/preise.",
+    absent: {
+      name: "and the pages with no dates",
+      purpose: "Not the same as no changes.",
       lines: [
-        ['s', '// Dropping localised URLs would lose'],
-        ['s', '// the only pricing page they have.'],
+        ['t', '  linear.app/docs/releases.md'],
+        ['f', '  no dated entries on the page'],
         ['c', ''],
-        ['f', '// So variants collapse, and one wins:'],
-        ['f', '  no locale, then English, then whatever'],
+        ['c', '// It is documentation about a feature'],
+        ['c', '// called Releases.'],
         ['c', ''],
-        ['c', '// Which page it is comes first.'],
-        ['c', '// How we found it comes second.']
+        ['f', '// The spec is strict here: not no changes.']
       ]
     },
-    doing: {
-      name: "and a page you do something on",
-      purpose: "It states no facts.",
+    blog: {
+      name: "two more found by running it",
+      purpose: "Both were discovery again.",
       lines: [
-        ['s', '  /cs/pricing/setup'],
-        ['s', '  /cs/pricing/upgrade'],
+        ['s', '  /blog/product-hunt-launch  -> features'],
+        ['s', '  /blog/changelog-podcast    -> changes'],
         ['c', ''],
-        ['c', '// Both classify on the word pricing.'],
-        ['c', '// Both are steps in buying.'],
-        ['c', ''],
-        ['f', '// Two more slots.']
+        ['c', '// A podcast episode. An article is not'],
+        ['f', '// a section answer. The index still is.']
       ]
     },
-    fewer: {
-      name: "eight sources became three",
-      purpose: "That is the result, not a regression.",
+    tiebreak: {
+      name: "and a tiebreak that was arbitrary",
+      purpose: "Notion publishes both.",
       lines: [
-        ['t', '  before  8   four of them duplicates'],
-        ['f', '  after   3   pricing, features, security'],
+        ['t', '  /releases   dozens of dated entries'],
+        ['t', '  /blog       none at all'],
         ['c', ''],
-        ['c', '// A source that cannot answer costs a'],
-        ['c', '// fetch, a model pass, and a line in'],
-        ['c', '// the report nobody can stand behind.'],
-        ['f', '// Three we can read beats eight we cannot.']
+        ['s', '// The shorter URL won.'],
+        ['c', ''],
+        ['f', '// Now the page that names the question'],
+        ['f', '// wins, and length is the last word.']
       ]
     }
   };
@@ -224,30 +222,30 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:wrong",   c: "Two findings, and both were upstream." },
-    { kind: "means",       a: "spot:#code",   c: "The wrong page gives you silence or a lie." },
+    { kind: "recognition", a: "file:third",    c: "The third question needs no model." },
+    { kind: "means",       a: "spot:#code",    c: "Dates are what models make up most." },
 
-    { kind: "turn",        a: "file:slot",    c: "Linear had a features page. We never read it." },
-    { kind: "means",       a: "spot:#code",   c: "A setup guide held the slot." },
+    { kind: "turn",        a: "file:shape",    c: "Two changelogs. The same shape." },
+    { kind: "means",       a: "spot:#code",    c: "A date, and then a heading." },
 
-    { kind: "result",      a: "file:depth",   c: "Docs answer a different question." },
-    { kind: "means",       a: "spot:#code",   c: "Only the front page answers ours." },
+    { kind: "result",      a: "file:promise",  c: "One sentence needs care." },
+    { kind: "means",       a: "spot:#code",    c: "A promise about August, not a release." },
 
-    { kind: "result",      a: "file:found",   c: "Then it was read. Eight capabilities." },
-    { kind: "means",       a: "spot:#code",   c: "That page had been there for four runs." },
+    { kind: "result",      a: "file:rule",     c: "So the line has to be a date." },
+    { kind: "means",       a: "spot:#code",    c: "Not contain one. Start with one." },
 
-    { kind: "result",      a: "file:danish",  c: "Todoist was read in Czech and Danish." },
-    { kind: "means",       a: "spot:#code",   c: "Two slots, one page, neither in English." },
+    { kind: "result",      a: "file:window",   c: "Four changes in ninety days." },
+    { kind: "means",       a: "spot:#code",    c: "And seventy on the page. Say both." },
 
-    { kind: "result",      a: "file:filter",  c: "Dropping them would have been wrong." },
-    { kind: "means",       a: "spot:#code",   c: "Some sites publish in one language only." },
+    { kind: "result",      a: "file:absent",   c: "One page had no dates at all." },
+    { kind: "means",       a: "spot:#code",    c: "Which is not the same as no changes." },
 
-    { kind: "result",      a: "file:doing",   c: "And two slots went to steps in buying." },
-    { kind: "means",       a: "spot:#code",   c: "A page you act on states nothing." },
+    { kind: "result",      a: "file:blog",     c: "A podcast episode became a product change." },
+    { kind: "means",       a: "spot:#code",    c: "An article is not a section answer." },
 
-    { kind: "result",      a: "file:fewer",   c: "Eight sources became three." },
+    { kind: "result",      a: "file:tiebreak", c: "And a shorter URL beat the changelog." },
 
-    { kind: "close",       a: "hold",         c: "Three we can read beats eight we cannot." }
+    { kind: "close",       a: "hold",          c: "A date is checkable. So we never guess one." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -270,7 +268,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("wrong");
+    show("third");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -283,15 +281,15 @@
     }, TOTAL * 1000));
   }
 
-  show("wrong");
+  show("third");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "The right page",
-    blurb: "Two runs ended with findings no extractor could fix: one company was read in Czech, another had its features page passed over for a setup guide. Both were decisions made before a page was ever fetched.",
+    title: "What shipped, and when",
+    blurb: "The third of six question kinds, and the first one answered with no language model in the loop at all - because a date is either printed on the page or it is not, and a model that guesses one is the failure this product cannot survive.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;
