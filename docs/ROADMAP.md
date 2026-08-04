@@ -485,12 +485,19 @@ the single most important phase; everything after it is commerce and polish.
   **Three of §4's nine sections are deliberately absent**: positioning, sentiment themes and
   the SWOT are interpretation over sources this pipeline does not gather, and an empty section
   that can never be filled teaches a reader to skim past empty sections.
-  What is left on this line: **streaming it over SSE**, and **storing it** — the report is
-  assembled, rendered and dropped, and the queue, the worker and the API have been waiting
-  since Phase 1 began for something to carry.
-  Also open: **`searched_as` is the origin the user typed.** The entity gate exists and the
-  orchestrator does not call it, so the report's account of what it looked for is a copy of
-  its input.
+  ~~What is left on this line: streaming it over SSE, and storing it.~~ **Done** — Run 15.
+  The worker runs the orchestrator for a queued analysis and writes the report **after every
+  page**; `GET /api/analyses/{id}/events` streams `status`, then each section as it first
+  gains claims, then `done`. Measured end to end against plausible.io with no database: three
+  sections arrived while it was still running, which is [PRODUCT_SPEC.md](PRODUCT_SPEC.md)
+  §2.1A's first-content-in-forty-seconds.
+  **It polls the row rather than taking a message broker.** The queue already lives in the
+  database for the same reason: a second thing to run is a second thing to lose events
+  through, on a box with no spare memory.
+  What is left here: **the frontend still polls** — the endpoint exists and `web/` does not
+  use it — and **a prompt that names no site fails with a reason** rather than resolving,
+  because finding a company from a description needs the search channel §3.3 puts last.
+  `searched_as` is the origin until that exists.
 - Anonymous rate limit (2/day), share URL.
 
 **Technical tasks**

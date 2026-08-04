@@ -33,6 +33,97 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 15 — the queue, end to end, with a reader watching
+
+**Date:** 2026-08-04 · **Subject:** plausible.io · **Store:** in-memory, no database ·
+**Model:** Qwen3-4B Q4_K_M.
+
+Every previous run drove the pipeline from `landscape read`, a command. This one goes through
+the product's own path: **POST an analysis, and watch the stream.**
+
+```bash
+cargo run --release -p landscape -- dev --store memory
+curl -X POST localhost:8787/api/analyses -H 'content-type: application/json' \
+     -d '{"prompt":"compare plausible.io for me"}'
+curl -N localhost:8787/api/analyses/<id>/events
+```
+
+```text
+event: status    queued
+event: status    running
+event: section   features    9 claims
+event: section   changes    11 claims
+event: section   identity    3 claims
+event: status    complete
+event: done
+```
+
+**Three sections arrived while it was still running.** `PRODUCT_SPEC.md` §2.1A asks for first
+content in twenty to forty seconds rather than everything at ninety, and this is the shape of
+it: a reader watches a report fill in.
+
+The finished report:
+
+| section | |
+|---|---|
+| pricing | *no page found. Checked: /pricing (404), /plans (404), /pricing/ (404)* |
+| **features** | **9 claims** |
+| **changes** | **11 claims** |
+| **identity** | **3 claims** |
+| trust · direction | *pages found and not read — our gap, not theirs* |
+
+Four sources cited, every claim traceable.
+
+### What the worker does with a prompt it cannot resolve
+
+`NewAnalysis` takes free text, and the pipeline reads a **site**. `FACT_CHECKING.md` §3.1's
+entity resolution needs candidates, candidates come from search, and §3.3 puts search last on
+purpose. So the worker reads a URL or a bare domain out of the prompt, and when there is none:
+
+```text
+status: failed
+reason: this prompt does not name a website, and finding one from a description needs
+        the search channel that is not built yet (FACT_CHECKING.md §3.3).
+        Try a domain — for example: basecamp.com
+```
+
+**A failure, not an empty report.** Guessing a domain from *"an app that helps small farms
+sell to restaurants"* would produce something correctly cited and about the wrong company,
+which is the most expensive wrong answer this product can make.
+
+### Streaming without a broker
+
+The worker and the API are two processes sharing one row. A message broker between them would
+deliver events a few hundred milliseconds sooner and would be **a second piece of
+infrastructure to run, supervise and lose events through** — on a box with no spare memory
+([ADR 0005](decisions/0005-observability-on-a-24gb-box.md)).
+
+So the endpoint reads the row every 500 ms and sends the difference. The queue already lives in
+the database for exactly this reason. **A reader cannot tell**, and there is one fewer thing to
+fail.
+
+Two rules fell out of writing it:
+
+- **A section is sent once**, when it first has claims. A section that is still empty carries a
+  *"we found nothing"* note that is only true at the end, and sending it early would tell a
+  reader we had finished looking.
+- **A late write cannot resurrect a finished row.** Both stores refuse progress unless the
+  analysis is still running — a worker that lost a race must not overwrite the report somebody
+  is reading.
+
+### What is still not right
+
+**The frontend does not consume the stream.** The endpoint exists and `web/` still polls.
+
+**`searched_as` is the origin, not a resolution.** Until search exists, what we searched for
+and what the user typed are the same string in every report.
+
+**Nothing measured how long the reader waited.** That is the client-side measurement
+[ADR 0011](decisions/0011-no-experiments-on-production.md) describes, and it belongs against a
+deployment rather than a laptop.
+
+---
+
 ## Run 14 — the bake-off, run here
 
 **Date:** 2026-08-04 · **Machine:** this laptop — 13th Gen Intel i7-1360P, 16 threads, 16 GB.
