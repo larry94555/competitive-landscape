@@ -20,7 +20,11 @@ VIDEO = os.path.join(HERE, 'video')
 OFFSET = 1.5           # page load + settle before the recorder starts the film
 
 # --- pacing rules, Demo_Walkthrough.md §3 -------------------------------------
-# Cut three times: 20%, 20%, then 30%. These floors are ~45% of the first cut.
+# Cut four times: 20%, 20%, 30%, 30%. These floors are ~31% of the first cut.
+#
+# **This cut changed almost nothing, and that was predicted.** At the previous values the
+# reading floor already decided most beats; at these it decides nearly all of them. The
+# slack is spent. Every further second has to come out of the captions.
 #
 # Only the SLACK has ever been cut. **CPS is untouched and must stay that way** — it is
 # the one number that decides whether a caption can be read at all, and the others are
@@ -37,12 +41,12 @@ OFFSET = 1.5           # page load + settle before the recorder starts the film
 # `build-code-tour.py` imports these rather than keeping its own copy. Two sets of
 # pacing constants drift, and the drift is invisible until someone watches both films
 # back to back.
-BASE = 1.8             # every beat
-PAYOFF = 2.7           # result and means beats
-NUMBER = 2.7           # any line containing a digit
-SETTLE = 0.9           # after a scroll or a highlight
+BASE = 1.3             # every beat
+PAYOFF = 1.9           # result and means beats
+NUMBER = 1.9           # any line containing a digit
+SETTLE = 0.65          # after a scroll or a highlight
 CPS = 14.0             # characters a second, reading aloud - NEVER reduced
-PAD = 0.45             # breathing room after a caption is readable
+PAD = 0.32             # breathing room after a caption is readable
 # The floor tracks the pacing; the ceiling does not, and the asymmetry is the point.
 #
 # FILM_MIN asks "does this film have enough in it to be worth starting?", and it was
@@ -52,7 +56,7 @@ PAD = 0.45             # breathing room after a caption is readable
 #
 # FILM_MAX is not about pacing at all. It is how long someone will actually watch, which
 # no editing decision of ours changes. It stays where it is.
-FILM_MIN, FILM_MAX = 20.0, 70.0
+FILM_MIN, FILM_MAX = 16.0, 70.0
 MAX_RESULTS = 4
 
 KINDS = {'recognition', 'frustration', 'turn', 'action', 'wait', 'result', 'means', 'point', 'close', 'next'}

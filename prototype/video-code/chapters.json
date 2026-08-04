@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "Finding a failure",
-    "blurb": "An error that told you nothing you could look up, and what it took to fix that: a reference on every failure, two bugs that only running it could find, and the reason this project logs rather than builds dashboards.",
-    "seconds": 78.5
+    "title": "The first code with an attacker",
+    "blurb": "We are a service whose whole purpose is fetching URLs that strangers name. This is the guard that stops that being useful to them, the robots commitment that keeps us welcome, and the one file in this project with no coverage exemption.",
+    "seconds": 56.8
   }
 ]

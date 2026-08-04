@@ -45,6 +45,13 @@ enum Role {
     Serve,
     Worker,
     Migrate,
+    /// Fetch one URL and report what every policy decided about it.
+    ///
+    /// A diagnostic, not a feature of the product. It exists because the fetch policies —
+    /// the SSRF guard, `robots.txt`, the rate limit — are the kind of code that is easy to
+    /// believe in and hard to observe, and "run it against a URL and watch" is the only
+    /// honest way to convince somebody they work.
+    Fetch,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,10 +94,17 @@ async fn main() -> Result<()> {
         Some("serve") => Role::Serve,
         Some("worker") => Role::Worker,
         Some("migrate") => Role::Migrate,
+        Some("fetch") => Role::Fetch,
         Some(other) => {
-            anyhow::bail!("unknown command {other:?}. Try: dev, serve, worker, migrate")
+            anyhow::bail!("unknown command {other:?}. Try: dev, serve, worker, migrate, fetch")
         }
     };
+
+    // Before any store is built: fetching a URL needs no database, and requiring
+    // DATABASE_URL to run a diagnostic would make the diagnostic the harder thing.
+    if role == Role::Fetch {
+        return fetch_one(&args).await;
+    }
 
     let backing = if args.iter().any(|a| a == "--store=memory")
         || args
@@ -130,9 +144,50 @@ async fn main() -> Result<()> {
     }
 }
 
+/// `landscape fetch <url>` — run one URL past every policy and say what happened.
+///
+/// Prints to **stdout** as data, so it can be piped, while the reasoning goes to stderr as
+/// ordinary logs. A diagnostic whose output cannot be piped is a diagnostic people
+/// screenshot.
+async fn fetch_one(args: &[String]) -> Result<()> {
+    let url = args.get(1).filter(|a| !a.starts_with("--")).context(
+        "usage: landscape fetch <url>
+
+Example:
+  landscape fetch https://example.com/",
+    )?;
+
+    let fetcher = landscape_fetch::Fetcher::new();
+    let started = std::time::Instant::now();
+
+    match fetcher.get(url).await {
+        Ok(page) => {
+            let ms = started.elapsed().as_millis();
+            tracing::info!(status = page.status, took_ms = ms, "fetched");
+            println!("url     {}", page.url);
+            println!("status  {}", page.status);
+            println!("bytes   {}", page.body.len());
+            if let Some(tag) = &page.etag {
+                println!("etag    {tag}");
+            }
+            println!("fetched {}", page.fetched_at.to_rfc3339());
+            Ok(())
+        }
+        // Printed as an ordinary result rather than returned as an error: a refusal is this
+        // command working, and exiting non-zero would make "the guard stopped me" look like
+        // "the tool broke".
+        Err(e) => {
+            println!("refused {e}");
+            Ok(())
+        }
+    }
+}
+
 async fn run(role: Role, store: Arc<dyn Store>) -> Result<()> {
     match role {
         Role::Migrate => Ok(()),
+        // Handled before any store exists; see `main`.
+        Role::Fetch => Ok(()),
         Role::Serve => serve(store).await,
         Role::Worker => worker(store).await,
         Role::Dev => {

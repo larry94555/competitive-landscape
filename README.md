@@ -93,6 +93,7 @@ applies with the system package manager, or Postgres.app.
 | `cargo run -p landscape -- serve` | The HTTP API alone |
 | `cargo run -p landscape -- worker` | Claims queued analyses and runs them |
 | `cargo run -p landscape -- migrate` | Applies migrations and exits |
+| `cargo run -p landscape -- fetch <url>` | Fetches one URL through every policy and says what happened. Needs no database |
 
 Add `--store memory` to any of them to skip Postgres entirely.
 
@@ -300,6 +301,7 @@ crates/
   landscape-api/    axum routers, request validation, error mapping
   landscape-llm/    constrained generation: a Rust type in, that type out
   landscape-bench/  measures how fast a llama-server is
+  landscape-fetch/  the outside world: SSRF guard, robots.txt, per-host politeness
   landscape-golden/ measures whether it is right. Ten frozen pages, known answers
   landscape/        the binary: dev | serve | worker | migrate
 migrations/         SQL, applied on boot

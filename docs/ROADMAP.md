@@ -390,7 +390,9 @@ the single most important phase; everything after it is commerce and polish.
   every path predating the check is a path that can skip it.
 - Source discovery: **structured probes first** (`/pricing`, `/changelog`, `sitemap.xml`,
   `llms.txt`, docs, status, public ATS boards), templated search second (SearXNG self-hosted),
-  adapters third. Probes are deterministic, free, and hit primary sources; search fills gaps
+  adapters third. **Unblocked** — `landscape-fetch` is what these probes run through, and it
+  is now the natural next piece: it turns the entity gate from unreachable code into the
+  thing standing between a subject and a report. Probes are deterministic, free, and hit primary sources; search fills gaps
   rather than leading (FACT_CHECKING §3.3).
 - Per-section coverage thresholds and computed evidence strength (FACT_CHECKING §3.5), so a
   thin report is shipped marked rather than silently guessed.
@@ -400,8 +402,16 @@ the single most important phase; everything after it is commerce and polish.
 - Anonymous rate limit (2/day), share URL.
 
 **Technical tasks**
-- `landscape-fetch`: robots caching, per-host `governor` limits, conditional GET, timeouts,
-  size caps, **SSRF protection on user-supplied URLs** (block private ranges, resolve-then-verify).
+- ~~`landscape-fetch`: robots caching, per-host limits, conditional GET, timeouts, size caps,
+  **SSRF protection on user-supplied URLs** (block private ranges, resolve-then-verify).~~
+  **Done** — [ADR 0008](decisions/0008-fetching-from-strangers.md). The guard is at **100%
+  coverage with no exemption path**; every address a host resolves to is checked, the
+  connection is pinned to the one that was verified so DNS rebinding cannot swap it, and
+  every redirect hop re-enters every check. `robots.txt` is parsed here and deliberately
+  strict: 404 means allowed, 5xx and 429 mean disallowed.
+  **Not yet:** conditional GET (`Page` carries the headers; nothing re-fetches), and a cap
+  on total fetches per analysis — that belongs with the orchestrator.
+  Testable by hand: `cargo run -p landscape -- fetch <url>`.
 - **Review-platform access audit** (§ week 1, before any architecture assumes the channel):
   [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) ranks review-site category pages as the
   **highest-yield discovery channel**, and the sentiment section leans on the same platforms —

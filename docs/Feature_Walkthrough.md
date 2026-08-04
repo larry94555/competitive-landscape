@@ -25,7 +25,8 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | Trace one request through the log by its reference | **Yes** |
 | Scoring a model on whether its answers are *true* | **Yes**, with `llama-server` |
 | Deciding *who* a report is about, before fetching | Logic only — no UI yet, see below |
-| Reading real web pages | No — not built |
+| **Fetching a public page politely, and refusing to be aimed inwards** | **Yes** — Part 8B |
+| Reading real web pages *as part of a report* | No — the fetcher exists, nothing calls it yet |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
 | Accounts, quotas, payment | No |
 | Alerts, watches, email | No |
@@ -612,13 +613,114 @@ GOLDEN_MAX_FABRICATIONS=99 cargo test -p landscape-golden --test against_a_model
 
 ---
 
+## Part 8B — Fetch a page, and try to make it misbehave
+
+**This is the newest thing you can test, and the most security-relevant code in the project.**
+It needs nothing running — no database, no model, no server.
+
+### It fetches
+
+```bash
+cargo run -p landscape -- fetch https://example.com/
+```
+
+**You should see:**
+
+```
+url     https://example.com/
+status  200
+bytes   559
+fetched 2026-08-03T23:25:53.289297700+00:00
+```
+
+### Now try to aim it at us
+
+The whole product is "fetch a URL a stranger named", which makes this the one attack we are
+guaranteed to face. On most cloud providers the first address below hands out credentials to
+anything that asks.
+
+```bash
+cargo run -p landscape -- fetch http://169.254.169.254/latest/meta-data/
+```
+
+```
+refused That address is link-local and not reachable from the internet.
+```
+
+```bash
+cargo run -p landscape -- fetch http://127.0.0.1:8787/api/health
+```
+
+```
+refused That address points back at this machine.
+```
+
+**Even with the server running**, that second one is refused — the guard never gets as far
+as asking whether something is listening.
+
+```bash
+cargo run -p landscape -- fetch file:///etc/passwd
+```
+
+```
+refused only http and https are fetched, not file
+```
+
+**Note what the messages do and do not say.** They explain enough for an honest user to
+understand, and never repeat the address back — someone probing us should learn nothing
+about what resolved to what internally.
+
+### And check that we are a good citizen
+
+Google's `robots.txt` disallows `/search`. We fetch the rules first, then honour them:
+
+```bash
+cargo run -p landscape -- fetch https://www.google.com/search?q=test
+```
+
+```
+refused www.google.com asks crawlers not to fetch /search?q=test
+```
+
+The same host, on a path it permits:
+
+```bash
+cargo run -p landscape -- fetch https://www.google.com/robots.txt
+```
+
+```
+status  200
+```
+
+**Why it matters.** `FACT_CHECKING.md` treats honouring `robots.txt` as an ethical
+commitment rather than a risk position, which decides the ambiguous cases: a **404 means
+allowed** (no rules exist), but a **500 or a 429 means disallowed** — we cannot read what the
+site wants, and the polite reading of "I am struggling" is not "carry on". There is no
+`--ignore-robots` flag and there will not be one; a flag that exists gets used at 2am by
+someone in a hurry.
+
+**One honest caveat.** Each `landscape fetch` is a separate process, so the one-second
+per-host delay does not apply *between* invocations — the pacer lives in the `Fetcher`, and
+you get a new one each time. Inside a single run it does apply. That is
+[ADR 0008](decisions/0008-fetching-from-strangers.md)'s recorded limitation: per-process
+pacing is correct for one worker and wrong the moment there are two.
+
+**The guard is the one file in this project at 100% coverage with no exemption path**
+(`CODING_QUALITY.md` §6.2). You can check that claim rather than take it:
+
+```bash
+cargo llvm-cov nextest -p landscape-fetch --summary-only
+```
+
+---
+
 ## Part 9 — What the tests prove
 
 ```bash
 cargo test
 ```
 
-**You should see 97 passing, with nothing running.**
+**You should see 157 passing, with nothing running.**
 
 CI runs the same tests through `cargo nextest run`, which is faster and gives each test its
 own process — so a test that panics is reported as a failure instead of taking the run down
@@ -694,6 +796,8 @@ python prototype/build.py --preview
 | 8 — `landscape-bench` reports three error kinds separately | | |
 | 8A — golden set validates itself, 22 passing, no model | | |
 | 8A — scorecard prints; `FAB` on the abstention subjects reads as expected | | |
+| 8B — example.com fetches; metadata endpoint and loopback refused | | |
+| 8B — Google `/search` refused by robots, `/robots.txt` allowed | | |
 | 9 — `cargo test` green with nothing running | | |
 
 **If something differs from what is written here, that is a bug.** Every command above was run
