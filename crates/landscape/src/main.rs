@@ -315,10 +315,28 @@ Example:
         );
     }
 
-    println!("{:<44} {:<6} {:<7} extracted", "page", "words", "quality");
-    println!("{}", "-".repeat(96));
+    println!(
+        "{:<44} {:<6} {:<5} {:<6} extracted",
+        "page", "words", "qual", "span"
+    );
+    println!("{}", "-".repeat(100));
 
     for source in &found.sources {
+        // Discovery already labelled what each page answers, and this loop only knows how
+        // to extract pricing. Running a pricing extractor over a documentation page found
+        // "MCP server at $0" on linear.app/docs/mcp.md — a plan that does not exist,
+        // stated confidently. The other extractors are not built yet; until they are, the
+        // honest thing is to say so rather than to guess.
+        if source.answers != landscape_discover::probes::Answers::Pricing {
+            println!(
+                "{:<44} {:<6} {:<5} {:<6} not a pricing page - no extractor yet",
+                short(&source.url),
+                "-",
+                "-",
+                "-"
+            );
+            continue;
+        }
         let Ok(page) = fetcher.get(&source.url).await else {
             println!(
                 "{:<44} {:<6} {:<7} could not fetch",
@@ -335,24 +353,41 @@ Example:
             // Not an error. The page was read and there was nothing on it, which is what a
             // report says rather than something it retries.
             println!(
-                "{:<44} {:<6} {:<7} skipped - nothing to read",
+                "{:<44} {:<6} {:<5} {:<6} skipped - nothing to read",
                 short(&source.url),
                 assessment.words,
-                assessment.quality.name()
+                assessment.quality.name(),
+                "-"
             );
             continue;
         }
         if !model_ready {
             println!(
-                "{:<44} {:<6} {:<7} (no model)",
+                "{:<44} {:<6} {:<5} {:<6} (no model)",
                 short(&source.url),
                 assessment.words,
-                assessment.quality.name()
+                assessment.quality.name(),
+                "-"
             );
             continue;
         }
 
-        let prompt = extraction_prompt(&source.url, &markdown);
+        // The window, not the page. BENCHMARKS Run 5: the same model on the same words
+        // answers correctly at 39 and fails at 1729, so this is a correctness step rather
+        // than the latency optimisation ARCHITECTURE §5.4 originally presented it as.
+        let Some(span) = landscape_extract::span::for_pricing(&markdown) else {
+            // No price-shaped content anywhere. A finding — handing the model the whole
+            // page instead would turn "publishes no price" into a guess.
+            println!(
+                "{:<44} {:<6} {:<5} {:<6} no pricing content on the page",
+                short(&source.url),
+                assessment.words,
+                assessment.quality.name(),
+                "-"
+            );
+            continue;
+        };
+        let prompt = extraction_prompt(&source.url, &span.prompt_text());
         let decode = landscape_llm::Decode {
             max_tokens: 300,
             temperature: 0.0,
@@ -371,10 +406,11 @@ Example:
             Err(e) => format!("model error: {e}"),
         };
         println!(
-            "{:<44} {:<6} {:<7} {summary}",
+            "{:<44} {:<6} {:<5} {:<6} {summary}",
             short(&source.url),
             assessment.words,
-            assessment.quality.name()
+            assessment.quality.name(),
+            span.text.split_whitespace().count()
         );
     }
     Ok(())
@@ -395,8 +431,10 @@ Example:
 /// piece of work. `ROADMAP.md` records it.
 ///
 /// [`PricingExtraction`]: landscape_core::PricingExtraction
-fn extraction_prompt(url: &str, markdown: &str) -> String {
-    let page: String = markdown.chars().take(6000).collect();
+fn extraction_prompt(url: &str, span: &str) -> String {
+    // Already a ~400-token window by the time it reaches here. The cap is a backstop, not
+    // the mechanism — cutting a page to 6000 characters was what Run 5 measured failing.
+    let page: String = span.chars().take(6000).collect();
     format!(
         "You are reading one page from a company's website and extracting what it says          about the pricing of one plan.
 
