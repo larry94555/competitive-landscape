@@ -1,0 +1,16 @@
+[package]
+name = "landscape-discover"
+description = "Finding the pages worth reading about a company: probes, sitemap, llms.txt."
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+landscape-core.workspace = true
+landscape-fetch.workspace = true
+
+[lints]
+workspace = true
