@@ -28,7 +28,7 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | **Fetching a public page politely, and refusing to be aimed inwards** | **Yes** — Part 8B |
 | **Measuring where a price lives on real pages** | **Yes** — Part 8C |
 | **Finding which pages to read about a company** | **Yes** — Part 8D |
-| **The whole path: discover, fetch, convert, extract** | **Yes** — Part 8E |
+| **The whole path: discover, fetch, convert, extract every plan** | **Yes** — Part 8E |
 | Reading real web pages *as part of a report* | No — the fetcher exists, nothing calls it yet |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
 | Accounts, quotas, payment | No |
@@ -823,10 +823,9 @@ one kind of thing.
 
 ---
 
-## Part 8E — Run the whole path, and watch it fall over
+## Part 8E — Run the whole path against a real company
 
-**The first command that runs every piece in order**, and the most instructive thing in this
-document — because it does not fully work, and *how* it fails is the finding.
+**The command that runs every piece in order**, and the one worth watching most closely.
 
 ```bash
 cargo run -p landscape -- read https://basecamp.com
@@ -835,22 +834,22 @@ cargo run -p landscape -- read https://basecamp.com
 Without a `llama-server` it stops after conversion and tells you so. With one:
 
 ```
-page                                         words  quality extracted
-------------------------------------------------------------------------------------------
-basecamp.com/pricing                         1729   good    Pro, no price published
-basecamp.com/features                        1436   good    Basecamp, no price published
-basecamp.com/status                          380    good    nothing found
+page                                         words  qual  span   extracted
+----------------------------------------------------------------------------------------------
+basecamp.com/pricing                         1729   good  210    2 plans found in 2 windows
+                                               Pro Unlimited at $299/mo
+                                               Pro at $15/mo
+basecamp.com/features                        -      -     -      not a pricing page - no extractor yet
 ```
 
-**It works now, and the `span` column is why.** The model is sent a ~260-word window rather
-than the 1729-word page — [ARCHITECTURE.md](ARCHITECTURE.md) §5.4's span pre-selection.
-Before that window existed, this same page returned *"no price published"*
-([BENCHMARKS.md](BENCHMARKS.md) Run 5).
+**Both plans, and both prices are right.** That page publishes `$299/month` Pro Unlimited and
+`$15/user` Pro, and until [BENCHMARKS.md](BENCHMARKS.md) Run 7 the second one was invisible —
+one window per page meant one plan per page, and a report showing a rival's cheapest plan and
+silently dropping the rest does not read as incomplete, it reads as wrong.
 
-**`$15/user` is Basecamp's Pro plan, and that is correct.** But that page also publishes
-`$299/month` Pro Unlimited, and you will not see it: `PricingExtraction` models one plan, so
-the window picks one. **Extracting every plan on a page is the next piece of work**, not a
-tuning problem.
+**The `span` column is 210 words against a page of 1729.** The model is sent one small window
+per plan — [ARCHITECTURE.md](ARCHITECTURE.md) §5.4's span pre-selection. Before those windows
+existed this page returned *"no price published"* (Run 5).
 
 **Every stage prints what it decided**, and that is the point — a pipeline reporting only its
 last step gives a wrong answer six possible causes. The `span` column is how you tell a bad
@@ -867,9 +866,33 @@ exist — which is why it no longer does.
 cargo run -p landscape -- read https://linear.app
 ```
 
-`linear.app/pricing` should report **Free at $0**, which is right. You may also see
-`/plans` skipped with 2 words — the quality gate refusing to spend a model pass on a page
-that converted to nothing.
+`linear.app/pricing` should report three plans — **Free at $0, Basic at $10, Business at
+$16** — which is what the page publishes. You may also see `/plans` skipped with 2 words: the
+quality gate refusing to spend a model pass on a page that converted to nothing.
+
+**And try one where the answer is that there is no answer:**
+
+```bash
+cargo run -p landscape -- read https://todoist.com
+```
+
+Every pricing page reports **"no pricing content on the page"**, and that is correct: Todoist
+renders its prices in JavaScript, so what we fetch contains no dollar amount at all. Before
+Run 7 this same page reported *"Beginner at $5"* — the 5 was how many personal projects the
+plan allows, read out of a feature-comparison table. A page that publishes nothing we can see
+is a **finding**, and §5.5's JavaScript-gap counter is what it feeds.
+
+**Two things are still wrong, and both are visible if you look:**
+
+```bash
+cargo run -p landscape -- read https://www.notion.com
+```
+
+Notion reports four plans where three are real — `### Custom Agents` is an add-on, and an
+add-on is a heading with a price under it, which is exactly the shape a plan has. You may also
+see a billing period that disagrees with the page: `$16 per user/month` and `Billed yearly`
+are two facts and `BillingPeriod` has one field for them. Both are recorded in
+[ROADMAP.md](ROADMAP.md) rather than tuned away.
 
 **Try the conversion on its own**, which does work and is worth seeing:
 
@@ -888,7 +911,7 @@ That prints the page's size; the Markdown behind it keeps the headings and table
 cargo test
 ```
 
-**You should see 263 passing, with nothing running.**
+**You should see 283 passing, with nothing running.**
 
 CI runs the same tests through `cargo nextest run`, which is faster and gives each test its
 own process — so a test that panics is reported as a failure instead of taking the run down
@@ -971,7 +994,9 @@ python prototype/build.py --preview
 | 8D — discovery returns absolute URLs, no duplicates | | |
 | 8D — the `answers` column shows several different kinds | | |
 | 8E — every stage prints a verdict, not just the last | | |
-| 8E — basecamp `/pricing` extracts a real plan and price | | |
+| 8E — basecamp `/pricing` reports **both** of its plans, priced | | |
+| 8E — linear `/pricing` reports three, starting at $0 | | |
+| 8E — todoist says "no pricing content" instead of guessing | | |
 | 8E — non-pricing pages say "no extractor yet" rather than guessing | | |
 | 9 — `cargo test` green with nothing running | | |
 
