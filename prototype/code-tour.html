@@ -42,7 +42,7 @@
   .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
 </style>
 
-<div class="banner" id="banner">CODE TOUR — who they are</div>
+<div class="banner" id="banner">CODE TOUR — one report</div>
 
 <div class="wrap">
   <aside class="tree">
@@ -80,106 +80,108 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    story: {
-      name: "the fourth question",
-      purpose: "Who they are, where, how big.",
+    log: {
+      name: "twelve runs of a run log",
+      purpose: "It printed what each stage decided.",
       lines: [
-        ['c', '// A pricing page exists to state a price.'],
+        ['t', '  basecamp.com/pricing  1729  good  210'],
+        ['t', '  -> 2 plans found in 2 windows'],
         ['c', ''],
-        ['f', '// An about page exists to tell a story.'],
+        ['c', '// Ordered by page. Useful for debugging.'],
         ['c', ''],
-        ['c', '// The facts are in it by accident, in'],
-        ['c', '// subordinate clauses, or not at all.']
+        ['s', '// Nobody arrives with a page. They arrive'],
+        ['s', '// with a question.']
       ]
     },
-    age: {
-      name: "basecamp.com/about",
-      purpose: "Twenty-three years and running.",
+    three: {
+      name: "three differences",
+      purpose: "None of them cosmetic.",
       lines: [
-        ['t', "  We're here for them,"],
-        ['t', '  23 years and running.'],
+        ['c', '// A run log is ordered by page.'],
+        ['f', '// A report is ordered by question.'],
         ['c', ''],
-        ['s', '// 2003 is arithmetic. Not reading.'],
+        ['c', '// A run log silence is invisible.'],
+        ['f', '// A section carries its coverage note.'],
         ['c', ''],
-        ['f', '  no stated facts about the company'],
-        ['f', '// Which is the right answer.']
+        ['s', '// A run log fact has no citation.'],
+        ['f', '// Every claim has a label and a quote.']
       ]
     },
-    zero: {
-      name: "then: 0 people",
-      purpose: "The page said a team of 10.",
+    six: {
+      name: "crates/landscape-analyze/sections.rs",
+      purpose: "Six sections. The spec fixes nine.",
       lines: [
-        ['s', '  0 people'],
+        ['f', '  pricing   features   changes'],
+        ['f', '  identity  trust      direction'],
         ['c', ''],
-        ['c', '// The grounding check passed it.'],
+        ['s', '// The other three are interpretation'],
+        ['s', '// over sources we do not gather.'],
         ['c', ''],
-        ['s', '  "10".contains("0")'],
-        ['c', ''],
-        ['f', '// A check that cannot fail is not a check.']
+        ['f', '// An empty section that can never fill'],
+        ['f', '// teaches readers to skim past empty ones.']
       ]
     },
-    tokens: {
-      name: "crates/landscape-core/extract.rs",
-      purpose: "Numbers are matched whole.",
+    confidence: {
+      name: "confidence is the fact, not the model",
+      purpose: "A name can never be a number.",
       lines: [
-        ['f', '  split on non-digits, compare tokens'],
+        ['f', '  a quoted price          High'],
+        ['f', '  a parsed date           High'],
+        ['t', '  a capability name       Medium'],
         ['c', ''],
-        ['c', '// 10 states 10. It does not state 0,'],
-        ['c', '// and 120200 does not state 2020.'],
-        ['c', ''],
-        ['f', '// Cheap. And it had been wrong all along.']
+        ['c', '// Shortening a heading is a paraphrase'],
+        ['f', '// by design. That is what it is for.']
       ]
     },
-    whole: {
-      name: "the check threw away a right answer",
-      purpose: "It cleared extractions, not fields.",
+    wrong: {
+      name: "then the report showed us something",
+      purpose: "A quote under the wrong fact.",
       lines: [
-        ['t', '  founded 2018      correct'],
-        ['s', '  based in Berlin   invented'],
+        ['t', '  says it is based in the EU'],
+        ['s', '  > We built it because web analytics'],
+        ['s', '    had drifted from its purpose'],
         ['c', ''],
-        ['s', '// Both discarded. The window had been'],
-        ['s', '// asked for the year.'],
-        ['c', ''],
-        ['f', '// Field by field now, and it says how many.']
+        ['c', '// Quotes were paired to facts by position.'],
+        ['f', '// The run log had looked perfectly healthy.']
       ]
     },
-    order: {
-      name: "and the window was in the wrong place",
-      purpose: "started in did not match.",
+    stated: {
+      name: "so a quote belongs to a fact",
+      purpose: "core::Stated<T>.",
       lines: [
-        ['t', '  Uku Taht started Plausible in'],
-        ['t', '  December 2018'],
+        ['t', '  Stated { value, quote }'],
         ['c', ''],
-        ['c', '// A name sits between the verb and the'],
-        ['c', '// preposition.'],
+        ['c', '// Each fact carries the words it'],
+        ['c', '// arrived with.'],
         ['c', ''],
-        ['s', '// Two wrongs that looked like one right.']
+        ['f', '// Evidence for a claim it does not support'],
+        ['f', '// is the one thing never to render.']
       ]
     },
-    linkedin: {
-      name: "a source that was not theirs",
-      purpose: "notion.com/llms.txt lists LinkedIn.",
+    contain: {
+      name: "and it has to contain the fact",
+      purpose: "The model picked the next sentence.",
       lines: [
-        ['s', '  linkedin.com/company/notionhq'],
+        ['c', '// Still cited a line with no EU in it.'],
         ['c', ''],
-        ['c', '// It took the identity slot.'],
+        ['f', '  keep the quote only if it says the value'],
         ['c', ''],
-        ['f', '// A primary source is a page on their'],
-        ['f', '// own domain. Only primary sources may'],
-        ['f', '// set a value in the table.']
+        ['c', '// The fact survives - it was checked'],
+        ['c', '// against the whole window.'],
+        ['f', '// The quote is the smaller loss.']
       ]
     },
-    result: {
-      name: "four about pages",
-      purpose: "All four answers correct.",
+    itself: {
+      name: "and the report checks itself",
+      purpose: "Before a reader has to.",
       lines: [
-        ['f', '  plausible   3 of 3'],
-        ['t', '  linear      1 of 3'],
-        ['t', '  basecamp    0 of 3'],
-        ['t', '  notion      0 of 3'],
+        ['t', '  every_claim_is_traceable()'],
         ['c', ''],
-        ['c', '// Most about pages state nothing.'],
-        ['f', '// Saying so is the whole job.']
+        ['f', '  this report is not publishable:'],
+        ['f', '  1 unresolved citation'],
+        ['c', ''],
+        ['s', '// A citation that looks checkable and is'],
+        ['s', '// not is worse than none at all.']
       ]
     }
   };
@@ -223,30 +225,30 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:story",    c: "The fourth question is who they are." },
-    { kind: "means",       a: "spot:#code",    c: "And the page was written to tell a story." },
+    { kind: "recognition", a: "file:log",        c: "Twelve runs of printing what happened." },
+    { kind: "means",       a: "spot:#code",      c: "Nobody arrives with a page." },
 
-    { kind: "turn",        a: "file:age",      c: "Basecamp gives its age, never its year." },
-    { kind: "means",       a: "spot:#code",    c: "So we report nothing. That is correct." },
+    { kind: "turn",        a: "file:three",      c: "A report differs in three ways." },
+    { kind: "means",       a: "spot:#code",      c: "Order, silence, and citations." },
 
-    { kind: "result",      a: "file:zero",     c: "Then it answered: zero people." },
-    { kind: "means",       a: "spot:#code",    c: "The page said ten. The check agreed." },
+    { kind: "result",      a: "file:six",        c: "Six sections. The spec fixes nine." },
+    { kind: "means",       a: "spot:#code",      c: "Three would never have been fillable." },
 
-    { kind: "result",      a: "file:tokens",   c: "A check that cannot fail is not a check." },
-    { kind: "means",       a: "spot:#code",    c: "Numbers are whole tokens now." },
+    { kind: "result",      a: "file:confidence", c: "A name can never be as sure as a price." },
+    { kind: "means",       a: "spot:#code",      c: "It is a paraphrase. On purpose." },
 
-    { kind: "result",      a: "file:whole",    c: "The next one threw away a right answer." },
-    { kind: "means",       a: "spot:#code",    c: "One invented field killed the whole reply." },
+    { kind: "result",      a: "file:wrong",      c: "Then the report showed us something." },
+    { kind: "means",       a: "spot:#code",      c: "A quote sitting under the wrong fact." },
 
-    { kind: "result",      a: "file:order",    c: "And the window was in the wrong place." },
-    { kind: "means",       a: "spot:#code",    c: "Two wrongs, looking like one right." },
+    { kind: "result",      a: "file:stated",     c: "So a quote belongs to a fact." },
+    { kind: "means",       a: "spot:#code",      c: "The old shape is now unrepresentable." },
 
-    { kind: "result",      a: "file:linkedin", c: "One source was not even theirs." },
-    { kind: "means",       a: "spot:#code",    c: "Only their own pages set a table value." },
+    { kind: "result",      a: "file:contain",    c: "And it has to contain what it proves." },
+    { kind: "means",       a: "spot:#code",      c: "The fact stays. The quote goes." },
 
-    { kind: "result",      a: "file:result",   c: "Four pages. Four correct answers." },
+    { kind: "result",      a: "file:itself",     c: "The report refuses to publish itself." },
 
-    { kind: "close",       a: "hold",          c: "Two of them were: the page does not say." }
+    { kind: "close",       a: "hold",            c: "Assembling the facts was the check." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -269,7 +271,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("story");
+    show("log");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -282,15 +284,15 @@
     }, TOTAL * 1000));
   }
 
-  show("story");
+  show("log");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "Who they are",
-    blurb: "The fourth of six question kinds, and the first whose facts a page states by accident rather than by design. Three of the four things that went wrong were checks of ours that could not fail - including one that agreed a page saying ten meant zero.",
+    title: "One report",
+    blurb: "Twelve runs printed what every stage decided, which is a diagnostic and not a product. Assembling those facts into a cited report turned out to be a check of its own - it caught two defects that a dozen runs of printing had shown no sign of.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;
