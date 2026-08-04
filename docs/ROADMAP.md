@@ -394,9 +394,16 @@ the single most important phase; everything after it is commerce and polish.
   every path predating the check is a path that can skip it.
 - Source discovery: **structured probes first** (`/pricing`, `/changelog`, `sitemap.xml`,
   `llms.txt`, docs, status, public ATS boards), templated search second (SearXNG self-hosted),
-  adapters third. **Unblocked** — `landscape-fetch` is what these probes run through, and it
-  is now the natural next piece: it turns the entity gate from unreachable code into the
-  thing standing between a subject and a report. Probes are deterministic, free, and hit primary sources; search fills gaps
+  adapters third.
+  **Probes, sitemap and `llms.txt` are done** — `crates/landscape-discover`, ranked and capped
+  at 8 per §3.3, and testable by hand: `cargo run -p landscape -- discover <origin>`.
+  Everything it returns is on the subject's own domain and therefore **Primary**, the only
+  class permitted to set a table value.
+  The cap is spent **round-robin across the questions a page answers** rather than by
+  confidence — [ADR 0010](decisions/0010-spend-the-cap-on-breadth.md) — because ranking by
+  confidence fills the eight with five pricing pages and starves every other section.
+  **Still to come:** templated search (needs SearXNG), off-site adapters, and public ATS
+  boards. Probes are deterministic, free, and hit primary sources; search fills gaps
   rather than leading (FACT_CHECKING §3.3).
 - Per-section coverage thresholds and computed evidence strength (FACT_CHECKING §3.5), so a
   thin report is shipped marked rather than silently guessed.

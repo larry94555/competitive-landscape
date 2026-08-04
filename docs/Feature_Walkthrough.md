@@ -27,6 +27,7 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | Deciding *who* a report is about, before fetching | Logic only — no UI yet, see below |
 | **Fetching a public page politely, and refusing to be aimed inwards** | **Yes** — Part 8B |
 | **Measuring where a price lives on real pages** | **Yes** — Part 8C |
+| **Finding which pages to read about a company** | **Yes** — Part 8D |
 | Reading real web pages *as part of a report* | No — the fetcher exists, nothing calls it yet |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
 | Accounts, quotas, payment | No |
@@ -764,13 +765,70 @@ cargo run -p landscape -- gap my-urls.txt
 
 ---
 
+## Part 8D — Find the pages worth reading about a company
+
+The step that comes after knowing *who* a report is about. Needs nothing running.
+
+```bash
+cargo run -p landscape -- discover https://basecamp.com
+```
+
+**It takes about twenty seconds** — sixteen requests at one per host per second, which is the
+politeness rule doing its job rather than the tool being slow.
+
+**You should see** something close to:
+
+```
+source                                      answers      found via
+------------------------------------------------------------------------
+https://basecamp.com/pricing                pricing      sitemap
+https://basecamp.com/features               features     sitemap
+https://basecamp.com/about                  identity     sitemap
+https://basecamp.com/status                 trust        probe
+https://basecamp.com/jobs                   direction    probe
+https://basecamp.com/security               trust        probe
+------------------------------------------------------------------------
+6 source(s) admitted from 16 path(s) checked
+```
+
+**Read the `answers` column, not the row count.** The cap is 8, and it is spent **round-robin
+across the questions a page answers** rather than on the most confident matches. That matters
+because ranking by confidence would fill the eight with `/pricing`, `/plans`, `/pricing/` and
+two more pricing pages from the sitemap — a report that states the price five ways and has
+nothing to say about anything else. [ADR 0010](decisions/0010-spend-the-cap-on-breadth.md).
+
+**Try one that publishes an `llms.txt`:**
+
+```bash
+cargo run -p landscape -- discover https://linear.app
+```
+
+Some sources will say `llms.txt` in the `found via` column. That is the site naming pages it
+would like an automated reader to read — better evidence than a path existing, so it wins the
+tie-break within a question.
+
+**Why every source is on the company's own domain.** Those are **Primary** sources, and
+`FACT_CHECKING.md` §3.2.1 permits only Primary sources to set a value in a comparison table.
+Search returns other people's pages, which can be reported but never tabulated — which is why
+probes come first rather than merely being cheaper.
+
+**A thin result is not a failure.** The line saying *16 path(s) checked* is the point: a
+negative nobody can check is not a finding, the same rule the report's "nothing found"
+sections follow.
+
+**Exact results will drift.** Sites reorganise. What should hold is that the sources are
+absolute URLs on that domain, none is listed twice, and the `answers` column shows more than
+one kind of thing.
+
+---
+
 ## Part 9 — What the tests prove
 
 ```bash
 cargo test
 ```
 
-**You should see 193 passing, with nothing running.**
+**You should see 227 passing, with nothing running.**
 
 CI runs the same tests through `cargo nextest run`, which is faster and gives each test its
 own process — so a test that panics is reported as a failure instead of taking the run down
@@ -850,6 +908,8 @@ python prototype/build.py --preview
 | 8B — Google `/search` refused by robots, `/robots.txt` allowed | | |
 | 8C — most pages report `tier 1  static html` | | |
 | 8C — the report refuses to apply the 5% rule itself | | |
+| 8D — discovery returns absolute URLs, no duplicates | | |
+| 8D — the `answers` column shows several different kinds | | |
 | 9 — `cargo test` green with nothing running | | |
 
 **If something differs from what is written here, that is a bug.** Every command above was run
