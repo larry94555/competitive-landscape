@@ -299,7 +299,8 @@ failure is real.
 
 ```
 crates/
-  landscape-core/   domain types and the report schema. No I/O — pure, fully unit-tested
+  landscape-core/   domain types, the report schema, and what was checked when nothing
+                    was found. No I/O — pure, fully unit-tested
   landscape-db/     the Store trait, an in-memory implementation, and Postgres
   landscape-api/    axum routers, request validation, error mapping
   landscape-llm/    constrained generation: a Rust type in, that type out

@@ -926,6 +926,29 @@ them would read as a quiet quarter at a company that ships weekly.
 about a feature called Releases, not a changelog. [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §4 is
 strict about this distinction: **not "no changes."**
 
+**Every run now ends with what it did not find**, which is the half of a report that is
+usually missing:
+
+```
+question     coverage
+----------------------------------------------------------------------------------------------
+pricing      2 fact(s) from 1 source(s)
+features     10 fact(s) from 1 source(s)
+changes      no page found. Checked: /changelog (404), /releases (404), /blog (404)
+identity     1 page(s) found and not read - our gap, not theirs
+trust        2 page(s) found and not read - our gap, not theirs
+```
+
+**Basecamp publishes no changelog**, and that line is what makes the claim checkable — three
+paths, three answers, all of which you can try yourself.
+[FACT_CHECKING.md](FACT_CHECKING.md) §5.4: *a negative nobody can check is not a finding.*
+
+**Read the difference between the last two kinds of line.** *"No page found"* is a fact about
+the company. *"Found and not read"* is a fact about us — identity, trust and direction have no
+extractor yet, so their pages are admitted and never opened. Reporting those as *"we read it
+and it said nothing"* would be this feature committing the error it exists to prevent, and the
+first version of it did exactly that for one run.
+
 **Three things are still wrong, and all are visible if you look:**
 
 ```bash
@@ -984,7 +1007,7 @@ That prints the page's size; the Markdown behind it keeps the headings and table
 cargo test
 ```
 
-**You should see 354 passing, with nothing running.**
+**You should see 366 passing, with nothing running.**
 
 CI runs the same tests through `cargo nextest run`, which is faster and gives each test its
 own process — so a test that panics is reported as a failure instead of taking the run down
@@ -1077,6 +1100,8 @@ python prototype/build.py --preview
 | 8E — `discover todoist.com` lists three English pages, no duplicates | | |
 | 8E — notion `/releases` lists dated changes, with no model running | | |
 | 8E — linear `/docs/releases.md` says "no dated entries", not "no changes" | | |
+| 8E — every run ends with a coverage line per question | | |
+| 8E — basecamp's `changes` line names the three paths tried | | |
 | 9 — `cargo test` green with nothing running | | |
 
 **If something differs from what is written here, that is a bug.** Every command above was run
