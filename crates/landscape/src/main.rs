@@ -52,6 +52,11 @@ enum Role {
     /// believe in and hard to observe, and "run it against a URL and watch" is the only
     /// honest way to convince somebody they work.
     Fetch,
+    /// Measure the JavaScript-rendering gap over a list of pricing pages.
+    ///
+    /// ARCHITECTURE.md §5.5 refuses to schedule a headless browser until its size is known,
+    /// and specifies two counters. This is those counters, run against real pages.
+    Gap,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,8 +100,9 @@ async fn main() -> Result<()> {
         Some("worker") => Role::Worker,
         Some("migrate") => Role::Migrate,
         Some("fetch") => Role::Fetch,
+        Some("gap") => Role::Gap,
         Some(other) => {
-            anyhow::bail!("unknown command {other:?}. Try: dev, serve, worker, migrate, fetch")
+            anyhow::bail!("unknown command {other:?}. Try: dev, serve, worker, migrate, fetch, gap")
         }
     };
 
@@ -104,6 +110,9 @@ async fn main() -> Result<()> {
     // DATABASE_URL to run a diagnostic would make the diagnostic the harder thing.
     if role == Role::Fetch {
         return fetch_one(&args).await;
+    }
+    if role == Role::Gap {
+        return measure_gap(&args).await;
     }
 
     let backing = if args.iter().any(|a| a == "--store=memory")
@@ -183,11 +192,56 @@ Example:
     }
 }
 
+/// `landscape gap <file>` — the two counters from ARCHITECTURE.md §5.5.
+///
+/// Takes a file of URLs, one per line, `#` for comments. A file rather than arguments
+/// because the sample is the instrument: a measurement you cannot re-run against exactly
+/// the same list is not one anybody can check.
+async fn measure_gap(args: &[String]) -> Result<()> {
+    let path = args.get(1).filter(|a| !a.starts_with("--")).context(
+        "usage: landscape gap <file-of-urls>
+
+Example:
+  landscape gap docs/js-gap-sample.txt",
+    )?;
+    let listing =
+        std::fs::read_to_string(path).with_context(|| format!("could not read {path}"))?;
+
+    let urls: Vec<&str> = listing
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#'))
+        .collect();
+
+    let fetcher = landscape_fetch::Fetcher::new();
+    let mut report = landscape_extract::Report::default();
+
+    for url in urls {
+        match fetcher.get(url).await {
+            Ok(page) => {
+                let found = landscape_extract::locate(&page.body);
+                tracing::info!(url, tier = found.tier(), "measured");
+                report.readings.push(landscape_extract::Reading {
+                    url: url.to_owned(),
+                    found,
+                });
+            }
+            // Kept apart from "no price found". A page we could not reach says nothing
+            // about JavaScript, and folding the two together would inflate the gap with
+            // our own failures — in the direction of more work for us.
+            Err(e) => report.unreachable.push((url.to_owned(), e.to_string())),
+        }
+    }
+
+    println!("{}", report.render());
+    Ok(())
+}
+
 async fn run(role: Role, store: Arc<dyn Store>) -> Result<()> {
     match role {
         Role::Migrate => Ok(()),
         // Handled before any store exists; see `main`.
-        Role::Fetch => Ok(()),
+        Role::Fetch | Role::Gap => Ok(()),
         Role::Serve => serve(store).await,
         Role::Worker => worker(store).await,
         Role::Dev => {

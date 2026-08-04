@@ -1,0 +1,63 @@
+# The sample for the JavaScript-rendering gap measurement.
+#
+#   cargo run -p landscape -- gap docs/js-gap-sample.txt
+#
+# ARCHITECTURE.md §5.5 asks two questions about *pricing pages*, so every URL here is a
+# pricing page rather than a homepage. The decision it feeds — whether a headless browser
+# is ever built — is worth more than the half hour it took to choose these.
+#
+# How they were chosen, so the number can be argued with:
+#
+#   * B2B SaaS with published prices, which is what this product mostly reads.
+#   * A deliberate mix of stacks. Next.js, Nuxt and Rails-era server rendering fail
+#     differently, and a sample of one framework measures that framework.
+#   * A few known "contact sales" pages, because a page with no price is a finding rather
+#     than a gap and the residual must not silently absorb them.
+#   * Public pages only. Nothing behind a login, nothing a robots.txt asks us to leave.
+#
+# **This sample is small and it is not random.** Thirty pages chosen by one person is
+# enough to tell 40% from 4%, which is the decision in front of us, and nowhere near enough
+# to publish as a market statistic. BENCHMARKS.md says so where the number appears.
+#
+# A line starting with # is a comment. Blank lines are ignored.
+
+# --- large, heavily engineered front ends (Next.js / React) ---------------
+https://vercel.com/pricing
+https://www.netlify.com/pricing/
+https://supabase.com/pricing
+https://planetscale.com/pricing
+https://railway.com/pricing
+https://clerk.com/pricing
+https://resend.com/pricing
+https://linear.app/pricing
+
+# --- established SaaS, mixed stacks --------------------------------------
+https://www.atlassian.com/software/jira/pricing
+https://slack.com/pricing
+https://www.dropbox.com/plans
+https://www.notion.com/pricing
+https://asana.com/pricing
+https://basecamp.com/pricing
+https://www.zoho.com/crm/zohocrm-pricing.html
+https://buffer.com/pricing
+
+# --- developer tools ------------------------------------------------------
+https://github.com/pricing
+https://about.gitlab.com/pricing/
+https://sentry.io/pricing/
+https://www.datadoghq.com/pricing/
+https://circleci.com/pricing/
+https://www.docker.com/pricing/
+
+# --- infrastructure with published rates ----------------------------------
+https://www.digitalocean.com/pricing
+https://www.linode.com/pricing/
+https://www.hetzner.com/cloud
+https://www.backblaze.com/cloud-storage/pricing
+https://www.cloudflare.com/plans/
+
+# --- expected to publish no price, on purpose -----------------------------
+# These are the control group. If the measurement cannot tell "no price published"
+# from "price hidden behind JavaScript", the residual is meaningless.
+https://www.databricks.com/company/contact
+https://www.palantir.com/platforms/foundry/

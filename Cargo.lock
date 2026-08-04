@@ -865,6 +865,7 @@ dependencies = [
  "landscape-api",
  "landscape-core",
  "landscape-db",
+ "landscape-extract",
  "landscape-fetch",
  "serde_json",
  "tokio",
@@ -928,6 +929,10 @@ dependencies = [
  "tracing",
  "uuid",
 ]
+
+[[package]]
+name = "landscape-extract"
+version = "0.1.0"
 
 [[package]]
 name = "landscape-fetch"
