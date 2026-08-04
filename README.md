@@ -306,8 +306,8 @@ crates/
   landscape-bench/  measures how fast a llama-server is
   landscape-discover/ which pages to read about a company, in which language,
                      and which eight
-  landscape-extract/ a page into Markdown, and the ~400 tokens per plan or
-                     capability worth reading
+  landscape-extract/ a page into Markdown, the ~400 tokens per plan or capability
+                     worth reading, and the dates a changelog states
   landscape-fetch/  the outside world: SSRF guard, robots.txt, per-host politeness
   landscape-golden/ measures whether it is right. Ten frozen pages, known answers
   landscape/        the binary: dev | serve | worker | migrate

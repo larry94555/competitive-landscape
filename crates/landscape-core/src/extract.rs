@@ -155,6 +155,91 @@ impl PagePricing {
     }
 }
 
+/// One dated change, as a page states it.
+///
+/// **Nothing here comes from a model.** [`ARCHITECTURE.md`] §5.4 puts changelog entries on the
+/// deterministic side and gives the reason: *"Dates are the most common LLM fabrication in
+/// 'recent changes' and are trivially verifiable."* A date is on the page or it is not.
+///
+/// [`ARCHITECTURE.md`]: ../../../docs/ARCHITECTURE.md
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Change {
+    /// When the page says it happened. `None` never occurs from parsing — an entry without a
+    /// date is not an entry — but the field is optional so that a change learned some other
+    /// way can be held here too.
+    pub happened_on: Option<chrono::NaiveDate>,
+
+    /// The entry's title, as written. Empty when a page dated something without titling it.
+    pub summary: Option<String>,
+
+    /// The line the date was read from, copied verbatim.
+    pub evidence_quote: Option<String>,
+}
+
+/// Everything one changelog page says, and what it does not.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PageChanges {
+    /// In the order the page lists them, which is newest-first on every real changelog.
+    pub changes: Vec<Change>,
+    /// How many dated entries the page held before any cap was applied.
+    pub considered: usize,
+}
+
+impl PageChanges {
+    /// The window `PRODUCT_SPEC.md` §4 reports on: *"Recent public changes (lookback: 90
+    /// days)"*.
+    pub const LOOKBACK_DAYS: i64 = 90;
+
+    /// The changes inside the lookback, newest first.
+    ///
+    /// `today` is passed in rather than read from the clock. A function that asks the
+    /// operating system what day it is cannot be tested, and this one decides what a report
+    /// shows.
+    #[must_use]
+    pub fn recent(&self, today: chrono::NaiveDate) -> Vec<&Change> {
+        let cutoff = today - chrono::Duration::days(Self::LOOKBACK_DAYS);
+        let mut inside: Vec<&Change> = self
+            .changes
+            .iter()
+            .filter(|c| c.happened_on.is_some_and(|d| d > cutoff && d <= today))
+            .collect();
+        inside.sort_by_key(|c| std::cmp::Reverse(c.happened_on));
+        inside
+    }
+
+    /// How many dated entries fall outside the lookback.
+    ///
+    /// Reported rather than dropped. **A quiet quarter and an unread page look identical in a
+    /// report that only shows what it found**, and `PRODUCT_SPEC.md` §4's coverage note exists
+    /// to tell them apart: *"Not 'no changes.'"*
+    #[must_use]
+    pub fn older_than_lookback(&self, today: chrono::NaiveDate) -> usize {
+        let cutoff = today - chrono::Duration::days(Self::LOOKBACK_DAYS);
+        self.changes
+            .iter()
+            .filter(|c| c.happened_on.is_some_and(|d| d <= cutoff))
+            .count()
+    }
+
+    /// Entries dated after today.
+    ///
+    /// A changelog announcing next month's price rise is publishing a fact, and it is not a
+    /// change that has shipped. Counted so it can be said out loud rather than folded in.
+    #[must_use]
+    pub fn dated_ahead(&self, today: chrono::NaiveDate) -> usize {
+        self.changes
+            .iter()
+            .filter(|c| c.happened_on.is_some_and(|d| d > today))
+            .count()
+    }
+
+    /// Whether the page yielded no dated entry at all.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.changes.is_empty()
+    }
+}
+
 /// One capability, as a page describes it.
 ///
 /// The second question kind. It differs from pricing in what can be checked: a price is on the
@@ -431,6 +516,78 @@ mod tests {
     #[test]
     fn a_page_with_no_plans_says_so() {
         assert!(PagePricing::assembled([]).is_empty());
+    }
+
+    fn day(y: i32, m: u32, d: u32) -> chrono::NaiveDate {
+        chrono::NaiveDate::from_ymd_opt(y, m, d).unwrap()
+    }
+
+    fn change(on: chrono::NaiveDate) -> Change {
+        Change {
+            happened_on: Some(on),
+            summary: Some("Shipped something".to_owned()),
+            evidence_quote: Some("2026-07-14".to_owned()),
+        }
+    }
+
+    #[test]
+    fn the_lookback_is_the_ninety_days_the_spec_reports_on() {
+        let today = day(2026, 8, 4);
+        let page = PageChanges {
+            changes: vec![change(day(2026, 7, 14)), change(day(2026, 1, 5))],
+            considered: 2,
+        };
+        assert_eq!(page.recent(today).len(), 1);
+        assert_eq!(page.older_than_lookback(today), 1);
+    }
+
+    #[test]
+    fn what_falls_outside_the_window_is_counted_rather_than_dropped() {
+        // PRODUCT_SPEC §4: a coverage note, because "no entries in the window" and "we did
+        // not read the changelog" look identical in a report that only shows what it found.
+        let today = day(2026, 8, 4);
+        let page = PageChanges {
+            changes: vec![change(day(2025, 11, 24)), change(day(2025, 11, 17))],
+            considered: 2,
+        };
+        assert!(page.recent(today).is_empty());
+        assert_eq!(page.older_than_lookback(today), 2);
+        assert!(!page.is_empty(), "the page had entries; none were recent");
+    }
+
+    #[test]
+    fn a_change_dated_after_today_has_not_shipped() {
+        // A changelog announcing next month's price rise is publishing a fact, and it is not
+        // a change that has happened.
+        let today = day(2026, 8, 4);
+        let page = PageChanges {
+            changes: vec![change(day(2026, 9, 1))],
+            considered: 1,
+        };
+        assert!(page.recent(today).is_empty());
+        assert_eq!(page.dated_ahead(today), 1);
+    }
+
+    #[test]
+    fn recent_changes_come_back_newest_first() {
+        let today = day(2026, 8, 4);
+        let page = PageChanges {
+            changes: vec![change(day(2026, 6, 10)), change(day(2026, 7, 14))],
+            considered: 2,
+        };
+        let dates: Vec<_> = page
+            .recent(today)
+            .iter()
+            .filter_map(|c| c.happened_on)
+            .collect();
+        assert_eq!(dates, [day(2026, 7, 14), day(2026, 6, 10)]);
+    }
+
+    #[test]
+    fn a_page_with_no_dated_entries_says_so() {
+        let page = PageChanges::default();
+        assert!(page.is_empty());
+        assert!(page.recent(day(2026, 8, 4)).is_empty());
     }
 
     fn capability(name: &str) -> FeatureExtraction {

@@ -195,10 +195,28 @@ pub fn guess(path: &str) -> Option<Answers> {
         return None;
     }
 
+    // An article is not a section answer. `plausible.io/blog/product-hunt-launch` classifies
+    // as *features* on the word `product`, and `/blog/changelog-podcast` classifies as
+    // *changes* on the word `changelog` — a podcast episode, dated 2019. The index of a blog
+    // is a changelog of sorts; a post inside it is one company's opinion on a Tuesday.
+    if is_article(&p) {
+        return None;
+    }
+
     if has("pricing") || has("plans") || has("price") {
         return Some(Answers::Pricing);
     }
-    if has("changelog") || has("releases") || has("release") || has("whatsnew") {
+    // `blog` and `news` are here because `PROBES` already treats `/blog` as a changes
+    // candidate, and a classifier that disagreed with the probe list would admit a page under
+    // one label and score it under another. The index only — a post inside it was rejected
+    // above.
+    if has("changelog")
+        || has("releases")
+        || has("release")
+        || has("whatsnew")
+        || has("blog")
+        || has("news")
+    {
         return Some(Answers::Changes);
     }
     if has("security") || has("trust") || has("status") || has("compliance") {
@@ -225,6 +243,37 @@ pub fn guess(path: &str) -> Option<Answers> {
         return depth(&p).le(&1).then_some(Answers::Features);
     }
     None
+}
+
+/// How directly a path names the question it was admitted for. Lower is more direct.
+///
+/// A tiebreak, and it exists because the previous one was arbitrary. `notion.com` publishes
+/// both `/releases` and `/blog`; both answer *what changed*; and the shorter URL won, which
+/// put the blog in the report and left the changelog unread. `/blog` yielded no dated entry
+/// and `/releases` yields dozens.
+///
+/// Nothing here is about quality — a blog is a fine source. It is about which of two pages is
+/// more likely to be *the* page for a question.
+#[must_use]
+pub fn specificity(path: &str) -> u8 {
+    const BROAD: [&str; 5] = ["blog", "news", "docs", "documentation", "product"];
+
+    let lower = path.to_lowercase();
+    u8::from(BROAD.iter().any(|word| lower.contains(word)))
+}
+
+/// Whether this path is a post inside a publication rather than the publication itself.
+fn is_article(path: &str) -> bool {
+    const PUBLICATIONS: [&str; 5] = ["blog", "news", "posts", "articles", "stories"];
+
+    let mut segments = path
+        .split('/')
+        .filter(|s| !s.is_empty())
+        .skip_while(|s| crate::locale::is_locale_segment(s));
+    let Some(first) = segments.next() else {
+        return false;
+    };
+    PUBLICATIONS.contains(&first) && segments.next().is_some()
 }
 
 /// Whether a segment names something a visitor does rather than something a company states.
@@ -268,6 +317,26 @@ fn depth(path: &str) -> usize {
 mod tests {
     use super::*;
     use std::collections::HashSet;
+
+    #[test]
+    fn the_page_that_names_the_question_outranks_the_broad_one() {
+        // notion.com publishes both, both answer *what changed*, and the blog had no dated
+        // entry on it at all.
+        assert!(specificity("https://e.com/releases") < specificity("https://e.com/blog"));
+        assert!(specificity("https://e.com/features") < specificity("https://e.com/product/ai"));
+    }
+
+    #[test]
+    fn a_blog_post_is_not_a_section_answer() {
+        // Both of these were admitted in a real run. The first classifies as *features* on
+        // the word `product`; the second as *changes* on the word `changelog`, and it is a
+        // podcast episode.
+        assert_eq!(guess("/blog/product-hunt-launch"), None);
+        assert_eq!(guess("/blog/changelog-podcast"), None);
+        assert_eq!(guess("/news/2026/we-raised-a-round"), None);
+        // The index of a publication is still worth reading for what changed.
+        assert_eq!(guess("/blog"), Some(Answers::Changes));
+    }
 
     #[test]
     fn a_page_you_do_something_on_answers_nothing() {
