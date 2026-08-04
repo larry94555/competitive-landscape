@@ -212,8 +212,9 @@ async fn main() -> Result<()> {
     println!("landscape-bench — {label}");
     println!("server: {}", client.base());
     println!(
-        "\nNote: these numbers describe THIS machine. The roadmap needs them from the A1,\n\
-         because 4 ARM cores are not 8 x86 threads and prefill is where the difference lands."
+        "\nNote: these numbers describe THIS machine. Compare them with each other -\n\
+         the ratios travel, the seconds do not. How long a user waits is measured from\n\
+         a client against a deployment, never from inside one."
     );
 
     let decode = Decode {

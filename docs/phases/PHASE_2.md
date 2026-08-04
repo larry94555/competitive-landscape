@@ -13,7 +13,7 @@ phase starts rather than when it ends.
 | | |
 |---|---|
 | **Do** | Get **10 people who are not you** to use it and rate the report's usefulness out of 5 |
-| **Where** | The running product. The concierge recipients from [Phase 0](PHASE_0.md#step-2--the-concierge-five-the-g1-gate) are the obvious first five |
+| **Where** | The running product. The concierge recipients from [Phase 0](PHASE_0.md#step-1--the-concierge-five-the-g1-gate) are the obvious first five |
 | **Time** | A week or two of calendar, an hour or two of yours |
 | **Done when** | Ten ratings recorded, **averaging ≥ 4/5** |
 | **I confirm by** | **You tell me the ratings and I record them** in `ROADMAP.md`. I have no way to see them, and I will write down the average you give me rather than the one that would be convenient |

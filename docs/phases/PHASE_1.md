@@ -55,7 +55,7 @@ one from a no.
 
 ## Step 3 *(conditional)* — Only if the review platforms said no
 
-Skip this if [Phase 0 Step 3](PHASE_0.md#step-3--the-source-terms-audit-track-d) came back
+Skip this if [Phase 0 Step 2](PHASE_0.md#step-2--the-source-terms-audit-track-d) came back
 permissive.
 
 | | |

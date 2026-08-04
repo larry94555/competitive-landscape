@@ -365,7 +365,7 @@ The code implements a specification written first. Start with
 |---|---|
 | [phases/](docs/phases/) | **What only the founder can do, per phase** — with what "done" looks like and how it is verified |
 | [TUTORIAL.md](docs/TUTORIAL.md) | **An hour from a fresh clone to changing the code.** Start here if you are new |
-| [A1_BAKEOFF.md](docs/A1_BAKEOFF.md) | The commands that close the model choice, for whoever has a terminal on the ARM box |
+| [MODEL_BAKEOFF.md](docs/MODEL_BAKEOFF.md) | How the model choice was measured — locally, because production is not a laboratory |
 | [PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md) | User flows and the report schema |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | The stack, and why each piece is there |
 | [FACT_CHECKING.md](docs/FACT_CHECKING.md) | Source dispositions and auditable negatives |
