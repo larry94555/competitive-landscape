@@ -42,7 +42,7 @@
   .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
 </style>
 
-<div class="banner" id="banner">CODE TOUR — not on production</div>
+<div class="banner" id="banner">CODE TOUR — watching it fill in</div>
 
 <div class="wrap">
   <aside class="tree">
@@ -80,108 +80,107 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    ask: {
-      name: "what Phase 0 was asking for",
-      purpose: "Ninety minutes on the production box.",
+    placeholder: {
+      name: "what the worker used to write",
+      purpose: "A placeholder, since the first week.",
       lines: [
-        ['s', '  build llama.cpp on the server'],
-        ['s', '  download two models'],
-        ['s', '  run two harnesses'],
-        ['s', '  paste the output back'],
+        ['s', '  nothing was fetched: the gathering'],
+        ['s', '  pipeline is not built yet'],
         ['c', ''],
-        ['c', '// It had been open for weeks.']
+        ['c', '// The queue worked. The worker worked.'],
+        ['c', '// There was nothing to carry.'],
+        ['c', ''],
+        ['f', '// There is now.']
       ]
     },
-    behind: {
-      name: "what an experiment leaves behind",
-      purpose: "A toolchain. A model. A swap file.",
+    prompt: {
+      name: "but a prompt is not a website",
+      purpose: "an app that helps small farms...",
       lines: [
-        ['c', '// Every one of them is an assumption'],
-        ['c', '// the deployment then depends on.'],
+        ['c', '// Entity resolution needs candidates.'],
+        ['c', '// Candidates come from search.'],
+        ['s', '// Search is not built - section 3.3 puts'],
+        ['s', '// it last on purpose.'],
         ['c', ''],
-        ['f', '// The value of the production host is'],
-        ['f', '// that it is boring.'],
-        ['c', ''],
-        ['f', '// That is also what keeps it swappable.']
+        ['f', '// So: read a domain out of the sentence,'],
+        ['f', '// or fail and say why.']
       ]
     },
-    inside: {
-      name: "and a stopwatch inside the box",
-      purpose: "measures the box.",
+    guess: {
+      name: "why not guess",
+      purpose: "The most expensive wrong answer.",
       lines: [
-        ['c', '// The question is: how long does'],
-        ['c', '// somebody wait?'],
+        ['c', '// A guessed domain gives you a report'],
+        ['c', '// with every claim cited and quoted.'],
         ['c', ''],
-        ['s', '// That includes the network and the'],
-        ['s', '// browser. A server cannot see either.'],
+        ['s', '// About the wrong company.'],
         ['c', ''],
-        ['f', '// So test from where the client is.']
+        ['f', '  failed: this prompt does not name a'],
+        ['f', '  website. Try a domain.']
       ]
     },
-    weights: {
-      name: "and most of it was never hardware",
-      purpose: "Which model invents fewer prices?",
+    progress: {
+      name: "crates/landscape-db, save_progress",
+      purpose: "Write the report so far.",
       lines: [
-        ['c', '// A property of the weights.'],
+        ['c', '// A report is assembled a section at'],
+        ['c', '// a time. A reader waits ninety seconds.'],
         ['c', ''],
-        ['c', '// Does q8_0 KV cost accuracy?'],
-        ['c', '// One flag, changed twice, same machine.'],
+        ['f', '  after every page: save what exists'],
         ['c', ''],
-        ['f', '// Both answered on a laptop, in an'],
-        ['f', '// afternoon.']
+        ['c', '// A partial report is the same shape as'],
+        ['f', '// a finished one. Nothing has to know.']
       ]
     },
-    scores: {
-      name: "docs/BENCHMARKS.md, Run 14",
-      purpose: "Three points between them.",
+    broker: {
+      name: "and no message broker",
+      purpose: "Two processes, one row.",
       lines: [
-        ['f', '  4B Q4_K_M     90%   8/10   0 invented'],
-        ['t', '  1.7B Q8_0     87%   7/10   1 invented'],
-        ['s', '  unsloth 1.7B  10%   0/10   3 invented'],
+        ['c', '// A broker would deliver events a few'],
+        ['c', '// hundred milliseconds sooner.'],
         ['c', ''],
-        ['c', '// The last row is the control. Same'],
-        ['f', '// numbers as Run 3. The instrument holds.']
+        ['s', '// And be a second thing to run,'],
+        ['s', '// supervise, and lose events through.'],
+        ['c', ''],
+        ['f', '// Poll the row. The reader cannot tell.']
       ]
     },
-    hundred: {
-      name: "the one invented price",
-      purpose: "On the page that publishes none.",
+    once: {
+      name: "a section is sent once",
+      purpose: "When it first has claims.",
       lines: [
-        ['t', '  expected  price None'],
-        ['s', '  returned  price Some(100.0)'],
+        ['c', '// An empty section carries a note that'],
+        ['c', '// says: we found nothing.'],
         ['c', ''],
-        ['c', '// contact-sales. The most common real'],
-        ['c', '// case, and the worst place to guess.'],
+        ['s', '// That is only true at the end.'],
         ['c', ''],
-        ['f', '// The 1.7B is 2.8x faster. It does not'],
-        ['f', '// get the extraction tier.']
+        ['f', '// Sending it early tells a reader we had'],
+        ['f', '// finished looking.']
       ]
     },
-    kv: {
-      name: "and the KV question",
-      purpose: "Same weights. One flag.",
+    late: {
+      name: "and a late write changes nothing",
+      purpose: "A worker that lost a race.",
       lines: [
-        ['t', '  f16    90%  8/10   2.52 GB'],
-        ['f', '  q8_0   90%  8/10   1.73 GB'],
+        ['t', '  WHERE id = $1 AND status = running'],
         ['c', ''],
-        ['c', '// Identical, subject by subject.'],
+        ['c', '// No rows affected is the right outcome,'],
+        ['c', '// not an error.'],
         ['c', ''],
-        ['f', '// The rule was written first: take it'],
-        ['f', '// only if the score does not move.']
+        ['f', '// Somebody is reading that report.']
       ]
     },
-    left: {
-      name: "Phase 0 is five of eight",
-      purpose: "And nothing left runs on a server.",
+    stream: {
+      name: "plausible.io, through the API",
+      purpose: "No database. No command line.",
       lines: [
-        ['f', '  three-model choice      closed'],
-        ['f', '  q8_0 KV                 closed'],
+        ['t', '  event: status   running'],
+        ['f', '  event: section  features   9 claims'],
+        ['f', '  event: section  changes   11 claims'],
+        ['f', '  event: section  identity   3 claims'],
+        ['t', '  event: status   complete'],
         ['c', ''],
-        ['t', '  the concierge five'],
-        ['t', '  the source-terms audit'],
-        ['t', '  latency, from a client'],
-        ['c', ''],
-        ['f', '// None of them needs a terminal on it.']
+        ['f', '// Three of them arrived while it ran.']
       ]
     }
   };
@@ -225,30 +224,30 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:ask",      c: "Phase 0 wanted ninety minutes on the server." },
-    { kind: "means",       a: "spot:#code",    c: "Build a toolchain on production, and measure." },
+    { kind: "recognition", a: "file:placeholder", c: "The worker had nothing to carry." },
+    { kind: "means",       a: "spot:#code",       c: "It wrote a placeholder for weeks." },
 
-    { kind: "turn",        a: "file:behind",   c: "An experiment leaves things behind." },
-    { kind: "means",       a: "spot:#code",    c: "Every one of them becomes an assumption." },
+    { kind: "turn",        a: "file:prompt",      c: "But a prompt is not a website." },
+    { kind: "means",       a: "spot:#code",       c: "Finding one needs a search we do not have." },
 
-    { kind: "result",      a: "file:inside",   c: "And a stopwatch in the box measures the box." },
-    { kind: "means",       a: "spot:#code",    c: "The user waits through the network too." },
+    { kind: "result",      a: "file:guess",       c: "So it refuses to guess one." },
+    { kind: "means",       a: "spot:#code",       c: "Cited, quoted, and the wrong company." },
 
-    { kind: "result",      a: "file:weights",  c: "Most of the questions were not about hardware." },
-    { kind: "means",       a: "spot:#code",    c: "Weights and flags. Both answerable here." },
+    { kind: "result",      a: "file:progress",    c: "Then: write the report after every page." },
+    { kind: "means",       a: "spot:#code",       c: "Partial and finished are the same shape." },
 
-    { kind: "result",      a: "file:scores",   c: "So it ran on this laptop instead." },
-    { kind: "means",       a: "spot:#code",    c: "Three points between the two candidates." },
+    { kind: "result",      a: "file:broker",      c: "And stream it without a broker." },
+    { kind: "means",       a: "spot:#code",       c: "Two processes already share a row." },
 
-    { kind: "result",      a: "file:hundred",  c: "And the small one invented a price." },
-    { kind: "means",       a: "spot:#code",    c: "On the page that publishes none." },
+    { kind: "result",      a: "file:once",        c: "A section is sent once it has something." },
+    { kind: "means",       a: "spot:#code",       c: "Empty means we finished. It has not." },
 
-    { kind: "result",      a: "file:kv",       c: "The cache question took one flag." },
-    { kind: "means",       a: "spot:#code",    c: "Same score. Most of a gigabyte back." },
+    { kind: "result",      a: "file:late",        c: "And a late write is quietly ignored." },
+    { kind: "means",       a: "spot:#code",       c: "Somebody is reading that report." },
 
-    { kind: "result",      a: "file:left",     c: "Two criteria closed in an afternoon." },
+    { kind: "result",      a: "file:stream",      c: "One company, through the product." },
 
-    { kind: "close",       a: "hold",          c: "They had been blocked on a terminal." }
+    { kind: "close",       a: "hold",             c: "The spinner has content behind it now." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -271,7 +270,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("ask");
+    show("placeholder");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -284,15 +283,15 @@
     }, TOTAL * 1000));
   }
 
-  show("ask");
+  show("placeholder");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "Not on production",
-    blurb: "Two Phase 0 criteria had been waiting on somebody opening a terminal on the production host. Neither question was about hardware, both were answered on a laptop in an afternoon, and the rule that replaced the plan is the more useful outcome.",
+    title: "Watching it fill in",
+    blurb: "The queue, the worker and the API have been in place since the first week with nothing worth carrying. This is the join - and the two rules that fell out of letting somebody watch a report being written rather than waiting for it.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;
