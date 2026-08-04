@@ -465,7 +465,19 @@ the single most important phase; everything after it is commerce and polish.
   **What remains here is measurement, not more rules.** Discovery has no golden-set subjects at
   all, so every judgement about it — these two included — rests on four companies read by hand.
   Fixtures for `admit` and `guess` are what would turn that into evidence.
-- All seven report sections, streamed over SSE.
+- **A report, assembled.** `landscape-analyze`, [BENCHMARKS.md](BENCHMARKS.md) Run 13: six
+  sections — one per question discovery asks — each populated with cited claims or carrying its
+  coverage note. Every claim has a source label and a verbatim quote, and
+  `Report::every_claim_is_traceable` refuses one whose citation does not resolve.
+  **Three of §4's nine sections are deliberately absent**: positioning, sentiment themes and
+  the SWOT are interpretation over sources this pipeline does not gather, and an empty section
+  that can never be filled teaches a reader to skim past empty sections.
+  What is left on this line: **streaming it over SSE**, and **storing it** — the report is
+  assembled, rendered and dropped, and the queue, the worker and the API have been waiting
+  since Phase 1 began for something to carry.
+  Also open: **`searched_as` is the origin the user typed.** The entity gate exists and the
+  orchestrator does not call it, so the report's account of what it looked for is a copy of
+  its input.
 - Anonymous rate limit (2/day), share URL.
 
 **Technical tasks**

@@ -1,0 +1,24 @@
+[package]
+name = "landscape-analyze"
+# Not published; see landscape-golden's note about path dependencies and cargo-deny.
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "One subject in, one report out: discovery, extraction, and what was checked."
+
+[dependencies]
+landscape-core.workspace = true
+landscape-discover.workspace = true
+landscape-extract.workspace = true
+landscape-fetch.workspace = true
+landscape-llm.workspace = true
+chrono.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+
+[lints]
+workspace = true

@@ -21,7 +21,7 @@ pub use analysis::{Analysis, AnalysisId, AnalysisStatus, NewAnalysis};
 pub use coverage::{Attempt, Coverage};
 pub use extract::{
     BillingPeriod, Change, FeatureExtraction, IdentityExtraction, PageChanges, PageFeatures,
-    PageIdentity, PagePricing, PricingExtraction,
+    PageIdentity, PagePricing, PricingExtraction, Stated,
 };
 pub use report::{Claim, Confidence, Report, Section, SectionStatus};
 pub use source::{Disposition, Source};

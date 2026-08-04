@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "crates/landscape-analyze",
     "crates/landscape-core",
     "crates/landscape-db",
     "crates/landscape-api",
@@ -21,6 +22,7 @@ license = "MIT"
 repository = "https://github.com/larry94555/competitive-landscape"
 
 [workspace.dependencies]
+landscape-analyze = { path = "crates/landscape-analyze" }
 landscape-core = { path = "crates/landscape-core" }
 landscape-db = { path = "crates/landscape-db" }
 landscape-api = { path = "crates/landscape-api" }

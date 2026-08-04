@@ -956,6 +956,28 @@ an about page of pure story is exactly the prompt that invites it to answer from
 value has to be written in the window it came from — checked field by field, so a correct year
 is not thrown away by an invented headquarters beside it.
 
+**And then it ends with a report**, which is the point of all of it:
+
+```
+# https://plausible.io
+Read 2026-08-04 19:58 UTC · 4 source(s) cited · prompts v1
+
+## Pricing & packaging
+no page found. Checked: /pricing (404), /plans (404), /pricing/ (404)
+
+## Company facts
+- says it was founded in 2018 [S3·H]
+  > Uku Taht started Plausible in December 2018, building it alone…
+```
+
+**Everything above the report is a run log** — ordered by page, showing every join, and the
+diagnostic that has found a dozen runs' worth of bugs. **The report is ordered by question**,
+cites every claim with a source label and a verbatim quote, and puts a coverage note where it
+has nothing. The product will have the second one.
+
+`[S3·H]` is the source and the confidence. A quoted price is `H`; a capability name is `M` and
+can never be more, because shortening a heading is a paraphrase by design.
+
 **Every run now ends with what it did not find**, which is the half of a report that is
 usually missing:
 
@@ -1037,7 +1059,7 @@ That prints the page's size; the Markdown behind it keeps the headings and table
 cargo test
 ```
 
-**You should see 388 passing, with nothing running.**
+**You should see 408 passing, with nothing running.**
 
 CI runs the same tests through `cargo nextest run`, which is faster and gives each test its
 own process — so a test that panics is reported as a failure instead of taking the run down
@@ -1133,6 +1155,7 @@ python prototype/build.py --preview
 | 8E — plausible `/about` states three facts, all correct | | |
 | 8E — basecamp `/about` states none, and says so | | |
 | 8E — every run ends with a coverage line per question | | |
+| 8E — and then a report, with every claim cited and quoted | | |
 | 8E — basecamp's `changes` line names the three paths tried | | |
 | 9 — `cargo test` green with nothing running | | |
 
