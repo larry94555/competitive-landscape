@@ -42,7 +42,7 @@
   .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
 </style>
 
-<div class="banner" id="banner">CODE TOUR — what we checked</div>
+<div class="banner" id="banner">CODE TOUR — who they are</div>
 
 <div class="wrap">
   <aside class="tree">
@@ -80,107 +80,106 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    silent: {
-      name: "ten runs, one gap",
-      purpose: "It printed what it found.",
+    story: {
+      name: "the fourth question",
+      purpose: "Who they are, where, how big.",
       lines: [
-        ['c', '// And said nothing about what it'],
-        ['c', '// looked for.'],
+        ['c', '// A pricing page exists to state a price.'],
         ['c', ''],
-        ['s', '// A question nobody could answer, and'],
-        ['s', '// a question nobody asked, look the same.'],
+        ['f', '// An about page exists to tell a story.'],
         ['c', ''],
-        ['f', '// A negative nobody can check is not'],
-        ['f', '// a finding.']
+        ['c', '// The facts are in it by accident, in'],
+        ['c', '// subordinate clauses, or not at all.']
       ]
     },
-    note: {
-      name: "PRODUCT_SPEC, section 4",
-      purpose: "The output, written two years ago.",
+    age: {
+      name: "basecamp.com/about",
+      purpose: "Twenty-three years and running.",
       lines: [
-        ['f', '  no public changelog found in this'],
-        ['f', '  window - /changelog (404),'],
-        ['f', '  /releases (404), blog (90d).'],
+        ['t', "  We're here for them,"],
+        ['t', '  23 years and running.'],
         ['c', ''],
-        ['f', '  Not "no changes."'],
+        ['s', '// 2003 is arithmetic. Not reading.'],
         ['c', ''],
-        ['c', '// The numbers in brackets are the note.']
+        ['f', '  no stated facts about the company'],
+        ['f', '// Which is the right answer.']
       ]
     },
-    outcomes: {
-      name: "so discovery keeps the answers",
-      purpose: "Not just the paths.",
+    zero: {
+      name: "then: 0 people",
+      purpose: "The page said a team of 10.",
       lines: [
-        ['t', '  /changelog   404'],
-        ['t', '  /releases    404'],
-        ['t', '  /security    robots'],
+        ['s', '  0 people'],
         ['c', ''],
-        ['c', '// A path with no outcome beside it says'],
-        ['s', '// we typed a URL.'],
-        ['f', '// With one, it says what they publish.']
+        ['c', '// The grounding check passed it.'],
+        ['c', ''],
+        ['s', '  "10".contains("0")'],
+        ['c', ''],
+        ['f', '// A check that cannot fail is not a check.']
       ]
     },
-    four: {
-      name: "crates/landscape-core/coverage.rs",
-      purpose: "Four silences. No two alike.",
+    tokens: {
+      name: "crates/landscape-core/extract.rs",
+      purpose: "Numbers are matched whole.",
       lines: [
-        ['t', '  nothing was checked      our gap'],
-        ['f', '  no page found            theirs'],
-        ['t', '  found and not read       ours again'],
-        ['f', '  read, and it said nothing'],
+        ['f', '  split on non-digits, compare tokens'],
         ['c', ''],
-        ['c', '// The third one is there because the'],
-        ['c', '// fourth one was lying.']
+        ['c', '// 10 states 10. It does not state 0,'],
+        ['c', '// and 120200 does not state 2020.'],
+        ['c', ''],
+        ['f', '// Cheap. And it had been wrong all along.']
       ]
     },
-    lying: {
-      name: "it caught itself first",
-      purpose: "About a page nobody opened.",
+    whole: {
+      name: "the check threw away a right answer",
+      purpose: "It cleared extractions, not fields.",
       lines: [
-        ['s', '  read 1 page. It stated nothing.'],
+        ['t', '  founded 2018      correct'],
+        ['s', '  based in Berlin   invented'],
         ['c', ''],
-        ['c', '// basecamp.com/about. Four of the six'],
-        ['c', '// questions have no extractor yet.'],
+        ['s', '// Both discarded. The window had been'],
+        ['s', '// asked for the year.'],
         ['c', ''],
-        ['f', '// Committing the error it was built'],
-        ['f', '// to prevent. It lasted one run.']
-      ]
-    },
-    basecamp: {
-      name: "and then it worked",
-      purpose: "Basecamp publishes no changelog.",
-      lines: [
-        ['f', '  changes   no page found. Checked:'],
-        ['f', '  /changelog (404), /releases (404),'],
-        ['f', '  /blog (404)'],
-        ['c', ''],
-        ['c', '// Run 10 knew this and said nothing.'],
-        ['f', '// Three paths. Three answers. Checkable.']
-      ]
-    },
-    linear: {
-      name: "then it found something",
-      purpose: "linear.app/changelog. Answers 200.",
-      lines: [
-        ['s', '  read 1 page, none stated anything.'],
-        ['s', '  Checked: /changelog (200)'],
-        ['c', ''],
-        ['c', '// It had never been read. A docs page'],
-        ['c', '// named in llms.txt held the slot.'],
-        ['c', ''],
-        ['f', '// Reachable and unread since Run 5.']
+        ['f', '// Field by field now, and it says how many.']
       ]
     },
     order: {
-      name: "which page, before how we found it",
-      purpose: "The same rule as the locale fix.",
+      name: "and the window was in the wrong place",
+      purpose: "started in did not match.",
       lines: [
-        ['c', '// Provenance is evidence about a page.'],
-        ['s', '// It is not evidence that the page'],
-        ['s', '// is the right one.'],
+        ['t', '  Uku Taht started Plausible in'],
+        ['t', '  December 2018'],
         ['c', ''],
-        ['f', '  linear.app/changelog'],
-        ['f', '  7 changes inside the window']
+        ['c', '// A name sits between the verb and the'],
+        ['c', '// preposition.'],
+        ['c', ''],
+        ['s', '// Two wrongs that looked like one right.']
+      ]
+    },
+    linkedin: {
+      name: "a source that was not theirs",
+      purpose: "notion.com/llms.txt lists LinkedIn.",
+      lines: [
+        ['s', '  linkedin.com/company/notionhq'],
+        ['c', ''],
+        ['c', '// It took the identity slot.'],
+        ['c', ''],
+        ['f', '// A primary source is a page on their'],
+        ['f', '// own domain. Only primary sources may'],
+        ['f', '// set a value in the table.']
+      ]
+    },
+    result: {
+      name: "four about pages",
+      purpose: "All four answers correct.",
+      lines: [
+        ['f', '  plausible   3 of 3'],
+        ['t', '  linear      1 of 3'],
+        ['t', '  basecamp    0 of 3'],
+        ['t', '  notion      0 of 3'],
+        ['c', ''],
+        ['c', '// Most about pages state nothing.'],
+        ['f', '// Saying so is the whole job.']
       ]
     }
   };
@@ -224,30 +223,30 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:silent",   c: "Ten runs printed what they found." },
-    { kind: "means",       a: "spot:#code",    c: "And nothing about what they looked for." },
+    { kind: "recognition", a: "file:story",    c: "The fourth question is who they are." },
+    { kind: "means",       a: "spot:#code",    c: "And the page was written to tell a story." },
 
-    { kind: "turn",        a: "file:note",     c: "The spec asked for this on day one." },
-    { kind: "means",       a: "spot:#code",    c: "The numbers in brackets are the note." },
+    { kind: "turn",        a: "file:age",      c: "Basecamp gives its age, never its year." },
+    { kind: "means",       a: "spot:#code",    c: "So we report nothing. That is correct." },
 
-    { kind: "result",      a: "file:outcomes", c: "So keep the answer beside the path." },
-    { kind: "means",       a: "spot:#code",    c: "404 is a fact about them, not about us." },
+    { kind: "result",      a: "file:zero",     c: "Then it answered: zero people." },
+    { kind: "means",       a: "spot:#code",    c: "The page said ten. The check agreed." },
 
-    { kind: "result",      a: "file:four",     c: "Four silences. No two alike." },
-    { kind: "means",       a: "spot:#code",    c: "Our gap and theirs are different findings." },
+    { kind: "result",      a: "file:tokens",   c: "A check that cannot fail is not a check." },
+    { kind: "means",       a: "spot:#code",    c: "Numbers are whole tokens now." },
 
-    { kind: "result",      a: "file:lying",    c: "The first thing it caught was itself." },
-    { kind: "means",       a: "spot:#code",    c: "A page nobody had opened. One run." },
+    { kind: "result",      a: "file:whole",    c: "The next one threw away a right answer." },
+    { kind: "means",       a: "spot:#code",    c: "One invented field killed the whole reply." },
 
-    { kind: "result",      a: "file:basecamp", c: "Then: Basecamp publishes no changelog." },
-    { kind: "means",       a: "spot:#code",    c: "Three paths, three answers, all checkable." },
+    { kind: "result",      a: "file:order",    c: "And the window was in the wrong place." },
+    { kind: "means",       a: "spot:#code",    c: "Two wrongs, looking like one right." },
 
-    { kind: "result",      a: "file:linear",   c: "And Linear had one we never read." },
-    { kind: "means",       a: "spot:#code",    c: "It answered 200 for six runs." },
+    { kind: "result",      a: "file:linkedin", c: "One source was not even theirs." },
+    { kind: "means",       a: "spot:#code",    c: "Only their own pages set a table value." },
 
-    { kind: "result",      a: "file:order",    c: "Which page it is comes first now." },
+    { kind: "result",      a: "file:result",   c: "Four pages. Four correct answers." },
 
-    { kind: "close",       a: "hold",          c: "Say what you checked. It finds things." }
+    { kind: "close",       a: "hold",          c: "Two of them were: the page does not say." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -270,7 +269,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("silent");
+    show("story");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -283,15 +282,15 @@
     }, TOTAL * 1000));
   }
 
-  show("silent");
+  show("story");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "What we checked",
-    blurb: "Every run so far printed what it found and was silent about what it looked for, which makes an empty section indistinguishable from one nobody tried to fill. Saying what was checked caught two things immediately - one of them was this feature itself.",
+    title: "Who they are",
+    blurb: "The fourth of six question kinds, and the first whose facts a page states by accident rather than by design. Three of the four things that went wrong were checks of ours that could not fail - including one that agreed a page saying ten meant zero.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;
