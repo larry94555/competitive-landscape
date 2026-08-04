@@ -91,9 +91,88 @@ impl PricingExtraction {
     }
 }
 
+/// Every plan one page publishes.
+///
+/// **A pricing page is a list, and [`PricingExtraction`] is one item of it.** Reporting the
+/// single best-scoring plan was the shape of the first version, and it is worse than it
+/// sounds: a competitor report showing a rival's cheapest plan and silently dropping the rest
+/// does not look incomplete, it looks *wrong*, and there is nothing on the page to tell the
+/// reader which they are getting.
+///
+/// The plans arrive one per span — see `landscape_extract::span::every_plan` — so this type
+/// is where the page-level facts live: how many there are, in what order, and which of them
+/// are the same plan named twice.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct PagePricing {
+    /// In the order the page presents them, which is information: pricing pages lead with
+    /// the cheap plan.
+    pub plans: Vec<PricingExtraction>,
+}
+
+impl PagePricing {
+    /// Assemble the per-span extractions into what the page says.
+    ///
+    /// Two things are dropped, and both are artefacts of segmenting a page rather than
+    /// judgements about it:
+    ///
+    /// - **Extractions that found nothing.** A span that scored as a plan and yielded neither
+    ///   a name nor a price was a bad window, not a plan with no facts.
+    /// - **The same plan named twice.** Pages publish a plan card *and* a comparison table,
+    ///   and pages render a monthly and an annual view into the same HTML. Both put the name
+    ///   through twice.
+    ///
+    /// When a duplicate carries a price and the entry already kept does not, the duplicate
+    /// wins — a comparison table often states what a plan card only gestures at.
+    #[must_use]
+    pub fn assembled(extractions: impl IntoIterator<Item = PricingExtraction>) -> Self {
+        let mut plans: Vec<PricingExtraction> = Vec::new();
+
+        for got in extractions {
+            if got.plan_name.is_none() && got.price_usd.is_none() {
+                continue;
+            }
+            let key = got.plan_name.as_deref().map(normalise);
+            let existing = key.as_ref().and_then(|k| {
+                plans
+                    .iter()
+                    .position(|p| p.plan_name.as_deref().map(normalise).as_ref() == Some(k))
+            });
+            match existing {
+                Some(i) if plans[i].price_usd.is_none() && got.price_usd.is_some() => {
+                    plans[i] = got;
+                }
+                Some(_) => {}
+                None => plans.push(got),
+            }
+        }
+        Self { plans }
+    }
+
+    /// Whether the page published no plan at all.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.plans.is_empty()
+    }
+}
+
 /// Collapse every run of whitespace to one space.
 fn squash(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// A plan name reduced to what makes two of them the same plan.
+///
+/// `Pro` and `PRO ` and `Pro plan` are one plan on one page. The suffix goes because pages
+/// are inconsistent about it between a plan card and a comparison table — which is exactly
+/// where the duplicates come from.
+fn normalise(name: &str) -> String {
+    let lower = name.to_lowercase();
+    let trimmed = lower.trim();
+    let base = trimmed
+        .strip_suffix(" plan")
+        .or_else(|| trimmed.strip_suffix(" tier"))
+        .unwrap_or(trimmed);
+    squash(base)
 }
 
 #[cfg(test)]
@@ -144,6 +223,87 @@ mod tests {
             ..PricingExtraction::empty()
         };
         assert_ne!(free.price_usd, None);
+    }
+
+    fn plan(name: &str, price: Option<f64>) -> PricingExtraction {
+        PricingExtraction {
+            plan_name: Some(name.to_owned()),
+            price_usd: price,
+            ..PricingExtraction::empty()
+        }
+    }
+
+    #[test]
+    fn a_page_keeps_its_plans_in_the_order_it_published_them() {
+        // Pricing pages lead with the cheap plan, and a report that reorders them is
+        // answering a question the page did not ask.
+        let page = PagePricing::assembled([
+            plan("Free", Some(0.0)),
+            plan("Basic", Some(10.0)),
+            plan("Business", Some(16.0)),
+        ]);
+        let names: Vec<_> = page
+            .plans
+            .iter()
+            .filter_map(|p| p.plan_name.clone())
+            .collect();
+        assert_eq!(names, ["Free", "Basic", "Business"]);
+    }
+
+    #[test]
+    fn the_same_plan_named_twice_is_one_plan() {
+        // Real pages do this constantly: a plan card and then a comparison table, or a
+        // monthly and an annual view rendered into the same HTML. sentry.io produces every
+        // plan twice.
+        let page = PagePricing::assembled([
+            plan("Developer", Some(0.0)),
+            plan("Team", Some(26.0)),
+            plan("developer ", Some(0.0)),
+        ]);
+        assert_eq!(page.plans.len(), 2, "{page:?}");
+    }
+
+    #[test]
+    fn a_duplicate_that_states_a_price_beats_one_that_does_not() {
+        // The plan card says "starting at"; the comparison table says $10. Keeping the
+        // first blindly would report a gap the page does not have.
+        let page = PagePricing::assembled([plan("Plus", None), plan("Plus", Some(10.0))]);
+        assert_eq!(page.plans.len(), 1);
+        assert_eq!(page.plans[0].price_usd, Some(10.0));
+    }
+
+    #[test]
+    fn an_extraction_that_found_nothing_is_not_a_plan() {
+        // A span scored as a plan and the model found neither a name nor a price in it.
+        // That is a bad window, and reporting it as a plan with no facts would put the
+        // window's mistake in front of a reader as if the page had said something.
+        let page = PagePricing::assembled([PricingExtraction::empty(), plan("Pro", Some(15.0))]);
+        assert_eq!(page.plans.len(), 1);
+    }
+
+    #[test]
+    fn a_free_plan_survives_assembly() {
+        // `price_usd: Some(0.0)` is a published fact and must not be mistaken for absence
+        // by any of the filtering above — the distinction this module exists for.
+        let page = PagePricing::assembled([plan("Free", Some(0.0))]);
+        assert_eq!(page.plans.len(), 1);
+        assert_eq!(page.plans[0].price_usd, Some(0.0));
+    }
+
+    #[test]
+    fn a_priced_plan_with_no_name_is_still_reported() {
+        // A page can price something without naming it. Dropping it would be inventing an
+        // absence, which is the one thing this crate must never do.
+        let anonymous = PricingExtraction {
+            price_usd: Some(9.0),
+            ..PricingExtraction::empty()
+        };
+        assert_eq!(PagePricing::assembled([anonymous]).plans.len(), 1);
+    }
+
+    #[test]
+    fn a_page_with_no_plans_says_so() {
+        assert!(PagePricing::assembled([]).is_empty());
     }
 
     #[test]

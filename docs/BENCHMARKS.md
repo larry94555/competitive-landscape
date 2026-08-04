@@ -29,6 +29,92 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 7 — six real pricing pages, and the one that had no prices on it
+
+**Date:** 2026-08-03 · **Subjects:** basecamp, linear, plausible, notion, sentry, todoist ·
+**Model:** Qwen3-4B Q4_K_M, unchanged since Run 5.
+
+Run 6 got `basecamp.com/pricing` right and reported one of its two plans. This is one window
+per plan — `span::every_plan` — measured against six pages, of which four had never been seen
+by the code before.
+
+```bash
+cargo run -p landscape -- read https://basecamp.com
+```
+
+| Page | Plans published | Windows | Reported |
+|---|---|---|---|
+| `basecamp.com/pricing` | 2 | 2 | ✅ Pro Unlimited $299, Pro $15 |
+| `linear.app/pricing` | 3 | 3 | ✅ Free $0, Basic $10, Business $16 |
+| `plausible.io` | 3 | 3 | ✅ Starter $9, Growth $14, Business $19 |
+| `notion.com/pricing` | 3 | 5 | ⚠️ Free $0, Plus $10, Business $20 — **and an add-on** |
+| `sentry.io/pricing` | 4 | 6 | ✅ each plan appears twice; the duplicates are dropped |
+| `todoist.com/pricing` | 3 | **0** | ✅ "no pricing content on the page" |
+
+The plausible, notion, sentry and todoist pages were fetched *after* the heuristic was
+written. Two of them changed it.
+
+### todoist is the finding
+
+Its prices are rendered in JavaScript, so what reaches the Markdown is the feature-comparison
+table and nothing else. Forty table rows outscore any real pricing block on structure alone,
+and not one of them contains a currency symbol. The window chosen from it was:
+
+```text
+|  | Beginner | Pro | Business |
+|---|---|---|---|
+| Personal projects | 5 | 300 | 300 for each member |
+```
+
+and the model returned **"Beginner at $5"**. The 5 is how many personal projects the plan
+allows. **The HTML contains no dollar amount anywhere.**
+
+A window must now contain a price or a contact-sales line to win at all. The page then reports
+*"no pricing content on the page"*, which is both true and the number
+[ARCHITECTURE.md](ARCHITECTURE.md) §5.5's JavaScript-gap counter exists to collect — the
+counter cannot be honest if the pipeline guesses instead of abstaining.
+
+### notion changed the prompt twice
+
+**`$10 per 1,000 monthly Notion credits` came back as `$0.01`.** The model divided. It is
+arithmetic rather than extraction, and it is not checkable against the page, so the prompt now
+says price_usd must be a number written there.
+
+**And the add-on stayed.** `### Custom Agents` is a heading with a price under it, which is
+the definition of a plan block this code uses, so notion reports four plans where three are
+real. There is no shape that separates an add-on from a plan — only meaning — and that is
+worth stating rather than tuning away.
+
+### What the page shapes turned out to be
+
+| | |
+|---|---|
+| basecamp | `## Pro Unlimited` then a subtitle |
+| notion | a marketing line then `### Free` |
+
+**The same shape, upside down**, and heading levels cannot tell them apart. The shorter
+heading wins: a plan name is a noun and a subtitle is a sentence. On all six pages that picks
+the plan name.
+
+### The weakest field is the billing period
+
+`linear.app` writes `$16 per user/month` and `Billed yearly` in the same block. The price is
+right on all nine plans across the three English pages; the period was wrong on one of them,
+and the prompt rule that fixed the other two — *how often the price recurs, not how often the
+invoice arrives* — did not fix that one.
+
+**`BillingPeriod` conflates two facts the pages state separately.** Recorded, not fixed: it
+needs a type change and golden-set coverage rather than another sentence in the prompt.
+
+### Still not measured
+
+**The golden set does not cover any of this.** Its subjects are single-plan fixtures, so
+`every_plan` returns one window for each and the whole multi-plan path is exercised only by
+unit tests and by this run. §5.4's warning stands: the six pages above are six data points and
+four fixed bugs, not a validation.
+
+---
+
 ## Run 6 — the window fixes it, and the window was wrong twice first
 
 **Date:** 2026-08-03 · **Subjects:** `basecamp.com`, `linear.app` · **Model:** Qwen3-4B

@@ -372,10 +372,12 @@ Example:
             continue;
         }
 
-        // The window, not the page. BENCHMARKS Run 5: the same model on the same words
-        // answers correctly at 39 and fails at 1729, so this is a correctness step rather
-        // than the latency optimisation ARCHITECTURE §5.4 originally presented it as.
-        let Some(span) = landscape_extract::span::for_pricing(&markdown) else {
+        // One window per plan, not one per page. BENCHMARKS Run 5 established that the model
+        // answers on a window and fails on a page, and Run 6 that a page has several plans:
+        // basecamp.com publishes $15/user Pro and $299/month Pro Unlimited, and asking once
+        // reports one of them and hides the other.
+        let spans = landscape_extract::span::every_plan(&markdown);
+        if spans.is_empty() {
             // No price-shaped content anywhere. A finding — handing the model the whole
             // page instead would turn "publishes no price" into a guess.
             println!(
@@ -386,34 +388,86 @@ Example:
                 "-"
             );
             continue;
-        };
-        let prompt = extraction_prompt(&source.url, &span.prompt_text());
+        }
+
         let decode = landscape_llm::Decode {
             max_tokens: 300,
             temperature: 0.0,
             seed: Some(7),
         };
-        let extracted: Result<landscape_core::PricingExtraction, _> =
-            llm.generate(&prompt, &decode).await;
+        let mut extracted: Vec<landscape_core::PricingExtraction> = Vec::with_capacity(spans.len());
+        let mut failures = Vec::new();
+        let mut unsupported = 0usize;
+        for span in &spans {
+            let prompt = extraction_prompt(&source.url, span);
+            match llm
+                .generate::<landscape_core::PricingExtraction>(&prompt, &decode)
+                .await
+            {
+                Ok(e) => {
+                    // The one check that needs no human. A quote that is not in the section
+                    // the model was given is fabricated evidence, and the golden set has
+                    // been asserting this since it was built — this is the same assertion,
+                    // on a real page, where the answer is not known in advance.
+                    if !e.quote_is_verbatim(&span.prompt_text()) {
+                        unsupported += 1;
+                    }
+                    extracted.push(e);
+                }
+                Err(e) => failures.push(format!("{e}")),
+            }
+        }
+        let page = landscape_core::PagePricing::assembled(extracted);
 
-        let summary = match extracted {
-            Ok(e) => match (e.plan_name.as_deref(), e.price_usd) {
-                (Some(plan), Some(price)) => format!("{plan} at ${price}"),
-                (Some(plan), None) => format!("{plan}, no price published"),
-                (None, Some(price)) => format!("${price}, no plan named"),
-                (None, None) => "nothing found".to_owned(),
-            },
-            Err(e) => format!("model error: {e}"),
-        };
+        let words: usize = spans
+            .iter()
+            .map(|s| s.text.split_whitespace().count())
+            .sum();
         println!(
-            "{:<44} {:<6} {:<5} {:<6} {summary}",
+            "{:<44} {:<6} {:<5} {:<6} {} plan{} found in {} window{}",
             short(&source.url),
             assessment.words,
             assessment.quality.name(),
-            span.text.split_whitespace().count()
+            words,
+            page.plans.len(),
+            if page.plans.len() == 1 { "" } else { "s" },
+            spans.len(),
+            if spans.len() == 1 { "" } else { "s" },
         );
+        // Indented under the page, because a plan is a fact *about* a page and printing them
+        // at the same level would lose which page said what once there is more than one.
+        for plan in &page.plans {
+            println!("{:<44}   {}", "", describe(plan));
+        }
+        if unsupported > 0 {
+            println!(
+                "{:<44}   {unsupported} quote(s) not found in the section they came from",
+                ""
+            );
+        }
+        for failure in &failures {
+            println!("{:<44}   model error: {failure}", "");
+        }
     }
     Ok(())
+}
+
+/// One plan, as a line a person can read.
+fn describe(plan: &landscape_core::PricingExtraction) -> String {
+    let period = plan.billing_period.map_or_else(String::new, |p| {
+        match p {
+            landscape_core::BillingPeriod::Monthly => "/mo",
+            landscape_core::BillingPeriod::Yearly => "/yr",
+            landscape_core::BillingPeriod::OneOff => " once",
+        }
+        .to_owned()
+    });
+    match (plan.plan_name.as_deref(), plan.price_usd) {
+        (Some(name), Some(price)) => format!("{name} at ${price}{period}"),
+        (Some(name), None) => format!("{name}, no price published"),
+        (None, Some(price)) => format!("${price}{period}, no plan named"),
+        (None, None) => "nothing found".to_owned(),
+    }
 }
 
 /// The extraction prompt, kept beside the only thing that sends it.
@@ -425,32 +479,43 @@ Example:
 /// simply had no way to know which of two plans was being asked about, and abstaining was
 /// the honest thing for it to do.
 ///
-/// That is a real limitation and not only a prompt bug: [`PricingExtraction`] models **one**
-/// plan, and a pricing page has several. Naming the first plan the page presents makes the
-/// question answerable; extracting *all* the plans needs a different type and is the next
-/// piece of work. `ROADMAP.md` records it.
+/// **The section now names it.** The first fix was to ask for *"the first plan this page
+/// presents"*, which is a question about a page the model can no longer see: it is given one
+/// section, and the plan it is about is the one in that section's heading. Saying so removes
+/// the last place the model had to choose between plans.
 ///
 /// [`PricingExtraction`]: landscape_core::PricingExtraction
-fn extraction_prompt(url: &str, span: &str) -> String {
+fn extraction_prompt(url: &str, span: &landscape_extract::span::Span) -> String {
     // Already a ~400-token window by the time it reaches here. The cap is a backstop, not
     // the mechanism — cutting a page to 6000 characters was what Run 5 measured failing.
-    let page: String = span.chars().take(6000).collect();
+    let page: String = span.prompt_text().chars().take(6000).collect();
+    let plan = span.heading.as_deref().map_or_else(
+        || "the plan this section is about".to_owned(),
+        |h| {
+            format!(
+                "the plan named in the heading \"{}\"",
+                h.trim_start_matches('#').trim()
+            )
+        },
+    );
     format!(
-        "You are reading one page from a company's website and extracting what it says          about the pricing of one plan.
+        "You are reading one section of a page from a company's website and extracting          what it says about the pricing of one plan.
 
-         Plan to extract: the first plan this page presents. If the page names several,          take the one appearing earliest.
+         Plan to extract: {plan}.
 
          Page: {url}
 
          Rules:
-         - Use only what this page states. Do not use anything you know from elsewhere.
-         - If the page does not state something, leave that field null. A missing price is          a fact worth reporting; a guessed one is not.
-         - Report the price of that one plan only. A price on this page for a different          plan, a different product, or an add-on is not this plan's price.
+         - Use only what this section states. Do not use anything you know from elsewhere.
+         - If it does not state something, leave that field null. A missing price is a fact          worth reporting; a guessed one is not.
+         - Report the price of that one plan only. A price here for a different plan, a          different product, or an add-on is not this plan's price.
          - If price_usd is null then billing_period must be null too.
+         - billing_period is how often the price itself recurs, not how often the invoice          arrives. A price of 10 dollars per user/month, billed yearly, recurs monthly.
          - price_usd is in US dollars. Ignore prices given in other currencies.
-         - evidence_quote must be copied from the page word for word.
+         - price_usd must be a number written on the page. Do not calculate one. A price          given per 1,000 of something is not a price per one of them.
+         - evidence_quote must be copied from the section word for word.
 
-         PAGE
+         SECTION
 ---
 {page}
 ---

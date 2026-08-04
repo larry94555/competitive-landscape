@@ -42,7 +42,7 @@
   .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
 </style>
 
-<div class="banner" id="banner">CODE TOUR — four hundred tokens</div>
+<div class="banner" id="banner">CODE TOUR — every plan on the page</div>
 
 <div class="wrap">
   <aside class="tree">
@@ -80,109 +80,112 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    problem: {
-      name: "last time, this failed",
-      purpose: "A page of 1729 words. Two prices on it.",
+    one: {
+      name: "last time it found one plan",
+      purpose: "The page publishes two.",
       lines: [
-        ['t', '  basecamp.com/pricing   1729 words'],
-        ['s', '  -> "no price published"'],
-        ['c', ''],
-        ['c', '// Same model, given a 39-word span,'],
-        ['f', '// answered correctly and quoted the page.'],
-        ['c', ''],
-        ['f', '// So: send the window, not the page.']
-      ]
-    },
-    score: {
-      name: "crates/landscape-extract/src/span.rs",
-      purpose: "Score every line. Take the best window.",
-      lines: [
-        ['c', '// A dollar sign. A billing period.'],
-        ['c', '// The word "per user". A plan name.'],
-        ['c', ''],
-        ['t', '  WINDOW_CHARS: usize = 1600;'],
-        ['c', ''],
-        ['c', '// Roughly four hundred tokens, which is'],
-        ['f', '// what section 5.4 asked for.']
-      ]
-    },
-    faq: {
-      name: "and it chose the FAQ",
-      purpose: "Dense in prices. None of them a plan.",
-      lines: [
-        ['s', '  -> "Timesheet at $50"'],
-        ['c', ''],
-        ['c', '// $50 is an add-on, named in an answer.'],
-        ['c', ''],
-        ['c', '// An FAQ mentions prices several times.'],
-        ['f', '// A plan states its price once.'],
-        ['f', '// Any sum prefers the denser region.']
-      ]
-    },
-    shape: {
-      name: "what tells them apart",
-      purpose: "Not the words. The shape.",
-      lines: [
-        ['c', '// A price under a heading is a plan price.'],
-        ['t', '  if since_heading <= 4 { score += 8; }'],
-        ['c', ''],
-        ['c', '// A question is a hypothetical.'],
-        ['t', '  if line.contains(\'?\') { score -= 6; }'],
-        ['c', ''],
-        ['f', '// Neither is specific to Basecamp.']
-      ]
-    },
-    heading: {
-      name: "then the heading was wrong twice",
-      purpose: "The model needs the plan's name.",
-      lines: [
-        ['s', '  # Pick a package'],
-        ['c', '// The window starts at line 0 on a short'],
-        ['c', '// page, so that was the nearest heading.'],
-        ['c', ''],
-        ['s', '  ### All-inclusive pricing'],
-        ['c', '// Then: the nearest one is the subtitle.'],
-        ['f', '// Anchor to the best line. Take the most'],
-        ['f', '// significant heading above it.']
-      ]
-    },
-    fixed: {
-      name: "the same page, now",
-      purpose: "264 words instead of 1729.",
-      lines: [
-        ['t', '  no price published    <- the whole page'],
-        ['t', '  Timesheet at $50      <- the first span'],
         ['f', '  Pro at $15            <- correct'],
+        ['s', '  $299/month            <- also on the page'],
         ['c', ''],
-        ['c', '// $15/user is Basecamp\'s Pro plan.'],
+        ['c', '// One window per page means one plan.'],
         ['c', ''],
-        ['f', '// linear.app/pricing: Free at $0. Also right.']
+        ['f', '// A report that shows a rival cheapest plan'],
+        ['f', '// and drops the rest does not look partial.'],
+        ['f', '// It looks wrong.']
       ]
     },
-    wrong: {
-      name: "running the right extractor",
-      purpose: "It was reading docs pages for prices.",
+    cut: {
+      name: "crates/landscape-extract/src/span.rs",
+      purpose: "One window per plan, not per page.",
       lines: [
-        ['s', '  linear.app/docs/mcp.md'],
-        ['s', '  -> "MCP server at $0"'],
+        ['c', '// The obvious fix is a wider window'],
+        ['c', '// and a list of plans back.'],
+        ['s', '// That undoes Run 5: the model answers'],
+        ['s', '// on 39 words and fails on 1729.'],
         ['c', ''],
-        ['c', '// A plan that does not exist.'],
-        ['c', ''],
-        ['c', '// Discovery already labels what each page'],
-        ['f', '// answers. Using it cut 8 model calls to 2.']
+        ['f', '// So cut the page into one section per plan'],
+        ['f', '// and ask the same small question of each.']
       ]
     },
-    next: {
-      name: "what is still not right",
-      purpose: "One page. Two plans. We report one.",
+    floor: {
+      name: "what makes a section a plan",
+      purpose: "A price, under its own name.",
       lines: [
-        ['t', '  $15/user    Pro'],
-        ['t', '  $299/month  Pro Unlimited'],
+        ['t', '  const PLAN_FLOOR: u32 = 18;'],
         ['c', ''],
-        ['s', '// PricingExtraction models a single plan,'],
-        ['s', '// so the window picks one and hides the other.'],
+        ['c', '// A price is ten. Directly under a heading'],
+        ['c', '// is eight more.'],
         ['c', ''],
-        ['f', '// That is a different type, not a tuning knob.']
+        ['f', '// So the number is the shape, not a knob.'],
+        ['f', '// Nothing else reaches it.']
+      ]
+    },
+    pair: {
+      name: "which line is the name",
+      purpose: "Two pages. Same shape. Upside down.",
+      lines: [
+        ['t', '  ## Pro Unlimited          basecamp'],
+        ['t', '  ### All-inclusive pricing...'],
+        ['c', ''],
+        ['t', '  ## Essentials for staying...   notion'],
+        ['t', '  ### Free'],
+        ['c', ''],
+        ['f', '// The shorter one wins. A name is a noun.'],
+        ['f', '// A subtitle is a sentence.']
+      ]
+    },
+    six: {
+      name: "six real pricing pages",
+      purpose: "Four of them never seen before.",
+      lines: [
+        ['f', '  basecamp    2 plans'],
+        ['f', '  linear      3'],
+        ['f', '  plausible   3'],
+        ['t', '  notion      3, and an add-on it counts too'],
+        ['f', '  sentry      4, each published twice'],
+        ['s', '  todoist     0'],
+        ['c', ''],
+        ['c', '// Two of the four changed the code.']
+      ]
+    },
+    five: {
+      name: "todoist, and the five",
+      purpose: "It said: Beginner at $5.",
+      lines: [
+        ['t', '  |  | Beginner | Pro | Business |'],
+        ['t', '  | Personal projects | 5 | 300 |'],
+        ['c', ''],
+        ['s', '// The 5 is how many projects you get.'],
+        ['c', ''],
+        ['s', '// Their prices are drawn by JavaScript.'],
+        ['f', '// The HTML has no dollar sign in it at all.']
+      ]
+    },
+    abstain: {
+      name: "a window with no price cannot win",
+      purpose: "Forty table rows outscore any plan.",
+      lines: [
+        ['c', '// Structure alone was enough to win,'],
+        ['c', '// and none of those rows held a price.'],
+        ['c', ''],
+        ['f', '  no pricing content on the page'],
+        ['c', ''],
+        ['f', '// Which is true. And it is the number'],
+        ['f', '// the JavaScript-gap counter is for.']
+      ]
+    },
+    left: {
+      name: "what is still wrong",
+      purpose: "Written down, not tuned away.",
+      lines: [
+        ['s', '// An add-on is a heading with a price'],
+        ['s', '// under it. So is a plan.'],
+        ['c', ''],
+        ['s', '// $16 per user/month. Billed yearly.'],
+        ['s', '// Two facts. One field.'],
+        ['c', ''],
+        ['f', '// And the golden set still measures none'],
+        ['f', '// of this.']
       ]
     }
   };
@@ -226,30 +229,30 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:problem",  c: "Last time, a real page beat the model." },
-    { kind: "means",       a: "spot:#code",    c: "It answered on thirty-nine of those words." },
+    { kind: "recognition", a: "file:one",     c: "It found one plan. The page has two." },
+    { kind: "means",       a: "spot:#code",   c: "Dropping the rest does not look partial." },
 
-    { kind: "turn",        a: "file:score",    c: "So find those words before asking." },
-    { kind: "means",       a: "spot:#code",    c: "Score each line. Keep the best window." },
+    { kind: "turn",        a: "file:cut",     c: "So cut the page, not the window." },
+    { kind: "means",       a: "spot:#code",   c: "One small question each, instead of one big one." },
 
-    { kind: "result",      a: "file:faq",      c: "The first window was the FAQ." },
-    { kind: "means",       a: "spot:#code",    c: "It has more prices. None is a plan." },
+    { kind: "result",      a: "file:floor",   c: "A plan is a price under its own name." },
+    { kind: "means",       a: "spot:#code",   c: "Ten for the price. Eight for the heading." },
 
-    { kind: "result",      a: "file:shape",    c: "Words cannot tell them apart. Shape can." },
-    { kind: "means",       a: "spot:#code",    c: "Near a heading, and not a question." },
+    { kind: "result",      a: "file:pair",    c: "Two pages write the name and the tagline." },
+    { kind: "means",       a: "spot:#code",   c: "In opposite orders. The shorter one wins." },
 
-    { kind: "result",      a: "file:heading",  c: "Then the heading was wrong. Twice." },
-    { kind: "means",       a: "spot:#code",    c: "A page title, and then a subtitle." },
+    { kind: "result",      a: "file:six",     c: "Six real pages. Four of them new." },
+    { kind: "means",       a: "spot:#code",   c: "Two of the four changed the code." },
 
-    { kind: "result",      a: "file:fixed",    c: "The same page now answers correctly." },
-    { kind: "means",       a: "spot:#code",    c: "And a second company, with a free plan." },
+    { kind: "result",      a: "file:five",    c: "One page had no prices on it at all." },
+    { kind: "means",       a: "spot:#code",   c: "We reported a feature limit as a price." },
 
-    { kind: "result",      a: "file:wrong",    c: "It had also been pricing a docs page." },
-    { kind: "means",       a: "spot:#code",    c: "Discovery already knew. Now we ask it." },
+    { kind: "result",      a: "file:abstain", c: "Now a window without a price cannot win." },
+    { kind: "means",       a: "spot:#code",   c: "The page says so, and that is the finding." },
 
-    { kind: "result",      a: "file:next",     c: "One thing is still wrong, and it is the type." },
+    { kind: "result",      a: "file:left",    c: "Two things are still wrong on purpose." },
 
-    { kind: "close",       a: "hold",          c: "Three bugs. All found by running it." }
+    { kind: "close",       a: "hold",         c: "The pages you have not read yet write the code." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -272,7 +275,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("problem");
+    show("one");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -285,15 +288,15 @@
     }, TOTAL * 1000));
   }
 
-  show("problem");
+  show("one");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "Four hundred tokens",
-    blurb: "The last run failed on a real pricing page and succeeded on a span cut out of it by hand. This is that cut made automatic - and the two ways the first version of it went wrong, both found by pointing it at a real site.",
+    title: "Every plan on the page",
+    blurb: "A pricing page is a list, and the extractor modelled one item of it. This is one window per plan instead of one per page - measured against six real pricing pages, four of which the heuristic had never seen, two of which changed it.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

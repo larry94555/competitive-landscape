@@ -412,16 +412,22 @@ the single most important phase; everything after it is commerce and polish.
   thin report is shipped marked rather than silently guessed.
 - Polite fetch + extraction pipeline.
 - Map-reduce analysis: per-source structured extraction → section synthesis.
-  **Span pre-selection is built** — `landscape-extract::span`, [BENCHMARKS.md](BENCHMARKS.md)
-  Run 6. `basecamp.com/pricing` went from *"no price published"* to **"Pro at $15"**, which is
-  correct.
-  **What remains is the shape of the type, not the window.** That page publishes two plans —
-  `$15/user` Pro and `$299/month` Pro Unlimited — and `PricingExtraction` models one, so the
-  window picks a plan and the other is invisible. **Extracting all the plans on a page needs a
-  different type**, and that is the next piece of work.
-  Also still to come: per-source extraction for the other five question kinds. `read`
-  currently says *"not a pricing page — no extractor yet"* rather than running a pricing
-  extractor over a docs page, which produced a plan that does not exist.
+  **Span pre-selection is built, and so is every-plan extraction** —
+  `landscape-extract::span`, [BENCHMARKS.md](BENCHMARKS.md) Runs 6 and 7. One window per plan,
+  measured on six real pricing pages: basecamp 2, linear 3, plausible 3, notion 3 (plus an
+  add-on it counts as a fourth), sentry 4 published twice each, todoist 0.
+  **What is left here is the other five question kinds.** `read` says *"not a pricing page —
+  no extractor yet"* for a docs page rather than running the pricing extractor over it, which
+  had produced a plan that does not exist.
+  Three findings from Run 7 are recorded rather than fixed, each needing its own change:
+  **`BillingPeriod` conflates two facts** — `$16 per user/month` and `Billed yearly` are both
+  on the page and the type has one field for them, which is where the only wrong number in
+  Run 7 came from.
+  **An add-on is a heading with a price under it**, which is exactly the shape a plan has.
+  Only meaning separates them, so notion reports four plans where three are real.
+  **Discovery admits localised duplicates** — `todoist.com/cs/pricing` and `/da/pricing` were
+  both read and the English page never was; notion contributed `/es-es/pricing`. That is a
+  discovery bug, and it costs model calls as well as accuracy.
 - All seven report sections, streamed over SSE.
 - Anonymous rate limit (2/day), share URL.
 

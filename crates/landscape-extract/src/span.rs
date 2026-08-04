@@ -42,7 +42,7 @@
 ///
 /// Versioned like a prompt, for §5.4's reason: two spans chosen by different rules produce
 /// scores that are not comparable, and a table mixing them silently is worse than no table.
-pub const SPAN_VERSION: u32 = 1;
+pub const SPAN_VERSION: u32 = 2;
 
 /// Roughly 400 tokens, the figure §5.4 budgets.
 ///
@@ -77,6 +77,187 @@ impl Span {
     }
 }
 
+/// How many plan windows one page may contribute.
+///
+/// Each window is a model call, so this is a cost bound as much as a sanity bound. Six is
+/// more plans than a pricing page normally publishes; a page that produces more has almost
+/// certainly had something other than a plan mistaken for one, and reporting the six
+/// strongest is a better failure than spending twelve model calls on it.
+pub const MAX_PLANS: usize = 6;
+
+/// The line score a section must reach somewhere inside it to count as a plan.
+///
+/// Eighteen is exactly a price (10) directly under a heading that names something (8) — which
+/// is to say **a plan block is a section that states a price under its own name**. The number
+/// is the shape, not a tuned constant, and no combination of lexical signals reaches it
+/// without that bonus.
+///
+/// It is what separates the two real plans on `basecamp.com/pricing` from the FAQ below them,
+/// which reaches 16 by mentioning `$50/month` in a sentence.
+const PLAN_FLOOR: u32 = 18;
+
+/// Every plan the page publishes, in the order it publishes them.
+///
+/// [`for_pricing`] answers *what does this page cost*, and a pricing page does not have one
+/// answer. `basecamp.com/pricing` publishes `$15/user` Pro and `$299/month` Pro Unlimited;
+/// picking the higher-scoring window reports one and hides the other, and a competitor
+/// report showing a rival's cheapest plan and silently dropping the rest is worse than one
+/// showing none — it looks complete.
+///
+/// # Why sections rather than a wider window
+///
+/// The obvious alternative is to widen the window until it holds every plan and ask the model
+/// for a list. That undoes what Run 5 established: the model answers on a small window and
+/// fails on a large one. So the page is **cut deterministically into one section per plan**,
+/// and each section gets the same small-window extraction that already works.
+///
+/// It costs one model call per plan instead of one per page. That is the trade — accuracy
+/// bought with prefill, which is the same trade §5.4 makes in the other direction.
+#[must_use]
+pub fn every_plan(markdown: &str) -> Vec<Span> {
+    let lines: Vec<&str> = markdown.lines().collect();
+    if lines.is_empty() {
+        return Vec::new();
+    }
+    let scores = score_lines(&lines);
+
+    let mut found: Vec<Span> = sections(&lines)
+        .into_iter()
+        .filter_map(|(start, end)| {
+            let peak = (start..=end).max_by_key(|i| scores[*i])?;
+            if scores[peak] < PLAN_FLOOR {
+                return None;
+            }
+            Some(window(&lines, start, end, peak, scores[peak]))
+        })
+        .collect();
+
+    // A page can state a price without ever putting one under a plan name — a single
+    // sentence, a bare table, "contact sales for pricing". Those are still findings, and the
+    // sliding window is what Run 6 measured on them, so nothing is lost by falling back to
+    // it. What would be lost is the honesty of the empty case: `for_pricing` returns nothing
+    // for a page with no price-shaped content at all, and so, then, does this.
+    if found.is_empty() {
+        return for_pricing(markdown).into_iter().collect();
+    }
+
+    // Over the cap, keep the strongest — then put them back in the order the page presents
+    // them, because that order is information: pricing pages lead with the cheap plan.
+    if found.len() > MAX_PLANS {
+        found.sort_by_key(|s| std::cmp::Reverse(s.score));
+        found.truncate(MAX_PLANS);
+        found.sort_by_key(|s| s.starts_at_line);
+    }
+    found
+}
+
+/// Cut the page into candidate plan sections.
+///
+/// A section starts at every heading. The one refinement is that **a heading immediately
+/// followed by a deeper heading is a plan name followed by its subtitle**, not two sections —
+/// the same page shape that [`heading_above`] exists for, seen from the other side.
+fn sections(lines: &[&str]) -> Vec<(usize, usize)> {
+    /// A plan name and its subtitle sit within a line or two. More than this and the
+    /// shallower heading owns real content of its own.
+    const SUBTITLE_LINES: usize = 4;
+
+    let mut starts: Vec<usize> = lines
+        .iter()
+        .enumerate()
+        .filter(|(_, l)| l.trim_start().starts_with('#'))
+        .map(|(i, _)| i)
+        .collect();
+    if starts.first() != Some(&0) {
+        starts.insert(0, 0);
+    }
+
+    let raw: Vec<(usize, usize)> = starts
+        .iter()
+        .enumerate()
+        .map(|(n, &s)| (s, starts.get(n + 1).map_or(lines.len(), |&e| e) - 1))
+        .collect();
+
+    let mut out: Vec<(usize, usize)> = Vec::new();
+    let mut carried: Option<usize> = None;
+    for (n, &(s, e)) in raw.iter().enumerate() {
+        let start = carried.take().unwrap_or(s);
+        let is_lead = heading_level(lines[s]).is_some()
+            && e.saturating_sub(s) < SUBTITLE_LINES
+            && raw
+                .get(n + 1)
+                .and_then(|&(next, _)| heading_level(lines[next]))
+                .zip(heading_level(lines[s]))
+                .is_some_and(|(next, here)| next > here);
+        if is_lead {
+            carried = Some(start);
+            continue;
+        }
+        out.push((start, e));
+    }
+    if let Some(start) = carried {
+        out.push((start, lines.len().saturating_sub(1)));
+    }
+    out
+}
+
+/// `## Pro` is level 2. `None` for a line that is not a heading.
+fn heading_level(line: &str) -> Option<usize> {
+    let t = line.trim_start();
+    let level = t.chars().take_while(|c| *c == '#').count();
+    (level > 0).then_some(level)
+}
+
+/// One section, cut to the token budget.
+///
+/// Cut from the top, which is where the answer is: a section qualified as a plan by stating a
+/// price within a few lines of its own heading, so a plan with forty feature bullets loses the
+/// bullets and keeps the name and the number. That is the right end to lose.
+fn window(lines: &[&str], start: usize, end: usize, peak: usize, score: u32) -> Span {
+    let from = start;
+    let mut text = lines[from..=end].join("\n");
+    if text.chars().count() > WINDOW_CHARS {
+        text = text.chars().take(WINDOW_CHARS).collect();
+    }
+    Span {
+        text,
+        starts_at_line: from,
+        // A section's own heading names the plan — that is what made it a section. The walk
+        // upward is only needed for text sitting above the page's first heading.
+        heading: section_heading(lines, start, end).or_else(|| heading_above(lines, peak)),
+        score,
+    }
+}
+
+/// The heading that names the plan a section is about.
+///
+/// A section opens with one heading or two, and when there are two, **the shorter one is the
+/// name**. Which of the pair it is cannot be read off the levels, because both orders occur:
+///
+/// ```text
+/// ## Pro Unlimited                                 basecamp.com
+/// ### Top-of-the-line, all-inclusive pricing…
+///
+/// ## Essentials for staying organized.             notion.com
+/// ### Free
+/// ```
+///
+/// Length separates them in both, and not by coincidence: a plan name is a noun and a
+/// subtitle is a sentence.
+fn section_heading(lines: &[&str], start: usize, end: usize) -> Option<String> {
+    /// The same reach the section split uses to recognise the pair.
+    const PAIR: usize = 4;
+
+    lines[start..=end.min(start.saturating_add(PAIR))]
+        .iter()
+        .filter(|l| heading_level(l).is_some())
+        // A heading with no text names nothing. Real pages emit them: `todoist.com/pricing`
+        // has three bare `###` above its comparison tables, and the shortest-wins rule would
+        // hand the model `###` as the plan it is asking about.
+        .filter(|l| !l.trim().trim_start_matches('#').trim().is_empty())
+        .min_by_key(|l| l.trim().trim_start_matches('#').trim().chars().count())
+        .map(|l| l.trim().to_owned())
+}
+
 /// Find the window most likely to state a price.
 ///
 /// Returns `None` when nothing in the page scores at all — a page with no price-shaped
@@ -94,11 +275,21 @@ pub fn for_pricing(markdown: &str) -> Option<Span> {
         return None;
     }
 
-    // The best window is the one whose lines sum highest. Walking a window rather than
-    // picking the single best line matters because a pricing block is several lines — a
-    // heading, a price, and a feature list — and the price line alone is the part that
-    // makes least sense on its own.
-    let (best_start, best_end, best_score) = best_window(&lines, &scores);
+    // The best window is the one whose lines sum highest — but only among windows that
+    // actually state something about a price. Without that condition a long feature-
+    // comparison table wins on structure alone: forty table rows at three points each
+    // outscore any real pricing block, and not one of them contains a currency symbol.
+    //
+    // That is not hypothetical. `todoist.com/pricing` renders its prices in JavaScript, so
+    // the Markdown holds the comparison table and nothing else, and the window chosen from
+    // it was headed `| | Beginner | Pro | Business |` with `| Personal projects | 5 |`
+    // underneath. The model returned **"Beginner at $5"** — a feature limit read as a price,
+    // on a page whose HTML contains no dollar amount at all.
+    //
+    // The right answer for that page is that it publishes no price we can see, which is what
+    // ARCHITECTURE §5.5's JavaScript-gap counter is *for*. A window with no price in it
+    // cannot produce that answer; it can only produce a guess.
+    let (best_start, best_end, best_score) = best_window(&lines, &scores)?;
 
     // Anchored to the best-scoring line inside the window, not to where the window starts.
     // A window wide enough to hold a whole short page starts at line 0, and the heading
@@ -122,14 +313,18 @@ pub fn for_pricing(markdown: &str) -> Option<Span> {
     })
 }
 
-/// The scoring window, by character budget.
-fn best_window(lines: &[&str], scores: &[u32]) -> (usize, usize, u32) {
-    let mut best = (0usize, 0usize, 0u32);
+/// The highest-scoring window that says something about a price, by character budget.
+///
+/// `None` when no window does — see the note at the call site for the page that made this a
+/// condition rather than a tiebreak.
+fn best_window(lines: &[&str], scores: &[u32]) -> Option<(usize, usize, u32)> {
+    let mut best: Option<(usize, usize, u32)> = None;
 
     for start in 0..lines.len() {
         let mut chars = 0usize;
         let mut total = 0u32;
         let mut end = start;
+        let mut states_price = false;
         for (i, line) in lines.iter().enumerate().skip(start) {
             let len = line.chars().count() + 1;
             if chars + len > WINDOW_CHARS && i > start {
@@ -137,14 +332,33 @@ fn best_window(lines: &[&str], scores: &[u32]) -> (usize, usize, u32) {
             }
             chars += len;
             total += scores[i];
+            states_price |= states_a_price(line);
             end = i;
         }
-        if total > best.2 {
-            best = (start, end, total);
+        if states_price && best.is_none_or(|(_, _, b)| total > b) {
+            best = Some((start, end, total));
         }
     }
     best
 }
+
+/// Whether this line says something about what something costs.
+///
+/// The hard signals, as against the ones that only say *this looks like a pricing page*: a
+/// currency amount, or a sentence saying the price is on request. A window containing neither
+/// contains no answer, however much pricing-shaped furniture surrounds it.
+fn states_a_price(line: &str) -> bool {
+    let lower = line.to_lowercase();
+    crate::price::find(line).is_some() || CONTACT_SALES.iter().any(|p| lower.contains(p))
+}
+
+/// Ways of publishing that there is a price and it is not on the page.
+const CONTACT_SALES: [&str; 4] = [
+    "contact sales",
+    "contact us for pricing",
+    "custom pricing",
+    "talk to us",
+];
 
 /// The most significant heading governing this line.
 ///
@@ -201,10 +415,12 @@ fn heading_above(lines: &[&str], from: usize) -> Option<String> {
 fn score_lines(lines: &[&str]) -> Vec<u32> {
     let mut out = Vec::with_capacity(lines.len());
     let mut since_heading = usize::MAX;
+    let mut under_a_question = false;
 
     for line in lines {
         if line.trim_start().starts_with('#') {
             since_heading = 0;
+            under_a_question = asks_rather_than_names(line);
         } else if since_heading != usize::MAX {
             since_heading = since_heading.saturating_add(1);
         }
@@ -213,7 +429,10 @@ fn score_lines(lines: &[&str]) -> Vec<u32> {
 
         // A price directly under a heading is a plan's price. Four lines is enough for a
         // heading, a subtitle and a sentence — past that the connection is a coincidence.
-        if score > 0 && since_heading <= 4 {
+        //
+        // Unless the heading is `## Questions`, which names no plan. Without that exception
+        // the first two answers of an FAQ collect the bonus and the FAQ becomes a plan.
+        if score > 0 && since_heading <= 4 && !under_a_question {
             score += 8;
         }
         // A question is a hypothetical, and the answer under it is about an exception.
@@ -225,6 +444,15 @@ fn score_lines(lines: &[&str]) -> Vec<u32> {
         out.push(score);
     }
     out
+}
+
+/// Whether a heading introduces questions rather than naming something purchasable.
+///
+/// `## Frequently asked questions` and `## Pro Unlimited` are both headings with prices under
+/// them. Only one of them names a plan.
+fn asks_rather_than_names(heading: &str) -> bool {
+    let h = heading.to_lowercase();
+    h.contains('?') || h.contains("question") || h.contains("faq") || h.contains("asked")
 }
 
 /// How much this line looks like part of a pricing block.
@@ -271,16 +499,8 @@ fn score_line(line: &str) -> u32 {
     // A "contact sales" line is a real finding and must be able to win a window, or a page
     // with no price would hand the model something irrelevant instead of the sentence
     // saying there is no price.
-    for phrase in [
-        "contact sales",
-        "contact us for pricing",
-        "custom pricing",
-        "talk to us",
-    ] {
-        if l.contains(phrase) {
-            score += 6;
-            break;
-        }
+    if CONTACT_SALES.iter().any(|phrase| l.contains(phrase)) {
+        score += 6;
     }
     score
 }
@@ -459,6 +679,190 @@ $19 per month, billed monthly.
         assert!(for_pricing("\n\n\n").is_none());
         assert!(for_pricing("hello").is_none());
         let _ = for_pricing("$49");
+    }
+
+    /// The shape of every real pricing page measured in Run 7: plan sections, then an FAQ.
+    fn two_plan_page() -> String {
+        "# Pick a package
+## Pro Unlimited
+### Top-of-the-line, all-inclusive pricing. Unlimited users.
+$299/month, billed annually. Your whole organization for one fixed price.
+- Unlimited projects
+- 5 terabytes of storage
+## Pro
+### A great choice for freelancers and smaller teams.
+$15/user, billed monthly. We only bill you for employees.
+- Unlimited projects
+- 500 GB of storage
+## I have pricing questions
+Could we add 1000 users and still pay $299/month total?
+No. On the Pro package we only bill for employees.
+The Admin Pro Pack upgrade is $50/month flat.
+You can add a terabyte of storage for $50/month flat."
+            .to_owned()
+    }
+
+    #[test]
+    fn a_page_with_two_plans_produces_two_windows() {
+        // The finding this function exists for. Reporting one of these and hiding the other
+        // does not look incomplete to a reader — it looks wrong.
+        let plans = every_plan(&two_plan_page());
+        assert_eq!(plans.len(), 2, "{plans:#?}");
+        assert!(plans[0].text.contains("$299"), "{:?}", plans[0].text);
+        assert!(plans[1].text.contains("$15"), "{:?}", plans[1].text);
+    }
+
+    #[test]
+    fn the_plans_come_back_in_the_order_the_page_presents_them() {
+        // Page order is information: it is the ordering the company chose, and re-sorting
+        // by price would answer a question the page did not ask.
+        let plans = every_plan(&two_plan_page());
+        assert!(plans[0].starts_at_line < plans[1].starts_at_line);
+    }
+
+    #[test]
+    fn each_window_is_named_by_its_own_plan() {
+        let plans = every_plan(&two_plan_page());
+        let headings: Vec<_> = plans.iter().filter_map(|p| p.heading.clone()).collect();
+        assert_eq!(headings, ["## Pro Unlimited", "## Pro"], "{plans:#?}");
+    }
+
+    #[test]
+    fn the_faq_underneath_is_not_a_third_plan() {
+        // It mentions $50/month twice, which is more prices than either plan states. What
+        // stops it is that `## I have pricing questions` names no plan, so the prices under
+        // it never collect the heading bonus.
+        let plans = every_plan(&two_plan_page());
+        assert!(
+            !plans.iter().any(|p| p.text.contains("$50")),
+            "the FAQ became a plan: {plans:#?}"
+        );
+    }
+
+    #[test]
+    fn a_marketing_line_does_not_displace_the_plan_name() {
+        // notion.com writes the pair the other way up from basecamp.com — the heading above
+        // the plan name is the marketing sentence. Levels cannot tell the two apart.
+        let page = "## Essentials for staying organized.
+### Free
+$0 per member / month
+For individuals to organize personal projects.
+## The workspace for work that matters.
+### Business
+$20 per member / month
+For growing businesses.";
+        let plans = every_plan(page);
+        let headings: Vec<_> = plans.iter().filter_map(|p| p.heading.clone()).collect();
+        assert_eq!(headings, ["### Free", "### Business"], "{plans:#?}");
+    }
+
+    #[test]
+    fn every_window_stays_inside_the_budget() {
+        // The cost argument only holds if each window is small. Six plans at ~400 tokens is
+        // the trade this makes; six plans at page size is the thing Run 5 measured failing.
+        let long = "- Everything in the plan below, and rather a lot more besides. ".repeat(60);
+        let page = format!(
+            "## Pro\n$15/user, billed monthly\n{long}\n## Max\n$99/user, billed monthly\n{long}"
+        );
+        for span in every_plan(&page) {
+            assert!(
+                span.text.chars().count() <= WINDOW_CHARS,
+                "{}",
+                span.text.len()
+            );
+        }
+    }
+
+    #[test]
+    fn a_long_section_loses_its_feature_list_and_keeps_its_price() {
+        // Forty bullets is the common shape, and the bullets are the part to lose: the
+        // section qualified by stating a price near its own heading, so the top of it is
+        // where the answer is.
+        let long = "- One more feature, described at some length for the sake of it.\n".repeat(60);
+        let page = format!("## Pro\n$15/user, billed monthly\n{long}");
+        let plans = every_plan(&page);
+        assert_eq!(plans.len(), 1, "{plans:#?}");
+        assert!(plans[0].text.contains("$15"), "cut the price off");
+        assert!(plans[0].prompt_text().contains("## Pro"));
+        assert!(plans[0].text.chars().count() <= WINDOW_CHARS);
+    }
+
+    #[test]
+    fn a_price_far_below_its_heading_is_not_a_plan_section() {
+        // The limit of the rule, asserted rather than left to be discovered: `PLAN_FLOOR`
+        // means *a price under its own name*, so a section that buries the number sixty
+        // lines down does not qualify. Five real pricing pages put it in the first two, and
+        // the single-window fallback still finds the number — it just does not claim to
+        // know which plan the section was about.
+        let long = "- One more feature, described at some length.\n".repeat(60);
+        let page = format!("## Pro\n{long}$15/user, billed monthly\n");
+        let plans = every_plan(&page);
+        assert_eq!(plans.len(), 1, "{plans:#?}");
+        assert_eq!(
+            plans[0].heading, None,
+            "claimed a plan name it had not earned"
+        );
+    }
+
+    #[test]
+    fn a_page_with_no_price_anywhere_produces_no_plans() {
+        let page = "# About us\n\nWe were founded in 2019 and have 42 employees.";
+        assert!(every_plan(page).is_empty());
+    }
+
+    #[test]
+    fn a_page_that_prices_without_naming_a_plan_still_produces_a_window() {
+        // No section states a price under its own name, so there are no plan blocks at all
+        // — and this page still says something about pricing. Falling back to the single
+        // best window keeps the finding rather than reporting silence.
+        let page = "Everything is included. It costs $19 per month, and that is that.";
+        let plans = every_plan(page);
+        assert_eq!(plans.len(), 1, "{plans:#?}");
+        assert!(plans[0].text.contains("$19"));
+    }
+
+    #[test]
+    fn a_feature_table_with_no_prices_in_it_is_not_a_window() {
+        // `todoist.com/pricing` renders its prices in JavaScript. What reaches the Markdown
+        // is the feature-comparison table and nothing else, and forty table rows outscore
+        // any real pricing block on structure alone. The window chosen from it produced
+        // **"Beginner at $5"** — the 5 is how many personal projects the plan allows.
+        //
+        // A page that publishes no price we can see is a finding, and ARCHITECTURE §5.5's
+        // JavaScript-gap counter is what it feeds. A window with no price in it cannot
+        // produce that finding; it can only produce a guess.
+        let mut page = String::from(
+            "# Compare plans\n###\n\n|  | Beginner | Pro | Business |\n|---|---|---|---|\n",
+        );
+        for n in 0..40 {
+            page.push_str(&format!(
+                "| Feature number {n} | 5 | 300 | 300 for each member |\n"
+            ));
+        }
+        assert!(every_plan(&page).is_empty(), "invented a pricing window");
+    }
+
+    #[test]
+    fn a_bare_heading_is_not_a_plan_name() {
+        // Same page: three empty `###` sit above those tables, and "shortest heading wins"
+        // would hand the model `###` as the plan it is being asked about.
+        let page = "###\n## Pro\n$15/user, billed monthly\n- Everything included";
+        let plans = every_plan(page);
+        assert_eq!(plans.len(), 1, "{plans:#?}");
+        assert_eq!(plans[0].heading.as_deref(), Some("## Pro"));
+    }
+
+    #[test]
+    fn a_page_of_many_sections_is_capped() {
+        // Each window is a model call. A page producing thirty of them has mistaken
+        // something else for a plan, and thirty calls is the wrong way to find that out.
+        let mut page = String::new();
+        for n in 0..30 {
+            page.push_str(&format!(
+                "## Plan {n}\n${n}9 per month, billed monthly\n- A feature\n"
+            ));
+        }
+        assert_eq!(every_plan(&page).len(), MAX_PLANS);
     }
 
     #[test]
