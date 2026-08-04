@@ -28,6 +28,7 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | **Fetching a public page politely, and refusing to be aimed inwards** | **Yes** — Part 8B |
 | **Measuring where a price lives on real pages** | **Yes** — Part 8C |
 | **Finding which pages to read about a company** | **Yes** — Part 8D |
+| **The whole path: discover, fetch, convert, extract** | **Yes** — Part 8E |
 | Reading real web pages *as part of a report* | No — the fetcher exists, nothing calls it yet |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
 | Accounts, quotas, payment | No |
@@ -822,13 +823,64 @@ one kind of thing.
 
 ---
 
+## Part 8E — Run the whole path, and watch it fall over
+
+**The first command that runs every piece in order**, and the most instructive thing in this
+document — because it does not fully work, and *how* it fails is the finding.
+
+```bash
+cargo run -p landscape -- read https://basecamp.com
+```
+
+Without a `llama-server` it stops after conversion and tells you so. With one:
+
+```
+page                                         words  quality extracted
+------------------------------------------------------------------------------------------
+basecamp.com/pricing                         1729   good    Pro, no price published
+basecamp.com/features                        1436   good    Basecamp, no price published
+basecamp.com/status                          380    good    nothing found
+```
+
+**`basecamp.com/pricing` shows `$299/month` and `$15/user`.** The model that scores 90% on
+the golden set, and has never invented a price, failed to find one that was plainly there.
+
+**Every stage prints what it decided**, and that is the point. A pipeline reporting only its
+last step gives a wrong answer six possible causes. Traced:
+
+| Stage | Verdict |
+|---|---|
+| Fetch | ✅ 200 |
+| Markdown | ✅ `## Pro Unlimited`, then `$299/month` two lines later |
+| Quality | ✅ `good`, 1729 words |
+| **Model, given the whole page** | ❌ "no price published" |
+| **Model, given the 39-word span** | ✅ `Pro Unlimited`, `$299`, quoted verbatim |
+
+Same model, same prompt, same words — **only how many of them changed**.
+
+**This is what [BENCHMARKS.md](BENCHMARKS.md) Run 3 predicted**: *"a model could score 100%
+on it while failing on the first real page it meets."* It scored 90% and did exactly that.
+The fix is span pre-selection ([ARCHITECTURE.md](ARCHITECTURE.md) §5.4), which was in the
+plan as a speed optimisation and is now a correctness requirement. Run 5 records it.
+
+**Try the conversion on its own**, which does work and is worth seeing:
+
+```bash
+cargo run -p landscape -- fetch https://basecamp.com/pricing
+```
+
+That prints the page's size; the Markdown behind it keeps the headings and tables that
+`text::visible` throws away — which is the whole reason the module exists.
+
+---
+
 ## Part 9 — What the tests prove
 
 ```bash
 cargo test
 ```
 
-**You should see 227 passing, with nothing running.**
+**You should see 250 passing, with nothing running.**
 
 CI runs the same tests through `cargo nextest run`, which is faster and gives each test its
 own process — so a test that panics is reported as a failure instead of taking the run down
@@ -910,6 +962,8 @@ python prototype/build.py --preview
 | 8C — the report refuses to apply the 5% rule itself | | |
 | 8D — discovery returns absolute URLs, no duplicates | | |
 | 8D — the `answers` column shows several different kinds | | |
+| 8E — every stage prints a verdict, not just the last | | |
+| 8E — extraction on a real pricing page is poor (expected) | | |
 | 9 — `cargo test` green with nothing running | | |
 
 **If something differs from what is written here, that is a bug.** Every command above was run

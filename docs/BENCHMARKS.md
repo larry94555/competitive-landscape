@@ -29,6 +29,71 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 5 — the golden set's own warning, come true
+
+**Date:** 2026-08-03 · **Subject:** `basecamp.com`, whole pipeline · **Model:** Qwen3-4B
+Q4_K_M, the one that scores 90% on the golden set.
+
+```bash
+cargo run -p landscape -- read https://basecamp.com
+```
+
+The first run of the joined pipeline. Discovery found 6 sources, all fetched, all converted
+to Markdown, all scored `good`. Then:
+
+| Page | Words | Quality | Extracted |
+|---|---|---|---|
+| `basecamp.com/pricing` | 1729 | good | **"Pro, no price published"** |
+
+**Basecamp publishes `$299/month` and `$15/user` on that page.** The model that scores 90%
+on the golden set and never invents a price had just failed to find one that was plainly
+there.
+
+### Where it was lost, and where it was not
+
+Traced stage by stage, because the point of a joined pipeline is that a wrong answer has six
+possible causes:
+
+| Stage | Verdict |
+|---|---|
+| Fetch | ✅ 200, full page |
+| Markdown | ✅ `## Pro Unlimited` at line 11, `$299/month` at line 13 |
+| Truncation | ✅ Both inside the 6000 characters sent |
+| Prompt | ⚠️ Did not name a plan. Fixed — **did not help** |
+| **Model, given 1729 words** | ❌ **"no price published"** |
+| **Model, given the 39-word span** | ✅ **`Pro Unlimited`, `$299`, verbatim quote** |
+
+Same model. Same prompt. Same words. **The only difference is how many of them.**
+
+### This is the thing Run 3 said would happen
+
+> *"It has ten subjects, all pricing, all in English, all written by the same person on the
+> same afternoon — so it shares that person's blind spots, and **a model could score 100% on
+> it while failing on the first real page it meets**."*
+
+It scored 90% and failed on the first real page it met. The golden set's pages are ~100 words
+of clean prose about one plan. `basecamp.com/pricing` is 1729 words, three plans, a cookie
+banner and an FAQ.
+
+**The golden set is not wrong — it is measuring a different thing than the pipeline does**,
+and until this run there was nothing to reveal the difference.
+
+### What it justifies
+
+**Span pre-selection**, [ARCHITECTURE.md](ARCHITECTURE.md) §5.4 — feeding the model the
+relevant ~400-token window rather than the page. It was already in the plan on the argument
+that prefill dominates on 4 ARM cores. It now has a second and stronger argument: **without
+it, extraction on real pages does not work at all.**
+
+That reframes it from an optimisation to a correctness requirement, which changes where it
+belongs in the order of work.
+
+**And the golden set needs real pages.** `ROADMAP.md` takes it to 25 subjects in Phase 1;
+those should be fetched, not written, or the set will keep predicting a performance the
+pipeline does not have.
+
+---
+
 ## Run 4 — the JavaScript-rendering gap, measured
 
 **Date:** 2026-08-03 · **Sample:** 28 real pricing pages, `docs/js-gap-sample.txt` ·

@@ -409,6 +409,11 @@ the single most important phase; everything after it is commerce and polish.
   thin report is shipped marked rather than silently guessed.
 - Polite fetch + extraction pipeline.
 - Map-reduce analysis: per-source structured extraction → section synthesis.
+  **Blocked on span pre-selection, and that is a new finding.** Run 5: the 4B model that
+  scores 90% on the golden set returned *"no price published"* for a page showing `$299/month`
+  — and returned it correctly when given the 39-word span instead of the 1729-word page.
+  Extraction on real pages does not currently work without §5.4's span window, which moves it
+  from an optimisation to a prerequisite.
 - All seven report sections, streamed over SSE.
 - Anonymous rate limit (2/day), share URL.
 
@@ -445,7 +450,12 @@ the single most important phase; everything after it is commerce and polish.
   **Provisional** — Phase 2's exit re-measures, as §5.5 requires.
 - `landscape-search`: `SourceProvider` trait; SearXNG adapter; trust tiering; source ranking
   and capping at 8–14.
-- Extraction → Markdown, preserving tables and headings; `extraction_quality` scoring.
+- ~~Extraction → Markdown, preserving tables and headings; `extraction_quality` scoring.~~
+  **Done** — `landscape-extract::markdown` and `::quality`. Tables and headings survive,
+  which matters because a flattened table puts `$49` next to two plan names and a model then
+  guesses from word order.
+  **`landscape read <origin>` joins the whole path** — discovery, fetch, Markdown, quality,
+  extraction — and running it produced [BENCHMARKS.md](BENCHMARKS.md) **Run 5**, below.
 - `landscape-llm`: llama-server client with deadlines, token budgets, a global semaphore,
   compiled grammar cache, prefix-stable system prompts.
 - `landscape-analyze`: the orchestrator, with per-analysis hard budgets and graceful section
@@ -470,6 +480,9 @@ loading screen; treat it as a P0 requirement.
 - Structured event log (`events` table) from day one — retrofitting analytics is painful.
 - Golden set to 25 subjects; nightly eval job reporting schema validity, latency, and
   (manually, this phase) spot-checked accuracy.
+  **The 15 new subjects should be fetched pages, not written ones.** Run 5 showed the current
+  set predicting a performance the pipeline does not have: its pages are ~100 clean words
+  about one plan, and a real pricing page is 1700 words with three plans and a cookie banner.
 
 **Exit criteria**
 - 20 consecutive analyses of varied subjects complete without a crash.
