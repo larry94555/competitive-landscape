@@ -88,6 +88,25 @@ pub async fn run(store: &impl Store) {
     let third = store.claim_next().await.expect("claim");
     assert!(third.is_none(), "an empty queue yields nothing");
 
+    // --- progress is visible while it is still running -------------------------
+    // What makes streaming possible: a reader waiting ninety seconds sees the pricing
+    // section when pricing is done, not when everything is.
+    let partial = sample_report(&a.prompt);
+    store
+        .save_progress(a.id, &partial)
+        .await
+        .expect("save progress");
+    let running = store.get(a.id).await.expect("get during run");
+    assert_eq!(
+        running.status,
+        AnalysisStatus::Running,
+        "progress does not finish an analysis"
+    );
+    assert!(
+        running.report.is_some(),
+        "a running analysis can carry the report so far"
+    );
+
     // --- completing attaches the report ----------------------------------------
     let report = sample_report(&a.prompt);
     store.complete(a.id, &report).await.expect("complete");
@@ -104,6 +123,21 @@ pub async fn run(store: &impl Store) {
     assert_eq!(
         stored.searched_as, report.searched_as,
         "searched_as survives storage"
+    );
+
+    // --- a late write does not resurrect a finished run ------------------------
+    // A worker that lost a race writes progress after another finished the same row. The
+    // correct outcome is nothing at all: the reader is looking at a complete report.
+    store
+        .save_progress(a.id, &sample_report("something else entirely"))
+        .await
+        .expect("a late write is not an error");
+    let after = store.get(a.id).await.expect("get after a late write");
+    assert_eq!(after.status, AnalysisStatus::Complete, "still complete");
+    assert_eq!(
+        after.report.map(|r| r.subject),
+        Some(report.subject.clone()),
+        "the finished report was not overwritten"
     );
 
     // --- failing is terminal and records nothing user-facing -------------------

@@ -35,7 +35,9 @@ landscape-golden = { path = "crates/landscape-golden" }
 
 anyhow = "1"
 async-trait = "0.1"
-axum = "0.8"
+async-stream = "0.3"
+axum = { version = "0.8", features = ["macros"] }
+futures-util = { version = "0.3", default-features = false }
 chrono = { version = "0.4", features = ["serde"] }
 schemars = { version = "0.8", features = ["chrono", "uuid1"] }
 serde = { version = "1", features = ["derive"] }

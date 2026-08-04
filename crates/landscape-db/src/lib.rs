@@ -53,6 +53,18 @@ pub trait Store: Send + Sync + std::fmt::Debug {
     /// database rather than in a separate broker.
     async fn claim_next(&self) -> Result<Option<Analysis>>;
 
+    /// Attach the report so far, leaving the analysis running.
+    ///
+    /// **This is what makes streaming possible without a second piece of infrastructure.**
+    /// A report is assembled a section at a time, and a reader waiting ninety seconds should
+    /// see the pricing section as soon as pricing is done rather than everything at the end
+    /// — `PRODUCT_SPEC.md` §2.1A. The worker writes progress here; the API reads it and
+    /// streams the difference.
+    ///
+    /// The queue already lives in the database for the same reason a broker does not: a
+    /// second thing to run is a second thing to fail, and at this scale the row is enough.
+    async fn save_progress(&self, id: AnalysisId, report: &Report) -> Result<()>;
+
     /// Attach a finished report and mark the analysis complete.
     async fn complete(&self, id: AnalysisId, report: &Report) -> Result<()>;
 

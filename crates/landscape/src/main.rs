@@ -20,7 +20,6 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use landscape_api::{router, AppState};
-use landscape_core::{Report, Section};
 use landscape_db::{MemoryStore, PgStore, Store};
 
 /// Where the API listens unless `BIND_ADDR` says otherwise.
@@ -466,11 +465,7 @@ async fn worker(store: Arc<dyn Store>) -> Result<()> {
                         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     }
                     Ok(Some(analysis)) => {
-                        tracing::info!(id = %analysis.id, "running analysis");
-                        let report = placeholder_report(&analysis.prompt);
-                        if let Err(e) = store.complete(analysis.id, &report).await {
-                            tracing::error!(id = %analysis.id, error = %e, "could not save report");
-                        }
+                        run_analysis(&store, &analysis).await;
                     }
                 }
             }
@@ -484,26 +479,58 @@ async fn worker(store: Arc<dyn Store>) -> Result<()> {
 /// section is `not_found` with the pages it would have checked listed — which is the same
 /// treatment a real run gives a genuine gap, so the frontend renders the honest case from
 /// day one rather than a happy path that has to be unwritten later.
-fn placeholder_report(prompt: &str) -> Report {
-    Report {
-        subject: prompt.to_owned(),
-        searched_as: String::new(),
-        generated_at: chrono::Utc::now(),
-        model_id: "none".to_owned(),
-        prompt_version: 0,
-        sections: vec![
-            Section::not_found(
-                "pricing",
-                "Prices",
-                vec!["nothing was fetched: the gathering pipeline is not built yet".to_owned()],
-            ),
-            Section::not_found(
-                "features",
-                "What each one does",
-                vec!["nothing was fetched: the gathering pipeline is not built yet".to_owned()],
-            ),
-        ],
-        sources: Vec::new(),
+/// Run one claimed analysis, writing progress as it goes.
+///
+/// **The queue finally carries something.** Until now this wrote a placeholder saying the
+/// gathering pipeline was not built; it is built, and this is the join.
+///
+/// Progress is saved after every page rather than at the end, which is what lets a reader
+/// watch a report fill in — `PRODUCT_SPEC.md` §2.1A. A failed save is logged and the run
+/// continues: losing an intermediate write costs a reader a few seconds of staleness, and
+/// abandoning the analysis over it would cost them the report.
+async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysis) {
+    let Some(origin) = landscape_analyze::subject::origin_in(&analysis.prompt) else {
+        // Not an error — a capability we do not have. Guessing a domain from a description
+        // would produce a report that is correctly cited and about the wrong company.
+        tracing::info!(id = %analysis.id, "no subject in prompt");
+        if let Err(e) = store
+            .fail(analysis.id, landscape_analyze::subject::NO_SUBJECT)
+            .await
+        {
+            tracing::error!(id = %analysis.id, error = %e, "could not record the failure");
+        }
+        return;
+    };
+
+    tracing::info!(id = %analysis.id, %origin, "running analysis");
+    let fetcher = landscape_fetch::Fetcher::new();
+    let llm = landscape_llm::LlamaClient::from_env();
+    let now = chrono::Utc::now();
+
+    let outcome = landscape_analyze::analyse_with(
+        &fetcher,
+        &llm,
+        &origin,
+        now,
+        now.date_naive(),
+        &mut |so_far| {
+            // Fire and forget from inside a synchronous callback: the write is queued on the
+            // runtime and the analysis carries on. Ordering is not a concern because each
+            // write is the whole report so far, not a delta.
+            let store = Arc::clone(store);
+            let id = analysis.id;
+            let snapshot = so_far.clone();
+            tokio::spawn(async move {
+                if let Err(e) = store.save_progress(id, &snapshot).await {
+                    tracing::warn!(%id, error = %e, "could not save progress");
+                }
+            });
+        },
+    )
+    .await;
+
+    if let Err(e) = store.complete(analysis.id, &outcome.report).await {
+        tracing::error!(id = %analysis.id, error = %e, "could not save report");
     }
 }
 
@@ -516,38 +543,41 @@ async fn shutdown_signal() {
 // Panicking IS how a test reports failure. The lints stay denied everywhere else.
 mod tests {
     use super::*;
-    use landscape_core::SectionStatus;
 
-    #[test]
-    fn the_placeholder_report_claims_nothing_it_cannot_show() {
-        let r = placeholder_report("an app for farm-to-restaurant orders");
-        assert!(
-            r.sources.is_empty(),
-            "no sources were read, so none are listed"
+    #[tokio::test]
+    async fn a_prompt_that_names_no_site_fails_with_a_reason() {
+        // The path this replaced wrote a placeholder report saying the pipeline was not
+        // built. The pipeline is built, and the honest failure for a description is that we
+        // cannot find the company from it yet — not a report about a guessed domain.
+        let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+        let new = landscape_core::NewAnalysis::parse("an app for farm-to-restaurant orders")
+            .expect("valid prompt");
+        let queued = store.enqueue(&new).await.expect("enqueue");
+        let claimed = store
+            .claim_next()
+            .await
+            .expect("claim")
+            .expect("one queued");
+
+        run_analysis(&store, &claimed).await;
+
+        let done = store.get(queued.id).await.expect("get");
+        assert_eq!(
+            done.status,
+            landscape_core::AnalysisStatus::Failed,
+            "a subject we cannot resolve is a failure, not an empty report"
         );
-        for section in &r.sections {
-            assert_eq!(
-                section.status,
-                SectionStatus::NotFoundInPublicSources,
-                "a section with no evidence must say so"
-            );
-            assert!(section.claims.is_empty());
-            assert!(
-                !section.checked.is_empty(),
-                "even a placeholder negative shows its working"
-            );
-        }
         assert!(
-            r.every_claim_is_traceable(),
-            "a report with no claims is trivially traceable"
+            done.report.is_none(),
+            "nothing was read, so there is nothing to show"
         );
     }
 
     #[tokio::test]
-    async fn a_queued_analysis_is_picked_up_and_completed() {
-        // The whole path, with no database: enqueue, claim, complete, read back.
+    async fn a_queued_analysis_is_claimed_exactly_once() {
+        // The queue's own guarantee, with no database and no network.
         let store = MemoryStore::new();
-        let new = landscape_core::NewAnalysis::parse("an app for farm-to-restaurant orders")
+        let new = landscape_core::NewAnalysis::parse("compare basecamp.com for me")
             .expect("valid prompt");
         let queued = store.enqueue(&new).await.expect("enqueue");
 
@@ -557,12 +587,21 @@ mod tests {
             .expect("claim")
             .expect("one queued");
         assert_eq!(claimed.id, queued.id);
+        assert_eq!(claimed.status, landscape_core::AnalysisStatus::Running);
+        assert!(
+            store.claim_next().await.expect("claim again").is_none(),
+            "a claimed analysis is never handed out twice"
+        );
+    }
 
-        let report = placeholder_report(&claimed.prompt);
-        store.complete(claimed.id, &report).await.expect("complete");
-
-        let done = store.get(queued.id).await.expect("get");
-        assert_eq!(done.status, landscape_core::AnalysisStatus::Complete);
-        assert!(done.report.is_some());
+    #[test]
+    fn the_subject_comes_from_the_prompt_or_the_run_stops() {
+        // The two branches `run_analysis` takes, asserted without a runtime: a named site is
+        // read, and a description is refused.
+        assert_eq!(
+            landscape_analyze::subject::origin_in("compare basecamp.com for me").as_deref(),
+            Some("https://basecamp.com")
+        );
+        assert!(landscape_analyze::subject::origin_in("an app for farms").is_none());
     }
 }

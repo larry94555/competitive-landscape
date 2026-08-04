@@ -76,6 +76,17 @@ impl Store for MemoryStore {
         }
     }
 
+    async fn save_progress(&self, id: AnalysisId, report: &Report) -> Result<()> {
+        let mut map = self.lock();
+        let analysis = map.get_mut(&id).ok_or(StoreError::NotFound(id))?;
+        // Deliberately does not touch `status`. Progress on a run that has already finished
+        // is a late write from a worker that lost a race, and it must not resurrect the row.
+        if analysis.status == AnalysisStatus::Running {
+            analysis.report = Some(report.clone());
+        }
+        Ok(())
+    }
+
     async fn complete(&self, id: AnalysisId, report: &Report) -> Result<()> {
         let mut map = self.lock();
         let entry = map.get_mut(&id).ok_or(StoreError::NotFound(id))?;

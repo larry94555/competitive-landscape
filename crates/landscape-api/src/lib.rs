@@ -6,6 +6,7 @@
 //! laptop is a request path nobody exercises.
 
 mod error;
+mod events;
 mod extract;
 pub mod request_id;
 mod routes;
