@@ -153,15 +153,16 @@ impl Report {
     pub fn render(&self) -> String {
         use std::fmt::Write as _;
         let mut out = String::new();
-        let _ = writeln!(out, "\n{:<52} {}", "page", "where the price was");
-        let _ = writeln!(out, "{}", "-".repeat(78));
+        let _ = writeln!(out, "\n{:<52} where the price was", "page");
+        let rule = "-".repeat(78);
+        let _ = writeln!(out, "{rule}");
         for r in &self.readings {
             let _ = writeln!(out, "{:<52} {}", trim(&r.url, 50), r.found.label());
         }
         for (url, why) in &self.unreachable {
             let _ = writeln!(out, "{:<52} unreachable: {}", trim(url, 50), trim(why, 22));
         }
-        let _ = writeln!(out, "{}", "-".repeat(78));
+        let _ = writeln!(out, "{rule}");
         let _ = writeln!(
             out,
             "measured {}   no static price {}   of those, tier 2 recovered {}",
