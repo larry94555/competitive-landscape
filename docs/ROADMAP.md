@@ -295,6 +295,10 @@ structural, and retrofitting them is expensive.
 **Instrumentation & eval:** the benchmark harness *is* the deliverable. Publish an internal
 `docs/BENCHMARKS.md` with real numbers and the chosen model + quantization, with reasoning.
 
+> **The actions that are yours** — the ones an agent cannot do — are listed step by step
+> in [phases/PHASE_0.md](phases/PHASE_0.md), with what "done" looks like and how each is
+> verified. Phases 1 and 2 have their own pages beside it.
+
 **Exit criteria** — status as of 2026-08-03
 
 - ☐ A documented three-model choice (Router / Extractor / Synthesizer) with measured prefill
