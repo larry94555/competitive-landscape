@@ -29,6 +29,81 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 6 — the window fixes it, and the window was wrong twice first
+
+**Date:** 2026-08-03 · **Subjects:** `basecamp.com`, `linear.app` · **Model:** Qwen3-4B
+Q4_K_M, unchanged from Run 5.
+
+```bash
+cargo run -p landscape -- read https://basecamp.com
+```
+
+Run 5 established that the model works on a span and fails on a page. This is span
+pre-selection ([ARCHITECTURE.md](ARCHITECTURE.md) §5.4) built and pointed at the same page.
+
+| Attempt | `basecamp.com/pricing` returned |
+|---|---|
+| Run 5 — whole page, 1729 words | ❌ "no price published" |
+| First scorer — 283-word span | ❌ **"Timesheet at $50"** |
+| Final scorer — 264-word span | ✅ **"Pro at $15"** |
+
+`$15/user` is Basecamp's Pro plan. `$50/month` is the Admin Pro Pack add-on, mentioned in
+the FAQ.
+
+### The middle row is the finding
+
+The first scorer chose the FAQ, and the reason is instructive: **the FAQ mentions prices
+several times in close succession, while the actual plan states its price once.** Any scorer
+summing price-shaped signals over a window prefers the denser region, and the denser region
+is the one full of exceptions and hypotheticals.
+
+What separates them is not vocabulary. It is **shape**:
+
+| | A plan block | An FAQ |
+|---|---|---|
+| Distance to its heading | 1–2 lines | dozens |
+| Question marks | none | one per entry |
+
+Both are now signals, and neither is specific to Basecamp.
+
+### Two more, found the same way
+
+**The heading was anchored to the wrong line.** A window wide enough to hold a short page
+starts at line 0, where the nearest heading above is the page title — `# Pick a package` —
+rather than the one governing the price. It is now anchored to the best-scoring line.
+
+**And it took the nearest heading rather than the most significant one.** A plan is written
+as a name and then a subtitle, so the nearest heading hands the model *"All-inclusive
+pricing"* as the thing `$299` belongs to. That is not a plan name.
+
+### Running the right extractor
+
+`linear.app/docs/mcp.md` returned **"MCP server at $0"** — a plan that does not exist, from a
+documentation page. The pricing extractor was being run over every discovered source.
+
+Discovery already labels what each page answers, so using that label costs nothing and fixes
+it. It also cut the model calls per company from 8 to 2.
+
+| | `linear.app` |
+|---|---|
+| `/pricing` | ✅ "Free at $0" — correct, Linear's first plan |
+| `/docs/*`, `/about`, `/careers` | "not a pricing page — no extractor yet" |
+| `/plans` (2 words) | "skipped — nothing to read" |
+
+### What is still not right
+
+**Basecamp has two plans and we report one.** `$15/user` Pro and `$299/month` Pro Unlimited
+are both on that page; `PricingExtraction` models a single plan, so the window picks one and
+the other is invisible. Extracting *all* plans needs a different type, and it is the next
+piece of work rather than a tuning problem.
+
+**The heuristic is `SPAN_VERSION = 1` and has been measured against two companies.** §5.4
+says it *"is itself part of the golden-set evaluation, because a bad window is
+indistinguishable from a bad model at the output"*. Until the golden set covers spans, this
+run is two data points and a fixed bug, not a validation.
+
+---
+
 ## Run 5 — the golden set's own warning, come true
 
 **Date:** 2026-08-03 · **Subject:** `basecamp.com`, whole pipeline · **Model:** Qwen3-4B

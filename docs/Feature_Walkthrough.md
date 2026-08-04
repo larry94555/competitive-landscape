@@ -842,26 +842,34 @@ basecamp.com/features                        1436   good    Basecamp, no price p
 basecamp.com/status                          380    good    nothing found
 ```
 
-**`basecamp.com/pricing` shows `$299/month` and `$15/user`.** The model that scores 90% on
-the golden set, and has never invented a price, failed to find one that was plainly there.
+**It works now, and the `span` column is why.** The model is sent a ~260-word window rather
+than the 1729-word page — [ARCHITECTURE.md](ARCHITECTURE.md) §5.4's span pre-selection.
+Before that window existed, this same page returned *"no price published"*
+([BENCHMARKS.md](BENCHMARKS.md) Run 5).
 
-**Every stage prints what it decided**, and that is the point. A pipeline reporting only its
-last step gives a wrong answer six possible causes. Traced:
+**`$15/user` is Basecamp's Pro plan, and that is correct.** But that page also publishes
+`$299/month` Pro Unlimited, and you will not see it: `PricingExtraction` models one plan, so
+the window picks one. **Extracting every plan on a page is the next piece of work**, not a
+tuning problem.
 
-| Stage | Verdict |
-|---|---|
-| Fetch | ✅ 200 |
-| Markdown | ✅ `## Pro Unlimited`, then `$299/month` two lines later |
-| Quality | ✅ `good`, 1729 words |
-| **Model, given the whole page** | ❌ "no price published" |
-| **Model, given the 39-word span** | ✅ `Pro Unlimited`, `$299`, quoted verbatim |
+**Every stage prints what it decided**, and that is the point — a pipeline reporting only its
+last step gives a wrong answer six possible causes. The `span` column is how you tell a bad
+window from a bad model, which §5.4 warns are otherwise indistinguishable.
 
-Same model, same prompt, same words — **only how many of them changed**.
+**Rows saying "not a pricing page — no extractor yet" are honest, not broken.** Discovery
+labels what each page answers, and only pricing has an extractor so far. Running the pricing
+extractor over a documentation page produced *"MCP server at $0"* — a plan that does not
+exist — which is why it no longer does.
 
-**This is what [BENCHMARKS.md](BENCHMARKS.md) Run 3 predicted**: *"a model could score 100%
-on it while failing on the first real page it meets."* It scored 90% and did exactly that.
-The fix is span pre-selection ([ARCHITECTURE.md](ARCHITECTURE.md) §5.4), which was in the
-plan as a speed optimisation and is now a correctness requirement. Run 5 records it.
+**Try a second company**, where the first plan is free:
+
+```bash
+cargo run -p landscape -- read https://linear.app
+```
+
+`linear.app/pricing` should report **Free at $0**, which is right. You may also see
+`/plans` skipped with 2 words — the quality gate refusing to spend a model pass on a page
+that converted to nothing.
 
 **Try the conversion on its own**, which does work and is worth seeing:
 
@@ -880,7 +888,7 @@ That prints the page's size; the Markdown behind it keeps the headings and table
 cargo test
 ```
 
-**You should see 250 passing, with nothing running.**
+**You should see 263 passing, with nothing running.**
 
 CI runs the same tests through `cargo nextest run`, which is faster and gives each test its
 own process — so a test that panics is reported as a failure instead of taking the run down
@@ -963,7 +971,8 @@ python prototype/build.py --preview
 | 8D — discovery returns absolute URLs, no duplicates | | |
 | 8D — the `answers` column shows several different kinds | | |
 | 8E — every stage prints a verdict, not just the last | | |
-| 8E — extraction on a real pricing page is poor (expected) | | |
+| 8E — basecamp `/pricing` extracts a real plan and price | | |
+| 8E — non-pricing pages say "no extractor yet" rather than guessing | | |
 | 9 — `cargo test` green with nothing running | | |
 
 **If something differs from what is written here, that is a bug.** Every command above was run

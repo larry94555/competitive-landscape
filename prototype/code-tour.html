@@ -42,7 +42,7 @@
   .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
 </style>
 
-<div class="banner" id="banner">CODE TOUR — the first real run</div>
+<div class="banner" id="banner">CODE TOUR — four hundred tokens</div>
 
 <div class="wrap">
   <aside class="tree">
@@ -80,111 +80,109 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    flat: {
-      name: "why markdown, not text",
-      purpose: "A flattened table is a bag of numbers.",
+    problem: {
+      name: "last time, this failed",
+      purpose: "A page of 1729 words. Two prices on it.",
       lines: [
-        ['c', '// The old converter:'],
-        ['s', '  Plan Price Starter $19 Grower $49'],
+        ['t', '  basecamp.com/pricing   1729 words'],
+        ['s', '  -> "no price published"'],
         ['c', ''],
-        ['c', '// $49 now sits next to two plan names.'],
-        ['c', '// Asked which plan costs $49, a model guesses'],
-        ['c', '// from word order.'],
+        ['c', '// Same model, given a 39-word span,'],
+        ['f', '// answered correctly and quoted the page.'],
         ['c', ''],
-        ['f', '// Run 3 recorded exactly that failure.']
+        ['f', '// So: send the window, not the page.']
       ]
     },
-    kept: {
-      name: "crates/landscape-extract/src/markdown.rs",
-      purpose: "Tables and headings survive.",
+    score: {
+      name: "crates/landscape-extract/src/span.rs",
+      purpose: "Score every line. Take the best window.",
       lines: [
-        ['t', '  | Plan    | Price |'],
-        ['t', '  |---|---|'],
-        ['t', '  | Starter | $19   |'],
-        ['t', '  | Grower  | $49   |'],
+        ['c', '// A dollar sign. A billing period.'],
+        ['c', '// The word "per user". A plan name.'],
         ['c', ''],
-        ['c', '// And ## Enterprise above a paragraph is what'],
-        ['f', '// says which plan the paragraph is about.']
+        ['t', '  WINDOW_CHARS: usize = 1600;'],
+        ['c', ''],
+        ['c', '// Roughly four hundred tokens, which is'],
+        ['f', '// what section 5.4 asked for.']
       ]
     },
-    worth: {
-      name: "crates/landscape-extract/src/quality.rs",
-      purpose: "Is this page worth twelve seconds?",
+    faq: {
+      name: "and it chose the FAQ",
+      purpose: "Dense in prices. None of them a plan.",
       lines: [
-        ['c', '// A navigation menu costs a full extraction'],
-        ['c', '// and returns nothing.'],
+        ['s', '  -> "Timesheet at $50"'],
         ['c', ''],
-        ['c', '// First draft: a 25-word floor.'],
-        ['s', '// It scored a real pricing page as empty.'],
+        ['c', '// $50 is an add-on, named in an answer.'],
         ['c', ''],
-        ['f', '// Structure is content. The floor is 12 now,'],
-        ['f', '// and menus are caught by words per line.']
+        ['c', '// An FAQ mentions prices several times.'],
+        ['f', '// A plan states its price once.'],
+        ['f', '// Any sum prefers the denser region.']
       ]
     },
-    joined: {
-      name: "landscape read",
-      purpose: "Every piece, in order, for the first time.",
+    shape: {
+      name: "what tells them apart",
+      purpose: "Not the words. The shape.",
       lines: [
-        ['c', '// discover -> fetch -> markdown -> quality'],
-        ['c', '//          -> extract'],
+        ['c', '// A price under a heading is a plan price.'],
+        ['t', '  if since_heading <= 4 { score += 8; }'],
         ['c', ''],
-        ['c', '// Each stage prints what it decided.'],
+        ['c', '// A question is a hypothetical.'],
+        ['t', '  if line.contains(\'?\') { score -= 6; }'],
         ['c', ''],
-        ['f', '// A pipeline that reports only its last step'],
-        ['f', '// gives a wrong answer six possible causes.']
+        ['f', '// Neither is specific to Basecamp.']
       ]
     },
-    failed: {
-      name: "the first real run",
-      purpose: "It did not work. That is the finding.",
+    heading: {
+      name: "then the heading was wrong twice",
+      purpose: "The model needs the plan's name.",
       lines: [
-        ['t', '  basecamp.com/pricing   1729   good'],
-        ['s', '  -> "Pro, no price published"'],
+        ['s', '  # Pick a package'],
+        ['c', '// The window starts at line 0 on a short'],
+        ['c', '// page, so that was the nearest heading.'],
         ['c', ''],
-        ['c', '// That page shows $299/month and $15/user.'],
-        ['c', ''],
-        ['f', '// The model that scores 90% on the golden set'],
-        ['f', '// and never invents a price. Missed one.']
+        ['s', '  ### All-inclusive pricing'],
+        ['c', '// Then: the nearest one is the subtitle.'],
+        ['f', '// Anchor to the best line. Take the most'],
+        ['f', '// significant heading above it.']
       ]
     },
-    traced: {
-      name: "where it was lost",
-      purpose: "Six possible causes. One at fault.",
+    fixed: {
+      name: "the same page, now",
+      purpose: "264 words instead of 1729.",
       lines: [
-        ['t', '  fetch        ok'],
-        ['t', '  markdown     ok - $299 is on line 13'],
-        ['t', '  truncation   ok - well inside the window'],
-        ['t', '  prompt       fixed. Did not help.'],
+        ['t', '  no price published    <- the whole page'],
+        ['t', '  Timesheet at $50      <- the first span'],
+        ['f', '  Pro at $15            <- correct'],
         ['c', ''],
-        ['s', '  whole page, 1729 words   no price found'],
-        ['f', '  the span,      39 words   $299, quoted']
+        ['c', '// $15/user is Basecamp\'s Pro plan.'],
+        ['c', ''],
+        ['f', '// linear.app/pricing: Free at $0. Also right.']
       ]
     },
-    predicted: {
-      name: "docs/BENCHMARKS.md, Run 3",
-      purpose: "We wrote this down before it happened.",
+    wrong: {
+      name: "running the right extractor",
+      purpose: "It was reading docs pages for prices.",
       lines: [
-        ['f', '  "a model could score 100% on it while'],
-        ['f', '   failing on the first real page it meets"'],
+        ['s', '  linear.app/docs/mcp.md'],
+        ['s', '  -> "MCP server at $0"'],
         ['c', ''],
-        ['c', '// It scored 90%. Then it did that.'],
+        ['c', '// A plan that does not exist.'],
         ['c', ''],
-        ['c', '// The golden set is not wrong. It measures'],
-        ['f', '// something the pipeline does not do.']
+        ['c', '// Discovery already labels what each page'],
+        ['f', '// answers. Using it cut 8 model calls to 2.']
       ]
     },
     next: {
-      name: "what it changes",
-      purpose: "An optimisation becomes a requirement.",
+      name: "what is still not right",
+      purpose: "One page. Two plans. We report one.",
       lines: [
-        ['c', '// Span pre-selection was already planned,'],
-        ['c', '// because prefill dominates on ARM cores.'],
+        ['t', '  $15/user    Pro'],
+        ['t', '  $299/month  Pro Unlimited'],
         ['c', ''],
-        ['f', '// Now there is a second reason:'],
-        ['f', '// without it, this does not work at all.'],
+        ['s', '// PricingExtraction models a single plan,'],
+        ['s', '// so the window picks one and hides the other.'],
         ['c', ''],
-        ['c', '// And the golden set needs real pages next,'],
-        ['c', '// not fifteen more written by hand.']
+        ['f', '// That is a different type, not a tuning knob.']
       ]
     }
   };
@@ -228,30 +226,30 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:flat",      c: "A flattened table is a bag of numbers." },
-    { kind: "means",       a: "spot:#code",     c: "Which plan costs forty-nine?" },
+    { kind: "recognition", a: "file:problem",  c: "Last time, a real page beat the model." },
+    { kind: "means",       a: "spot:#code",    c: "It answered on thirty-nine of those words." },
 
-    { kind: "turn",        a: "file:kept",      c: "So keep the tables and the headings." },
-    { kind: "means",       a: "spot:#code",     c: "The heading says which plan it is about." },
+    { kind: "turn",        a: "file:score",    c: "So find those words before asking." },
+    { kind: "means",       a: "spot:#code",    c: "Score each line. Keep the best window." },
 
-    { kind: "result",      a: "file:worth",     c: "And skip pages with nothing on them." },
-    { kind: "means",       a: "spot:#code",     c: "The first threshold rejected a real page." },
+    { kind: "result",      a: "file:faq",      c: "The first window was the FAQ." },
+    { kind: "means",       a: "spot:#code",    c: "It has more prices. None is a plan." },
 
-    { kind: "result",      a: "file:joined",    c: "Then run every piece in order." },
-    { kind: "means",       a: "spot:#code",     c: "Each one says what it decided." },
+    { kind: "result",      a: "file:shape",    c: "Words cannot tell them apart. Shape can." },
+    { kind: "means",       a: "spot:#code",    c: "Near a heading, and not a question." },
 
-    { kind: "result",      a: "file:failed",    c: "The first real run did not work." },
-    { kind: "means",       a: "spot:#code",     c: "A page showing two prices. It found none." },
+    { kind: "result",      a: "file:heading",  c: "Then the heading was wrong. Twice." },
+    { kind: "means",       a: "spot:#code",    c: "A page title, and then a subtitle." },
 
-    { kind: "result",      a: "file:traced",    c: "Six things could be wrong. One was." },
-    { kind: "means",       a: "spot:#code",     c: "Same words. Fewer of them. It answers." },
+    { kind: "result",      a: "file:fixed",    c: "The same page now answers correctly." },
+    { kind: "means",       a: "spot:#code",    c: "And a second company, with a free plan." },
 
-    { kind: "result",      a: "file:predicted", c: "We wrote this down before it happened." },
-    { kind: "means",       a: "spot:#code",     c: "The set measures what the pipeline does not." },
+    { kind: "result",      a: "file:wrong",    c: "It had also been pricing a docs page." },
+    { kind: "means",       a: "spot:#code",    c: "Discovery already knew. Now we ask it." },
 
-    { kind: "result",      a: "file:next",      c: "So the next piece is not optional." },
+    { kind: "result",      a: "file:next",     c: "One thing is still wrong, and it is the type." },
 
-    { kind: "close",       a: "hold",           c: "Failing here is cheaper than shipping it." }
+    { kind: "close",       a: "hold",          c: "Three bugs. All found by running it." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -274,7 +272,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("flat");
+    show("problem");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -287,15 +285,15 @@
     }, TOTAL * 1000));
   }
 
-  show("flat");
+  show("problem");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "The first real run",
-    blurb: "Every piece has been testable on its own for weeks. This is the first time they ran in order against a real company - and it did not work, in a way the benchmarks had already predicted in writing.",
+    title: "Four hundred tokens",
+    blurb: "The last run failed on a real pricing page and succeeded on a span cut out of it by hand. This is that cut made automatic - and the two ways the first version of it went wrong, both found by pointing it at a real site.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

@@ -2,64 +2,64 @@ WEBVTT
 
 1
 00:00:01.500 --> 00:00:05.200
-A flattened table is a bag of numbers.
+Last time, a real page beat the model.
 
 2
-00:00:05.200 --> 00:00:08.200
-Which plan costs forty-nine?
+00:00:05.200 --> 00:00:09.200
+It answered on thirty-nine of those words.
 
 3
-00:00:08.200 --> 00:00:11.700
-So keep the tables and the headings.
+00:00:09.200 --> 00:00:12.600
+So find those words before asking.
 
 4
-00:00:11.700 --> 00:00:15.500
-The heading says which plan it is about.
+00:00:12.600 --> 00:00:16.300
+Score each line. Keep the best window.
 
 5
-00:00:15.500 --> 00:00:19.000
-And skip pages with nothing on them.
+00:00:16.300 --> 00:00:19.300
+The first window was the FAQ.
 
 6
-00:00:19.000 --> 00:00:22.900
-The first threshold rejected a real page.
+00:00:19.300 --> 00:00:22.800
+It has more prices. None is a plan.
 
 7
-00:00:22.900 --> 00:00:26.000
-Then run every piece in order.
+00:00:22.800 --> 00:00:26.600
+Words cannot tell them apart. Shape can.
 
 8
-00:00:26.000 --> 00:00:29.100
-Each one says what it decided.
+00:00:26.600 --> 00:00:30.100
+Near a heading, and not a question.
 
 9
-00:00:29.100 --> 00:00:32.400
-The first real run did not work.
+00:00:30.100 --> 00:00:33.500
+Then the heading was wrong. Twice.
 
 10
-00:00:32.400 --> 00:00:36.300
-A page showing two prices. It found none.
+00:00:33.500 --> 00:00:36.900
+A page title, and then a subtitle.
 
 11
-00:00:36.300 --> 00:00:39.800
-Six things could be wrong. One was.
+00:00:36.900 --> 00:00:40.400
+The same page now answers correctly.
 
 12
-00:00:39.800 --> 00:00:43.500
-Same words. Fewer of them. It answers.
+00:00:40.400 --> 00:00:44.200
+And a second company, with a free plan.
 
 13
-00:00:43.500 --> 00:00:47.200
-We wrote this down before it happened.
+00:00:44.200 --> 00:00:47.800
+It had also been pricing a docs page.
 
 14
-00:00:47.200 --> 00:00:51.300
-The set measures what the pipeline does not.
+00:00:47.800 --> 00:00:51.500
+Discovery already knew. Now we ask it.
 
 15
-00:00:51.300 --> 00:00:54.700
-So the next piece is not optional.
+00:00:51.500 --> 00:00:55.700
+One thing is still wrong, and it is the type.
 
 16
-00:00:54.700 --> 00:00:57.900
-Failing here is cheaper than shipping it.
+00:00:55.700 --> 00:00:58.600
+Three bugs. All found by running it.

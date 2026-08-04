@@ -30,6 +30,7 @@ pub mod embedded;
 pub mod markdown;
 pub mod price;
 pub mod quality;
+pub mod span;
 pub mod text;
 
 /// Where a page's price was found, if anywhere.
