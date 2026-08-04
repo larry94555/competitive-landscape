@@ -29,6 +29,88 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 12 — facts a page states by accident, and three checks that were not checks
+
+**Date:** 2026-08-04 · **Subjects:** plausible, linear, basecamp, notion · **Model:** Qwen3-4B
+Q4_K_M, unchanged since Run 5.
+
+The fourth question kind: *who they are, where, how big*. It is the first one whose answers a
+page is not built to publish — a pricing page exists to state a price, and **an about page
+exists to tell a story**.
+
+```bash
+cargo run -p landscape -- read https://plausible.io
+```
+
+| Subject | Facts stated | What came out |
+|---|---|---|
+| `plausible.io/about` | **3 of 3** | founded 2018 · based in the EU · 10 people |
+| `linear.app/about` | **1 of 3** | founded 2019 |
+| `basecamp.com/about` | **0 of 3** | *"no stated facts about the company"* |
+| `notion.com/about` | **0 of 3** | *"read 1 page, none stated anything"* |
+
+All four are correct. Basecamp's about page says *"We're here for them, **23 years and
+running**"* and never names a year — and 2003 is **arithmetic, not reading**. Nothing here
+computes it.
+
+### Three checks that were not checks
+
+**A substring test on a number.** The model answered **"0 people"** for a page reading *"Today
+Plausible is a team of 10"*, and the grounding check passed it: `"10".contains("0")`. Numbers
+are matched as whole tokens now, and the test that would have caught it is in
+`landscape-core`.
+
+**All-or-nothing grounding.** The check cleared an *extraction* rather than a *field*, so one
+carrying a correct founding year and an invented headquarters was discarded whole — throwing
+away the answer that window had been asked for. `plausible.io/about` reported two facts of the
+three it states because of it. Fields are cleared individually now, and the count is printed.
+
+**A phrase that assumed word order.** `started in` does not match *"Uku Taht **started**
+Plausible **in** December 2018"* — a name sits between the verb and the preposition. The
+window went elsewhere, the model answered 2018 from somewhere it had not been shown, and the
+grounding check dropped a year the page states plainly. Both halves were wrong and they
+cancelled out to look like one right answer.
+
+### And a source that was not ours
+
+`notion.com`'s `llms.txt` lists **`linkedin.com/company/notionhq`**, and it took the identity
+slot for that company. It could not be fetched, so the run printed *"could not fetch"* and the
+question went unanswered.
+
+Had it been fetched, it would have been worse. `FACT_CHECKING.md` §3.3 defines a primary source
+as a page on the subject's own domain, and **only a primary source may set a value in a
+comparison table**. Admitting somebody else's page here would launder it into the class that
+outranks everything. Everything discovery admits is now on the subject's own site — subdomains
+included, lookalike domains not.
+
+With that fixed, notion reads its own `/about`, which states none of the three.
+
+### What the fourth question is really like
+
+| | pricing | identity |
+|---|---|---|
+| The page's purpose | state the price | tell a story |
+| Where the fact is | a plan card | a subordinate clause |
+| Checkable | exactly | **only that the words are on the page** |
+
+The grounding check does more work here than anywhere else, and for a specific reason: **a
+model has read about these companies**. Ask it where Notion is based over a page of prose and
+the answer is available to it whether or not the page says so. Every value reported now has to
+be written in the window it came from.
+
+### What is still not right
+
+**One window per fact means one chance per fact.** `linear.app/about` states more than a
+founding year; the headquarters and headcount lines either did not score or did not survive.
+
+**`headquarters` is a free-text field.** *"the EU"*, *"Chicago, Illinois"* and *"remote"* are
+all valid answers and none of them compares to another company's.
+
+**Nothing measures any of this.** Four about pages read by hand, no golden-set subject, and
+the facts are the hardest of the four kinds to state a right answer for.
+
+---
+
 ## Run 11 — the note that reads back what was checked, and what it found first
 
 **Date:** 2026-08-04 · **Subjects:** basecamp, linear, notion · **Model:** Qwen3-4B Q4_K_M for

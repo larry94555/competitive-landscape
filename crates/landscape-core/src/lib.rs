@@ -20,8 +20,8 @@ pub mod subject;
 pub use analysis::{Analysis, AnalysisId, AnalysisStatus, NewAnalysis};
 pub use coverage::{Attempt, Coverage};
 pub use extract::{
-    BillingPeriod, Change, FeatureExtraction, PageChanges, PageFeatures, PagePricing,
-    PricingExtraction,
+    BillingPeriod, Change, FeatureExtraction, IdentityExtraction, PageChanges, PageFeatures,
+    PageIdentity, PagePricing, PricingExtraction,
 };
 pub use report::{Claim, Confidence, Report, Section, SectionStatus};
 pub use source::{Disposition, Source};

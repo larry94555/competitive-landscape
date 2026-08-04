@@ -422,8 +422,15 @@ the single most important phase; everything after it is commerce and polish.
   shipped* — `landscape-extract::changes`, Run 10 — asks **no model at all**, because §5.4 puts
   dates on the deterministic side and gives the reason. Notion returns 8 changes inside the
   90-day window; plausible's changelog 4 of the 70 dated entries on it.
-  **Three kinds remain**: identity, trust, direction. `read` names the kind and says there is
-  no extractor rather than running the wrong one.
+  *Who they are* — `landscape-extract::identity`, Run 12 — is the fourth, and the first whose
+  facts a page states by accident rather than by design. Plausible states all three (founded
+  2018, the EU, a team of 10); Basecamp states none, because *"23 years and running"* is an age
+  and not a year.
+  **Two kinds remain**: trust and direction. `read` names the kind and says there is no
+  extractor rather than running the wrong one.
+  What Run 12 leaves open: **`headquarters` is free text.** *"the EU"*, *"Chicago, Illinois"*
+  and *"remote"* are all valid and none of them compares to another company's, which is what a
+  matrix cell needs.
   ~~**A subject with no changelog at all says nothing.**~~ Fixed in Run 11: `read` ends with a
   coverage note per question — `landscape_core::Coverage`, rendered through
   [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §4's `Section::not_found`. Basecamp's *changes* line now

@@ -345,7 +345,7 @@ Example:
         let kind = source.answers;
         if !matches!(
             kind,
-            Answers::Pricing | Answers::Features | Answers::Changes
+            Answers::Pricing | Answers::Features | Answers::Changes | Answers::Identity
         ) {
             println!(
                 "{:<44} {:<6} {:<5} {:<6} no extractor yet for {} pages",
@@ -404,6 +404,11 @@ Example:
         if kind == Answers::Features {
             *facts.entry(kind).or_default() +=
                 read_features(&llm, &source.url, &markdown, &assessment).await;
+            continue;
+        }
+        if kind == Answers::Identity {
+            *facts.entry(kind).or_default() +=
+                read_identity(&llm, &source.url, &markdown, &assessment).await;
             continue;
         }
 
@@ -638,6 +643,138 @@ fn read_changes(
     // What the coverage note counts is what is inside the window. Thirty-six entries from
     // last year are not this quarter's answer.
     recent.len()
+}
+
+/// The identity half of `read` — who they are, where, how big.
+///
+/// One window per fact, because the three sit in different sentences and often different
+/// paragraphs. Every answer is checked twice: the quote has to be verbatim, and the value has
+/// to be **written in the window**. The second check does more work here than anywhere else —
+/// a model that has read about a company knows where it is, and an about page full of story is
+/// exactly the prompt that invites it to say so from memory.
+async fn read_identity(
+    llm: &landscape_llm::LlamaClient,
+    url: &str,
+    markdown: &str,
+    assessment: &landscape_extract::quality::Assessment,
+) -> usize {
+    let windows = landscape_extract::identity::every_fact(markdown);
+    if windows.is_empty() {
+        // Most about pages. `basecamp.com/about` is two thousand words of story and states
+        // none of the three, which is a finding rather than a failure.
+        println!(
+            "{:<44} {:<6} {:<5} {:<6} no stated facts about the company",
+            short(url),
+            assessment.words,
+            assessment.quality.name(),
+            "-"
+        );
+        return 0;
+    }
+
+    let decode = landscape_llm::Decode {
+        max_tokens: 300,
+        temperature: 0.0,
+        seed: Some(7),
+    };
+    let mut extracted: Vec<landscape_core::IdentityExtraction> = Vec::with_capacity(windows.len());
+    let mut unsupported = 0usize;
+    let mut ungrounded = 0usize;
+    let mut failures = Vec::new();
+    for (fact, window) in &windows {
+        let prompt = identity_prompt(url, *fact, window);
+        match llm
+            .generate::<landscape_core::IdentityExtraction>(&prompt, &decode)
+            .await
+        {
+            Ok(got) => {
+                // Field by field. An extraction carrying a correct year and an invented
+                // headcount used to be discarded whole, which threw away the answer the
+                // window was asked for.
+                let (kept, dropped) = got.keeping_only_stated(&window.text);
+                ungrounded += dropped;
+                if !kept.quote_is_verbatim(&window.text) {
+                    unsupported += 1;
+                }
+                extracted.push(kept);
+            }
+            Err(e) => failures.push(format!("{e}")),
+        }
+    }
+    let page = landscape_core::PageIdentity::assembled(extracted);
+
+    let words: usize = windows
+        .iter()
+        .map(|(_, w)| w.text.split_whitespace().count())
+        .sum();
+    println!(
+        "{:<44} {:<6} {:<5} {:<6} {} of 3 facts stated",
+        short(url),
+        assessment.words,
+        assessment.quality.name(),
+        words,
+        page.facts(),
+    );
+    if let Some(year) = page.founded_year {
+        println!("{:<44}   founded {year}", "");
+    }
+    if let Some(place) = &page.headquarters {
+        println!("{:<44}   based in {place}", "");
+    }
+    if let Some(count) = page.employees {
+        println!("{:<44}   {count} people", "");
+    }
+    if ungrounded > 0 {
+        println!(
+            "{:<44}   {ungrounded} answer(s) dropped - not written in the window",
+            ""
+        );
+    }
+    if unsupported > 0 {
+        println!(
+            "{:<44}   {unsupported} quote(s) not found in the section they came from",
+            ""
+        );
+    }
+    for failure in &failures {
+        println!("{:<44}   model error: {failure}", "");
+    }
+    page.facts()
+}
+
+/// One question at a time, because the three answers are in different sentences.
+fn identity_prompt(
+    url: &str,
+    fact: landscape_extract::identity::Fact,
+    window: &landscape_extract::span::Span,
+) -> String {
+    use landscape_extract::identity::Fact;
+
+    let asked = match fact {
+        Fact::Founded => "the year the company was founded",
+        Fact::Headquarters => "where the company is based",
+        Fact::Employees => "how many people work there",
+    };
+    let section: String = window.prompt_text().chars().take(6000).collect();
+    format!(
+        "You are reading a few lines from a company's about page. Extract only what they          state about {asked}.
+
+         Page: {url}
+
+         Rules:
+         - Every value must be written in these lines. Do not use anything you know about          this company from elsewhere.
+         - Leave a field null unless these lines state it. Most about pages state none of          them, and that is the expected answer.
+         - Do not calculate. A company saying it has been running for 23 years has not          stated the year it was founded.
+         - founded_year is a four-digit year. employees is a count of people.
+         - evidence_quote must be copied from these lines word for word.
+
+         SECTION
+---
+{section}
+---
+
+Return the extraction as JSON."
+    )
 }
 
 /// The features half of `read`, kept apart because the two questions are not alike.

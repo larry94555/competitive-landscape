@@ -926,6 +926,36 @@ them would read as a quiet quarter at a company that ships weekly.
 about a feature called Releases, not a changelog. [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §4 is
 strict about this distinction: **not "no changes."**
 
+**The fourth question is who they are**, and it is the one where a model is most likely to
+answer from memory:
+
+```bash
+cargo run -p landscape -- read https://plausible.io
+```
+
+```
+plausible.io/about                           914    good  195    3 of 3 facts stated
+                                               founded 2018
+                                               based in EU
+                                               10 people
+                                               1 answer(s) dropped - not written in the window
+```
+
+**Then try one that states nothing**, which is most of them:
+
+```bash
+cargo run -p landscape -- read https://basecamp.com
+```
+
+`basecamp.com/about` reports *"no stated facts about the company"*, and that is right: the page
+says *"We're here for them, 23 years and running"* and never names a year. **2003 is arithmetic,
+not reading**, so nothing computes it.
+
+**The dropped-answer line is the interesting one.** A model has read about these companies, and
+an about page of pure story is exactly the prompt that invites it to answer from memory. Every
+value has to be written in the window it came from — checked field by field, so a correct year
+is not thrown away by an invented headquarters beside it.
+
 **Every run now ends with what it did not find**, which is the half of a report that is
 usually missing:
 
@@ -1007,7 +1037,7 @@ That prints the page's size; the Markdown behind it keeps the headings and table
 cargo test
 ```
 
-**You should see 366 passing, with nothing running.**
+**You should see 388 passing, with nothing running.**
 
 CI runs the same tests through `cargo nextest run`, which is faster and gives each test its
 own process — so a test that panics is reported as a failure instead of taking the run down
@@ -1100,6 +1130,8 @@ python prototype/build.py --preview
 | 8E — `discover todoist.com` lists three English pages, no duplicates | | |
 | 8E — notion `/releases` lists dated changes, with no model running | | |
 | 8E — linear `/docs/releases.md` says "no dated entries", not "no changes" | | |
+| 8E — plausible `/about` states three facts, all correct | | |
+| 8E — basecamp `/about` states none, and says so | | |
 | 8E — every run ends with a coverage line per question | | |
 | 8E — basecamp's `changes` line names the three paths tried | | |
 | 9 — `cargo test` green with nothing running | | |
