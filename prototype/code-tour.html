@@ -42,7 +42,7 @@
   .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
 </style>
 
-<div class="banner" id="banner">CODE TOUR — what shipped, and when</div>
+<div class="banner" id="banner">CODE TOUR — what we checked</div>
 
 <div class="wrap">
   <aside class="tree">
@@ -80,105 +80,107 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    third: {
-      name: "the third question",
-      purpose: "What shipped, and when.",
+    silent: {
+      name: "ten runs, one gap",
+      purpose: "It printed what it found.",
       lines: [
-        ['c', '// Section 5.4, on dates:'],
+        ['c', '// And said nothing about what it'],
+        ['c', '// looked for.'],
         ['c', ''],
-        ['f', '  the most common LLM fabrication'],
-        ['f', '  in recent changes, and trivially'],
-        ['f', '  verifiable'],
+        ['s', '// A question nobody could answer, and'],
+        ['s', '// a question nobody asked, look the same.'],
         ['c', ''],
-        ['f', '// So no model runs here at all.']
+        ['f', '// A negative nobody can check is not'],
+        ['f', '// a finding.']
       ]
     },
-    shape: {
-      name: "two changelogs, one shape",
-      purpose: "A date, then a heading.",
+    note: {
+      name: "PRODUCT_SPEC, section 4",
+      purpose: "The output, written two years ago.",
       lines: [
-        ['t', '  - Jul 14, 2026            plausible'],
-        ['t', '  ## Add notes to your traffic chart'],
+        ['f', '  no public changelog found in this'],
+        ['f', '  window - /changelog (404),'],
+        ['f', '  /releases (404), blog (90d).'],
         ['c', ''],
-        ['t', '  July 31, 2026             notion'],
-        ['t', '  ## AI Meeting Notes can now trigger'],
+        ['f', '  Not "no changes."'],
         ['c', ''],
-        ['f', '// Six date formats. All of them parsed.']
+        ['c', '// The numbers in brackets are the note.']
       ]
     },
-    promise: {
-      name: "the sentence to be careful about",
-      purpose: "It is in Notion's changelog.",
+    outcomes: {
+      name: "so discovery keeps the answers",
+      purpose: "Not just the paths.",
       lines: [
-        ['s', '  Starting August 11 2026, Workers'],
-        ['s', '  will run on Notion credits.'],
+        ['t', '  /changelog   404'],
+        ['t', '  /releases    404'],
+        ['t', '  /security    robots'],
         ['c', ''],
-        ['c', '// A date in a sentence. A promise.'],
-        ['c', ''],
-        ['f', '// Filed as a shipped feature, that is'],
-        ['f', '// the worst thing this could do.']
+        ['c', '// A path with no outcome beside it says'],
+        ['s', '// we typed a URL.'],
+        ['f', '// With one, it says what they publish.']
       ]
     },
-    rule: {
-      name: "crates/landscape-extract/changes.rs",
-      purpose: "The line has to be a date.",
+    four: {
+      name: "crates/landscape-core/coverage.rs",
+      purpose: "Four silences. No two alike.",
       lines: [
-        ['c', '// Not: contains a date.'],
-        ['c', '// Starts with one, alone or before'],
-        ['c', '// a separator and a title.'],
+        ['t', '  nothing was checked      our gap'],
+        ['f', '  no page found            theirs'],
+        ['t', '  found and not read       ours again'],
+        ['f', '  read, and it said nothing'],
         ['c', ''],
-        ['f', '  - Jul 14, 2026                 yes'],
-        ['f', '  2026-07-14 - Shipped it        yes'],
-        ['s', '  Starting August 11 2026, ...   no']
+        ['c', '// The third one is there because the'],
+        ['c', '// fourth one was lying.']
       ]
     },
-    window: {
-      name: "four in ninety days",
-      purpose: "And thirty-six older.",
+    lying: {
+      name: "it caught itself first",
+      purpose: "About a page nobody opened.",
       lines: [
-        ['t', '  plausible.io/changelog'],
-        ['f', '  4 change(s) in 90 days, 36 older'],
-        ['f', '  read 40 of 70 dated entries'],
+        ['s', '  read 1 page. It stated nothing.'],
         ['c', ''],
-        ['c', '// Four on its own reads as a quiet'],
-        ['f', '// quarter, at a company shipping weekly.']
+        ['c', '// basecamp.com/about. Four of the six'],
+        ['c', '// questions have no extractor yet.'],
+        ['c', ''],
+        ['f', '// Committing the error it was built'],
+        ['f', '// to prevent. It lasted one run.']
       ]
     },
-    absent: {
-      name: "and the pages with no dates",
-      purpose: "Not the same as no changes.",
+    basecamp: {
+      name: "and then it worked",
+      purpose: "Basecamp publishes no changelog.",
       lines: [
-        ['t', '  linear.app/docs/releases.md'],
-        ['f', '  no dated entries on the page'],
+        ['f', '  changes   no page found. Checked:'],
+        ['f', '  /changelog (404), /releases (404),'],
+        ['f', '  /blog (404)'],
         ['c', ''],
-        ['c', '// It is documentation about a feature'],
-        ['c', '// called Releases.'],
-        ['c', ''],
-        ['f', '// The spec is strict here: not no changes.']
+        ['c', '// Run 10 knew this and said nothing.'],
+        ['f', '// Three paths. Three answers. Checkable.']
       ]
     },
-    blog: {
-      name: "two more found by running it",
-      purpose: "Both were discovery again.",
+    linear: {
+      name: "then it found something",
+      purpose: "linear.app/changelog. Answers 200.",
       lines: [
-        ['s', '  /blog/product-hunt-launch  -> features'],
-        ['s', '  /blog/changelog-podcast    -> changes'],
+        ['s', '  read 1 page, none stated anything.'],
+        ['s', '  Checked: /changelog (200)'],
         ['c', ''],
-        ['c', '// A podcast episode. An article is not'],
-        ['f', '// a section answer. The index still is.']
+        ['c', '// It had never been read. A docs page'],
+        ['c', '// named in llms.txt held the slot.'],
+        ['c', ''],
+        ['f', '// Reachable and unread since Run 5.']
       ]
     },
-    tiebreak: {
-      name: "and a tiebreak that was arbitrary",
-      purpose: "Notion publishes both.",
+    order: {
+      name: "which page, before how we found it",
+      purpose: "The same rule as the locale fix.",
       lines: [
-        ['t', '  /releases   dozens of dated entries'],
-        ['t', '  /blog       none at all'],
+        ['c', '// Provenance is evidence about a page.'],
+        ['s', '// It is not evidence that the page'],
+        ['s', '// is the right one.'],
         ['c', ''],
-        ['s', '// The shorter URL won.'],
-        ['c', ''],
-        ['f', '// Now the page that names the question'],
-        ['f', '// wins, and length is the last word.']
+        ['f', '  linear.app/changelog'],
+        ['f', '  7 changes inside the window']
       ]
     }
   };
@@ -222,30 +224,30 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:third",    c: "The third question needs no model." },
-    { kind: "means",       a: "spot:#code",    c: "Dates are what models make up most." },
+    { kind: "recognition", a: "file:silent",   c: "Ten runs printed what they found." },
+    { kind: "means",       a: "spot:#code",    c: "And nothing about what they looked for." },
 
-    { kind: "turn",        a: "file:shape",    c: "Two changelogs. The same shape." },
-    { kind: "means",       a: "spot:#code",    c: "A date, and then a heading." },
+    { kind: "turn",        a: "file:note",     c: "The spec asked for this on day one." },
+    { kind: "means",       a: "spot:#code",    c: "The numbers in brackets are the note." },
 
-    { kind: "result",      a: "file:promise",  c: "One sentence needs care." },
-    { kind: "means",       a: "spot:#code",    c: "A promise about August, not a release." },
+    { kind: "result",      a: "file:outcomes", c: "So keep the answer beside the path." },
+    { kind: "means",       a: "spot:#code",    c: "404 is a fact about them, not about us." },
 
-    { kind: "result",      a: "file:rule",     c: "So the line has to be a date." },
-    { kind: "means",       a: "spot:#code",    c: "Not contain one. Start with one." },
+    { kind: "result",      a: "file:four",     c: "Four silences. No two alike." },
+    { kind: "means",       a: "spot:#code",    c: "Our gap and theirs are different findings." },
 
-    { kind: "result",      a: "file:window",   c: "Four changes in ninety days." },
-    { kind: "means",       a: "spot:#code",    c: "And seventy on the page. Say both." },
+    { kind: "result",      a: "file:lying",    c: "The first thing it caught was itself." },
+    { kind: "means",       a: "spot:#code",    c: "A page nobody had opened. One run." },
 
-    { kind: "result",      a: "file:absent",   c: "One page had no dates at all." },
-    { kind: "means",       a: "spot:#code",    c: "Which is not the same as no changes." },
+    { kind: "result",      a: "file:basecamp", c: "Then: Basecamp publishes no changelog." },
+    { kind: "means",       a: "spot:#code",    c: "Three paths, three answers, all checkable." },
 
-    { kind: "result",      a: "file:blog",     c: "A podcast episode became a product change." },
-    { kind: "means",       a: "spot:#code",    c: "An article is not a section answer." },
+    { kind: "result",      a: "file:linear",   c: "And Linear had one we never read." },
+    { kind: "means",       a: "spot:#code",    c: "It answered 200 for six runs." },
 
-    { kind: "result",      a: "file:tiebreak", c: "And a shorter URL beat the changelog." },
+    { kind: "result",      a: "file:order",    c: "Which page it is comes first now." },
 
-    { kind: "close",       a: "hold",          c: "A date is checkable. So we never guess one." }
+    { kind: "close",       a: "hold",          c: "Say what you checked. It finds things." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -268,7 +270,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("third");
+    show("silent");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -281,15 +283,15 @@
     }, TOTAL * 1000));
   }
 
-  show("third");
+  show("silent");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "What shipped, and when",
-    blurb: "The third of six question kinds, and the first one answered with no language model in the loop at all - because a date is either printed on the page or it is not, and a model that guesses one is the failure this product cannot survive.",
+    title: "What we checked",
+    blurb: "Every run so far printed what it found and was silent about what it looked for, which makes an empty section indistinguishable from one nobody tried to fill. Saying what was checked caught two things immediately - one of them was this feature itself.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;
