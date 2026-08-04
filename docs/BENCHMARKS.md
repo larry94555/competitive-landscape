@@ -29,6 +29,94 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 9 — the wrong pages, and what reading the right ones changed
+
+**Date:** 2026-08-04 · **Subjects:** linear, todoist, notion, basecamp · **Model:** Qwen3-4B
+Q4_K_M, unchanged since Run 5.
+
+Runs 7 and 8 each ended with a finding nothing downstream could fix. An extractor pointed at
+the wrong page has two options, a wrong answer and silence, and it had been producing both.
+
+```bash
+cargo run -p landscape -- discover https://linear.app
+```
+
+| Subject | Before | After |
+|---|---|---|
+| **linear** | two setup documents as the feature sources | **`/features` and `/docs`** |
+| **todoist** | 8 sources: Czech, Danish, and two steps in buying | **3, all English, `/pricing` read at last** |
+| **notion** | `/es-es/pricing` took a slot | `/plans` takes it |
+| **basecamp** | 6 sources | **6 sources, unchanged** — the control |
+
+### The features page Linear had all along
+
+`linear.app/docs/mcp.md` is a setup guide. Read as a features page it reported `Setup`,
+`Claude` and `Cursor` as capabilities of Linear (Run 8) — and worse, **it took the slot**.
+Both of Linear's feature sources were documentation, because `llms.txt` outranks a probe and
+`guess` classified anything under `/docs` as answering *what does this product do*.
+
+Documentation answers *how do I use this*. Only its front page answers the other question.
+
+With the depth rule, `linear.app/features` is read for the first time:
+
+```text
+linear.app/features   250 words   8 capabilities stated
+  Planning · Building · AI-powered workflows and agents · Insights
+  Mobile · Customer Requests · Linear Asks · Security
+```
+
+Eight capabilities, no dropped names, no unverifiable quotes. The page had been there for
+every run since Run 5.
+
+### A locale is a variant, not a page
+
+Run 7 read `todoist.com/cs/pricing` and `/da/pricing` — Czech and Danish — and never read the
+English page. Run 8 added `notion.com/es-es/pricing`.
+
+**The filter that would have been wrong** is dropping localised URLs: some sites publish only
+`/de/preise`, and that is then the pricing page. So variants collapse into one candidate the
+way `/pricing` and `/pricing/` already did, and which one wins is a preference — no locale,
+then English, then whatever the site listed.
+
+That the Czech page was better attested than the English one is exactly why the order matters:
+**which page it is comes first, how we found it comes second.**
+
+### And a page you do something on states no facts
+
+Todoist's sitemap lists `/cs/pricing/setup` and `/cs/pricing/upgrade`. Both classify as
+pricing on the word `pricing`, both are steps in buying, and between them they took two more
+of that run's five slots.
+
+Todoist now admits three sources from eighteen paths checked, all English, and one of them is
+the pricing page it publishes.
+
+### Fewer sources is the result, not a regression
+
+| | Sources | What they are |
+|---|---|---|
+| todoist, Run 7 | 8 | 4 duplicates or transaction steps |
+| todoist, Run 9 | **3** | pricing, features, security |
+
+A source that cannot answer the question it was admitted for costs a fetch, a model pass, and
+a line in the report saying something we cannot stand behind. **Three we can read beats eight
+we cannot.**
+
+### What is still not right
+
+**`linear.app/docs` gives twelve capabilities and one of them is `Popular`.** The front page of
+a documentation site is partly a menu, and the menu headings survive the capability rules —
+though the other eleven (`Import Issues`, `Triage`, `Parent and Sub-Issues`, `Notifications`)
+are real.
+
+**The language list is a list.** Forty codes, matched only as a leading segment with a page
+under it, because two-letter segments are not all languages — `/hr` is Croatian on one site
+and human resources on the next. A site using a code outside the list loses the deduplication
+and nothing else.
+
+**None of this is measured by the golden set**, which still has no discovery subjects at all.
+
+---
+
 ## Run 8 — the second question kind, and a prompt that taught the model a fact
 
 **Date:** 2026-08-03 · **Subjects:** basecamp, linear, notion · **Model:** Qwen3-4B Q4_K_M,
