@@ -26,6 +26,7 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | Scoring a model on whether its answers are *true* | **Yes**, with `llama-server` |
 | Deciding *who* a report is about, before fetching | Logic only — no UI yet, see below |
 | **Fetching a public page politely, and refusing to be aimed inwards** | **Yes** — Part 8B |
+| **Measuring where a price lives on real pages** | **Yes** — Part 8C |
 | Reading real web pages *as part of a report* | No — the fetcher exists, nothing calls it yet |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
 | Accounts, quotas, payment | No |
@@ -714,13 +715,62 @@ cargo llvm-cov nextest -p landscape-fetch --summary-only
 
 ---
 
+## Part 8C — Measure where prices actually live
+
+**This one produced a decision.** [ADR 0009](decisions/0009-no-headless-browser.md) says no
+headless browser gets built, and this is the measurement it rests on. Needs nothing running.
+
+```bash
+cargo run -p landscape -- gap docs/js-gap-sample.txt
+```
+
+**It fetches 28 real pricing pages**, so it takes a minute or two and is polite about it —
+one request per host per second, `robots.txt` honoured, everything through the same guard as
+Part 8B.
+
+**You should see** a table, then:
+
+```
+measured 28   no static price 4   of those, tier 2 recovered 1
+residual 10.7% of pages showed no price by either route
+
+That is not the tier-5 number yet. Classify each residual page by hand:
+    price needs JavaScript         -> counts toward the tier-5 decision
+    page publishes no price at all -> a finding, not a gap. Excluded
+```
+
+**The exact numbers will drift** — sites change, and one page in the sample redirects to a
+host whose `robots.txt` refuses us. What should hold is the shape: **the overwhelming
+majority are `tier 1  static html`.**
+
+**Why it refuses to draw its own conclusion.** The residual mixes two different things: a
+page whose price needs JavaScript, and a page that publishes no price at all.
+`ARCHITECTURE.md` §5.5's 5% threshold is about the first, and no browser renders a price that
+was never written. On the first run those were 3.6% and 10.7% — **opposite sides of the
+threshold**. A tool that applied the rule itself would have scheduled a headless browser to
+solve "contact sales".
+
+**The last two URLs in the sample are a control group.** They publish no price on purpose. On
+the very first run one of them reported a price — the detector matched *"Learn professional
+Data and AI tools for free"* — which is how a measuring instrument tells you it is broken.
+Open [`docs/js-gap-sample.txt`](js-gap-sample.txt) to see the whole list and why each is
+there.
+
+**To point it at your own list**, make a file with one URL per line and `#` for comments:
+
+```bash
+cargo run -p landscape -- gap my-urls.txt
+```
+
+---
+
 ## Part 9 — What the tests prove
 
 ```bash
 cargo test
 ```
 
-**You should see 157 passing, with nothing running.**
+**You should see 193 passing, with nothing running.**
 
 CI runs the same tests through `cargo nextest run`, which is faster and gives each test its
 own process — so a test that panics is reported as a failure instead of taking the run down
@@ -798,6 +848,8 @@ python prototype/build.py --preview
 | 8A — scorecard prints; `FAB` on the abstention subjects reads as expected | | |
 | 8B — example.com fetches; metadata endpoint and loopback refused | | |
 | 8B — Google `/search` refused by robots, `/robots.txt` allowed | | |
+| 8C — most pages report `tier 1  static html` | | |
+| 8C — the report refuses to apply the 5% rule itself | | |
 | 9 — `cargo test` green with nothing running | | |
 
 **If something differs from what is written here, that is a bug.** Every command above was run

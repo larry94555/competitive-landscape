@@ -6,6 +6,7 @@ members = [
     "crates/landscape-api",
     "crates/landscape-llm",
     "crates/landscape-bench",
+    "crates/landscape-extract",
     "crates/landscape-fetch",
     "crates/landscape-golden",
     "crates/landscape",
@@ -24,6 +25,7 @@ landscape-db = { path = "crates/landscape-db" }
 landscape-api = { path = "crates/landscape-api" }
 landscape-llm = { path = "crates/landscape-llm" }
 landscape-bench = { path = "crates/landscape-bench" }
+landscape-extract = { path = "crates/landscape-extract" }
 landscape-fetch = { path = "crates/landscape-fetch" }
 landscape-golden = { path = "crates/landscape-golden" }
 

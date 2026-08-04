@@ -424,9 +424,18 @@ the single most important phase; everything after it is commerce and polish.
   access is disallowed, promote the documented fallbacks (vendor `/alternatives` pages,
   marketplaces, community threads) to the primary path *by decision rather than by discovery
   in week 8*.
-- **Instrument the JS-rendering gap** ([ARCHITECTURE.md](ARCHITECTURE.md) §5.5): two counters —
+- ~~**Instrument the JS-rendering gap** ([ARCHITECTURE.md](ARCHITECTURE.md) §5.5): two counters —
   what share of pricing pages yield no price from static HTML, and what share of those tiers
-  2–4 will recover. One day of work, and it decides whether a browser tier is ever built.
+  2–4 will recover. One day of work, and it decides whether a browser tier is ever built.~~
+  **Done** — `crates/landscape-extract`, [BENCHMARKS.md](BENCHMARKS.md) Run 4, and the
+  decision it produced: [ADR 0009](decisions/0009-no-headless-browser.md).
+  **28 real pricing pages: 85.7% print the price in static HTML, tier 2 recovered one more,
+  and the JavaScript-rendering gap is 3.6% — one page.** Under §5.5's threshold, so **tier 5
+  is not built** and the 400 MB stays with the models.
+  The residual was 10.7% and the gap 3.6%, opposite sides of the threshold: two of the three
+  residual pages publish no price at all, which no browser fixes. They were in the sample as
+  a control group, and that control group caught a defect in the instrument on its first run.
+  **Provisional** — Phase 2's exit re-measures, as §5.5 requires.
 - `landscape-search`: `SourceProvider` trait; SearXNG adapter; trust tiering; source ranking
   and capping at 8–14.
 - Extraction → Markdown, preserving tables and headings; `extraction_quality` scoring.

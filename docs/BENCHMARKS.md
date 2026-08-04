@@ -20,6 +20,68 @@ cargo test -p landscape-golden --test against_a_model -- --ignored --nocapture
 
 `LLAMA_URL` selects the server for both.
 
+A third measures neither speed nor truth but **shape** — where on a page a price actually
+lives, which decides whether a headless browser is ever built:
+
+```bash
+cargo run -p landscape -- gap docs/js-gap-sample.txt
+```
+
+---
+
+## Run 4 — the JavaScript-rendering gap, measured
+
+**Date:** 2026-08-03 · **Sample:** 28 real pricing pages, `docs/js-gap-sample.txt` ·
+**Question:** [ARCHITECTURE.md](ARCHITECTURE.md) §5.5's two counters.
+
+```bash
+cargo run -p landscape -- gap docs/js-gap-sample.txt
+```
+
+| Where the price was | Pages | Share |
+|---|---|---|
+| **Tier 1** — visible in static HTML | 24 | **85.7%** |
+| **Tier 2** — recovered from embedded JSON (JSON-LD) | 1 | 3.6% |
+| Residual — neither | 3 | 10.7% |
+| *Unreachable, excluded* | *1* | — |
+
+### The residual is two different things, and separating them is the finding
+
+| Page | What it is |
+|---|---|
+| `hetzner.com/cloud` | **A genuine JS-rendered page** — no `€` amount and no price-shaped JSON key anywhere in the bytes |
+| `databricks.com/company/contact` | Publishes no price. Control group |
+| `palantir.com/platforms/foundry/` | Publishes no price. Control group |
+
+**So the JavaScript-rendering gap is 1 page in 28 — 3.6% — and the residual is 10.7%.**
+Those fall on opposite sides of §5.5's ~5% threshold, and only the first is the number the
+rule is about. No headless browser renders a price that was never written.
+
+**Tier 5 is not built.** [ADR 0009](decisions/0009-no-headless-browser.md).
+
+### Two things this run says about the plan
+
+**"The big one" is smaller than expected.** §5.5 predicted embedded state would close most of
+the gap. It recovered exactly one page — because the gap it was aimed at barely exists.
+**85.7% of pricing pages simply print their prices in HTML.** The prediction is not wrong so
+much as pointed at a problem that turned out to be small.
+
+**The control group caught a bug in the instrument on its first run.**
+`databricks.com/company/contact` was reported as *priced*, because the detector matched
+*"Learn professional Data and AI tools for free"*. Without two deliberately price-free URLs in
+the sample, the tier-1 count would have been quietly one too high and nobody would have
+looked.
+
+### How far to trust it
+
+**Twenty-eight pages chosen by one person tells 40% from 4% and nothing finer** — which is
+the decision in front of us, and it is not close. It is **not a market statistic.**
+
+The sample skews toward companies that publish prices, because those are the pages this
+product reads. Tiers 3–4 were not measured, so 3.6% is an **upper bound**. And one page's
+classification moves the figure by 3.6 points, which is why §5.5 requires a Phase 2
+re-measurement rather than treating this as settled.
+
 ---
 
 ## Run 3 — the golden set, and what shape tests could never see

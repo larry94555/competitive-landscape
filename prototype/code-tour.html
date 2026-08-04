@@ -42,7 +42,7 @@
   .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
 </style>
 
-<div class="banner" id="banner">CODE TOUR — the first code with an attacker</div>
+<div class="banner" id="banner">CODE TOUR — build a browser, or not?</div>
 
 <div class="wrap">
   <aside class="tree">
@@ -53,6 +53,7 @@
     <div class="row" id="t-api">&nbsp;&nbsp;landscape-api<span class="note"> http</span></div>
     <div class="row" id="t-llm">&nbsp;&nbsp;landscape-llm<span class="note"> the model</span></div>
     <div class="row" id="t-bench">&nbsp;&nbsp;landscape-bench<span class="note"> how fast</span></div>
+    <div class="row" id="t-extract">&nbsp;&nbsp;landscape-extract<span class="note"> where prices live</span></div>
     <div class="row" id="t-fetch">&nbsp;&nbsp;landscape-fetch<span class="note"> the outside world</span></div>
     <div class="row" id="t-golden">&nbsp;&nbsp;landscape-golden<span class="note"> whether it is right</span></div>
     <div class="row" id="t-bin">&nbsp;&nbsp;landscape<span class="note"> the binary</span></div>
@@ -78,105 +79,114 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    attacker: {
-      name: "the problem",
-      purpose: "We fetch URLs strangers name. That is the whole product.",
+    question: {
+      name: "the question",
+      purpose: "Build a browser, or not? The plan refused to guess.",
       lines: [
-        ['c', '// A reader can ask us to fetch anything. Including:'],
-        ['s', 'http://169.254.169.254/latest/meta-data/'],
+        ['c', '// ARCHITECTURE 5.5, written before any of this existed:'],
+        ['f', '  "Building tier 5 before knowing its size'],
+        ['f', '   would be speculative work."'],
         ['c', ''],
-        ['c', '// On most cloud providers that address hands out'],
-        ['c', '// credentials to whatever asks. We are inside the'],
-        ['c', '// network. The reader is not.'],
+        ['c', '// Tier 5 is a headless browser. ~400 MB.'],
+        ['s', '// On a box where three models already take 17 GB.'],
         ['c', ''],
-        ['f', '// This is not a risk we might face. It is the one'],
-        ['f', '// we are guaranteed to face.']
+        ['f', '// Building it means taking memory from a model.']
       ]
     },
-    rebind: {
-      name: "crates/landscape-fetch/src/guard.rs",
-      purpose: "Checking the address is not enough. You must use it.",
+    ladder: {
+      name: "crates/landscape-extract/src/lib.rs",
+      purpose: "Cheapest rung first.",
       lines: [
-        ['c', '// The obvious version:'],
-        ['s', '   resolve -> check -> hand the URL to a client'],
-        ['c', '// The client resolves again. An attacker who owns the'],
-        ['c', '// nameserver answers differently the second time.'],
+        ['t', '  tier 1   price visible in the html'],
+        ['t', '  tier 2   price inside a script, already fetched'],
+        ['s', '  none     neither'],
         ['c', ''],
-        ['k', 'pub struct Verdict { ip: IpAddr }'],
-        ['f', '    // carries the address that was checked'],
+        ['k', 'pub fn locate(html: &str) -> Where'],
         ['c', ''],
-        ['f', '// So the socket goes where the guard looked.']
+        ['c', '// A page a reader can already read must never'],
+        ['f', '// count as needing recovery.']
       ]
     },
-    allrecords: {
-      name: "crates/landscape-fetch/src/lib.rs",
-      purpose: "Every address, not the first one.",
+    scripts: {
+      name: "crates/landscape-extract/src/text.rs",
+      purpose: "The mistake that would have answered zero.",
       lines: [
-        ['c', '// A hostname can answer with two addresses:'],
-        ['t', '   93.184.216.34     public'],
-        ['s', '   127.0.0.1         not'],
+        ['c', '// A Next.js page ships its whole price list'],
+        ['c', '// inside a <script> tag.'],
         ['c', ''],
-        ['c', '// Checking whichever came back first is a coin flip.'],
+        ['s', '// Strip the tags and keep the contents, and'],
+        ['s', '// every page looks priced. Gap = 0%.'],
         ['c', ''],
-        ['k', 'for addr in addrs { guard::check(*addr)?; }'],
-        ['f', '// All of them, or none of them.']
+        ['k', 'const INVISIBLE = ["script", "style", ...]'],
+        ['f', '    // contents removed, not untagged']
       ]
     },
-    redirects: {
-      name: "crates/landscape-fetch/src/fetcher.rs",
-      purpose: "A redirect is a new URL from the same stranger.",
+    notprices: {
+      name: "crates/landscape-extract/src/price.rs",
+      purpose: "A number is not a price.",
       lines: [
-        ['c', '// Automatic following checks the first address and'],
-        ['c', '// connects to the last one.'],
+        ['c', '// A page with no prices on it:'],
+        ['t', '  Founded in 2019'],
+        ['t', '  42 employees'],
+        ['t', '  (802) 555-0148'],
         ['c', ''],
-        ['s', 'https://harmless.example  ->  169.254.169.254'],
-        ['c', ''],
-        ['k', '.redirect(Policy::none())'],
-        ['f', '    // every hop re-enters every check'],
-        ['c', ''],
-        ['f', '// Five hops, then we stop being led.']
+        ['c', '// Anything counting digits calls that priced.'],
+        ['f', '// So: a currency marker next to a number.'],
+        ['f', '// Never a number alone.']
       ]
     },
-    robots: {
-      name: "crates/landscape-fetch/src/robots.rs",
-      purpose: "A commitment, not a risk position.",
+    result: {
+      name: "the measurement",
+      purpose: "28 real pricing pages.",
       lines: [
-        ['c', '// 404 means no rules exist. Everything allowed.'],
-        ['t', '   404  ->  allowed'],
+        ['t', '  tier 1   static html          24     85.7%'],
+        ['t', '  tier 2   embedded json         1      3.6%'],
+        ['s', '  none     no price found        3     10.7%'],
         ['c', ''],
-        ['c', '// 500 means we cannot read what the site wants.'],
-        ['s', '   500  ->  disallowed'],
-        ['c', ''],
-        ['c', '// The polite reading of "I am struggling"'],
-        ['f', '// is not "carry on".']
+        ['c', '// The threshold is 5%. So: build the browser?'],
+        ['f', '// No. That 10.7% is the wrong number.']
       ]
     },
-    coverage: {
-      name: "the guard, measured",
-      purpose: "The one file with no exemption path.",
+    split: {
+      name: "the residual, opened up",
+      purpose: "Two different things wearing one label.",
       lines: [
-        ['f', '  guard.rs    regions  303   missed 0   100.00%'],
-        ['f', '              lines    167   missed 0   100.00%'],
+        ['s', '  hetzner.com/cloud        needs javascript'],
+        ['t', '  databricks contact       publishes no price'],
+        ['t', '  palantir foundry         publishes no price'],
         ['c', ''],
-        ['c', '// Written pure - address in, verdict out - which is'],
-        ['c', '// what makes 100% reachable without a network.'],
+        ['c', '// No browser renders a price nobody wrote.'],
         ['c', ''],
-        ['f', '// 48 tests. The first one is the metadata endpoint.']
+        ['f', '// Gap 3.6%. Residual 10.7%.'],
+        ['f', '// Opposite sides of the threshold.']
       ]
     },
-    tryit: {
-      name: "landscape fetch <url>",
-      purpose: "Watch it decide, on your own machine.",
+    control: {
+      name: "why those last two were in the list",
+      purpose: "A control group, and it earned its place.",
       lines: [
-        ['t', '$ landscape fetch http://169.254.169.254/'],
-        ['s', 'refused That address is link-local.'],
+        ['c', '// Two URLs picked because they have no prices.'],
+        ['c', '// First run, one of them reported a price:'],
         ['c', ''],
-        ['t', '$ landscape fetch https://www.google.com/search'],
-        ['s', 'refused google.com asks crawlers not to fetch'],
+        ['s', '  "Learn ... AI tools for free"'],
         ['c', ''],
-        ['t', '$ landscape fetch https://example.com/'],
-        ['f', 'status  200'],
-        ['f', 'bytes   559']
+        ['c', '// The detector matched the word "free".'],
+        ['c', ''],
+        ['f', '// A control page showing a price is how an'],
+        ['f', '// instrument tells you it is broken.']
+      ]
+    },
+    decision: {
+      name: "docs/decisions/0009",
+      purpose: "Written down, including what it is not.",
+      lines: [
+        ['f', '  Tier 5 is not built.'],
+        ['c', ''],
+        ['c', '// 28 pages tells 40% from 4%. Nothing finer.'],
+        ['c', '// The sample favours firms that publish prices.'],
+        ['c', '// Tiers 3-4 unmeasured, so 3.6% is a ceiling.'],
+        ['c', ''],
+        ['f', '// Provisional. Phase 2 measures again.']
       ]
     }
   };
@@ -220,29 +230,31 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:attacker",   c: "We fetch whatever a stranger names." },
-    { kind: "means",       a: "spot:#code",      c: "Including addresses only we can reach." },
-    { kind: "means",       a: "hold",            c: "Guaranteed, not hypothetical." },
+    { kind: "recognition", a: "file:question",  c: "Build a headless browser, or not?" },
+    { kind: "means",       a: "spot:#code",     c: "It would cost a model its memory." },
+    { kind: "means",       a: "hold",           c: "The plan refused to guess." },
 
-    { kind: "turn",        a: "file:rebind",     c: "Checking an address is not enough." },
-    { kind: "means",       a: "spot:#code",      c: "The client resolves again. So we pin it." },
+    { kind: "turn",        a: "file:ladder",    c: "So: where do prices actually live?" },
+    { kind: "means",       a: "spot:#code",     c: "Cheapest rung first." },
 
-    { kind: "result",      a: "file:allrecords", c: "And every address, not the first." },
-    { kind: "means",       a: "spot:#code",      c: "One public, one loopback, is an attack." },
+    { kind: "result",      a: "file:scripts",   c: "One mistake would answer zero." },
+    { kind: "means",       a: "spot:#code",     c: "Script contents are removed, not untagged." },
 
-    { kind: "result",      a: "file:redirects",  c: "A redirect is a new URL from the same stranger." },
-    { kind: "means",       a: "spot:#code",      c: "Every hop starts the checks again." },
+    { kind: "result",      a: "file:notprices", c: "And a number is not a price." },
+    { kind: "means",       a: "spot:#code",     c: "A currency marker next to it, or nothing." },
 
-    { kind: "result",      a: "file:robots",     c: "Robots is a commitment, not a risk." },
-    { kind: "means",       a: "spot:#code",      c: "A site that is unwell is left alone." },
+    { kind: "result",      a: "file:result",    c: "Twenty-eight real pricing pages." },
+    { kind: "means",       a: "spot:#code",     c: "Most simply print the price." },
 
-    { kind: "result",      a: "file:coverage",   c: "The guard is covered completely." },
-    { kind: "means",       a: "spot:#code",      c: "Pure code. No network to test around." },
+    { kind: "result",      a: "file:split",     c: "The leftover is two things, not one." },
+    { kind: "means",       a: "spot:#code",     c: "No browser renders a price nobody wrote." },
 
-    { kind: "result",      a: "file:tryit",      c: "You can watch it decide." },
-    { kind: "means",       a: "spot:#code",      c: "One command, three answers." },
+    { kind: "result",      a: "file:control",   c: "Two pages were there to catch us." },
+    { kind: "means",       a: "spot:#code",     c: "One did, on the first run." },
 
-    { kind: "close",       a: "hold",            c: "Fetching is now safe to build on." }
+    { kind: "result",      a: "file:decision",  c: "So the browser is not built." },
+
+    { kind: "close",       a: "hold",           c: "The memory stays with the models." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -265,7 +277,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("attacker");
+    show("question");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -278,15 +290,15 @@
     }, TOTAL * 1000));
   }
 
-  show("attacker");
+  show("question");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "The first code with an attacker",
-    blurb: "We are a service whose whole purpose is fetching URLs that strangers name. This is the guard that stops that being useful to them, the robots commitment that keeps us welcome, and the one file in this project with no coverage exemption.",
+    title: "Build a browser, or not?",
+    blurb: "The plan refused to schedule a headless browser until somebody measured how much of the web actually needs one. This is that measurement over 28 real pricing pages, the two mistakes that would have given the wrong answer, and the control group that caught one of them.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;
