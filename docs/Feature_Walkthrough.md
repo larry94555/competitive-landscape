@@ -901,6 +901,31 @@ Run 7 this same page reported *"Beginner at $5"* — the 5 was how many personal
 plan allows, read out of a feature-comparison table. A page that publishes nothing we can see
 is a **finding**, and §5.5's JavaScript-gap counter is what it feeds.
 
+**A changelog needs no model at all**, so this part works with `llama-server` stopped:
+
+```bash
+cargo run -p landscape -- read https://www.notion.com
+```
+
+```
+www.notion.com/releases                      3136   good  8      8 change(s) in 90 days, 0 older
+                                               2026-07-31  AI Meeting Notes can now trigger Custom Agents
+                                               2026-07-30  High contrast mode
+                                               ...
+```
+
+[ARCHITECTURE.md](ARCHITECTURE.md) §5.4: *"Dates are the most common LLM fabrication in 'recent
+changes' and are trivially verifiable."* So they are parsed, and every date printed is on the
+page at a line the code can point to.
+
+**Read the count beside it, not just the list.** `plausible.io/changelog` reports *"4 change(s)
+in 90 days, 36 older"* and *"read 40 of 70 dated entries"*. Four entries with no numbers around
+them would read as a quiet quarter at a company that ships weekly.
+
+**And `linear.app/docs/releases.md` says "no dated entries on the page"** — it is documentation
+about a feature called Releases, not a changelog. [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §4 is
+strict about this distinction: **not "no changes."**
+
 **Three things are still wrong, and all are visible if you look:**
 
 ```bash
@@ -959,7 +984,7 @@ That prints the page's size; the Markdown behind it keeps the headings and table
 cargo test
 ```
 
-**You should see 330 passing, with nothing running.**
+**You should see 354 passing, with nothing running.**
 
 CI runs the same tests through `cargo nextest run`, which is faster and gives each test its
 own process — so a test that panics is reported as a failure instead of taking the run down
@@ -1050,6 +1075,8 @@ python prototype/build.py --preview
 | 8E — pages of the other four kinds say "no extractor yet" | | |
 | 8E — `discover linear.app` lists `/features`, not a setup guide | | |
 | 8E — `discover todoist.com` lists three English pages, no duplicates | | |
+| 8E — notion `/releases` lists dated changes, with no model running | | |
+| 8E — linear `/docs/releases.md` says "no dated entries", not "no changes" | | |
 | 9 — `cargo test` green with nothing running | | |
 
 **If something differs from what is written here, that is a bug.** Every command above was run

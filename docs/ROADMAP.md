@@ -416,12 +416,20 @@ the single most important phase; everything after it is commerce and polish.
   `landscape-extract::span`, [BENCHMARKS.md](BENCHMARKS.md) Runs 6 and 7. One window per plan,
   measured on six real pricing pages: basecamp 2, linear 3, plausible 3, notion 3 (plus an
   add-on it counts as a fourth), sentry 4 published twice each, todoist 0.
-  **Two of the six question kinds have extractors.** *What it does* is built —
-  `landscape-extract::capability`, [BENCHMARKS.md](BENCHMARKS.md) Run 8 — following §5.4's
-  division: the parser finds the named sections, and the model only shortens the name.
-  Measured on five pages: basecamp 10 capabilities, notion 8 and 8, linear's SLA doc 8.
-  **Four kinds remain**: changes, identity, trust, direction. `read` names the kind and says
-  there is no extractor rather than running the wrong one.
+  **Three of the six question kinds have extractors.** *What it does* —
+  `landscape-extract::capability`, [BENCHMARKS.md](BENCHMARKS.md) Run 8 — follows §5.4's
+  division: the parser finds the named sections, the model only shortens the name. *What
+  shipped* — `landscape-extract::changes`, Run 10 — asks **no model at all**, because §5.4 puts
+  dates on the deterministic side and gives the reason. Notion returns 8 changes inside the
+  90-day window; plausible's changelog 4 of the 70 dated entries on it.
+  **Three kinds remain**: identity, trust, direction. `read` names the kind and says there is
+  no extractor rather than running the wrong one.
+  From Run 10, and both about saying what is *absent*:
+  **The window is counted, the coverage is not.** *"4 in 90 days, 36 older"* describes the
+  page. It does not say whether that page is the company's only changelog, which is the other
+  half of [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §4's coverage note.
+  **A subject with no changelog at all says nothing.** Basecamp has none, and the run is
+  silent about it where §4 wants the checked paths listed — *"Not 'no changes.'"*
   Two findings from Run 8, recorded rather than fixed:
   **A worked example in a prompt is a source of facts.** The capability prompt named
   *Message Boards* as an illustration and the model reported Message Boards — a Basecamp

@@ -29,6 +29,93 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 10 — the question a model never sees
+
+**Date:** 2026-08-04 · **Subjects:** notion, plausible, linear, basecamp · **Model:** none, and
+that is the point.
+
+The third question kind is *what shipped recently*, and
+[ARCHITECTURE.md](ARCHITECTURE.md) §5.4 answers it without asking anything:
+
+> | Changelog entries, release dates, version numbers | **Code** — heading + `<time>` + date
+> regex | **Dates are the most common LLM fabrication in "recent changes"** and are trivially
+> verifiable. |
+
+```bash
+cargo run -p landscape -- read https://www.notion.com
+```
+
+```text
+www.notion.com/releases   3136 words   8 change(s) in 90 days, 0 older
+  2026-07-31  AI Meeting Notes can now trigger Custom Agents
+  2026-07-30  High contrast mode
+  2026-07-24  Workers, now in your Notion credits dashboard
+  2026-07-16  New calendar tools for your agent
+  ... and 4 more inside the window
+```
+
+| Page | In the 90-day window | Older | On the page |
+|---|---|---|---|
+| `notion.com/releases` | **8** | 0 | 8 |
+| `plausible.io/changelog` | **4** | 36 | 70 |
+| `plausible.io/blog` | **7** | 33 | 104 |
+| `linear.app/docs/releases.md` | — | — | **"no dated entries on the page"** |
+| `basecamp.com` | — | — | **no changelog discovered at all** |
+
+Every date above was checked against the page. The last two rows are the interesting ones.
+
+### "No dated entries" is not "no changes"
+
+`linear.app/docs/releases.md` is **documentation about a feature called Releases**. It has no
+dates on it, and the honest output is to say so — which is what
+[PRODUCT_SPEC.md](PRODUCT_SPEC.md) §4 insists on for exactly this case:
+
+> Coverage note: no public changelog found for Shortcut in this window — /changelog (404),
+> /releases (404), blog (90d). **Not "no changes."**
+
+The same discipline shows up in the numbers beside each page. Plausible's changelog has 70
+dated entries and four of them are inside the window; a report that printed four and stopped
+would read as a quiet quarter for a company that ships weekly.
+
+### The line has to *be* a date
+
+Notion's changelog contains this sentence:
+
+> *"Starting August 11 2026, Workers will run on Notion credits."*
+
+A parser that takes any date it finds files a **future price change as a shipped feature**.
+That is the single worst thing this could do, and the rule that prevents it is small: a date is
+an entry only when it starts the line — alone, or followed by a separator and a title. The
+six formats real changelogs use are all read; a date inside a sentence is not one of them.
+
+### Two more discovery findings, both from running this
+
+**A blog post is not a section answer.** `plausible.io/blog/product-hunt-launch` classified as
+*features* on the word `product`, and `/blog/changelog-podcast` as *changes* on the word
+`changelog` — a podcast episode. Both were admitted, both were read, and both cost a slot. The
+index of a publication still counts; a post inside it does not.
+
+**The page that names the question outranks the broad one.** `notion.com` publishes `/releases`
+and `/blog`. Both answer *what changed*, both came from `llms.txt`, and the tiebreak was URL
+length — so `/blog` went into the report with **no dated entry on it** and the changelog went
+unread. Length is now the last word rather than the second.
+
+### What is still not right
+
+**The window is counted, not the coverage.** *"4 in 90 days, 36 older"* says what the page
+holds. It does not say whether the page is the company's only changelog, which is the other
+half of §4's coverage note.
+
+**Basecamp has no discovered changelog**, and the run says nothing about that at all — the
+absence of a source is currently invisible, where §4 wants it stated with the paths that were
+checked.
+
+**A job posting is still an article.** `plausible.io/jobs/customer-success` is admitted as
+*direction*, which is the same shape as the blog-post problem in a place the rule does not
+reach.
+
+---
+
 ## Run 9 — the wrong pages, and what reading the right ones changed
 
 **Date:** 2026-08-04 · **Subjects:** linear, todoist, notion, basecamp · **Model:** Qwen3-4B
