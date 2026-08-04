@@ -79,9 +79,18 @@ pub fn admit(candidates: Vec<Candidate>, cap: usize) -> Vec<Candidate> {
         best_by_url
             .entry(key)
             .and_modify(|existing| {
-                // Keep the better provenance. Being in llms.txt says more about a page
+                // Which page first, then how well it is attested. A locale is a variant of a
+                // page rather than a different page — Run 7 spent two slots on
+                // `todoist.com/cs/pricing` and `/da/pricing` and never read the English one —
+                // so the variant is chosen before provenance is considered. Between two
+                // variants of equal standing, being named in llms.txt says more about a page
                 // than a probe having found it.
-                if c.via > existing.via {
+                let better = (crate::locale::preference(&c.url), std::cmp::Reverse(c.via))
+                    < (
+                        crate::locale::preference(&existing.url),
+                        std::cmp::Reverse(existing.via),
+                    );
+                if better {
                     *existing = c.clone();
                 }
             })
@@ -131,9 +140,12 @@ pub fn admit(candidates: Vec<Candidate>, cap: usize) -> Vec<Candidate> {
 fn normalise(url: &str) -> String {
     let lowered = url.trim().to_lowercase();
     let without_www = lowered.replacen("://www.", "://", 1);
-    let trimmed = without_www.trim_end_matches('/').to_owned();
+    // `/cs/pricing`, `/da/pricing` and `/pricing` are one page in three languages. Keying
+    // them apart is what let one page take two of eight slots.
+    let without_locale = crate::locale::stripped(&without_www);
+    let trimmed = without_locale.trim_end_matches('/').to_owned();
     if trimmed.ends_with("://") {
-        without_www
+        without_locale
     } else {
         trimmed
     }
@@ -213,6 +225,48 @@ mod tests {
         let admitted = admit(candidates, 8);
         assert_eq!(admitted.len(), 1);
         assert_eq!(admitted[0].via, Via::LlmsTxt);
+    }
+
+    #[test]
+    fn one_page_in_three_languages_takes_one_slot() {
+        // Run 7 read todoist's pricing page in Czech and in Danish, and never in English.
+        let candidates = vec![
+            c(
+                "https://todoist.com/cs/pricing",
+                Answers::Pricing,
+                Via::Sitemap,
+            ),
+            c(
+                "https://todoist.com/da/pricing",
+                Answers::Pricing,
+                Via::Sitemap,
+            ),
+            c("https://todoist.com/pricing", Answers::Pricing, Via::Probe),
+        ];
+        let admitted = admit(candidates, 8);
+        assert_eq!(admitted.len(), 1, "{admitted:#?}");
+        // And the one kept is the page in no language at all, even though the Czech one was
+        // better attested. Which page it is comes first; how we found it comes second.
+        assert_eq!(admitted[0].url, "https://todoist.com/pricing");
+    }
+
+    #[test]
+    fn a_site_that_only_publishes_in_one_language_is_still_read() {
+        // The filter that would have been wrong. Some sites have no unlocalised path, and
+        // `/de/preise` is then the only pricing page there is.
+        let candidates = vec![c("https://e.de/de/preise", Answers::Pricing, Via::Sitemap)];
+        assert_eq!(admit(candidates, 8).len(), 1);
+    }
+
+    #[test]
+    fn english_wins_when_there_is_no_unlocalised_page() {
+        let candidates = vec![
+            c("https://e.com/da/pricing", Answers::Pricing, Via::LlmsTxt),
+            c("https://e.com/en-us/pricing", Answers::Pricing, Via::Probe),
+        ];
+        let admitted = admit(candidates, 8);
+        assert_eq!(admitted.len(), 1);
+        assert_eq!(admitted[0].url, "https://e.com/en-us/pricing");
     }
 
     #[test]

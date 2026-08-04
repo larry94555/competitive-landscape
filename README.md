@@ -304,7 +304,8 @@ crates/
   landscape-api/    axum routers, request validation, error mapping
   landscape-llm/    constrained generation: a Rust type in, that type out
   landscape-bench/  measures how fast a llama-server is
-  landscape-discover/ which pages to read about a company, and which eight
+  landscape-discover/ which pages to read about a company, in which language,
+                     and which eight
   landscape-extract/ a page into Markdown, and the ~400 tokens per plan or
                      capability worth reading
   landscape-fetch/  the outside world: SSRF guard, robots.txt, per-host politeness

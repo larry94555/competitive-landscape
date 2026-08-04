@@ -912,16 +912,27 @@ add-on is a heading with a price under it, which is exactly the shape a plan has
 see a billing period that disagrees with the page: `$16 per user/month` and `Billed yearly`
 are two facts and `BillingPeriod` has one field for them.
 
-And on `linear.app` the pages discovery labels *features* are documentation:
+Both are in [ROADMAP.md](ROADMAP.md) rather than tuned away.
+
+**What discovery chose is worth looking at on its own**, and it needs no model:
 
 ```bash
-cargo run -p landscape -- read https://linear.app
+cargo run -p landscape -- discover https://linear.app
 ```
 
-`/docs/sla.md` gives eight real capabilities, and `/docs/mcp.md` gives `Setup` and `Claude` —
-names from a setup guide. Sections with a code block in them are skipped, which removes the
-worst of it; the label itself is discovery's to fix. All three are in
-[ROADMAP.md](ROADMAP.md) rather than tuned away.
+`linear.app/features` should be in that list. Until Run 9 it never was — `/docs/mcp.md`, a
+setup guide, held the features slot and reported `Setup` and `Claude` as capabilities of
+Linear. Only the front page of a documentation site answers *what does this product do*.
+
+```bash
+cargo run -p landscape -- discover https://todoist.com
+```
+
+**Three sources from eighteen paths checked, and that is the improvement.** Before Run 9 this
+was eight, of which two were Todoist's pricing page in Czech and Danish and two more were the
+`setup` and `upgrade` steps of buying it. The English pricing page was never read at all. A
+source that cannot answer the question it was admitted for costs a fetch, a model pass, and a
+line in the report that nobody can stand behind.
 
 **If a page reports nothing, look at what it converted to** — no model needed:
 
@@ -948,7 +959,7 @@ That prints the page's size; the Markdown behind it keeps the headings and table
 cargo test
 ```
 
-**You should see 316 passing, with nothing running.**
+**You should see 330 passing, with nothing running.**
 
 CI runs the same tests through `cargo nextest run`, which is faster and gives each test its
 own process — so a test that panics is reported as a failure instead of taking the run down
@@ -1037,6 +1048,8 @@ python prototype/build.py --preview
 | 8E — basecamp `/features` names ten real capabilities | | |
 | 8E — the cap and the dropped names are printed, not hidden | | |
 | 8E — pages of the other four kinds say "no extractor yet" | | |
+| 8E — `discover linear.app` lists `/features`, not a setup guide | | |
+| 8E — `discover todoist.com` lists three English pages, no duplicates | | |
 | 9 — `cargo test` green with nothing running | | |
 
 **If something differs from what is written here, that is a bug.** Every command above was run

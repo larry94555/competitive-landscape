@@ -430,21 +430,22 @@ the single most important phase; everything after it is commerce and polish.
   it came from. §P15 is about laundering someone else's hallucination; this is the same
   failure with a shorter supply chain, and **every prompt in this codebase should be read for
   it**.
-  **Discovery labels documentation as features.** `linear.app/docs/mcp.md` is a setup guide
-  whose sections are named for other people's editors. Sections containing a code block are
-  skipped now, which is a mitigation and not a fix — the label is discovery's.
+  ~~**Discovery labels documentation as features.**~~ Fixed in Run 9: only the front page of a
+  documentation site answers *what does this product do*. `linear.app/features` is read for the
+  first time and gives eight real capabilities.
   Three findings from Run 7 are recorded rather than fixed, each needing its own change:
   **`BillingPeriod` conflates two facts** — `$16 per user/month` and `Billed yearly` are both
   on the page and the type has one field for them, which is where the only wrong number in
   Run 7 came from.
   **An add-on is a heading with a price under it**, which is exactly the shape a plan has.
   Only meaning separates them, so notion reports four plans where three are real.
-  **Discovery admits localised duplicates** — `todoist.com/cs/pricing` and `/da/pricing` were
-  both read and the English page never was; notion contributed `/es-es/pricing`. That is a
-  discovery bug, and it costs model calls as well as accuracy.
-  Both discovery findings — the localised duplicates and the mislabelled documentation — point
-  at the same next piece of work, and it is **precision in discovery** rather than another
-  extractor.
+  ~~**Discovery admits localised duplicates.**~~ Fixed in Run 9: a locale is a variant of a
+  page rather than a different page, so variants collapse and the unlocalised or English one
+  wins. Todoist now reads three English sources where it read eight, and one of them is the
+  pricing page it publishes.
+  **What remains here is measurement, not more rules.** Discovery has no golden-set subjects at
+  all, so every judgement about it — these two included — rests on four companies read by hand.
+  Fixtures for `admit` and `guess` are what would turn that into evidence.
 - All seven report sections, streamed over SSE.
 - Anonymous rate limit (2/day), share URL.
 
