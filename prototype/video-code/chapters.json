@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "Build a browser, or not?",
-    "blurb": "The plan refused to schedule a headless browser until somebody measured how much of the web actually needs one. This is that measurement over 28 real pricing pages, the two mistakes that would have given the wrong answer, and the control group that caught one of them.",
-    "seconds": 57.2
+    "title": "Which eight pages?",
+    "blurb": "A report reads eight pages about a company. Ranking them the obvious way fills all eight with the same fact, so the cap is spent on breadth instead - and two bugs that only appeared when it was pointed at real websites.",
+    "seconds": 56.1
   }
 ]
