@@ -325,6 +325,16 @@ Example:
     );
     println!("{}", "-".repeat(100));
 
+    // What each question ended up with. Counted rather than inferred from the output,
+    // because the difference between "no plans on the page" and "we never looked" is the
+    // one thing a coverage note exists to state.
+    let mut facts: std::collections::BTreeMap<landscape_discover::probes::Answers, usize> =
+        std::collections::BTreeMap::new();
+    // And how many pages were opened, which is not the same number. Four of the six
+    // questions have no extractor, so their pages are admitted and never read.
+    let mut opened: std::collections::BTreeMap<landscape_discover::probes::Answers, usize> =
+        std::collections::BTreeMap::new();
+
     for source in &found.sources {
         // Discovery already labelled what each page answers, and there is an extractor for
         // two of the six labels. Running the wrong one is not a small error: the pricing
@@ -358,6 +368,7 @@ Example:
         };
         let markdown = landscape_extract::markdown::from_body(&page.body);
         let assessment = landscape_extract::quality::assess(&markdown);
+        *opened.entry(kind).or_default() += 1;
 
         if !assessment.quality.worth_extracting() {
             // Not an error. The page was read and there was nothing on it, which is what a
@@ -375,7 +386,8 @@ Example:
             // Ahead of the model check on purpose: dates are parsed, not generated, so a
             // changelog is read whether or not a `llama-server` is running. ARCHITECTURE
             // §5.4 is the reason there is nothing to ask a model here.
-            read_changes(&source.url, &markdown, &assessment, today);
+            *facts.entry(kind).or_default() +=
+                read_changes(&source.url, &markdown, &assessment, today);
             continue;
         }
         if !model_ready {
@@ -390,7 +402,8 @@ Example:
         }
 
         if kind == Answers::Features {
-            read_features(&llm, &source.url, &markdown, &assessment).await;
+            *facts.entry(kind).or_default() +=
+                read_features(&llm, &source.url, &markdown, &assessment).await;
             continue;
         }
 
@@ -440,6 +453,7 @@ Example:
             }
         }
         let page = landscape_core::PagePricing::assembled(extracted);
+        *facts.entry(kind).or_default() += page.plans.len();
 
         let words: usize = spans
             .iter()
@@ -471,7 +485,47 @@ Example:
             println!("{:<44}   model error: {failure}", "");
         }
     }
+
+    print_coverage(&found, &opened, &facts);
     Ok(())
+}
+
+/// What every question ended up with, including the ones that ended up with nothing.
+///
+/// **This is the half of a report that is usually missing.** `FACT_CHECKING.md` §5.4: a
+/// negative nobody can check is not a finding. Everything above this block says what was
+/// found; without it, a question nobody could answer and a question nobody asked look
+/// identical — and `PRODUCT_SPEC.md` §4 is explicit that they are not:
+///
+/// > Coverage note: no public changelog found for Shortcut in this window — /changelog (404),
+/// > /releases (404), blog (90d). **Not "no changes."**
+fn print_coverage(
+    found: &landscape_discover::Discovered,
+    opened: &std::collections::BTreeMap<landscape_discover::probes::Answers, usize>,
+    facts: &std::collections::BTreeMap<landscape_discover::probes::Answers, usize>,
+) {
+    use landscape_discover::probes::Answers;
+
+    println!("\n{:<12} coverage", "question");
+    println!("{}", "-".repeat(100));
+    for question in [
+        Answers::Pricing,
+        Answers::Features,
+        Answers::Changes,
+        Answers::Identity,
+        Answers::Trust,
+        Answers::Direction,
+    ] {
+        let coverage = found.coverage(
+            question,
+            opened.get(&question).copied().unwrap_or(0),
+            facts.get(&question).copied().unwrap_or(0),
+        );
+        println!("{:<12} {}", question.name(), coverage.note());
+    }
+    if found.stopped_early {
+        println!("\nThe probe budget ran out before the list did - some paths were never tried.");
+    }
 }
 
 /// One plan, as a line a person can read.
@@ -502,7 +556,7 @@ fn read_changes(
     markdown: &str,
     assessment: &landscape_extract::quality::Assessment,
     today: chrono::NaiveDate,
-) {
+) -> usize {
     let found = landscape_extract::changes::every_change(markdown);
     let page = landscape_core::PageChanges {
         changes: found
@@ -528,7 +582,7 @@ fn read_changes(
             assessment.quality.name(),
             "-"
         );
-        return;
+        return 0;
     }
 
     let recent = page.recent(today);
@@ -581,6 +635,9 @@ fn read_changes(
             found.considered
         );
     }
+    // What the coverage note counts is what is inside the window. Thirty-six entries from
+    // last year are not this quarter's answer.
+    recent.len()
 }
 
 /// The features half of `read`, kept apart because the two questions are not alike.
@@ -593,7 +650,7 @@ async fn read_features(
     url: &str,
     markdown: &str,
     assessment: &landscape_extract::quality::Assessment,
-) {
+) -> usize {
     let found = landscape_extract::capability::every_capability(markdown);
     if found.windows.is_empty() {
         // A features page written as one long paragraph names nothing this can point at.
@@ -606,7 +663,7 @@ async fn read_features(
             assessment.quality.name(),
             "-"
         );
-        return;
+        return 0;
     }
 
     let decode = landscape_llm::Decode {
@@ -687,6 +744,7 @@ async fn read_features(
     for failure in &failures {
         println!("{:<44}   model error: {failure}", "");
     }
+    page.features.len()
 }
 
 /// The capability prompt. Normalisation, which is all ARCHITECTURE §5.4 asks a model for here.

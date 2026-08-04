@@ -104,14 +104,15 @@ pub fn admit(candidates: Vec<Candidate>, cap: usize) -> Vec<Candidate> {
     }
     for group in by_question.values_mut() {
         group.sort_by(|a, b| {
-            b.via
-                .cmp(&a.via)
-                // Then the page that names the question most directly. Length is the last
-                // word rather than the second, because it was deciding real cases on nothing:
-                // `/blog` is shorter than `/releases` and notion's changelog went unread.
-                .then_with(|| {
-                    crate::probes::specificity(&a.url).cmp(&crate::probes::specificity(&b.url))
-                })
+            // The page that names the question most directly, first — **which page it is
+            // comes before how we found it**, the same rule locale preference already
+            // follows. The coverage note is what showed this mattered: `linear.app/changelog`
+            // answers 200 and was never read, because `/docs/releases.md` was named in
+            // llms.txt and llms.txt outranked a probe. A documentation page about a feature
+            // called Releases beat the changelog on provenance alone.
+            crate::probes::specificity(&a.url)
+                .cmp(&crate::probes::specificity(&b.url))
+                .then_with(|| b.via.cmp(&a.via))
                 .then_with(|| a.url.len().cmp(&b.url.len()))
         });
     }
@@ -273,6 +274,24 @@ mod tests {
         let admitted = admit(candidates, 8);
         assert_eq!(admitted.len(), 1);
         assert_eq!(admitted[0].url, "https://e.com/en-us/pricing");
+    }
+
+    #[test]
+    fn the_page_that_names_the_question_beats_the_better_attested_one() {
+        // What the coverage note surfaced on linear.app: `/changelog` answered 200 and was
+        // never read, because a documentation page about a feature called Releases was named
+        // in llms.txt. Provenance is evidence about a page; it is not evidence that the page
+        // is the right one.
+        let candidates = vec![
+            c(
+                "https://e.com/docs/releases.md",
+                Answers::Changes,
+                Via::LlmsTxt,
+            ),
+            c("https://e.com/changelog", Answers::Changes, Via::Probe),
+        ];
+        let admitted = admit(candidates, 1);
+        assert_eq!(admitted[0].url, "https://e.com/changelog");
     }
 
     #[test]

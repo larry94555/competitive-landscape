@@ -11,12 +11,14 @@
 //! diverge; one generated copy cannot.
 
 pub mod analysis;
+pub mod coverage;
 pub mod extract;
 pub mod report;
 pub mod source;
 pub mod subject;
 
 pub use analysis::{Analysis, AnalysisId, AnalysisStatus, NewAnalysis};
+pub use coverage::{Attempt, Coverage};
 pub use extract::{
     BillingPeriod, Change, FeatureExtraction, PageChanges, PageFeatures, PagePricing,
     PricingExtraction,

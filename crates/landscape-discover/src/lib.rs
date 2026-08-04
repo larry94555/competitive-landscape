@@ -41,6 +41,46 @@ pub mod rank;
 use landscape_fetch::{FetchError, Fetcher};
 use rank::{Candidate, Via};
 
+/// One path we tried, and what came back.
+///
+/// The outcome is carried, not just the URL. `PRODUCT_SPEC.md` §4's coverage note reads
+/// *"/changelog (404), /releases (404), blog (90d)"* — **the numbers are the note**. A list of
+/// paths with no outcomes beside them says we typed some URLs; a list with outcomes says what
+/// the company does and does not publish.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Checked {
+    pub url: String,
+    pub outcome: Outcome,
+}
+
+/// What a tried path answered.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Outcome {
+    /// 200, and the page exists.
+    Answered,
+    /// A status that is not 200. The number is kept because `404` and `403` mean different
+    /// things to a reader deciding whether to look themselves.
+    Status(u16),
+    /// `robots.txt` said no. **Not a failure** — the system working, and a fact about the
+    /// company rather than about us.
+    Disallowed,
+    /// The request did not complete.
+    Unreachable,
+}
+
+impl Outcome {
+    /// How it reads in a coverage note.
+    #[must_use]
+    pub fn name(self) -> String {
+        match self {
+            Self::Answered => "200".to_owned(),
+            Self::Status(code) => code.to_string(),
+            Self::Disallowed => "robots".to_owned(),
+            Self::Unreachable => "unreachable".to_owned(),
+        }
+    }
+}
+
 /// What discovery found, and what it cost.
 #[derive(Debug, Clone, Default)]
 pub struct Discovered {
@@ -51,7 +91,7 @@ pub struct Discovered {
     /// This is the same discipline as `Section::not_found`: a negative nobody can check is
     /// not a finding. A reader who sees two sources should be able to see that eleven
     /// other paths were tried and answered nothing.
-    pub checked: Vec<String>,
+    pub checked: Vec<Checked>,
     /// True when the probe budget ran out before the list did.
     pub stopped_early: bool,
 }
@@ -97,6 +137,60 @@ impl Discovered {
     }
 }
 
+impl Discovered {
+    /// What was tried on behalf of one question, as a coverage note repeats it.
+    ///
+    /// A path is attributed to the question its *shape* suggests, using the same classifier
+    /// that admits pages — so `/changelog (404)` appears under *changes* whether it answered
+    /// or not. `/llms.txt` and `/sitemap.xml` belong to no question and appear under none;
+    /// they are listed once, for the run.
+    #[must_use]
+    pub fn attempts_for(&self, question: probes::Answers) -> Vec<landscape_core::Attempt> {
+        self.checked
+            .iter()
+            .filter(|c| probes::guess(path_of(&c.url)) == Some(question))
+            .map(|c| landscape_core::Attempt {
+                path: path_of(&c.url).to_owned(),
+                outcome: c.outcome.name(),
+            })
+            .collect()
+    }
+
+    /// The coverage of one question: what was admitted, what was tried, and what came out.
+    ///
+    /// `pages_read` and `facts` are the caller's to supply — discovery finds pages and does
+    /// not open them, and the difference between *found* and *read* is one of the four
+    /// silences [`landscape_core::Coverage::note`] distinguishes.
+    #[must_use]
+    pub fn coverage(
+        &self,
+        question: probes::Answers,
+        pages_read: usize,
+        facts: usize,
+    ) -> landscape_core::Coverage {
+        landscape_core::Coverage {
+            question: question.name().to_owned(),
+            sources: self
+                .sources
+                .iter()
+                .filter(|s| s.answers == question)
+                .map(|s| s.url.clone())
+                .collect(),
+            pages_read,
+            facts,
+            attempts: self.attempts_for(question),
+        }
+    }
+}
+
+/// The path part of a URL, for a note a reader can retype.
+fn path_of(url: &str) -> &str {
+    let after_scheme = url.find("://").map_or(0, |i| i + 3);
+    url[after_scheme..]
+        .find('/')
+        .map_or("/", |i| &url[after_scheme + i..])
+}
+
 /// How many probes to spend before giving up on guessing.
 ///
 /// The whole list is 14, and a site that answered nothing on the first several is a site
@@ -110,12 +204,16 @@ pub const PROBE_BUDGET: usize = 14;
 pub async fn discover(fetcher: &Fetcher, origin: &str) -> Discovered {
     let origin = origin.trim_end_matches('/').to_owned();
     let mut found: Vec<Candidate> = Vec::new();
-    let mut checked: Vec<String> = Vec::new();
+    let mut checked: Vec<Checked> = Vec::new();
 
     // 1. What the site says is worth reading. One request, and the best evidence there is.
     let llms_url = format!("{origin}/llms.txt");
-    checked.push(llms_url.clone());
-    if let Ok(page) = fetcher.get(&llms_url).await {
+    let llms = fetcher.get(&llms_url).await;
+    checked.push(Checked {
+        url: llms_url.clone(),
+        outcome: outcome_of(&llms),
+    });
+    if let Ok(page) = llms {
         if page.status == 200 {
             for listed in listings::from_llms_txt(&page.body, &origin) {
                 found.push(Candidate {
@@ -144,20 +242,21 @@ pub async fn discover(fetcher: &Fetcher, origin: &str) -> Discovered {
             break;
         }
         let url = format!("{origin}{}", probe.path);
-        checked.push(url.clone());
-        match fetcher.get(&url).await {
-            // A 200 means the path exists. Anything else — including a 404 dressed as a
-            // soft landing page — is not evidence that it does.
-            Ok(page) if page.status == 200 => found.push(Candidate {
+        let response = fetcher.get(&url).await;
+        checked.push(Checked {
+            url: url.clone(),
+            outcome: outcome_of(&response),
+        });
+        // A 200 means the path exists. Anything else — including a 404 dressed as a soft
+        // landing page — is not evidence that it does. A refusal is not a failure of
+        // discovery either: robots.txt saying no is the system working, and the URL stays in
+        // `checked` with the reason so a reader can see it was tried.
+        if matches!(&response, Ok(page) if page.status == 200) {
+            found.push(Candidate {
                 url,
                 answers: probe.answers,
                 via: Via::Probe,
-            }),
-            Ok(_) => {}
-            // A refusal is not a failure of discovery. robots.txt saying no is the system
-            // working, and the URL stays in `checked` so a reader can see it was tried.
-            Err(FetchError::RobotsDisallowed { .. } | FetchError::Refused(_)) => {}
-            Err(_) => {}
+            });
         }
     }
 
@@ -168,16 +267,30 @@ pub async fn discover(fetcher: &Fetcher, origin: &str) -> Discovered {
     }
 }
 
+/// What one fetch says about the path, for the coverage note.
+fn outcome_of(response: &Result<landscape_fetch::Page, FetchError>) -> Outcome {
+    match response {
+        Ok(page) if page.status == 200 => Outcome::Answered,
+        Ok(page) => Outcome::Status(page.status),
+        Err(FetchError::RobotsDisallowed { .. } | FetchError::Refused(_)) => Outcome::Disallowed,
+        Err(_) => Outcome::Unreachable,
+    }
+}
+
 /// Sitemap URLs, following one level of index.
 async fn sitemap_urls(
     fetcher: &Fetcher,
     origin: &str,
-    checked: &mut Vec<String>,
+    checked: &mut Vec<Checked>,
 ) -> Vec<listings::Listed> {
     let root = format!("{origin}/sitemap.xml");
-    checked.push(root.clone());
+    let response = fetcher.get(&root).await;
+    checked.push(Checked {
+        url: root.clone(),
+        outcome: outcome_of(&response),
+    });
 
-    let Ok(page) = fetcher.get(&root).await else {
+    let Ok(page) = response else {
         return Vec::new();
     };
     if page.status != 200 {
@@ -194,8 +307,12 @@ async fn sitemap_urls(
     // we will find by reading all twenty.
     let mut out = Vec::new();
     for url in nested.into_iter().take(2) {
-        checked.push(url.clone());
-        if let Ok(child) = fetcher.get(&url).await {
+        let child = fetcher.get(&url).await;
+        checked.push(Checked {
+            url,
+            outcome: outcome_of(&child),
+        });
+        if let Ok(child) = child {
             if child.status == 200 {
                 out.extend(listings::from_sitemap(&child.body, origin));
             }
@@ -217,6 +334,67 @@ mod tests {
     use super::*;
     use crate::probes::Answers;
 
+    fn checked(url: &str, outcome: Outcome) -> Checked {
+        Checked {
+            url: url.to_owned(),
+            outcome,
+        }
+    }
+
+    #[test]
+    fn what_was_tried_is_attributed_to_the_question_it_was_tried_for() {
+        let d = Discovered {
+            sources: vec![],
+            checked: vec![
+                checked("https://e.com/changelog", Outcome::Status(404)),
+                checked("https://e.com/releases", Outcome::Status(404)),
+                checked("https://e.com/pricing", Outcome::Answered),
+                checked("https://e.com/llms.txt", Outcome::Status(404)),
+            ],
+            stopped_early: false,
+        };
+        let changes = d.attempts_for(Answers::Changes);
+        assert_eq!(changes.len(), 2, "{changes:?}");
+        assert_eq!(changes[0].path, "/changelog");
+        assert_eq!(changes[0].outcome, "404");
+        // `/llms.txt` answers no question, so it is attributed to none of them.
+        assert_eq!(d.attempts_for(Answers::Pricing).len(), 1);
+    }
+
+    #[test]
+    fn a_question_with_no_facts_carries_the_paths_that_were_tried() {
+        // The whole point: an empty section a reader can check, rather than one they have to
+        // trust. PRODUCT_SPEC §4 — "Not 'no changes.'"
+        let d = Discovered {
+            sources: vec![],
+            checked: vec![
+                checked("https://e.com/changelog", Outcome::Status(404)),
+                checked("https://e.com/releases", Outcome::Disallowed),
+            ],
+            stopped_early: false,
+        };
+        let coverage = d.coverage(Answers::Changes, 0, 0);
+        assert!(coverage.is_empty());
+        let note = coverage.note();
+        assert!(note.contains("/changelog (404)"), "{note}");
+        assert!(note.contains("/releases (robots)"), "{note}");
+    }
+
+    #[test]
+    fn a_page_that_was_read_and_yielded_nothing_reads_differently() {
+        let d = Discovered {
+            sources: vec![Candidate {
+                url: "https://e.com/releases".to_owned(),
+                answers: Answers::Changes,
+                via: Via::Probe,
+            }],
+            checked: vec![checked("https://e.com/releases", Outcome::Answered)],
+            stopped_early: false,
+        };
+        let note = d.coverage(Answers::Changes, 1, 0).note();
+        assert!(note.contains("read 1 page(s)"), "{note}");
+    }
+
     #[test]
     fn a_thin_result_still_reports_what_was_tried() {
         // The same discipline as a "not found" report section: a negative nobody can check
@@ -224,7 +402,16 @@ mod tests {
         // out of nowhere is just disappointing.
         let d = Discovered {
             sources: vec![],
-            checked: vec!["https://e.com/pricing".into(), "https://e.com/plans".into()],
+            checked: vec![
+                Checked {
+                    url: "https://e.com/pricing".into(),
+                    outcome: Outcome::Status(404),
+                },
+                Checked {
+                    url: "https://e.com/plans".into(),
+                    outcome: Outcome::Status(404),
+                },
+            ],
             stopped_early: false,
         };
         let rendered = d.render();
@@ -242,7 +429,7 @@ mod tests {
                 answers: Answers::Pricing,
                 via: Via::LlmsTxt,
             }],
-            checked: vec!["https://e.com/pricing".into()],
+            checked: vec![checked("https://e.com/pricing", Outcome::Answered)],
             stopped_early: false,
         };
         let rendered = d.render();
@@ -254,7 +441,7 @@ mod tests {
     fn stopping_early_is_stated_rather_than_hidden() {
         let d = Discovered {
             sources: vec![],
-            checked: vec!["https://e.com/pricing".into()],
+            checked: vec![checked("https://e.com/pricing", Outcome::Answered)],
             stopped_early: true,
         };
         assert!(d.render().contains("probe budget reached"));

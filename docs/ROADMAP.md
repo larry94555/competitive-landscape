@@ -424,12 +424,16 @@ the single most important phase; everything after it is commerce and polish.
   90-day window; plausible's changelog 4 of the 70 dated entries on it.
   **Three kinds remain**: identity, trust, direction. `read` names the kind and says there is
   no extractor rather than running the wrong one.
-  From Run 10, and both about saying what is *absent*:
-  **The window is counted, the coverage is not.** *"4 in 90 days, 36 older"* describes the
-  page. It does not say whether that page is the company's only changelog, which is the other
-  half of [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §4's coverage note.
-  **A subject with no changelog at all says nothing.** Basecamp has none, and the run is
-  silent about it where §4 wants the checked paths listed — *"Not 'no changes.'"*
+  ~~**A subject with no changelog at all says nothing.**~~ Fixed in Run 11: `read` ends with a
+  coverage note per question — `landscape_core::Coverage`, rendered through
+  [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §4's `Section::not_found`. Basecamp's *changes* line now
+  reads *"no page found. Checked: /changelog (404), /releases (404), /blog (404)"*.
+  **The note distinguishes four silences**, and separating them is what makes it honest: our
+  gap, the company's gap, a page found and never opened, and a page read that stated nothing.
+  Its first run found `linear.app/changelog` answering 200 and never read.
+  What remains here: **the note is per question, not per section.** §4 wants it rendered under
+  the section in the report. `Coverage::to_section` is written and tested and nothing renders
+  a report yet.
   Two findings from Run 8, recorded rather than fixed:
   **A worked example in a prompt is a source of facts.** The capability prompt named
   *Message Boards* as an illustration and the model reported Message Boards — a Basecamp

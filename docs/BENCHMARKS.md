@@ -29,6 +29,98 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 11 — the note that reads back what was checked, and what it found first
+
+**Date:** 2026-08-04 · **Subjects:** basecamp, linear, notion · **Model:** Qwen3-4B Q4_K_M for
+pricing and features; none for changes.
+
+Ten runs have ended with a version of the same gap: `read` printed what it found and was silent
+about what it looked for. [FACT_CHECKING.md](FACT_CHECKING.md) §5.4 has the rule — *a negative
+nobody can check is not a finding* — and [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §4 the output:
+
+> Coverage note: no public changelog found for Shortcut in this window — /changelog (404),
+> /releases (404), blog (90d). **Not "no changes."**
+
+```bash
+cargo run -p landscape -- read https://basecamp.com
+```
+
+```text
+question     coverage
+----------------------------------------------------------------------------------------------
+pricing      2 fact(s) from 1 source(s)
+features     10 fact(s) from 1 source(s)
+changes      no page found. Checked: /changelog (404), /releases (404), /blog (404)
+identity     1 page(s) found and not read - our gap, not theirs
+trust        2 page(s) found and not read - our gap, not theirs
+direction    1 page(s) found and not read - our gap, not theirs
+```
+
+**Basecamp publishes no changelog.** Run 10 knew that and said nothing; this states it with the
+three paths that were tried and what each returned.
+
+### Four silences, and no two of them mean the same thing
+
+| The note | What it means |
+|---|---|
+| `nothing was checked` | our gap, and the only honest thing is to say so |
+| `no page found. Checked: …` | **the company publishes none of this** |
+| `found and not read` | our gap again, and a different one |
+| `read N page(s), none stated anything` | the page exists and does not say |
+
+The third one exists because the fourth was lying. Four of the six questions have **no
+extractor yet**, so their pages are admitted and never opened — and the first version of this
+note reported *"read 1 page, it stated nothing"* about `basecamp.com/about`, a page nothing had
+opened. **That is this feature committing the exact error it was built to prevent**, and it
+survived one run before the numbers were separated.
+
+### What the note found on its first honest run
+
+```text
+linear   changes   read 1 page(s), none stated anything.
+                   Checked: /changelog (200), /releases (404), /blog (200)
+```
+
+`linear.app/changelog` **answers 200 and had never been read.** The page that held the changes
+slot was `/docs/releases.md` — documentation about a feature called Releases, the same page Run
+10 recorded as correctly reporting no dated entries. It won the slot because it was named in
+`llms.txt`, and `llms.txt` outranked a probe.
+
+So the ordering changed to match the rule locale preference already follows in Run 9: **which
+page it is comes before how we found it.** Provenance is evidence *about* a page; it is not
+evidence that the page is the right one.
+
+| `linear.app` | Before | After |
+|---|---|---|
+| changes | `/docs/releases.md` → no dated entries | **`/changelog` → 7 changes in the window** |
+| trust | `/docs/security.md` | `/security` |
+
+Seven dated changes — *Coding sessions on mobile*, *Introducing Loops*, *Initiative
+properties* — from a page that had been reachable and unread since Run 5.
+
+### The counts, after
+
+| | pricing | features | changes |
+|---|---|---|---|
+| basecamp | 2 | 10 | **none published** |
+| linear | 3 | 20 | **7** |
+| notion | 4 | 19 | 8 |
+
+### What is still not right
+
+**Three questions have no extractor, and the note now says so six times a run.** That is the
+correct output and an uncomfortable one: identity, trust and direction are found on every
+subject and opened on none.
+
+**`/blog (200)` under *changes* does not say the blog was read and rejected**, only that the
+path answered. The attempts list carries what discovery saw, not what extraction did with it.
+
+**The note is per question, not per section.** `PRODUCT_SPEC.md` §4 wants it under the section
+in the report; this is the CLI, and `Coverage::to_section` is the piece that will carry it
+there — written and tested, not yet used by anything that renders a report.
+
+---
+
 ## Run 10 — the question a model never sees
 
 **Date:** 2026-08-04 · **Subjects:** notion, plausible, linear, basecamp · **Model:** none, and
