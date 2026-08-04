@@ -494,10 +494,20 @@ the single most important phase; everything after it is commerce and polish.
   **It polls the row rather than taking a message broker.** The queue already lives in the
   database for the same reason: a second thing to run is a second thing to lose events
   through, on a box with no spare memory.
-  What is left here: **the frontend still polls** — the endpoint exists and `web/` does not
-  use it — and **a prompt that names no site fails with a reason** rather than resolving,
-  because finding a company from a description needs the search channel §3.3 puts last.
-  `searched_as` is the origin until that exists.
+  ~~What is left here: the frontend still polls.~~ **Done** — Run 16. `web/` consumes the
+  stream and renders sections as they arrive, and **watching it in a browser found two things
+  425 tests had not**: the first section took four minutes because progress was written per
+  page rather than per window, and once fixed it then *froze* at one item, because a section
+  was sent once and a section that stops changing reads as finished.
+  Both are what [ADR 0011](decisions/0011-no-experiments-on-production.md) means by testing
+  from the client's side, applied to our own interface.
+  Still open: **two minutes is not forty seconds** — §2.1A's target. The order pages are read
+  in decides what a reader sees first and nothing chooses it deliberately; the changelog needs
+  no model at all and could go first.
+  **A reload loses the analysis**: there is no URL for one.
+  And **a prompt that names no site fails with a reason** rather than resolving, because
+  finding a company from a description needs the search channel §3.3 puts last. `searched_as`
+  is the origin until that exists — but a reader is now told what to do about it.
 - Anonymous rate limit (2/day), share URL.
 
 **Technical tasks**

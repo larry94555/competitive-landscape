@@ -33,6 +33,88 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 16 — watched in a browser, which found two things the tests could not
+
+**Date:** 2026-08-04 · **Subject:** plausible.io · **Where:** a browser, on this laptop ·
+**Store:** in-memory.
+
+Run 15 measured the stream with `curl`. This is the same run watched the way a reader watches
+it — [ADR 0011](decisions/0011-no-experiments-on-production.md)'s rule that testing happens
+from the client's side, applied to our own interface for the first time.
+
+Both defects below were invisible to 425 passing tests and to the `curl` transcript.
+
+### The first section took four minutes
+
+`PRODUCT_SPEC.md` §2.1A asks for content in twenty to forty seconds. The screen said *"Reading
+the first pages…"* for **four minutes**.
+
+Nothing was broken. Progress was written **per page**, and `plausible.io`'s first page is
+twelve capability windows read one at a time at ~15 s each. A page is simply too large a unit
+to deliver anything.
+
+Progress is per *window* now — one fact is enough to put a section on screen:
+
+| | first section on screen |
+|---|---|
+| per page | **~4 min** |
+| per window | **~2 min** |
+
+Still short of §2.1A, and the remainder is now visible rather than hidden: ~20 s of discovery,
+a fetch, and one model call. What would close it is reading the cheap questions first — the
+changelog needs no model at all.
+
+### Then the section froze
+
+With the first fix in, the screen showed *"What it does — 1 item"* and **stayed that way for
+two minutes** while eight more capabilities were read.
+
+A section was sent once, when it first had claims. **A section that arrives and then stops
+changing reads as a section that is finished**, so a reader would have taken nine capabilities
+for one. It is now sent again whenever it grows, and the client replaces rather than skips.
+
+### What the finished report looks like to a reader
+
+```text
+compare plausible.io for me
+Searched as https://plausible.io                      Done.
+
+Pricing & packaging     Nothing found in public sources.
+                        /pricing (404) · /plans (404) · /pricing/ (404)
+What it does            9 capabilities, each quoted
+Recent public changes   11 dated entries
+Company facts           founded 2018 · based in EU · 10 people
+Trust & security        Nothing found. /security (200) · /status (200)
+```
+
+Every claim carries its source label and the page's own words underneath.
+
+### And failures got an audience
+
+A prompt that names no company used to reach the reader as *"This one did not finish. Nothing
+you did caused it."* — which was **both wrong and a dead end**, because they had done
+something and could fix it.
+
+`core::Failure` is a closed set of situations, not the operator's text:
+`migrations/0001_init.sql` is explicit that `failure_reason` is never shown verbatim, and what
+somebody is told is a presentation decision. The interface now writes:
+
+> We could not work out which company you meant. Try naming its website — for example,
+> basecamp.com.
+
+### What is still not right
+
+**Two minutes is not forty seconds.** The order pages are read in decides what a reader sees
+first, and nothing chooses it deliberately.
+
+**A reload loses the analysis.** There is no URL for one, so a refresh mid-run leaves a reader
+with nothing to return to.
+
+**Nobody has watched this on a slow connection or a phone**, which is where a stream that
+depends on a proxy not buffering is most likely to behave differently.
+
+---
+
 ## Run 15 — the queue, end to end, with a reader watching
 
 **Date:** 2026-08-04 · **Subject:** plausible.io · **Store:** in-memory, no database ·

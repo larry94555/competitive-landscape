@@ -978,7 +978,26 @@ has nothing. The product will have the second one.
 `[S3·H]` is the source and the confidence. A quoted price is `H`; a capability name is `M` and
 can never be more, because shortening a heading is a paraphrase by design.
 
-**And the same thing happens through the product**, which is what it is for:
+**And in a browser, which is where it is judged:**
+
+```bash
+npm run dev --prefix web
+```
+
+Type `compare plausible.io for me` and watch. The first section appears while it is still
+running, and **grows as more facts arrive** — then the finished report replaces it with the
+coverage notes for the questions that found nothing.
+
+Both of those behaviours came from watching this exact screen: the first section used to take
+four minutes, and then it used to freeze at one item.
+[BENCHMARKS.md](BENCHMARKS.md) Run 16 records what that looked like and why.
+
+**Type a description instead** — `an app that helps small farms sell to restaurants` — and it
+tells you it could not work out which company you meant, and to name a website. Not *"nothing
+you did caused it"*, which was wrong and a dead end.
+
+**And the same thing happens through the API**, which is what the walkthrough uses when there
+is no browser to hand:
 
 ```bash
 cargo run -p landscape -- dev --store memory
@@ -1099,7 +1118,7 @@ That prints the page's size; the Markdown behind it keeps the headings and table
 cargo test
 ```
 
-**You should see 425 passing, with nothing running.**
+**You should see 427 passing, with nothing running.**
 
 CI runs the same tests through `cargo nextest run`, which is faster and gives each test its
 own process — so a test that panics is reported as a failure instead of taking the run down
@@ -1198,6 +1217,8 @@ python prototype/build.py --preview
 | 8E — and then a report, with every claim cited and quoted | | |
 | 8E — the same report through the API, streamed section by section | | |
 | 8E — a prompt naming no site fails with a reason, not an empty report | | |
+| 8E — in a browser: a section appears mid-run and grows as facts arrive | | |
+| 8E — a description gets told to name a website, not that nothing was its fault | | |
 | 8E — basecamp's `changes` line names the three paths tried | | |
 | 9 — `cargo test` green with nothing running | | |
 
