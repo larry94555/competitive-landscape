@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "Which eight pages?",
-    "blurb": "A report reads eight pages about a company. Ranking them the obvious way fills all eight with the same fact, so the cap is spent on breadth instead - and two bugs that only appeared when it was pointed at real websites.",
-    "seconds": 56.1
+    "title": "The first real run",
+    "blurb": "Every piece has been testable on its own for weeks. This is the first time they ran in order against a real company - and it did not work, in a way the benchmarks had already predicted in writing.",
+    "seconds": 59.4
   }
 ]

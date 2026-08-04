@@ -31,14 +31,18 @@ const BLOCK: [&str; 24] = [
 /// The visible text of an HTML document.
 #[must_use]
 pub fn visible(html: &str) -> String {
-    let without_invisible = strip_invisible_elements(html);
+    let without_invisible = strip_invisible(html);
     let text = strip_tags(&without_invisible);
     let decoded = decode_entities(&text);
     tidy(&decoded)
 }
 
 /// Remove `<script>…</script>` and friends, contents included.
-fn strip_invisible_elements(html: &str) -> String {
+///
+/// Shared with [`crate::markdown`], which needs the same guarantee for a stronger reason:
+/// a page's embedded JSON handed to a model as prose costs enormous context for no
+/// information.
+pub(crate) fn strip_invisible(html: &str) -> String {
     let mut out = String::with_capacity(html.len());
     let lower = html.to_lowercase();
     let mut i = 0usize;
@@ -101,10 +105,12 @@ fn strip_tags(html: &str) -> String {
 
 /// Decode the entities that actually turn up around prices.
 ///
+/// Shared with [`crate::markdown`].
+///
 /// Not a full table on purpose. `&nbsp;` is the one that matters — it is what sits between a
 /// currency symbol and its number on a great many pages, and leaving it as literal text
 /// breaks the adjacency test that decides whether a price was found.
-fn decode_entities(s: &str) -> String {
+pub(crate) fn decode_entities(s: &str) -> String {
     let mut out = s
         .replace("&nbsp;", " ")
         .replace("&#160;", " ")

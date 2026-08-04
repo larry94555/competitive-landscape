@@ -19,6 +19,7 @@ landscape-core.workspace = true
 landscape-db.workspace = true
 landscape-discover.workspace = true
 landscape-extract.workspace = true
+landscape-llm.workspace = true
 landscape-fetch.workspace = true
 
 anyhow.workspace = true
