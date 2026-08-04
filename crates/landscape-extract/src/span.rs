@@ -121,7 +121,7 @@ pub fn every_plan(markdown: &str) -> Vec<Span> {
     }
     let scores = score_lines(&lines);
 
-    let mut found: Vec<Span> = sections(&lines)
+    let mut found: Vec<Span> = crate::doc::sections(&lines)
         .into_iter()
         .filter_map(|(start, end)| {
             let peak = (start..=end).max_by_key(|i| scores[*i])?;
@@ -151,62 +151,6 @@ pub fn every_plan(markdown: &str) -> Vec<Span> {
     found
 }
 
-/// Cut the page into candidate plan sections.
-///
-/// A section starts at every heading. The one refinement is that **a heading immediately
-/// followed by a deeper heading is a plan name followed by its subtitle**, not two sections —
-/// the same page shape that [`heading_above`] exists for, seen from the other side.
-fn sections(lines: &[&str]) -> Vec<(usize, usize)> {
-    /// A plan name and its subtitle sit within a line or two. More than this and the
-    /// shallower heading owns real content of its own.
-    const SUBTITLE_LINES: usize = 4;
-
-    let mut starts: Vec<usize> = lines
-        .iter()
-        .enumerate()
-        .filter(|(_, l)| l.trim_start().starts_with('#'))
-        .map(|(i, _)| i)
-        .collect();
-    if starts.first() != Some(&0) {
-        starts.insert(0, 0);
-    }
-
-    let raw: Vec<(usize, usize)> = starts
-        .iter()
-        .enumerate()
-        .map(|(n, &s)| (s, starts.get(n + 1).map_or(lines.len(), |&e| e) - 1))
-        .collect();
-
-    let mut out: Vec<(usize, usize)> = Vec::new();
-    let mut carried: Option<usize> = None;
-    for (n, &(s, e)) in raw.iter().enumerate() {
-        let start = carried.take().unwrap_or(s);
-        let is_lead = heading_level(lines[s]).is_some()
-            && e.saturating_sub(s) < SUBTITLE_LINES
-            && raw
-                .get(n + 1)
-                .and_then(|&(next, _)| heading_level(lines[next]))
-                .zip(heading_level(lines[s]))
-                .is_some_and(|(next, here)| next > here);
-        if is_lead {
-            carried = Some(start);
-            continue;
-        }
-        out.push((start, e));
-    }
-    if let Some(start) = carried {
-        out.push((start, lines.len().saturating_sub(1)));
-    }
-    out
-}
-
-/// `## Pro` is level 2. `None` for a line that is not a heading.
-fn heading_level(line: &str) -> Option<usize> {
-    let t = line.trim_start();
-    let level = t.chars().take_while(|c| *c == '#').count();
-    (level > 0).then_some(level)
-}
-
 /// One section, cut to the token budget.
 ///
 /// Cut from the top, which is where the answer is: a section qualified as a plan by stating a
@@ -223,39 +167,10 @@ fn window(lines: &[&str], start: usize, end: usize, peak: usize, score: u32) -> 
         starts_at_line: from,
         // A section's own heading names the plan — that is what made it a section. The walk
         // upward is only needed for text sitting above the page's first heading.
-        heading: section_heading(lines, start, end).or_else(|| heading_above(lines, peak)),
+        heading: crate::doc::section_heading(lines, start, end)
+            .or_else(|| heading_above(lines, peak)),
         score,
     }
-}
-
-/// The heading that names the plan a section is about.
-///
-/// A section opens with one heading or two, and when there are two, **the shorter one is the
-/// name**. Which of the pair it is cannot be read off the levels, because both orders occur:
-///
-/// ```text
-/// ## Pro Unlimited                                 basecamp.com
-/// ### Top-of-the-line, all-inclusive pricing…
-///
-/// ## Essentials for staying organized.             notion.com
-/// ### Free
-/// ```
-///
-/// Length separates them in both, and not by coincidence: a plan name is a noun and a
-/// subtitle is a sentence.
-fn section_heading(lines: &[&str], start: usize, end: usize) -> Option<String> {
-    /// The same reach the section split uses to recognise the pair.
-    const PAIR: usize = 4;
-
-    lines[start..=end.min(start.saturating_add(PAIR))]
-        .iter()
-        .filter(|l| heading_level(l).is_some())
-        // A heading with no text names nothing. Real pages emit them: `todoist.com/pricing`
-        // has three bare `###` above its comparison tables, and the shortest-wins rule would
-        // hand the model `###` as the plan it is asking about.
-        .filter(|l| !l.trim().trim_start_matches('#').trim().is_empty())
-        .min_by_key(|l| l.trim().trim_start_matches('#').trim().chars().count())
-        .map(|l| l.trim().to_owned())
 }
 
 /// Find the window most likely to state a price.

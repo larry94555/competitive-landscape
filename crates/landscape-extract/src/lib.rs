@@ -26,6 +26,8 @@
 //! [`ARCHITECTURE.md`]: ../../../docs/ARCHITECTURE.md
 //! [ADR 0005]: ../../../docs/decisions/0005-observability-on-a-24gb-box.md
 
+pub mod capability;
+pub mod doc;
 pub mod embedded;
 pub mod markdown;
 pub mod price;
