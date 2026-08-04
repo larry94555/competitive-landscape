@@ -42,7 +42,7 @@
   .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
 </style>
 
-<div class="banner" id="banner">CODE TOUR — what the product does</div>
+<div class="banner" id="banner">CODE TOUR — the right page</div>
 
 <div class="wrap">
   <aside class="tree">
@@ -80,110 +80,107 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    second: {
-      name: "the second question",
-      purpose: "Six kinds. One had an extractor.",
+    wrong: {
+      name: "two findings we could not fix",
+      purpose: "Both of them were upstream.",
       lines: [
-        ['t', '  pricing     what it costs        done'],
-        ['s', '  features    what it does         next'],
-        ['c', '  changes, identity, trust, direction'],
+        ['s', '  linear   read a setup guide for features'],
+        ['s', '  todoist  read its prices in Czech'],
         ['c', ''],
-        ['c', '// Section 5.4 says how to answer this one:'],
-        ['f', '// code first. The model only normalises.']
+        ['c', '// An extractor pointed at the wrong page'],
+        ['f', '// has two options. A wrong answer,'],
+        ['f', '// and silence. It had produced both.']
       ]
     },
-    guess: {
-      name: "the guess was bullet lists",
-      purpose: "Four real pages disagreed.",
+    slot: {
+      name: "the page that was there all along",
+      purpose: "linear.app/features. Never read.",
       lines: [
-        ['t', '  ## Message Boards for announcements'],
-        ['t', '  ### Customer Requests'],
-        ['t', '  ### Capture'],
+        ['c', '// Anything under /docs counted as'],
+        ['c', '// answering what the product does.'],
         ['c', ''],
-        ['c', '// A capability is a heading with a'],
-        ['c', '// description under it.'],
-        ['s', '// The bullet lists are the navigation.']
+        ['s', '// llms.txt outranks a probe, so the'],
+        ['s', '// setup guide won the slot every time.'],
+        ['c', ''],
+        ['f', '// Both feature sources were documentation.']
       ]
     },
-    footer: {
-      name: "what bullets would have said",
-      purpose: "Basecamp has fourteen of them.",
+    depth: {
+      name: "crates/landscape-discover/probes.rs",
+      purpose: "Docs answer a different question.",
       lines: [
-        ['s', '  - Books we have written'],
-        ['s', '  - Where we came from'],
-        ['s', '  - We stand with the underdogs'],
+        ['c', '// How do I use this  <- documentation'],
+        ['c', '// What does it do    <- the front page'],
         ['c', ''],
-        ['f', '// That is the footer.'],
+        ['t', '  depth(path) <= 1'],
         ['c', ''],
-        ['c', '// Menus, buttons, and setup guides'],
-        ['c', '// are each their own rule now.']
+        ['f', '// /docs stays. /docs/mcp.md goes.']
       ]
     },
-    split: {
-      name: "crates/landscape-extract/capability.rs",
-      purpose: "The parser finds it. The model names it.",
+    found: {
+      name: "and then it was read",
+      purpose: "Eight capabilities. First time.",
       lines: [
-        ['t', '  ## Message Boards for announcements'],
-        ['t', '     and discussions'],
+        ['f', '  Planning     Building     Insights'],
+        ['f', '  Mobile       Security     Linear Asks'],
+        ['f', '  Customer Requests'],
         ['c', ''],
-        ['f', '  -> Message Boards'],
+        ['c', '// No dropped names. No unverified quotes.'],
         ['c', ''],
-        ['c', '// A heading a parser can find, and a name'],
-        ['f', '// only a reader can cut out of it.']
+        ['c', '// That page had been there since Run 5.']
       ]
     },
-    leak: {
-      name: "then the prompt taught it a fact",
-      purpose: "The example was Message Boards.",
+    danish: {
+      name: "the same page, in Czech and Danish",
+      purpose: "The English one was never read.",
       lines: [
-        ['c', '// linear.app/docs/mcp.md returned:'],
+        ['s', '  todoist.com/cs/pricing'],
+        ['s', '  todoist.com/da/pricing'],
         ['c', ''],
-        ['t', '  MCP Server   Claude   Cursor   MCP'],
-        ['s', '  Message Boards'],
+        ['c', '// Two of eight slots. One page.'],
         ['c', ''],
-        ['s', '// Message Boards is Basecamp.'],
-        ['f', '// It reached a Linear report through'],
-        ['f', '// our own prompt.']
+        ['f', '// A locale is a variant of a page,'],
+        ['f', '// not a different page.']
       ]
     },
-    cite: {
-      name: "a source with nothing to cite",
-      purpose: "No URL. No fetch date.",
+    filter: {
+      name: "the filter that would have been wrong",
+      purpose: "Some sites publish only /de/preise.",
       lines: [
-        ['c', '// Fact checking, P15: laundering someone'],
-        ['c', '// else hallucination into our citation.'],
+        ['s', '// Dropping localised URLs would lose'],
+        ['s', '// the only pricing page they have.'],
         ['c', ''],
-        ['f', '// This is the same failure with a much'],
-        ['f', '// shorter supply chain.'],
+        ['f', '// So variants collapse, and one wins:'],
+        ['f', '  no locale, then English, then whatever'],
         ['c', ''],
-        ['f', '// Every prompt here should be read for it.']
+        ['c', '// Which page it is comes first.'],
+        ['c', '// How we found it comes second.']
       ]
     },
-    check: {
-      name: "so the name is checked, not trusted",
-      purpose: "A price is verbatim. A name cannot be.",
+    doing: {
+      name: "and a page you do something on",
+      purpose: "It states no facts.",
       lines: [
-        ['c', '// Naming is the normalising. The answer'],
-        ['c', '// is a paraphrase by design.'],
+        ['s', '  /cs/pricing/setup'],
+        ['s', '  /cs/pricing/upgrade'],
         ['c', ''],
-        ['f', '  every word of it must be in the section'],
+        ['c', '// Both classify on the word pricing.'],
+        ['c', '// Both are steps in buying.'],
         ['c', ''],
-        ['t', '  string          <- the field own type'],
-        ['t', '  Message Boards  <- the prompt example'],
-        ['f', '// Both dropped. Both counted out loud.']
+        ['f', '// Two more slots.']
       ]
     },
-    line: {
-      name: "and one page was already Markdown",
-      purpose: "It reported nothing. It had plenty.",
+    fewer: {
+      name: "eight sources became three",
+      purpose: "That is the result, not a regression.",
       lines: [
-        ['s', '  one line. 2,167 words.'],
+        ['t', '  before  8   four of them duplicates'],
+        ['f', '  after   3   pricing, features, security'],
         ['c', ''],
-        ['c', '// A hash is text to an HTML parser, and'],
-        ['c', '// there were no tags to break lines on.'],
-        ['c', ''],
-        ['f', '// A page with nothing findable on it looks'],
-        ['f', '// exactly like a page with nothing on it.']
+        ['c', '// A source that cannot answer costs a'],
+        ['c', '// fetch, a model pass, and a line in'],
+        ['c', '// the report nobody can stand behind.'],
+        ['f', '// Three we can read beats eight we cannot.']
       ]
     }
   };
@@ -227,30 +224,30 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:second",  c: "Six questions. One had an answer." },
-    { kind: "means",       a: "spot:#code",   c: "For this one, the code goes first." },
+    { kind: "recognition", a: "file:wrong",   c: "Two findings, and both were upstream." },
+    { kind: "means",       a: "spot:#code",   c: "The wrong page gives you silence or a lie." },
 
-    { kind: "turn",        a: "file:guess",   c: "The plan was to read bullet lists." },
-    { kind: "means",       a: "spot:#code",   c: "Four real pages put features in headings." },
+    { kind: "turn",        a: "file:slot",    c: "Linear had a features page. We never read it." },
+    { kind: "means",       a: "spot:#code",   c: "A setup guide held the slot." },
 
-    { kind: "result",      a: "file:footer",  c: "The bullets are the footer." },
-    { kind: "means",       a: "spot:#code",   c: "Fourteen of them, on one page." },
+    { kind: "result",      a: "file:depth",   c: "Docs answer a different question." },
+    { kind: "means",       a: "spot:#code",   c: "Only the front page answers ours." },
 
-    { kind: "result",      a: "file:split",   c: "So the parser finds it and the model names it." },
-    { kind: "means",       a: "spot:#code",   c: "Cutting the name is the part that needs a reader." },
+    { kind: "result",      a: "file:found",   c: "Then it was read. Eight capabilities." },
+    { kind: "means",       a: "spot:#code",   c: "That page had been there for four runs." },
 
-    { kind: "result",      a: "file:leak",    c: "Then a Basecamp feature showed up at Linear." },
-    { kind: "means",       a: "spot:#code",   c: "It was the example in our own prompt." },
+    { kind: "result",      a: "file:danish",  c: "Todoist was read in Czech and Danish." },
+    { kind: "means",       a: "spot:#code",   c: "Two slots, one page, neither in English." },
 
-    { kind: "result",      a: "file:cite",    c: "A prompt example is a source with no URL." },
-    { kind: "means",       a: "spot:#code",   c: "Nothing to cite, and nothing to check." },
+    { kind: "result",      a: "file:filter",  c: "Dropping them would have been wrong." },
+    { kind: "means",       a: "spot:#code",   c: "Some sites publish in one language only." },
 
-    { kind: "result",      a: "file:check",   c: "A name cannot be quoted. It can be traced." },
-    { kind: "means",       a: "spot:#code",   c: "Every word of it has to be on the page." },
+    { kind: "result",      a: "file:doing",   c: "And two slots went to steps in buying." },
+    { kind: "means",       a: "spot:#code",   c: "A page you act on states nothing." },
 
-    { kind: "result",      a: "file:line",    c: "One page had said nothing, in 2,167 words." },
+    { kind: "result",      a: "file:fewer",   c: "Eight sources became three." },
 
-    { kind: "close",       a: "hold",         c: "Silence is the failure that looks like an answer." }
+    { kind: "close",       a: "hold",         c: "Three we can read beats eight we cannot." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -273,7 +270,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("second");
+    show("wrong");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -286,15 +283,15 @@
     }, TOTAL * 1000));
   }
 
-  show("second");
+  show("wrong");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "What the product does",
-    blurb: "The second of six question kinds, built the way the architecture says to build it: the parser finds the sections that name something and the model only shortens the name. Two of the wrong answers along the way came from our own code rather than from the pages.",
+    title: "The right page",
+    blurb: "Two runs ended with findings no extractor could fix: one company was read in Czech, another had its features page passed over for a setup guide. Both were decisions made before a page was ever fetched.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;
