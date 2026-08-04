@@ -34,6 +34,7 @@
 //! [`Disposition::may_set_a_table_value`]: landscape_core::Disposition::may_set_a_table_value
 
 pub mod listings;
+pub mod locale;
 pub mod probes;
 pub mod rank;
 

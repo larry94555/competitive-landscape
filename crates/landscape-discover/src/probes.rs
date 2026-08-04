@@ -187,6 +187,14 @@ pub fn guess(path: &str) -> Option<Answers> {
     }
     let has = |w: &str| segments.contains(&w);
 
+    // A page you *do* something on is not a page that states a fact. `todoist.com/cs/pricing/
+    // setup` and `/cs/pricing/upgrade` are both in its sitemap, both classify as pricing on
+    // the word `pricing`, and both are steps in buying rather than publications of a price —
+    // between them they took two of the five slots that run admitted.
+    if segments.iter().any(|s| is_transactional(s)) {
+        return None;
+    }
+
     if has("pricing") || has("plans") || has("price") {
         return Some(Answers::Pricing);
     }
@@ -202,10 +210,57 @@ pub fn guess(path: &str) -> Option<Answers> {
     if has("about") || has("company") || has("team") {
         return Some(Answers::Identity);
     }
-    if has("features") || has("product") || has("docs") || has("documentation") {
+    if has("features") || has("product") {
         return Some(Answers::Features);
     }
+    // Documentation answers *how do I use this*, and only its front page answers *what does
+    // this product do*. A page underneath it does not.
+    //
+    // `BENCHMARKS.md` Run 8: `linear.app/docs/mcp.md` is a setup guide, and read as a features
+    // page it reported `Setup`, `Claude` and `Cursor` as capabilities of Linear. Worse, it
+    // took the slot: both of Linear's feature sources were documentation, and its real
+    // `/features` page — eight clean capabilities — was never read. The `llms.txt` those pages
+    // came from outranks a probe, so the wrong classification wins the slot every time.
+    if has("docs") || has("documentation") {
+        return depth(&p).le(&1).then_some(Answers::Features);
+    }
     None
+}
+
+/// Whether a segment names something a visitor does rather than something a company states.
+///
+/// Kept narrow on purpose: each of these is a step in a transaction, and none of them is ever
+/// the page where a fact is published. `/pricing/upgrade` is where you buy; `/pricing` is
+/// where the price is written down.
+fn is_transactional(segment: &str) -> bool {
+    const ACTIONS: [&str; 12] = [
+        "setup",
+        "upgrade",
+        "checkout",
+        "cart",
+        "signup",
+        "register",
+        "login",
+        "signin",
+        "subscribe",
+        "billing",
+        "trial",
+        "demo",
+    ];
+    ACTIONS.contains(&segment)
+}
+
+/// How many segments deep a path is. `/docs` is 1, `/docs/mcp.md` is 2.
+///
+/// A leading locale does not count — `/es/docs` is the front page of the documentation in
+/// Spanish, not a page inside it.
+fn depth(path: &str) -> usize {
+    let without_locale = crate::locale::leading(path).map_or(path, |locale| {
+        path.trim_start_matches('/')
+            .get(locale.len()..)
+            .unwrap_or_default()
+    });
+    without_locale.split('/').filter(|s| !s.is_empty()).count()
 }
 
 #[cfg(test)]
@@ -213,6 +268,47 @@ pub fn guess(path: &str) -> Option<Answers> {
 mod tests {
     use super::*;
     use std::collections::HashSet;
+
+    #[test]
+    fn a_page_you_do_something_on_answers_nothing() {
+        // Both of these are in todoist's sitemap, both classify on the word `pricing`, and
+        // between them they took two of the five slots that run admitted.
+        assert_eq!(guess("/cs/pricing/setup"), None);
+        assert_eq!(guess("/cs/pricing/upgrade"), None);
+        assert_eq!(guess("/checkout"), None);
+        // And the page the price is actually on is untouched.
+        assert_eq!(guess("/pricing"), Some(Answers::Pricing));
+        assert_eq!(guess("/pricing/enterprise"), Some(Answers::Pricing));
+    }
+
+    #[test]
+    fn the_front_page_of_the_docs_answers_what_the_product_does() {
+        assert_eq!(guess("/docs"), Some(Answers::Features));
+        assert_eq!(guess("/documentation/"), Some(Answers::Features));
+    }
+
+    #[test]
+    fn a_page_inside_the_docs_does_not() {
+        // Run 8: read as a features page, linear.app/docs/mcp.md reported Setup, Claude and
+        // Cursor as capabilities of Linear — and took the slot its real /features page
+        // should have had, because llms.txt outranks a probe.
+        assert_eq!(guess("/docs/mcp.md"), None);
+        assert_eq!(guess("/docs/api/webhooks"), None);
+    }
+
+    #[test]
+    fn a_locale_does_not_make_the_docs_front_page_look_deep() {
+        assert_eq!(guess("/es/docs"), Some(Answers::Features));
+        assert_eq!(guess("/es/docs/mcp.md"), None);
+    }
+
+    #[test]
+    fn a_docs_page_about_something_else_is_classified_by_that() {
+        // The order of the checks matters here, and it is worth asserting rather than
+        // assuming: these are answers to other questions that happen to live under /docs.
+        assert_eq!(guess("/docs/security.md"), Some(Answers::Trust));
+        assert_eq!(guess("/docs/releases.md"), Some(Answers::Changes));
+    }
 
     #[test]
     fn every_question_has_at_least_one_probe() {
