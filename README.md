@@ -352,6 +352,7 @@ The code implements a specification written first. Start with
 
 | Document | Covers |
 |---|---|
+| [phases/](docs/phases/) | **What only the founder can do, per phase** — with what "done" looks like and how it is verified |
 | [TUTORIAL.md](docs/TUTORIAL.md) | **An hour from a fresh clone to changing the code.** Start here if you are new |
 | [A1_BAKEOFF.md](docs/A1_BAKEOFF.md) | The commands that close the model choice, for whoever has a terminal on the ARM box |
 | [PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md) | User flows and the report schema |
