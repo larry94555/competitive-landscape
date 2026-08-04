@@ -42,7 +42,7 @@
   .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
 </style>
 
-<div class="banner" id="banner">CODE TOUR — one report</div>
+<div class="banner" id="banner">CODE TOUR — not on production</div>
 
 <div class="wrap">
   <aside class="tree">
@@ -80,108 +80,108 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    log: {
-      name: "twelve runs of a run log",
-      purpose: "It printed what each stage decided.",
+    ask: {
+      name: "what Phase 0 was asking for",
+      purpose: "Ninety minutes on the production box.",
       lines: [
-        ['t', '  basecamp.com/pricing  1729  good  210'],
-        ['t', '  -> 2 plans found in 2 windows'],
+        ['s', '  build llama.cpp on the server'],
+        ['s', '  download two models'],
+        ['s', '  run two harnesses'],
+        ['s', '  paste the output back'],
         ['c', ''],
-        ['c', '// Ordered by page. Useful for debugging.'],
-        ['c', ''],
-        ['s', '// Nobody arrives with a page. They arrive'],
-        ['s', '// with a question.']
+        ['c', '// It had been open for weeks.']
       ]
     },
-    three: {
-      name: "three differences",
-      purpose: "None of them cosmetic.",
+    behind: {
+      name: "what an experiment leaves behind",
+      purpose: "A toolchain. A model. A swap file.",
       lines: [
-        ['c', '// A run log is ordered by page.'],
-        ['f', '// A report is ordered by question.'],
+        ['c', '// Every one of them is an assumption'],
+        ['c', '// the deployment then depends on.'],
         ['c', ''],
-        ['c', '// A run log silence is invisible.'],
-        ['f', '// A section carries its coverage note.'],
+        ['f', '// The value of the production host is'],
+        ['f', '// that it is boring.'],
         ['c', ''],
-        ['s', '// A run log fact has no citation.'],
-        ['f', '// Every claim has a label and a quote.']
+        ['f', '// That is also what keeps it swappable.']
       ]
     },
-    six: {
-      name: "crates/landscape-analyze/sections.rs",
-      purpose: "Six sections. The spec fixes nine.",
+    inside: {
+      name: "and a stopwatch inside the box",
+      purpose: "measures the box.",
       lines: [
-        ['f', '  pricing   features   changes'],
-        ['f', '  identity  trust      direction'],
+        ['c', '// The question is: how long does'],
+        ['c', '// somebody wait?'],
         ['c', ''],
-        ['s', '// The other three are interpretation'],
-        ['s', '// over sources we do not gather.'],
+        ['s', '// That includes the network and the'],
+        ['s', '// browser. A server cannot see either.'],
         ['c', ''],
-        ['f', '// An empty section that can never fill'],
-        ['f', '// teaches readers to skim past empty ones.']
+        ['f', '// So test from where the client is.']
       ]
     },
-    confidence: {
-      name: "confidence is the fact, not the model",
-      purpose: "A name can never be a number.",
+    weights: {
+      name: "and most of it was never hardware",
+      purpose: "Which model invents fewer prices?",
       lines: [
-        ['f', '  a quoted price          High'],
-        ['f', '  a parsed date           High'],
-        ['t', '  a capability name       Medium'],
+        ['c', '// A property of the weights.'],
         ['c', ''],
-        ['c', '// Shortening a heading is a paraphrase'],
-        ['f', '// by design. That is what it is for.']
+        ['c', '// Does q8_0 KV cost accuracy?'],
+        ['c', '// One flag, changed twice, same machine.'],
+        ['c', ''],
+        ['f', '// Both answered on a laptop, in an'],
+        ['f', '// afternoon.']
       ]
     },
-    wrong: {
-      name: "then the report showed us something",
-      purpose: "A quote under the wrong fact.",
+    scores: {
+      name: "docs/BENCHMARKS.md, Run 14",
+      purpose: "Three points between them.",
       lines: [
-        ['t', '  says it is based in the EU'],
-        ['s', '  > We built it because web analytics'],
-        ['s', '    had drifted from its purpose'],
+        ['f', '  4B Q4_K_M     90%   8/10   0 invented'],
+        ['t', '  1.7B Q8_0     87%   7/10   1 invented'],
+        ['s', '  unsloth 1.7B  10%   0/10   3 invented'],
         ['c', ''],
-        ['c', '// Quotes were paired to facts by position.'],
-        ['f', '// The run log had looked perfectly healthy.']
+        ['c', '// The last row is the control. Same'],
+        ['f', '// numbers as Run 3. The instrument holds.']
       ]
     },
-    stated: {
-      name: "so a quote belongs to a fact",
-      purpose: "core::Stated<T>.",
+    hundred: {
+      name: "the one invented price",
+      purpose: "On the page that publishes none.",
       lines: [
-        ['t', '  Stated { value, quote }'],
+        ['t', '  expected  price None'],
+        ['s', '  returned  price Some(100.0)'],
         ['c', ''],
-        ['c', '// Each fact carries the words it'],
-        ['c', '// arrived with.'],
+        ['c', '// contact-sales. The most common real'],
+        ['c', '// case, and the worst place to guess.'],
         ['c', ''],
-        ['f', '// Evidence for a claim it does not support'],
-        ['f', '// is the one thing never to render.']
+        ['f', '// The 1.7B is 2.8x faster. It does not'],
+        ['f', '// get the extraction tier.']
       ]
     },
-    contain: {
-      name: "and it has to contain the fact",
-      purpose: "The model picked the next sentence.",
+    kv: {
+      name: "and the KV question",
+      purpose: "Same weights. One flag.",
       lines: [
-        ['c', '// Still cited a line with no EU in it.'],
+        ['t', '  f16    90%  8/10   2.52 GB'],
+        ['f', '  q8_0   90%  8/10   1.73 GB'],
         ['c', ''],
-        ['f', '  keep the quote only if it says the value'],
+        ['c', '// Identical, subject by subject.'],
         ['c', ''],
-        ['c', '// The fact survives - it was checked'],
-        ['c', '// against the whole window.'],
-        ['f', '// The quote is the smaller loss.']
+        ['f', '// The rule was written first: take it'],
+        ['f', '// only if the score does not move.']
       ]
     },
-    itself: {
-      name: "and the report checks itself",
-      purpose: "Before a reader has to.",
+    left: {
+      name: "Phase 0 is five of eight",
+      purpose: "And nothing left runs on a server.",
       lines: [
-        ['t', '  every_claim_is_traceable()'],
+        ['f', '  three-model choice      closed'],
+        ['f', '  q8_0 KV                 closed'],
         ['c', ''],
-        ['f', '  this report is not publishable:'],
-        ['f', '  1 unresolved citation'],
+        ['t', '  the concierge five'],
+        ['t', '  the source-terms audit'],
+        ['t', '  latency, from a client'],
         ['c', ''],
-        ['s', '// A citation that looks checkable and is'],
-        ['s', '// not is worse than none at all.']
+        ['f', '// None of them needs a terminal on it.']
       ]
     }
   };
@@ -225,30 +225,30 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:log",        c: "Twelve runs of printing what happened." },
-    { kind: "means",       a: "spot:#code",      c: "Nobody arrives with a page." },
+    { kind: "recognition", a: "file:ask",      c: "Phase 0 wanted ninety minutes on the server." },
+    { kind: "means",       a: "spot:#code",    c: "Build a toolchain on production, and measure." },
 
-    { kind: "turn",        a: "file:three",      c: "A report differs in three ways." },
-    { kind: "means",       a: "spot:#code",      c: "Order, silence, and citations." },
+    { kind: "turn",        a: "file:behind",   c: "An experiment leaves things behind." },
+    { kind: "means",       a: "spot:#code",    c: "Every one of them becomes an assumption." },
 
-    { kind: "result",      a: "file:six",        c: "Six sections. The spec fixes nine." },
-    { kind: "means",       a: "spot:#code",      c: "Three would never have been fillable." },
+    { kind: "result",      a: "file:inside",   c: "And a stopwatch in the box measures the box." },
+    { kind: "means",       a: "spot:#code",    c: "The user waits through the network too." },
 
-    { kind: "result",      a: "file:confidence", c: "A name can never be as sure as a price." },
-    { kind: "means",       a: "spot:#code",      c: "It is a paraphrase. On purpose." },
+    { kind: "result",      a: "file:weights",  c: "Most of the questions were not about hardware." },
+    { kind: "means",       a: "spot:#code",    c: "Weights and flags. Both answerable here." },
 
-    { kind: "result",      a: "file:wrong",      c: "Then the report showed us something." },
-    { kind: "means",       a: "spot:#code",      c: "A quote sitting under the wrong fact." },
+    { kind: "result",      a: "file:scores",   c: "So it ran on this laptop instead." },
+    { kind: "means",       a: "spot:#code",    c: "Three points between the two candidates." },
 
-    { kind: "result",      a: "file:stated",     c: "So a quote belongs to a fact." },
-    { kind: "means",       a: "spot:#code",      c: "The old shape is now unrepresentable." },
+    { kind: "result",      a: "file:hundred",  c: "And the small one invented a price." },
+    { kind: "means",       a: "spot:#code",    c: "On the page that publishes none." },
 
-    { kind: "result",      a: "file:contain",    c: "And it has to contain what it proves." },
-    { kind: "means",       a: "spot:#code",      c: "The fact stays. The quote goes." },
+    { kind: "result",      a: "file:kv",       c: "The cache question took one flag." },
+    { kind: "means",       a: "spot:#code",    c: "Same score. Most of a gigabyte back." },
 
-    { kind: "result",      a: "file:itself",     c: "The report refuses to publish itself." },
+    { kind: "result",      a: "file:left",     c: "Two criteria closed in an afternoon." },
 
-    { kind: "close",       a: "hold",            c: "Assembling the facts was the check." }
+    { kind: "close",       a: "hold",          c: "They had been blocked on a terminal." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -271,7 +271,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("log");
+    show("ask");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -284,15 +284,15 @@
     }, TOTAL * 1000));
   }
 
-  show("log");
+  show("ask");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "One report",
-    blurb: "Twelve runs printed what every stage decided, which is a diagnostic and not a product. Assembling those facts into a cited report turned out to be a check of its own - it caught two defects that a dozen runs of printing had shown no sign of.",
+    title: "Not on production",
+    blurb: "Two Phase 0 criteria had been waiting on somebody opening a terminal on the production host. Neither question was about hardware, both were answered on a laptop in an afternoon, and the rule that replaced the plan is the more useful outcome.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;
