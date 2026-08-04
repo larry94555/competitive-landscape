@@ -299,6 +299,7 @@ failure is real.
 
 ```
 crates/
+  landscape-analyze/ one subject in, one report out: the sections, the claims, the cites
   landscape-core/   domain types, the report schema, and what was checked when nothing
                     was found. No I/O — pure, fully unit-tested
   landscape-db/     the Store trait, an in-memory implementation, and Postgres

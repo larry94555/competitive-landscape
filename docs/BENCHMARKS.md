@@ -29,6 +29,100 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 13 — a report, and what assembling one revealed
+
+**Date:** 2026-08-04 · **Subject:** plausible · **Model:** Qwen3-4B Q4_K_M, unchanged since
+Run 5.
+
+Twelve runs of a pipeline printing what each stage decided. This is the first one that
+produces **a report**:
+
+```bash
+cargo run -p landscape -- read https://plausible.io
+```
+
+```text
+# https://plausible.io
+Read 2026-08-04 19:58 UTC · 4 source(s) cited · prompts v1
+
+## Pricing & packaging
+no page found. Checked: /pricing (404), /plans (404), /pricing/ (404)
+
+## Recent public changes
+- Add notes to your traffic chart with annotations [S2·H]
+  > - Jul 14, 2026
+
+## Company facts
+- says it was founded in 2018 [S3·H]
+  > Uku Taht started Plausible in December 2018, building it alone…
+
+## Trust & security posture
+2 page(s) found and not read - our gap, not theirs
+```
+
+| | a run log | a report |
+|---|---|---|
+| Ordered by | page | **question** — which is what a reader arrived with |
+| Its silence | invisible | a section carrying its coverage note |
+| Its facts | uncited | **a source label and a verbatim quote, each** |
+
+### The report found two things the run log had hidden
+
+**A quote under the wrong fact.** `PageIdentity` held one list of quotes and paired them to
+facts by position, and the assembled report rendered *"says it is based in the EU"* above a
+sentence about web analytics drifting from its purpose. The run log had printed the facts and
+the quote count separately and looked perfectly healthy.
+
+**Evidence for a claim it does not support is the one thing this codebase must never render.**
+Each fact now carries the quote it arrived with — `core::Stated<T>` — and the type makes the
+old arrangement unrepresentable.
+
+**And then: a quote that does not contain its fact.** With the pairing fixed, the headquarters
+claim still cited a sentence that does not mention the EU — the model had picked a
+neighbouring line out of the window it was given. The quote is now kept only if it contains
+the value. The fact survives, because it was checked against the whole window; **the quote is
+the smaller loss**.
+
+That is the pattern this run is about. Assembling facts into claims is itself a check, and it
+caught two things twelve runs of printing had not.
+
+### What the sections are
+
+Six, one per question discovery asks. `PRODUCT_SPEC.md` §4 fixes nine, and the other three —
+positioning, sentiment themes, the SWOT — are **interpretation over sources this pipeline does
+not gather**. A section that exists and cannot be filled teaches a reader to skim past empty
+sections, which is the one habit this product cannot afford.
+
+### Confidence is the fact's, not the model's
+
+| | |
+|---|---|
+| a price, quoted verbatim | **High** |
+| a dated change, parsed | **High**, and `as_of` the date the page states |
+| a capability name | **Medium**, and it can never be more |
+
+A capability name is a paraphrase by design — shortening a heading is what the model is *for*
+here — so it cannot carry the confidence a quoted number does.
+
+### The report checks itself
+
+`Report::every_claim_is_traceable` refuses a citation that does not resolve, and the renderer
+prints **"this report is not publishable"** rather than showing one. A citation that looks
+checkable and is not is worse than no citation at all.
+
+### What is still not right
+
+**Two questions have no extractor**, and the report says so six times: *"2 page(s) found and
+not read — our gap, not theirs."*
+
+**`searched_as` is the origin the user typed.** The entity gate exists and this does not call
+it, so the report's own account of what it looked for is a copy of its input.
+
+**Nothing is stored.** The report is assembled, rendered and dropped. The queue, the worker and
+the API have been waiting for something to carry since Phase 1 began.
+
+---
+
 ## Run 12 — facts a page states by accident, and three checks that were not checks
 
 **Date:** 2026-08-04 · **Subjects:** plausible, linear, basecamp, notion · **Model:** Qwen3-4B
