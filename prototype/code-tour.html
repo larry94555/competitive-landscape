@@ -42,7 +42,7 @@
   .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
 </style>
 
-<div class="banner" id="banner">CODE TOUR — build a browser, or not?</div>
+<div class="banner" id="banner">CODE TOUR — which eight pages?</div>
 
 <div class="wrap">
   <aside class="tree">
@@ -53,6 +53,7 @@
     <div class="row" id="t-api">&nbsp;&nbsp;landscape-api<span class="note"> http</span></div>
     <div class="row" id="t-llm">&nbsp;&nbsp;landscape-llm<span class="note"> the model</span></div>
     <div class="row" id="t-bench">&nbsp;&nbsp;landscape-bench<span class="note"> how fast</span></div>
+    <div class="row" id="t-discover">&nbsp;&nbsp;landscape-discover<span class="note"> which pages</span></div>
     <div class="row" id="t-extract">&nbsp;&nbsp;landscape-extract<span class="note"> where prices live</span></div>
     <div class="row" id="t-fetch">&nbsp;&nbsp;landscape-fetch<span class="note"> the outside world</span></div>
     <div class="row" id="t-golden">&nbsp;&nbsp;landscape-golden<span class="note"> whether it is right</span></div>
@@ -79,114 +80,99 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    question: {
-      name: "the question",
-      purpose: "Build a browser, or not? The plan refused to guess.",
+    eight: {
+      name: "the constraint",
+      purpose: "Eight pages. Which eight?",
       lines: [
-        ['c', '// ARCHITECTURE 5.5, written before any of this existed:'],
-        ['f', '  "Building tier 5 before knowing its size'],
-        ['f', '   would be speculative work."'],
+        ['c', '// FACT_CHECKING 3.3 ends discovery with:'],
+        ['f', '   admission control -> rank -> cap at 8'],
         ['c', ''],
-        ['c', '// Tier 5 is a headless browser. ~400 MB.'],
-        ['s', '// On a box where three models already take 17 GB.'],
+        ['c', '// Each page costs a second of politeness and a'],
+        ['c', '// model pass, against a 90-180 second budget.'],
         ['c', ''],
-        ['f', '// Building it means taking memory from a model.']
+        ['s', '// It says cap at 8. It does not say rank by what.']
       ]
     },
-    ladder: {
-      name: "crates/landscape-extract/src/lib.rs",
-      purpose: "Cheapest rung first.",
+    obvious: {
+      name: "the obvious answer, and why it is wrong",
+      purpose: "Rank by confidence. Look what you get.",
       lines: [
-        ['t', '  tier 1   price visible in the html'],
-        ['t', '  tier 2   price inside a script, already fetched'],
-        ['s', '  none     neither'],
+        ['t', '  /pricing          most confident'],
+        ['t', '  /plans'],
+        ['t', '  /pricing/'],
+        ['t', '  /en/pricing'],
+        ['t', '  /pricing-2026'],
         ['c', ''],
-        ['k', 'pub fn locate(html: &str) -> Where'],
-        ['c', ''],
-        ['c', '// A page a reader can already read must never'],
-        ['f', '// count as needing recovery.']
+        ['s', '// Five slots. One fact, five times.'],
+        ['f', '// Nothing about what changed. Or what it does.']
       ]
     },
-    scripts: {
-      name: "crates/landscape-extract/src/text.rs",
-      purpose: "The mistake that would have answered zero.",
+    breadth: {
+      name: "crates/landscape-discover/src/rank.rs",
+      purpose: "Spend the cap on different questions.",
       lines: [
-        ['c', '// A Next.js page ships its whole price list'],
-        ['c', '// inside a <script> tag.'],
+        ['c', '// Round-robin across what a page answers:'],
+        ['t', '  best pricing page'],
+        ['t', '  best changelog'],
+        ['t', '  best feature page'],
+        ['c', '// ...only then a second pricing page.'],
         ['c', ''],
-        ['s', '// Strip the tags and keep the contents, and'],
-        ['s', '// every page looks priced. Gap = 0%.'],
-        ['c', ''],
-        ['k', 'const INVISIBLE = ["script", "style", ...]'],
-        ['f', '    // contents removed, not untagged']
+        ['f', '// Six questions answered beats one answered six times.']
       ]
     },
-    notprices: {
-      name: "crates/landscape-extract/src/price.rs",
-      purpose: "A number is not a price.",
+    primary: {
+      name: "crates/landscape-discover/src/probes.rs",
+      purpose: "Why guessing beats searching.",
       lines: [
-        ['c', '// A page with no prices on it:'],
-        ['t', '  Founded in 2019'],
-        ['t', '  42 employees'],
-        ['t', '  (802) 555-0148'],
+        ['c', '// Every probe is on the company own domain.'],
+        ['c', '// That makes everything found here Primary.'],
         ['c', ''],
-        ['c', '// Anything counting digits calls that priced.'],
-        ['f', '// So: a currency marker next to a number.'],
-        ['f', '// Never a number alone.']
+        ['k', 'Disposition::may_set_a_table_value()'],
+        ['f', '    // true only for Primary'],
+        ['c', ''],
+        ['c', '// Search returns other peoples pages. Those can'],
+        ['f', '// be reported. They can never be tabulated.']
       ]
     },
-    result: {
-      name: "the measurement",
-      purpose: "28 real pricing pages.",
+    relative: {
+      name: "found by running it",
+      purpose: "The spec says absolute. Reality does not.",
       lines: [
-        ['t', '  tier 1   static html          24     85.7%'],
-        ['t', '  tier 2   embedded json         1      3.6%'],
-        ['s', '  none     no price found        3     10.7%'],
+        ['c', '// basecamp.com sitemap.xml:'],
+        ['s', '   <loc>/pricing</loc>'],
         ['c', ''],
-        ['c', '// The threshold is 5%. So: build the browser?'],
-        ['f', '// No. That 10.7% is the wrong number.']
+        ['c', '// Relative. Cannot be fetched. And it does not'],
+        ['c', '// match the same page found by a probe -'],
+        ['s', '// so one page quietly took two of eight slots.'],
+        ['c', ''],
+        ['f', '// Fixtures would never have shown this.']
       ]
     },
-    split: {
-      name: "the residual, opened up",
-      purpose: "Two different things wearing one label.",
+    slug: {
+      name: "also found by running it",
+      purpose: "A book chapter, admitted as a feature page.",
       lines: [
-        ['s', '  hetzner.com/cloud        needs javascript'],
-        ['t', '  databricks contact       publishes no price'],
-        ['t', '  palantir foundry         publishes no price'],
+        ['s', '  /gettingreal/11.5-personify-your-product'],
         ['c', ''],
-        ['c', '// No browser renders a price nobody wrote.'],
+        ['c', '// The slug ends in a word we recognise.'],
         ['c', ''],
-        ['f', '// Gap 3.6%. Residual 10.7%.'],
-        ['f', '// Opposite sides of the threshold.']
+        ['c', '// A hyphenated path is split only when short.'],
+        ['t', '   release-notes             two words, a page'],
+        ['s', '   11.5-personify-your-...   five, an article']
       ]
     },
-    control: {
-      name: "why those last two were in the list",
-      purpose: "A control group, and it earned its place.",
+    real: {
+      name: "landscape discover",
+      purpose: "Twenty seconds, sixteen requests, six sources.",
       lines: [
-        ['c', '// Two URLs picked because they have no prices.'],
-        ['c', '// First run, one of them reported a price:'],
+        ['t', '  /pricing      pricing      sitemap'],
+        ['t', '  /features     features     sitemap'],
+        ['t', '  /about        identity     sitemap'],
+        ['t', '  /status       trust        probe'],
+        ['t', '  /jobs         direction    probe'],
         ['c', ''],
-        ['s', '  "Learn ... AI tools for free"'],
-        ['c', ''],
-        ['c', '// The detector matched the word "free".'],
-        ['c', ''],
-        ['f', '// A control page showing a price is how an'],
-        ['f', '// instrument tells you it is broken.']
-      ]
-    },
-    decision: {
-      name: "docs/decisions/0009",
-      purpose: "Written down, including what it is not.",
-      lines: [
-        ['f', '  Tier 5 is not built.'],
-        ['c', ''],
-        ['c', '// 28 pages tells 40% from 4%. Nothing finer.'],
-        ['c', '// The sample favours firms that publish prices.'],
-        ['c', '// Tiers 3-4 unmeasured, so 3.6% is a ceiling.'],
-        ['c', ''],
-        ['f', '// Provisional. Phase 2 measures again.']
+        ['f', '  6 admitted from 16 paths checked'],
+        ['c', '// The second number is the falsifiable part.']
       ]
     }
   };
@@ -230,31 +216,28 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:question",  c: "Build a headless browser, or not?" },
-    { kind: "means",       a: "spot:#code",     c: "It would cost a model its memory." },
-    { kind: "means",       a: "hold",           c: "The plan refused to guess." },
+    { kind: "recognition", a: "file:eight",     c: "A report reads eight pages. Which eight?" },
+    { kind: "means",       a: "spot:#code",     c: "The plan set the cap and not the rule." },
 
-    { kind: "turn",        a: "file:ladder",    c: "So: where do prices actually live?" },
-    { kind: "means",       a: "spot:#code",     c: "Cheapest rung first." },
+    { kind: "turn",        a: "file:obvious",   c: "Rank by confidence and look what you get." },
+    { kind: "means",       a: "spot:#code",     c: "One fact, five times." },
 
-    { kind: "result",      a: "file:scripts",   c: "One mistake would answer zero." },
-    { kind: "means",       a: "spot:#code",     c: "Script contents are removed, not untagged." },
+    { kind: "result",      a: "file:breadth",   c: "So spend the cap on different questions." },
+    { kind: "means",       a: "spot:#code",     c: "Six answered beats one answered six times." },
 
-    { kind: "result",      a: "file:notprices", c: "And a number is not a price." },
-    { kind: "means",       a: "spot:#code",     c: "A currency marker next to it, or nothing." },
+    { kind: "result",      a: "file:primary",   c: "And guess before you search." },
+    { kind: "means",       a: "spot:#code",     c: "Only a company own page can set a number." },
 
-    { kind: "result",      a: "file:result",    c: "Twenty-eight real pricing pages." },
-    { kind: "means",       a: "spot:#code",     c: "Most simply print the price." },
+    { kind: "result",      a: "file:relative",  c: "Running it found what fixtures could not." },
+    { kind: "means",       a: "spot:#code",     c: "One page was taking two of eight slots." },
 
-    { kind: "result",      a: "file:split",     c: "The leftover is two things, not one." },
-    { kind: "means",       a: "spot:#code",     c: "No browser renders a price nobody wrote." },
+    { kind: "result",      a: "file:slug",      c: "And a book chapter became a feature page." },
+    { kind: "means",       a: "spot:#code",     c: "Short paths are names. Long ones are articles." },
 
-    { kind: "result",      a: "file:control",   c: "Two pages were there to catch us." },
-    { kind: "means",       a: "spot:#code",     c: "One did, on the first run." },
+    { kind: "result",      a: "file:real",      c: "Six sources, five questions." },
+    { kind: "means",       a: "spot:#code",     c: "Sixteen paths tried, so thin is checkable." },
 
-    { kind: "result",      a: "file:decision",  c: "So the browser is not built." },
-
-    { kind: "close",       a: "hold",           c: "The memory stays with the models." }
+    { kind: "close",       a: "hold",           c: "Next: read them." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -277,7 +260,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("question");
+    show("eight");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -290,15 +273,15 @@
     }, TOTAL * 1000));
   }
 
-  show("question");
+  show("eight");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "Build a browser, or not?",
-    blurb: "The plan refused to schedule a headless browser until somebody measured how much of the web actually needs one. This is that measurement over 28 real pricing pages, the two mistakes that would have given the wrong answer, and the control group that caught one of them.",
+    title: "Which eight pages?",
+    blurb: "A report reads eight pages about a company. Ranking them the obvious way fills all eight with the same fact, so the cap is spent on breadth instead - and two bugs that only appeared when it was pointed at real websites.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

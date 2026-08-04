@@ -57,6 +57,10 @@ enum Role {
     /// ARCHITECTURE.md §5.5 refuses to schedule a headless browser until its size is known,
     /// and specifies two counters. This is those counters, run against real pages.
     Gap,
+    /// Find the pages worth reading about one company.
+    ///
+    /// FACT_CHECKING §3.3's structured probes, sitemap and llms.txt, ranked and capped at 8.
+    Discover,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -101,9 +105,10 @@ async fn main() -> Result<()> {
         Some("migrate") => Role::Migrate,
         Some("fetch") => Role::Fetch,
         Some("gap") => Role::Gap,
-        Some(other) => {
-            anyhow::bail!("unknown command {other:?}. Try: dev, serve, worker, migrate, fetch, gap")
-        }
+        Some("discover") => Role::Discover,
+        Some(other) => anyhow::bail!(
+            "unknown command {other:?}. Try: dev, serve, worker, migrate, fetch, gap, discover"
+        ),
     };
 
     // Before any store is built: fetching a URL needs no database, and requiring
@@ -113,6 +118,9 @@ async fn main() -> Result<()> {
     }
     if role == Role::Gap {
         return measure_gap(&args).await;
+    }
+    if role == Role::Discover {
+        return discover_sources(&args).await;
     }
 
     let backing = if args.iter().any(|a| a == "--store=memory")
@@ -237,11 +245,38 @@ Example:
     Ok(())
 }
 
+/// `landscape discover <origin>` — the pages worth reading about one company.
+///
+/// Takes an origin rather than a bare domain, because the scheme is part of what gets
+/// fetched and guessing `https` for somebody would be the kind of silent assumption this
+/// codebase keeps finding bugs in.
+async fn discover_sources(args: &[String]) -> Result<()> {
+    let origin = args.get(1).filter(|a| !a.starts_with("--")).context(
+        "usage: landscape discover <origin>
+
+Example:
+  landscape discover https://basecamp.com",
+    )?;
+
+    let fetcher = landscape_fetch::Fetcher::new();
+    let started = std::time::Instant::now();
+    let found = landscape_discover::discover(&fetcher, origin).await;
+
+    tracing::info!(
+        sources = found.sources.len(),
+        checked = found.checked.len(),
+        took_s = started.elapsed().as_secs(),
+        "discovery finished"
+    );
+    println!("{}", found.render());
+    Ok(())
+}
+
 async fn run(role: Role, store: Arc<dyn Store>) -> Result<()> {
     match role {
         Role::Migrate => Ok(()),
         // Handled before any store exists; see `main`.
-        Role::Fetch | Role::Gap => Ok(()),
+        Role::Fetch | Role::Gap | Role::Discover => Ok(()),
         Role::Serve => serve(store).await,
         Role::Worker => worker(store).await,
         Role::Dev => {

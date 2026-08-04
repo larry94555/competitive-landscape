@@ -95,6 +95,7 @@ applies with the system package manager, or Postgres.app.
 | `cargo run -p landscape -- migrate` | Applies migrations and exits |
 | `cargo run -p landscape -- fetch <url>` | Fetches one URL through every policy and says what happened. Needs no database |
 | `cargo run -p landscape -- gap <file>` | Measures where prices live across a list of pricing pages |
+| `cargo run -p landscape -- discover <origin>` | Finds the pages worth reading about one company |
 
 Add `--store memory` to any of them to skip Postgres entirely.
 
@@ -302,6 +303,7 @@ crates/
   landscape-api/    axum routers, request validation, error mapping
   landscape-llm/    constrained generation: a Rust type in, that type out
   landscape-bench/  measures how fast a llama-server is
+  landscape-discover/ which pages to read about a company, and which eight
   landscape-extract/ where a price lives on a page: visible, embedded, or absent
   landscape-fetch/  the outside world: SSRF guard, robots.txt, per-host politeness
   landscape-golden/ measures whether it is right. Ten frozen pages, known answers
