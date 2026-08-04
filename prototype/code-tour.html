@@ -42,7 +42,7 @@
   .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
 </style>
 
-<div class="banner" id="banner">CODE TOUR — which eight pages?</div>
+<div class="banner" id="banner">CODE TOUR — the first real run</div>
 
 <div class="wrap">
   <aside class="tree">
@@ -80,99 +80,111 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    eight: {
-      name: "the constraint",
-      purpose: "Eight pages. Which eight?",
+    flat: {
+      name: "why markdown, not text",
+      purpose: "A flattened table is a bag of numbers.",
       lines: [
-        ['c', '// FACT_CHECKING 3.3 ends discovery with:'],
-        ['f', '   admission control -> rank -> cap at 8'],
+        ['c', '// The old converter:'],
+        ['s', '  Plan Price Starter $19 Grower $49'],
         ['c', ''],
-        ['c', '// Each page costs a second of politeness and a'],
-        ['c', '// model pass, against a 90-180 second budget.'],
+        ['c', '// $49 now sits next to two plan names.'],
+        ['c', '// Asked which plan costs $49, a model guesses'],
+        ['c', '// from word order.'],
         ['c', ''],
-        ['s', '// It says cap at 8. It does not say rank by what.']
+        ['f', '// Run 3 recorded exactly that failure.']
       ]
     },
-    obvious: {
-      name: "the obvious answer, and why it is wrong",
-      purpose: "Rank by confidence. Look what you get.",
+    kept: {
+      name: "crates/landscape-extract/src/markdown.rs",
+      purpose: "Tables and headings survive.",
       lines: [
-        ['t', '  /pricing          most confident'],
-        ['t', '  /plans'],
-        ['t', '  /pricing/'],
-        ['t', '  /en/pricing'],
-        ['t', '  /pricing-2026'],
+        ['t', '  | Plan    | Price |'],
+        ['t', '  |---|---|'],
+        ['t', '  | Starter | $19   |'],
+        ['t', '  | Grower  | $49   |'],
         ['c', ''],
-        ['s', '// Five slots. One fact, five times.'],
-        ['f', '// Nothing about what changed. Or what it does.']
+        ['c', '// And ## Enterprise above a paragraph is what'],
+        ['f', '// says which plan the paragraph is about.']
       ]
     },
-    breadth: {
-      name: "crates/landscape-discover/src/rank.rs",
-      purpose: "Spend the cap on different questions.",
+    worth: {
+      name: "crates/landscape-extract/src/quality.rs",
+      purpose: "Is this page worth twelve seconds?",
       lines: [
-        ['c', '// Round-robin across what a page answers:'],
-        ['t', '  best pricing page'],
-        ['t', '  best changelog'],
-        ['t', '  best feature page'],
-        ['c', '// ...only then a second pricing page.'],
+        ['c', '// A navigation menu costs a full extraction'],
+        ['c', '// and returns nothing.'],
         ['c', ''],
-        ['f', '// Six questions answered beats one answered six times.']
+        ['c', '// First draft: a 25-word floor.'],
+        ['s', '// It scored a real pricing page as empty.'],
+        ['c', ''],
+        ['f', '// Structure is content. The floor is 12 now,'],
+        ['f', '// and menus are caught by words per line.']
       ]
     },
-    primary: {
-      name: "crates/landscape-discover/src/probes.rs",
-      purpose: "Why guessing beats searching.",
+    joined: {
+      name: "landscape read",
+      purpose: "Every piece, in order, for the first time.",
       lines: [
-        ['c', '// Every probe is on the company own domain.'],
-        ['c', '// That makes everything found here Primary.'],
+        ['c', '// discover -> fetch -> markdown -> quality'],
+        ['c', '//          -> extract'],
         ['c', ''],
-        ['k', 'Disposition::may_set_a_table_value()'],
-        ['f', '    // true only for Primary'],
+        ['c', '// Each stage prints what it decided.'],
         ['c', ''],
-        ['c', '// Search returns other peoples pages. Those can'],
-        ['f', '// be reported. They can never be tabulated.']
+        ['f', '// A pipeline that reports only its last step'],
+        ['f', '// gives a wrong answer six possible causes.']
       ]
     },
-    relative: {
-      name: "found by running it",
-      purpose: "The spec says absolute. Reality does not.",
+    failed: {
+      name: "the first real run",
+      purpose: "It did not work. That is the finding.",
       lines: [
-        ['c', '// basecamp.com sitemap.xml:'],
-        ['s', '   <loc>/pricing</loc>'],
+        ['t', '  basecamp.com/pricing   1729   good'],
+        ['s', '  -> "Pro, no price published"'],
         ['c', ''],
-        ['c', '// Relative. Cannot be fetched. And it does not'],
-        ['c', '// match the same page found by a probe -'],
-        ['s', '// so one page quietly took two of eight slots.'],
+        ['c', '// That page shows $299/month and $15/user.'],
         ['c', ''],
-        ['f', '// Fixtures would never have shown this.']
+        ['f', '// The model that scores 90% on the golden set'],
+        ['f', '// and never invents a price. Missed one.']
       ]
     },
-    slug: {
-      name: "also found by running it",
-      purpose: "A book chapter, admitted as a feature page.",
+    traced: {
+      name: "where it was lost",
+      purpose: "Six possible causes. One at fault.",
       lines: [
-        ['s', '  /gettingreal/11.5-personify-your-product'],
+        ['t', '  fetch        ok'],
+        ['t', '  markdown     ok - $299 is on line 13'],
+        ['t', '  truncation   ok - well inside the window'],
+        ['t', '  prompt       fixed. Did not help.'],
         ['c', ''],
-        ['c', '// The slug ends in a word we recognise.'],
-        ['c', ''],
-        ['c', '// A hyphenated path is split only when short.'],
-        ['t', '   release-notes             two words, a page'],
-        ['s', '   11.5-personify-your-...   five, an article']
+        ['s', '  whole page, 1729 words   no price found'],
+        ['f', '  the span,      39 words   $299, quoted']
       ]
     },
-    real: {
-      name: "landscape discover",
-      purpose: "Twenty seconds, sixteen requests, six sources.",
+    predicted: {
+      name: "docs/BENCHMARKS.md, Run 3",
+      purpose: "We wrote this down before it happened.",
       lines: [
-        ['t', '  /pricing      pricing      sitemap'],
-        ['t', '  /features     features     sitemap'],
-        ['t', '  /about        identity     sitemap'],
-        ['t', '  /status       trust        probe'],
-        ['t', '  /jobs         direction    probe'],
+        ['f', '  "a model could score 100% on it while'],
+        ['f', '   failing on the first real page it meets"'],
         ['c', ''],
-        ['f', '  6 admitted from 16 paths checked'],
-        ['c', '// The second number is the falsifiable part.']
+        ['c', '// It scored 90%. Then it did that.'],
+        ['c', ''],
+        ['c', '// The golden set is not wrong. It measures'],
+        ['f', '// something the pipeline does not do.']
+      ]
+    },
+    next: {
+      name: "what it changes",
+      purpose: "An optimisation becomes a requirement.",
+      lines: [
+        ['c', '// Span pre-selection was already planned,'],
+        ['c', '// because prefill dominates on ARM cores.'],
+        ['c', ''],
+        ['f', '// Now there is a second reason:'],
+        ['f', '// without it, this does not work at all.'],
+        ['c', ''],
+        ['c', '// And the golden set needs real pages next,'],
+        ['c', '// not fifteen more written by hand.']
       ]
     }
   };
@@ -216,28 +228,30 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:eight",     c: "A report reads eight pages. Which eight?" },
-    { kind: "means",       a: "spot:#code",     c: "The plan set the cap and not the rule." },
+    { kind: "recognition", a: "file:flat",      c: "A flattened table is a bag of numbers." },
+    { kind: "means",       a: "spot:#code",     c: "Which plan costs forty-nine?" },
 
-    { kind: "turn",        a: "file:obvious",   c: "Rank by confidence and look what you get." },
-    { kind: "means",       a: "spot:#code",     c: "One fact, five times." },
+    { kind: "turn",        a: "file:kept",      c: "So keep the tables and the headings." },
+    { kind: "means",       a: "spot:#code",     c: "The heading says which plan it is about." },
 
-    { kind: "result",      a: "file:breadth",   c: "So spend the cap on different questions." },
-    { kind: "means",       a: "spot:#code",     c: "Six answered beats one answered six times." },
+    { kind: "result",      a: "file:worth",     c: "And skip pages with nothing on them." },
+    { kind: "means",       a: "spot:#code",     c: "The first threshold rejected a real page." },
 
-    { kind: "result",      a: "file:primary",   c: "And guess before you search." },
-    { kind: "means",       a: "spot:#code",     c: "Only a company own page can set a number." },
+    { kind: "result",      a: "file:joined",    c: "Then run every piece in order." },
+    { kind: "means",       a: "spot:#code",     c: "Each one says what it decided." },
 
-    { kind: "result",      a: "file:relative",  c: "Running it found what fixtures could not." },
-    { kind: "means",       a: "spot:#code",     c: "One page was taking two of eight slots." },
+    { kind: "result",      a: "file:failed",    c: "The first real run did not work." },
+    { kind: "means",       a: "spot:#code",     c: "A page showing two prices. It found none." },
 
-    { kind: "result",      a: "file:slug",      c: "And a book chapter became a feature page." },
-    { kind: "means",       a: "spot:#code",     c: "Short paths are names. Long ones are articles." },
+    { kind: "result",      a: "file:traced",    c: "Six things could be wrong. One was." },
+    { kind: "means",       a: "spot:#code",     c: "Same words. Fewer of them. It answers." },
 
-    { kind: "result",      a: "file:real",      c: "Six sources, five questions." },
-    { kind: "means",       a: "spot:#code",     c: "Sixteen paths tried, so thin is checkable." },
+    { kind: "result",      a: "file:predicted", c: "We wrote this down before it happened." },
+    { kind: "means",       a: "spot:#code",     c: "The set measures what the pipeline does not." },
 
-    { kind: "close",       a: "hold",           c: "Next: read them." }
+    { kind: "result",      a: "file:next",      c: "So the next piece is not optional." },
+
+    { kind: "close",       a: "hold",           c: "Failing here is cheaper than shipping it." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -260,7 +274,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("eight");
+    show("flat");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -273,15 +287,15 @@
     }, TOTAL * 1000));
   }
 
-  show("eight");
+  show("flat");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "Which eight pages?",
-    blurb: "A report reads eight pages about a company. Ranking them the obvious way fills all eight with the same fact, so the cap is spent on breadth instead - and two bugs that only appeared when it was pointed at real websites.",
+    title: "The first real run",
+    blurb: "Every piece has been testable on its own for weeks. This is the first time they ran in order against a real company - and it did not work, in a way the benchmarks had already predicted in writing.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;
