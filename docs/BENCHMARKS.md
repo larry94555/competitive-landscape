@@ -102,6 +102,24 @@ somebody is told is a presentation decision. The interface now writes:
 > We could not work out which company you meant. Try naming its website — for example,
 > basecamp.com.
 
+### Two more the review found
+
+Neither would have shown up in a happy-path run, and both are the same class of thing — a
+reader left looking at something that is no longer true.
+
+**A partial report is not a finished one.** The client treated *"we have a report"* as
+settled, but `save_progress` gives a running analysis a report from its first fact. So when a
+stream dropped or hit its ten-minute cutoff, the one recovery fetch came back *running*, the
+client called it settled, and nothing ever reconnected — a half-written report, for ever.
+Settlement is a **terminal status** now, and a non-terminal `done` reopens the stream after a
+second.
+
+**A section can change without growing.** The stream tracked `claims.len()`, and
+`PagePricing::assembled` replaces a plan when a later window supplies the price the first one
+lacked: *"Free is listed with no published price"* becomes *"Free costs $0"* at the same
+length. The correction was suppressed and the retracted claim stayed on screen until the run
+ended. It compares the payload now.
+
 ### What is still not right
 
 **Two minutes is not forty seconds.** The order pages are read in decides what a reader sees

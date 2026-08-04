@@ -3,6 +3,7 @@ import {
   ApiError,
   createAnalysis,
   getAnalysis,
+  isTerminal,
   watchAnalysis,
   type Analysis,
   type AnalysisStatus,
@@ -92,6 +93,9 @@ export default function App(): React.JSX.Element {
   );
 }
 
+/** How long to wait before opening the stream again after it drops mid-run. */
+const RECONNECT_MS = 1000;
+
 /**
  * Watch a report being written, and fetch it once it is.
  *
@@ -103,6 +107,12 @@ export default function App(): React.JSX.Element {
  *
  * So the final `getAnalysis` is not a fallback. It is the step that turns what a reader has
  * been watching into the report, coverage notes and all.
+ *
+ * **Only a terminal status ends this.** A running analysis already carries the report so far,
+ * so "we have a report" is not "it is finished" — and treating it as such is how a dropped
+ * stream became permanent: one fetch, a still-running answer, and nothing ever reconnected.
+ * The stream ends by itself on an error and after ten minutes, both of which happen to a tab
+ * left open, so the reconnect is the ordinary path rather than the exceptional one.
  */
 function useReport(
   analysis: Analysis | null,
@@ -110,18 +120,32 @@ function useReport(
 ): { status: AnalysisStatus | null; sections: readonly Section[] } {
   const [status, setStatus] = useState<AnalysisStatus | null>(null);
   const [sections, setSections] = useState<readonly Section[]>([]);
+  const [attempt, setAttempt] = useState(0);
   const onFinishedRef = useRef(onFinished);
   onFinishedRef.current = onFinished;
 
   const id = analysis?.id ?? null;
-  const settled = analysis?.report != null || analysis?.failure != null;
+  const settled = analysis != null && isTerminal(analysis.status);
+
+  // A new analysis starts from nothing. Kept apart from the connection below so that
+  // reconnecting does not wipe the sections the reader is already looking at.
+  useEffect(() => {
+    setStatus(null);
+    setSections([]);
+    setAttempt(0);
+  }, [id]);
 
   useEffect(() => {
     if (id === null || settled) return;
 
-    setStatus(null);
-    setSections([]);
     let cancelled = false;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const reconnect = (): void => {
+      if (cancelled) return;
+      retry = setTimeout(() => {
+        if (!cancelled) setAttempt((n) => n + 1);
+      }, RECONNECT_MS);
+    };
 
     const close = watchAnalysis(id, {
       onStatus: (next) => {
@@ -129,8 +153,8 @@ function useReport(
       },
       onSection: (section) => {
         if (cancelled) return;
-        // Arrival order, and the newest version of each. A section is sent again as it
-        // grows: pinning the first copy left "What it does: 1 item" on screen for two
+        // Arrival order, and the newest version of each. A section is sent again whenever it
+        // changes: pinning the first copy left "What it does: 1 item" on screen for two
         // minutes while eight more were read, which reads as a section that is finished.
         setSections((current) => {
           const at = current.findIndex((s) => s.key === section.key);
@@ -143,21 +167,27 @@ function useReport(
       onDone: () => {
         if (cancelled) return;
         void getAnalysis(id)
-          .then((finished) => {
-            if (!cancelled) onFinishedRef.current(finished);
+          .then((latest) => {
+            if (cancelled) return;
+            onFinishedRef.current(latest);
+            // Still running: the stream dropped or timed out rather than finishing, so open
+            // it again. Without this the reader keeps a half-written report for ever.
+            if (!isTerminal(latest.status)) reconnect();
           })
           .catch(() => {
-            // The reader keeps what the stream already gave them. A red banner over a
-            // report they can see would be worse than a report that stops updating.
+            // The reader keeps what the stream already gave them, and we try again — a red
+            // banner over a report they can see would be worse than a stale one.
+            reconnect();
           });
       },
     });
 
     return () => {
       cancelled = true;
+      if (retry !== undefined) clearTimeout(retry);
       close();
     };
-  }, [id, settled]);
+  }, [id, settled, attempt]);
 
   return { status, sections };
 }
@@ -175,7 +205,9 @@ function AnalysisView({
   // The finished report once it exists, and what the stream has delivered until then. Both
   // are the same shape, which is why the rendering below does not know which it has.
   const showing = report?.sections ?? sections;
-  const live = report == null && analysis.failure == null;
+  // Running, not "has no report" — a running analysis carries the report so far, and a
+  // reader who is still waiting needs to be told that whether or not sections have arrived.
+  const live = !isTerminal(status ?? analysis.status);
 
   return (
     <section aria-live="polite">

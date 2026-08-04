@@ -94,6 +94,42 @@ function stubAccepting(): void {
   );
 }
 
+/**
+ * A `fetch` that answers every GET with an analysis that is **still running** and already
+ * carries a partial report — which is what the API really returns mid-run, because
+ * `save_progress` writes the report so far.
+ */
+function stubStillRunning(): void {
+  stubEventSource();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((_url: string, init?: RequestInit) =>
+      Promise.resolve({
+        ok: true,
+        status: init?.method === "POST" ? 201 : 200,
+        json: () =>
+          Promise.resolve(
+            init?.method === "POST"
+              ? queued()
+              : {
+                  ...queued(),
+                  status: "running",
+                  report: {
+                    subject: "https://e.com",
+                    searched_as: "https://e.com",
+                    generated_at: "2026-08-04T00:00:00Z",
+                    model_id: "test",
+                    prompt_version: 1,
+                    sections: [section("pricing", "Pricing & packaging", "Pro costs $15")],
+                    sources: [],
+                  },
+                },
+          ),
+      } as Response),
+    ),
+  );
+}
+
 /** A `fetch` that fails the way the API fails when something breaks at our end. */
 function stubBreaking(): void {
   stubEventSource();
@@ -384,5 +420,62 @@ describe("when it does not finish", () => {
     expect(
       await screen.findByText(/Nothing you did caused it/),
     ).toBeInTheDocument();
+  });
+});
+
+describe("when the stream drops before the run is over", () => {
+  it("opens it again rather than leaving a half-written report", async () => {
+    // The failure this guards. A running analysis already carries the report so far, so
+    // "we have a report" is not "it is finished": treating it as settled meant one fetch,
+    // a still-running answer, and nothing ever reconnecting.
+    stubStillRunning();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    const dropped = FakeEventSource.last!;
+    act(() => dropped.onerror?.());
+
+    // A second connection, to the same analysis, without the reader doing anything.
+    await waitFor(() => expect(FakeEventSource.last).not.toBe(dropped), {
+      timeout: 4000,
+    });
+    expect(FakeEventSource.last!.url).toContain("/events");
+    expect(dropped.closed).toBe(true);
+  });
+
+  it("still says it is reading, even holding a partial report", async () => {
+    // The same bug wearing its other face: a partial report made the view look finished.
+    stubStillRunning();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    act(() => FakeEventSource.last!.send("done", ""));
+
+    expect(
+      await screen.findByText(/Still reading|Reading the first pages/),
+    ).toBeInTheDocument();
+  });
+
+  it("stops once the analysis is complete", async () => {
+    // And the other side of it: a finished run must not keep reconnecting for ever.
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    const finished = FakeEventSource.last!;
+    act(() => finished.send("done", ""));
+    await waitFor(() => expect(screen.getByText("Done.")).toBeInTheDocument());
+
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    expect(FakeEventSource.last).toBe(finished);
   });
 });
