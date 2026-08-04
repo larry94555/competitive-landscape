@@ -155,6 +155,185 @@ impl PagePricing {
     }
 }
 
+/// Who a company is, as its own pages state it.
+///
+/// The fourth question kind, and the one where **what can be checked is weakest**. A price is
+/// published to be read; an about page is written to be believed, and the facts are in it in
+/// passing. So the fields are few, each is a thing a page either writes down or does not, and
+/// none of them is inferred:
+///
+/// `basecamp.com/about` says *"23 years and running"* and never names a year. The founding
+/// year is arithmetic from that, and arithmetic is not extraction — so this type carries no
+/// founding year for Basecamp, which is the correct answer rather than a missing one.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct IdentityExtraction {
+    /// The year the company says it started. `None` unless a year is written on the page.
+    pub founded_year: Option<u16>,
+
+    /// Where it says it is — a city, a country, or `the EU`. As the page words it.
+    pub headquarters: Option<String>,
+
+    /// How many people it says work there. `None` for "a team of people who care".
+    pub employees: Option<u32>,
+
+    /// The words the page used, copied verbatim.
+    pub evidence_quote: Option<String>,
+}
+
+impl IdentityExtraction {
+    /// An extraction that found nothing.
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            founded_year: None,
+            headquarters: None,
+            employees: None,
+            evidence_quote: None,
+        }
+    }
+
+    /// Whether the quote, if there is one, really appears in the source.
+    #[must_use]
+    pub fn quote_is_verbatim(&self, source: &str) -> bool {
+        let Some(quote) = &self.evidence_quote else {
+            return true;
+        };
+        let quote = squash(quote);
+        quote.is_empty() || squash(source).contains(&quote)
+    }
+
+    /// Whether every value it reports is written in the section it was read from.
+    ///
+    /// The same check `FeatureExtraction::name_is_from` makes, and here it does more work: a
+    /// model that has read about a company **knows** where that company is, and an about page
+    /// full of story is exactly the prompt that invites it to say so from memory. A year and a
+    /// headcount are digits, which makes them cheap to insist on.
+    #[must_use]
+    pub fn is_from(&self, source: &str) -> bool {
+        let haystack = squash(&source.to_lowercase());
+        // Numbers are matched as whole tokens, not substrings. A substring check on a number
+        // is not a check: the model answered **0 people** for a page reading *"a team of
+        // 10"*, and `"10".contains("0")` waved it through.
+        if let Some(year) = self.founded_year {
+            if !states_number(&haystack, u32::from(year)) {
+                return false;
+            }
+        }
+        if let Some(count) = self.employees {
+            if !states_number(&haystack, count) {
+                return false;
+            }
+        }
+        if self
+            .headquarters
+            .as_deref()
+            .is_some_and(|place| !states_words(&haystack, place))
+        {
+            return false;
+        }
+        true
+    }
+
+    /// The same extraction with every value the section does not state removed.
+    ///
+    /// **Field by field, not all or nothing.** `plausible.io/about` states its founding year
+    /// in the window it was asked about and nothing else; an extraction carrying the year and
+    /// an invented headcount would have been discarded whole, taking a correct year with it.
+    /// Returns the count removed so the run can say how many.
+    #[must_use]
+    pub fn keeping_only_stated(&self, source: &str) -> (Self, usize) {
+        let haystack = squash(&source.to_lowercase());
+        let mut kept = self.clone();
+        let mut dropped = 0usize;
+
+        if kept
+            .founded_year
+            .is_some_and(|y| !states_number(&haystack, u32::from(y)))
+        {
+            kept.founded_year = None;
+            dropped += 1;
+        }
+        if kept.employees.is_some_and(|n| !states_number(&haystack, n)) {
+            kept.employees = None;
+            dropped += 1;
+        }
+        if kept
+            .headquarters
+            .as_deref()
+            .is_some_and(|place| !states_words(&haystack, place))
+        {
+            kept.headquarters = None;
+            dropped += 1;
+        }
+        (kept, dropped)
+    }
+
+    /// Whether it found nothing at all.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.founded_year.is_none() && self.headquarters.is_none() && self.employees.is_none()
+    }
+
+    /// How many of the three facts it carries.
+    #[must_use]
+    pub fn facts(&self) -> usize {
+        usize::from(self.founded_year.is_some())
+            + usize::from(self.headquarters.is_some())
+            + usize::from(self.employees.is_some())
+    }
+}
+
+/// What one page said about who the company is.
+///
+/// Assembled from one window per fact, so the three answers arrive separately and the first
+/// page to state a fact keeps it. Later windows fill gaps and never overwrite: two windows
+/// disagreeing about a headcount is a page saying two things, and the earlier one is the one
+/// the page leads with.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PageIdentity {
+    pub founded_year: Option<u16>,
+    pub headquarters: Option<String>,
+    pub employees: Option<u32>,
+    /// One quote per fact, in the order the facts were found.
+    pub evidence: Vec<String>,
+}
+
+impl PageIdentity {
+    /// Merge per-window extractions into what the page says.
+    #[must_use]
+    pub fn assembled(extractions: impl IntoIterator<Item = IdentityExtraction>) -> Self {
+        let mut out = Self::default();
+        for got in extractions {
+            if got.is_empty() {
+                continue;
+            }
+            out.founded_year = out.founded_year.or(got.founded_year);
+            out.headquarters = out.headquarters.clone().or(got.headquarters);
+            out.employees = out.employees.or(got.employees);
+            if let Some(quote) = got.evidence_quote {
+                if !quote.trim().is_empty() && !out.evidence.contains(&quote) {
+                    out.evidence.push(quote);
+                }
+            }
+        }
+        out
+    }
+
+    /// How many of the three facts the page stated.
+    #[must_use]
+    pub fn facts(&self) -> usize {
+        usize::from(self.founded_year.is_some())
+            + usize::from(self.headquarters.is_some())
+            + usize::from(self.employees.is_some())
+    }
+
+    /// Whether the page stated none of them.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.facts() == 0
+    }
+}
+
 /// One dated change, as a page states it.
 ///
 /// **Nothing here comes from a model.** [`ARCHITECTURE.md`] §5.4 puts changelog entries on the
@@ -370,6 +549,25 @@ fn named_the_same(kept: &FeatureExtraction, name: &str) -> bool {
 /// Collapse every run of whitespace to one space.
 fn squash(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// Whether a number appears in the text as a number rather than inside another one.
+fn states_number(haystack: &str, number: u32) -> bool {
+    let wanted = number.to_string();
+    haystack
+        .split(|c: char| !c.is_ascii_digit())
+        .any(|token| token == wanted)
+}
+
+/// Whether every word of a phrase appears in the text.
+fn states_words(haystack: &str, phrase: &str) -> bool {
+    let lowered = phrase.to_lowercase();
+    let mut words = lowered
+        .split_whitespace()
+        .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()))
+        .filter(|w| !w.is_empty())
+        .peekable();
+    words.peek().is_some() && words.all(|w| haystack.contains(w))
 }
 
 /// A plan name reduced to what makes two of them the same plan.
@@ -588,6 +786,119 @@ mod tests {
         let page = PageChanges::default();
         assert!(page.is_empty());
         assert!(page.recent(day(2026, 8, 4)).is_empty());
+    }
+
+    fn identity(year: Option<u16>, place: Option<&str>, people: Option<u32>) -> IdentityExtraction {
+        IdentityExtraction {
+            founded_year: year,
+            headquarters: place.map(str::to_owned),
+            employees: people,
+            evidence_quote: None,
+        }
+    }
+
+    #[test]
+    fn a_year_the_section_never_wrote_is_not_from_it() {
+        // The failure this check exists for. A model that has read about a company knows when
+        // it was founded, and an about page full of story is exactly the prompt that invites
+        // it to say so from memory.
+        let section = "We're here for them, 23 years and running.";
+        assert!(!identity(Some(2003), None, None).is_from(section));
+        assert!(identity(None, None, None).is_from(section));
+    }
+
+    #[test]
+    fn a_number_inside_another_number_is_not_a_statement_of_it() {
+        // The check that was not a check. The model answered "0 people" for a page reading
+        // "a team of 10", and a substring test let it through.
+        let section = "Today Plausible is a team of 10.";
+        assert!(!identity(None, None, Some(0)).is_from(section));
+        assert!(identity(None, None, Some(10)).is_from(section));
+        // And the same for a year inside a longer number.
+        assert!(!identity(Some(2020), None, None).is_from("we have 120200 customers"));
+    }
+
+    #[test]
+    fn a_headcount_and_a_place_are_checked_the_same_way() {
+        let section = "Today Plausible is a team of 10, based in the EU.";
+        assert!(identity(None, Some("the EU"), Some(10)).is_from(section));
+        assert!(!identity(None, Some("Berlin"), None).is_from(section));
+        assert!(!identity(None, None, Some(50)).is_from(section));
+    }
+
+    #[test]
+    fn an_invented_field_does_not_take_a_correct_one_with_it() {
+        // plausible.io/about states its founding year in the window it was asked about and
+        // nothing else. Discarding the extraction whole threw the year away too.
+        let section = "Uku Taht started Plausible in December 2018, building it alone.";
+        let mixed = identity(Some(2018), Some("Berlin"), None);
+        let (kept, dropped) = mixed.keeping_only_stated(section);
+        assert_eq!(kept.founded_year, Some(2018));
+        assert_eq!(kept.headquarters, None);
+        assert_eq!(dropped, 1);
+    }
+
+    #[test]
+    fn an_extraction_with_nothing_left_is_empty_rather_than_wrong() {
+        let (kept, dropped) = identity(Some(2003), None, Some(80)).keeping_only_stated("no facts");
+        assert!(kept.is_empty());
+        assert_eq!(dropped, 2);
+    }
+
+    #[test]
+    fn the_three_facts_are_merged_across_windows() {
+        // One window per fact, so they arrive separately and each fills its own gap.
+        let page = PageIdentity::assembled([
+            identity(Some(2019), None, None),
+            identity(None, Some("the EU"), None),
+            identity(None, None, Some(10)),
+        ]);
+        assert_eq!(page.founded_year, Some(2019));
+        assert_eq!(page.headquarters.as_deref(), Some("the EU"));
+        assert_eq!(page.employees, Some(10));
+        assert_eq!(page.facts(), 3);
+    }
+
+    #[test]
+    fn the_first_window_to_state_a_fact_keeps_it() {
+        // Two windows disagreeing is a page saying two things, and the one it leads with is
+        // the one it means.
+        let page = PageIdentity::assembled([
+            identity(None, None, Some(10)),
+            identity(None, None, Some(400)),
+        ]);
+        assert_eq!(page.employees, Some(10));
+    }
+
+    #[test]
+    fn a_page_that_states_none_of_them_is_empty_rather_than_wrong() {
+        let page = PageIdentity::assembled([IdentityExtraction::empty()]);
+        assert!(page.is_empty());
+        assert_eq!(page.facts(), 0);
+        assert!(page.evidence.is_empty());
+    }
+
+    #[test]
+    fn each_fact_brings_its_own_quote() {
+        let with_quote = |quote: &str, year| IdentityExtraction {
+            evidence_quote: Some(quote.to_owned()),
+            ..identity(year, None, None)
+        };
+        let page = PageIdentity::assembled([
+            with_quote("founded in 2019", Some(2019)),
+            with_quote("founded in 2019", Some(2019)),
+        ]);
+        assert_eq!(page.evidence.len(), 1, "the same quote twice is one quote");
+    }
+
+    #[test]
+    fn the_identity_schema_allows_every_field_to_be_absent() {
+        let schema = serde_json::to_value(schemars::schema_for!(IdentityExtraction)).unwrap();
+        let required = schema.get("required").and_then(|r| r.as_array());
+        assert!(
+            required.is_none_or(|r| r.is_empty()),
+            "no field may be required: {schema:#}"
+        );
     }
 
     fn capability(name: &str) -> FeatureExtraction {

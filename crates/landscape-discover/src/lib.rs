@@ -260,11 +260,40 @@ pub async fn discover(fetcher: &Fetcher, origin: &str) -> Discovered {
         }
     }
 
+    // Everything admitted must be on the subject's own site. `FACT_CHECKING.md` §3.3 is the
+    // reason: a page on the subject's domain is `Disposition::Primary`, and **only a primary
+    // source may set a value in a comparison table**. An `llms.txt` can list anything, and
+    // notion.com's lists `linkedin.com/company/notionhq` — which took the identity slot for
+    // that company, could not be fetched, and would have been a table value from somebody
+    // else's site if it had been.
+    //
+    // Off-site links are not worthless; they are a different class of evidence, and admitting
+    // them here would launder them into the class that outranks everything.
+    let host = host_of(&origin).to_owned();
+    found.retain(|c| same_site(&host, &c.url));
+
     Discovered {
         sources: rank::admit(found, rank::CAP_RUNG_0),
         checked,
         stopped_early,
     }
+}
+
+/// The host part of an origin or URL, without `www.`.
+fn host_of(url: &str) -> &str {
+    let after_scheme = url.find("://").map_or(0, |i| i + 3);
+    let rest = &url[after_scheme..];
+    let host = rest.split(['/', '?', '#']).next().unwrap_or(rest);
+    host.strip_prefix("www.").unwrap_or(host)
+}
+
+/// Whether a URL is on the subject's own site, subdomains included.
+///
+/// `docs.example.com` is example.com's documentation and `example.com.evil.test` is not, so
+/// the match is on a dot-bounded suffix rather than `contains`.
+fn same_site(host: &str, url: &str) -> bool {
+    let candidate = host_of(url);
+    candidate == host || candidate.ends_with(&format!(".{host}"))
 }
 
 /// What one fetch says about the path, for the coverage note.
@@ -339,6 +368,28 @@ mod tests {
             url: url.to_owned(),
             outcome,
         }
+    }
+
+    #[test]
+    fn a_host_is_compared_without_its_www() {
+        assert!(same_site("notion.com", "https://www.notion.com/about"));
+        assert!(same_site("notion.com", "https://docs.notion.com/x"));
+    }
+
+    #[test]
+    fn somebody_elses_site_is_not_a_primary_source() {
+        // notion.com's llms.txt lists linkedin.com/company/notionhq, and it took the identity
+        // slot for that company. A page we do not control is a different class of evidence,
+        // and admitting it here would launder it into the class that outranks everything.
+        assert!(!same_site(
+            "notion.com",
+            "https://www.linkedin.com/company/notionhq"
+        ));
+        // And a lookalike domain is not a subdomain.
+        assert!(!same_site(
+            "notion.com",
+            "https://notion.com.evil.test/about"
+        ));
     }
 
     #[test]
