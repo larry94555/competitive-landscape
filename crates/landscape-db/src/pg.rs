@@ -131,6 +131,21 @@ impl Store for PgStore {
         row.as_ref().map(analysis_from_row).transpose()
     }
 
+    async fn save_progress(&self, id: AnalysisId, report: &Report) -> Result<()> {
+        let json = serde_json::to_value(report)
+            .map_err(|e| StoreError::Corrupt(format!("report will not serialise: {e}")))?;
+        // `WHERE status = 'running'` rather than by id alone: a worker that lost a race and
+        // writes late must not overwrite a finished report, and must not resurrect a failed
+        // row. A no-op is the correct outcome there, so no rows affected is not an error.
+        sqlx::query("UPDATE analyses SET report = $1 WHERE id = $2 AND status = $3")
+            .bind(json)
+            .bind(id.0)
+            .bind(AnalysisStatus::Running.as_db_str())
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
+
     async fn complete(&self, id: AnalysisId, report: &Report) -> Result<()> {
         let json = serde_json::to_value(report)
             .map_err(|e| StoreError::Corrupt(format!("report will not serialise: {e}")))?;

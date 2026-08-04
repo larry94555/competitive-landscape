@@ -42,6 +42,10 @@ pub fn router(state: AppState) -> Router {
         .route("/api/health", get(health))
         .route("/api/analyses", post(create_analysis))
         .route("/api/analyses/{id}", get(get_analysis))
+        // Server-sent events for one analysis. A reader watching a report fill in
+        // is the difference between ninety seconds of spinner and twenty of
+        // content — PRODUCT_SPEC.md §2.1A.
+        .route("/api/analyses/{id}/events", get(crate::events::stream))
         .with_state(state)
         .layer(axum::middleware::from_fn(crate::request_id::layer))
 }
@@ -128,6 +132,73 @@ mod tests {
                 serde_json::json!({ "prompt": prompt }).to_string(),
             ))
             .expect("build request")
+    }
+
+    #[tokio::test]
+    async fn the_event_stream_opens_for_an_analysis_that_exists() {
+        // A reader watching a report fill in. The stream is opened before anything has been
+        // written, which is exactly when a reader opens it.
+        let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+        let created = store
+            .enqueue(&landscape_core::NewAnalysis::parse("compare basecamp.com").expect("valid"))
+            .await
+            .expect("enqueue");
+
+        let res = router(AppState {
+            store: Arc::clone(&store),
+        })
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/analyses/{}/events", created.id))
+                .body(Body::empty())
+                .expect("build request"),
+        )
+        .await
+        .expect("response");
+
+        assert_eq!(res.status(), StatusCode::OK);
+        let content_type = res
+            .headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default()
+            .to_owned();
+        assert!(
+            content_type.starts_with("text/event-stream"),
+            "not a stream: {content_type}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_stream_for_an_unknown_analysis_is_not_found() {
+        // Resolved before the stream opens. A connection that opens and then says nothing
+        // is indistinguishable, from the browser, from an analysis that is merely slow.
+        let res = app()
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/analyses/{}/events", uuid::Uuid::new_v4()))
+                    .body(Body::empty())
+                    .expect("build request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn a_malformed_id_is_not_found_rather_than_a_bad_request() {
+        // Same reading as `get_analysis`: telling a prober that an id is *shaped* wrong
+        // tells them what our ids look like.
+        let res = app()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/analyses/not-a-uuid/events")
+                    .body(Body::empty())
+                    .expect("build request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
     }
 
     #[tokio::test]

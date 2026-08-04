@@ -33,6 +33,7 @@ use landscape_discover::probes::Answers;
 mod render;
 mod sections;
 mod stages;
+pub mod subject;
 
 pub use render::is_publishable;
 pub use sections::{title_for, SECTIONS};
@@ -81,6 +82,27 @@ pub async fn analyse(
     origin: &str,
     now: DateTime<Utc>,
     today: NaiveDate,
+) -> Analysis {
+    analyse_with(fetcher, llm, origin, now, today, &mut |_| {}).await
+}
+
+/// The same, reporting the report so far after every page.
+///
+/// **A report is assembled a section at a time and a reader waits ninety seconds for it.**
+/// `PRODUCT_SPEC.md` §2.1A wants the pricing section on screen when pricing is done rather
+/// than everything at the end, and this callback is where that becomes possible: the worker
+/// writes each partial report to the store, and the API streams the difference.
+///
+/// The partial report is **complete in shape from the first call** — all six sections exist,
+/// each carrying its coverage note until it has claims. A reader never sees a section appear
+/// out of nowhere; they see one fill in.
+pub async fn analyse_with(
+    fetcher: &landscape_fetch::Fetcher,
+    llm: &landscape_llm::LlamaClient,
+    origin: &str,
+    now: DateTime<Utc>,
+    today: NaiveDate,
+    on_progress: &mut dyn FnMut(&Report),
 ) -> Analysis {
     let found = landscape_discover::discover(fetcher, origin).await;
     let model_ready = llm.is_ready().await;
@@ -185,8 +207,33 @@ pub async fn analyse(
                 independence_group: origin.to_owned(),
             });
         }
+
+        // One page done. Whoever is waiting can have what exists so far.
+        let (so_far, _) = assemble(&found, &claims, &sources, &opened, origin, llm, now);
+        on_progress(&so_far);
     }
 
+    let (report, coverage) = assemble(&found, &claims, &sources, &opened, origin, llm, now);
+    Analysis {
+        report,
+        coverage,
+        pages,
+    }
+}
+
+/// Build the report from what is known so far.
+///
+/// Called after every page as well as at the end, which is the point: a partial report and a
+/// finished one are the same shape, and nothing downstream needs to know which it has.
+fn assemble(
+    found: &landscape_discover::Discovered,
+    claims: &[(Answers, Claim)],
+    sources: &[Source],
+    opened: &[(Answers, usize)],
+    origin: &str,
+    llm: &landscape_llm::LlamaClient,
+    now: DateTime<Utc>,
+) -> (Report, Vec<Coverage>) {
     let coverage: Vec<Coverage> = sections::SECTIONS
         .iter()
         .map(|(question, _)| {
@@ -210,22 +257,19 @@ pub async fn analyse(
         })
         .collect();
 
-    Analysis {
-        report: Report {
-            subject: origin.to_owned(),
-            searched_as: origin.to_owned(),
-            generated_at: now,
-            // The server does not name its model over HTTP, so what is recorded is where
-            // the answers came from. A report that cannot say which model wrote it is a
-            // report nobody can reproduce, and this is the honest half of that.
-            model_id: llm.base().to_owned(),
-            prompt_version: PROMPT_VERSION,
-            sections,
-            sources,
-        },
-        coverage,
-        pages,
-    }
+    let report = Report {
+        subject: origin.to_owned(),
+        searched_as: origin.to_owned(),
+        generated_at: now,
+        // The server does not name its model over HTTP, so what is recorded is where the
+        // answers came from. A report that cannot say which model wrote it is a report
+        // nobody can reproduce, and this is the honest half of that.
+        model_id: llm.base().to_owned(),
+        prompt_version: PROMPT_VERSION,
+        sections,
+        sources: sources.to_vec(),
+    };
+    (report, coverage)
 }
 
 /// A page's own title, or its path if it has none.

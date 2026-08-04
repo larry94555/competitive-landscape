@@ -978,6 +978,46 @@ has nothing. The product will have the second one.
 `[S3·H]` is the source and the confidence. A quoted price is `H`; a capability name is `M` and
 can never be more, because shortening a heading is a paraphrase by design.
 
+**And the same thing happens through the product**, which is what it is for:
+
+```bash
+cargo run -p landscape -- dev --store memory
+```
+
+Then, in another terminal — no database, no setup:
+
+```bash
+curl -X POST localhost:8787/api/analyses -H 'content-type: application/json' -d '{"prompt":"compare plausible.io for me"}'
+```
+
+Take the `id` it returns and watch the report being written:
+
+```bash
+curl -N localhost:8787/api/analyses/PASTE_THE_ID_HERE/events
+```
+
+```
+event: status    running
+event: section   features    9 claims
+event: section   changes    11 claims
+event: section   identity    3 claims
+event: status    complete
+```
+
+**Sections arrive as they are finished, not at the end.** That is
+[PRODUCT_SPEC.md](PRODUCT_SPEC.md) §2.1A — first content in twenty to forty seconds rather
+than ninety seconds of spinner.
+
+**Try a prompt that names no site**, and read the failure:
+
+```bash
+curl -X POST localhost:8787/api/analyses -H 'content-type: application/json' -d '{"prompt":"an app that helps small farms sell to restaurants"}'
+```
+
+It fails, and says why: finding a company from a description needs a search channel that is
+not built. **A guessed domain would produce a report that is correctly cited and about the
+wrong company**, which is the most expensive wrong answer available here.
+
 **Every run now ends with what it did not find**, which is the half of a report that is
 usually missing:
 
@@ -1059,7 +1099,7 @@ That prints the page's size; the Markdown behind it keeps the headings and table
 cargo test
 ```
 
-**You should see 408 passing, with nothing running.**
+**You should see 425 passing, with nothing running.**
 
 CI runs the same tests through `cargo nextest run`, which is faster and gives each test its
 own process — so a test that panics is reported as a failure instead of taking the run down
@@ -1156,6 +1196,8 @@ python prototype/build.py --preview
 | 8E — basecamp `/about` states none, and says so | | |
 | 8E — every run ends with a coverage line per question | | |
 | 8E — and then a report, with every claim cited and quoted | | |
+| 8E — the same report through the API, streamed section by section | | |
+| 8E — a prompt naming no site fails with a reason, not an empty report | | |
 | 8E — basecamp's `changes` line names the three paths tried | | |
 | 9 — `cargo test` green with nothing running | | |
 
