@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "The first code with an attacker",
-    "blurb": "We are a service whose whole purpose is fetching URLs that strangers name. This is the guard that stops that being useful to them, the robots commitment that keeps us welcome, and the one file in this project with no coverage exemption.",
-    "seconds": 56.8
+    "title": "Build a browser, or not?",
+    "blurb": "The plan refused to schedule a headless browser until somebody measured how much of the web actually needs one. This is that measurement over 28 real pricing pages, the two mistakes that would have given the wrong answer, and the control group that caught one of them.",
+    "seconds": 57.2
   }
 ]
