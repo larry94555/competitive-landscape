@@ -42,7 +42,7 @@
   .cap-text{font-size:1.02rem;max-width:80ch;margin:0 auto;text-align:center}
 </style>
 
-<div class="banner" id="banner">CODE TOUR — watching it fill in</div>
+<div class="banner" id="banner">CODE TOUR — using it ourselves</div>
 
 <div class="wrap">
   <aside class="tree">
@@ -80,107 +80,110 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    placeholder: {
-      name: "what the worker used to write",
-      purpose: "A placeholder, since the first week.",
+    polling: {
+      name: "the endpoint existed",
+      purpose: "And the frontend still polled.",
       lines: [
-        ['s', '  nothing was fetched: the gathering'],
-        ['s', '  pipeline is not built yet'],
+        ['t', '  setInterval(() => getAnalysis(id), 1000)'],
         ['c', ''],
-        ['c', '// The queue worked. The worker worked.'],
-        ['c', '// There was nothing to carry.'],
+        ['c', '// A report was being streamed section by'],
+        ['c', '// section, to nobody.'],
         ['c', ''],
-        ['f', '// There is now.']
+        ['f', '// So: consume it, and watch what happens.']
       ]
     },
-    prompt: {
-      name: "but a prompt is not a website",
-      purpose: "an app that helps small farms...",
+    four: {
+      name: "the first section took four minutes",
+      purpose: "The target is forty seconds.",
       lines: [
-        ['c', '// Entity resolution needs candidates.'],
-        ['c', '// Candidates come from search.'],
-        ['s', '// Search is not built - section 3.3 puts'],
-        ['s', '// it last on purpose.'],
+        ['s', '  Reading the first pages...'],
+        ['s', '  Reading the first pages...'],
+        ['s', '  Reading the first pages...'],
         ['c', ''],
-        ['f', '// So: read a domain out of the sentence,'],
-        ['f', '// or fail and say why.']
+        ['c', '// Nothing was broken. Progress was saved'],
+        ['c', '// once per page.'],
+        ['f', '// And page one is twelve windows.']
       ]
     },
-    guess: {
-      name: "why not guess",
-      purpose: "The most expensive wrong answer.",
+    window: {
+      name: "so: per window, not per page",
+      purpose: "One fact is enough to show a section.",
       lines: [
-        ['c', '// A guessed domain gives you a report'],
-        ['c', '// with every claim cited and quoted.'],
+        ['t', '  per page     ~4 min'],
+        ['f', '  per window   ~2 min'],
         ['c', ''],
-        ['s', '// About the wrong company.'],
-        ['c', ''],
-        ['f', '  failed: this prompt does not name a'],
-        ['f', '  website. Try a domain.']
+        ['c', '// Still not forty seconds. What is left'],
+        ['c', '// is discovery and one model call -'],
+        ['f', '// and now it is visible instead of hidden.']
       ]
     },
-    progress: {
-      name: "crates/landscape-db, save_progress",
-      purpose: "Write the report so far.",
+    froze: {
+      name: "then it froze",
+      purpose: "What it does: 1 item.",
       lines: [
-        ['c', '// A report is assembled a section at'],
-        ['c', '// a time. A reader waits ninety seconds.'],
+        ['s', '  What it does'],
+        ['s', '    states it offers Start here'],
         ['c', ''],
-        ['f', '  after every page: save what exists'],
+        ['c', '// For two minutes, while eight more'],
+        ['c', '// capabilities were read.'],
         ['c', ''],
-        ['c', '// A partial report is the same shape as'],
-        ['f', '// a finished one. Nothing has to know.']
+        ['f', '// A section that stops changing reads'],
+        ['f', '// as a section that is finished.']
       ]
     },
-    broker: {
-      name: "and no message broker",
-      purpose: "Two processes, one row.",
+    grow: {
+      name: "so send it again when it grows",
+      purpose: "And replace, rather than skip.",
       lines: [
-        ['c', '// A broker would deliver events a few'],
-        ['c', '// hundred milliseconds sooner.'],
+        ['t', '  sent: key -> how many claims'],
         ['c', ''],
-        ['s', '// And be a second thing to run,'],
-        ['s', '// supervise, and lose events through.'],
+        ['c', '// Once, then again each time it gains'],
+        ['c', '// something.'],
         ['c', ''],
-        ['f', '// Poll the row. The reader cannot tell.']
+        ['f', '// Neither of these was visible to 425'],
+        ['f', '// passing tests.']
       ]
     },
-    once: {
-      name: "a section is sent once",
-      purpose: "When it first has claims.",
+    blame: {
+      name: "and the failure a reader can fix",
+      purpose: "It used to say: not your fault.",
       lines: [
-        ['c', '// An empty section carries a note that'],
-        ['c', '// says: we found nothing.'],
+        ['s', '  This one did not finish.'],
+        ['s', '  Nothing you did caused it.'],
         ['c', ''],
-        ['s', '// That is only true at the end.'],
+        ['c', '// They typed a description. They can'],
+        ['c', '// fix it. That message is a dead end.'],
         ['c', ''],
-        ['f', '// Sending it early tells a reader we had'],
-        ['f', '// finished looking.']
+        ['f', '  We could not work out which company you'],
+        ['f', '  meant. Try naming its website.']
       ]
     },
-    late: {
-      name: "and a late write changes nothing",
-      purpose: "A worker that lost a race.",
+    closed: {
+      name: "a closed set, not the log line",
+      purpose: "The migration said so first.",
       lines: [
-        ['t', '  WHERE id = $1 AND status = running'],
+        ['c', '// failure_reason is for operators and is'],
+        ['c', '// never shown verbatim.'],
         ['c', ''],
-        ['c', '// No rows affected is the right outcome,'],
-        ['c', '// not an error.'],
+        ['f', '  Failure::NoSubject'],
+        ['f', '  Failure::Internal'],
         ['c', ''],
-        ['f', '// Somebody is reading that report.']
+        ['f', '// What somebody is told is a decision,'],
+        ['f', '// not a database field.']
       ]
     },
-    stream: {
-      name: "plausible.io, through the API",
-      purpose: "No database. No command line.",
+    done: {
+      name: "and then the report",
+      purpose: "Watched, not waited for.",
       lines: [
-        ['t', '  event: status   running'],
-        ['f', '  event: section  features   9 claims'],
-        ['f', '  event: section  changes   11 claims'],
-        ['f', '  event: section  identity   3 claims'],
-        ['t', '  event: status   complete'],
+        ['f', '  Searched as https://plausible.io'],
+        ['t', '  Pricing      nothing found. /pricing 404'],
+        ['f', '  What it does 9 capabilities, quoted'],
+        ['f', '  Changes      11 dated entries'],
+        ['f', '  Company      founded 2018, EU, 10 people'],
         ['c', ''],
-        ['f', '// Three of them arrived while it ran.']
+        ['c', '// Every claim with its source and its'],
+        ['c', '// own words underneath.']
       ]
     }
   };
@@ -224,30 +227,30 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:placeholder", c: "The worker had nothing to carry." },
-    { kind: "means",       a: "spot:#code",       c: "It wrote a placeholder for weeks." },
+    { kind: "recognition", a: "file:polling", c: "A stream, and nobody consuming it." },
+    { kind: "means",       a: "spot:#code",   c: "The frontend was still polling." },
 
-    { kind: "turn",        a: "file:prompt",      c: "But a prompt is not a website." },
-    { kind: "means",       a: "spot:#code",       c: "Finding one needs a search we do not have." },
+    { kind: "turn",        a: "file:four",    c: "Then: four minutes of nothing." },
+    { kind: "means",       a: "spot:#code",   c: "Progress was saved once per page." },
 
-    { kind: "result",      a: "file:guess",       c: "So it refuses to guess one." },
-    { kind: "means",       a: "spot:#code",       c: "Cited, quoted, and the wrong company." },
+    { kind: "result",      a: "file:window",  c: "So save it per window instead." },
+    { kind: "means",       a: "spot:#code",   c: "One fact puts a section on screen." },
 
-    { kind: "result",      a: "file:progress",    c: "Then: write the report after every page." },
-    { kind: "means",       a: "spot:#code",       c: "Partial and finished are the same shape." },
+    { kind: "result",      a: "file:froze",   c: "And then the section froze." },
+    { kind: "means",       a: "spot:#code",   c: "One item, while eight more were read." },
 
-    { kind: "result",      a: "file:broker",      c: "And stream it without a broker." },
-    { kind: "means",       a: "spot:#code",       c: "Two processes already share a row." },
+    { kind: "result",      a: "file:grow",    c: "Send it again each time it grows." },
+    { kind: "means",       a: "spot:#code",   c: "Neither was visible to the tests." },
 
-    { kind: "result",      a: "file:once",        c: "A section is sent once it has something." },
-    { kind: "means",       a: "spot:#code",       c: "Empty means we finished. It has not." },
+    { kind: "result",      a: "file:blame",   c: "The failure message was a dead end." },
+    { kind: "means",       a: "spot:#code",   c: "They could fix it. We said they could not." },
 
-    { kind: "result",      a: "file:late",        c: "And a late write is quietly ignored." },
-    { kind: "means",       a: "spot:#code",       c: "Somebody is reading that report." },
+    { kind: "result",      a: "file:closed",  c: "So: situations, not log lines." },
+    { kind: "means",       a: "spot:#code",   c: "The migration had said so all along." },
 
-    { kind: "result",      a: "file:stream",      c: "One company, through the product." },
+    { kind: "result",      a: "file:done",    c: "And the report arrives while you watch." },
 
-    { kind: "close",       a: "hold",             c: "The spinner has content behind it now." }
+    { kind: "close",       a: "hold",         c: "Use the thing. It tells you what is wrong." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -270,7 +273,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("placeholder");
+    show("polling");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -283,15 +286,15 @@
     }, TOTAL * 1000));
   }
 
-  show("placeholder");
+  show("polling");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "Watching it fill in",
-    blurb: "The queue, the worker and the API have been in place since the first week with nothing worth carrying. This is the join - and the two rules that fell out of letting somebody watch a report being written rather than waiting for it.",
+    title: "Using it ourselves",
+    blurb: "The stream was being sent to nobody: the frontend still polled. Wiring it up meant watching a report arrive in a browser for the first time, and the two defects that turned up were invisible to 425 passing tests.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;
