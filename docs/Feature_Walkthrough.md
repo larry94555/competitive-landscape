@@ -28,7 +28,7 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | **Fetching a public page politely, and refusing to be aimed inwards** | **Yes** — Part 8B |
 | **Measuring where a price lives on real pages** | **Yes** — Part 8C |
 | **Finding which pages to read about a company** | **Yes** — Part 8D |
-| **The whole path: discover, fetch, convert, extract every plan** | **Yes** — Part 8E |
+| **The whole path: discover, fetch, convert, extract plans and capabilities** | **Yes** — Part 8E |
 | Reading real web pages *as part of a report* | No — the fetcher exists, nothing calls it yet |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
 | Accounts, quotas, payment | No |
@@ -839,7 +839,14 @@ page                                         words  qual  span   extracted
 basecamp.com/pricing                         1729   good  210    2 plans found in 2 windows
                                                Pro Unlimited at $299/mo
                                                Pro at $15/mo
-basecamp.com/features                        -      -     -      not a pricing page - no extractor yet
+basecamp.com/features                        1436   good  867    10 capabilities stated (of 18 the page names)
+                                               Message Boards
+                                               Hill Charts
+                                               Card Tables
+                                               Campfire chats
+                                               ...
+                                               2 name(s) dropped - not words from the section
+basecamp.com/about                           -      -     -      no extractor yet for identity pages
 ```
 
 **Both plans, and both prices are right.** That page publishes `$299/month` Pro Unlimited and
@@ -850,6 +857,18 @@ silently dropping the rest does not read as incomplete, it reads as wrong.
 **The `span` column is 210 words against a page of 1729.** The model is sent one small window
 per plan — [ARCHITECTURE.md](ARCHITECTURE.md) §5.4's span pre-selection. Before those windows
 existed this page returned *"no price published"* (Run 5).
+
+**The features page answers the second question**, and it is answered differently. §5.4:
+*"Feature lists on structured pages — code first, model for normalization only."* The parser
+finds the sections that name something; the model only shortens `## Message Boards for
+announcements and discussions` to `Message Boards`.
+
+**Two lines under that answer are the interesting ones.** *"of 18 the page names"* is a cap
+being stated rather than applied quietly — twelve read out of eighteen is a short list, and
+twelve with no number beside it is a wrong one. *"2 name(s) dropped"* is a check: a capability
+name is a paraphrase by design, so the one thing that can be demanded of it is that its words
+came from the section. A 4B model that cannot name a section returns `string`, the field's own
+type, and that is what this drops.
 
 **Every stage prints what it decided**, and that is the point — a pipeline reporting only its
 last step gives a wrong answer six possible causes. The `span` column is how you tell a bad
@@ -882,7 +901,7 @@ Run 7 this same page reported *"Beginner at $5"* — the 5 was how many personal
 plan allows, read out of a feature-comparison table. A page that publishes nothing we can see
 is a **finding**, and §5.5's JavaScript-gap counter is what it feeds.
 
-**Two things are still wrong, and both are visible if you look:**
+**Three things are still wrong, and all are visible if you look:**
 
 ```bash
 cargo run -p landscape -- read https://www.notion.com
@@ -891,8 +910,26 @@ cargo run -p landscape -- read https://www.notion.com
 Notion reports four plans where three are real — `### Custom Agents` is an add-on, and an
 add-on is a heading with a price under it, which is exactly the shape a plan has. You may also
 see a billing period that disagrees with the page: `$16 per user/month` and `Billed yearly`
-are two facts and `BillingPeriod` has one field for them. Both are recorded in
+are two facts and `BillingPeriod` has one field for them.
+
+And on `linear.app` the pages discovery labels *features* are documentation:
+
+```bash
+cargo run -p landscape -- read https://linear.app
+```
+
+`/docs/sla.md` gives eight real capabilities, and `/docs/mcp.md` gives `Setup` and `Claude` —
+names from a setup guide. Sections with a code block in them are skipped, which removes the
+worst of it; the label itself is discovery's to fix. All three are in
 [ROADMAP.md](ROADMAP.md) rather than tuned away.
+
+**If a page reports nothing, look at what it converted to** — no model needed:
+
+```bash
+cargo run -p landscape-extract --example md -- saved-page.html
+```
+
+That is how `linear.app/docs/mcp.md` was found coming through as a single 2,167-word line.
 
 **Try the conversion on its own**, which does work and is worth seeing:
 
@@ -911,7 +948,7 @@ That prints the page's size; the Markdown behind it keeps the headings and table
 cargo test
 ```
 
-**You should see 283 passing, with nothing running.**
+**You should see 316 passing, with nothing running.**
 
 CI runs the same tests through `cargo nextest run`, which is faster and gives each test its
 own process — so a test that panics is reported as a failure instead of taking the run down
@@ -997,7 +1034,9 @@ python prototype/build.py --preview
 | 8E — basecamp `/pricing` reports **both** of its plans, priced | | |
 | 8E — linear `/pricing` reports three, starting at $0 | | |
 | 8E — todoist says "no pricing content" instead of guessing | | |
-| 8E — non-pricing pages say "no extractor yet" rather than guessing | | |
+| 8E — basecamp `/features` names ten real capabilities | | |
+| 8E — the cap and the dropped names are printed, not hidden | | |
+| 8E — pages of the other four kinds say "no extractor yet" | | |
 | 9 — `cargo test` green with nothing running | | |
 
 **If something differs from what is written here, that is a bug.** Every command above was run

@@ -416,9 +416,23 @@ the single most important phase; everything after it is commerce and polish.
   `landscape-extract::span`, [BENCHMARKS.md](BENCHMARKS.md) Runs 6 and 7. One window per plan,
   measured on six real pricing pages: basecamp 2, linear 3, plausible 3, notion 3 (plus an
   add-on it counts as a fourth), sentry 4 published twice each, todoist 0.
-  **What is left here is the other five question kinds.** `read` says *"not a pricing page —
-  no extractor yet"* for a docs page rather than running the pricing extractor over it, which
-  had produced a plan that does not exist.
+  **Two of the six question kinds have extractors.** *What it does* is built —
+  `landscape-extract::capability`, [BENCHMARKS.md](BENCHMARKS.md) Run 8 — following §5.4's
+  division: the parser finds the named sections, and the model only shortens the name.
+  Measured on five pages: basecamp 10 capabilities, notion 8 and 8, linear's SLA doc 8.
+  **Four kinds remain**: changes, identity, trust, direction. `read` names the kind and says
+  there is no extractor rather than running the wrong one.
+  Two findings from Run 8, recorded rather than fixed:
+  **A worked example in a prompt is a source of facts.** The capability prompt named
+  *Message Boards* as an illustration and the model reported Message Boards — a Basecamp
+  feature — for a page of Linear's documentation. The example is gone, and
+  `FeatureExtraction::name_is_from` now requires every word of a name to appear in the section
+  it came from. §P15 is about laundering someone else's hallucination; this is the same
+  failure with a shorter supply chain, and **every prompt in this codebase should be read for
+  it**.
+  **Discovery labels documentation as features.** `linear.app/docs/mcp.md` is a setup guide
+  whose sections are named for other people's editors. Sections containing a code block are
+  skipped now, which is a mitigation and not a fix — the label is discovery's.
   Three findings from Run 7 are recorded rather than fixed, each needing its own change:
   **`BillingPeriod` conflates two facts** — `$16 per user/month` and `Billed yearly` are both
   on the page and the type has one field for them, which is where the only wrong number in
@@ -428,6 +442,9 @@ the single most important phase; everything after it is commerce and polish.
   **Discovery admits localised duplicates** — `todoist.com/cs/pricing` and `/da/pricing` were
   both read and the English page never was; notion contributed `/es-es/pricing`. That is a
   discovery bug, and it costs model calls as well as accuracy.
+  Both discovery findings — the localised duplicates and the mislabelled documentation — point
+  at the same next piece of work, and it is **precision in discovery** rather than another
+  extractor.
 - All seven report sections, streamed over SSE.
 - Anonymous rate limit (2/day), share URL.
 

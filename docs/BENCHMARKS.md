@@ -29,6 +29,107 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 8 — the second question kind, and a prompt that taught the model a fact
+
+**Date:** 2026-08-03 · **Subjects:** basecamp, linear, notion · **Model:** Qwen3-4B Q4_K_M,
+unchanged since Run 5.
+
+Pricing was the first question. This is *what does the product do*, and
+[ARCHITECTURE.md](ARCHITECTURE.md) §5.4 says how to answer it:
+
+> | Feature lists on structured pages | **Code first**, model for normalization only |
+
+```bash
+cargo run -p landscape -- read https://basecamp.com
+```
+
+| Page | Sections named | Windows read | Capabilities reported |
+|---|---|---|---|
+| `basecamp.com/features` | 18 | 12 | **10** |
+| `notion.com/product/ai` | 20 | 12 | **8** |
+| `notion.com/product/docs` | 21 | 12 | **8** |
+| `linear.app/docs/sla.md` | 12 | 12 | **8** |
+| `linear.app/docs/mcp.md` | 6 | 6 | **5** |
+
+Basecamp's ten are Message Boards, Hill Charts, Card Tables, Campfire chats, Automatic
+Check-ins, Docs & Files, Reports, and three more — every one of them a real Basecamp feature.
+
+### The guess about page shape was wrong
+
+The plan was to read bullet lists. Four real features pages disagree:
+
+```text
+## Message Boards for announcements and discussions      basecamp.com/features
+### Customer Requests                                    linear.app/features
+### Capture                                              notion.com/product/docs
+```
+
+**A capability is a heading with a description under it**, and the bullet lists on those pages
+are navigation — `- Pricing`, `- Log in`, `- Books we've written`. Reading bullets would have
+reported Basecamp's footer as fourteen features.
+
+That leaves the model exactly §5.4's job: `Message Boards for announcements and discussions` is
+a heading a parser can find, and `Message Boards` is a name only a reader can cut out of it.
+
+### The prompt taught the model a fact, and the model used it
+
+The first prompt carried a worked example — *"a heading reading **Message Boards** for
+announcements and discussions names a capability called Message Boards"*. On the next run,
+`linear.app/docs/mcp.md` reported:
+
+```text
+MCP Server · Claude · Cursor · MCP · Message Boards
+```
+
+**Message Boards is Basecamp's feature.** It reached a Linear report through our own prompt.
+
+`FACT_CHECKING.md` §P15 is about laundering someone else's hallucination into our citation;
+this is the same failure with a shorter supply chain. **A worked example in a prompt is a
+source of facts**, and it is one with no URL, no fetch date, and nothing to cite.
+
+### Which is why a name is checked, not trusted
+
+A price can be checked verbatim. A capability name **cannot** — naming is the normalisation the
+model is there to do, so the answer is a paraphrase by design. The check that still holds is
+weaker and cheap: `FeatureExtraction::name_is_from` requires every word of the name to appear
+in the section.
+
+| It caught | On |
+|---|---|
+| `Message Boards` | `linear.app/docs/mcp.md` — the prompt leak, before the example was removed |
+| `string` — the field's own type | `linear.app/docs/sla.md`, twice |
+| 10 more names across five pages | all subjects |
+
+Removing the example fixed the first. The rest are dropped and counted, and `read` prints the
+count: *"4 name(s) dropped — not words from the section"*. **A page whose windows mostly fail
+this check is a page we should not be reading**, which is a signal worth having.
+
+### A page that was already Markdown
+
+`linear.app/docs/mcp.md` reported **no capabilities at all** before any of this. The cause was
+upstream of the extractor: `llms.txt` publishes a site as Markdown, discovery follows it, and
+the HTML converter turned that page into **one 2,167-word line**. A `#` is text to an HTML
+parser, and there were no block tags to break lines on.
+
+Nothing downstream could find a section in it, so the page reported nothing and looked exactly
+like a page that had nothing on it. `markdown::from_body` now recognises a Markdown body.
+
+### What is still wrong
+
+**Two of Linear's three "features" pages are documentation.** `/docs/mcp.md` is a setup guide,
+and its sections are named for other people's editors — `### Zed`, `### Windsurf`. Read as
+capabilities they say Linear's product includes Zed. Sections containing a code block are now
+skipped, which removes the most confident version of that answer, and `Setup` and `Claude`
+still come through. **The label came from discovery, and only discovery can fix it.**
+
+**The model shortens most names and not all.** `The Project page keeps it all together` came
+back whole. Nine of twelve on Basecamp were cut correctly; the rest are the heading.
+
+**A capability with no qualifier may still be conditional.** Nothing on these pages said
+*beta* or *Business and above*, so the `qualifier` field is measured only by unit tests.
+
+---
+
 ## Run 7 — six real pricing pages, and the one that had no prices on it
 
 **Date:** 2026-08-03 · **Subjects:** basecamp, linear, plausible, notion, sentry, todoist ·
