@@ -27,7 +27,9 @@
 //! [ADR 0005]: ../../../docs/decisions/0005-observability-on-a-24gb-box.md
 
 pub mod embedded;
+pub mod markdown;
 pub mod price;
+pub mod quality;
 pub mod text;
 
 /// Where a page's price was found, if anywhere.

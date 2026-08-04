@@ -61,6 +61,11 @@ enum Role {
     ///
     /// FACT_CHECKING §3.3's structured probes, sitemap and llms.txt, ranked and capped at 8.
     Discover,
+    /// Discover, fetch, convert and extract — the whole path, for one company.
+    ///
+    /// The first command that runs every piece in order. It exists because each piece has
+    /// been testable alone for several weeks and the joins between them had never been run.
+    Read,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -106,8 +111,9 @@ async fn main() -> Result<()> {
         Some("fetch") => Role::Fetch,
         Some("gap") => Role::Gap,
         Some("discover") => Role::Discover,
+        Some("read") => Role::Read,
         Some(other) => anyhow::bail!(
-            "unknown command {other:?}. Try: dev, serve, worker, migrate, fetch, gap, discover"
+            "unknown command {other:?}.              Try: dev, serve, worker, migrate, fetch, gap, discover, read"
         ),
     };
 
@@ -121,6 +127,9 @@ async fn main() -> Result<()> {
     }
     if role == Role::Discover {
         return discover_sources(&args).await;
+    }
+    if role == Role::Read {
+        return read_company(&args).await;
     }
 
     let backing = if args.iter().any(|a| a == "--store=memory")
@@ -272,11 +281,159 @@ Example:
     Ok(())
 }
 
+/// `landscape read <origin>` — discovery, fetch, Markdown, and extraction in one run.
+///
+/// Every stage prints what it decided, because the point of this command is watching the
+/// joins rather than seeing an answer. A pipeline that only reports its last step is one
+/// where a wrong answer has six possible causes and no way to tell them apart.
+async fn read_company(args: &[String]) -> Result<()> {
+    let origin = args.get(1).filter(|a| !a.starts_with("--")).context(
+        "usage: landscape read <origin>
+
+Example:
+  landscape read https://basecamp.com",
+    )?;
+
+    let fetcher = landscape_fetch::Fetcher::new();
+    let found = landscape_discover::discover(&fetcher, origin).await;
+    println!("{}", found.render());
+
+    if found.sources.is_empty() {
+        return Ok(());
+    }
+
+    // Only built if a model answers. Everything above this line is deterministic and worth
+    // seeing on its own, which is why the check happens here rather than at the top.
+    let llm = landscape_llm::LlamaClient::from_env();
+    let model_ready = llm.is_ready().await;
+    if !model_ready {
+        println!(
+            "No llama-server at {} - stopping after conversion.
+             Start one and re-run to see extraction:
+               llama-server -hf Qwen/Qwen3-4B-GGUF:Q4_K_M --host 127.0.0.1 --port 8080",
+            llm.base()
+        );
+    }
+
+    println!("{:<44} {:<6} {:<7} extracted", "page", "words", "quality");
+    println!("{}", "-".repeat(96));
+
+    for source in &found.sources {
+        let Ok(page) = fetcher.get(&source.url).await else {
+            println!(
+                "{:<44} {:<6} {:<7} could not fetch",
+                short(&source.url),
+                "-",
+                "-"
+            );
+            continue;
+        };
+        let markdown = landscape_extract::markdown::from_html(&page.body);
+        let assessment = landscape_extract::quality::assess(&markdown);
+
+        if !assessment.quality.worth_extracting() {
+            // Not an error. The page was read and there was nothing on it, which is what a
+            // report says rather than something it retries.
+            println!(
+                "{:<44} {:<6} {:<7} skipped - nothing to read",
+                short(&source.url),
+                assessment.words,
+                assessment.quality.name()
+            );
+            continue;
+        }
+        if !model_ready {
+            println!(
+                "{:<44} {:<6} {:<7} (no model)",
+                short(&source.url),
+                assessment.words,
+                assessment.quality.name()
+            );
+            continue;
+        }
+
+        let prompt = extraction_prompt(&source.url, &markdown);
+        let decode = landscape_llm::Decode {
+            max_tokens: 300,
+            temperature: 0.0,
+            seed: Some(7),
+        };
+        let extracted: Result<landscape_core::PricingExtraction, _> =
+            llm.generate(&prompt, &decode).await;
+
+        let summary = match extracted {
+            Ok(e) => match (e.plan_name.as_deref(), e.price_usd) {
+                (Some(plan), Some(price)) => format!("{plan} at ${price}"),
+                (Some(plan), None) => format!("{plan}, no price published"),
+                (None, Some(price)) => format!("${price}, no plan named"),
+                (None, None) => "nothing found".to_owned(),
+            },
+            Err(e) => format!("model error: {e}"),
+        };
+        println!(
+            "{:<44} {:<6} {:<7} {summary}",
+            short(&source.url),
+            assessment.words,
+            assessment.quality.name()
+        );
+    }
+    Ok(())
+}
+
+/// The extraction prompt, kept beside the only thing that sends it.
+///
+/// **This must name a plan, and the first draft did not.** The golden set's prompt opens
+/// with `Plan to extract: <name>`; this one said only "a single plan", and against
+/// basecamp.com — a page showing `$299/month` and `$15/user` plainly — the model answered
+/// *"no price published"*. The price was in the Markdown and inside the prompt; the model
+/// simply had no way to know which of two plans was being asked about, and abstaining was
+/// the honest thing for it to do.
+///
+/// That is a real limitation and not only a prompt bug: [`PricingExtraction`] models **one**
+/// plan, and a pricing page has several. Naming the first plan the page presents makes the
+/// question answerable; extracting *all* the plans needs a different type and is the next
+/// piece of work. `ROADMAP.md` records it.
+///
+/// [`PricingExtraction`]: landscape_core::PricingExtraction
+fn extraction_prompt(url: &str, markdown: &str) -> String {
+    let page: String = markdown.chars().take(6000).collect();
+    format!(
+        "You are reading one page from a company's website and extracting what it says          about the pricing of one plan.
+
+         Plan to extract: the first plan this page presents. If the page names several,          take the one appearing earliest.
+
+         Page: {url}
+
+         Rules:
+         - Use only what this page states. Do not use anything you know from elsewhere.
+         - If the page does not state something, leave that field null. A missing price is          a fact worth reporting; a guessed one is not.
+         - Report the price of that one plan only. A price on this page for a different          plan, a different product, or an add-on is not this plan's price.
+         - If price_usd is null then billing_period must be null too.
+         - price_usd is in US dollars. Ignore prices given in other currencies.
+         - evidence_quote must be copied from the page word for word.
+
+         PAGE
+---
+{page}
+---
+
+Return the extraction as JSON."
+    )
+}
+
+fn short(url: &str) -> String {
+    let s = url.strip_prefix("https://").unwrap_or(url);
+    if s.chars().count() <= 42 {
+        return s.to_owned();
+    }
+    s.chars().take(41).collect::<String>() + "…"
+}
+
 async fn run(role: Role, store: Arc<dyn Store>) -> Result<()> {
     match role {
         Role::Migrate => Ok(()),
         // Handled before any store exists; see `main`.
-        Role::Fetch | Role::Gap | Role::Discover => Ok(()),
+        Role::Fetch | Role::Gap | Role::Discover | Role::Read => Ok(()),
         Role::Serve => serve(store).await,
         Role::Worker => worker(store).await,
         Role::Dev => {

@@ -868,6 +868,7 @@ dependencies = [
  "landscape-discover",
  "landscape-extract",
  "landscape-fetch",
+ "landscape-llm",
  "serde_json",
  "tokio",
  "tower-http",
