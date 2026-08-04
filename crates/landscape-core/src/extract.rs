@@ -283,6 +283,27 @@ impl IdentityExtraction {
     }
 }
 
+/// A value and the words it was read from.
+///
+/// **A quote belongs to a fact, not to a page.** The first version of [`PageIdentity`] held one
+/// list of quotes and paired them to facts by position, and the report it produced put the
+/// founding sentence under *"based in the EU"* — evidence for a claim it does not support,
+/// which is the one thing this codebase must never render.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Stated<T> {
+    pub value: T,
+    /// The page's own words. `None` when the model gave none.
+    pub quote: Option<String>,
+}
+
+impl<T> Stated<T> {
+    /// The quote, or an empty string.
+    #[must_use]
+    pub fn quote_or_empty(&self) -> String {
+        self.quote.clone().unwrap_or_default()
+    }
+}
+
 /// What one page said about who the company is.
 ///
 /// Assembled from one window per fact, so the three answers arrive separately and the first
@@ -291,15 +312,19 @@ impl IdentityExtraction {
 /// the page leads with.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PageIdentity {
-    pub founded_year: Option<u16>,
-    pub headquarters: Option<String>,
-    pub employees: Option<u32>,
-    /// One quote per fact, in the order the facts were found.
-    pub evidence: Vec<String>,
+    pub founded_year: Option<Stated<u16>>,
+    pub headquarters: Option<Stated<String>>,
+    pub employees: Option<Stated<u32>>,
 }
 
 impl PageIdentity {
     /// Merge per-window extractions into what the page says.
+    ///
+    /// Each value keeps the quote from the extraction it arrived in, **and only if the quote
+    /// contains it**. The model picked a neighbouring sentence more than once — a page's
+    /// headquarters was rendered under a sentence about web analytics drifting from its
+    /// purpose — and a quote that does not contain the fact is not evidence for it. Losing the
+    /// quote is the smaller loss: the value was already checked against the whole window.
     #[must_use]
     pub fn assembled(extractions: impl IntoIterator<Item = IdentityExtraction>) -> Self {
         let mut out = Self::default();
@@ -307,13 +332,26 @@ impl PageIdentity {
             if got.is_empty() {
                 continue;
             }
-            out.founded_year = out.founded_year.or(got.founded_year);
-            out.headquarters = out.headquarters.clone().or(got.headquarters);
-            out.employees = out.employees.or(got.employees);
-            if let Some(quote) = got.evidence_quote {
-                if !quote.trim().is_empty() && !out.evidence.contains(&quote) {
-                    out.evidence.push(quote);
-                }
+            let quote = got.evidence_quote.filter(|q| !q.trim().is_empty());
+            if out.founded_year.is_none() {
+                out.founded_year = got.founded_year.map(|value| Stated {
+                    quote: quote.clone().filter(|q| states_number(q, u32::from(value))),
+                    value,
+                });
+            }
+            if out.headquarters.is_none() {
+                out.headquarters = got.headquarters.map(|value| Stated {
+                    quote: quote
+                        .clone()
+                        .filter(|q| q.to_lowercase().contains(&value.to_lowercase())),
+                    value,
+                });
+            }
+            if out.employees.is_none() {
+                out.employees = got.employees.map(|value| Stated {
+                    quote: quote.clone().filter(|q| states_number(q, value)),
+                    value,
+                });
             }
         }
         out
@@ -853,10 +891,13 @@ mod tests {
             identity(None, Some("the EU"), None),
             identity(None, None, Some(10)),
         ]);
-        assert_eq!(page.founded_year, Some(2019));
-        assert_eq!(page.headquarters.as_deref(), Some("the EU"));
-        assert_eq!(page.employees, Some(10));
         assert_eq!(page.facts(), 3);
+        assert_eq!(page.founded_year.map(|s| s.value), Some(2019));
+        assert_eq!(
+            page.headquarters.map(|s| s.value).as_deref(),
+            Some("the EU")
+        );
+        assert_eq!(page.employees.map(|s| s.value), Some(10));
     }
 
     #[test]
@@ -867,7 +908,7 @@ mod tests {
             identity(None, None, Some(10)),
             identity(None, None, Some(400)),
         ]);
-        assert_eq!(page.employees, Some(10));
+        assert_eq!(page.employees.map(|s| s.value), Some(10));
     }
 
     #[test]
@@ -875,20 +916,44 @@ mod tests {
         let page = PageIdentity::assembled([IdentityExtraction::empty()]);
         assert!(page.is_empty());
         assert_eq!(page.facts(), 0);
-        assert!(page.evidence.is_empty());
     }
 
     #[test]
-    fn each_fact_brings_its_own_quote() {
-        let with_quote = |quote: &str, year| IdentityExtraction {
-            evidence_quote: Some(quote.to_owned()),
-            ..identity(year, None, None)
+    fn a_quote_that_does_not_contain_the_fact_is_not_evidence_for_it() {
+        // The model picks a neighbouring sentence out of the window it was given. The value
+        // survives — it was checked against the whole window — and the quote does not.
+        let got = IdentityExtraction {
+            evidence_quote: Some("We built it because analytics had drifted".to_owned()),
+            ..identity(None, Some("the EU"), None)
         };
-        let page = PageIdentity::assembled([
-            with_quote("founded in 2019", Some(2019)),
-            with_quote("founded in 2019", Some(2019)),
-        ]);
-        assert_eq!(page.evidence.len(), 1, "the same quote twice is one quote");
+        let page = PageIdentity::assembled([got]);
+        let place = page.headquarters.unwrap();
+        assert_eq!(place.value, "the EU");
+        assert_eq!(place.quote, None, "kept a quote that does not say it");
+    }
+
+    #[test]
+    fn a_fact_keeps_the_quote_it_arrived_with() {
+        // The report caught this: quotes were held in one list and paired to facts by
+        // position, so the founding sentence was rendered under "based in the EU". Evidence
+        // for a claim it does not support is the one thing never to render.
+        let founding = IdentityExtraction {
+            evidence_quote: Some("started Plausible in December 2018".to_owned()),
+            ..identity(Some(2018), None, None)
+        };
+        let place = IdentityExtraction {
+            evidence_quote: Some("a company based in the EU".to_owned()),
+            ..identity(None, Some("the EU"), None)
+        };
+        let page = PageIdentity::assembled([founding, place]);
+        assert_eq!(
+            page.founded_year.unwrap().quote.as_deref(),
+            Some("started Plausible in December 2018")
+        );
+        assert_eq!(
+            page.headquarters.unwrap().quote.as_deref(),
+            Some("a company based in the EU")
+        );
     }
 
     #[test]

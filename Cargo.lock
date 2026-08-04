@@ -862,6 +862,7 @@ dependencies = [
  "anyhow",
  "axum",
  "chrono",
+ "landscape-analyze",
  "landscape-api",
  "landscape-core",
  "landscape-db",
@@ -874,6 +875,19 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "landscape-analyze"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "landscape-core",
+ "landscape-discover",
+ "landscape-extract",
+ "landscape-fetch",
+ "landscape-llm",
+ "tokio",
 ]
 
 [[package]]

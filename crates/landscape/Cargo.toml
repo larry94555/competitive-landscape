@@ -14,6 +14,7 @@ name = "landscape"
 path = "src/main.rs"
 
 [dependencies]
+landscape-analyze.workspace = true
 landscape-api.workspace = true
 landscape-core.workspace = true
 landscape-db.workspace = true
