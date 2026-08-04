@@ -410,7 +410,9 @@ prefix, which llama.cpp caches across calls. Therefore:
 
 ### 7.5 Evaluate against the hardware you have
 
-- The golden set runs **on the A1 instance**, not on a laptop. A prompt change that improves
+- The golden set runs **on the same hardware as the last run it is compared against**, and
+  that hardware is a development machine rather than the deployment host — see
+  [ADR 0011](decisions/0011-no-experiments-on-production.md). A prompt change that improves
   quality but adds 40 seconds is a regression here and must be visible as one.
 - Track **quality per second**, not just quality: the eval report carries both the rubric
   score and the measured latency for every configuration.

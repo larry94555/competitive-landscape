@@ -260,11 +260,14 @@ holding it.
 - Build `llama-server` on the host with ARM `dotprod`/`i8mm` enabled; three supervised
   processes per [ARCHITECTURE.md](ARCHITECTURE.md) §4.7, each with `--mlock`, `Restart=always`
   and `MemoryMax=`.
-- **Benchmark harness** (`landscape-bench`), run **on the actual A1 instance** — laptop
-  numbers are worthless here. For each candidate model × quantization measure prefill tok/s,
-  generation tok/s, resident RAM, time-to-first-token, and aggregate throughput at
-  `--parallel 1/2/4/8`, on realistic prompts (400-token span window in → 100-token structured
-  JSON out; 4k-token bundle in → 700 out).
+- ~~**Benchmark harness** (`landscape-bench`), run on the actual instance.~~ **Rewritten.**
+  The harness exists and runs **locally** — [ADR 0011](decisions/0011-no-experiments-on-production.md):
+  nothing benchmarks the deployment host from the inside, because an experiment leaves a
+  toolchain and a set of assumptions behind in the thing customers depend on. What a laptop
+  gives is **ratios and accuracy**, which is what a model choice needs; what it cannot give is
+  seconds-in-production, which is a **client-side** measurement against something deployed.
+  Still open locally: prefill and generation tok/s separately, time-to-first-token, and
+  aggregate throughput at `--parallel 1/2/4/8`.
 - Bake-off across **Qwen3-1.7B / 4B / 8B / 14B**, plus **Gemma 3 4B/12B** and
   **Llama 3.2 3B** as alternates, at **Q4_K_M *and* Q4_0** (ARM repacking may make the
   lower-quality format the faster one — measure, don't assume), with a Q8_0 reference.
@@ -274,14 +277,18 @@ holding it.
   into our own ToS and reserves Google the right to **restrict our usage remotely** — which
   reintroduces the third-party dependency the local-model decision was taken to avoid. The
   bake-off is therefore not "measure and pick the fastest".
-  **The commands to run it are written**: [A1_BAKEOFF.md](A1_BAKEOFF.md).
+  **It has been run**: [MODEL_BAKEOFF.md](MODEL_BAKEOFF.md), results in
+  [BENCHMARKS.md](BENCHMARKS.md) Run 14. **Qwen3-4B Q4_K_M is the extraction tier** — 90% of
+  fields, and it has never invented a price. The 1.7B Q8_0 is 2.8× faster and invented one on
+  `contact-sales`, which is the most common real case and the most damaging place to do it.
+  The wider sweep — 8B, 14B, Gemma, Llama, `Q4_0` — is still open and still local.
 - **Prefill is the thing to measure most carefully.** On 4 ARM cores it dominates, and the
   span-pre-selection design (§5.4) lives or dies on these numbers.
   **Span pre-selection now exists** and cuts a 1729-word page to a ~260-word window, so the
-  prefill the A1 has to do per source is roughly a seventh of what Run 2 measured. The
-  bake-off numbers should be read against the window, not the page.
-- Validate `q8_0` KV cache quantization against the golden set — three resident models share
-  a tight KV budget, so this decision cannot be deferred as it could on a 64 GB box.
+  prefill per source is roughly a seventh of what Run 2 measured. Every bake-off number should
+  be read against the window, not the page.
+- ~~Validate `q8_0` KV cache quantization against the golden set.~~ **Done** — Run 14.
+  Identical scorecard, subject by subject, and **0.79 GB back per model**. Adopted.
 - Prove GBNF constrained decoding end-to-end: Rust struct → `schemars` JSON Schema →
   GBNF → llama-server → parsed back into the struct. This is the spine of the product;
   validate it before anything else is built on it.
@@ -304,9 +311,11 @@ structural, and retrofitting them is expensive.
 
 **Exit criteria** — status as of 2026-08-03
 
-- ☐ A documented three-model choice (Router / Extractor / Synthesizer) with measured prefill
-  and generation tok/s on the A1, at the chosen `--parallel`, fitting the ~17 GB budget.
-  **Blocked on the A1**, but no longer blocked on evidence. The tiering thesis holds — a
+- ☑ A documented three-model choice (Router / Extractor / Synthesizer), **measured locally** —
+  [BENCHMARKS.md](BENCHMARKS.md) Run 14, [ADR 0011](decisions/0011-no-experiments-on-production.md).
+  **Qwen3-4B Q4_K_M extracts**; the 1.7B Q8_0 is 2.8× faster and invented a price on
+  `contact-sales`, which is the most common real case on a competitor's page and the most
+  damaging place to invent one. The tiering thesis holds — a
   1.7B router is ~3.3× faster than the 4B (Run 2) — and Run 3 draws the boundary Run 2 could
   not see: **the 1.7B returns a price for a plan that publishes none**, taking it from the
   plan above on the same page and quoting that line verbatim. It is a viable Router and not
@@ -331,10 +340,13 @@ structural, and retrofitting them is expensive.
   id through its `tracing` span, the `x-request-id` header, and — the part usually skipped —
   the body of a 5xx, so the person reading the screen has something to quote. What we give up
   is named in the ADR: aggregate questions are not answerable from logs alone.
-- ☐ `q8_0` KV quantization decided on evidence, and the `--mlock` + no-swap configuration
-  verified under load. **Blocked on the A1** — but the instrument it needs now exists: the
-  golden set is what "decided on evidence" means here, and a KV-quantization decision made
-  on latency alone would repeat the mistake Run 3 was built to prevent.
+- ☑ `q8_0` KV quantization **decided on evidence** — Run 14, locally. Same golden-set score
+  to the subject, 0.79 GB less memory, so it is adopted. The rule was written before the
+  numbers existed: take it only if the score does not move, because a decision made on memory
+  alone would repeat the mistake Run 3 was built to prevent.
+  Still open: the `--mlock` and no-swap configuration under load. That is a **property of a
+  deployment**, and it is observed from how the deployed thing behaves rather than by running
+  an experiment on it.
 - ☐ **Concierge track: ≥5 reports delivered to real people**, with their reactions recorded —
   what they read first, what they ignored, what they asked for, whether they would pay.
   **Not started. This is the G1 gate and the highest-risk open item.**
@@ -347,7 +359,8 @@ structural, and retrofitting them is expensive.
 
 **Also delivered, beyond the original list**
 
-- `landscape-bench` — the benchmark harness, ready to point at the A1.
+- `landscape-bench` — the benchmark harness. Run locally; the ratios it produces are what a
+  model choice needs, and the seconds a user waits are measured elsewhere.
 - `landscape-golden` — ten frozen pages, hand-written answers, and a score. The set
   **validates itself** with no model running: every reference answer must appear verbatim on
   its page, at least three subjects must require abstaining, and every subject must justify
@@ -1217,7 +1230,9 @@ section-parallel generation batched across slots (continuous batching is worth m
 memory-bound CPU than on GPU); a ≤900-token generation budget; aggressive caching, where hit
 rate *is* the capacity plan; progressive streaming with first content in 20–40s; honest
 queue-position display; and a revenue-triggered ladder to Rung 1 and Rung 2 (§6). Phase 0
-measures all of this on the actual A1 instance before any product code depends on it.
+measures the model half of this locally, and the latency half **from the client's side of a
+deployment** — never by benchmarking the host itself
+([ADR 0011](decisions/0011-no-experiments-on-production.md)).
 *Critically:* the landing page promises Rung-0 reality, not Rung-2 aspiration.
 *Early warning:* p95 latency, queue depth, abandonment rate mid-stream, prefill share of
 total inference time.

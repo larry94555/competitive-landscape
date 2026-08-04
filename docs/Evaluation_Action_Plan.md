@@ -309,6 +309,7 @@ Consolidated, so the impact is legible without re-reading the table.
 
 **Three things to do before Phase 1 begins**
 1. Provision the Oracle A1 and convert to Pay-As-You-Go — capacity is scarce and R11 depends
-   on holding it.
+   on holding it. *(A deployment step. Nothing is benchmarked there —
+   [ADR 0011](decisions/0011-no-experiments-on-production.md).)*
 2. Run the name and trademark check.
 3. Deliver at least five concierge reports and record what happened.

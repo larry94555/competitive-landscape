@@ -51,13 +51,13 @@ scoring problem inside one question rather than an argument against spreading ac
 questions.
 
 **The cap is now coupled to the latency estimate.** `CAP_RUNG_0 = 8` is what the end-to-end
-figure in `BENCHMARKS.md` will be derived from once the A1 numbers exist. A test asserts the
+figure in `BENCHMARKS.md` will be derived from once a client-side latency measurement exists. A test asserts the
 value so that changing it fails loudly rather than silently invalidating a published figure.
 
 **Discovery is dominated by its own rate limit.** Fourteen probes plus a sitemap is fifteen
 requests at one per second before a single page has been read for *content*. Against 90–180
 seconds that is a real share, which is why the probe list is prioritised, why it stays short,
-and why `Discovered::stopped_early` exists. If the A1 numbers make the budget tighter than
+and why `Discovered::stopped_early` exists. If a real deployment makes the budget tighter than
 expected, cutting probes is the first lever — and the priority ordering means the cut lands
 on the least valuable ones automatically.
 

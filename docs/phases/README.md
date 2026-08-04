@@ -37,15 +37,20 @@ conversation with a founder that I was not part of.
 
 ## If you only do one thing
 
-**Phase 0, Step 1 — [run the bake-off](PHASE_0.md#step-1--run-the-model-bake-off-on-the-a1).**
-Ninety minutes in one sitting, closes two of the five open exit criteria, and unblocks six
-technical tasks queued behind it. Nothing else available has that ratio.
+**Phase 0, Step 1 — [the concierge five](PHASE_0.md#step-1--the-concierge-five-the-g1-gate).**
+It needs no infrastructure, no code and no server. It is the highest-risk open item in the
+entire roadmap, and the only thing that can tell you the report format or the positioning is
+wrong **before** Phase 1 is built on top of it.
+
+> **The bake-off used to be at the top of this list**, as ninety minutes on the Oracle box. It
+> was two questions about weights and flags, it was answered on a laptop instead
+> ([ADR 0011](../decisions/0011-no-experiments-on-production.md),
+> [BENCHMARKS.md](../BENCHMARKS.md) Run 14), and both exit criteria are closed.
 
 ## If you only do two
 
-**Phase 0, Step 2 — [the concierge five](PHASE_0.md#step-2--the-concierge-five-the-g1-gate).**
-It needs no infrastructure and no code. It is the highest-risk open item in the entire
-roadmap, and it is the only thing that can tell you the report format or the positioning is
-wrong **before** Phase 1 is built on top of it.
+**Phase 0, Step 2 — [the source-terms audit](PHASE_0.md#step-2--the-source-terms-audit-track-d).**
+It decides whether the review platforms are a data source or a wall, and the discovery
+ranking is written against an assumption until it is answered.
 
 Everything else can wait behind those two.

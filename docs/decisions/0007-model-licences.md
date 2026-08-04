@@ -12,7 +12,7 @@
 
 The bake-off list is Qwen3 1.7B/4B/8B/14B, plus Gemma 3 4B/12B and Llama 3.2 3B as
 alternates. Benchmarking a model we cannot ship would waste the scarce thing here, which is
-time on the A1.
+time on the deployment host.
 
 Read from the primary sources on 2026-08-03 — the model cards and the licence texts
 themselves, not summaries.

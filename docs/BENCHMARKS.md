@@ -4,7 +4,11 @@
 > file before a model is chosen, because every latency figure in the specification is
 > otherwise an estimate.
 >
-> **Still nothing measured on the target hardware.** The A1 is not provisioned. These are
+> **Nothing here is measured on the deployment host, and nothing will be** —
+> [ADR 0011](decisions/0011-no-experiments-on-production.md). A benchmark leaves a toolchain,
+> a downloaded model and a set of assumptions behind in the thing customers depend on. What a
+> laptop cannot answer — how long somebody waits — is answered from the client's side of a
+> deployment, not from inside the box. These are
 > laptop numbers and are labelled as such.
 
 Two harnesses, measuring different things. Timings come from the first; whether the answers
@@ -26,6 +30,81 @@ lives, which decides whether a headless browser is ever built:
 ```bash
 cargo run -p landscape -- gap docs/js-gap-sample.txt
 ```
+
+---
+
+## Run 14 — the bake-off, run here
+
+**Date:** 2026-08-04 · **Machine:** this laptop — 13th Gen Intel i7-1360P, 16 threads, 16 GB.
+**Not the deployment host, on purpose** —
+[ADR 0011](decisions/0011-no-experiments-on-production.md).
+
+Two Phase 0 exit criteria had been waiting on somebody opening a terminal on a server. Both of
+them turn out to be questions about weights and flags rather than about hardware, and both
+were answered in an afternoon.
+
+### The three-model choice — exit criterion 1
+
+| Model | fields | perfect | **invented prices** | span median |
+|---|---|---|---|---|
+| **Qwen3-4B Q4_K_M** | **90%** | **8/10** | **0** | 16.4 s |
+| Qwen3-1.7B Q8_0 | 87% | 7/10 | **1** | **5.8 s** |
+| `unsloth` 1.7B Q4_K_M *(control)* | 10% | 0/10 | 3 | 5.5 s |
+
+**Three points between them, and the three points are the whole decision.** The 1.7B is 2.8×
+faster and it invented a price — on `contact-sales`, which the golden set describes as *"the
+single most common real case on a competitor's pricing page, and the one where an invented
+number does the most damage"*:
+
+```text
+expected  price None
+returned  price Some(100.0), period Some(Yearly)
+```
+
+There is no page on the open web where that number appears. **The 4B has never invented one**,
+across Runs 4, 12 and this one.
+
+So the extraction tier stays the 4B, and the 1.7B is not promoted to it. Its speed is real and
+it can have work where a wrong number is cheap — routing, classification — but not the tier
+that fills a table a reader will check.
+
+### The control did its job
+
+`unsloth/Qwen3-1.7B-Q4_K_M` scored **10%, 0/10, three invented prices** — the same numbers as
+Run 3, on a harness that has changed a great deal since. An instrument that still separates a
+defective quantisation from a good one is an instrument the other two rows can be believed
+from.
+
+### `q8_0` KV cache — exit criterion 5
+
+Same weights, same prompts, `-ngl 0` on both sides so the GPU is out of the experiment.
+
+| | fields | perfect | invented | private memory |
+|---|---|---|---|---|
+| KV `f16` | 90% | 8/10 | 0 | 2.52 GB |
+| **KV `q8_0`** | **90%** | **8/10** | **0** | **1.73 GB** |
+
+**Identical scorecards, subject by subject — and 0.79 GB back.** The rule this was measured
+against was written before the numbers existed: *take it if the score is unchanged and memory
+drops; do not if the score moves at all.* The score did not move. **Adopt `q8_0` KV.**
+
+Three resident models make that ~2.4 GB across the fleet, which is the difference between the
+three-model design fitting a 24 GB box and being an argument.
+
+### What this run cannot tell anyone
+
+**How long a report takes in production.** Not on 16 x86 threads, and not from inside a
+server either. The ratios transfer — the 4B is 2.8× the 1.7B on the span shape and will be on
+any CPU — and the seconds do not.
+
+That number is a **client-side measurement**: use the deployed product, time the wait, and
+include the network and the browser, because the user does. Phase 0's latency criterion has
+been restated to say so.
+
+### Reproducing it
+
+[MODEL_BAKEOFF.md](MODEL_BAKEOFF.md), which unlike the document it replaced has been run end
+to end on the machine it was written on.
 
 ---
 
@@ -976,7 +1055,7 @@ the 4B — before any fetching, and under three-way contention. Run 1's pessimis
 **Longer prompts did not cost proportionally more.** The span shape is roughly 13× the
 sentence shape in characters, and was *faster* on both models. Prefill on x86 with 8 threads
 is not the binding constraint the architecture expects it to be on 4 ARM cores — **which is
-exactly why this must be re-run on the A1 before anything is concluded.**
+exactly why the *ratio* is the transferable part and the seconds are not.**
 
 ### Two findings that cost more than the timings
 
@@ -1034,21 +1113,35 @@ cargo test -p landscape-llm -- --ignored --nocapture
 
 ---
 
-## Still to measure — all of it on the A1
+## Still to measure
 
-None of this is done. It is the remainder of Phase 0's model work.
+The list below has been split by **where the answer lives**, which is the change
+[ADR 0011](decisions/0011-no-experiments-on-production.md) makes. Most of it was never a
+question about the deployment host.
 
-- [ ] Provision the A1 and convert to Pay-As-You-Go
-- [ ] Re-run everything above on 4 ARM cores. **Prefill is expected to behave differently**,
-      and the tiering conclusion depends on it
+**Locally, and nothing stops it:**
+
+- [x] ~~`q8_0` KV cache quantization validated against the golden set~~ — Run 14. Adopted.
+- [x] ~~One server at a time, so the numbers are not contended~~ — Run 14 ran the KV
+      comparison CPU-only with the GPU out of the experiment.
 - [ ] Prefill and generation tok/s separately, rather than end-to-end latency
-- [ ] `Q4_K_M` **and** `Q4_0` — ARM repacking may make the lower-quality format faster
+- [ ] `Q4_K_M` **and** `Q4_0` — the repacking question is a property of the format and the
+      CPU's instructions, and an ARM laptop or a cheap ARM VM answers it as well as anything
 - [ ] Qwen3 1.7B / 4B / 8B / 14B, Gemma 3 4B/12B, Llama 3.2 3B. **Licence review first**
 - [ ] Aggregate throughput at `--parallel 1/2/4/8`
-- [ ] Resident RAM for three models against the ~17 GB budget
-- [ ] `q8_0` KV cache quantization validated against the golden set
 - [ ] Time-to-first-token
-- [ ] One server at a time, so the numbers are not contended
+- [ ] Resident RAM for three models against the ~17 GB budget
+
+**From a client, against something deployed — never from inside it:**
+
+- [ ] How long a report takes, end to end, as a user experiences it. That includes the
+      network and the browser, which a stopwatch on the server cannot see.
+- [ ] Whether the 90–180 second promise holds for somebody sitting in front of it.
+
+**Not a measurement at all:**
+
+- [ ] ~~Provision the A1 and convert to Pay-As-You-Go~~ — a deployment step, and not one that
+      belongs on a benchmarking list.
 
 Run 3 adds two of its own:
 

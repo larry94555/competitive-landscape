@@ -318,8 +318,11 @@ Ranked by expected impact per unit of effort.
    trademark check; put up the waitlist landing page.
 4. **Concierge validation sprint** (weeks 1–2, parallel with Phase 0 benchmarking): 5–10
    hand-made reports for real founders, per §7.1.
-5. **Phase 0 as written**, on the actual A1 — plus the week-1 review-platform access audit
-   (§6.1).
+5. **Phase 0 as written** — plus the week-1 review-platform access audit (§6.1).
+   *(Editor's note, 2026-08-04: this recommendation said "on the actual A1". That is no longer
+   how Phase 0 measures anything —
+   [ADR 0011](decisions/0011-no-experiments-on-production.md). The bake-off it refers to ran
+   locally and closed both criteria; the text is left as it was written.)*
 6. **Write `DISTRIBUTION.md`** before Phase 1 begins, and begin the weekly distribution
    cadence with Phase 1.
 7. **Then Phase 1**, with the golden set gaining discovery-shaped prompts from the concierge

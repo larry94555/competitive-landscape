@@ -5,55 +5,31 @@
 >
 > **Engineering is complete.** Every remaining item is on this page.
 
-**Where it stands: 3 of 8 exit criteria met.** The other five are below. Two of them close
-with a single 90-minute sitting.
+**Where it stands: 5 of 8 exit criteria met.** Three are below, and **none of them asks you to
+run anything on a server**.
 
 | Exit criterion | Closed by |
 |---|---|
 | ✅ Grammar-constrained JSON, 0 parse failures / 100 | Done |
 | ✅ A written observability decision | Done — [ADR 0005](../decisions/0005-observability-on-a-24gb-box.md) |
 | ✅ Every merge gate green from commit one | Done |
-| ❌ Three-model choice, measured on the A1 | **Step 1** |
-| ❌ `q8_0` KV quantization decided on evidence | **Step 1** |
-| ❌ Concierge: ≥5 reports to real people | **Step 2** |
-| ❌ Review-platform access decision recorded | **Step 3** |
-| ❌ Realistic end-to-end latency estimate | **Mine**, after Step 1 |
+| ✅ Three-model choice | Done — [BENCHMARKS.md](../BENCHMARKS.md) Run 14, run locally |
+| ✅ `q8_0` KV quantization decided on evidence | Done — Run 14. Same score, 0.79 GB back |
+| ❌ Concierge: ≥5 reports to real people | **Step 1** |
+| ❌ Review-platform access decision recorded | **Step 2** |
+| ❌ End-to-end latency, as a user experiences it | **Mine**, after there is something deployed |
+
+> **The two that just closed used to be a 90-minute sitting on the Oracle box.** They were
+> questions about weights and flags, not about hardware, and they were answered on a laptop in
+> an afternoon — [ADR 0011](../decisions/0011-no-experiments-on-production.md). Nothing
+> measures the production host from the inside, now or later.
 
 ---
 
-## Step 1 — Run the model bake-off on the A1
-
-**The highest-value thing available.** Closes two exit criteria and unblocks six technical
-tasks queued behind it.
-
-| | |
-|---|---|
-| **Do** | Run the commands in the bake-off sheet on the Oracle A1, and paste the output back to me |
-| **Where** | [`docs/A1_BAKEOFF.md`](../A1_BAKEOFF.md) — open it on the box, or read it here and paste commands over |
-| **Time** | ~90 minutes, most of it models downloading and `llama.cpp` compiling. One sitting, not spread out |
-| **Done when** | You have pasted me: the §0 machine check, whether `dotprod`/`i8mm` compiled in, and for each of two models — the bench table, the golden-set scorecard, and resident memory. Plus the same scorecard again with `q8_0` KV |
-| **I confirm by** | **Automatically.** I turn your output into `BENCHMARKS.md` **Run 4**, write the three-model choice into `ROADMAP.md` with the numbers behind it, and tick exit criteria 1 and 5. If the numbers contradict the tiering thesis, I say so rather than fitting them to it |
-
-**Start with §0 of that sheet before anything else.** It runs `uname -m`, `nproc`, `free` and
-`swapon`. That answers three things I have been hedging about for several messages — whether
-the shape is really `A1.Flex` at 4 OCPU / 24 GB aarch64, and whether swap is off. If any of
-those comes back wrong, **stop and tell me**: an x86 instance or a 1 GB box changes the model
-choice completely and the remaining 85 minutes would be wasted.
-
-> **Deployment is not part of this.** The sheet installs no services, opens no ports, writes
-> no systemd units and touches no database. It compiles `llama.cpp`, runs two harnesses, and
-> prints numbers.
-
-**If a step fails, paste the failure.** That sheet was written from the specification and
-verified on a laptop — it has **never been run on ARM**, and it says so in its own closing
-section. A step that does not work there is a bug in my document.
-
----
-
-## Step 2 — The concierge five (the G1 gate)
+## Step 1 — The concierge five (the G1 gate)
 
 **The highest-risk open item in the roadmap**, and it needs no infrastructure, no code and no
-A1.
+server.
 
 | | |
 |---|---|
@@ -75,7 +51,7 @@ the reaction. I do not need the reports themselves unless you want them in the r
 
 ---
 
-## Step 3 — The source-terms audit (Track D)
+## Step 2 — The source-terms audit (Track D)
 
 Half a day, and **two of these can invalidate a planned feature**. Cheap now, expensive in
 Phase 3.
@@ -99,7 +75,7 @@ Phase 3.
 
 ---
 
-## Step 4 — Register the domain and put up a waitlist page
+## Step 3 — Register the domain and put up a waitlist page
 
 | | |
 |---|---|
@@ -115,7 +91,7 @@ backdate.
 
 ---
 
-## Step 5 — Name and trademark check
+## Step 4 — Name and trademark check
 
 | | |
 |---|---|
@@ -130,7 +106,7 @@ then have to change is the wrong order.
 
 ---
 
-## Step 6 — Confirm the A1 is Pay-As-You-Go
+## Step 5 — Confirm the A1 is Pay-As-You-Go
 
 | | |
 |---|---|
@@ -145,8 +121,8 @@ ends**. Roadmap risk R11 depends on holding that instance, and A1 capacity is sc
 that losing it is not a quick thing to undo. Staying inside the free limits on a PAYG account
 still bills €0.
 
-*(§0 of the bake-off sheet answers the **shape** question. This one is separate and the
-console is the only place to see it.)*
+*(This is a console question — reading a billing page, not running anything on the
+instance.)*
 
 ---
 
@@ -156,10 +132,10 @@ Nothing on this list is blocked on me, but three things are waiting behind it:
 
 | After | I will |
 |---|---|
-| Step 1 | Write `BENCHMARKS.md` Run 4; decide the three-model split with numbers; **write the end-to-end latency estimate and the honest Rung-0 promise** — that is the eighth exit criterion, and it is mine, not yours |
-| Step 2 | Fold each concierge subject into the golden set as a reference sheet |
-| Step 3 | Write one ADR per source; promote fallback discovery channels to the primary path if the review platforms say no |
+| Step 1 | Fold each concierge subject into the golden set as a reference sheet |
+| Step 2 | Write one ADR per source; promote fallback discovery channels to the primary path if the review platforms say no |
+| A deployment existing | **Time a report from the client's side** — the network and the browser included, because a user waits through those too. That is the eighth exit criterion, and it is mine |
 
-**Phase 0 closes when all six steps above are done and I have written the latency decision.**
+**Phase 0 closes when the five steps above are done and I have written the latency decision.**
 At that point I will update `ROADMAP.md`, tick all eight exit criteria, and say so plainly —
 including if any measurement contradicts something the roadmap currently assumes.
