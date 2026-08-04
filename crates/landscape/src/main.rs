@@ -298,6 +298,10 @@ Example:
     let found = landscape_discover::discover(&fetcher, origin).await;
     println!("{}", found.render());
 
+    // The one place the clock is read. Everything downstream takes today as an argument, so
+    // that what a report says about a 90-day window can be tested without waiting 90 days.
+    let today = chrono::Utc::now().date_naive();
+
     if found.sources.is_empty() {
         return Ok(());
     }
@@ -329,7 +333,10 @@ Example:
         // answer.
         use landscape_discover::probes::Answers;
         let kind = source.answers;
-        if !matches!(kind, Answers::Pricing | Answers::Features) {
+        if !matches!(
+            kind,
+            Answers::Pricing | Answers::Features | Answers::Changes
+        ) {
             println!(
                 "{:<44} {:<6} {:<5} {:<6} no extractor yet for {} pages",
                 short(&source.url),
@@ -362,6 +369,13 @@ Example:
                 assessment.quality.name(),
                 "-"
             );
+            continue;
+        }
+        if kind == Answers::Changes {
+            // Ahead of the model check on purpose: dates are parsed, not generated, so a
+            // changelog is read whether or not a `llama-server` is running. ARCHITECTURE
+            // §5.4 is the reason there is nothing to ask a model here.
+            read_changes(&source.url, &markdown, &assessment, today);
             continue;
         }
         if !model_ready {
@@ -475,6 +489,97 @@ fn describe(plan: &landscape_core::PricingExtraction) -> String {
         (Some(name), None) => format!("{name}, no price published"),
         (None, Some(price)) => format!("${price}{period}, no plan named"),
         (None, None) => "nothing found".to_owned(),
+    }
+}
+
+/// The changes half of `read`. **No model runs here.**
+///
+/// ARCHITECTURE §5.4: *"Dates are the most common LLM fabrication in 'recent changes' and are
+/// trivially verifiable."* So they are parsed, and what is printed is what the page says, with
+/// the line it says it on.
+fn read_changes(
+    url: &str,
+    markdown: &str,
+    assessment: &landscape_extract::quality::Assessment,
+    today: chrono::NaiveDate,
+) {
+    let found = landscape_extract::changes::every_change(markdown);
+    let page = landscape_core::PageChanges {
+        changes: found
+            .entries
+            .iter()
+            .map(|e| landscape_core::Change {
+                happened_on: chrono::NaiveDate::from_ymd_opt(e.year, e.month, e.day),
+                summary: (!e.title.is_empty()).then(|| e.title.clone()),
+                evidence_quote: Some(e.quote.clone()),
+            })
+            .collect(),
+        considered: found.considered,
+    };
+
+    if page.is_empty() {
+        // Not "no changes". `linear.app/docs/releases.md` is documentation about a feature
+        // called Releases, and this is what makes that visible instead of inventing a
+        // changelog out of it.
+        println!(
+            "{:<44} {:<6} {:<5} {:<6} no dated entries on the page",
+            short(url),
+            assessment.words,
+            assessment.quality.name(),
+            "-"
+        );
+        return;
+    }
+
+    let recent = page.recent(today);
+    let older = page.older_than_lookback(today);
+    let ahead = page.dated_ahead(today);
+    println!(
+        "{:<44} {:<6} {:<5} {:<6} {} change(s) in {} days, {older} older",
+        short(url),
+        assessment.words,
+        assessment.quality.name(),
+        page.changes.len(),
+        recent.len(),
+        landscape_core::PageChanges::LOOKBACK_DAYS,
+    );
+    for change in recent.iter().take(6) {
+        let when = change
+            .happened_on
+            .map_or_else(|| "?".to_owned(), |d| d.to_string());
+        let what = change.summary.as_deref().unwrap_or("(untitled)");
+        println!("{:<44}   {when}  {what}", "");
+    }
+    if recent.len() > 6 {
+        println!(
+            "{:<44}   ... and {} more inside the window",
+            "",
+            recent.len() - 6
+        );
+    }
+    // Both of these are facts about the page rather than about the product, and both are
+    // silent failures if they are not said: a changelog whose newest entry is a year old is
+    // a finding, and a dated promise is not a shipped change.
+    if recent.is_empty() {
+        println!(
+            "{:<44}   nothing inside the window - the newest entry is older than {} days",
+            "",
+            landscape_core::PageChanges::LOOKBACK_DAYS
+        );
+    }
+    if ahead > 0 {
+        println!(
+            "{:<44}   {ahead} entr(y/ies) dated ahead of today - announced, not shipped",
+            ""
+        );
+    }
+    if found.considered > found.entries.len() {
+        println!(
+            "{:<44}   read {} of {} dated entries on the page",
+            "",
+            found.entries.len(),
+            found.considered
+        );
     }
 }
 

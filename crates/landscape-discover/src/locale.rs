@@ -47,6 +47,15 @@ pub fn leading(path: &str) -> Option<&str> {
 }
 
 /// Whether a segment is a language tag, with or without a region.
+///
+/// Public because classification needs to skip a leading locale too: `/de/blog/a-post` is a
+/// post in German, and the segment that says so should not be mistaken for the publication.
+#[must_use]
+pub fn is_locale_segment(segment: &str) -> bool {
+    is_locale(segment)
+}
+
+/// Whether a segment is a language tag, with or without a region.
 fn is_locale(segment: &str) -> bool {
     let lowered = segment.to_lowercase();
     let (language, region) = match lowered.split_once(['-', '_']) {

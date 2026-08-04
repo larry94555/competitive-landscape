@@ -106,6 +106,12 @@ pub fn admit(candidates: Vec<Candidate>, cap: usize) -> Vec<Candidate> {
         group.sort_by(|a, b| {
             b.via
                 .cmp(&a.via)
+                // Then the page that names the question most directly. Length is the last
+                // word rather than the second, because it was deciding real cases on nothing:
+                // `/blog` is shorter than `/releases` and notion's changelog went unread.
+                .then_with(|| {
+                    crate::probes::specificity(&a.url).cmp(&crate::probes::specificity(&b.url))
+                })
                 .then_with(|| a.url.len().cmp(&b.url.len()))
         });
     }
@@ -267,6 +273,18 @@ mod tests {
         let admitted = admit(candidates, 8);
         assert_eq!(admitted.len(), 1);
         assert_eq!(admitted[0].url, "https://e.com/en-us/pricing");
+    }
+
+    #[test]
+    fn the_changelog_outranks_the_blog() {
+        // Both answer *what changed*, both came the same way, and the shorter URL used to
+        // win. notion.com/blog holds no dated entry; /releases holds dozens.
+        let candidates = vec![
+            c("https://e.com/blog", Answers::Changes, Via::LlmsTxt),
+            c("https://e.com/releases", Answers::Changes, Via::LlmsTxt),
+        ];
+        let admitted = admit(candidates, 1);
+        assert_eq!(admitted[0].url, "https://e.com/releases");
     }
 
     #[test]

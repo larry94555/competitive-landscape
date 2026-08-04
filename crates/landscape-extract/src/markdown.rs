@@ -323,11 +323,20 @@ fn events(html: &str) -> Vec<Event> {
             .collect::<String>()
             .to_lowercase();
         if !name.is_empty() {
-            out.push(if closing {
-                Event::Close(name)
+            if closing {
+                out.push(Event::Close(name));
             } else {
-                Event::Open(name)
-            });
+                // `<time datetime="2026-07-14">two weeks ago</time>`. The attribute is the
+                // machine-readable date ARCHITECTURE §5.4 names, and the element's text is
+                // often relative and useless — so the attribute is emitted as text, ahead of
+                // whatever the element says.
+                if name == "time" {
+                    if let Some(value) = attribute(inner, "datetime") {
+                        out.push(Event::Text(value));
+                    }
+                }
+                out.push(Event::Open(name));
+            }
         }
         rest = &after[end + 1..];
     }
@@ -335,6 +344,25 @@ fn events(html: &str) -> Vec<Event> {
         out.push(Event::Text(rest.to_owned()));
     }
     out
+}
+
+/// One attribute's value out of a raw tag body, quoted either way.
+fn attribute(inner: &str, name: &str) -> Option<String> {
+    let lower = inner.to_lowercase();
+    let at = lower.find(&format!("{name}="))? + name.len() + 1;
+    let rest = inner.get(at..)?.trim_start();
+    let quote = rest.chars().next()?;
+    if quote == '"' || quote == '\'' {
+        let end = rest[1..].find(quote)? + 1;
+        return Some(rest[1..end].trim().to_owned());
+    }
+    Some(
+        rest.split_whitespace()
+            .next()
+            .unwrap_or_default()
+            .trim_end_matches('>')
+            .to_owned(),
+    )
 }
 
 fn squash(s: &str) -> String {
@@ -362,6 +390,21 @@ fn tidy_blank_lines(s: &str) -> String {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
+
+    #[test]
+    fn a_time_element_gives_up_its_machine_readable_date() {
+        // ARCHITECTURE §5.4 names `<time>` alongside the date regex, and this is why: the
+        // text of the element is often relative and the attribute never is.
+        let html = "<p><time datetime=\"2026-07-14\">two weeks ago</time> Shipped it</p>";
+        let out = from_body(html);
+        assert!(out.contains("2026-07-14"), "{out}");
+    }
+
+    #[test]
+    fn a_time_element_without_the_attribute_is_just_text() {
+        let html = "<p><time>July 14, 2026</time></p>";
+        assert!(from_body(html).contains("July 14, 2026"));
+    }
 
     #[test]
     fn a_body_that_is_already_markdown_keeps_its_headings() {

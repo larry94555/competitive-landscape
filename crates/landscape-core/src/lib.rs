@@ -17,7 +17,10 @@ pub mod source;
 pub mod subject;
 
 pub use analysis::{Analysis, AnalysisId, AnalysisStatus, NewAnalysis};
-pub use extract::{BillingPeriod, FeatureExtraction, PageFeatures, PagePricing, PricingExtraction};
+pub use extract::{
+    BillingPeriod, Change, FeatureExtraction, PageChanges, PageFeatures, PagePricing,
+    PricingExtraction,
+};
 pub use report::{Claim, Confidence, Report, Section, SectionStatus};
 pub use source::{Disposition, Source};
 pub use subject::{resolve, Candidate, Resolution};
