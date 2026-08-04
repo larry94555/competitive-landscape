@@ -18,7 +18,7 @@ fn main() {
             eprintln!("{path}: could not read");
             continue;
         };
-        let markdown = landscape_extract::markdown::from_html(&html);
+        let markdown = landscape_extract::markdown::from_body(&html);
         let plans = landscape_extract::span::every_plan(&markdown);
         println!(
             "\n===== {path}\n{} lines of Markdown, {} window(s)",

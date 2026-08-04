@@ -322,18 +322,21 @@ Example:
     println!("{}", "-".repeat(100));
 
     for source in &found.sources {
-        // Discovery already labelled what each page answers, and this loop only knows how
-        // to extract pricing. Running a pricing extractor over a documentation page found
-        // "MCP server at $0" on linear.app/docs/mcp.md — a plan that does not exist,
-        // stated confidently. The other extractors are not built yet; until they are, the
-        // honest thing is to say so rather than to guess.
-        if source.answers != landscape_discover::probes::Answers::Pricing {
+        // Discovery already labelled what each page answers, and there is an extractor for
+        // two of the six labels. Running the wrong one is not a small error: the pricing
+        // extractor over linear.app/docs/mcp.md found "MCP server at $0", a plan that does
+        // not exist, stated confidently. Until the other four exist, saying so is the honest
+        // answer.
+        use landscape_discover::probes::Answers;
+        let kind = source.answers;
+        if !matches!(kind, Answers::Pricing | Answers::Features) {
             println!(
-                "{:<44} {:<6} {:<5} {:<6} not a pricing page - no extractor yet",
+                "{:<44} {:<6} {:<5} {:<6} no extractor yet for {} pages",
                 short(&source.url),
                 "-",
                 "-",
-                "-"
+                "-",
+                kind.name()
             );
             continue;
         }
@@ -346,7 +349,7 @@ Example:
             );
             continue;
         };
-        let markdown = landscape_extract::markdown::from_html(&page.body);
+        let markdown = landscape_extract::markdown::from_body(&page.body);
         let assessment = landscape_extract::quality::assess(&markdown);
 
         if !assessment.quality.worth_extracting() {
@@ -369,6 +372,11 @@ Example:
                 assessment.quality.name(),
                 "-"
             );
+            continue;
+        }
+
+        if kind == Answers::Features {
+            read_features(&llm, &source.url, &markdown, &assessment).await;
             continue;
         }
 
@@ -468,6 +476,142 @@ fn describe(plan: &landscape_core::PricingExtraction) -> String {
         (None, Some(price)) => format!("${price}{period}, no plan named"),
         (None, None) => "nothing found".to_owned(),
     }
+}
+
+/// The features half of `read`, kept apart because the two questions are not alike.
+///
+/// A price is on the page or it is not. A capability is **a claim a vendor makes about
+/// itself**, so what this can honestly print is *what the page says it does* — never that it
+/// does it. `PRODUCT_SPEC.md` §3 marks these cells ✓ **P**, for "stated on a primary source".
+async fn read_features(
+    llm: &landscape_llm::LlamaClient,
+    url: &str,
+    markdown: &str,
+    assessment: &landscape_extract::quality::Assessment,
+) {
+    let found = landscape_extract::capability::every_capability(markdown);
+    if found.windows.is_empty() {
+        // A features page written as one long paragraph names nothing this can point at.
+        // That is a finding, and the one ARCHITECTURE §5.4 predicts: the deterministic half
+        // works on structured pages, and prose needs a model to do more than normalise.
+        println!(
+            "{:<44} {:<6} {:<5} {:<6} no named capabilities on the page",
+            short(url),
+            assessment.words,
+            assessment.quality.name(),
+            "-"
+        );
+        return;
+    }
+
+    let decode = landscape_llm::Decode {
+        max_tokens: 300,
+        temperature: 0.0,
+        seed: Some(7),
+    };
+    let mut extracted: Vec<landscape_core::FeatureExtraction> =
+        Vec::with_capacity(found.windows.len());
+    let mut unsupported = 0usize;
+    let mut ungrounded = 0usize;
+    let mut failures = Vec::new();
+    for window in &found.windows {
+        let prompt = capability_prompt(url, window);
+        match llm
+            .generate::<landscape_core::FeatureExtraction>(&prompt, &decode)
+            .await
+        {
+            Ok(got) => {
+                // Two checks, and they catch different lies. The quote is verbatim or it is
+                // fabricated evidence; the name is a paraphrase by design, so all that can
+                // be asked of it is that its words came from this section.
+                let section = window.prompt_text();
+                if !got.name_is_from(&section) {
+                    ungrounded += 1;
+                    continue;
+                }
+                if !got.quote_is_verbatim(&section) {
+                    unsupported += 1;
+                }
+                extracted.push(got);
+            }
+            Err(e) => failures.push(format!("{e}")),
+        }
+    }
+    let page = landscape_core::PageFeatures::assembled(extracted, found.considered);
+
+    let words: usize = found
+        .windows
+        .iter()
+        .map(|w| w.text.split_whitespace().count())
+        .sum();
+    // The cap is stated, not applied quietly. Twelve read out of forty is a short list;
+    // twelve with no number beside it is a wrong one.
+    let capped = if found.considered > found.windows.len() {
+        format!(" (of {} the page names)", found.considered)
+    } else {
+        String::new()
+    };
+    println!(
+        "{:<44} {:<6} {:<5} {:<6} {} capabilit{} stated{capped}",
+        short(url),
+        assessment.words,
+        assessment.quality.name(),
+        words,
+        page.features.len(),
+        if page.features.len() == 1 { "y" } else { "ies" },
+    );
+    for feature in &page.features {
+        let name = feature.capability.as_deref().unwrap_or("unnamed");
+        match feature.qualifier.as_deref() {
+            Some(q) if !q.is_empty() => println!("{:<44}   {name} ({q})", ""),
+            _ => println!("{:<44}   {name}", ""),
+        }
+    }
+    if ungrounded > 0 {
+        println!(
+            "{:<44}   {ungrounded} name(s) dropped - not words from the section",
+            ""
+        );
+    }
+    if unsupported > 0 {
+        println!(
+            "{:<44}   {unsupported} quote(s) not found in the section they came from",
+            ""
+        );
+    }
+    for failure in &failures {
+        println!("{:<44}   model error: {failure}", "");
+    }
+}
+
+/// The capability prompt. Normalisation, which is all ARCHITECTURE §5.4 asks a model for here.
+///
+/// The section is already known to name something — that is what made it a candidate — so the
+/// question is not *what does this page offer* but **what is this thing called**. A features
+/// page writes `## Message Boards for announcements and discussions`, and the capability is
+/// the first two words of it.
+fn capability_prompt(url: &str, window: &landscape_extract::span::Span) -> String {
+    let section: String = window.prompt_text().chars().take(6000).collect();
+    format!(
+        "You are reading one section of a company's features page. The section describes         one capability of the product. Name it.
+
+         Page: {url}
+
+         Rules:
+         - capability is the shortest name the section itself uses for the thing, as a noun          phrase. Not a sentence, and not a benefit. Where a heading names a thing and then          says what it is for, the name is the part before that.
+         - Every word of capability must appear in the section. Never write a placeholder,          a field type, or a name taken from these instructions.
+         - Use only the words of this section. Do not use anything you know from elsewhere.
+         - qualifier is a condition the section attaches to the capability - beta, coming          soon, a plan it requires. Leave it null unless the section states one.
+         - Do not record whether the capability is any good, only what it is called.
+         - evidence_quote must be copied from the section word for word.
+
+         SECTION
+---
+{section}
+---
+
+Return the extraction as JSON."
+    )
 }
 
 /// The extraction prompt, kept beside the only thing that sends it.

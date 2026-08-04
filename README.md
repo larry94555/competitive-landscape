@@ -305,7 +305,8 @@ crates/
   landscape-llm/    constrained generation: a Rust type in, that type out
   landscape-bench/  measures how fast a llama-server is
   landscape-discover/ which pages to read about a company, and which eight
-  landscape-extract/ a page into Markdown, and the ~400 tokens per plan worth reading
+  landscape-extract/ a page into Markdown, and the ~400 tokens per plan or
+                     capability worth reading
   landscape-fetch/  the outside world: SSRF guard, robots.txt, per-host politeness
   landscape-golden/ measures whether it is right. Ten frozen pages, known answers
   landscape/        the binary: dev | serve | worker | migrate

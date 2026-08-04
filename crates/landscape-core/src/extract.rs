@@ -155,6 +155,133 @@ impl PagePricing {
     }
 }
 
+/// One capability, as a page describes it.
+///
+/// The second question kind. It differs from pricing in what can be checked: a price is on the
+/// page or it is not, and a capability is a *claim the vendor makes about itself*. So the
+/// fields here are deliberately thin — the name of the thing and the words the page used — and
+/// there is no field for whether it works.
+///
+/// `PRODUCT_SPEC.md` §3's matrix marks a capability ✓ **P** for "stated on a primary source",
+/// never "verified". This type is what fills that cell, and it can only ever mean *the vendor
+/// says so*.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct FeatureExtraction {
+    /// What the thing is called, as short as the page allows. `None` when the section
+    /// describes something without naming it.
+    pub capability: Option<String>,
+
+    /// A condition the page attaches to it — `beta`, `Business plan and above`, `coming
+    /// soon`. `None` when the page states it plainly, which is the common case.
+    ///
+    /// This is the field that stops a matrix from lying. A ✓ for something available only on
+    /// the top tier is not the same fact as a ✓, and the difference is what a competitor
+    /// report is *for*.
+    pub qualifier: Option<String>,
+
+    /// The words the page used, copied verbatim — checkable the same way a price's quote is.
+    pub evidence_quote: Option<String>,
+}
+
+impl FeatureExtraction {
+    /// An extraction that found nothing.
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            capability: None,
+            qualifier: None,
+            evidence_quote: None,
+        }
+    }
+
+    /// Whether the quote, if there is one, really appears in the source.
+    #[must_use]
+    pub fn quote_is_verbatim(&self, source: &str) -> bool {
+        let Some(quote) = &self.evidence_quote else {
+            return true;
+        };
+        let quote = squash(quote);
+        quote.is_empty() || squash(source).contains(&quote)
+    }
+
+    /// Whether every word of the name appears in the section it was taken from.
+    ///
+    /// **A capability is the one field that cannot be checked verbatim** — naming is the
+    /// normalisation the model is there to do, so the answer is a paraphrase by design. This
+    /// is the weaker check that still holds: the words have to come from the page.
+    ///
+    /// It exists because of two real answers. A 4B model handed a section it could not name
+    /// returned `string`, the field's own type; and while an example lived in the prompt —
+    /// *"a heading reading Message Boards…"* — it returned **Message Boards** for a page of
+    /// Linear's documentation. **A worked example in a prompt is a source of facts**, and that
+    /// one laundered a Basecamp feature into a Linear report.
+    #[must_use]
+    pub fn name_is_from(&self, source: &str) -> bool {
+        let Some(name) = &self.capability else {
+            return true;
+        };
+        let haystack = squash(&source.to_lowercase());
+        let lowered = name.to_lowercase();
+        let mut words = lowered
+            .split_whitespace()
+            .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()))
+            .filter(|w| !w.is_empty())
+            .peekable();
+        words.peek().is_some() && words.all(|w| haystack.contains(w))
+    }
+}
+
+/// Everything one page says the product does.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct PageFeatures {
+    /// In the order the page presents them.
+    pub features: Vec<FeatureExtraction>,
+    /// How many candidate sections the page offered before any cap was applied.
+    ///
+    /// A features page can list forty things and we read twelve. **Carrying the number is the
+    /// difference between a short list and a wrong one**, and it is the same discipline
+    /// `FACT_CHECKING.md` §5.4 applies to an absent fact: say what was looked at.
+    pub considered: usize,
+}
+
+impl PageFeatures {
+    /// Assemble per-window extractions into what the page says.
+    ///
+    /// Drops the ones that named nothing, and the same capability named twice — a page that
+    /// lists a feature in a summary and again in detail states one fact, not two.
+    #[must_use]
+    pub fn assembled(
+        extractions: impl IntoIterator<Item = FeatureExtraction>,
+        considered: usize,
+    ) -> Self {
+        let mut features: Vec<FeatureExtraction> = Vec::new();
+        for got in extractions {
+            let Some(name) = got.capability.as_deref().map(normalise) else {
+                continue;
+            };
+            if name.is_empty() || features.iter().any(|f| named_the_same(f, &name)) {
+                continue;
+            }
+            features.push(got);
+        }
+        Self {
+            features,
+            considered,
+        }
+    }
+
+    /// Whether the page named nothing at all.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.features.is_empty()
+    }
+}
+
+/// Whether an already-kept feature carries this name.
+fn named_the_same(kept: &FeatureExtraction, name: &str) -> bool {
+    kept.capability.as_deref().map(normalise).as_deref() == Some(name)
+}
+
 /// Collapse every run of whitespace to one space.
 fn squash(s: &str) -> String {
     s.split_whitespace().collect::<Vec<_>>().join(" ")
@@ -304,6 +431,100 @@ mod tests {
     #[test]
     fn a_page_with_no_plans_says_so() {
         assert!(PagePricing::assembled([]).is_empty());
+    }
+
+    fn capability(name: &str) -> FeatureExtraction {
+        FeatureExtraction {
+            capability: Some(name.to_owned()),
+            ..FeatureExtraction::empty()
+        }
+    }
+
+    #[test]
+    fn a_capability_named_twice_is_one_capability() {
+        // Pages summarise a feature and then describe it. That is one fact.
+        let page = PageFeatures::assembled(
+            [capability("Message Boards"), capability("message boards ")],
+            2,
+        );
+        assert_eq!(page.features.len(), 1, "{page:?}");
+    }
+
+    #[test]
+    fn a_window_that_named_nothing_is_not_a_capability() {
+        let page = PageFeatures::assembled([FeatureExtraction::empty(), capability("Reports")], 2);
+        assert_eq!(page.features.len(), 1);
+    }
+
+    #[test]
+    fn the_number_considered_survives_assembly() {
+        // Twelve read out of forty is a short list. Twelve with no number beside it is a
+        // wrong one — FACT_CHECKING §5.4's rule about saying what was looked at.
+        let page = PageFeatures::assembled([capability("Reports")], 40);
+        assert_eq!(page.considered, 40);
+    }
+
+    #[test]
+    fn a_qualifier_is_kept_because_it_changes_the_fact() {
+        // A capability available only on the top tier is not the same fact as one that is
+        // simply available, and a matrix that flattens the two is lying politely.
+        let beta = FeatureExtraction {
+            capability: Some("Code Intelligence".to_owned()),
+            qualifier: Some("beta".to_owned()),
+            evidence_quote: Some("Code Intelligence (beta)".to_owned()),
+        };
+        let page = PageFeatures::assembled([beta.clone()], 1);
+        assert_eq!(page.features[0].qualifier.as_deref(), Some("beta"));
+        assert!(beta.quote_is_verbatim("- Loops\n- Code Intelligence (beta)\n- Linear Insights"));
+    }
+
+    #[test]
+    fn a_name_the_section_never_used_is_not_from_it() {
+        // Both halves of this happened. `string` is the field's own type, returned by a 4B
+        // model that could not name a section; `Message Boards` is a Basecamp feature the
+        // model read out of an example in the prompt and reported for a Linear page.
+        let section = "### SLA notifications
+Get notified when an SLA is close to breaching.";
+        for invented in ["string", "Message Boards"] {
+            let got = capability(invented);
+            assert!(!got.name_is_from(section), "accepted {invented}");
+        }
+        assert!(capability("SLA notifications").name_is_from(section));
+    }
+
+    #[test]
+    fn a_shortened_name_is_still_from_the_section() {
+        // The normalisation the model is there for: the words must come from the page, but
+        // they need not be contiguous or in order.
+        let section = "## Message Boards for announcements and discussions
+They replace email.";
+        assert!(capability("Message Boards").name_is_from(section));
+    }
+
+    #[test]
+    fn naming_nothing_is_not_a_fabrication() {
+        assert!(FeatureExtraction::empty().name_is_from("anything"));
+    }
+
+    #[test]
+    fn a_paraphrased_capability_quote_is_not_verbatim() {
+        let claimed = FeatureExtraction {
+            evidence_quote: Some("Code Intelligence, in beta".to_owned()),
+            ..FeatureExtraction::empty()
+        };
+        assert!(!claimed.quote_is_verbatim("- Code Intelligence (beta)"));
+    }
+
+    #[test]
+    fn the_feature_schema_allows_every_field_to_be_absent() {
+        // Same assertion as pricing, for the same reason: the grammar cannot emit a shape the
+        // type forbids, so a required field would guarantee an invented capability.
+        let schema = serde_json::to_value(schemars::schema_for!(FeatureExtraction)).unwrap();
+        let required = schema.get("required").and_then(|r| r.as_array());
+        assert!(
+            required.is_none_or(|r| r.is_empty()),
+            "no field may be required: {schema:#}"
+        );
     }
 
     #[test]

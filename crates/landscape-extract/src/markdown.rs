@@ -43,7 +43,51 @@ use std::fmt::Write as _;
 /// the cut somewhere we can see it.
 pub const MAX_CHARS: usize = 40_000;
 
-/// Convert a page to Markdown.
+/// Convert a fetched body to Markdown, whatever it arrived as.
+///
+/// **Some of what we fetch is already Markdown.** `llms.txt` exists to publish a site as
+/// Markdown, discovery follows it, and `linear.app/docs/mcp.md` came back through the HTML
+/// converter as **one 2,167-word line** — every heading gone, because a Markdown `#` is text
+/// to an HTML parser and there were no block tags to break lines on. Nothing downstream could
+/// find a section in it, so the page reported no capabilities and looked like a page that had
+/// none.
+///
+/// The sniff is deliberately narrow: Markdown headings present, and no sign of an HTML
+/// document around them. A page that is HTML and happens to contain a `#` still goes through
+/// the parser.
+#[must_use]
+pub fn from_body(body: &str) -> String {
+    if is_markdown(body) {
+        let trimmed: String = body.chars().take(MAX_CHARS).collect();
+        return tidy_blank_lines(&trimmed);
+    }
+    from_html(body)
+}
+
+/// Whether this body is Markdown already rather than HTML.
+fn is_markdown(body: &str) -> bool {
+    /// One heading can be a stray `#` in prose. Two is a document.
+    const HEADINGS: usize = 2;
+
+    let head: String = body
+        .chars()
+        .take(4000)
+        .to_owned()
+        .collect::<String>()
+        .to_lowercase();
+    if head.contains("<html") || head.contains("<body") || head.contains("<!doctype") {
+        return false;
+    }
+    body.lines()
+        .filter(|l| {
+            let t = l.trim_start();
+            t.starts_with("# ") || t.starts_with("## ") || t.starts_with("### ")
+        })
+        .count()
+        >= HEADINGS
+}
+
+/// Convert an HTML page to Markdown.
 #[must_use]
 pub fn from_html(html: &str) -> String {
     let cleaned = crate::text::strip_invisible(html);
@@ -318,6 +362,42 @@ fn tidy_blank_lines(s: &str) -> String {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
+
+    #[test]
+    fn a_body_that_is_already_markdown_keeps_its_headings() {
+        // `llms.txt` publishes a site as Markdown and discovery follows it. Through the HTML
+        // converter, linear.app/docs/mcp.md came back as one 2,167-word line: a `#` is text
+        // to an HTML parser, and there were no block tags to break lines on. Nothing
+        // downstream can find a section in that, so the page looked like it had none.
+        let body = "# MCP server
+
+The server provides an interface.
+
+## Setup
+
+Use OAuth.";
+        let out = from_body(body);
+        assert!(out.contains("# MCP server"), "{out}");
+        assert!(out.contains("## Setup"), "{out}");
+        assert_eq!(out.lines().filter(|l| l.starts_with('#')).count(), 2);
+    }
+
+    #[test]
+    fn an_html_body_still_goes_through_the_parser() {
+        // Including one that mentions a hash. The sniff must not fire on prose.
+        let html = "<html><body><h2>Plans</h2><p>Ticket #1 is open</p></body></html>";
+        assert!(from_body(html).contains("## Plans"));
+    }
+
+    #[test]
+    fn a_markdown_body_is_bounded_like_any_other() {
+        let body = "# H
+## H2
+"
+        .to_owned()
+            + &"a word ".repeat(40_000);
+        assert!(from_body(&body).chars().count() <= MAX_CHARS);
+    }
     use super::*;
 
     #[test]
