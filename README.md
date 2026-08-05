@@ -219,6 +219,26 @@ sixth is caught by a unit test elsewhere. Building it found a seventeenth — a 
 dozen releases that read as having no dates at all. See
 [BENCHMARKS.md](docs/BENCHMARKS.md) Run 17.
 
+### Running it as one process
+
+The binary serves the built web app, so a deployment is one artefact rather than a server and a
+dev server:
+
+```bash
+cd web && npm run build && cd ..
+```
+
+```bash
+cargo run -p landscape -- dev --store memory
+```
+
+Then <http://127.0.0.1:8787>. `WEB_DIR` overrides where it looks for the build; with no build
+present it serves the API alone and says so, which is what `npm run dev` beside `cargo run`
+relies on.
+
+Any path the API does not claim returns `index.html`, because the page owns its own routing —
+that is what lets a link to one analysis survive a refresh.
+
 ### The documentation is tested
 
 Two bugs once reached a reader through correct code and a stale README: a port that had

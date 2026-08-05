@@ -121,6 +121,7 @@ Rung 2 speed while serving Rung 0 is the fastest available way to destroy trust.
 |---|---|---|
 | 0 | 1–2 | Foundations, model bake-off, latency truth |
 | 1 | 3–6 | Anonymous end-to-end analysis, streamed |
+| **D** | **next** | **A demo you can send someone — deployed, on a URL, over real companies** |
 | 2 | 7–9 | Grounding verification, PDF, eval suite |
 | 3 | 10–12 | Accounts, limits, public knowledge base |
 | 4 | 13–15 | Stripe, tiers, upgrade flow |
@@ -140,6 +141,72 @@ Target: **~$1.5–2k MRR by month 8**, against infrastructure that starts at **�
 ~€200/month only once revenue justifies it (§6). Total cash required to reach first revenue is
 under €100. That is profitable in absolute terms early, and the constraint on growth is
 distribution, not compute — which is the correct problem to have.
+
+---
+
+## 2·D. Phase D — a demo you can send someone
+
+> **This phase is an interruption, and it is deliberate.** Phases 0 and 1 built a pipeline that
+> works and a correctness discipline that is genuinely good. Neither produced anything a person
+> can look at. Phase D is the shortest path from here to *somebody opens a link and sees a real
+> report about real companies*, and **it takes priority over everything else in this document**,
+> including the unfinished parts of Phases 0 and 1.
+
+### Why it exists
+
+`PROJECT_STATUS.md` recorded the guided-demo state as blocked on deployment alone — *"the
+software can do this on a laptop today"*. **That was wrong.** Deploying the binary as it stood
+would have produced a JSON API with no website: `router()` served `/api/*` and nothing else, and
+the React app existed only behind Vite's dev server. Nothing tested that a browser pointed at
+the binary received HTML, so nothing caught it.
+
+That is the shape of the whole problem. Four consecutive pieces of work
+([BENCHMARKS.md](BENCHMARKS.md) Runs 17–20) hardened states a run only reaches when something
+goes wrong — frozen pages, a dead worker's sections, a claim that can be revoked, a run that
+stops when nobody wants it. **Every one of them was the right work and none of them was the
+right next work**, because each was chosen as the adjacent step from the last rather than by
+asking what a demo needs.
+
+### The rule for this phase
+
+**Nothing is done until a stranger with the link can see it.** No item below is complete because
+its tests pass; it is complete when it changes what somebody looking at the deployed site
+experiences.
+
+### The items, in order
+
+| # | Item | Why it is where it is | Size |
+|---|---|---|---|
+| **D1** | **The binary serves the built web app** | Without it "deployed" means an API nobody can see. Static files plus a single-page fallback, so a permalink survives a refresh. | **Done** |
+| **D2** | **A run has a URL** — `/a/{id}` | A demo you send someone must survive being opened. Today a reload loses the run entirely, which also makes D4 untestable by a second person. | Small |
+| **D3** | **A build and a service** — aarch64 artefact, `web/dist` beside it, a unit file, and a RUNBOOK section | There is no Dockerfile, no service definition and no deploy procedure anywhere in the repository. This is what turns "deploy it" from a project into a command. | Small–medium |
+| **D4** | **Example ideas that really run** | A chip per sample idea, each mapping to two or three real competitor domains. **The analysis is real** — fetched, quoted, cited — and only the *choice of companies* is curated, which the interface says plainly. This is precisely what S1 means by "certain product ideas work reliably". | Medium |
+| **D5** | **More than one company in a report** | One company reads as a profile, not a competitive analysis. The report groups by company; discovery already returns per-origin pages. | Medium |
+| **D6** | **A cap on anonymous runs** | Unlimited inference on a free box, once the URL is public, is the failure mode that ends the demo — and it needs no accounts, just a per-IP daily count. | Small |
+
+### What is explicitly deferred until D is done
+
+`landscape-search`, `landscape-verify`, the fetch cache, the comparison matrix, PDF, accounts,
+the knowledge base, and **any further hardening of failure states**. The correctness work is
+ahead of the product and should stop until the product catches up.
+
+### The risk that could still make this disappointing
+
+**Latency, and it is not solved by any item above.** One company takes about two minutes on this
+laptop, and the target host is four ARM cores. D5 multiplies that by the number of competitors.
+A demo that takes ten minutes is not a demo.
+
+So D5 carries a hard constraint: **measure before promising.** Two or three companies, a small
+number of pages each, and if the measured wait on the box exceeds roughly three minutes, the
+answer is fewer pages and a read-order that puts the deterministic changelog first — not a
+faster model. [ADR 0011](decisions/0011-no-experiments-on-production.md) still applies: that
+measurement is taken from the client's side of the deployment, not on the box.
+
+### What "done" looks like for Phase D
+
+A link. Somebody who has never seen the project opens it, types or picks an idea, watches
+sections arrive, and reads a report about real companies with a quote and a source under every
+claim — then reloads the page and it is still there.
 
 ---
 

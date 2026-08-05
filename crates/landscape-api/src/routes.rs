@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::routing::{get, post};
+use axum::routing::{any, get, post};
 use axum::{Json, Router};
 use landscape_core::{Analysis, AnalysisId, AnalysisStatus, NewAnalysis};
 use landscape_db::Store;
@@ -38,6 +38,16 @@ impl std::fmt::Debug for AppState {
 /// The layer writes the access line itself rather than delegating to `tower_http`'s
 /// `TraceLayer`; [`crate::request_id::layer`] records why.
 pub fn router(state: AppState) -> Router {
+    with_request_ids(routes(state))
+}
+
+/// Everything under `/api`, with no middleware on it yet.
+///
+/// Split out so [`with_ui`] can add the single-page fallback **before** the request-id layer
+/// goes on. Applied the other way round the layer wraps only the routes that existed when it
+/// was attached, and the page a visitor actually asks for is the one response with no id, no
+/// span and no access line — see [`with_request_ids`].
+fn routes(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(health))
         .route("/api/analyses", post(create_analysis))
@@ -46,8 +56,76 @@ pub fn router(state: AppState) -> Router {
         // is the difference between ninety seconds of spinner and twenty of
         // content — PRODUCT_SPEC.md §2.1A.
         .route("/api/analyses/{id}/events", get(crate::events::stream))
+        // `/api` is claimed whole, including the parts of it that do not exist. Without this
+        // the single-page fallback in `with_ui` answers a mistyped endpoint with `index.html`,
+        // and the client reports a JSON parse error instead of the wrong URL.
+        //
+        // **All three, and review found out why.** `/api/{*rest}` matches paths *below*
+        // `/api/`, and axum treats `/api`, `/api/` and `/api/x` as three different paths — so
+        // the first two fell straight through to the fallback and came back as the page.
+        .route("/api", any(missing))
+        .route("/api/", any(missing))
+        .route("/api/{*rest}", any(missing))
         .with_state(state)
-        .layer(axum::middleware::from_fn(crate::request_id::layer))
+}
+
+/// The request id, the span and the access line — ADR 0005's invariant.
+///
+/// Applied **last**, over whatever the router has ended up containing. `Router::layer` wraps
+/// the routes present when it is called and nothing added afterwards, which is exactly how the
+/// static fallback came to be the one surface with no id on it.
+fn with_request_ids(router: Router) -> Router {
+    router.layer(axum::middleware::from_fn(crate::request_id::layer))
+}
+
+/// Anything under `/api` we do not serve. JSON, not a page.
+async fn missing() -> ApiError {
+    ApiError::NotFound
+}
+
+/// Serve the built single-page app alongside the API.
+///
+/// # Why this exists at all
+///
+/// Until now [`router`] served `/api/*` and nothing else, and the React app existed only
+/// behind Vite's dev server. **That made the whole thing undeployable without anybody
+/// noticing**: put the binary on a host and a visitor gets JSON, because there is no page to
+/// ask for. `PROJECT_STATUS.md` recorded a guided demo as blocked on deployment alone, which
+/// was wrong in exactly this way — the gap was not the box, it was that nothing served a page
+/// to put on it.
+///
+/// # The fallback is the point
+///
+/// Any path the API does not claim returns `index.html`, because a single-page app owns its
+/// own routing: `/a/<id>` has to reach the client for a permalink to survive a refresh, and a
+/// 404 from the server would be the one thing that stops it. Real files still win — the
+/// fallback only runs when `ServeDir` finds nothing.
+///
+/// Returns the API unchanged when `dir` holds no `index.html`, so `cargo run` with Vite on the
+/// side keeps working exactly as `Feature_Walkthrough.md` describes. A missing build is a
+/// developer running the pieces separately, not an error.
+pub fn with_ui(state: AppState, dir: &std::path::Path) -> Router {
+    let api = routes(state);
+    if !dir.join("index.html").is_file() {
+        tracing::info!(
+            dir = %dir.display(),
+            "no built web app here; serving the API alone (run `npm run build` in web/)"
+        );
+        return with_request_ids(api);
+    }
+    tracing::info!(dir = %dir.display(), "serving the web app");
+    let files = tower_http::services::ServeDir::new(dir)
+        .fallback(tower_http::services::ServeFile::new(dir.join("index.html")));
+    // The layer goes on after the fallback, so a page request carries an id like any other.
+    with_request_ids(api.fallback_service(files))
+}
+
+/// Where the built web app is expected, unless `WEB_DIR` says otherwise.
+///
+/// Relative to the working directory, which on the host is wherever the unit file puts it.
+#[must_use]
+pub fn web_dir() -> std::path::PathBuf {
+    std::env::var("WEB_DIR").map_or_else(|_| std::path::PathBuf::from("web/dist"), Into::into)
 }
 
 #[derive(Debug, Serialize)]
