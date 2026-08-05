@@ -529,6 +529,52 @@ goes on outermost, so `with_ui` cannot forget.
 > **Ask this:** *what did this wrapper actually enclose — everything, or everything that existed
 > on the line above it?*
 
+## 23. Deriving a fact from the evidence for it
+
+**Written:** *"does this report cover several companies?"* answered by counting the distinct
+subjects **on the claims**.
+
+**What a person saw:** ask about Basecamp and Linear, have Linear yield no pricing, and
+`Pro costs $15` renders with no company beside it — because one company produced claims, so the
+report stopped calling itself a comparison. The label disappears from exactly the report that
+needs it, since a reader who asked about two companies and sees one price cannot tell which one
+it is.
+
+**Why the tests missed it:** every multi-company test had every company producing a claim. The
+proxy and the fact agree on the happy path and come apart when something is silent — which is
+the register's oldest pattern wearing new clothes.
+
+**Rule:** *"did anything come back for X"* is not *"was X asked about"*. When a decision depends
+on **intent**, carry the intent — here `Report::subjects`, the list the run set out to cover —
+rather than inferring it from the results, which are the thing that may legitimately be empty.
+
+> **Ask this:** *am I counting the thing, or counting the evidence the thing produced? What does
+> this say when the answer is none?*
+
+## 24. Asserting a shape the producer does not emit — again, one comment later
+
+**Written:** a merge test for coverage attempts, with fixtures built as
+`"https://a.com/pricing"`.
+
+**What a person saw:** `Discovered::attempts_for` stores `path_of(&c.url)` — **`/pricing`**, not
+a URL, and the field's own doc comment explains why: *"the note is read under a heading that
+already names the company"*. Multi-company reports broke that assumption, so merging gave two
+companies an identical `/pricing (404)` each and a reader could not tell whose gap was whose. I
+had written *"attribution survives because every path is a URL"* in the pull request. It is not,
+and the test that was supposed to prove it had built the URLs itself.
+
+**Why this one is here rather than folded into 20:** it happened **in the same pull request that
+registered 20**, one review comment later. Knowing the rule did not help; the fixture was written
+before the rule was, and nothing re-read it.
+
+**Rule:** entry 20's rule, plus the part that makes it operational — **go and look at the
+producer.** Open the function that builds the value and copy its shape, rather than writing what
+the value "obviously" is. A doc comment on the field is usually where the assumption you are
+about to break is written down.
+
+> **Ask this:** *have I read the code that produces this, in this pull request — or am I
+> remembering what it produces?*
+
 ---
 
 ## Before a PR: two commands and five questions
@@ -562,9 +608,10 @@ Grouped by what has actually gone wrong, commonest first.
    step whose dependency *errored* rather than succeeded? Ten of the entries above live here.
    *(1, 3, 4, 12, 13, 14, 15, 18, 19, 19b)*
 
-2. **Which of my checks cannot fail?** Is the fixture shaped like what the real producer emits,
-   or does it already contain the thing I am asserting? If I deleted the call to the function I
-   just tested, would anything fail? Is there a case that *should* fail and does? *(5, 20, 21)*
+2. **Which of my checks cannot fail?** **Open the producer and copy its shape** — do not write
+   what the value obviously is. Does the fixture already contain the thing I am asserting? If I
+   deleted the call to the function I just tested, would anything fail? Is there a case that
+   *should* fail and does? *(5, 20, 21, 24)*
 
 3. **What is the scope of each guard, and of each wrapper?** A condition about *the connection*
    is wrong at every reconnect; a counter inside an effect does not survive a remount; a layer
@@ -577,13 +624,14 @@ Grouped by what has actually gone wrong, commonest first.
 
 5. **Is the output honest about what it does not know?** Are caps, drops, truncation and "found
    nothing" distinguishable from completeness? Does a merged view say which subject each part
-   belongs to? Does any prompt name a real company? *(2, 6, 8, 9, 10, 11)*
+   belongs to — **including when one subject produced nothing**? Am I counting the thing or the
+   evidence for it? Does any prompt name a real company? *(2, 6, 8, 9, 10, 11, 23)*
 
 ## How these were found, and what that says
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |
 | Deliberately breaking the code to see if a test notices | 12, the rearm in 14, and 21 | The store was fast, so nothing raced until one was made slow. Now `scripts/mutate.py` |

@@ -21,6 +21,7 @@ fn sample_report(subject: &str) -> Report {
         generated_at: chrono::Utc::now(),
         model_id: "test".to_owned(),
         prompt_version: 1,
+        subjects: Vec::new(),
         sections: Vec::new(),
         sources: Vec::new(),
         notes: Vec::new(),

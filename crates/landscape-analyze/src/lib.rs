@@ -286,6 +286,9 @@ fn joined(
         generated_at: now,
         model_id: llm.base().to_owned(),
         prompt_version: PROMPT_VERSION,
+        // The companies this report set out to cover, which is not the same list as the
+        // companies that produced a claim — and the difference is the case that matters.
+        subjects: origins.to_vec(),
         sections,
         sources,
         notes,
@@ -526,6 +529,7 @@ fn assemble(
         // nobody can reproduce, and this is the honest half of that.
         model_id: llm.base().to_owned(),
         prompt_version: PROMPT_VERSION,
+        subjects: Vec::new(),
         sections,
         sources: sources.to_vec(),
         notes: Vec::new(),
@@ -799,6 +803,7 @@ mod joining {
             generated_at: at(),
             model_id: "test".to_owned(),
             prompt_version: PROMPT_VERSION,
+            subjects: Vec::new(),
             sections: vec![Section {
                 key: "pricing".to_owned(),
                 title: "What it costs".to_owned(),
@@ -981,7 +986,8 @@ mod joining {
                 pages_read: 1,
                 facts: 0,
                 attempts: vec![landscape_core::Attempt {
-                    path: "https://a.com/pricing".to_owned(),
+                    subject: "https://a.com".to_owned(),
+                    path: "/pricing".to_owned(),
                     outcome: "404".to_owned(),
                 }],
             }],
@@ -994,7 +1000,8 @@ mod joining {
                 pages_read: 1,
                 facts: 0,
                 attempts: vec![landscape_core::Attempt {
-                    path: "https://b.com/plans".to_owned(),
+                    subject: "https://b.com".to_owned(),
+                    path: "/plans".to_owned(),
                     outcome: "404".to_owned(),
                 }],
             }],
@@ -1005,11 +1012,17 @@ mod joining {
         assert_eq!(merged.len(), 1, "one record per question, not per company");
         assert_eq!(merged[0].pages_read, 2);
         // And both companies' negative evidence survives, because a path names its company.
-        let paths: Vec<&str> = merged[0].attempts.iter().map(|a| a.path.as_str()).collect();
+        // **Paths, as discovery really stores them** — review caught the first version of this
+        // hand-building full URLs, which is the property under test supplied by the fixture.
+        let attributed: Vec<String> = merged[0]
+            .attempts
+            .iter()
+            .map(|a| format!("{}{}", a.subject, a.path))
+            .collect();
         assert_eq!(
-            paths,
+            attributed,
             vec!["https://a.com/pricing", "https://b.com/plans"],
-            "one company's attempts were dropped, so its 'nothing found' cannot be explained"
+            "one company's attempts were dropped or lost their company"
         );
     }
 
@@ -1079,6 +1092,114 @@ mod joining {
             before,
             questions.len(),
             "a question appears twice: {questions:?}"
+        );
+
+        // **Real attempts, from real discovery, for two origins.** Everything above could be
+        // satisfied by hand-built coverage; this cannot. `attempts_for` stores a *path*, so the
+        // only thing separating two companies' `/pricing` is the subject beside it.
+        let subjects: std::collections::BTreeSet<&str> = outcome
+            .coverage
+            .iter()
+            .flat_map(|c| c.attempts.iter())
+            .map(|a| a.subject.as_str())
+            .filter(|s| !s.is_empty())
+            .collect();
+        assert_eq!(
+            subjects.len(),
+            origins.len(),
+            "discovery's attempts do not say which company they belong to: {subjects:?}"
+        );
+    }
+
+    #[test]
+    fn a_silent_company_does_not_take_the_label_off_the_one_that_spoke() {
+        // Review found this. Deriving "is this a comparison" from the claims looks reasonable
+        // and is wrong exactly here: ask about two companies, have one say nothing, and the
+        // survivor's prices lose their label in a report that is still a comparison.
+        let origins = vec!["https://a.com".to_owned(), "https://b.com".to_owned()];
+        let silent = Analysis {
+            report: Report {
+                sections: vec![Section::not_found("pricing", "What it costs", Vec::new())],
+                sources: Vec::new(),
+                ..one_company("https://b.com", "unused").report
+            },
+            ..one_company("https://b.com", "unused")
+        };
+        let merged = joined(
+            &[one_company("https://a.com", "Pro costs $15"), silent],
+            None,
+            &origins,
+            Vec::new(),
+            &llm(),
+            at(),
+        );
+
+        assert_eq!(
+            merged.subjects, origins,
+            "the report has to carry what it set out to cover, not what answered"
+        );
+        let rendered = Analysis {
+            report: merged,
+            coverage: vec![Coverage {
+                question: "pricing".to_owned(),
+                sources: Vec::new(),
+                pages_read: 0,
+                facts: 1,
+                attempts: Vec::new(),
+            }],
+            pages: Vec::new(),
+            stopped_early: false,
+        }
+        .render();
+        assert!(
+            rendered.contains("**a.com**"),
+            "the one company that answered lost its label because the other said nothing:
+{rendered}"
+        );
+    }
+
+    #[test]
+    fn merged_attempts_keep_their_company_in_the_shape_discovery_stores_them() {
+        // Review's second point, and the sharper one: I claimed every attempt was a URL, and
+        // `attempts_for` stores a *path* — `/pricing` — because the heading above it used to
+        // name the company. Two companies then contribute indistinguishable lines, and my
+        // first test hand-built full URLs, which is the fixture supplying the property under
+        // test all over again.
+        let attempts = |origin: &str| {
+            vec![landscape_core::Attempt {
+                subject: origin.to_owned(),
+                path: "/pricing".to_owned(),
+                outcome: "404".to_owned(),
+            }]
+        };
+        let coverage = |origin: &str| Coverage {
+            question: "pricing".to_owned(),
+            sources: Vec::new(),
+            pages_read: 0,
+            facts: 0,
+            attempts: attempts(origin),
+        };
+        let merged = coverage_by_question(&[
+            Analysis {
+                coverage: vec![coverage("https://a.com")],
+                ..one_company("https://a.com", "unused")
+            },
+            Analysis {
+                coverage: vec![coverage("https://b.com")],
+                ..one_company("https://b.com", "unused")
+            },
+        ]);
+
+        // Both are `/pricing`. Without the company they are one line written twice.
+        let paths: Vec<&str> = merged[0].attempts.iter().map(|a| a.path.as_str()).collect();
+        assert_eq!(paths, vec!["/pricing", "/pricing"], "the real shape");
+
+        let section = merged[0].to_section("What it costs");
+        assert!(
+            section.checked.iter().any(|c| c.contains("a.com"))
+                && section.checked.iter().any(|c| c.contains("b.com")),
+            "a reader cannot tell which company found nothing: {:?}",
+            section.checked
         );
     }
 

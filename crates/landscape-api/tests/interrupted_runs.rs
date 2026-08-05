@@ -45,6 +45,7 @@ fn report_saying(text: &str) -> Report {
         generated_at: at(),
         model_id: "test".to_owned(),
         prompt_version: 1,
+        subjects: Vec::new(),
         sections: vec![Section {
             key: "pricing".to_owned(),
             title: "What it costs".to_owned(),

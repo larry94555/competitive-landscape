@@ -330,9 +330,17 @@ function AnalysisView({
   // read — the two things the stream exists to avoid.
   const showing = live ? stillArriving(sections, report) : (report?.sections ?? sections);
   // Whether this report covers more than one company, which decides whether each claim has to
-  // say whose it is. Derived from what is on screen rather than from the prompt, so a report
-  // that named three companies and found facts for one does not label that one needlessly.
+  // say whose it is.
+  //
+  // **From the companies analysed, not from the ones that produced a claim.** Deriving it from
+  // the claims on screen looks reasonable and is wrong in the case that matters: ask about two
+  // companies, have one of them say nothing, and the survivor's prices lose their label in a
+  // report that is still a comparison. `subjects` is what the run set out to cover.
+  //
+  // Falls back to the claims while the stream is still arriving, because a partial report
+  // carries sections before the client has fetched the report that holds `subjects`.
   const several =
+    (report?.subjects?.length ?? 0) > 1 ||
     new Set(
       showing
         .flatMap((s) => s.claims)

@@ -21,18 +21,12 @@ impl Analysis {
         let report = &self.report;
         // Whether this report covers more than one company, which decides whether each claim
         // has to say whose it is.
-        let several = {
-            let mut seen: Vec<&str> = report
-                .sections
-                .iter()
-                .flat_map(|s| s.claims.iter())
-                .map(|c| c.subject.as_str())
-                .filter(|s| !s.is_empty())
-                .collect();
-            seen.sort_unstable();
-            seen.dedup();
-            seen.len() > 1
-        };
+        //
+        // **From the companies analysed, not from the companies that produced a claim.** Those
+        // are different questions and they come apart in the case that matters: two companies
+        // asked about, one of them silent, and the survivor's prices rendered without a label
+        // in a report that is still a comparison. Review found it.
+        let several = report.subjects.len() > 1;
 
         let _ = writeln!(out, "# {}", report.subject);
         for note in &report.notes {
@@ -151,6 +145,7 @@ mod tests {
                 generated_at: at(),
                 model_id: "http://127.0.0.1:8080".to_owned(),
                 prompt_version: 1,
+                subjects: Vec::new(),
                 sections,
                 sources,
                 notes: Vec::new(),
@@ -217,6 +212,7 @@ mod tests {
             pages_read: 0,
             facts: 0,
             attempts: vec![landscape_core::Attempt {
+                subject: String::new(),
                 path: "/changelog".to_owned(),
                 outcome: "404".to_owned(),
             }],

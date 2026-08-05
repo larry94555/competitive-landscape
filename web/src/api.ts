@@ -50,6 +50,8 @@ export interface Report {
   readonly generated_at: string;
   readonly model_id: string;
   readonly prompt_version: number;
+  /** Every company the run set out to cover — not only the ones that produced a claim. */
+  readonly subjects?: readonly string[];
   readonly sections: readonly Section[];
   readonly sources: readonly unknown[];
   /** Anything true of the whole report — today, companies named and not analysed. */

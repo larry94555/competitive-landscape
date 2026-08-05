@@ -284,6 +284,7 @@ mod tests {
             generated_at: at(),
             model_id: "test".to_owned(),
             prompt_version: 1,
+            subjects: Vec::new(),
             sections: vec![
                 section("pricing", Vec::new()),
                 section("changes", Vec::new()),

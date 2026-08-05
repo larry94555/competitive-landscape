@@ -627,6 +627,50 @@ describe("a report about several companies", () => {
     expect(screen.getByText("linear.app")).toBeInTheDocument();
   });
 
+  it("keeps the label when one of two companies says nothing", async () => {
+    // Review found this. Deriving "is this a comparison" from the claims on screen looks
+    // reasonable and is wrong exactly here: ask about two companies, have one of them yield
+    // no pricing, and the survivor's price loses its label in a report that is still a
+    // comparison — so a reader sees "Pro costs $15" and cannot tell whose it is.
+    const finished = {
+      ...queued(),
+      status: "complete" as const,
+      report: {
+        subject: "https://basecamp.com, https://linear.app",
+        searched_as: "https://basecamp.com, https://linear.app",
+        generated_at: "2026-08-05T00:00:00Z",
+        model_id: "test",
+        prompt_version: 1,
+        subjects: ["https://basecamp.com", "https://linear.app"],
+        sections: [
+          section("pricing", "Pricing & packaging", "Pro costs $15", "https://basecamp.com"),
+        ],
+        sources: [],
+      },
+    };
+    stubEventSource();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) =>
+        Promise.resolve({
+          ok: true,
+          status: init?.method === "POST" ? 201 : 200,
+          json: () => Promise.resolve(init?.method === "POST" ? queued() : finished),
+        } as Response),
+      ),
+    );
+
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+    act(() => FakeEventSource.last!.send("done", ""));
+
+    expect(await screen.findByText(/Pro costs \$15/)).toBeInTheDocument();
+    expect(screen.getByText("basecamp.com")).toBeInTheDocument();
+  });
+
   it("does not repeat one company down a report about one company", async () => {
     // The other half. A name against every line of a single-company report is noise, and
     // noise is what teaches a reader to stop reading the labels that matter.

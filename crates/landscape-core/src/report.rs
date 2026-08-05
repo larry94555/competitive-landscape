@@ -106,6 +106,18 @@ pub struct Report {
     pub generated_at: chrono::DateTime<chrono::Utc>,
     pub model_id: String,
     pub prompt_version: u32,
+    /// Every company this report set out to cover, in the order they were named.
+    ///
+    /// **Not derived from the claims.** Asking "did more than one company produce a fact" is a
+    /// different question from "is this a comparison", and they come apart in the case that
+    /// matters: two companies analysed, one of them silent. Reading the subjects off the claims
+    /// then makes the surviving company's prices look unlabelled and unambiguous when they are
+    /// neither.
+    ///
+    /// Empty on a report about one company, which is every report the single-subject path
+    /// produces.
+    #[serde(default)]
+    pub subjects: Vec<String>,
     pub sections: Vec<Section>,
     pub sources: Vec<Source>,
     /// Anything true of the whole report rather than of one section.
@@ -187,6 +199,7 @@ mod tests {
             generated_at: at("2026-08-01T09:14:00Z"),
             model_id: "qwen3-8b".to_owned(),
             prompt_version: 4,
+            subjects: Vec::new(),
             sections: vec![Section {
                 key: "pricing".to_owned(),
                 title: "Prices".to_owned(),
