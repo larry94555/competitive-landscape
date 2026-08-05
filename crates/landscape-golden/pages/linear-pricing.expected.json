@@ -1,0 +1,11 @@
+{
+  "page": "linear-pricing.md",
+  "from": "https://linear.app/pricing, frozen 2026-08-03",
+  "why": "Three plans whose names are `###` headings and whose first plan is free, so it covers both the heading level basecamp does not use and the zero that must not be read as an absence.",
+  "answers": "pricing",
+  "plan_windows": [
+    "### Free",
+    "### Basic",
+    "### Business"
+  ]
+}

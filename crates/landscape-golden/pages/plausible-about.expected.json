@@ -1,0 +1,11 @@
+{
+  "page": "plausible-about.md",
+  "from": "https://plausible.io/about, frozen 2026-08-04",
+  "why": "The only about page of four that states all three facts, and it states the founding year in a sentence with a name between the verb and the preposition - \"Uku Taht started Plausible in December 2018\" - which is the phrasing that made `started in` miss it in Run 12.",
+  "answers": "identity",
+  "facts": [
+    "founded",
+    "headquarters",
+    "employees"
+  ]
+}

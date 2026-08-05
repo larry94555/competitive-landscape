@@ -1,0 +1,11 @@
+{
+  "page": "plausible-changelog.md",
+  "from": "https://plausible.io/changelog, frozen 2026-08-04",
+  "why": "Seventy dated entries in the `- Jul 14, 2026` shape, and the page that shows why the numbers beside a changelog matter: four of these fall inside a ninety-day window, and four printed alone would read as a quiet quarter at a company that ships weekly.",
+  "answers": "changes",
+  "changes": {
+    "read": 40,
+    "considered": 70,
+    "newest": "2026-07-14"
+  }
+}

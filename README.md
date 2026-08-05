@@ -205,6 +205,20 @@ The set also checks itself, and that half needs no model at all:
 cargo test -p landscape-golden
 ```
 
+**30 passing, in under a second.** Ten of them check the set's own answers. The rest check the
+*parsers*, against ten real pages frozen in `crates/landscape-golden/pages/` — everything
+before the model is deterministic, so what a page yields can be written down and checked on
+every pull request:
+
+```bash
+cargo test -p landscape-golden --test the_pages
+```
+
+It was calibrated by putting five past defects back into the code; it caught four, and the
+fifth is caught by a unit test elsewhere. Building it found a seventeenth — a changelog of two
+dozen releases that read as having no dates at all. See
+[BENCHMARKS.md](docs/BENCHMARKS.md) Run 17.
+
 ### The documentation is tested
 
 Two bugs once reached a reader through correct code and a stale README: a port that had
@@ -312,7 +326,8 @@ crates/
   landscape-extract/ a page into Markdown, the ~400 tokens per plan, capability or
                      fact worth reading, and the dates a changelog states
   landscape-fetch/  the outside world: SSRF guard, robots.txt, per-host politeness
-  landscape-golden/ measures whether it is right. Ten frozen pages, known answers
+  landscape-golden/ measures whether it is right. Fifteen subjects for the model,
+                     ten frozen real pages for the parsers
   landscape/        the binary: dev | serve | worker | migrate
 migrations/         SQL, applied on boot
 web/                Vite + React + TypeScript (strict)
@@ -341,9 +356,14 @@ cannot appear in a response body.
 **Constrained decoding guarantees shape, never truth.** A model is forced to return the
 right *type*; nothing about that makes the values in it correct. A defective quantisation
 once passed every check we had — fast, always parseable, schema-valid throughout, and
-wrong. `landscape-golden` is the other half: ten frozen pages with known answers, three of
+wrong. `landscape-golden` is the other half: fifteen subjects with known answers, four of
 which publish no price at all, because the failure that would sink this product is a
 confident dollar figure attached to a company that never named one.
+
+**And a model is only half of what can be wrong.** Everything before it — which ~400 tokens of
+a page get read — is ours, deterministic, and was the source of most defects found so far. Ten
+real pages are frozen with what the parsers must make of them, so that half fails a build
+rather than waiting to be noticed.
 
 ---
 

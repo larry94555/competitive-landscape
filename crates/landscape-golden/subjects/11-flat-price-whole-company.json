@@ -1,0 +1,11 @@
+{
+  "id": "flat-price-for-the-whole-company",
+  "why": "The real Basecamp Pro Unlimited window. A flat organisation-wide price on a page whose other plan is per-user, sitting beside a storage figure written as a multiple of that other plan (`10x Pro`) and a trial length in days. The synthetic set has per-user prices and it has flat prices; it has never had one that a model could turn into the other by reading one line too far.",
+  "ask": "Pro Unlimited",
+  "source": "## Pro Unlimited\n### Top-of-the-line, all-inclusive pricing. Unlimited users, no per-user fees.\n$299/month, billed annually Your whole organization for one fixed price. Unlimited users, plus every feature & upgrade.\nTry it free for 60 days\n- Unlimited projects\n- 5 terabytes storage space (10x Pro)\n- Fixed price — no per-user charges\n- Includes Admin Pro Pack upgrade\n? Gives account owners and admins greater control over access, permissions, and more\n- Includes Timesheet upgrade\n? Track hours/time spent working on projects\n- Personal onboarding with our team\n? One of our experts is happy to walk your team through Basecamp to get you up to speed\n- Priority 24/7/365 customer support, your questions get answered first\n? Jump to the front of the queue when you contact support\n- More payment options including credit card, check, ACH, or wire\n- Extended 60-day free trial",
+  "expect": {
+    "plan_name": "Pro Unlimited",
+    "price_usd": 299.0,
+    "billing_period": "yearly"
+  }
+}

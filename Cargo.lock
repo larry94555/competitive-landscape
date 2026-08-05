@@ -1010,6 +1010,7 @@ name = "landscape-golden"
 version = "0.1.0"
 dependencies = [
  "landscape-core",
+ "landscape-extract",
  "landscape-llm",
  "serde",
  "serde_json",

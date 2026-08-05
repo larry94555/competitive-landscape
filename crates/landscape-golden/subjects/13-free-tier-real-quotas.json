@@ -1,0 +1,11 @@
+{
+  "id": "free-tier-with-real-quotas",
+  "why": "The real Linear Free window. `$0` is the answer, and every other number on it is a quota — 2 teams, 250 issues — so a model that treats zero as an absence and looks for a better candidate has two to choose from. The synthetic free tier says the word free and stops; this one makes zero compete.",
+  "ask": "Free",
+  "source": "### Free\n$0\nFree for everyone\n- Unlimited members\n- 2 teams\n- 250 issues\n- Agent platform\n- Linear Agent\nGet started Get started\n\n### Basic\n$10 per user/month $10 per user/month\nBilled yearly\n- All Free features +\n- 5 teams\n- Unlimited issues\n- Unlimited file uploads\n- Admin roles\nGet started Get started",
+  "expect": {
+    "plan_name": "Free",
+    "price_usd": 0.0,
+    "billing_period": "monthly"
+  }
+}

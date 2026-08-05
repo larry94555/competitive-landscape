@@ -1,0 +1,11 @@
+{
+  "id": "per-user-price-among-service-numbers",
+  "why": "The real Basecamp Pro window, and the reason a whole-token number check exists. Its price competes with 500, 24, 7, 365 and 30, of which `24/7/365` is the one shaped most like a figure and none of which is money. The synthetic equivalent has decoy numbers chosen by whoever wrote it; this one has the decoys a real marketing page happens to contain.",
+  "ask": "Pro",
+  "source": "## Pro\n### A great choice for freelancers, startups, and smaller teams.\n$15/user, billed monthly Invite guests and clients for free. We will only bill you for employees.\nTry it free for 30 days\n- Unlimited projects\n- 500 GB storage space\n- Pay-per-user\n- Optional upgrades sold separately\n- Self-guided onboarding\n- 24/7/365 customer support\n- Pay by credit card\n- 30-day free trial",
+  "expect": {
+    "plan_name": "Pro",
+    "price_usd": 15.0,
+    "billing_period": "monthly"
+  }
+}

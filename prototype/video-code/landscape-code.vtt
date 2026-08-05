@@ -1,65 +1,61 @@
 WEBVTT
 
 1
-00:00:01.500 --> 00:00:04.900
-A stream, and nobody consuming it.
+00:00:01.500 --> 00:00:05.200
+Sixteen defects, all found by reading.
 
 2
-00:00:04.900 --> 00:00:08.100
-The frontend was still polling.
+00:00:05.200 --> 00:00:08.200
+Nothing asserts any of them.
 
 3
-00:00:08.100 --> 00:00:11.200
-Then: four minutes of nothing.
+00:00:08.200 --> 00:00:11.400
+So freeze the pages themselves.
 
 4
-00:00:11.200 --> 00:00:14.500
-Progress was saved once per page.
+00:00:11.400 --> 00:00:14.900
+Write down what each one must yield.
 
 5
-00:00:14.500 --> 00:00:17.600
-So save it per window instead.
+00:00:14.900 --> 00:00:18.000
+It runs on every pull request.
 
 6
-00:00:17.600 --> 00:00:21.000
-One fact puts a section on screen.
+00:00:18.000 --> 00:00:21.000
+No model, no network, no GPU.
 
 7
-00:00:21.000 --> 00:00:23.900
-And then the section froze.
+00:00:21.000 --> 00:00:24.200
+Then put five old defects back.
 
 8
-00:00:23.900 --> 00:00:27.500
-One item, while eight more were read.
+00:00:24.200 --> 00:00:27.900
+Four of five. The fifth, honestly, no.
 
 9
-00:00:27.500 --> 00:00:30.800
-Send it again each time it grows.
+00:00:27.900 --> 00:00:31.100
+And a tenth page read as empty.
 
 10
-00:00:30.800 --> 00:00:34.100
-Neither was visible to the tests.
+00:00:31.100 --> 00:00:34.600
+Two dozen releases. No dates found.
 
 11
-00:00:34.100 --> 00:00:37.600
-The failure message was a dead end.
+00:00:34.600 --> 00:00:37.600
+The same date, written twice.
 
 12
-00:00:37.600 --> 00:00:41.600
-They could fix it. We said they could not.
+00:00:37.600 --> 00:00:41.000
+The rule read the second as prose.
 
 13
-00:00:41.600 --> 00:00:44.700
-So: situations, not log lines.
+00:00:41.000 --> 00:00:43.600
+Step over it: 24 of 24.
 
 14
-00:00:44.700 --> 00:00:48.200
-The migration had said so all along.
+00:00:43.600 --> 00:00:47.100
+And the subjects are real pages now.
 
 15
-00:00:48.200 --> 00:00:52.000
-And the report arrives while you watch.
-
-16
-00:00:52.000 --> 00:00:55.300
-Use the thing. It tells you what is wrong.
+00:00:47.100 --> 00:00:50.600
+Build the instrument. It finds the next one.

@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "The first real run",
-    "blurb": "Every piece has been testable on its own for weeks. This is the first time they ran in order against a real company - and it did not work, in a way the benchmarks had already predicted in writing.",
-    "seconds": 59.4
+    "title": "Using it ourselves",
+    "blurb": "The stream was being sent to nobody: the frontend still polled. Wiring it up meant watching a report arrive in a browser for the first time, and the two defects that turned up were invisible to 425 passing tests.",
+    "seconds": 52.1
   }
 ]

@@ -1,0 +1,10 @@
+{
+  "page": "basecamp-pricing.md",
+  "from": "https://basecamp.com/pricing, frozen 2026-08-03",
+  "why": "Two plans on one page, which is the finding Run 7 exists for: reporting the cheapest and dropping the other does not read as incomplete, it reads as wrong. Also the page whose FAQ the first scorer chose over both plans.",
+  "answers": "pricing",
+  "plan_windows": [
+    "## Pro Unlimited",
+    "## Pro"
+  ]
+}

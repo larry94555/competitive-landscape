@@ -1,0 +1,23 @@
+{
+  "page": "basecamp-features.md",
+  "from": "https://basecamp.com/features, frozen 2026-08-03",
+  "why": "Capabilities written as headings with prose underneath, and a footer of fourteen bullets that are navigation. The guess before Run 8 was that a features page is a bullet list; reading bullets here would have reported Basecamp's footer as fourteen features.",
+  "answers": "features",
+  "capabilities": {
+    "named": [
+      "## The Project page keeps it all together",
+      "## Message Boards for announcements and discussions",
+      "## To-do Lists for tracking all the little things",
+      "## Hill Charts show you where things really stand",
+      "## Card Tables for tracking work through stages",
+      "## Campfire chats for quick, casual conversations",
+      "## The Basecamp Calendar for big dates",
+      "## Automatic Check-ins for recurring questions",
+      "## Docs & Files for reference materials, assets, and links",
+      "## My Tasks, Events, Today, Bookmarks, and Notes",
+      "## Reports for high-level overviews",
+      "## Everything Views are like having x-ray vision"
+    ],
+    "considered": 18
+  }
+}

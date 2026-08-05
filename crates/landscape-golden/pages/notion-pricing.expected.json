@@ -1,0 +1,14 @@
+{
+  "page": "notion-pricing.md",
+  "from": "https://www.notion.com/pricing, frozen 2026-08-03",
+  "why": "Three real plans, an add-on, and a comparison table, which is the shape that produces one window too many. Kept because the extra window is a known limit rather than a bug to be tuned away, and freezing it means an improvement has to say so.",
+  "answers": "pricing",
+  "known_wrong": "`### Custom Agents` is an add-on and `## Plans and features` is the comparison table; neither is a plan. An add-on is a heading with a price under it, which is exactly a plan's shape - only meaning separates them (BENCHMARKS.md Run 7). If a change makes this list three entries, that is a fix: update this expectation and delete this note.",
+  "plan_windows": [
+    "### Free",
+    "### Plus",
+    "### Business Recommended",
+    "### Custom Agents",
+    "## Plans and features"
+  ]
+}

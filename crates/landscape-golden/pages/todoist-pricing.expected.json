@@ -1,0 +1,7 @@
+{
+  "page": "todoist-pricing.md",
+  "from": "https://www.todoist.com/pricing, frozen 2026-08-03",
+  "why": "A pricing page with no price on it: Todoist draws its prices in JavaScript, so what we fetch is a feature-comparison table and nothing else. Forty table rows outscore any real pricing block on structure alone, and the window chosen from it once produced \"Beginner at $5\" - where the 5 is how many personal projects the plan allows.",
+  "answers": "pricing",
+  "plan_windows": []
+}

@@ -1,0 +1,11 @@
+{
+  "id": "price-buried-under-its-own-feature-list",
+  "why": "The real Notion Plus window, where the price is the second line and then eighty words of feature descriptions follow, several of which contain the word unlimited and one of which is about file size limits. It is the longest window in the set by some way, and length is the variable no synthetic subject here varies: the answer is early and the distraction is everything after it.",
+  "ask": "Plus",
+  "source": "### Plus\n$10 per member / month\nFor small teams and professionals to work together.\nGet started\nEverything in Free, and:\n-\nTrial AI capabilities like generating docs, or autofilling databases\nTrial of Notion AI\n-\nRemove Notion branding from public forms\nCustom forms\n-\nCustomize your top header, choose a light or dark theme, add a custom favicon, and integrate with Google Analytics.\nCustom sites\n-\nVisualize data from databases in different ways (e.g. donut, bar, and line charts).\nUnlimited charts\n-\nBlocks are pieces of content you add to a page (e.g. to-do checkboxes, paragraphs, bullet points, etc.).\nUnlimited collaborative blocks\n-\nA per file size limit may apply to any file that you upload to a Notion page or database.\nUnlimited file uploads\n-\nConnect to some tools like Slack & Google Drive\nBasic connections",
+  "expect": {
+    "plan_name": "Plus",
+    "price_usd": 10.0,
+    "billing_period": "monthly"
+  }
+}

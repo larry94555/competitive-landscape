@@ -1,0 +1,19 @@
+{
+  "page": "linear-features.md",
+  "from": "https://linear.app/features, frozen 2026-08-03",
+  "why": "The other heading shape: two capabilities whose name sits on the line below a bare `###`, which a rule requiring a heading with text in it would lose. Also the page that a documentation URL held the features slot for until Run 9.",
+  "answers": "features",
+  "capabilities": {
+    "named": [
+      "Planning",
+      "Building",
+      "### Artificial intelligence",
+      "### Insights",
+      "### Mobile",
+      "### Customer Requests",
+      "### Linear Asks",
+      "### Security"
+    ],
+    "considered": 8
+  }
+}

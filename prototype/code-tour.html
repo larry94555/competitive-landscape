@@ -80,110 +80,104 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    polling: {
-      name: "the endpoint existed",
-      purpose: "And the frontend still polled.",
+    hand: {
+      name: "sixteen defects, found by reading",
+      purpose: "And not one of them asserted.",
       lines: [
-        ['t', '  setInterval(() => getAnalysis(id), 1000)'],
+        ['t', '  Run 7   the FAQ outranked both plans'],
+        ['t', '  Run 8   a footer read as 14 features'],
+        ['t', '  Run 12  the founding year, missed'],
         ['c', ''],
-        ['c', '// A report was being streamed section by'],
-        ['c', '// section, to nobody.'],
-        ['c', ''],
-        ['f', '// So: consume it, and watch what happens.']
+        ['c', '// Every one found the same way: point it'],
+        ['c', '// at a real company and read the output.'],
+        ['f', '// 437 tests would pass without them.']
       ]
     },
-    four: {
-      name: "the first section took four minutes",
-      purpose: "The target is forty seconds.",
+    frozen: {
+      name: "so freeze the pages",
+      purpose: "Ten of them, from six companies.",
       lines: [
-        ['s', '  Reading the first pages...'],
-        ['s', '  Reading the first pages...'],
-        ['s', '  Reading the first pages...'],
+        ['f', '  basecamp-pricing.md'],
+        ['f', '  todoist-pricing.md'],
+        ['f', '  plausible-changelog.md'],
         ['c', ''],
-        ['c', '// Nothing was broken. Progress was saved'],
-        ['c', '// once per page.'],
-        ['f', '// And page one is twelve windows.']
+        ['c', '// Everything before the model is'],
+        ['c', '// deterministic. So write down what each'],
+        ['f', '// page must yield, and check it.']
       ]
     },
-    window: {
-      name: "so: per window, not per page",
-      purpose: "One fact is enough to show a section.",
+    ci: {
+      name: "and it runs on every pull request",
+      purpose: "No model. No network. No GPU.",
       lines: [
-        ['t', '  per page     ~4 min'],
-        ['f', '  per window   ~2 min'],
+        ['t', '  against_a_model   ignored, needs a GPU'],
+        ['f', '  the_pages         0.24s'],
         ['c', ''],
-        ['c', '// Still not forty seconds. What is left'],
-        ['c', '// is discovery and one model call -'],
-        ['f', '// and now it is visible instead of hidden.']
+        ['c', '// The half of hand-reading a build can'],
+        ['c', '// do, it now does.']
       ]
     },
-    froze: {
-      name: "then it froze",
-      purpose: "What it does: 1 item.",
+    calibrate: {
+      name: "but does it catch anything?",
+      purpose: "Put five old defects back in.",
       lines: [
-        ['s', '  What it does'],
-        ['s', '    states it offers Start here'],
+        ['f', '  Run 7   the scoring floor    CAUGHT'],
+        ['f', '  Run 7   a priceless window   CAUGHT'],
+        ['f', '  Run 8   the footer           CAUGHT'],
+        ['f', '  Run 12  the identity floor   CAUGHT'],
+        ['t', '  Run 10  a date in prose      missed'],
         ['c', ''],
-        ['c', '// For two minutes, while eight more'],
-        ['c', '// capabilities were read.'],
-        ['c', ''],
-        ['f', '// A section that stops changing reads'],
-        ['f', '// as a section that is finished.']
+        ['c', '// A set that has never failed is a set'],
+        ['c', '// nobody has calibrated.']
       ]
     },
-    grow: {
-      name: "so send it again when it grows",
-      purpose: "And replace, rather than skip.",
+    zero: {
+      name: "and then, a tenth page",
+      purpose: "Cloudflare. Two dozen releases.",
       lines: [
-        ['t', '  sent: key -> how many claims'],
+        ['s', '  read 0 of 0 considered'],
         ['c', ''],
-        ['c', '// Once, then again each time it gains'],
-        ['c', '// something.'],
+        ['c', '// A changelog, read as a page with no'],
+        ['c', '// dates on it at all.'],
         ['c', ''],
-        ['f', '// Neither of these was visible to 425'],
-        ['f', '// passing tests.']
+        ['f', '// Nobody was looking for this.']
       ]
     },
-    blame: {
-      name: "and the failure a reader can fix",
-      purpose: "It used to say: not your fault.",
+    twice: {
+      name: "the same date, written twice",
+      purpose: "Machine, then human.",
       lines: [
-        ['s', '  This one did not finish.'],
-        ['s', '  Nothing you did caused it.'],
+        ['t', '  2026-08-04 Aug 4, 2026'],
         ['c', ''],
-        ['c', '// They typed a description. They can'],
-        ['c', '// fix it. That message is a dead end.'],
-        ['c', ''],
-        ['f', '  We could not work out which company you'],
-        ['f', '  meant. Try naming its website.']
+        ['c', '// A date must be followed by a separator,'],
+        ['c', '// or "Starting August 11, Workers will..."'],
+        ['c', '// becomes a shipped release.'],
+        ['f', '// Here what follows it is itself.']
       ]
     },
-    closed: {
-      name: "a closed set, not the log line",
-      purpose: "The migration said so first.",
+    read: {
+      name: "step over the second one",
+      purpose: "Two renderings, one date.",
       lines: [
-        ['c', '// failure_reason is for operators and is'],
-        ['c', '// never shown verbatim.'],
+        ['t', '  before   0 of 0'],
+        ['f', '  after    24 of 24'],
         ['c', ''],
-        ['f', '  Failure::NoSubject'],
-        ['f', '  Failure::Internal'],
-        ['c', ''],
-        ['f', '// What somebody is told is a decision,'],
-        ['f', '// not a database field.']
+        ['c', '// The guard is untouched otherwise.'],
+        ['f', '// Two different dates on one line are'],
+        ['f', '// still a sentence.']
       ]
     },
-    done: {
-      name: "and then the report",
-      purpose: "Watched, not waited for.",
+    real: {
+      name: "and the model set, from real pages",
+      purpose: "Verbatim, and held there.",
       lines: [
-        ['f', '  Searched as https://plausible.io'],
-        ['t', '  Pricing      nothing found. /pricing 404'],
-        ['f', '  What it does 9 capabilities, quoted'],
-        ['f', '  Changes      11 dated entries'],
-        ['f', '  Company      founded 2018, EU, 10 people'],
+        ['f', '  $15/user, billed monthly'],
+        ['f', '  500 GB storage space'],
+        ['f', '  24/7/365 customer support'],
         ['c', ''],
-        ['c', '// Every claim with its source and its'],
-        ['c', '// own words underneath.']
+        ['c', '// A subject a model keeps failing invites'],
+        ['c', '// a quiet edit to the page.'],
+        ['f', '// A test says it is still the page.']
       ]
     }
   };
@@ -227,30 +221,29 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:polling", c: "A stream, and nobody consuming it." },
-    { kind: "means",       a: "spot:#code",   c: "The frontend was still polling." },
+    { kind: "recognition", a: "file:hand",      c: "Sixteen defects, all found by reading." },
+    { kind: "means",       a: "spot:#code",     c: "Nothing asserts any of them." },
 
-    { kind: "turn",        a: "file:four",    c: "Then: four minutes of nothing." },
-    { kind: "means",       a: "spot:#code",   c: "Progress was saved once per page." },
+    { kind: "turn",        a: "file:frozen",    c: "So freeze the pages themselves." },
+    { kind: "means",       a: "spot:#code",     c: "Write down what each one must yield." },
 
-    { kind: "result",      a: "file:window",  c: "So save it per window instead." },
-    { kind: "means",       a: "spot:#code",   c: "One fact puts a section on screen." },
+    { kind: "result",      a: "file:ci",        c: "It runs on every pull request." },
+    { kind: "means",       a: "spot:#code",     c: "No model, no network, no GPU." },
 
-    { kind: "result",      a: "file:froze",   c: "And then the section froze." },
-    { kind: "means",       a: "spot:#code",   c: "One item, while eight more were read." },
+    { kind: "result",      a: "file:calibrate", c: "Then put five old defects back." },
+    { kind: "means",       a: "spot:#code",     c: "Four of five. The fifth, honestly, no." },
 
-    { kind: "result",      a: "file:grow",    c: "Send it again each time it grows." },
-    { kind: "means",       a: "spot:#code",   c: "Neither was visible to the tests." },
+    { kind: "turn",        a: "file:zero",      c: "And a tenth page read as empty." },
+    { kind: "means",       a: "spot:#code",     c: "Two dozen releases. No dates found." },
 
-    { kind: "result",      a: "file:blame",   c: "The failure message was a dead end." },
-    { kind: "means",       a: "spot:#code",   c: "They could fix it. We said they could not." },
+    { kind: "result",      a: "file:twice",     c: "The same date, written twice." },
+    { kind: "means",       a: "spot:#code",     c: "The rule read the second as prose." },
 
-    { kind: "result",      a: "file:closed",  c: "So: situations, not log lines." },
-    { kind: "means",       a: "spot:#code",   c: "The migration had said so all along." },
+    { kind: "result",      a: "file:read",      c: "Step over it: 24 of 24." },
 
-    { kind: "result",      a: "file:done",    c: "And the report arrives while you watch." },
+    { kind: "result",      a: "file:real",      c: "And the subjects are real pages now." },
 
-    { kind: "close",       a: "hold",         c: "Use the thing. It tells you what is wrong." }
+    { kind: "close",       a: "hold",           c: "Build the instrument. It finds the next one." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the

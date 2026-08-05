@@ -565,10 +565,32 @@ true. This part can.
 cargo test -p landscape-golden
 ```
 
-**You should see 22 passing.** These check the *golden set itself*: that every reference
-answer really appears on its page, that at least three subjects publish no price, that every
-subject explains in prose why it exists. A measuring instrument nobody calibrates produces
-numbers that are worse than none, because they get believed.
+**You should see 30 passing.** They are two things.
+
+Ten check the *golden set itself*: that every reference answer really appears on its page, that
+at least three subjects publish no price, that every subject explains in prose why it exists. A
+measuring instrument nobody calibrates produces numbers that are worse than none, because they
+get believed.
+
+The rest check the **parsers**, against ten real pages frozen in
+`crates/landscape-golden/pages/`:
+
+```bash
+cargo test -p landscape-golden --test the_pages
+```
+
+**0.24 seconds, and no model is involved.** Every extraction step before the model is
+deterministic — which windows a pricing page yields, which capabilities a features page names,
+how many dated entries a changelog carries — so the answer can be written down and checked on
+every pull request. `BENCHMARKS.md` Runs 5 to 16 found sixteen defects by reading real output
+by hand; this is the half of that method a build can do. It was calibrated by putting five of
+those defects back into the code: it caught four, and the fifth is caught by a unit test
+elsewhere. Building it found a seventeenth — a changelog of two dozen releases that read as
+having no dates at all (Run 17).
+
+When one fails it names the page, quotes why that page is in the set, and prints expected
+against got for **every** page that moved, because a change to a shared rule usually moves
+several and which ones is the diagnosis.
 
 **Now score a running model:**
 
@@ -1145,6 +1167,8 @@ Worth knowing what a few of them are actually for:
 | `every_expected_answer_is_actually_on_the_page` | Checks the golden set's own answers, so a correct model cannot be scored wrong and then "fixed" |
 | `every_property_becomes_required` | A model that stops writing after two keys parses as a model that found nothing. This is what stops that |
 | `filling_in_a_price_the_page_does_not_state_is_a_fabrication` | The scoring rule the whole golden set turns on, tested without a model |
+| `every_frozen_page_still_reads_the_way_it_did` | Ten real pages and what the parsers must make of them. Sixteen defects were found by reading output by hand; this is the half of that a build can do |
+| `the_subjects_carved_from_real_pages_are_still_verbatim` | A subject a model keeps failing invites a quiet edit to its page text, and a subject edited until it passes measures nothing |
 
 The last one exists because two bugs once reached a reader through correct code and a stale
 README. Run it with:
@@ -1192,7 +1216,8 @@ python prototype/build.py --preview
 | 7 — survives a restart with Postgres | | |
 | 8 — 100 generations, 0 parse failures | | |
 | 8 — `landscape-bench` reports three error kinds separately | | |
-| 8A — golden set validates itself, 22 passing, no model | | |
+| 8A — golden set validates itself, 30 passing, no model | | |
+| 8A — `--test the_pages` passes: ten frozen pages, no model, under a second | | |
 | 8A — scorecard prints; `FAB` on the abstention subjects reads as expected | | |
 | 8B — example.com fetches; metadata endpoint and loopback refused | | |
 | 8B — Google `/search` refused by robots, `/robots.txt` allowed | | |

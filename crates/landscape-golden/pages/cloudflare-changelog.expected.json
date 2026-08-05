@@ -1,0 +1,11 @@
+{
+  "page": "cloudflare-changelog.md",
+  "from": "https://developers.cloudflare.com/changelog/, frozen 2026-08-05",
+  "why": "A changelog whose every date is a `<time datetime>` element, which converts to the machine date followed by the same day written for a person — `2026-08-04 Aug 4, 2026`. Reading that second date as prose rejected all 24 entries, so the most explicitly machine-readable date shape on the web was the one we could not read. Frozen because the page found the defect and is the only thing that would find it again.",
+  "answers": "changes",
+  "changes": {
+    "read": 24,
+    "considered": 24,
+    "newest": "2026-08-04"
+  }
+}

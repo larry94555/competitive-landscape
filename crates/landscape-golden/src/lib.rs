@@ -40,6 +40,8 @@
 //!   cargo test -p landscape-golden -- --ignored --nocapture   # scores a model
 //! ```
 
+pub mod pages;
+
 use std::path::{Path, PathBuf};
 
 use landscape_core::{BillingPeriod, PricingExtraction};
