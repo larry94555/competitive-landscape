@@ -20,12 +20,34 @@ The six states, in the order they must be reached. **None of them is met.**
 
 | # | State | Met? | The single thing standing in the way |
 |---|---|---|---|
-| **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **No — but closest.** The software can do this on a laptop today. | **Nothing is deployed.** The definition says "if deployed to the Oracle Cloud", and there is no deployment, no host recorded, no access from here. |
+| **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **No.** *This row said "the software can do this on a laptop today" and that was wrong* — see [§1.5](#15-the-correction-that-produced-phase-d). | **Six things, five of them software.** [Phase D](docs/ROADMAP.md) is now the top of the roadmap: serve the app (**done**), give a run a URL, a build and a service, example ideas that run, several companies per report, a cap on anonymous runs. |
 | **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | **A business idea does not run at all.** A prompt must name a domain; a description fails with `no_subject`. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
 | **S3** | **Ready for use** — friendly users should find no issue | **No.** | No permalink (a reload loses the run), no accounts, 6 of 9 report sections, no verification layer. |
 | **S4** | **Ready for general use** — promotable, word-of-mouth quality | **No.** | Everything in S3, plus no quality gates have ever been run against a deployed system. |
 | **S5** | **General use, free mode** — stable, email signup, community channels | **No.** | No authentication code exists anywhere in the repository. No knowledge base. |
 | **S6** | **General use, full mode** — notifications and paid subscriptions | **No.** | No billing, no watches, no email. A blocking commercial decision (merchant of record) is unmade. |
+
+### 1.5 The correction that produced Phase D
+
+**This page told a comfortable lie, and it is worth reading how.** The S1 row said the guided
+demo was blocked on deployment alone. Deploying the binary as it stood would have produced a
+JSON API with **no website**: `router()` served `/api/*` and nothing else, the React app existed
+only behind Vite's dev server, and no test anywhere asserted that a browser pointed at the
+binary received HTML.
+
+Nothing was lying on purpose. The claim was assembled from true parts — the pipeline does work
+on a laptop, and the deployment genuinely is the founder's to do — and the join between them was
+never checked. **A status page is exactly where that kind of error is most expensive**, because
+it is the page somebody plans from.
+
+The binary serves the app now, with a test that a deep link returns the page and another that
+the API still wins over the fallback. The remaining five items are
+[Phase D](docs/ROADMAP.md#2d-phase-d--a-demo-you-can-send-someone).
+
+The other half of the correction is about sequencing rather than fact. Runs 17–20 hardened the
+states a run only reaches when something goes wrong. Each was chosen as the adjacent step from
+the one before, and **none was chosen by asking what a demo needs** — which is how four
+consecutive pieces of correct work left the readiness table untouched.
 
 ### The three facts behind that table
 
@@ -77,7 +99,7 @@ substitution is deliberate and is noted on each one.
 
 | Feature | Rung | One-line status |
 |---|---|---|
-| [F1 Searching for competitive information on a product idea](#f1--searching-for-competitive-information-on-a-product-idea) | **R1 partial** | Works for a prompt naming a domain. An idea returns nothing. |
+| [F1 Searching for competitive information on a product idea](#f1--searching-for-competitive-information-on-a-product-idea) | **R1 partial** | Works for a prompt naming a domain. An idea returns nothing — until Phase D's example chips, which run real analyses over curated competitor sets. |
 | [F2 Editing the product idea to get better results](#f2--editing-the-product-idea) | **R0** | No run has a URL; there is nothing to return to and edit. |
 | [F3 Asking follow-up questions](#f3--asking-follow-up-questions) | **R0** | Not started. Report is terminal — read it or run another. |
 | [F4 Sign up / registration](#f4--sign-up--registration) | **R0** | No authentication code exists in the repository. |
@@ -87,7 +109,7 @@ substitution is deliberate and is noted on each one.
 | [F8 The report itself](#f8--the-report-itself) | **R3–R4** | 6 of 9 sections, 4 of 6 extractors, no matrix, no charts. |
 | [F9 Claims you can check](#f9--claims-you-can-check) | **R4** | Structurally enforced at the type level; the verification pass is not built. |
 | [F10 PDF export](#f10--pdf-export) | **R0** | Not started. |
-| [F11 Share / permalink](#f11--share--permalink) | **R0** | Not started, and it blocks F2, F3 and any demo that survives a reload. |
+| [F11 Share / permalink](#f11--share--permalink) | **R0** | Not started, and it blocks F2, F3 and any demo that survives a reload. **Phase D item D2** — the server side is in place; the client has to read the id from the path. |
 | [F12 What people are saying](#f12--what-people-are-saying) | **R0** | Not started. |
 | [F13 Copy as context](#f13--copy-as-context) | **R0** | Not started. Cheapest customer-visible item on the list. |
 | [F14 The wait](#f14--the-wait) | **R2** | Streaming works. The wait has never been measured on the target hardware. |

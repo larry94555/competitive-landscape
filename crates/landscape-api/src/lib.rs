@@ -13,4 +13,4 @@ mod routes;
 
 pub use error::ApiError;
 pub use request_id::RequestId;
-pub use routes::{router, AppState};
+pub use routes::{router, web_dir, with_ui, AppState};

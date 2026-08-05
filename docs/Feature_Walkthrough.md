@@ -1151,7 +1151,7 @@ cargo install cargo-nextest --locked
 cargo nextest run --all-features
 ```
 
-**`463 tests run: 463 passed, 6 skipped`** — the six are the `#[ignore]`d ones that need a
+**`469 tests run: 469 passed, 6 skipped`** — the six are the `#[ignore]`d ones that need a
 database or a model. `cargo test --all-features --doc` runs alongside it, because nextest
 does not run doctests.
 
@@ -1172,6 +1172,7 @@ Worth knowing what a few of them are actually for:
 | `a_slow_write_never_overwrites_a_newer_report` | Progress writes used to race. The store could end up holding the older report, so a correction a reader had already seen was undone in front of them |
 | `a_reader_watching_a_reclaimed_run_is_never_told_it_finished` | A reclaimed run goes `running` → `queued` → `running`. A stream that ended on "not running any more" would tell a reader it was finished, and a reader told that does not reconnect |
 | `after_a_retraction_the_same_answer_is_sent_again_rather_than_suppressed` | The stream skips a payload it has already sent. Once a reader's screen is cleared, "already sent" is no longer true — and a replacement reaching the same answer would be suppressed and never appear |
+| `a_deep_link_reaches_the_app_rather_than_a_404` | The binary serves only `/api/*` until this exists, so a deployment is an API nobody can see. The page owns its own routing, so a permalink has to reach the client rather than 404 |
 | `a_run_told_to_stop_does_not_call_the_model_again` | A worker the queue has replaced used to read every remaining window for a report nothing would accept. Twelve model calls become one, counted against a stub server so it runs without a GPU |
 | `a_window_the_model_could_not_answer_is_still_a_chance_to_stop` | The cancellation check used to sit inside the branch where a window succeeded, so a run whose model calls were failing read every window anyway — and a failing run is the slow one the sweep takes away |
 | `a_run_nobody_stops_reads_every_window` | The control: a stop that fires always would look like a saving in every number, and would turn every report into its first window |

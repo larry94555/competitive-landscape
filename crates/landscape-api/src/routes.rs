@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
-use axum::routing::{get, post};
+use axum::routing::{any, get, post};
 use axum::{Json, Router};
 use landscape_core::{Analysis, AnalysisId, AnalysisStatus, NewAnalysis};
 use landscape_db::Store;
@@ -46,8 +46,58 @@ pub fn router(state: AppState) -> Router {
         // is the difference between ninety seconds of spinner and twenty of
         // content — PRODUCT_SPEC.md §2.1A.
         .route("/api/analyses/{id}/events", get(crate::events::stream))
+        // `/api` is claimed whole, including the parts of it that do not exist. Without this
+        // the single-page fallback in `with_ui` answers a mistyped endpoint with `index.html`,
+        // and the client reports a JSON parse error instead of the wrong URL.
+        .route(
+            "/api/{*rest}",
+            any(|| async { Err::<(), ApiError>(ApiError::NotFound) }),
+        )
         .with_state(state)
         .layer(axum::middleware::from_fn(crate::request_id::layer))
+}
+
+/// Serve the built single-page app alongside the API.
+///
+/// # Why this exists at all
+///
+/// Until now [`router`] served `/api/*` and nothing else, and the React app existed only
+/// behind Vite's dev server. **That made the whole thing undeployable without anybody
+/// noticing**: put the binary on a host and a visitor gets JSON, because there is no page to
+/// ask for. `PROJECT_STATUS.md` recorded a guided demo as blocked on deployment alone, which
+/// was wrong in exactly this way — the gap was not the box, it was that nothing served a page
+/// to put on it.
+///
+/// # The fallback is the point
+///
+/// Any path the API does not claim returns `index.html`, because a single-page app owns its
+/// own routing: `/a/<id>` has to reach the client for a permalink to survive a refresh, and a
+/// 404 from the server would be the one thing that stops it. Real files still win — the
+/// fallback only runs when `ServeDir` finds nothing.
+///
+/// Returns the API unchanged when `dir` holds no `index.html`, so `cargo run` with Vite on the
+/// side keeps working exactly as `Feature_Walkthrough.md` describes. A missing build is a
+/// developer running the pieces separately, not an error.
+pub fn with_ui(api: Router, dir: &std::path::Path) -> Router {
+    if !dir.join("index.html").is_file() {
+        tracing::info!(
+            dir = %dir.display(),
+            "no built web app here; serving the API alone (run `npm run build` in web/)"
+        );
+        return api;
+    }
+    tracing::info!(dir = %dir.display(), "serving the web app");
+    let files = tower_http::services::ServeDir::new(dir)
+        .fallback(tower_http::services::ServeFile::new(dir.join("index.html")));
+    api.fallback_service(files)
+}
+
+/// Where the built web app is expected, unless `WEB_DIR` says otherwise.
+///
+/// Relative to the working directory, which on the host is wherever the unit file puts it.
+#[must_use]
+pub fn web_dir() -> std::path::PathBuf {
+    std::env::var("WEB_DIR").map_or_else(|_| std::path::PathBuf::from("web/dist"), Into::into)
 }
 
 #[derive(Debug, Serialize)]
