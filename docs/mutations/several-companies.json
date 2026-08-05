@@ -1,0 +1,38 @@
+[
+  {
+    "name": "the merge does not stamp the subject on each claim",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "                    subject: report.subject.clone(),",
+    "new": "                    subject: String::new(),",
+    "run": ["cargo", "nextest", "run", "-p", "landscape-analyze"]
+  },
+  {
+    "name": "source labels are not reassigned when reports merge",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "            let label = format!(\"S{}\", sources.len() + 1);\n            renamed.insert(source.label.clone(), label.clone());",
+    "new": "            let label = source.label.clone();\n            renamed.insert(source.label.clone(), label.clone());",
+    "run": ["cargo", "nextest", "run", "-p", "landscape-analyze"]
+  },
+  {
+    "name": "coverage is concatenated rather than merged by question",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        coverage: coverage_by_question(&finished),",
+    "new": "        coverage: finished.iter().flat_map(|a| a.coverage.clone()).collect(),",
+    "run": ["cargo", "nextest", "run", "-p", "landscape-analyze"]
+  },
+  {
+    "name": "a company named and not analysed is dropped in silence",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "    let notes = if dropped.is_empty() {",
+    "new": "    let notes = if true {",
+    "run": ["cargo", "nextest", "run", "-p", "landscape-analyze"]
+  },
+  {
+    "name": "the interface does not name the company beside each claim",
+    "file": "web/src/App.tsx",
+    "old": "                  {several && claim.subject !== \"\" && (",
+    "new": "                  {false && claim.subject !== \"\" && (",
+    "run": ["npx", "vitest", "run"],
+    "cwd": "web"
+  }
+]

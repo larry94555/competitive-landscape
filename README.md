@@ -241,6 +241,32 @@ Any path the API does not claim returns `index.html`, because the page owns its 
 accepted, so a reload reopens it and the link can be sent to somebody. A link that points at
 nothing says so rather than rendering an empty box.
 
+### Checking a change before anyone else has to
+
+```bash
+python3 scripts/verify.py
+```
+
+Every gate — fmt, clippy, tests, doctests, the frontend, links, the instruction linter — each
+judged by its **own** exit code, with the file-reading checks run against a clean checkout of
+`HEAD` rather than the working tree. Both of those are lessons rather than preferences: a link
+once resolved locally only because of an untracked file, and a `| tail && echo OK` once printed
+success over a broken build.
+
+```bash
+python3 scripts/mutate.py docs/mutations/several-companies.json
+```
+
+And the one that has actually found things: **put the defect back and see whether a test
+notices.** Write one per guard a change adds.
+[`docs/mutations/`](docs/mutations/) holds worked examples, and a missed mutation exits non-zero
+because a test that cannot fail is a finding rather than a footnote.
+
+The classes of defect these come from are in
+[`.claude/skills/coding-mistakes/SKILL.md`](.claude/skills/coding-mistakes/SKILL.md) — twenty-two
+entries, each with the symptom a reader would have seen and the question that would have caught
+it.
+
 ### The documentation is tested
 
 Two bugs once reached a reader through correct code and a stale README: a port that had

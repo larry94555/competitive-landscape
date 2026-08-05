@@ -23,8 +23,8 @@ the standard did not save us, with the specific question that would have.
 **Before writing** code that touches any of the classes below, read that class's rule and its
 "ask this" line.
 
-**Before opening a PR**, run [the checklist](#the-checklist-before-a-pr). It is six questions and
-takes two minutes.
+**Before opening a PR**, run [the two commands and five questions](#before-a-pr-two-commands-and-five-questions).
+The commands are the part that does not depend on remembering; the questions take two minutes.
 
 **After a review finds something**, add an entry the same day. Format: what was written, what a
 person would have seen, why the tests missed it, the rule. Keep the failure concrete — the
@@ -172,6 +172,13 @@ first case where one of them is shorter.
 
 > **Ask this:** *can these two lists ever be different lengths, or ordered differently? Then they
 > are one list of pairs.*
+
+**It came back.** `Analysis::render` zips `sections` with `coverage`, and merging several
+companies' reports produced six sections and *N×6* coverage records — so the renderer read the
+first company's and silently dropped the rest, and a section that found nothing described only
+the first site's attempts. Same shape, two years of intent apart: **two collections joined by
+position, where one of them changed length.** Found by review, in the pull request that changed
+the length.
 
 ## 8. A worked example in a prompt is a source of facts
 
@@ -501,57 +508,108 @@ suite for two call sites that could not otherwise be asserted at all.
 
 > **Ask this:** *if I deleted the call to the thing I just tested, would anything fail?*
 
+## 22. A layer that wrapped only what existed when it was added
+
+**Written:** the request-id middleware attached inside `router()`, with the single-page fallback
+added afterwards by `with_ui()`.
+
+**What a person saw:** every page and every asset came back with **no `x-request-id`, no span and
+no access line** — ADR 0005's invariant broken on the one surface a visitor actually touches, and
+on the only URL anybody types. The API kept its ids, so nothing looked wrong.
+
+**Why the tests missed it:** the API tests asserted the header on API routes, which still had it.
+Nothing asked the question about the surface that had just been added.
+
+**Rule:** `Router::layer` wraps the routes present *when it is called* and nothing added later,
+and the same is true of most middleware and decorator APIs. **Build the whole thing, then wrap
+it** — and where that is awkward, make the wrapping the last step in one function so there is
+exactly one place it can be got wrong. Here the routes are built without middleware and the layer
+goes on outermost, so `with_ui` cannot forget.
+
+> **Ask this:** *what did this wrapper actually enclose — everything, or everything that existed
+> on the line above it?*
+
 ---
 
-## The checklist, before a PR
+## Before a PR: two commands and five questions
 
-Thirteen questions. Two minutes. Every one of them comes from an entry above.
+**The commands come first, because they are the part that does not depend on remembering.**
 
-1. **Lifecycle** — does anything infer "finished" from the presence of data rather than from a
-   status? *(1)*
-2. **Mid-operation states** — which states exist only when something fails partway, and which of
-   them has a test? *(the pattern, 1, 3, 4, 12, 13, 14, 15, 18, 19)*
-3. **Duplication of a derived fact** — is any fact computed in two places from different inputs?
-   *(4)*
-4. **Comparisons** — can I name a change my equality check cannot see? Does any validation have a
-   case that should fail and does? *(2, 5)*
-5. **Things that belong together** — any parallel arrays, index-paired lists, or a value separated
-   from its evidence? *(7)*
-6. **Honesty of the output** — are caps, drops and "found nothing" distinguishable from
-   completeness? Does any prompt name a real subject? *(8, 10)*
-7. **Copies I do not own** — if two writes are in flight, which lands last? Who is holding what
-   I just deleted, and what tells them? Does my guard still mean the same thing on a fresh
-   connection? *(12, 13, 14)*
-8. **Who is asking** — can two actors be in the state this condition tests? Am I authorising a
-   situation when I mean to authorise a claimant? *(15)*
-9. **What am I actually shipping** — does `git status` hold anything I did not put there? Would
-   the file-reading checks pass on a clean checkout of this commit? *(16)*
-10. **Did my check run where I aimed it** — if I am reporting that something is *not* covered,
-    have I confirmed the thing I broke is the thing I meant to break? *(17)*
-11. **The unhappy branch** — does every guard still run when the step above it failed or was
-    skipped? Is there a test where the dependency *errors* rather than succeeds? *(18)*
-12. **Two at once** — if a second request, run or connection starts before the first finishes,
-    which one writes? Does the loser touch anything, including in `finally`? *(12, 15, 19)*
-13. **Where did the value come from** — is my fixture shaped like what the real producer emits,
-    or does it already contain the thing I am asserting? If I deleted the call to the function I
-    just tested, would anything fail? *(20, 21)*
+```bash
+python3 scripts/verify.py
+```
+
+Every gate, each judged by its **own** exit code, with the file-reading checks run against a
+clean checkout of `HEAD` rather than your working tree. Entries 16 and 17 are both here: a link
+that resolved only because of an untracked file, and a `| tail && echo OK` that printed success
+over a broken build.
+
+```bash
+python3 scripts/mutate.py mutations.json
+```
+
+**Put back every defect your change is supposed to prevent, and confirm something fails.** Write
+one mutation per guard you added. This is the only mechanical check that has ever found a defect
+here — and a `MISSED` exits non-zero, because a test that cannot fail is a finding rather than a
+line in a table.
+
+### Then five questions
+
+Grouped by what has actually gone wrong, commonest first.
+
+1. **What states exist between "started" and "finished"?** Which of them has a test — a worker
+   replaced mid-run, a stream that drops, a request still in flight when the next one starts, a
+   step whose dependency *errored* rather than succeeded? Ten of the entries above live here.
+   *(1, 3, 4, 12, 13, 14, 15, 18, 19, 19b)*
+
+2. **Which of my checks cannot fail?** Is the fixture shaped like what the real producer emits,
+   or does it already contain the thing I am asserting? If I deleted the call to the function I
+   just tested, would anything fail? Is there a case that *should* fail and does? *(5, 20, 21)*
+
+3. **What is the scope of each guard, and of each wrapper?** A condition about *the connection*
+   is wrong at every reconnect; a counter inside an effect does not survive a remount; a layer
+   wraps what existed when it was added. Does the guard outlive the thing it guards? *(14, 19b,
+   22)*
+
+4. **What travels together, and what is joined by position?** Any parallel collection, index
+   pairing, or value separated from its evidence — and does anything still line up when one of
+   them changes length? *(7)*
+
+5. **Is the output honest about what it does not know?** Are caps, drops, truncation and "found
+   nothing" distinguishable from completeness? Does a merged view say which subject each part
+   belongs to? Does any prompt name a real company? *(2, 6, 8, 9, 10, 11)*
 
 ## How these were found, and what that says
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20 | All in error paths; 13 and 14 were successive halves of one fix |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |
-| Deliberately breaking the code to see if a test notices | 12, the rearm in 14, and 21 | The store was fast, so nothing raced until one was made slow |
+| Deliberately breaking the code to see if a test notices | 12, the rearm in 14, and 21 | The store was fast, so nothing raced until one was made slow. Now `scripts/mutate.py` |
 | Writing down what a fix does *not* cover | 15 | Named as open in Run 18's "what is still not right", fixed in Run 19 |
-| CI, catching what a local run could not see | 16 | The local check read the working tree; CI reads the commit |
+| CI, catching what a local run could not see | 16 | The local check read the working tree; CI reads the commit. Now `scripts/verify.py` |
 | Doubting a `MISSED` instead of writing it down | 17 | The mutation had been applied to a different copy of the same code |
 | The test suite, before review | — | **None of the entries above** |
 
 **That last row is the point of this file.** The suite is good at protecting what it was written
-for and blind to what nobody thought of. The three things that have actually found defects here
-are *reading real output*, *using the product as a client does*
-([ADR 0011](../../../docs/decisions/0011-no-experiments-on-production.md)), and *somebody else
-reading the diff* — and the cheapest of the three is the checklist above, applied before anyone
-else has to.
+for and blind to what nobody thought of.
+
+### What that says about where to spend effort
+
+Four things have found defects here. Ranked by how much they cost:
+
+| | Cost | Finds |
+|---|---|---|
+| **Breaking the code on purpose** | minutes, and now one command | Guards nobody tested, fixtures that answer their own question |
+| **Reading real output** | an afternoon per run | Everything in `BENCHMARKS.md` Runs 5–16 |
+| **Using the product as a client does** | a browser and ten minutes | What 425 passing tests could not see ([ADR 0011](../../../docs/decisions/0011-no-experiments-on-production.md)) |
+| **Somebody else reading the diff** | another person | The largest share, and every one in an error path |
+
+**Only the first is mechanical, and it is the one that was being done by hand and thrown away.**
+It is `scripts/mutate.py` now. Writing a mutation for each guard a change adds is the closest
+thing here to a way of *not* needing the review that follows.
+
+The rest of this file is a memory aid for the other three. It works only if it is read before
+the code is written, which is why the two commands are at the top of the checklist and the
+questions are underneath them.
