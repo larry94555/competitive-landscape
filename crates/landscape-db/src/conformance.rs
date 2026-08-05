@@ -10,7 +10,7 @@
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 // This module is test scaffolding: an assertion failure here must abort loudly.
 
-use landscape_core::{AnalysisStatus, NewAnalysis, Report};
+use landscape_core::{AnalysisStatus, Failure, NewAnalysis, Report};
 
 use crate::Store;
 
@@ -141,9 +141,17 @@ pub async fn run(store: &impl Store) {
     );
 
     // --- failing is terminal and records nothing user-facing -------------------
-    store.fail(b.id, "network unreachable").await.expect("fail");
+    store
+        .fail(b.id, Failure::Internal, "network unreachable")
+        .await
+        .expect("fail");
     let failed = store.get(b.id).await.expect("get after fail");
     assert_eq!(failed.status, AnalysisStatus::Failed);
+    assert_eq!(
+        failed.failure,
+        Some(Failure::Internal),
+        "a failed analysis says which situation it is in, so an interface can write a          sentence a reader can act on"
+    );
     assert!(
         failed.report.is_none(),
         "a failed analysis must not carry a partial report"

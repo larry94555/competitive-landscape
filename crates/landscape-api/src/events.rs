@@ -24,10 +24,18 @@
 //! event: done        nothing else is coming
 //! ```
 //!
-//! **A section is sent once, when it first has something in it.** A reader watching a report
-//! fill in never sees the same heading arrive twice.
+//! **A section is sent when it first has something in it, and again whenever it changes.**
+//! Watching a real run in a browser is what settled that: sending it once put *"What it does:
+//! 1 item"* on screen and left it there for two minutes while eight more capabilities were
+//! read. A section that arrives and then freezes reads as a section that is finished.
+//!
+//! *Changes*, not *grows*. A section can be corrected without getting longer:
+//! `PagePricing::assembled` replaces a plan when a later window supplies the price the first
+//! one lacked, so `Free is listed with no published price` becomes `Free costs $0` at the same
+//! length. Comparing lengths would leave the retracted claim on screen until the run ended —
+//! which is the one thing this product cannot do.
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
@@ -72,7 +80,10 @@ pub(crate) async fn stream(
     let store = Arc::clone(&state.store);
     let stream = async_stream::stream! {
         let started = std::time::Instant::now();
-        let mut sent_sections: HashSet<String> = HashSet::new();
+        // key -> exactly what the reader was last sent, so any change is resent and an
+        // unchanged section is not. The payload rather than a count: a corrected claim is
+        // the same length as the wrong one it replaces.
+        let mut sent_sections: HashMap<String, String> = HashMap::new();
         let mut sent_status: Option<AnalysisStatus> = None;
 
         loop {
@@ -98,8 +109,10 @@ pub(crate) async fn stream(
                         // for a question still being read.
                         continue;
                     }
-                    if sent_sections.insert(section.key.clone()) {
-                        yield Ok(section_event(section));
+                    let payload = payload_of(section);
+                    if sent_sections.get(&section.key) != Some(&payload) {
+                        sent_sections.insert(section.key.clone(), payload.clone());
+                        yield Ok(Event::default().event("section").data(payload));
                     }
                 }
             }
@@ -128,13 +141,12 @@ fn status_event(status: AnalysisStatus) -> Event {
     Event::default().event("status").data(status.as_db_str())
 }
 
-fn section_event(section: &Section) -> Event {
-    // A section that will not serialise is a bug in the report type rather than something a
-    // reader can act on, so the stream carries on without it.
-    serde_json::to_string(section).map_or_else(
-        |_| Event::default().event("section").data(section.key.clone()),
-        |json| Event::default().event("section").data(json),
-    )
+/// What a reader is sent for one section, and what is compared against next time.
+///
+/// A section that will not serialise is a bug in the report type rather than something a
+/// reader can act on, so the stream sends its key and carries on.
+fn payload_of(section: &Section) -> String {
+    serde_json::to_string(section).unwrap_or_else(|_| section.key.clone())
 }
 
 fn done() -> Event {
@@ -179,10 +191,36 @@ mod tests {
     }
 
     #[test]
-    fn a_populated_section_serialises_into_its_event() {
-        let event = section_event(&section("pricing", vec![claim()]));
-        let rendered = format!("{event:?}");
-        assert!(rendered.contains("section"), "{rendered}");
+    fn a_populated_section_serialises_into_its_payload() {
+        let payload = payload_of(&section("pricing", vec![claim()]));
+        assert!(payload.contains("Pro costs $15"), "{payload}");
+    }
+
+    #[test]
+    fn a_corrected_claim_is_a_different_payload_at_the_same_length() {
+        // The case a claim count cannot see. `PagePricing::assembled` replaces a plan when a
+        // later window supplies the price the first one lacked, so one claim becomes a
+        // different one claim — and the retracted version would otherwise sit on the
+        // reader's screen until the run ended.
+        let vague = Claim {
+            text: "Free is listed with no published price".to_owned(),
+            ..claim()
+        };
+        let corrected = Claim {
+            text: "Free costs $0".to_owned(),
+            ..claim()
+        };
+        let before = payload_of(&section("pricing", vec![vague]));
+        let after = payload_of(&section("pricing", vec![corrected]));
+        assert_ne!(before, after, "a correction must be visible to the stream");
+    }
+
+    #[test]
+    fn an_unchanged_section_has_an_unchanged_payload() {
+        // The other half: polling twice a second must not resend what nobody has changed.
+        let once = payload_of(&section("pricing", vec![claim()]));
+        let twice = payload_of(&section("pricing", vec![claim()]));
+        assert_eq!(once, twice);
     }
 
     #[test]

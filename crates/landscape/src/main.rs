@@ -494,7 +494,11 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
         // would produce a report that is correctly cited and about the wrong company.
         tracing::info!(id = %analysis.id, "no subject in prompt");
         if let Err(e) = store
-            .fail(analysis.id, landscape_analyze::subject::NO_SUBJECT)
+            .fail(
+                analysis.id,
+                landscape_core::Failure::NoSubject,
+                landscape_analyze::subject::NO_SUBJECT,
+            )
             .await
         {
             tracing::error!(id = %analysis.id, error = %e, "could not record the failure");

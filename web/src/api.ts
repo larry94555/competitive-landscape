@@ -8,6 +8,14 @@
 
 export type AnalysisStatus = "queued" | "running" | "complete" | "failed";
 
+/**
+ * Which situation a failed analysis is in.
+ *
+ * A closed set, on purpose. The server records an operator's reason too and never sends it:
+ * what somebody is told about a failure is a decision made here, in words written for them.
+ */
+export type Failure = "no_subject" | "internal";
+
 export type SectionStatus = "populated" | "partial" | "not_found_in_public_sources";
 
 export interface Claim {
@@ -45,6 +53,7 @@ export interface Analysis {
   readonly status: AnalysisStatus;
   readonly created_at: string;
   readonly report: Report | null;
+  readonly failure: Failure | null;
 }
 
 /** What the server sends when it refuses a request. */
@@ -111,4 +120,65 @@ export async function getAnalysis(id: string): Promise<Analysis> {
 
 export function isTerminal(status: AnalysisStatus): boolean {
   return status === "complete" || status === "failed";
+}
+
+/** What the reader sees while a report is being written. */
+export interface Watcher {
+  readonly onStatus: (status: AnalysisStatus) => void;
+  /** One section, the first time it has anything in it. */
+  readonly onSection: (section: Section) => void;
+  /** Nothing else is coming. The caller fetches the finished analysis. */
+  readonly onDone: () => void;
+}
+
+/**
+ * Watch a report being written.
+ *
+ * `GET /api/analyses/{id}/events` sends a section as soon as it has claims, so a reader sees
+ * the first one in twenty to forty seconds rather than at the end of ninety —
+ * `PRODUCT_SPEC.md` §2.1A. Returns a function that closes the stream.
+ *
+ * **The stream is an accelerator, not the source of truth.** If it fails — a proxy that
+ * buffers, a laptop that slept, a browser without `EventSource` — the caller still has
+ * `getAnalysis`, and the reader sees the report a little later rather than not at all. That
+ * is why `onDone` fires on error too.
+ */
+export function watchAnalysis(id: string, watcher: Watcher): () => void {
+  if (typeof EventSource === "undefined") {
+    watcher.onDone();
+    return () => {};
+  }
+
+  const source = new EventSource(`/api/analyses/${id}/events`);
+  let closed = false;
+  const close = (): void => {
+    if (closed) return;
+    closed = true;
+    source.close();
+  };
+
+  source.addEventListener("status", (e) => {
+    watcher.onStatus((e as MessageEvent<string>).data as AnalysisStatus);
+  });
+  source.addEventListener("section", (e) => {
+    try {
+      watcher.onSection(JSON.parse((e as MessageEvent<string>).data) as Section);
+    } catch {
+      // A section we cannot parse is a bug on our side. Dropping it costs the reader one
+      // heading arriving late, which the final fetch puts right.
+    }
+  });
+  source.addEventListener("done", () => {
+    close();
+    watcher.onDone();
+  });
+  source.onerror = () => {
+    // EventSource retries by itself, and retrying against a finished analysis is a
+    // connection that opens, says `done`, and closes — which is churn nobody benefits
+    // from. Close it and let the caller fetch.
+    close();
+    watcher.onDone();
+  };
+
+  return close;
 }

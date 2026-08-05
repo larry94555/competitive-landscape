@@ -172,7 +172,54 @@ pub async fn analyse_with(
 
         opened.push((question, 1));
         let label = format!("S{}", sources.len() + 1);
-        let outcome = stages::extract(llm, question, &source.url, &markdown, today).await;
+        // Each fact this page produces, as it produces it. A page is too large a unit to
+        // wait on: plausible.io's first page is twelve windows and took four minutes, which
+        // a reader watching an empty screen reads as nothing happening.
+        let outcome = {
+            let claims = &claims;
+            let sources = &sources;
+            let opened = &opened;
+            let label = label.clone();
+            let mut emit = |partial: &[Finding]| {
+                let mut with_partial: Vec<(Answers, Claim)> = claims.clone();
+                with_partial.extend(partial.iter().map(|f| {
+                    (
+                        question,
+                        Claim {
+                            text: f.text.clone(),
+                            source_label: label.clone(),
+                            evidence_quote: f.quote.clone(),
+                            confidence: f.confidence,
+                            as_of: f.as_of.unwrap_or(now),
+                        },
+                    )
+                }));
+                // The source is cited from the first claim that needs it, so nothing a
+                // reader sees mid-run points at a label the source list does not have.
+                let mut with_source = sources.to_vec();
+                if !partial.is_empty() && !with_source.iter().any(|s| s.label == label) {
+                    with_source.push(Source {
+                        label: label.clone(),
+                        url: source.url.clone(),
+                        title: page_title(&markdown, &source.url),
+                        disposition: Disposition::Primary,
+                        fetched_at: now,
+                        independence_group: origin.to_owned(),
+                    });
+                }
+                let (so_far, _) = assemble(
+                    &found,
+                    &with_partial,
+                    &with_source,
+                    opened,
+                    origin,
+                    llm,
+                    now,
+                );
+                on_progress(&so_far);
+            };
+            stages::extract(llm, question, &source.url, &markdown, today, &mut emit).await
+        };
 
         for text in outcome.claims {
             claims.push((

@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use landscape_core::{Analysis, AnalysisId, AnalysisStatus, NewAnalysis, Report};
+use landscape_core::{Analysis, AnalysisId, AnalysisStatus, Failure, NewAnalysis, Report};
 
 use crate::{Result, Store, StoreError};
 
@@ -44,6 +44,7 @@ impl Store for MemoryStore {
             status: AnalysisStatus::Queued,
             created_at: chrono::Utc::now(),
             report: None,
+            failure: None,
         };
         self.lock().insert(analysis.id, analysis.clone());
         Ok(analysis)
@@ -95,11 +96,12 @@ impl Store for MemoryStore {
         Ok(())
     }
 
-    async fn fail(&self, id: AnalysisId, reason: &str) -> Result<()> {
+    async fn fail(&self, id: AnalysisId, kind: Failure, reason: &str) -> Result<()> {
         let mut map = self.lock();
         let entry = map.get_mut(&id).ok_or(StoreError::NotFound(id))?;
         entry.status = AnalysisStatus::Failed;
-        tracing::warn!(%id, reason, "analysis failed");
+        entry.failure = Some(kind);
+        tracing::warn!(%id, reason, kind = kind.as_db_str(), "analysis failed");
         Ok(())
     }
 
