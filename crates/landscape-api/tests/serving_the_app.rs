@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use axum::body::Body;
 use axum::http::Request;
-use landscape_api::{router, with_ui, AppState};
+use landscape_api::{with_ui, AppState};
 use landscape_db::MemoryStore;
 use tower::ServiceExt;
 
@@ -25,9 +25,9 @@ fn built_app() -> PathBuf {
 
 fn app_with_ui(dir: &Path) -> axum::Router {
     with_ui(
-        router(AppState {
+        AppState {
             store: Arc::new(MemoryStore::new()),
-        }),
+        },
         dir,
     )
 }
@@ -97,6 +97,42 @@ async fn an_unknown_api_route_is_not_answered_with_the_page() {
     // reports is about parsing rather than about the wrong URL.
     let (status, _) = get(app_with_ui(&built_app()), "/api/nothing-here").await;
     assert_ne!(status, 200, "a mistyped API path was answered with the app");
+}
+
+#[tokio::test]
+async fn the_namespace_root_is_the_apis_too() {
+    // `/api/{*rest}` matches paths *below* `/api/` and not `/api` itself, so the namespace
+    // root fell through to the fallback and answered with the page. Review found it.
+    for path in ["/api", "/api/"] {
+        let (status, body) = get(app_with_ui(&built_app()), path).await;
+        assert_ne!(status, 200, "{path} was answered with the app: {body}");
+        assert!(
+            !body.contains("the built single-page app"),
+            "{path} returned HTML where a client expects JSON"
+        );
+    }
+}
+
+#[tokio::test]
+async fn every_response_carries_a_request_id_including_the_page() {
+    // ADR 0005's invariant, and the new surface is the one a visitor actually touches. The
+    // fallback was added *after* the middleware, so page and asset responses skipped it: no
+    // header, no span, no access line for the only URL anybody types.
+    for path in ["/", "/assets/app.js", "/a/some-id", "/api/health"] {
+        let response = app_with_ui(&built_app())
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .body(Body::empty())
+                    .expect("a request"),
+            )
+            .await
+            .expect("a response");
+        assert!(
+            response.headers().contains_key("x-request-id"),
+            "{path} came back with no request id, so nothing in the log joins to it"
+        );
+    }
 }
 
 #[tokio::test]

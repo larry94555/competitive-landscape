@@ -371,14 +371,13 @@ async fn serve(store: Arc<dyn Store>) -> Result<()> {
 
     // Tracing lives inside `router()` alongside the request id, so the two cannot be
     // ordered wrongly here — see the note there.
-    let app = router(AppState { store })
+    // The API and the built web app, when there is one. Without the app the binary serves JSON
+    // and a visitor gets nothing to look at, which is what made the whole thing undeployable.
+    let app = landscape_api::with_ui(AppState { store }, &landscape_api::web_dir())
         // The dev frontend runs on a different port, so the browser treats it as another
         // origin. Permissive is fine while everything is served from localhost; this
         // tightens to an allow-list before anything is deployed.
         .layer(tower_http::cors::CorsLayer::permissive());
-    // The built web app, when there is one. Without this the binary serves JSON and a visitor
-    // gets nothing to look at, which is what made the whole thing undeployable.
-    let app = landscape_api::with_ui(app, &landscape_api::web_dir());
 
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
