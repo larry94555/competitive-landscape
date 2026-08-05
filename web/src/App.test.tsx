@@ -120,7 +120,19 @@ function stubStillRunning(): void {
                     generated_at: "2026-08-04T00:00:00Z",
                     model_id: "test",
                     prompt_version: 1,
-                    sections: [section("pricing", "Pricing & packaging", "Pro costs $15")],
+                    sections: [
+                      section("pricing", "Pricing & packaging", "Pro costs $15"),
+                      // Every partial report carries all six sections from its first write,
+                      // each already holding the note it will have if nothing is found.
+                      {
+                        key: "changes",
+                        title: "Recent public changes",
+                        status: "not_found_in_public_sources" as const,
+                        claims: [],
+                        checked: ["/changelog (404)"],
+                        notes: [],
+                      },
+                    ],
                     sources: [],
                   },
                 },
@@ -477,5 +489,70 @@ describe("when the stream drops before the run is over", () => {
 
     await new Promise((resolve) => setTimeout(resolve, 1500));
     expect(FakeEventSource.last).toBe(finished);
+  });
+});
+
+describe("after a reconnect", () => {
+  it("keeps rendering what the new stream sends", async () => {
+    // The recovery fetch stores a still-running analysis whose partial report is a snapshot.
+    // Reading from that snapshot froze the page at the moment of the fetch and threw away
+    // every section the reconnected stream delivered.
+    stubStillRunning();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    const dropped = FakeEventSource.last!;
+    act(() => dropped.onerror?.());
+    await waitFor(() => expect(FakeEventSource.last).not.toBe(dropped), {
+      timeout: 4000,
+    });
+
+    act(() =>
+      FakeEventSource.last!.send(
+        "section",
+        JSON.stringify(section("identity", "Company facts", "says it was founded in 2018")),
+      ),
+    );
+
+    expect(await screen.findByText(/founded in 2018/)).toBeInTheDocument();
+  });
+
+  it("does not say a question found nothing while it is still being read", async () => {
+    // A partial report's placeholder sections carry the coverage note they *would* have if
+    // nothing were found. Showing one mid-run tells a reader we finished looking.
+    stubStillRunning();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    act(() => FakeEventSource.last!.onerror?.());
+    await screen.findByText(/Pro costs \$15/);
+
+    expect(screen.queryByText(/Nothing found in public sources/)).toBeNull();
+    expect(screen.queryByText("/changelog (404)")).toBeNull();
+  });
+
+  it("says Done when the recovery fetch finds the run finished", async () => {
+    // The stream's last word was "running" and then it dropped. A finished report under a
+    // "Reading public web pages…" line is worse than either half of that.
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    act(() => FakeEventSource.last!.send("status", "running"));
+    expect(await screen.findByText(/Reading public web pages/)).toBeInTheDocument();
+
+    act(() => FakeEventSource.last!.onerror?.());
+
+    expect(await screen.findByText("Done.")).toBeInTheDocument();
+    expect(screen.queryByText(/Still reading|Reading the first pages/)).toBeNull();
   });
 });

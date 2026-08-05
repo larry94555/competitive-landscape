@@ -120,6 +120,19 @@ lacked: *"Free is listed with no published price"* becomes *"Free costs $0"* at 
 length. The correction was suppressed and the retracted claim stayed on screen until the run
 ended. It compares the payload now.
 
+**And two more in the reconnect that fixed the first.** The recovery fetch stores a *partial*
+report, and the view preferred `report.sections` the moment one existed — so the page froze at
+the instant of the fetch, ignoring everything the reconnected stream sent, and rendered the
+partial report's placeholder sections as *"Nothing found in public sources"* for questions
+still being read. Mid-run the view now merges the stream with only those fetched sections that
+have claims. Separately, the stream's last word before a drop is *"running"*, and it outranked
+a recovery fetch that came back **complete** — a finished report under a "Reading…" line. A
+terminal stored status now wins.
+
+**Four defects, all in the same twenty lines, none visible to a passing test suite.** The
+pattern is worth naming: every one of them is a state that only exists when something goes
+*wrong mid-run*, and nothing about the happy path exercises it.
+
 ### What is still not right
 
 **Two minutes is not forty seconds.** The order pages are read in decides what a reader sees

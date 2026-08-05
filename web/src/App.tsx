@@ -169,6 +169,10 @@ function useReport(
         void getAnalysis(id)
           .then((latest) => {
             if (cancelled) return;
+            // The stream's last word was "running" and the row now says otherwise. Leaving
+            // the old value in state would have the page still saying "Reading…" over a
+            // finished report.
+            setStatus(latest.status);
             onFinishedRef.current(latest);
             // Still running: the stream dropped or timed out rather than finishing, so open
             // it again. Without this the reader keeps a half-written report for ever.
@@ -202,12 +206,18 @@ function AnalysisView({
   sections: readonly Section[];
 }): React.JSX.Element {
   const { report } = analysis;
-  // The finished report once it exists, and what the stream has delivered until then. Both
-  // are the same shape, which is why the rendering below does not know which it has.
-  const showing = report?.sections ?? sections;
-  // Running, not "has no report" — a running analysis carries the report so far, and a
-  // reader who is still waiting needs to be told that whether or not sections have arrived.
-  const live = !isTerminal(status ?? analysis.status);
+  // **The stored status wins once it is terminal.** A dropped stream's last word was
+  // "running", and a recovery fetch that comes back complete must not leave a finished
+  // report sitting under "Reading public web pages…".
+  const showing_status = isTerminal(analysis.status)
+    ? analysis.status
+    : (status ?? analysis.status);
+  const live = !isTerminal(showing_status);
+  // While it runs, the stream is the live copy; when it is over, the report is. A recovery
+  // fetch stores a *partial* report mid-run, and reading from that would both freeze the
+  // page at the moment of the fetch and show placeholder sections for questions still being
+  // read — the two things the stream exists to avoid.
+  const showing = live ? stillArriving(sections, report) : (report?.sections ?? sections);
 
   return (
     <section aria-live="polite">
@@ -219,7 +229,7 @@ function AnalysisView({
         </p>
       )}
 
-      <p className="status">{describe(status ?? analysis.status, analysis.failure)}</p>
+      <p className="status">{describe(showing_status, analysis.failure)}</p>
 
       {showing.map((section) => (
         <article key={section.key}>
@@ -263,6 +273,28 @@ function AnalysisView({
       )}
     </section>
   );
+}
+
+/**
+ * What to show while the run is still going.
+ *
+ * The stream is the live copy and arrives in the order sections were finished. A partial
+ * report from a recovery fetch fills the gaps a dropped connection left — but **only its
+ * sections that have claims**: a partial report carries all six from its first write, each
+ * already holding the coverage note it will have *if* nothing is found, and rendering
+ * "Nothing found in public sources" for a question still being read tells a reader we have
+ * finished looking when we have not.
+ */
+function stillArriving(
+  streamed: readonly Section[],
+  report: Analysis["report"],
+): readonly Section[] {
+  const merged = [...streamed];
+  for (const section of report?.sections ?? []) {
+    if (section.claims.length === 0) continue;
+    if (!merged.some((s) => s.key === section.key)) merged.push(section);
+  }
+  return merged;
 }
 
 function describe(
