@@ -429,6 +429,36 @@ three, because nothing wrong is displayed, only something right removed.
 > **Ask this:** *if a second one of these starts before the first comes back, which of them
 > writes — and does the loser touch anything on its way out?*
 
+### 19b. …and the guard has to outlive the thing it guards
+
+**Written:** the fix for 19, with the counter declared *inside* the effect:
+
+```tsx
+useEffect(() => {
+  let newest = 0;            // one per effect instance
+  …
+}, []);
+```
+
+**What a person saw:** the same overwrite, on a plain page load. **React Strict Mode runs setup
+→ cleanup → setup on mount**, and the production entry point renders under it — so there were
+two setups, each with its own counter starting at zero, and the discarded mount's request still
+looked current when it answered.
+
+**Why the tests missed it:** every test rendered `<App />` bare. The double-invoke only happens
+under `<StrictMode>`, which is what `main.tsx` uses and no test did.
+
+**Rule:** a guard's lifetime has to be at least as long as the thing it guards. An in-flight
+request outlives the effect that started it, so the counter belongs in a `ref` — and cleanup
+should invalidate it, which covers a real unmount as well as the discarded half of a double
+mount.
+
+**And test the arrangement production uses.** If the entry point wraps the app in something,
+at least one test has to wrap it too, or the tests are exercising a configuration nobody runs.
+
+> **Ask this:** *what is the scope of this guard, and what is the scope of the work it is
+> guarding? Does anything in `main.tsx` change how the component mounts?*
+
 ---
 
 ## The checklist, before a PR
@@ -465,7 +495,7 @@ Twelve questions. Two minutes. Every one of them comes from an entry above.
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19 | All in error paths; 13 and 14 were successive halves of one fix |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b | All in error paths; 13 and 14 were successive halves of one fix |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |
 | Deliberately breaking the code to see if a test notices | 12, and the rearm in 14 | The store was fast, so nothing raced until one was made slow |

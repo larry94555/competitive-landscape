@@ -35,14 +35,20 @@ export default function App(): React.JSX.Element {
   //
   // Runs on mount and on the browser's back and forward buttons, because both are the same
   // event from a reader's side — the address bar says one thing and the page must agree.
+  // Which open is the current one. A fetch is started and answered later, and by then the
+  // address bar may name something else — so the same rule the worker uses for a revoked claim
+  // applies here: **carry a number, and only the newest may write.** Without it, pressing Back
+  // while a slow report loaded rendered that report under `/`.
+  //
+  // **A ref, not a variable inside the effect.** It has to outlive one effect instance: React
+  // Strict Mode runs setup, cleanup, setup on mount, and `main.tsx` renders under it — so a
+  // counter scoped to the effect gives each of the two setups its own, starting at zero, and
+  // the discarded mount's request still looks current when it answers.
+  const newest = useRef(0);
+
   useEffect(() => {
-    // Which open is the current one. A fetch is started and answered later, and by then the
-    // address bar may name something else — so the same rule the worker uses for a revoked
-    // claim applies here: **carry a number, and only the newest may write.** Without it,
-    // pressing Back while a slow report loaded rendered that report under `/`.
-    let newest = 0;
     const open = (): void => {
-      const mine = ++newest;
+      const mine = ++newest.current;
       const id = analysisInPath(window.location.pathname);
       setOpening(id);
       if (id === null) {
@@ -52,12 +58,12 @@ export default function App(): React.JSX.Element {
       }
       void getAnalysis(id)
         .then((found) => {
-          if (mine !== newest) return;
+          if (mine !== newest.current) return;
           setAnalysis(found);
           setError(null);
         })
         .catch((e: unknown) => {
-          if (mine !== newest) return;
+          if (mine !== newest.current) return;
           // A malformed id and a deleted one are the same situation from here, and the API
           // says so with one 404 rather than two different failures.
           setError(e instanceof ApiError ? e : new ApiError("Something went wrong."));
@@ -66,12 +72,17 @@ export default function App(): React.JSX.Element {
         .finally(() => {
           // Including here: an older `finally` would clear the *newer* open's state and take
           // "Opening this report…" off the screen while it was still true.
-          if (mine === newest) setOpening(null);
+          if (mine === newest.current) setOpening(null);
         });
     };
     open();
     window.addEventListener("popstate", open);
-    return () => window.removeEventListener("popstate", open);
+    return () => {
+      // Bumping it here invalidates anything this instance started — the discarded half of a
+      // Strict Mode double-mount, and a real unmount, which should not write either.
+      newest.current += 1;
+      window.removeEventListener("popstate", open);
+    };
   }, []);
 
   const submit = useCallback(async () => {

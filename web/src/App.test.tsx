@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
@@ -460,6 +461,37 @@ describe("a run has a URL", () => {
 
     expect(screen.getByText(/Opening this report/)).toBeInTheDocument();
     expect(screen.queryByLabelText("What is your idea?")).toBeNull();
+  });
+
+  it("discards a request from a remount, which is what Strict Mode does", async () => {
+    // Review found this. The guard was a counter declared *inside* the effect, so it lived
+    // exactly as long as one effect instance — and React Strict Mode runs setup, cleanup,
+    // setup on mount. Two setups, two counters each starting at zero, and the first setup's
+    // request still looked current when it answered.
+    //
+    // `main.tsx` renders under `<StrictMode>`, so this is the production arrangement rather
+    // than a testing artefact.
+    const deferred = stubDeferredGet();
+    openAt("/a/abc");
+    render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    );
+
+    // The live mount's request answers first.
+    await act(async () => {
+      deferred.resolveNth(1, finishedSaying("Newest costs $19"));
+    });
+    expect(await screen.findByText(/Newest costs \$19/)).toBeInTheDocument();
+
+    // And the discarded mount's request comes back afterwards.
+    await act(async () => {
+      deferred.resolveNth(0, finishedSaying("Discarded costs $15"));
+    });
+
+    expect(screen.getByText(/Newest costs \$19/)).toBeInTheDocument();
+    expect(screen.queryByText(/Discarded costs \$15/)).toBeNull();
   });
 
   it("follows the back button to the empty box", async () => {
