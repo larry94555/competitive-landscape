@@ -1,6 +1,6 @@
 # Full Feature List
 
-**As of 2026-08-05** · `main` at `c219ad1` · **36 of 133 PRs · 27% of the software deliverable**
+**As of 2026-08-05** · `main` at `ab271d1` · **36 of 133 PRs · 27% of the software deliverable**
 
 Every feature the roadmap describes, sorted by the readiness state that first requires it, with
 what it is estimated to cost in pull requests and how much of that is spent.
@@ -24,16 +24,15 @@ what it is estimated to cost in pull requests and how much of that is spent.
 > something you can move deliberately: the same work in bigger PRs is a smaller number. Time
 > estimates would pretend to a precision nothing here has earned.
 
-**Read this beside [PROJECT_STATUS.md](PROJECT_STATUS.md)**, which says what is true today and
+**Read this beside [PROJECT_STATUS.md](../PROJECT_STATUS.md)**, which says what is true today and
 why. This page says how much is left.
 
 ---
 
 ## How to read the numbers
 
-**Done** counts a PR that is written, green and either merged or in review. There are 35 merged
-and one open ([#36](https://github.com/larry94555/competitive-landscape/pull/36)) — **36, and the
-Done column sums to exactly that.**
+**Done** counts a PR that is written, green and either merged or in review. **36 are merged**,
+and the Done column sums to exactly that.
 
 **The rows are themes, not individual PRs.** Which of the 36 belongs to which row is approximate,
 because several did two things at once; the totals are not.
@@ -104,7 +103,7 @@ with read order and page count rather than a faster model.
 cores against a developer machine's many, so the local figure is a lower bound rather than an
 estimate. Everything else on this page is finished when it works here; the wait is finished when
 it has been measured from a client's side of the deployment
-([ADR 0011](docs/decisions/0011-no-experiments-on-production.md)). That is a measurement, not a
+([ADR 0011](decisions/0011-no-experiments-on-production.md)). That is a measurement, not a
 code change — the software does not become different.
 
 ---
@@ -243,7 +242,7 @@ nobody needs.
 environmental is already an environment variable — `BIND_ADDR`, `DATABASE_URL`, `LLAMA_URL`,
 `WEB_DIR` — and nothing in the code branches on where it is running. If deploying ever requires
 a code change, that is a defect to fix rather than a task to schedule, and it belongs in
-[the mistakes register](.claude/skills/coding-mistakes/SKILL.md).
+[the mistakes register](../.claude/skills/coding-mistakes/SKILL.md).
 
 ---
 
