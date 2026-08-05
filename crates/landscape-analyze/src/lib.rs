@@ -108,6 +108,134 @@ pub async fn analyse(
     analyse_with(fetcher, llm, origin, now, today, &mut |_| Wanted::Yes).await
 }
 
+/// Several companies, one report.
+///
+/// **A profile of one company is not a competitive analysis.** Until this existed the pipeline
+/// took the first site named in a prompt and dropped the rest, so `basecamp.com vs linear.app`
+/// produced a report about Basecamp with nothing on the page saying the other had been ignored.
+///
+/// # Why this merges rather than generalising `analyse_with`
+///
+/// One company is the unit that discovery, fetching and extraction are built around, and that
+/// path is the one with every test behind it. This runs it once per subject and joins the
+/// results, so nothing about reading a single company changes — and a bug in the joining cannot
+/// reach into the reading.
+///
+/// # What joining means
+///
+/// Sections merge by question: *What it costs* holds every company's prices, which is what
+/// makes the report a comparison rather than several reports stapled together. Source labels
+/// are reassigned as they merge, because each run numbers its own sources from `S1` and two
+/// runs would otherwise both claim it.
+///
+/// Progress is reported after every window of every subject, over the *whole* report so far, so
+/// a reader watching sees the first company fill in while the second is still being read.
+pub async fn analyse_many(
+    fetcher: &landscape_fetch::Fetcher,
+    llm: &landscape_llm::LlamaClient,
+    origins: &[String],
+    now: DateTime<Utc>,
+    today: NaiveDate,
+    on_progress: &mut dyn FnMut(&Report) -> Wanted,
+) -> Analysis {
+    let mut finished: Vec<Analysis> = Vec::with_capacity(origins.len());
+
+    for origin in origins {
+        let stopped = {
+            let so_far = &finished;
+            let mut merge_and_report =
+                |partial: &Report| on_progress(&joined(so_far, Some(partial), origins, llm, now));
+            let one = analyse_with(fetcher, llm, origin, now, today, &mut merge_and_report).await;
+            let stopped = one.stopped_early;
+            finished.push(one);
+            stopped
+        };
+        // A revoked claim stops the whole report, not just the company being read: the run has
+        // been given to somebody else, and the remaining subjects are the largest part of what
+        // there is left to save.
+        if stopped {
+            break;
+        }
+    }
+
+    let report = joined(&finished, None, origins, llm, now);
+    Analysis {
+        report,
+        coverage: finished.iter().flat_map(|a| a.coverage.clone()).collect(),
+        pages: finished.iter().flat_map(|a| a.pages.clone()).collect(),
+        stopped_early: finished.iter().any(|a| a.stopped_early),
+    }
+}
+
+/// One report from several, with source labels reassigned so none collides.
+fn joined(
+    finished: &[Analysis],
+    in_flight: Option<&Report>,
+    origins: &[String],
+    llm: &landscape_llm::LlamaClient,
+    now: DateTime<Utc>,
+) -> Report {
+    let mut sections: Vec<Section> = Vec::new();
+    let mut sources: Vec<Source> = Vec::new();
+
+    for report in finished.iter().map(|a| &a.report).chain(in_flight) {
+        // Every source this report brought, renumbered from where the last one left off.
+        let mut renamed: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+        for source in &report.sources {
+            let label = format!("S{}", sources.len() + 1);
+            renamed.insert(source.label.clone(), label.clone());
+            sources.push(Source {
+                label,
+                ..source.clone()
+            });
+        }
+
+        for section in &report.sections {
+            let claims: Vec<Claim> = section
+                .claims
+                .iter()
+                .map(|claim| Claim {
+                    // A label with no new name is one the source list never had, which
+                    // `Report::every_claim_is_traceable` refuses. Leaving it unchanged keeps
+                    // that refusal working rather than inventing a label that resolves.
+                    source_label: renamed
+                        .get(&claim.source_label)
+                        .cloned()
+                        .unwrap_or_else(|| claim.source_label.clone()),
+                    ..claim.clone()
+                })
+                .collect();
+
+            match sections.iter_mut().find(|s| s.key == section.key) {
+                Some(existing) => {
+                    existing.claims.extend(claims);
+                    existing.checked.extend(section.checked.iter().cloned());
+                    existing.notes.extend(section.notes.iter().cloned());
+                    if !existing.claims.is_empty() {
+                        existing.status = landscape_core::SectionStatus::Populated;
+                    }
+                }
+                None => {
+                    let mut merged = section.clone();
+                    merged.claims = claims;
+                    sections.push(merged);
+                }
+            }
+        }
+    }
+
+    Report {
+        subject: origins.join(", "),
+        searched_as: origins.join(", "),
+        generated_at: now,
+        model_id: llm.base().to_owned(),
+        prompt_version: PROMPT_VERSION,
+        sections,
+        sources,
+    }
+}
+
 /// The same, reporting the report so far after every page.
 ///
 /// **A report is assembled a section at a time and a reader waits ninety seconds for it.**
@@ -584,5 +712,170 @@ mod tests {
             page_title("no heading", "https://e.com/x"),
             "https://e.com/x"
         );
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+mod joining {
+    //! Merging several companies into one report.
+    //!
+    //! `analyse_many` itself needs a fetcher and a model, so what is asserted here is the join
+    //! — which is where a bug would silently mislabel somebody's evidence.
+
+    use super::*;
+    use landscape_core::{Confidence, SectionStatus};
+
+    fn at() -> DateTime<Utc> {
+        chrono::DateTime::parse_from_rfc3339("2026-08-05T09:00:00Z")
+            .map(|d| d.with_timezone(&Utc))
+            .unwrap_or_default()
+    }
+
+    /// A one-company report: one source labelled `S1`, one claim citing it.
+    fn one_company(origin: &str, says: &str) -> Analysis {
+        let report = Report {
+            subject: origin.to_owned(),
+            searched_as: origin.to_owned(),
+            generated_at: at(),
+            model_id: "test".to_owned(),
+            prompt_version: PROMPT_VERSION,
+            sections: vec![Section {
+                key: "pricing".to_owned(),
+                title: "What it costs".to_owned(),
+                status: SectionStatus::Populated,
+                claims: vec![Claim {
+                    text: says.to_owned(),
+                    source_label: "S1".to_owned(),
+                    evidence_quote: says.to_owned(),
+                    confidence: Confidence::High,
+                    as_of: at(),
+                }],
+                checked: vec![format!("{origin}/pricing")],
+                notes: Vec::new(),
+            }],
+            sources: vec![Source {
+                label: "S1".to_owned(),
+                url: format!("{origin}/pricing"),
+                title: "Pricing".to_owned(),
+                disposition: Disposition::Primary,
+                fetched_at: at(),
+                independence_group: origin.to_owned(),
+            }],
+        };
+        Analysis {
+            report,
+            coverage: Vec::new(),
+            pages: Vec::new(),
+            stopped_early: false,
+        }
+    }
+
+    fn llm() -> landscape_llm::LlamaClient {
+        landscape_llm::LlamaClient::new("http://127.0.0.1:8080")
+    }
+
+    #[test]
+    fn one_section_holds_every_company() {
+        // The thing that makes it a comparison rather than two reports stapled together: a
+        // reader looking at "What it costs" sees both prices in one place.
+        let origins = vec!["https://a.com".to_owned(), "https://b.com".to_owned()];
+        let merged = joined(
+            &[
+                one_company("https://a.com", "A costs $10"),
+                one_company("https://b.com", "B costs $20"),
+            ],
+            None,
+            &origins,
+            &llm(),
+            at(),
+        );
+
+        let pricing = merged
+            .sections
+            .iter()
+            .find(|s| s.key == "pricing")
+            .expect("one pricing section, not two");
+        assert_eq!(merged.sections.len(), 1, "sections merged by question");
+        assert_eq!(pricing.claims.len(), 2);
+        assert!(pricing.claims.iter().any(|c| c.text == "A costs $10"));
+        assert!(pricing.claims.iter().any(|c| c.text == "B costs $20"));
+    }
+
+    #[test]
+    fn every_claim_still_points_at_its_own_source() {
+        // **The defect this join could most easily introduce.** Each run numbers its sources
+        // from `S1`, so merging without renaming gives two companies the same label — and a
+        // reader following a citation for A's price arrives at B's pricing page. Evidence
+        // attached to the wrong claim is the worst output this product can produce.
+        let origins = vec!["https://a.com".to_owned(), "https://b.com".to_owned()];
+        let merged = joined(
+            &[
+                one_company("https://a.com", "A costs $10"),
+                one_company("https://b.com", "B costs $20"),
+            ],
+            None,
+            &origins,
+            &llm(),
+            at(),
+        );
+
+        assert!(
+            merged.dangling_source_labels().is_empty(),
+            "a citation that does not resolve: {:?}",
+            merged.dangling_source_labels()
+        );
+        let labels: Vec<&str> = merged.sources.iter().map(|s| s.label.as_str()).collect();
+        assert_eq!(
+            labels,
+            vec!["S1", "S2"],
+            "labels are unique across companies"
+        );
+
+        for claim in &merged.sections[0].claims {
+            let source = merged
+                .sources
+                .iter()
+                .find(|s| s.label == claim.source_label)
+                .expect("every claim resolves");
+            let company = if claim.text.starts_with('A') {
+                "a.com"
+            } else {
+                "b.com"
+            };
+            assert!(
+                source.url.contains(company),
+                "{} cites {}, which belongs to the other company",
+                claim.text,
+                source.url
+            );
+        }
+    }
+
+    #[test]
+    fn a_company_still_being_read_is_part_of_the_report() {
+        // What a reader watching sees: the first company's answers, plus whatever the second
+        // has produced so far. Without the in-flight half, the page would show nothing new
+        // until a whole company finished.
+        let origins = vec!["https://a.com".to_owned(), "https://b.com".to_owned()];
+        let partial = one_company("https://b.com", "B costs $20").report;
+        let merged = joined(
+            &[one_company("https://a.com", "A costs $10")],
+            Some(&partial),
+            &origins,
+            &llm(),
+            at(),
+        );
+
+        assert_eq!(merged.sections[0].claims.len(), 2);
+        assert!(merged.dangling_source_labels().is_empty());
+    }
+
+    #[test]
+    fn the_report_says_which_companies_it_is_about() {
+        let origins = vec!["https://a.com".to_owned(), "https://b.com".to_owned()];
+        let merged = joined(&[], None, &origins, &llm(), at());
+        assert_eq!(merged.subject, "https://a.com, https://b.com");
+        assert_eq!(merged.searched_as, "https://a.com, https://b.com");
     }
 }

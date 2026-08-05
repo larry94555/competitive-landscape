@@ -80,92 +80,101 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    reload: {
-      name: "press reload",
-      purpose: "And the run is gone.",
+    dropped: {
+      name: "compare A vs B",
+      purpose: "And get a report about A.",
       lines: [
-        ['t', '  localhost:8787/'],
+        ['t', '  "compare basecamp.com vs linear.app"'],
         ['c', ''],
-        ['c', '// The analysis is still running on the'],
-        ['c', '// server. The page has no idea which one.'],
-        ['f', '// There was nothing to come back to.']
+        ['s', '  -> a report about Basecamp'],
+        ['c', ''],
+        ['c', '// origin_in returned the first site'],
+        ['f', '// named. The rest went nowhere.']
       ]
     },
-    send: {
-      name: "and nothing to send anyone",
-      purpose: "Which is most of a demo.",
+    silent: {
+      name: "and nothing said so",
+      purpose: "The worst kind of wrong.",
       lines: [
-        ['c', '// "Have a look at this" needs a link.'],
+        ['c', '// It looks exactly like a right answer'],
+        ['c', '// to a different question.'],
         ['c', ''],
-        ['t', '  F2  edit the idea      blocked'],
-        ['t', '  F3  ask a follow-up    blocked'],
-        ['f', '// Both need something to return to.']
+        ['f', '// A single-company profile, sold as a'],
+        ['f', '// competitive analysis.']
       ]
     },
-    push: {
-      name: "so put it in the address bar",
-      purpose: "The moment it exists.",
+    all: {
+      name: "so take every site named",
+      purpose: "In order, no repeats.",
       lines: [
-        ['f', '  /a/5ff24beb-1c39-422b-...'],
+        ['f', '  origins_in(prompt)'],
         ['c', ''],
-        ['c', '// pushState, not a navigation:'],
-        ['c', '// the page is already the right page.']
+        ['f', '  basecamp.com'],
+        ['f', '  linear.app'],
+        ['c', ''],
+        ['c', '// www.basecamp.com is the same company'],
+        ['c', '// written twice, not a second subject.']
       ]
     },
-    read: {
-      name: "and read it back on load",
-      purpose: "The whole of the routing.",
+    cap: {
+      name: "capped at three",
+      purpose: "And the cap is the wait.",
       lines: [
-        ['f', '  /^\/a\/([^/]+)\/?$/'],
+        ['t', '  1 subject    ~2 min'],
+        ['s', '  3 subjects   ~6 min'],
         ['c', ''],
-        ['c', '// The server returns the page for any'],
-        ['c', '// path it does not claim, so what a'],
-        ['f', '// path means is decided here.']
+        ['c', '// Each one is its own discovery,'],
+        ['c', '// fetches and model calls.'],
+        ['f', '// This is the number to argue with.']
       ]
     },
-    opening: {
-      name: "say so while it opens",
-      purpose: "A shared link lands here first.",
+    merge: {
+      name: "one section, every company",
+      purpose: "Not two reports stapled together.",
       lines: [
-        ['s', '  What is your idea?'],
+        ['f', '  What it costs'],
+        ['f', '    Basecamp Pro    $15/user'],
+        ['f', '    Linear Business $16/user'],
         ['c', ''],
-        ['c', '// Rendering the empty box for the moment'],
-        ['c', '// the fetch takes reads as "nothing here"'],
-        ['f', '  Opening this report...']
+        ['c', '// This is the shape a feature matrix'],
+        ['c', '// gets built from.']
       ]
     },
-    dead: {
-      name: "and a link that points at nothing",
-      purpose: "The one a reader kept.",
+    labels: {
+      name: "and the defect it nearly caused",
+      purpose: "Each run numbers from S1.",
       lines: [
-        ['f', '  We could not find that analysis.'],
-        ['f', '  Start a new one.'],
+        ['s', '  A costs $10   [S1]'],
+        ['s', '  B costs $20   [S1]'],
         ['c', ''],
-        ['c', '// A blank page leaves them unsure'],
-        ['c', '// whether it was them or us.']
+        ['c', '// Follow the citation for A and you'],
+        ['c', '// arrive at B pricing page.'],
+        ['f', '// Evidence on the wrong claim is the'],
+        ['f', '// worst thing this can produce.']
       ]
     },
-    back: {
-      name: "Back is a button now",
-      purpose: "pushState added an entry.",
+    rename: {
+      name: "so rename as they merge",
+      purpose: "And test that they resolve.",
       lines: [
-        ['c', '// A report on screen under a URL that'],
-        ['c', '// no longer names it is the disagreement'],
-        ['c', '// that makes people distrust a page.'],
+        ['f', '  labels not reassigned      CAUGHT'],
+        ['f', '  sections appended          CAUGHT'],
+        ['f', '  in-flight company dropped  CAUGHT'],
         ['c', ''],
-        ['f', '  popstate -> read the path again']
+        ['c', '// The one-company path is untouched.'],
+        ['f', '// A bug in joining cannot reach the'],
+        ['f', '// reading.']
       ]
     },
-    teeth: {
-      name: "six ways to get it wrong",
-      purpose: "Each one put back in.",
+    left: {
+      name: "and what is still missing",
+      purpose: "It compares what you name.",
       lines: [
-        ['f', '  never pushed             CAUGHT'],
-        ['f', '  ignored on load          CAUGHT'],
-        ['f', '  back not followed        CAUGHT'],
-        ['f', '  no opening state         CAUGHT'],
-        ['f', '  dead link says nothing   CAUGHT'],
-        ['f', '  the match is too loose   CAUGHT']
+        ['c', '// Nothing discovers a competitor.'],
+        ['c', '// Turning an idea into a set is'],
+        ['c', '// landscape-search, still unbuilt.'],
+        ['c', ''],
+        ['t', '// And three companies is six minutes.']
       ]
     }
   };
@@ -209,26 +218,25 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:reload",  c: "Press reload. The run is gone." },
-    { kind: "means",       a: "spot:#code",   c: "There was nothing to come back to." },
+    { kind: "recognition", a: "file:dropped", c: "Compare A vs B. Get a report on A." },
+    { kind: "means",       a: "spot:#code",   c: "The rest went nowhere." },
 
-    { kind: "turn",        a: "file:send",    c: "And nothing to send anyone." },
-    { kind: "means",       a: "spot:#code",   c: "Two more features wait on it." },
+    { kind: "turn",        a: "file:silent",  c: "And nothing on the page said so." },
 
-    { kind: "result",      a: "file:push",    c: "So put it in the address bar." },
-    { kind: "result",      a: "file:read",    c: "And read it back on load." },
+    { kind: "result",      a: "file:all",     c: "So take every site named." },
+    { kind: "result",      a: "file:cap",     c: "Capped at three. The cap is the wait." },
+    { kind: "means",       a: "spot:#code",   c: "Six minutes is the honest number." },
 
-    { kind: "result",      a: "file:opening", c: "Say so while it opens." },
-    { kind: "means",       a: "spot:#code",   c: "An empty box reads as nothing here." },
+    { kind: "result",      a: "file:merge",   c: "One section holds every company." },
 
-    { kind: "turn",        a: "file:dead",    c: "A link that points at nothing." },
-    { kind: "means",       a: "spot:#code",   c: "That is the one they kept." },
+    { kind: "turn",        a: "file:labels",  c: "Each run numbers its sources from S1." },
+    { kind: "means",       a: "spot:#code",   c: "Follow A citation, arrive at B." },
 
-    { kind: "result",      a: "file:back",    c: "And Back is a button now." },
+    { kind: "result",      a: "file:rename",  c: "Rename as they merge. Three caught." },
 
-    { kind: "result",      a: "file:teeth",   c: "Six ways wrong. Six caught." },
+    { kind: "result",      a: "file:left",    c: "It still only compares what you name." },
 
-    { kind: "close",       a: "hold",         c: "A run you can send someone." }
+    { kind: "close",       a: "hold",         c: "A comparison, not a profile." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the

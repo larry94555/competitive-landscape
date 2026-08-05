@@ -20,7 +20,7 @@ The six states, in the order they must be reached. **None of them is met.**
 
 | # | State | Met? | Percentage Left | The single thing standing in the way |
 |---|---|---|---|---|
-| **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **No.** *This row said "the software can do this on a laptop today" and that was wrong* — see [§1.5](#15-the-correction-that-produced-phase-d). | [**15%**](docs/Full_Feature_List.md#s1--ready-for-a-guided-demo) | **Three things, all software, all testable here.** Serve the app (**done**), a run has a URL (**done**), then: example ideas that really run, several companies in one report, and a read order that puts content on screen early. |
+| **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **No.** *This row said "the software can do this on a laptop today" and that was wrong* — see [§1.5](#15-the-correction-that-produced-phase-d). | [**10%**](docs/Full_Feature_List.md#s1--ready-for-a-guided-demo) | **Two things, both software, both testable here.** Serve the app (**done**), a run has a URL (**done**), several companies in one report (**done**) — then: example ideas that really run, and a read order that puts content on screen early. |
 | **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**100%**](docs/Full_Feature_List.md#s2--ready-for-demonstration) | **A business idea does not run at all.** A prompt must name a domain; a description fails with `no_subject`. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
 | **S3** | **Ready for use** — friendly users should find no issue | **No.** | [**96%**](docs/Full_Feature_List.md#s3--ready-for-use) | 6 of 9 report sections, no verification layer, no comparison matrix, no accounts. |
 | **S4** | **Ready for general use** — promotable, word-of-mouth quality | **No.** | [**100%**](docs/Full_Feature_List.md#s4--ready-for-general-use) | Everything in S3, plus no quality gates have ever been run against a deployed system. |
@@ -34,7 +34,7 @@ finished when it is demonstrable end to end on a development machine — Rust, N
 defect rather than a step in the plan.
 
 **Percentage Left is software only**, counted in pull requests and linked to the feature it comes
-from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **36 of 133 PRs done, 27% of the whole
+from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **38 of 133 PRs done, 29% of the whole
 deliverable.** Getting it onto a host is a
 [separate three-PR track](docs/Full_Feature_List.md#getting-it-onto-a-host) that gates *who can see*
 the software rather than what it can do, and the concierge interviews and source-terms audit are
@@ -77,12 +77,12 @@ implemented. What runs today is *discovery on one named company's own domain* �
 Every rung of every "Searching the Public Web" milestone sits behind that one unbuilt
 component.
 
-**2. It analyses one company, not a competitive set.** `origin_in` takes the *first* domain in
-the prompt and ignores the rest — `basecamp.com vs linear.app` analyses Basecamp alone
-(`the_first_site_named_is_the_subject`, in
-[`landscape-analyze/src/subject.rs`](crates/landscape-analyze/src/subject.rs)). There is no comparison, no
-feature matrix, no competitor discovery. The product is currently a **single-company public
-profile**, not a competitive analysis.
+**2. It analyses the companies you name, and cannot find any you do not.** Every site in the
+prompt is now a subject — `basecamp.com vs linear.app` reports on both, capped at three for the
+wait, with one section holding every company's prices
+([`landscape-analyze/src/subject.rs`](crates/landscape-analyze/src/subject.rs)). What is still
+missing is *discovery*: nothing turns an idea into a set of competitors, and there is no feature
+matrix. So it compares a set you supply rather than one it finds.
 
 **3. The percentage rungs cannot be reported, because nothing measures them.** The ladder below
 asks for "10% / 25% / 50% / 80% of relevant information returned for some sample ideas". That
@@ -125,7 +125,7 @@ substitution is deliberate and is noted on each one.
 | [F5 Subscription setup and cancellation](#f5--subscription-setup-and-cancellation) | **R0** | Not started, and blocked on an unmade commercial decision. |
 | [F6 Slack-like discussion and troubleshooting](#f6--slack-like-discussion-and-troubleshooting) | **R0** | Not started. |
 | [F7 Notifications for changes in public information](#f7--notifications-for-changes-in-public-information) | **R0** | Not started. The *detection* half has a deterministic parser already. |
-| [F8 The report itself](#f8--the-report-itself) | **R3–R4** | 6 of 9 sections, 4 of 6 extractors, no matrix, no charts. |
+| [F8 The report itself](#f8--the-report-itself) | **R3–R4** | 6 of 9 sections, 4 of 6 extractors, several companies in one report, no matrix, no charts. |
 | [F9 Claims you can check](#f9--claims-you-can-check) | **R4** | Structurally enforced at the type level; the verification pass is not built. |
 | [F10 PDF export](#f10--pdf-export) | **R0** | Not started. |
 | [F11 Share / permalink](#f11--share--permalink) | **R1** | **A run has a URL.** `/a/{id}` opens it, the address bar carries it from the moment it exists, and Back returns to the box. Sharing beyond a raw link — a copy button, an OG card, an expiry story — is not built. |
@@ -412,6 +412,7 @@ made a reader wait four minutes ([BENCHMARKS.md](docs/BENCHMARKS.md) Run 20).
 |---|---|
 | `landscape-search` / SearXNG | An idea cannot become a company. **The phase's defining gap.** |
 | Candidate generation for entity resolution | The disambiguation gate has nothing to disambiguate. |
+| Competitor *discovery* | Several companies can be analysed, but only ones the reader names. |
 | Two of six extractors (trust, direction) | Two sections can never fill. |
 | Fetch cache + per-source extraction cache | The highest-leverage cache in the system, scheduled for this phase, absent. |
 | Anonymous rate limit (2/day) | Unlimited anonymous inference on a free box. |

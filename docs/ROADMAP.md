@@ -187,7 +187,7 @@ the box ever needs a code change, that is a defect to fix rather than a task to 
 | **D2** | **A run has a URL** — `/a/{id}` | A demo you send someone must survive being opened. A reload used to lose the run entirely, which also made D4 untestable by a second person. | **Done** |
 | **D3** | **A build and a service** — aarch64 artefact, `web/dist` beside it, a unit file, and a RUNBOOK section | There is no Dockerfile, no service definition and no deploy procedure anywhere in the repository. This is what turns "deploy it" from a project into a command. **Not part of any readiness state** — it decides who can see the software, not what it does. | Small–medium |
 | **D4** | **Example ideas that really run** | A chip per sample idea, each mapping to two or three real competitor domains. **The analysis is real** — fetched, quoted, cited — and only the *choice of companies* is curated, which the interface says plainly. This is precisely what S1 means by "certain product ideas work reliably". | Medium |
-| **D5** | **More than one company in a report** | One company reads as a profile, not a competitive analysis. The report groups by company; discovery already returns per-origin pages. | Medium |
+| **D5** | **More than one company in a report** | One company reads as a profile, not a competitive analysis. Every site named in the prompt is now a subject, capped at three for the wait, and one section holds every company's answers. | **Done** |
 | **D6** | **A cap on anonymous runs** | Unlimited inference on a free box, once the URL is public, is the failure mode that ends the demo — and it needs no accounts, just a per-IP daily count. **Belongs with D3**: on a laptop it is a setting nobody needs. | Small |
 
 ### What is explicitly deferred until D is done

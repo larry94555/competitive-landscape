@@ -493,7 +493,8 @@ async fn worker(store: Arc<dyn Store>) -> Result<()> {
 /// continues: losing an intermediate write costs a reader a few seconds of staleness, and
 /// abandoning the analysis over it would cost them the report.
 async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysis) {
-    let Some(origin) = landscape_analyze::subject::origin_in(&analysis.prompt) else {
+    let origins = landscape_analyze::subject::origins_in(&analysis.prompt);
+    let Some(first) = origins.first().cloned() else {
         // Not an error — a capability we do not have. Guessing a domain from a description
         // would produce a report that is correctly cited and about the wrong company.
         tracing::info!(id = %analysis.id, "no subject in prompt");
@@ -517,16 +518,21 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
         return;
     };
 
-    tracing::info!(id = %analysis.id, %origin, "running analysis");
+    tracing::info!(
+        id = %analysis.id,
+        subjects = origins.len(),
+        first = %first,
+        "running analysis"
+    );
     let fetcher = landscape_fetch::Fetcher::new();
     let llm = landscape_llm::LlamaClient::from_env();
     let now = chrono::Utc::now();
 
     let progress = progress::Progress::new(Arc::clone(store), analysis.id, analysis.generation);
-    let outcome = landscape_analyze::analyse_with(
+    let outcome = landscape_analyze::analyse_many(
         &fetcher,
         &llm,
-        &origin,
+        &origins,
         now,
         now.date_naive(),
         &mut |so_far| progress.record(so_far),

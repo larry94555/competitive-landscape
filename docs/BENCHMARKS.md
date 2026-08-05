@@ -33,6 +33,82 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 21 — a comparison, not a profile
+
+**Date:** 2026-08-05 · **Where:** this laptop · **Model:** none — this is the join.
+
+`PROJECT_STATUS.md` has said since it was written that the product is *"a single-company public
+profile, not a competitive analysis"*. The reason was one line: `origin_in` returned the **first**
+site named in a prompt and the rest were dropped in silence.
+
+```text
+"compare basecamp.com vs linear.app"   ->   a report about Basecamp
+```
+
+Nothing on the page said the second company had been ignored, which is the shape of wrong answer
+that is hardest to notice: it looks exactly like a right answer to a different question.
+
+### Every site named is a subject
+
+`origins_in` returns them all, in the order written, without repeats — `basecamp.com` and
+`www.basecamp.com` are one company — **capped at three**.
+
+**The cap is about the wait, and it is the number to argue with.** Each subject is its own
+discovery, fetches and model calls, so a report on three takes roughly three times as long as
+one. At about two minutes a company on this laptop, three is already at the edge of
+`PRODUCT_SPEC.md` §2.1A's ninety-to-a-hundred-and-eighty seconds, and four is past it.
+
+| Subjects | Rough wait, here |
+|---|---|
+| 1 | ~2 min |
+| 3 | **~6 min** |
+
+**That is the honest problem with this feature**, and no part of it is solved by the join. It is
+what the next item — read order, and how many pages each subject is worth — exists to fix.
+
+### One section, every company
+
+Sections merge by question, so *What it costs* holds every company's prices. That is what makes
+the output a comparison rather than several reports stapled together, and it is the shape the
+feature matrix will eventually be built from.
+
+The pipeline for one company is untouched. `analyse_many` runs the existing, well-tested path
+once per subject and joins the results — a bug in the joining cannot reach into the reading.
+
+### The defect the join could most easily have introduced
+
+Each run numbers its own sources from `S1`. Merging without renaming gives two companies the same
+label, and **a reader following the citation for one company's price arrives at another
+company's pricing page.** Evidence attached to the wrong claim is the worst output this product
+can produce, and it would have looked perfectly well-formed.
+
+Labels are reassigned as they merge. Three mutations, all caught:
+
+| Reintroduced defect | Caught? |
+|---|---|
+| labels are not reassigned when merging | **yes** |
+| sections are appended rather than merged by question | **yes**, 2 tests |
+| the company still being read is left out of the report | **yes** |
+
+| | tests |
+|---|---|
+| Run 20 | 460 |
+| now | **481** |
+
+### What is still not right
+
+**Nothing discovers a competitor.** This analyses the companies a reader names. Turning an idea
+into a set is `landscape-search`, and it is still the largest unbuilt thing in the project.
+
+**Three companies is six minutes**, per the table above. The wait is now the binding constraint
+on this feature rather than a background worry.
+
+**The report does not group by company on screen.** Every claim resolves to a source whose URL
+names its company, so nothing is ambiguous — but a reader comparing two prices has to follow two
+citations to be sure which is which.
+
+---
+
 ## Run 20 — stopping work nobody wants
 
 **Date:** 2026-08-04 · **Where:** this laptop · **Model:** a stub, on purpose — see below.

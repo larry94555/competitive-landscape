@@ -38,7 +38,52 @@ const KNOWN_SUFFIXES: [&str; 24] = [
 /// `https://`, which is what a browser does.
 #[must_use]
 pub fn origin_in(prompt: &str) -> Option<String> {
-    prompt.split_whitespace().find_map(origin_of_word)
+    origins_in(prompt).into_iter().next()
+}
+
+/// How many companies one report will cover.
+///
+/// **A latency cap, not a design limit.** Each company is its own discovery, fetches and model
+/// calls, so a report about four takes four times as long — and a reader waiting ten minutes
+/// has stopped waiting. Three is what fits inside the ninety-to-a-hundred-and-eighty seconds
+/// `PRODUCT_SPEC.md` §2.1A asks for on the free tier; raising it is a decision about the wait,
+/// which is why the number is here and named rather than inline.
+pub const MAX_SUBJECTS: usize = 3;
+
+/// Every site named in the prompt, in the order written, without repeats.
+///
+/// `basecamp.com vs linear.app` used to analyse Basecamp alone: [`origin_in`] took the first
+/// domain and the rest were dropped in silence. Naming two companies and being given one is the
+/// kind of wrong answer that looks like a right answer, because nothing on the page says the
+/// second was ignored.
+#[must_use]
+pub fn origins_in(prompt: &str) -> Vec<String> {
+    let mut found: Vec<String> = Vec::new();
+    for word in prompt.split_whitespace() {
+        let Some(origin) = origin_of_word(word) else {
+            continue;
+        };
+        // `basecamp.com and www.basecamp.com` is one company written twice. The comparison is
+        // between *companies*, so a repeat is a duplicate rather than a second subject.
+        if !found.iter().any(|seen| same_site(seen, &origin)) {
+            found.push(origin);
+        }
+        if found.len() == MAX_SUBJECTS {
+            break;
+        }
+    }
+    found
+}
+
+/// Whether two origins are the same site, ignoring a leading `www.`.
+fn same_site(a: &str, b: &str) -> bool {
+    fn bare(origin: &str) -> &str {
+        origin
+            .trim_start_matches("https://")
+            .trim_start_matches("http://")
+            .trim_start_matches("www.")
+    }
+    bare(a) == bare(b)
 }
 
 /// One word, if it is a URL or a domain.
@@ -84,6 +129,64 @@ pub const NO_SUBJECT: &str = "this prompt does not name a website, and finding o
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
+    #[test]
+    fn every_site_named_is_a_subject() {
+        // The defect this exists for. `origin_in` took the first and dropped the rest, so a
+        // prompt naming two companies produced a report about one — with nothing on the page
+        // saying the other had been ignored.
+        assert_eq!(
+            origins_in("compare basecamp.com vs linear.app for a small team"),
+            vec!["https://basecamp.com", "https://linear.app"]
+        );
+    }
+
+    #[test]
+    fn the_same_site_twice_is_one_subject() {
+        // A comparison is between companies, so `www.` and a repeat are not a second one.
+        assert_eq!(
+            origins_in("basecamp.com and www.basecamp.com and basecamp.com"),
+            vec!["https://basecamp.com"]
+        );
+    }
+
+    #[test]
+    fn the_order_written_is_the_order_reported() {
+        // A reader who writes B before A and reads A before B has to work out whether we
+        // reordered them or misread them.
+        assert_eq!(
+            origins_in("linear.app vs basecamp.com"),
+            vec!["https://linear.app", "https://basecamp.com"]
+        );
+    }
+
+    #[test]
+    fn no_more_subjects_than_the_wait_allows() {
+        // Each subject is its own discovery, fetches and model calls. The cap is about the
+        // reader's patience, and a prompt naming five companies gets the first three rather
+        // than a ten-minute wait.
+        let many = "a.com b.com c.com d.com e.com";
+        assert_eq!(origins_in(many).len(), MAX_SUBJECTS);
+        assert_eq!(
+            origins_in(many),
+            vec!["https://a.com", "https://b.com", "https://c.com"]
+        );
+    }
+
+    #[test]
+    fn a_prompt_naming_nothing_has_no_subjects() {
+        assert!(origins_in("an app that helps small farms sell to restaurants").is_empty());
+    }
+
+    #[test]
+    fn the_first_site_named_is_still_the_single_subject() {
+        // `origin_in` is now the first of `origins_in`, and callers that want one still get
+        // the same answer they always did.
+        assert_eq!(
+            origin_in("compare basecamp.com vs linear.app"),
+            Some("https://basecamp.com".to_owned())
+        );
+    }
+
     use super::*;
 
     #[test]
