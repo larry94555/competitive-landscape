@@ -1,9 +1,24 @@
 # Full Feature List
 
-**As of 2026-08-05** · `main` at `c219ad1` · **36 of 136 PRs · 26% of the software deliverable**
+**As of 2026-08-05** · `main` at `c219ad1` · **36 of 133 PRs · 27% of the software deliverable**
 
 Every feature the roadmap describes, sorted by the readiness state that first requires it, with
 what it is estimated to cost in pull requests and how much of that is spent.
+
+> ## Every state is reached on a laptop
+>
+> **S1 to S6 describe what the software can do, and every one of them is finished and verified
+> locally.** A state is not "deployed"; it is *demonstrable*, end to end, on a development
+> machine with nothing installed but Rust, Node and a `llama-server`.
+>
+> **Deploying changes nothing but secrets.** The invariant this project holds itself to is that
+> a build which works locally works on the box with only configuration differing — `BIND_ADDR`,
+> `DATABASE_URL`, `LLAMA_URL`, `WEB_DIR`. If anything ever needs a code change to run there,
+> that is a defect in the code, not a step in the plan.
+>
+> Deployment is therefore **not** in any state's percentage. It is a separate track, listed in
+> [Getting it onto a host](#getting-it-onto-a-host), and it gates *who can see* the software
+> rather than *what the software can do*.
 
 > **Why pull requests and not weeks.** A PR is a unit of *reviewable change*, and the count is
 > something you can move deliberately: the same work in bigger PRs is a smaller number. Time
@@ -31,9 +46,8 @@ against features nobody has designed in detail, and I would not be surprised by 
 **A feature is listed under the earliest state that requires it.** Reading a company's pricing
 page appears once, under S1, even though every later state depends on it.
 
-**These are software PRs only.** Deployment, the concierge interviews and the source-terms audit
-are not on this page; they are in [what is not software](#what-is-not-software-and-cannot-be-a-pr)
-at the bottom, and **S1 cannot be reached without the first of them.**
+**These are software PRs only.** The concierge interviews and the source-terms audit are work
+only you can do; they are listed at the bottom and are not counted anywhere.
 
 ---
 
@@ -41,23 +55,25 @@ at the bottom, and **S1 cannot be reached without the first of them.**
 
 | State | What it means | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
-| [**S1**](#s1--ready-for-a-guided-demo) | Ready for a guided demo | 44 | 35 | **9** | **80%** |
+| [**S1**](#s1--ready-for-a-guided-demo) | Ready for a guided demo | 41 | 35 | **6** | **85%** |
 | [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 19 | 0 | **19** | **0%** |
 | [**S3**](#s3--ready-for-use) | Friendly users find no issue | 26 | 1 | **25** | **4%** |
 | [**S4**](#s4--ready-for-general-use) | Promotable, word-of-mouth quality | 11 | 0 | **11** | **0%** |
 | [**S5**](#s5--general-use-free-mode) | Stable, email signup, community | 15 | 0 | **15** | **0%** |
 | [**S6**](#s6--general-use-full-mode) | Notifications and paid subscriptions | 21 | 0 | **21** | **0%** |
-| | **Total** | **136** | **36** | **100** | **26%** |
+| | **Total** | **133** | **36** | **97** | **27%** |
+| | *Getting it onto a host (not a state)* | *3* | *0* | *3* | *0%* |
 
-**The shape of that table is the answer to "how far are we".** S1 is nearly done and the nine
-remaining PRs are small and known. Everything after it is a cliff, and the cliff is one item:
-nothing turns a description into a set of companies.
+**The shape of that table is the answer to "how far are we".** S1 is six PRs from being
+demonstrable on a laptop, and all six are scoped. Everything after it is a cliff, and the cliff
+is one item: nothing turns a description into a set of companies.
 
 ---
 
 ## S1 — Ready for a guided demo
 
-*Only certain product ideas work reliably.* Nine PRs left, all of them scoped.
+*Only certain product ideas work reliably.* **Six PRs left**, all scoped, all verifiable on a
+laptop: `cargo run -p landscape -- dev`, a `llama-server` beside it, and a browser.
 
 | Feature | State | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
@@ -75,18 +91,21 @@ nothing turns a description into a set of companies.
 | Planning documents — roadmap, phase checklists, status page | S1 | 3 | 3 | 0 | 100% |
 | **D1** The binary serves the built web app | S1 | 1 | 1 | 0 | 100% |
 | **D2** A run has a URL — `/a/{id}`, survives a reload, can be sent to somebody | S1 | 1 | 1 | 0 | 100% |
-| **D3** A deployable artefact — aarch64 build, service unit, RUNBOOK deploy section | S1 | 2 | 0 | **2** | 0% |
 | **D4** Example ideas that really run — chips mapping to curated competitor sets | S1 | 2 | 0 | **2** | 0% |
 | **D5** More than one company in a report — grouped by company, not one profile | S1 | 2 | 0 | **2** | 0% |
-| **D6** A cap on anonymous runs — per-IP daily count, before the URL is public | S1 | 1 | 0 | **1** | 0% |
-| Measure the wait from a client, and order the reads so content arrives first | S1 | 2 | 0 | **2** | 0% |
-| | | **44** | **35** | **9** | **80%** |
+| Order the reads so content arrives first, and measure the wait end to end | S1 | 2 | 0 | **2** | 0% |
+| | | **41** | **35** | **6** | **85%** |
 
-**The risk inside those nine.** A single company takes about two minutes on a laptop and the
-target host is four ARM cores. D5 multiplies that by the number of competitors, so a demo could
-take ten minutes — which is not a demo. The last row exists to find that out before it is
-promised, and the answer if it is too slow is fewer pages and a better read order, not a faster
-model.
+**The risk inside those six.** A single company takes about two minutes on a laptop, and D5
+multiplies that by the number of competitors. The last row exists to find that out and fix it
+with read order and page count rather than a faster model.
+
+**And this is the one number a laptop cannot settle by itself.** The target host is four ARM
+cores against a developer machine's many, so the local figure is a lower bound rather than an
+estimate. Everything else on this page is finished when it works here; the wait is finished when
+it has been measured from a client's side of the deployment
+([ADR 0011](docs/decisions/0011-no-experiments-on-production.md)). That is a measurement, not a
+code change — the software does not become different.
 
 ---
 
@@ -152,7 +171,7 @@ actually running, which is why none of it can start before S1 is deployed.
 
 | Feature | State | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
-| Quality gates run against a deployed system, from a client's side | S4 | 1 | 0 | **1** | 0% |
+| Quality gates run against a running system, over the network, as a client sees it | S4 | 1 | 0 | **1** | 0% |
 | Human review process and admin review queue | S4 | 2 | 0 | **2** | 0% |
 | Dashboards — citation coverage, drop rate, latency percentiles, cache hit rates | S4 | 2 | 0 | **2** | 0% |
 | Load test and abuse controls under a launch-day spike | S4 | 2 | 0 | **2** | 0% |
@@ -189,7 +208,7 @@ merchant-of-record choice has to be recorded before any billing is written.
 
 | Feature | State | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
-| `landscape-billing` — Stripe checkout, portal, webhooks, reconciliation | S6 | 4 | 0 | **4** | 0% |
+| `landscape-billing` — Stripe checkout, portal, webhooks, reconciliation (test mode and the Stripe CLI run locally) | S6 | 4 | 0 | **4** | 0% |
 | Pricing page, upgrade dialogs at the moment of the limit, annual billing | S6 | 2 | 0 | **2** | 0% |
 | Entitlements and quotas — plans, usage counters, priority queue | S6 | 2 | 0 | **2** | 0% |
 | Dunning — failed payment to grace period to downgrade, never deleting data | S6 | 1 | 0 | **1** | 0% |
@@ -203,19 +222,58 @@ merchant-of-record choice has to be recorded before any billing is written.
 
 ---
 
-## What is not software, and cannot be a PR
+## Getting it onto a host
 
-**S1 is not reachable on the nine PRs above alone.** These are yours, and no amount of code
-substitutes for them:
+**Not a state, and not in any percentage above.** These three PRs decide *who can see* the
+software rather than **what it can do**, and the states above are complete without them.
 
-| | What | Blocks |
-|---|---|---|
-| **Deploy to the Oracle A1** | No host address, SSH user or key is reachable from this repository | **S1 and everything after it** |
-| **The concierge five** | ≥5 hand-made reports delivered to real founders, reactions recorded | Confidence in everything built since Phase 0 |
-| **Source-terms audit** | Reddit, X, YouTube, Stack Exchange, review-platform robots.txt | S3's "what people are saying", the discovery ranking |
-| **Merchant-of-record decision** | Stripe leaves tax registration with you; Paddle absorbs it at a higher fee | All of S6 |
+| Feature | Est. PRs | Done | Left | Complete |
+|---|---|---|---|---|
+| **D3** A deployable artefact — aarch64 build, `web/dist` beside it, a service unit, a RUNBOOK deploy section | 2 | 0 | **2** | 0% |
+| **D6** A cap on anonymous runs — a per-IP daily count, before a URL is public | 1 | 0 | **1** | 0% |
+| | **3** | **0** | **3** | **0%** |
 
-The first one is the only thing standing between the current nine PRs and a URL that exists.
+**D6 is here rather than in S1 deliberately.** Unlimited anonymous inference is only a problem
+once strangers can reach the box; on a laptop it is not a missing capability, it is a setting
+nobody needs.
+
+### The invariant this track depends on
+
+**A build that works locally works on the host with only configuration differing.** Everything
+environmental is already an environment variable — `BIND_ADDR`, `DATABASE_URL`, `LLAMA_URL`,
+`WEB_DIR` — and nothing in the code branches on where it is running. If deploying ever requires
+a code change, that is a defect to fix rather than a task to schedule, and it belongs in
+[the mistakes register](.claude/skills/coding-mistakes/SKILL.md).
+
+---
+
+## What only you can do
+
+Neither of these is a pull request, and neither blocks a state:
+
+| What | Why it matters |
+|---|---|
+| **The concierge five** | ≥5 hand-made reports delivered to real founders, reactions recorded. The highest-risk open item in the project: everything since Phase 0 rests on an unvalidated assumption about the report, the buyer and the price |
+| **Source-terms audit** | Reddit, X, YouTube, Stack Exchange, review-platform `robots.txt`. Two of these can invalidate a planned feature, and the discovery ranking is written against an assumption until they are read |
+| **Merchant-of-record decision** | Stripe leaves tax registration with you; Paddle absorbs it at a higher fee. Must be recorded before any billing code is written |
+
+---
+
+## How to check any of this yourself
+
+Every state above is a claim that something works on a laptop, so every one of them is
+falsifiable in about a minute:
+
+```bash
+cd web && npm run build && cd .. && cargo run -p landscape -- dev --store memory
+```
+
+With a `llama-server` on 8080, <http://127.0.0.1:8787> is the whole product as it stands.
+`docs/Feature_Walkthrough.md` walks the parts that work today and is explicit about the parts
+that do not; every command in it is executed in CI, so it cannot quietly go stale.
+
+**If a row here says done and you cannot see it there, the row is wrong.** That is the point of
+defining the states this way.
 
 ---
 

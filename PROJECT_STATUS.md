@@ -20,33 +20,47 @@ The six states, in the order they must be reached. **None of them is met.**
 
 | # | State | Met? | Percentage Left | The single thing standing in the way |
 |---|---|---|---|---|
-| **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **No.** *This row said "the software can do this on a laptop today" and that was wrong* — see [§1.5](#15-the-correction-that-produced-phase-d). | [**20%**](Full_Feature_List.md#s1--ready-for-a-guided-demo) | **Six things, five of them software.** [Phase D](docs/ROADMAP.md) is now the top of the roadmap: serve the app (**done**), a run has a URL (**in review**, [#36](https://github.com/larry94555/competitive-landscape/pull/36)), a build and a service, example ideas that run, several companies per report, a cap on anonymous runs. |
+| **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **No.** *This row said "the software can do this on a laptop today" and that was wrong* — see [§1.5](#15-the-correction-that-produced-phase-d). | [**15%**](Full_Feature_List.md#s1--ready-for-a-guided-demo) | **Three things, all software, all testable here.** Serve the app (**done**), a run has a URL (**in review**, [#36](https://github.com/larry94555/competitive-landscape/pull/36)), then: example ideas that really run, several companies in one report, and a read order that puts content on screen early. |
 | **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**100%**](Full_Feature_List.md#s2--ready-for-demonstration) | **A business idea does not run at all.** A prompt must name a domain; a description fails with `no_subject`. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
-| **S3** | **Ready for use** — friendly users should find no issue | **No.** | [**96%**](Full_Feature_List.md#s3--ready-for-use) | No permalink (a reload loses the run), no accounts, 6 of 9 report sections, no verification layer. |
+| **S3** | **Ready for use** — friendly users should find no issue | **No.** | [**96%**](Full_Feature_List.md#s3--ready-for-use) | 6 of 9 report sections, no verification layer, no comparison matrix, no accounts. |
 | **S4** | **Ready for general use** — promotable, word-of-mouth quality | **No.** | [**100%**](Full_Feature_List.md#s4--ready-for-general-use) | Everything in S3, plus no quality gates have ever been run against a deployed system. |
 | **S5** | **General use, free mode** — stable, email signup, community channels | **No.** | [**100%**](Full_Feature_List.md#s5--general-use-free-mode) | No authentication code exists anywhere in the repository. No knowledge base. |
 | **S6** | **General use, full mode** — notifications and paid subscriptions | **No.** | [**100%**](Full_Feature_List.md#s6--general-use-full-mode) | No billing, no watches, no email. A blocking commercial decision (merchant of record) is unmade. |
 
+**Every state is reached on a laptop.** S1 to S6 describe what the software can *do*, and each is
+finished when it is demonstrable end to end on a development machine — Rust, Node and a
+`llama-server`, nothing else. **Deploying changes nothing but secrets**: `BIND_ADDR`,
+`DATABASE_URL`, `LLAMA_URL`, `WEB_DIR`. If running on the box ever needs a code change, that is a
+defect rather than a step in the plan.
+
 **Percentage Left is software only**, counted in pull requests and linked to the feature it comes
-from in [Full_Feature_List.md](Full_Feature_List.md) — **36 of 136 PRs done, 26% of the whole
-deliverable.** It excludes the deployment, the concierge interviews and the source-terms audit,
-none of which is a pull request, and the first of which blocks S1 whatever the 20% says.
+from in [Full_Feature_List.md](Full_Feature_List.md) — **36 of 133 PRs done, 27% of the whole
+deliverable.** Getting it onto a host is a
+[separate three-PR track](Full_Feature_List.md#getting-it-onto-a-host) that gates *who can see*
+the software rather than what it can do, and the concierge interviews and source-terms audit are
+yours and are not counted.
 
 ### 1.5 The correction that produced Phase D
 
-**This page told a comfortable lie, and it is worth reading how.** The S1 row said the guided
-demo was blocked on deployment alone. Deploying the binary as it stood would have produced a
-JSON API with **no website**: `router()` served `/api/*` and nothing else, the React app existed
-only behind Vite's dev server, and no test anywhere asserted that a browser pointed at the
-binary received HTML.
+**This page told a comfortable lie, twice, and both are worth reading.**
 
-Nothing was lying on purpose. The claim was assembled from true parts — the pipeline does work
-on a laptop, and the deployment genuinely is the founder's to do — and the join between them was
-never checked. **A status page is exactly where that kind of error is most expensive**, because
-it is the page somebody plans from.
+**The first was a missing capability described as a missing deployment.** The S1 row said the
+guided demo was blocked on deployment alone. In fact `router()` served `/api/*` and nothing else
+and the React app existed only behind Vite's dev server, so there was no website to deploy —
+and no test anywhere asserted that a browser pointed at the binary received HTML. Nothing was
+lying on purpose: the claim was assembled from true parts and the join between them was never
+checked. **A status page is where that error is most expensive**, because it is the page
+somebody plans from.
+
+**The second was the framing itself.** Saying a state was blocked on deployment made deployment
+sound like a milestone the software was waiting for, when the intent is the opposite: *every
+state is finished and demonstrated on a laptop, and deploying changes only secrets.* If running
+on the box ever needed a code change, that would be a defect rather than a phase. Restated
+throughout this page and in [Full_Feature_List.md](Full_Feature_List.md), and the deployment
+track is now counted separately from every state.
 
 The binary serves the app now, with a test that a deep link returns the page and another that
-the API still wins over the fallback. The remaining five items are
+the API still wins over the fallback. The remaining items are
 [Phase D](docs/ROADMAP.md#2d-phase-d--a-demo-you-can-send-someone).
 
 The other half of the correction is about sequencing rather than fact. Runs 17–20 hardened the
