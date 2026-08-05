@@ -80,104 +80,130 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    hand: {
-      name: "sixteen defects, found by reading",
-      purpose: "And not one of them asserted.",
+    complete: {
+      name: "442 tests, all of runs that finish",
+      purpose: "Nothing goes wrong in any of them.",
       lines: [
-        ['t', '  Run 7   the FAQ outranked both plans'],
-        ['t', '  Run 8   a footer read as 14 features'],
-        ['t', '  Run 12  the founding year, missed'],
+        ['t', '  queued -> running -> complete'],
         ['c', ''],
-        ['c', '// Every one found the same way: point it'],
-        ['c', '// at a real company and read the output.'],
-        ['f', '// 437 tests would pass without them.']
+        ['c', '// Nine of the eleven defects on record are'],
+        ['c', '// states a run only reaches when something'],
+        ['c', '// goes wrong partway.'],
+        ['f', '// A passing run never enters one.']
       ]
     },
-    frozen: {
-      name: "so freeze the pages",
-      purpose: "Ten of them, from six companies.",
+    promise: {
+      name: "a comment that was half true",
+      purpose: "Written beside a spawned task.",
       lines: [
-        ['f', '  basecamp-pricing.md'],
-        ['f', '  todoist-pricing.md'],
-        ['f', '  plausible-changelog.md'],
+        ['t', '// Ordering is not a concern because each'],
+        ['t', '// write is the whole report, not a delta.'],
         ['c', ''],
-        ['c', '// Everything before the model is'],
-        ['c', '// deterministic. So write down what each'],
-        ['f', '// page must yield, and check it.']
+        ['c', '// True of the payloads.'],
+        ['f', '// False of the writes.']
       ]
     },
-    ci: {
-      name: "and it runs on every pull request",
-      purpose: "No model. No network. No GPU.",
+    landed: {
+      name: "so make the first write slow",
+      purpose: "And see which one lands last.",
       lines: [
-        ['t', '  against_a_model   ignored, needs a GPU'],
-        ['f', '  the_pages         0.24s'],
+        ['s', '  writes landed ["second", "first"]'],
         ['c', ''],
-        ['c', '// The half of hand-reading a build can'],
-        ['c', '// do, it now does.']
+        ['s', '    left:  "first"'],
+        ['s', '    right: "second"'],
+        ['c', ''],
+        ['c', '// The store keeps the older report.'],
+        ['f', '// A correction, undone as you watch.']
       ]
     },
-    calibrate: {
-      name: "but does it catch anything?",
-      purpose: "Put five old defects back in.",
+    ordered: {
+      name: "one writer, newest wins",
+      purpose: "Ordered, and coalescing.",
       lines: [
-        ['f', '  Run 7   the scoring floor    CAUGHT'],
-        ['f', '  Run 7   a priceless window   CAUGHT'],
-        ['f', '  Run 8   the footer           CAUGHT'],
-        ['f', '  Run 12  the identity floor   CAUGHT'],
-        ['t', '  Run 10  a date in prose      missed'],
+        ['f', '  watch channel -> one task'],
         ['c', ''],
-        ['c', '// A set that has never failed is a set'],
-        ['c', '// nobody has calibrated.']
+        ['c', '// Faster than the store? Skip the middle'],
+        ['c', '// ones. Each snapshot is a whole report.'],
+        ['f', '// A queue that grows under load is how a'],
+        ['f', '// slow database becomes a slow reader.']
       ]
     },
-    zero: {
-      name: "and then, a tenth page",
-      purpose: "Cloudflare. Two dozen releases.",
+    dead: {
+      name: "then: a worker dies",
+      purpose: "The sweep returns the row.",
       lines: [
-        ['s', '  read 0 of 0 considered'],
+        ['t', '  status   running -> queued'],
+        ['t', '  report   still there'],
         ['c', ''],
-        ['c', '// A changelog, read as a page with no'],
-        ['c', '// dates on it at all.'],
-        ['c', ''],
-        ['f', '// Nobody was looking for this.']
+        ['c', '// Queued, and serving sections from a'],
+        ['c', '// worker that no longer exists.'],
+        ['f', '// The next run starts from empty.']
       ]
     },
-    twice: {
-      name: "the same date, written twice",
-      purpose: "Machine, then human.",
+    blank: {
+      name: "so the answers blank themselves out",
+      purpose: "Which reads as a retraction.",
       lines: [
-        ['t', '  2026-08-04 Aug 4, 2026'],
+        ['s', '  What it costs'],
+        ['s', '    Nothing found in public sources'],
         ['c', ''],
-        ['c', '// A date must be followed by a separator,'],
-        ['c', '// or "Starting August 11, Workers will..."'],
-        ['c', '// becomes a shipped release.'],
-        ['f', '// Here what follows it is itself.']
+        ['c', '// It was a restart. Nobody said so.'],
+        ['f', '// The report goes with the worker now.']
       ]
     },
-    read: {
-      name: "step over the second one",
-      purpose: "Two renderings, one date.",
+    half: {
+      name: "and the fix was half a fix",
+      purpose: "The row was clean. The screen was not.",
       lines: [
-        ['t', '  before   0 of 0'],
-        ['f', '  after    24 of 24'],
+        ['f', '  row       report cleared'],
+        ['s', '  screen    Pro costs $15'],
         ['c', ''],
-        ['c', '// The guard is untouched otherwise.'],
-        ['f', '// Two different dates on one line are'],
-        ['f', '// still a sentence.']
+        ['c', '// The open connection already sent it.'],
+        ['f', '// Clearing the source is not retracting'],
+        ['f', '// what a reader already has.']
       ]
     },
-    real: {
-      name: "and the model set, from real pages",
-      purpose: "Verbatim, and held there.",
+    retract: {
+      name: "so say so, on the wire",
+      purpose: "reset, not done.",
       lines: [
-        ['f', '  $15/user, billed monthly'],
-        ['f', '  500 GB storage space'],
-        ['f', '  24/7/365 customer support'],
+        ['f', '  event: reset'],
         ['c', ''],
-        ['c', '// A subject a model keeps failing invites'],
-        ['c', '// a quiet edit to the page.'],
-        ['f', '// A test says it is still the page.']
+        ['c', '// done means stop watching.'],
+        ['f', '// reset means keep watching, and'],
+        ['f', '// forget what you have.'],
+        ['c', ''],
+        ['c', '// Forget the sent-payload memory too, or'],
+        ['c', '// the same answer is suppressed as a'],
+        ['c', '// duplicate and never arrives.']
+      ]
+    },
+    backwards: {
+      name: "and the status goes backwards",
+      purpose: "running -> queued -> running.",
+      lines: [
+        ['c', '// A stream ending on "not running any'],
+        ['c', '// more" would say done here.'],
+        ['c', ''],
+        ['f', '  done  <- only complete or failed'],
+        ['c', ''],
+        ['f', '// A reader told it finished does not'],
+        ['f', '// reconnect.']
+      ]
+    },
+    teeth: {
+      name: "do the new tests have teeth?",
+      purpose: "Put four defects back and see.",
+      lines: [
+        ['f', '  any non-running is the end    CAUGHT'],
+        ['f', '  failed closes silently        CAUGHT'],
+        ['f', '  empty sections streamed       CAUGHT'],
+        ['f', '  reclaim keeps the report      CAUGHT'],
+        ['f', '  no retraction on the wire     CAUGHT'],
+        ['f', '  the client ignores it         CAUGHT'],
+        ['c', ''],
+        ['c', '// The loop was never driven before.'],
+        ['c', '// Only its helpers were.']
       ]
     }
   };
@@ -221,29 +247,33 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:hand",      c: "Sixteen defects, all found by reading." },
-    { kind: "means",       a: "spot:#code",     c: "Nothing asserts any of them." },
+    { kind: "recognition", a: "file:complete",  c: "Every test is of a run that finishes." },
+    { kind: "means",       a: "spot:#code",     c: "The defects live where they do not." },
 
-    { kind: "turn",        a: "file:frozen",    c: "So freeze the pages themselves." },
-    { kind: "means",       a: "spot:#code",     c: "Write down what each one must yield." },
+    { kind: "turn",        a: "file:promise",   c: "A comment said ordering was safe." },
+    { kind: "means",       a: "spot:#code",     c: "True of payloads. Not of writes." },
 
-    { kind: "result",      a: "file:ci",        c: "It runs on every pull request." },
-    { kind: "means",       a: "spot:#code",     c: "No model, no network, no GPU." },
+    { kind: "result",      a: "file:landed",    c: "Make the first write slow." },
+    { kind: "means",       a: "spot:#code",     c: "The store keeps the older report." },
 
-    { kind: "result",      a: "file:calibrate", c: "Then put five old defects back." },
-    { kind: "means",       a: "spot:#code",     c: "Four of five. The fifth, honestly, no." },
+    { kind: "result",      a: "file:ordered",   c: "One writer. The newest wins." },
 
-    { kind: "turn",        a: "file:zero",      c: "And a tenth page read as empty." },
-    { kind: "means",       a: "spot:#code",     c: "Two dozen releases. No dates found." },
+    { kind: "turn",        a: "file:dead",      c: "Then a worker dies mid-run." },
+    { kind: "means",       a: "spot:#code",     c: "Its half-report outlived it." },
 
-    { kind: "result",      a: "file:twice",     c: "The same date, written twice." },
-    { kind: "means",       a: "spot:#code",     c: "The rule read the second as prose." },
+    { kind: "result",      a: "file:blank",     c: "So clear it with the requeue." },
 
-    { kind: "result",      a: "file:read",      c: "Step over it: 24 of 24." },
+    { kind: "turn",        a: "file:half",      c: "Review: that was half a fix." },
+    { kind: "means",       a: "spot:#code",     c: "The open connection already sent it." },
 
-    { kind: "result",      a: "file:real",      c: "And the subjects are real pages now." },
+    { kind: "result",      a: "file:retract",   c: "So retract it, on the wire." },
+    { kind: "means",       a: "spot:#code",     c: "Not done. A reader told done leaves." },
 
-    { kind: "close",       a: "hold",           c: "Build the instrument. It finds the next one." }
+    { kind: "result",      a: "file:backwards", c: "The status runs backwards, and holds." },
+
+    { kind: "result",      a: "file:teeth",     c: "Defects put back. All of them caught." },
+
+    { kind: "close",       a: "hold",           c: "Test the run that goes wrong." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the

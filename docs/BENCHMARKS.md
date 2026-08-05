@@ -33,6 +33,164 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 18 — the states a run only reaches when something goes wrong
+
+**Date:** 2026-08-05 · **Where:** this laptop · **Model:** none — every defect here is in the
+worker, the store and the stream.
+
+Run 17 froze what a *page* yields. This is the other gap it left, and the one the
+coding-mistakes register argues is larger: **nine of that register's eleven entries are states
+that only exist when something goes wrong mid-operation**, and three of them were introduced by
+the fix for the previous one. A suite built from complete runs cannot see any of them, because a
+complete run never enters them.
+
+So: drive the orchestrator through a worker that dies, a run that is reclaimed, and a store that
+is slower than the pipeline feeding it. **Two defects, both invisible to 442 passing tests.**
+
+### A slow write overwrote a newer report
+
+The worker spawned a task per progress snapshot, with this reasoning beside it:
+
+> Ordering is not a concern because each write is the whole report so far, not a delta.
+
+**That is true of the payloads and false of the writes.** Two spawned tasks are two concurrent
+round-trips over two pooled connections, and nothing makes the first land first. Given a store
+whose first write is slow:
+
+```text
+writes landed ["second", "first"]
+  left: "first"
+ right: "second"
+```
+
+The store keeps the **older** report. So a section that had four claims goes back to three, and
+`PagePricing::assembled` replacing *"Free is listed with no published price"* with *"Free costs
+$0"* is undone in front of a reader who already saw the correction. It repairs itself at
+`complete` — which means the window where it is visible is exactly the ninety seconds somebody
+is watching.
+
+This is Run 16's `claims.len()` defect wearing a different hat: a correction that arrives and
+then un-arrives.
+
+Progress now goes through one writer task fed by a `watch` channel. Writes are strictly ordered,
+and a run producing snapshots faster than the store can take them **coalesces** rather than
+queueing — every snapshot is a whole report, so the newest is strictly better than a backlog of
+stale ones, and a queue that grows under load is how a slow database becomes a slow reader.
+`finish()` waits for the write in flight before `complete`, so the final report cannot be
+overtaken by a partial one.
+
+### A reclaimed run kept the dead worker's half-report
+
+`reclaim_stale` returns a stranded row to the queue, which is right. It also left the partial
+report attached, which is not: a **queued** analysis served sections from a worker that no
+longer exists, and the run that replaced it started from an empty report — so a reader watching
+saw answers they had already been shown blank themselves out. That reads as a retraction rather
+than a restart.
+
+Both stores now clear the report with the requeue, and the assertion lives in the shared
+conformance contract so Postgres and the in-memory store cannot disagree about it.
+
+### What review found: clearing the row is not retracting the answer
+
+The fix above was half of one. `reclaim_stale` clearing the partial report fixes a fresh `GET`
+and a reconnection — and does nothing for **the connection that is already open**, which has
+already sent those sections. `sent_sections` still held them, the transition sent only
+`status: queued`, and the client's `onStatus` left its section state untouched. Reproduced
+through `App`: after a `$15` section and then `queued`, the dead worker's claim stayed on screen.
+
+The interval is not small. The row has to be picked up by a worker polling once a second, then
+discovery and a fetch and a model call before the replacement has anything to say — call it
+thirty to ninety seconds. And **if the second run never reaches that question**, because the page
+404s this time or discovery picks different pages, nothing overwrites that key and the retracted
+claim stays until the run ends.
+
+The test could not see any of it, because it asserted the *eventual* value was the second run's.
+The defect is entirely in the interval.
+
+So the stream now sends a **`reset`** when the report goes away under a live connection, and
+clears `sent_sections` with it. The client throws away both copies it holds: the sections the
+stream sent, and the partial report a recovery fetch cached on the analysis.
+
+`reset` rather than `done` matters. A reader told a run finished does not reconnect, and a
+reclaimed run is the opposite of finished — *keep watching, and forget what you have*.
+
+**And review found the fix for that was itself half a fix.** It sent the retraction only when
+*this connection* had already sent something — and the reader's sections survive a reconnect on
+purpose, while the server's record of what it has sent starts empty on every new stream. Drop,
+reclaim, reconnect, and the guard suppressed the retraction on the one connection that needed it.
+
+The condition is the **row's** state now, not the connection's: *no report on the row means
+nothing backs what the reader holds*, whoever is connected. The same rule is applied at the other
+boundary, in the recovery fetch, which is the first thing to find out in that sequence. An
+ordinary new analysis is also report-less, so a run now opens by retracting nothing — correct,
+and free.
+
+Once it fires per *episode* rather than per poll, something has to rearm it. Nothing tested that,
+and a flag that is set and never cleared works for the first reclaim and is silent for the
+second — so a run that loses two workers leaves the second one's answers on screen with no sign
+anything is wrong. There is a test for two reclaims on one connection because breaking it on
+purpose was the only thing that noticed.
+
+Clearing `sent_sections` is not tidiness either: without it, a replacement run that reaches the
+**same** answer would be suppressed as a duplicate, and a reader whose screen had just been
+cleared would sit in front of an empty section for the whole second run. That is the failure mode
+of every de-duplicating cache — correct until the thing it deduplicates against is cleared
+somewhere else.
+
+### Are the new tests worth anything?
+
+Same question as Run 17, same method — break it on purpose and see:
+
+| Reintroduced defect | Caught? |
+|---|---|
+| the stream treats any non-`running` status as the end | **yes** |
+| a failed run closes the connection without a `done` | **yes**, 2 tests |
+| empty sections are streamed before their question is answered | **yes** |
+| a reclaimed run keeps the dead worker's partial report | **yes** |
+| the row is cleared but the wire sends no retraction | **yes**, 2 tests |
+| the retraction is sent but the already-sent memory is kept | **yes** |
+| the memory is cleared but the reader is never told | **yes**, 2 tests |
+| a `done` is sent instead of a retraction | **yes**, 2 tests |
+| the client ignores the retraction | **yes**, 2 frontend tests |
+| the retraction is guarded on the connection rather than the row | **yes**, 2 tests |
+| it fires on every poll instead of once per episode | **yes** |
+| the flag never rearms, so a second reclaim is silent | **yes** |
+| the recovery fetch keeps stale sections across a reconnect | **yes**, 1 frontend test |
+
+The first row is the one worth pausing on. A reclaimed run goes `running` → **`queued`** →
+`running`, which is a *backwards* status transition no healthy analysis ever makes. A stream
+that ended on "not running any more" would tell a reader the report was finished when a second
+worker was about to start it — and a reader who has been told it finished does not reconnect.
+
+Until now the stream's tests all checked *helpers*: does this section serialise, is a correction
+a different payload. The loop itself — where all four of Run 16's defects lived — was driven by
+nothing. It now runs against the real router with the store being mutated underneath it.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| before | 442 | 24 |
+| after | **454** | **27** |
+
+### What is still not right
+
+**There is no claim token, so a slow worker can still finish over its replacement.** If a run
+takes longer than the twenty-minute staleness threshold, the sweep hands it to a second worker
+while the first is alive; the first then calls `complete` and its report wins. `save_progress`
+is guarded — both stores refuse a write to a row that is not `running` — but `complete` cannot
+tell the two workers apart, because nothing identifies a claim. Fixing it properly is a
+generation column threaded through `claim_next`, `save_progress` and `complete`, which is a
+schema change and its own piece of work rather than a line in this one. Twenty minutes against a
+90–180 s analysis makes it unlikely, not impossible.
+
+**Nothing drives a worker that dies *while* the pipeline is mid-page.** These tests drive the
+store and the stream through that sequence; the worker's own loop is still only exercised by a
+run that completes.
+
+**The 500 ms poll is in the tests' wall-clock.** Four tests take 2.5 s of the suite's 6 s. That
+is worth it here and would not be at ten times the count.
+
+---
+
 ## Run 17 — the sixteen defects, written down, and a seventeenth found while writing them
 
 **Date:** 2026-08-05 · **Subjects:** ten frozen pages from six companies · **Where:** this

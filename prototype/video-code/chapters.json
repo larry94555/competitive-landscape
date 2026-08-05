@@ -4,6 +4,6 @@
     "n": 1,
     "title": "Using it ourselves",
     "blurb": "The stream was being sent to nobody: the frontend still polled. Wiring it up meant watching a report arrive in a browser for the first time, and the two defects that turned up were invisible to 425 passing tests.",
-    "seconds": 52.1
+    "seconds": 57.2
   }
 ]

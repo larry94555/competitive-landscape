@@ -85,6 +85,9 @@ pub(crate) async fn stream(
         // the same length as the wrong one it replaces.
         let mut sent_sections: HashMap<String, String> = HashMap::new();
         let mut sent_status: Option<AnalysisStatus> = None;
+        // Whether this connection has already said "what you hold is not backed by anything".
+        // Cleared when a report appears, so a second reclaim retracts again.
+        let mut retracted = false;
 
         loop {
             let Ok(analysis) = store.get(id).await else {
@@ -97,6 +100,32 @@ pub(crate) async fn stream(
             if sent_status != Some(analysis.status) {
                 sent_status = Some(analysis.status);
                 yield Ok(status_event(analysis.status));
+            }
+
+            // **No report on the row means nothing backs what the reader is holding.** The
+            // worker that produced those sections died and the run went back to the queue;
+            // clearing the row is not enough, because this connection has already *sent* them
+            // and the reader's screen is the thing that has to change. Without a retraction
+            // the dead worker's claims sit there until the replacement happens to overwrite
+            // that same key — and if it never reaches that question, until the run ends.
+            //
+            // The condition is the row's state, deliberately **not** "this connection sent
+            // something". A first version tested `sent_sections`, and review found the hole:
+            // the reader's sections survive a reconnect on purpose, while `sent_sections`
+            // starts empty on every new stream. Drop, reclaim, reconnect, and the guard
+            // suppressed the retraction on the one connection that needed it most.
+            //
+            // A brand-new analysis is also report-less, so an ordinary run opens with a
+            // retraction of nothing. That is the price of stating the rule about the row
+            // rather than about the connection, and it costs a reader nothing.
+            if analysis.report.is_none() {
+                if !retracted {
+                    retracted = true;
+                    sent_sections.clear();
+                    yield Ok(reset());
+                }
+            } else {
+                retracted = false;
             }
 
             if let Some(report) = &analysis.report {
@@ -151,6 +180,14 @@ fn payload_of(section: &Section) -> String {
 
 fn done() -> Event {
     Event::default().event("done").data("")
+}
+
+/// Everything sent so far is withdrawn; the run is starting again.
+///
+/// Not `done`, which means the opposite — a reader told a run finished does not reconnect.
+/// This says the opposite: keep watching, and forget what you have.
+fn reset() -> Event {
+    Event::default().event("reset").data("")
 }
 
 #[cfg(test)]

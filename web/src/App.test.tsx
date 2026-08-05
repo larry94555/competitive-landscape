@@ -95,6 +95,29 @@ function stubAccepting(): void {
 }
 
 /**
+ * A `fetch` whose GET reports the run **back in the queue with no report** — what a reclaim
+ * leaves behind after the worker that was running it died.
+ */
+function stubReclaimed(): void {
+  stubEventSource();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((_url: string, init?: RequestInit) =>
+      Promise.resolve({
+        ok: true,
+        status: init?.method === "POST" ? 201 : 200,
+        json: () =>
+          Promise.resolve(
+            init?.method === "POST"
+              ? queued()
+              : { ...queued(), status: "queued", report: null },
+          ),
+      } as Response),
+    ),
+  );
+}
+
+/**
  * A `fetch` that answers every GET with an analysis that is **still running** and already
  * carries a partial report — which is what the API really returns mid-run, because
  * `save_progress` writes the report so far.
@@ -334,6 +357,84 @@ describe("watching a report being written", () => {
     expect(screen.getByText(/Pro costs \$15/)).toBeInTheDocument();
   });
 
+  it("takes back the dead worker's answers when the run is reclaimed", async () => {
+    // Review found this one. Clearing the report in the store fixes a fresh GET and a
+    // reconnection; it does nothing for the connection that is already open, which has
+    // already *sent* those sections. The reader's screen is the thing that has to change.
+    //
+    // The interval is not small: the row has to be claimed by a polling worker, then
+    // discovery and a fetch and a model call before the replacement has anything to say. And
+    // if the second run never reaches that question at all — a page that 404s this time — the
+    // retracted claim sits there until the run ends.
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    const stream = FakeEventSource.last!;
+    act(() => stream.send("status", "running"));
+    act(() =>
+      stream.send(
+        "section",
+        JSON.stringify(section("pricing", "Pricing & packaging", "Pro costs $15")),
+      ),
+    );
+    expect(await screen.findByText(/Pro costs \$15/)).toBeInTheDocument();
+
+    // The worker died and the sweep put the run back in the queue.
+    act(() => stream.send("reset", ""));
+    act(() => stream.send("status", "queued"));
+
+    await waitFor(() =>
+      expect(screen.queryByText(/Pro costs \$15/)).not.toBeInTheDocument(),
+    );
+    // And it still reads as a run in progress, not a finished report with nothing in it.
+    expect(screen.queryByText("Done.")).not.toBeInTheDocument();
+  });
+
+  it("does not bring back a retracted answer the second run never reaches", async () => {
+    // The sharp version of the case above, and the reason a `reset` has to exist rather than
+    // relying on the replacement overwriting things. If the second run finds pricing again,
+    // that key is overwritten and the stale claim would have gone anyway. If it does not —
+    // the page 404s this time, or discovery picks different pages — nothing overwrites it,
+    // and without a retraction the dead worker's answer stays on screen until the run ends.
+    //
+    // A `reset` and not a `done`: a reader told a run finished does not reconnect, and a
+    // reclaimed run is the opposite of finished.
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    const stream = FakeEventSource.last!;
+    act(() =>
+      stream.send(
+        "section",
+        JSON.stringify(section("pricing", "Pricing & packaging", "Pro costs $15")),
+      ),
+    );
+    await screen.findByText(/Pro costs \$15/);
+
+    act(() => stream.send("reset", ""));
+    // The replacement run answers a different question entirely.
+    act(() =>
+      stream.send(
+        "section",
+        JSON.stringify(section("changes", "What changed recently", "Shipped annotations")),
+      ),
+    );
+
+    expect(await screen.findByText(/Shipped annotations/)).toBeInTheDocument();
+    expect(screen.queryByText(/Pro costs \$15/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Pricing & packaging")).not.toBeInTheDocument();
+    // The stream is still the one we opened: a reset is not a reason to reconnect.
+    expect(stream.closed).toBe(false);
+  });
+
   it("closes the stream when the run is done", async () => {
     // A stream left open against a finished analysis is a connection nobody is reading.
     stubAccepting();
@@ -493,6 +594,47 @@ describe("when the stream drops before the run is over", () => {
 });
 
 describe("after a reconnect", () => {
+  it("does not carry a dead worker's answers across the reconnect", async () => {
+    // Review found this one. The retraction worked on a live connection and not across a
+    // broken one: the reader's sections survive a reconnect *on purpose*, while the server's
+    // record of what it has sent starts empty on every new stream.
+    //
+    // The sequence: a section arrives, the connection drops, the recovery fetch finds the run
+    // back in the queue with no report, and the fresh stream opens on `queued`. At that
+    // moment two stale copies of the dead worker's answer are in play — the sections this
+    // hook accumulated and the report a recovery fetch cached — and nothing on the new
+    // connection had been told to take either of them back.
+    stubReclaimed();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    const dropped = FakeEventSource.last!;
+    act(() => dropped.send("status", "running"));
+    act(() =>
+      dropped.send(
+        "section",
+        JSON.stringify(section("pricing", "Pricing & packaging", "Pro costs $15")),
+      ),
+    );
+    expect(await screen.findByText(/Pro costs \$15/)).toBeInTheDocument();
+
+    // The connection drops. The run is reclaimed before the client gets back.
+    act(() => dropped.onerror?.());
+    await waitFor(() => expect(FakeEventSource.last).not.toBe(dropped), {
+      timeout: 4000,
+    });
+
+    await waitFor(() =>
+      expect(screen.queryByText(/Pro costs \$15/)).not.toBeInTheDocument(),
+    );
+    // And it is still a run in progress, not a finished report with nothing in it.
+    expect(screen.queryByText("Done.")).not.toBeInTheDocument();
+  });
+
+
   it("keeps rendering what the new stream sends", async () => {
     // The recovery fetch stores a still-running analysis whose partial report is a snapshot.
     // Reading from that snapshot froze the page at the moment of the fetch and threw away

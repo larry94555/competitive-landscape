@@ -115,6 +115,11 @@ impl Store for MemoryStore {
             // — erring toward retrying a job rather than stranding one.
             if entry.status == AnalysisStatus::Running && entry.created_at < cutoff {
                 entry.status = AnalysisStatus::Queued;
+                // The partial report goes with the worker that wrote it. Keeping it leaves a
+                // queued row holding sections nobody stands behind, and the replacement run
+                // starts from an empty report - so a reader watching sees answers they were
+                // already shown blank themselves out, which reads as a retraction.
+                entry.report = None;
                 n += 1;
             }
         }
