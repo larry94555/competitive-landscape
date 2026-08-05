@@ -378,16 +378,41 @@ this technique, because it manufactures a gap that then gets written down as fac
 > **Ask this:** *is the string I am replacing unique? If the same fix was applied in three
 > places, does my anchor say which one?*
 
+## 18. A guard that only runs when the work succeeded
+
+**Written:** the cancellation check placed inside the `Ok` arm of each extraction loop, with an
+`Err` arm beside it that only logged, and a `continue` that stepped past it when an answer was
+dropped as ungrounded.
+
+**What a person saw:** a worker whose claim had been revoked reading all twelve windows of a
+page anyway — the exact cost the change existed to remove — whenever the model was returning
+unparseable output or answers that would not ground.
+
+**Why the tests missed it:** every test had the model succeeding. The stub answered valid JSON,
+so the only path exercised was the one the check was on.
+
+**Rule:** a check that decides *whether to keep going* belongs at the end of the iteration, not
+inside the branch where the iteration went well. **The failure path is usually the one that most
+needs it** — here a run erroring is a slow run, and a slow run is the one the staleness sweep
+takes away, so the guard was missing precisely where its value was highest.
+
+The same shape shows up as `continue`: an early exit written to skip the *body* also skips
+everything after it, including code added later that has nothing to do with the reason for
+skipping.
+
+> **Ask this:** *what happens on the error branch and the `continue`? If this guard matters at
+> all, does it still run when the thing above it failed?*
+
 ---
 
 ## The checklist, before a PR
 
-Ten questions. Two minutes. Every one of them comes from an entry above.
+Eleven questions. Two minutes. Every one of them comes from an entry above.
 
 1. **Lifecycle** — does anything infer "finished" from the presence of data rather than from a
    status? *(1)*
 2. **Mid-operation states** — which states exist only when something fails partway, and which of
-   them has a test? *(the pattern, 1, 3, 4, 12, 13, 14, 15)*
+   them has a test? *(the pattern, 1, 3, 4, 12, 13, 14, 15, 18)*
 3. **Duplication of a derived fact** — is any fact computed in two places from different inputs?
    *(4)*
 4. **Comparisons** — can I name a change my equality check cannot see? Does any validation have a
@@ -405,12 +430,14 @@ Ten questions. Two minutes. Every one of them comes from an entry above.
    the file-reading checks pass on a clean checkout of this commit? *(16)*
 10. **Did my check run where I aimed it** — if I am reporting that something is *not* covered,
     have I confirmed the thing I broke is the thing I meant to break? *(17)*
+11. **The unhappy branch** — does every guard still run when the step above it failed or was
+    skipped? Is there a test where the dependency *errors* rather than succeeds? *(18)*
 
 ## How these were found, and what that says
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14 | All in error paths; 13 and 14 were successive halves of one fix |
+| Review | 1, 2, 3, 4, 13, 14, 18 | All in error paths; 13 and 14 were successive halves of one fix |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |
 | Deliberately breaking the code to see if a test notices | 12, and the rearm in 14 | The store was fast, so nothing raced until one was made slow |

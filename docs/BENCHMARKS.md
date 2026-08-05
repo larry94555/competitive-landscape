@@ -80,6 +80,28 @@ wait four minutes in Run 16:
 
 And the Notion pricing page, five plan windows: **1** against **5**.
 
+### What review found: the stop only worked when the model worked
+
+`so_far` was called from the branch where a window **succeeded**, and from nowhere else. So a
+run whose model calls were returning unparseable output, or whose answers were being dropped as
+ungrounded, never asked whether it was still wanted — and read all twelve windows anyway.
+
+**That is the worst place to miss it.** A run producing errors or ungrounded answers is a slow
+run, and a slow run is exactly the one the twenty-minute sweep takes away. The saving was absent
+precisely where it was largest.
+
+Reproduced with the same twelve-window fixture and a stub returning `not json at all`: the
+callback was invoked **zero** times and the stub received **twelve** requests.
+
+The question is asked after every window now, whatever became of it — and the features loop's
+`continue` on an ungrounded name, which stepped straight past it, is an `else` instead.
+
+| The path | before | after |
+|---|---|---|
+| the model answered and it grounded | 1 call | 1 call |
+| the model answered and it did not ground | 12 | **1** |
+| the model returned nothing usable | 12 | **1** |
+
 ### Does it hold up?
 
 Five ways of getting it wrong, put back one at a time:
@@ -88,6 +110,8 @@ Five ways of getting it wrong, put back one at a time:
 |---|---|
 | the features loop ignores the answer | **yes** |
 | the pricing loop ignores the answer | **yes** |
+| the features check moves back inside the success branch | **yes**, 2 tests |
+| the identity loop stops asking | **yes** |
 | `record` never reports the claim gone | **yes** |
 | the writer never sets the flag | **yes** |
 | *every* run stops after one window | **yes** — the control |
@@ -98,7 +122,7 @@ every number above, and would quietly turn every report into its first window.
 | | tests |
 |---|---|
 | Run 19 | 456 |
-| now | **460** |
+| now | **463** |
 
 ### Why the stub, and not the pipeline
 
@@ -117,10 +141,6 @@ revoked claim stops the window loop first) but that is an argument, not a test.
 **Nothing measures how often this fires.** The saving is real and unquantified: twenty minutes
 against a 90–180 s analysis makes a revoked claim rare, and there is no counter that would tell
 us if that changed.
-
-**The identity stage's loop is not asserted**, only pricing and features. It has the same break
-and at most three windows, so it is the cheapest of the three to get wrong and the least
-expensive to have wrong.
 
 ---
 

@@ -103,15 +103,17 @@ async fn pricing(
                     unsupported += 1;
                 }
                 extracted.push(got);
-                // One plan is enough to put the section on somebody's screen.
-                if so_far(&crate::claims_from_pricing(&PagePricing::assembled(
-                    extracted.clone(),
-                ))) == crate::Wanted::No
-                {
-                    break;
-                }
             }
             Err(e) => details.push(format!("model error: {e}")),
+        }
+        // **After every window, whatever became of it.** One plan is enough to put the section
+        // on somebody's screen — and asking here rather than inside the `Ok` arm is what makes
+        // a run whose answers are failing still able to hear that nobody wants it.
+        if so_far(&crate::claims_from_pricing(&PagePricing::assembled(
+            extracted.clone(),
+        ))) == crate::Wanted::No
+        {
+            break;
         }
     }
     let page = PagePricing::assembled(extracted);
@@ -165,23 +167,24 @@ async fn features(
         {
             Ok(got) => {
                 let section = window.prompt_text();
-                if !got.name_is_from(&section) {
+                if got.name_is_from(&section) {
+                    if !got.quote_is_verbatim(&section) {
+                        unsupported += 1;
+                    }
+                    extracted.push(got);
+                } else {
+                    // Dropped, and it used to `continue` straight past the question below.
                     ungrounded += 1;
-                    continue;
-                }
-                if !got.quote_is_verbatim(&section) {
-                    unsupported += 1;
-                }
-                extracted.push(got);
-                if so_far(&crate::claims_from_features(&PageFeatures::assembled(
-                    extracted.clone(),
-                    found.considered,
-                ))) == crate::Wanted::No
-                {
-                    break;
                 }
             }
             Err(e) => details.push(format!("model error: {e}")),
+        }
+        if so_far(&crate::claims_from_features(&PageFeatures::assembled(
+            extracted.clone(),
+            found.considered,
+        ))) == crate::Wanted::No
+        {
+            break;
         }
     }
     let page = PageFeatures::assembled(extracted, found.considered);
@@ -341,14 +344,15 @@ async fn identity(
                     unsupported += 1;
                 }
                 extracted.push(kept);
-                if so_far(&crate::claims_from_identity(&PageIdentity::assembled(
-                    extracted.clone(),
-                ))) == crate::Wanted::No
-                {
-                    break;
-                }
             }
             Err(e) => details.push(format!("model error: {e}")),
+        }
+        // After every window, whatever became of it — see the note in `pricing`.
+        if so_far(&crate::claims_from_identity(&PageIdentity::assembled(
+            extracted.clone(),
+        ))) == crate::Wanted::No
+        {
+            break;
         }
     }
     let page = PageIdentity::assembled(extracted);
@@ -662,6 +666,122 @@ mod tests {
             stub.calls(),
             windows,
             "and a run nobody stopped should read every plan on the page"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_window_the_model_could_not_answer_is_still_a_chance_to_stop() {
+        // Review found this. The stop was only asked about on the branch where a window
+        // *worked*, so a run whose model calls are failing never learned its claim was gone
+        // and read all twelve windows anyway.
+        //
+        // That is the worst place to miss it: a run erroring or producing ungrounded output is
+        // a slow run, and a slow run is the one the staleness sweep takes away.
+        let stub = StubModel::start("not json at all").await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+        let page = twelve_windows();
+
+        let mut asked = 0usize;
+        let mut stop_at_once = |_: &[crate::Finding]| {
+            asked += 1;
+            crate::Wanted::No
+        };
+        extract(
+            &llm,
+            Answers::Features,
+            "https://basecamp.com/features",
+            &page,
+            NaiveDate::from_ymd_opt(2026, 8, 5).unwrap(),
+            &mut stop_at_once,
+        )
+        .await;
+
+        assert_eq!(asked, 1, "a failed window is still a window; ask after it");
+        assert_eq!(
+            stub.calls(),
+            1,
+            "the model kept being called for a run nobody wanted, because every answer failed              to parse and nothing on that path ever asked whether to carry on"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_ungrounded_answer_is_still_a_chance_to_stop() {
+        // The other path that skipped the question: a features answer whose name is not in the
+        // window is dropped, and the drop used to `continue` past the check.
+        let stub = StubModel::start(
+            r#"{"capability":"Invented Feature","qualifier":null,"evidence_quote":"nowhere"}"#,
+        )
+        .await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+        let page = twelve_windows();
+
+        let mut stop_at_once = |_: &[crate::Finding]| crate::Wanted::No;
+        extract(
+            &llm,
+            Answers::Features,
+            "https://basecamp.com/features",
+            &page,
+            NaiveDate::from_ymd_opt(2026, 8, 5).unwrap(),
+            &mut stop_at_once,
+        )
+        .await;
+
+        assert_eq!(
+            stub.calls(),
+            1,
+            "an ungrounded answer skipped the question and the run carried on"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_identity_loop_stops_too() {
+        // The third of the three model-backed loops, and the one that had no test until a
+        // mutation showed the check could be deleted from it in silence. Fewest windows of the
+        // three, so the cheapest to get wrong and the least noticed when it is.
+        let page = landscape_golden::pages::load()
+            .expect("the page set loads")
+            .into_iter()
+            .find(|e| e.page == "plausible-about.md")
+            .expect("the about page that states all three facts")
+            .markdown()
+            .expect("it reads");
+        let windows = landscape_extract::identity::every_fact(&page).len();
+        assert!(windows > 1, "the fixture should offer several windows");
+
+        let stub = StubModel::start("not json at all").await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+        let mut stop_at_once = |_: &[crate::Finding]| crate::Wanted::No;
+        extract(
+            &llm,
+            Answers::Identity,
+            "https://plausible.io/about",
+            &page,
+            NaiveDate::from_ymd_opt(2026, 8, 5).unwrap(),
+            &mut stop_at_once,
+        )
+        .await;
+        assert_eq!(
+            stub.calls(),
+            1,
+            "identity kept reading after being told to stop"
+        );
+
+        let stub = StubModel::start("not json at all").await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+        let mut carry_on = |_: &[crate::Finding]| crate::Wanted::Yes;
+        extract(
+            &llm,
+            Answers::Identity,
+            "https://plausible.io/about",
+            &page,
+            NaiveDate::from_ymd_opt(2026, 8, 5).unwrap(),
+            &mut carry_on,
+        )
+        .await;
+        assert_eq!(
+            stub.calls(),
+            windows,
+            "and a run nobody stopped should ask about every fact the page states"
         );
     }
 
