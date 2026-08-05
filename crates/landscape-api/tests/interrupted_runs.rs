@@ -218,6 +218,83 @@ async fn a_reader_watching_a_reclaimed_run_is_never_told_it_finished() {
         last_section.contains("Pro costs $19"),
         "the reader was left holding the dead worker's answer: {last_section}"
     );
+
+    // The eventual value is not the interesting part — review pointed out that asserting it
+    // misses the *interval*. Between the reclaim and the replacement finding pricing again,
+    // this connection has already sent `$15` and nothing has taken it back. So the retraction
+    // has to be on the wire, and it has to come before the replacement's answer.
+    let reset_at = events
+        .iter()
+        .position(|e| e.contains("event: reset"))
+        .expect("a reclaimed run must retract what it already sent");
+    let nineteen_at = events
+        .iter()
+        .position(|e| e.contains("Pro costs $19"))
+        .expect("the second run's answer");
+    assert!(
+        reset_at < nineteen_at,
+        "the retraction has to arrive before the replacement, or the gap is exactly the          window where a reader is looking at a claim nobody stands behind: {events:#?}"
+    );
+    let fifteen_after: Vec<&String> = events[reset_at..]
+        .iter()
+        .filter(|e| e.contains("Pro costs $15"))
+        .collect();
+    assert!(
+        fifteen_after.is_empty(),
+        "the dead worker's answer was sent again after being retracted: {fifteen_after:#?}"
+    );
+}
+
+#[tokio::test]
+async fn after_a_retraction_the_same_answer_is_sent_again_rather_than_suppressed() {
+    // The stream skips a section whose payload it has already sent. After a reset the reader
+    // has thrown everything away, so "already sent" is no longer true — and a replacement run
+    // that reaches the *same* answer would be suppressed by that memory and never appear.
+    //
+    // This is the failure mode of every de-duplicating cache: correct until the thing it is
+    // deduplicating against is cleared somewhere else.
+    let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+    let id = running_analysis(&store).await;
+    store
+        .save_progress(id, &report_saying("Pro costs $15"))
+        .await
+        .expect("progress");
+
+    let reader = Reader::open(&store, id).await;
+    let driving = {
+        let store = Arc::clone(&store);
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(700)).await;
+            store
+                .reclaim_stale(chrono::Duration::zero())
+                .await
+                .expect("reclaim");
+            tokio::time::sleep(Duration::from_millis(700)).await;
+            store.claim_next().await.expect("claim").expect("requeued");
+            // The same answer, from a different worker.
+            store
+                .save_progress(id, &report_saying("Pro costs $15"))
+                .await
+                .expect("progress");
+            tokio::time::sleep(Duration::from_millis(700)).await;
+            store
+                .complete(id, &report_saying("Pro costs $15"))
+                .await
+                .expect("complete");
+        })
+    };
+
+    let events = reader.drain().await;
+    driving.await.expect("the driver finished");
+
+    let reset_at = events
+        .iter()
+        .position(|e| e.contains("event: reset"))
+        .expect("a reclaimed run retracts what it sent");
+    assert!(
+        events[reset_at..].iter().any(|e| e.contains("Pro costs $15")),
+        "after retracting it, the stream never sent the answer again - so a reader whose          screen was cleared would sit in front of an empty section for the whole second          run: {events:#?}"
+    );
 }
 
 #[tokio::test]

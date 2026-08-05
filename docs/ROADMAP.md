@@ -388,7 +388,8 @@ structural, and retrofitting them is expensive.
   analysis was serving sections nobody stood behind, and the run that replaced it started from
   an empty report — so a reader watching saw answers blank themselves out, which reads as a
   retraction rather than a restart. Both stores clear the report with the requeue now, asserted
-  in the shared contract.
+  in the shared contract — **and the stream sends a `reset`**, because clearing the row fixes a
+  fresh fetch and does nothing for the connection that has already sent those sections.
 - ~~Drive the orchestrator through the states a run only reaches when something goes wrong.~~
   **Done** — [BENCHMARKS.md](BENCHMARKS.md) Run 18. A worker that dies, a run that is
   reclaimed, a store slower than the pipeline feeding it. Two defects, both invisible to 442

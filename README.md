@@ -355,7 +355,8 @@ cannot appear in a response body.
 
 **A run that goes wrong is a state, not an exception.** A worker can be killed mid-analysis,
 so the row comes back to the queue on a sweep — and comes back *empty*, because a partial
-report belongs to the worker that wrote it. Progress writes go through one ordered writer, so
+report belongs to the worker that wrote it. Anyone already watching is sent a retraction, since
+clearing the row does nothing for a connection that has already delivered those sections. Progress writes go through one ordered writer, so
 a slow write cannot overwrite a newer report and undo a correction a reader has already seen.
 These are tested by driving the real stream while the store is mutated underneath it, because
 a suite built from runs that complete cannot reach the states a run only enters when something

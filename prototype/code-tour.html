@@ -151,6 +151,33 @@
         ['f', '// The report goes with the worker now.']
       ]
     },
+    half: {
+      name: "and the fix was half a fix",
+      purpose: "The row was clean. The screen was not.",
+      lines: [
+        ['f', '  row       report cleared'],
+        ['s', '  screen    Pro costs $15'],
+        ['c', ''],
+        ['c', '// The open connection already sent it.'],
+        ['f', '// Clearing the source is not retracting'],
+        ['f', '// what a reader already has.']
+      ]
+    },
+    retract: {
+      name: "so say so, on the wire",
+      purpose: "reset, not done.",
+      lines: [
+        ['f', '  event: reset'],
+        ['c', ''],
+        ['c', '// done means stop watching.'],
+        ['f', '// reset means keep watching, and'],
+        ['f', '// forget what you have.'],
+        ['c', ''],
+        ['c', '// Forget the sent-payload memory too, or'],
+        ['c', '// the same answer is suppressed as a'],
+        ['c', '// duplicate and never arrives.']
+      ]
+    },
     backwards: {
       name: "and the status goes backwards",
       purpose: "running -> queued -> running.",
@@ -172,6 +199,8 @@
         ['f', '  failed closes silently        CAUGHT'],
         ['f', '  empty sections streamed       CAUGHT'],
         ['f', '  reclaim keeps the report      CAUGHT'],
+        ['f', '  no retraction on the wire     CAUGHT'],
+        ['f', '  the client ignores it         CAUGHT'],
         ['c', ''],
         ['c', '// The loop was never driven before.'],
         ['c', '// Only its helpers were.']
@@ -232,13 +261,17 @@
     { kind: "turn",        a: "file:dead",      c: "Then a worker dies mid-run." },
     { kind: "means",       a: "spot:#code",     c: "Its half-report outlived it." },
 
-    { kind: "result",      a: "file:blank",     c: "So the answers blank themselves out." },
-    { kind: "means",       a: "spot:#code",     c: "A restart, read as a retraction." },
+    { kind: "result",      a: "file:blank",     c: "So clear it with the requeue." },
 
-    { kind: "result",      a: "file:backwards", c: "And the status runs backwards." },
-    { kind: "means",       a: "spot:#code",     c: "Only complete or failed ends it." },
+    { kind: "turn",        a: "file:half",      c: "Review: that was half a fix." },
+    { kind: "means",       a: "spot:#code",     c: "The open connection already sent it." },
 
-    { kind: "result",      a: "file:teeth",     c: "Four defects back in. Four caught." },
+    { kind: "result",      a: "file:retract",   c: "So retract it, on the wire." },
+    { kind: "means",       a: "spot:#code",     c: "Not done. A reader told done leaves." },
+
+    { kind: "result",      a: "file:backwards", c: "The status runs backwards, and holds." },
+
+    { kind: "result",      a: "file:teeth",     c: "Defects put back. All of them caught." },
 
     { kind: "close",       a: "hold",           c: "Test the run that goes wrong." }
   ];

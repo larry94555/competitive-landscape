@@ -37,25 +37,33 @@ Then a worker dies mid-run.
 Its half-report outlived it.
 
 10
-00:00:30.200 --> 00:00:33.700
-So the answers blank themselves out.
+00:00:30.200 --> 00:00:33.200
+So clear it with the requeue.
 
 11
-00:00:33.700 --> 00:00:37.000
-A restart, read as a retraction.
+00:00:33.200 --> 00:00:36.200
+Review: that was half a fix.
 
 12
-00:00:37.000 --> 00:00:40.100
-And the status runs backwards.
+00:00:36.200 --> 00:00:39.700
+The open connection already sent it.
 
 13
-00:00:40.100 --> 00:00:43.400
-Only complete or failed ends it.
+00:00:39.700 --> 00:00:42.600
+So retract it, on the wire.
 
 14
-00:00:43.400 --> 00:00:46.800
-Four defects back in. Four caught.
+00:00:42.600 --> 00:00:46.100
+Not done. A reader told done leaves.
 
 15
-00:00:46.800 --> 00:00:49.200
+00:00:46.100 --> 00:00:49.700
+The status runs backwards, and holds.
+
+16
+00:00:49.700 --> 00:00:53.300
+Defects put back. All of them caught.
+
+17
+00:00:53.300 --> 00:00:55.700
 Test the run that goes wrong.

@@ -123,6 +123,9 @@ function useReport(
   const [attempt, setAttempt] = useState(0);
   const onFinishedRef = useRef(onFinished);
   onFinishedRef.current = onFinished;
+  // Read inside the stream callbacks, which outlive the render that created them.
+  const analysisRef = useRef(analysis);
+  analysisRef.current = analysis;
 
   const id = analysis?.id ?? null;
   const settled = analysis != null && isTerminal(analysis.status);
@@ -163,6 +166,19 @@ function useReport(
           next[at] = section;
           return next;
         });
+      },
+      onReset: () => {
+        if (cancelled) return;
+        // The run went back to the queue and a different worker will start it over. Two
+        // copies of the dead worker's answers are on screen and both have to go: the ones
+        // this stream sent, and the ones a recovery fetch cached on the analysis. Leaving
+        // either shows a reader a claim nobody stands behind — and if the replacement run
+        // never reaches that question, it stays there until the run ends.
+        setSections([]);
+        const current = analysisRef.current;
+        if (current?.report != null) {
+          onFinishedRef.current({ ...current, report: null });
+        }
       },
       onDone: () => {
         if (cancelled) return;

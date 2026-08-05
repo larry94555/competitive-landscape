@@ -99,6 +99,17 @@ pub(crate) async fn stream(
                 yield Ok(status_event(analysis.status));
             }
 
+            // The report going away under a live connection means the run was reclaimed: the
+            // worker that produced those sections died, and nobody stands behind them any
+            // more. Clearing the row is not enough — this connection has already *sent* them,
+            // and the reader's screen is the thing that has to change. Without a retraction
+            // the dead worker's claims sit there until the replacement happens to overwrite
+            // that same key, and if it never finds that question at all, until the run ends.
+            if analysis.report.is_none() && !sent_sections.is_empty() {
+                sent_sections.clear();
+                yield Ok(reset());
+            }
+
             if let Some(report) = &analysis.report {
                 for section in &report.sections {
                     if section.status == SectionStatus::NotFoundInPublicSources
@@ -151,6 +162,14 @@ fn payload_of(section: &Section) -> String {
 
 fn done() -> Event {
     Event::default().event("done").data("")
+}
+
+/// Everything sent so far is withdrawn; the run is starting again.
+///
+/// Not `done`, which means the opposite — a reader told a run finished does not reconnect.
+/// This says the opposite: keep watching, and forget what you have.
+fn reset() -> Event {
+    Event::default().event("reset").data("")
 }
 
 #[cfg(test)]

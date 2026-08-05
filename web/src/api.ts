@@ -127,6 +127,14 @@ export interface Watcher {
   readonly onStatus: (status: AnalysisStatus) => void;
   /** One section, the first time it has anything in it. */
   readonly onSection: (section: Section) => void;
+  /**
+   * Everything sent so far is withdrawn; the run is starting again.
+   *
+   * A worker died and its analysis went back to the queue. The sections it produced are not
+   * wrong so much as unowned — nobody stands behind them, and the replacement run rebuilds
+   * from nothing. The opposite of `onDone`: keep watching, and forget what you have.
+   */
+  readonly onReset: () => void;
   /** Nothing else is coming. The caller fetches the finished analysis. */
   readonly onDone: () => void;
 }
@@ -167,6 +175,9 @@ export function watchAnalysis(id: string, watcher: Watcher): () => void {
       // A section we cannot parse is a bug on our side. Dropping it costs the reader one
       // heading arriving late, which the final fetch puts right.
     }
+  });
+  source.addEventListener("reset", () => {
+    watcher.onReset();
   });
   source.addEventListener("done", () => {
     close();

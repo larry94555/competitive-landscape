@@ -1151,7 +1151,7 @@ cargo install cargo-nextest --locked
 cargo nextest run --all-features
 ```
 
-**`450 tests run: 450 passed, 6 skipped`** — the six are the `#[ignore]`d ones that need a
+**`451 tests run: 451 passed, 6 skipped`** — the six are the `#[ignore]`d ones that need a
 database or a model. `cargo test --all-features --doc` runs alongside it, because nextest
 does not run doctests.
 
@@ -1171,6 +1171,7 @@ Worth knowing what a few of them are actually for:
 | `the_subjects_carved_from_real_pages_are_still_verbatim` | A subject a model keeps failing invites a quiet edit to its page text, and a subject edited until it passes measures nothing |
 | `a_slow_write_never_overwrites_a_newer_report` | Progress writes used to race. The store could end up holding the older report, so a correction a reader had already seen was undone in front of them |
 | `a_reader_watching_a_reclaimed_run_is_never_told_it_finished` | A reclaimed run goes `running` → `queued` → `running`. A stream that ended on "not running any more" would tell a reader it was finished, and a reader told that does not reconnect |
+| `after_a_retraction_the_same_answer_is_sent_again_rather_than_suppressed` | The stream skips a payload it has already sent. Once a reader's screen is cleared, "already sent" is no longer true — and a replacement reaching the same answer would be suppressed and never appear |
 
 The last one exists because two bugs once reached a reader through correct code and a stale
 README. Run it with:

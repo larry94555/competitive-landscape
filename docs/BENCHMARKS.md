@@ -90,6 +90,36 @@ than a restart.
 Both stores now clear the report with the requeue, and the assertion lives in the shared
 conformance contract so Postgres and the in-memory store cannot disagree about it.
 
+### What review found: clearing the row is not retracting the answer
+
+The fix above was half of one. `reclaim_stale` clearing the partial report fixes a fresh `GET`
+and a reconnection — and does nothing for **the connection that is already open**, which has
+already sent those sections. `sent_sections` still held them, the transition sent only
+`status: queued`, and the client's `onStatus` left its section state untouched. Reproduced
+through `App`: after a `$15` section and then `queued`, the dead worker's claim stayed on screen.
+
+The interval is not small. The row has to be picked up by a worker polling once a second, then
+discovery and a fetch and a model call before the replacement has anything to say — call it
+thirty to ninety seconds. And **if the second run never reaches that question**, because the page
+404s this time or discovery picks different pages, nothing overwrites that key and the retracted
+claim stays until the run ends.
+
+The test could not see any of it, because it asserted the *eventual* value was the second run's.
+The defect is entirely in the interval.
+
+So the stream now sends a **`reset`** when the report goes away under a live connection, and
+clears `sent_sections` with it. The client throws away both copies it holds: the sections the
+stream sent, and the partial report a recovery fetch cached on the analysis.
+
+`reset` rather than `done` matters. A reader told a run finished does not reconnect, and a
+reclaimed run is the opposite of finished — *keep watching, and forget what you have*.
+
+Clearing `sent_sections` is not tidiness either: without it, a replacement run that reaches the
+**same** answer would be suppressed as a duplicate, and a reader whose screen had just been
+cleared would sit in front of an empty section for the whole second run. That is the failure mode
+of every de-duplicating cache — correct until the thing it deduplicates against is cleared
+somewhere else.
+
 ### Are the new tests worth anything?
 
 Same question as Run 17, same method — break it on purpose and see:
@@ -100,6 +130,11 @@ Same question as Run 17, same method — break it on purpose and see:
 | a failed run closes the connection without a `done` | **yes**, 2 tests |
 | empty sections are streamed before their question is answered | **yes** |
 | a reclaimed run keeps the dead worker's partial report | **yes** |
+| the row is cleared but the wire sends no retraction | **yes**, 2 tests |
+| the retraction is sent but the already-sent memory is kept | **yes** |
+| the memory is cleared but the reader is never told | **yes**, 2 tests |
+| a `done` is sent instead of a retraction | **yes**, 2 tests |
+| the client ignores the retraction | **yes**, 2 frontend tests |
 
 The first row is the one worth pausing on. A reclaimed run goes `running` → **`queued`** →
 `running`, which is a *backwards* status transition no healthy analysis ever makes. A stream
@@ -110,10 +145,10 @@ Until now the stream's tests all checked *helpers*: does this section serialise,
 a different payload. The loop itself — where all four of Run 16's defects lived — was driven by
 nothing. It now runs against the real router with the store being mutated underneath it.
 
-| | tests |
-|---|---|
-| before | 442 |
-| after | **450** |
+| | Rust tests | frontend tests |
+|---|---|---|
+| before | 442 | 24 |
+| after | **451** | **26** |
 
 ### What is still not right
 
