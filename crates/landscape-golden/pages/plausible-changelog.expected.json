@@ -4,8 +4,208 @@
   "why": "Seventy dated entries in the `- Jul 14, 2026` shape, and the page that shows why the numbers beside a changelog matter: four of these fall inside a ninety-day window, and four printed alone would read as a quiet quarter at a company that ships weekly.",
   "answers": "changes",
   "changes": {
-    "read": 40,
-    "considered": 70,
-    "newest": "2026-07-14"
+    "entries": [
+      {
+        "date": "2026-07-14",
+        "title": "Add notes to your traffic chart with annotations",
+        "quote": "- Jul 14, 2026"
+      },
+      {
+        "date": "2026-06-24",
+        "title": "See full URLs in Page reports",
+        "quote": "- Jun 24, 2026"
+      },
+      {
+        "date": "2026-06-10",
+        "title": "New AI Assistants channel",
+        "quote": "- Jun 10, 2026"
+      },
+      {
+        "date": "2026-05-27",
+        "title": "User journeys is here!",
+        "quote": "- May 27, 2026"
+      },
+      {
+        "date": "2026-04-14",
+        "title": "Strict order funnels for precise path analysis",
+        "quote": "- Apr 14, 2026"
+      },
+      {
+        "date": "2026-03-18",
+        "title": "Sort your sites by traffic",
+        "quote": "- Mar 18, 2026"
+      },
+      {
+        "date": "2026-02-11",
+        "title": "Last 24 Hours",
+        "quote": "- Feb 11, 2026"
+      },
+      {
+        "date": "2026-02-04",
+        "title": "Goals with custom properties",
+        "quote": "- Feb 4, 2026"
+      },
+      {
+        "date": "2026-01-05",
+        "title": "Limited dashboard sharing",
+        "quote": "- Jan 5, 2026"
+      },
+      {
+        "date": "2025-11-24",
+        "title": "Revenue breakdown in your reports",
+        "quote": "- Nov 24, 2025"
+      },
+      {
+        "date": "2025-11-17",
+        "title": "Introducing, Consolidated Views",
+        "quote": "- Nov 17, 2025"
+      },
+      {
+        "date": "2025-11-05",
+        "title": "Team owners can now enforce 2FA for extra security, and our security practices",
+        "quote": "- Nov 5, 2025"
+      },
+      {
+        "date": "2025-10-08",
+        "title": "Plug-and-play setup for optional measurements, automatic form analytics, and more",
+        "quote": "- Oct 8, 2025"
+      },
+      {
+        "date": "2025-07-29",
+        "title": "SSO is now available!",
+        "quote": "- Jul 29, 2025"
+      },
+      {
+        "date": "2025-07-08",
+        "title": "Introducing, Managed Proxy",
+        "quote": "- Jul 8, 2025"
+      },
+      {
+        "date": "2025-04-08",
+        "title": "Improved \"Time on Page\" metric",
+        "quote": "- Apr 8, 2025"
+      },
+      {
+        "date": "2025-04-01",
+        "title": "Create a team in Plausible",
+        "quote": "- Apr 1, 2025"
+      },
+      {
+        "date": "2025-03-10",
+        "title": "Scroll Depth tracking",
+        "quote": "- Mar 10, 2025"
+      },
+      {
+        "date": "2025-03-06",
+        "title": "Save and reuse segments",
+        "quote": "- Mar 6, 2025"
+      },
+      {
+        "date": "2025-02-05",
+        "title": "Automatically track form completions with the WordPress plugin",
+        "quote": "- Feb 5, 2025"
+      },
+      {
+        "date": "2025-01-23",
+        "title": "Exclude goal conversions",
+        "quote": "- Jan 23, 2025"
+      },
+      {
+        "date": "2025-01-21",
+        "title": "Plausible Analytics Looker Studio Connector is live!",
+        "quote": "- Jan 21, 2025"
+      },
+      {
+        "date": "2024-11-19",
+        "title": "Introducing Top Channels Report",
+        "quote": "- Nov 19, 2024"
+      },
+      {
+        "date": "2024-10-30",
+        "title": "Compare all metrics over time periods",
+        "quote": "- Oct 30, 2024"
+      },
+      {
+        "date": "2024-10-09",
+        "title": "Stats API V2 is here",
+        "quote": "- Oct 9, 2024"
+      },
+      {
+        "date": "2024-10-07",
+        "title": "New Shopify integration for tracking e-commerce events",
+        "quote": "- Oct 7, 2024"
+      },
+      {
+        "date": "2024-09-30",
+        "title": "Remote logout",
+        "quote": "- Sep 30, 2024"
+      },
+      {
+        "date": "2024-09-13",
+        "title": "Sort reports by performance metrics",
+        "quote": "- Sep 13, 2024"
+      },
+      {
+        "date": "2024-09-02",
+        "title": "Setup enhanced measurements effortlessly.",
+        "quote": "- Sep 2, 2024"
+      },
+      {
+        "date": "2024-08-09",
+        "title": "Edit goals, and full Browser & OS data",
+        "quote": "- Aug 9, 2024"
+      },
+      {
+        "date": "2024-07-18",
+        "title": "Edit funnels",
+        "quote": "- Jul 18, 2024"
+      },
+      {
+        "date": "2024-07-15",
+        "title": "Traffic drop alerts",
+        "quote": "- Jul 15, 2024"
+      },
+      {
+        "date": "2024-06-24",
+        "title": "More powerful and flexible audience segmentation",
+        "quote": "- Jun 24, 2024"
+      },
+      {
+        "date": "2024-06-03",
+        "title": "You can now filter and export your imported data",
+        "quote": "- Jun 3, 2024"
+      },
+      {
+        "date": "2024-05-28",
+        "title": "A tool to help you check if Plausible has been integrated correctly",
+        "quote": "- May 28, 2024"
+      },
+      {
+        "date": "2024-05-15",
+        "title": "Search Console filtering is here",
+        "quote": "- May 15, 2024"
+      },
+      {
+        "date": "2024-05-13",
+        "title": "Import GA4 custom events (and add all existing events with a single click)",
+        "quote": "- May 13, 2024"
+      },
+      {
+        "date": "2024-05-08",
+        "title": "CSV export and import",
+        "quote": "- May 8, 2024"
+      },
+      {
+        "date": "2024-04-23",
+        "title": "Import GA4 stats",
+        "quote": "- Apr 23, 2024"
+      },
+      {
+        "date": "2024-04-17",
+        "title": "Filter stats by subdomain and block traffic from unwanted hostnames",
+        "quote": "- Apr 17, 2024"
+      }
+    ],
+    "considered": 70
   }
 }

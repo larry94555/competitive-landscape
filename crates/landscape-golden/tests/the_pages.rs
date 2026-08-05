@@ -95,6 +95,50 @@ fn the_set_holds_a_page_that_answers_nothing() {
 }
 
 #[test]
+fn every_expectation_freezes_a_body_and_not_just_a_heading() {
+    // Review found this hole in one try: with only headings frozen, changing Linear Business
+    // from `$16 per user/month` to `$999` in the frozen page left every test green. The window
+    // *is* the product — §5.4's argument is that a bad window and a bad model cannot be told
+    // apart at the output — so an expectation listing which headings won and nothing else
+    // asserts the cheaper half of the thing that matters.
+    //
+    // An empty body is legitimate for a heading with nothing under it, so this asks that the
+    // page as a whole froze some text, not that every window did.
+    for e in pages::load().expect("the page set loads") {
+        let mut lines = 0usize;
+        if let Some(windows) = &e.plan_windows {
+            lines += windows.iter().map(|w| w.text.len()).sum::<usize>();
+        }
+        if let Some(caps) = &e.capabilities {
+            lines += caps.named.iter().map(|w| w.text.len()).sum::<usize>();
+        }
+        if let Some(changes) = &e.changes {
+            // A quote is the evidence a reader is shown. A title can stay right while the
+            // line behind it drifts, so both are frozen and both are counted.
+            lines += changes
+                .entries
+                .iter()
+                .filter(|d| !d.quote.trim().is_empty())
+                .count();
+        }
+        if let Some(facts) = &e.facts {
+            lines += facts.iter().map(|f| f.text.len()).sum::<usize>();
+        }
+
+        // The two pages that legitimately yield nothing are the controls, and they are
+        // asserted by `the_set_holds_a_page_that_answers_nothing` instead.
+        let yields_nothing = e.plan_windows.as_ref().is_some_and(Vec::is_empty)
+            || e.changes.as_ref().is_some_and(|c| c.considered == 0)
+            || e.facts.as_ref().is_some_and(Vec::is_empty);
+        assert!(
+            yields_nothing || lines > 0,
+            "{} freezes headings but no content, so a change inside a window would pass",
+            e.page
+        );
+    }
+}
+
+#[test]
 fn the_subjects_carved_from_real_pages_are_still_verbatim() {
     // Five of the fifteen model subjects are windows cut from the pages in `pages/` rather
     // than prose somebody wrote. That is their entire value, and it is silently reversible: a

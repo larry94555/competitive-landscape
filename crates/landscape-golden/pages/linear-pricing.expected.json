@@ -4,8 +4,51 @@
   "why": "Three plans whose names are `###` headings and whose first plan is free, so it covers both the heading level basecamp does not use and the zero that must not be read as an absence.",
   "answers": "pricing",
   "plan_windows": [
-    "### Free",
-    "### Basic",
-    "### Business"
+    {
+      "heading": "### Free",
+      "text": [
+        "### Free",
+        "$0",
+        "Free for everyone",
+        "- Unlimited members",
+        "- 2 teams",
+        "- 250 issues",
+        "- Agent platform",
+        "- Linear Agent",
+        "Get started Get started"
+      ]
+    },
+    {
+      "heading": "### Basic",
+      "text": [
+        "### Basic",
+        "$10 per user/month $10 per user/month",
+        "Billed yearly",
+        "- All Free features +",
+        "- 5 teams",
+        "- Unlimited issues",
+        "- Unlimited file uploads",
+        "- Admin roles",
+        "Get started Get started"
+      ]
+    },
+    {
+      "heading": "### Business",
+      "text": [
+        "### Business",
+        "$16 per user/month $16 per user/month",
+        "Billed yearly",
+        "- All Basic features +",
+        "- Unlimited teams",
+        "- Private teams and guests",
+        "- Triage Intelligence",
+        "- Loops",
+        "- Code Intelligence (beta)",
+        "- Linear Insights",
+        "- Linear Asks",
+        "- Zendesk and Intercom integrations",
+        "Get started Get started Contact sales"
+      ]
+    }
   ]
 }

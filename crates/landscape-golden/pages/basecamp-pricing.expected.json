@@ -4,7 +4,44 @@
   "why": "Two plans on one page, which is the finding Run 7 exists for: reporting the cheapest and dropping the other does not read as incomplete, it reads as wrong. Also the page whose FAQ the first scorer chose over both plans.",
   "answers": "pricing",
   "plan_windows": [
-    "## Pro Unlimited",
-    "## Pro"
+    {
+      "heading": "## Pro Unlimited",
+      "text": [
+        "## Pro Unlimited",
+        "### Top-of-the-line, all-inclusive pricing. Unlimited users, no per-user fees.",
+        "$299/month, billed annually Your whole organization for one fixed price. Unlimited users, plus every feature & upgrade.",
+        "Try it free for 60 days",
+        "- Unlimited projects",
+        "- 5 terabytes storage space (10x Pro)",
+        "- Fixed price — no per-user charges",
+        "- Includes Admin Pro Pack upgrade",
+        "? Gives account owners and admins greater control over access, permissions, and more",
+        "- Includes Timesheet upgrade",
+        "? Track hours/time spent working on projects",
+        "- Personal onboarding with our team",
+        "? One of our experts is happy to walk your team through Basecamp to get you up to speed",
+        "- Priority 24/7/365 customer support, your questions get answered first",
+        "? Jump to the front of the queue when you contact support",
+        "- More payment options including credit card, check, ACH, or wire",
+        "- Extended 60-day free trial"
+      ]
+    },
+    {
+      "heading": "## Pro",
+      "text": [
+        "## Pro",
+        "### A great choice for freelancers, startups, and smaller teams.",
+        "$15/user, billed monthly Invite guests and clients for free. We will only bill you for employees.",
+        "Try it free for 30 days",
+        "- Unlimited projects",
+        "- 500 GB storage space",
+        "- Pay-per-user",
+        "- Optional upgrades sold separately",
+        "- Self-guided onboarding",
+        "- 24/7/365 customer support",
+        "- Pay by credit card",
+        "- 30-day free trial"
+      ]
+    }
   ]
 }

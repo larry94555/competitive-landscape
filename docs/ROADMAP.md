@@ -298,9 +298,9 @@ holding it.
 - ~~Make the deterministic half of the golden set run in CI.~~ **Done** —
   [BENCHMARKS.md](BENCHMARKS.md) Run 17. **Ten real pages from six companies are frozen** in
   `crates/landscape-golden/pages/`, each with the windows, capabilities, dates and facts the
-  parsers must produce. `cargo test -p landscape-golden --test the_pages` takes 0.24 s and
+  parsers must produce. `cargo test -p landscape-golden --test the_pages` takes 0.11 s and
   needs no model, so unlike `against_a_model` it runs on every pull request. Calibrated by
-  putting five past defects back: it caught four, and the fifth is caught by a unit test.
+  putting six past defects back: it caught five, and the sixth is caught by a unit test.
   Building it found a seventeenth defect — Cloudflare's whole changelog read as zero entries.
 
 **UX polish:** design tokens, typography scale, the report layout in Figma or static HTML.

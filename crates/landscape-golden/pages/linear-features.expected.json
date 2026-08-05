@@ -5,14 +5,65 @@
   "answers": "features",
   "capabilities": {
     "named": [
-      "Planning",
-      "Building",
-      "### Artificial intelligence",
-      "### Insights",
-      "### Mobile",
-      "### Customer Requests",
-      "### Linear Asks",
-      "### Security"
+      {
+        "heading": "Planning",
+        "text": [
+          "###",
+          "Planning",
+          "Set the product direction with projects and initiatives"
+        ]
+      },
+      {
+        "heading": "Building",
+        "text": [
+          "###",
+          "Building",
+          "Make progress with issue tracking and cycle planning"
+        ]
+      },
+      {
+        "heading": "### Artificial intelligence",
+        "text": [
+          "### Artificial intelligence",
+          "Streamline product development with AI-powered workflows and agents"
+        ]
+      },
+      {
+        "heading": "### Insights",
+        "text": [
+          "### Insights",
+          "Instant analytics for any stream of work"
+        ]
+      },
+      {
+        "heading": "### Mobile",
+        "text": [
+          "### Mobile",
+          "Move product work forward from anywhere"
+        ]
+      },
+      {
+        "heading": "### Customer Requests",
+        "text": [
+          "### Customer Requests",
+          "Build what customers",
+          "actually want"
+        ]
+      },
+      {
+        "heading": "### Linear Asks",
+        "text": [
+          "### Linear Asks",
+          "Turn workplace requests into actionable issues"
+        ]
+      },
+      {
+        "heading": "### Security",
+        "text": [
+          "### Security",
+          "Best-in-class security practices keep your work safe and se cure 0 n * d"
+        ]
+      }
     ],
     "considered": 8
   }

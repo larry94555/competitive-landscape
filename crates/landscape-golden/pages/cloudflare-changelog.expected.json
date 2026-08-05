@@ -4,8 +4,128 @@
   "why": "A changelog whose every date is a `<time datetime>` element, which converts to the machine date followed by the same day written for a person — `2026-08-04 Aug 4, 2026`. Reading that second date as prose rejected all 24 entries, so the most explicitly machine-readable date shape on the web was the one we could not read. Frozen because the page found the defect and is the only thing that would find it again.",
   "answers": "changes",
   "changes": {
-    "read": 24,
-    "considered": 24,
-    "newest": "2026-08-04"
+    "entries": [
+      {
+        "date": "2026-08-04",
+        "title": "Agent traces for Think, Flue, and AI SDK instrumented by Agents SDK",
+        "quote": "2026-08-04 Aug 4, 2026"
+      },
+      {
+        "date": "2026-08-04",
+        "title": "Build and deploy Artifacts repos on every push",
+        "quote": "2026-08-04 Aug 4, 2026"
+      },
+      {
+        "date": "2026-08-04",
+        "title": "Create Free accounts from the dashboard",
+        "quote": "2026-08-04 Aug 4, 2026"
+      },
+      {
+        "date": "2026-08-04",
+        "title": "WAF Release - 2026-08-04",
+        "quote": "2026-08-04 Aug 4, 2026"
+      },
+      {
+        "date": "2026-08-04",
+        "title": "WAF Release - Scheduled changes for 2026-08-10",
+        "quote": "2026-08-04 Aug 4, 2026"
+      },
+      {
+        "date": "2026-08-04",
+        "title": "AI agents can debug Workers with local tracing",
+        "quote": "2026-08-04 Aug 4, 2026"
+      },
+      {
+        "date": "2026-08-03",
+        "title": "Control authorization cookies for multi-domain Access applications",
+        "quote": "2026-08-03 Aug 3, 2026"
+      },
+      {
+        "date": "2026-08-03",
+        "title": "Preview: @cloudflare/computer agent runtime",
+        "quote": "2026-08-03 Aug 3, 2026"
+      },
+      {
+        "date": "2026-08-03",
+        "title": "Billing is now enabled for Pipelines",
+        "quote": "2026-08-03 Aug 3, 2026"
+      },
+      {
+        "date": "2026-08-03",
+        "title": "Billing is now enabled for R2 SQL",
+        "quote": "2026-08-03 Aug 3, 2026"
+      },
+      {
+        "date": "2026-08-03",
+        "title": "Billing is now enabled for R2 Data Catalog",
+        "quote": "2026-08-03 Aug 3, 2026"
+      },
+      {
+        "date": "2026-08-03",
+        "title": "Python and JavaScript Workers can now call each other via RPC",
+        "quote": "2026-08-03 Aug 3, 2026"
+      },
+      {
+        "date": "2026-07-31",
+        "title": "Cloudflare One Client for Windows (version 2026.7.1210.1)",
+        "quote": "2026-07-31 Jul 31, 2026"
+      },
+      {
+        "date": "2026-07-31",
+        "title": "Cloudflare One Client for macOS (version 2026.7.1210.1)",
+        "quote": "2026-07-31 Jul 31, 2026"
+      },
+      {
+        "date": "2026-07-31",
+        "title": "Static OAuth client credentials for MCP server portals",
+        "quote": "2026-07-31 Jul 31, 2026"
+      },
+      {
+        "date": "2026-07-31",
+        "title": "Browser Run adds a Playground to the Cloudflare dashboard",
+        "quote": "2026-07-31 Jul 31, 2026"
+      },
+      {
+        "date": "2026-07-31",
+        "title": "Rotate Stream broadcast keys for live inputs",
+        "quote": "2026-07-31 Jul 31, 2026"
+      },
+      {
+        "date": "2026-07-31",
+        "title": "Inspect Worker startup performance with Wrangler",
+        "quote": "2026-07-31 Jul 31, 2026"
+      },
+      {
+        "date": "2026-07-30",
+        "title": "Use AI Search with the Agents SDK, AI SDK, and LangChain",
+        "quote": "2026-07-30 Jul 30, 2026"
+      },
+      {
+        "date": "2026-07-30",
+        "title": "Node.js 24 is now the default for Workers Builds",
+        "quote": "2026-07-30 Jul 30, 2026"
+      },
+      {
+        "date": "2026-07-29",
+        "title": "WAF Release - 2026-07-29",
+        "quote": "2026-07-29 Jul 29, 2026"
+      },
+      {
+        "date": "2026-07-28",
+        "title": "Improved DoH JSON formatting for additional record types",
+        "quote": "2026-07-28 Jul 28, 2026"
+      },
+      {
+        "date": "2026-07-28",
+        "title": "Cloudflare MCP servers support the new MCP 2026-07-28 Specification",
+        "quote": "2026-07-28 Jul 28, 2026"
+      },
+      {
+        "date": "2026-07-28",
+        "title": "Browser Run adds structured handoff for Human in the Loop",
+        "quote": "2026-07-28 Jul 28, 2026"
+      }
+    ],
+    "considered": 24
   }
 }

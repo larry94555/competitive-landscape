@@ -565,9 +565,9 @@ true. This part can.
 cargo test -p landscape-golden
 ```
 
-**You should see 30 passing.** They are two things.
+**You should see 32 passing.** They are two things.
 
-Ten check the *golden set itself*: that every reference answer really appears on its page, that
+Eleven check the *golden set itself*: that every reference answer really appears on its page, that
 at least three subjects publish no price, that every subject explains in prose why it exists. A
 measuring instrument nobody calibrates produces numbers that are worse than none, because they
 get believed.
@@ -579,12 +579,12 @@ The rest check the **parsers**, against ten real pages frozen in
 cargo test -p landscape-golden --test the_pages
 ```
 
-**0.24 seconds, and no model is involved.** Every extraction step before the model is
+**0.11 seconds, and no model is involved.** Every extraction step before the model is
 deterministic — which windows a pricing page yields, which capabilities a features page names,
 how many dated entries a changelog carries — so the answer can be written down and checked on
 every pull request. `BENCHMARKS.md` Runs 5 to 16 found sixteen defects by reading real output
-by hand; this is the half of that method a build can do. It was calibrated by putting five of
-those defects back into the code: it caught four, and the fifth is caught by a unit test
+by hand; this is the half of that method a build can do. It was calibrated by putting six of
+those defects back into the code: it caught five, and the sixth is caught by a unit test
 elsewhere. Building it found a seventeenth — a changelog of two dozen releases that read as
 having no dates at all (Run 17).
 
@@ -1216,7 +1216,7 @@ python prototype/build.py --preview
 | 7 — survives a restart with Postgres | | |
 | 8 — 100 generations, 0 parse failures | | |
 | 8 — `landscape-bench` reports three error kinds separately | | |
-| 8A — golden set validates itself, 30 passing, no model | | |
+| 8A — golden set validates itself, 32 passing, no model | | |
 | 8A — `--test the_pages` passes: ten frozen pages, no model, under a second | | |
 | 8A — scorecard prints; `FAB` on the abstention subjects reads as expected | | |
 | 8B — example.com fetches; metadata endpoint and loopback refused | | |

@@ -205,7 +205,7 @@ The set also checks itself, and that half needs no model at all:
 cargo test -p landscape-golden
 ```
 
-**30 passing, in under a second.** Ten of them check the set's own answers. The rest check the
+**32 passing, in under a second.** Eleven of them check the set's own answers. The rest check the
 *parsers*, against ten real pages frozen in `crates/landscape-golden/pages/` — everything
 before the model is deterministic, so what a page yields can be written down and checked on
 every pull request:
@@ -214,8 +214,8 @@ every pull request:
 cargo test -p landscape-golden --test the_pages
 ```
 
-It was calibrated by putting five past defects back into the code; it caught four, and the
-fifth is caught by a unit test elsewhere. Building it found a seventeenth — a changelog of two
+It was calibrated by putting six past defects back into the code; it caught five, and the
+sixth is caught by a unit test elsewhere. Building it found a seventeenth — a changelog of two
 dozen releases that read as having no dates at all. See
 [BENCHMARKS.md](docs/BENCHMARKS.md) Run 17.
 

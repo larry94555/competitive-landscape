@@ -43,16 +43,17 @@ real company, read the output, notice something wrong — and **not one of them 
 anywhere.** The pipeline could regress to its Run 5 behaviour today and 437 tests would pass.
 
 The half of that method which needs no GPU is now a test. Ten real pages are frozen as
-Markdown in `crates/landscape-golden/pages/` (194 KB), each beside a JSON file saying what the
-deterministic passes must make of it: which windows a pricing page yields, which capabilities a
-features page names, how many dated entries a changelog carries, which facts an about page
-states.
+Markdown in `crates/landscape-golden/pages/` (222 KB with their expectations), each beside a
+JSON file saying what the deterministic passes must make of it: **every plan window a pricing
+page yields, heading and body**; every capability window a features page names; the date, title
+and quote of every entry a changelog carries; the window each fact on an about page was read
+from.
 
 ```bash
 cargo test -p landscape-golden --test the_pages
 ```
 
-**0.24 s, no model, no network.** It runs on every pull request; `against_a_model` still cannot.
+**0.11 s, no model, no network.** It runs on every pull request; `against_a_model` still cannot.
 
 ### Does it actually catch anything?
 
@@ -66,11 +67,14 @@ defects were put back into the code, one at a time, and the set was asked:
 | Run 8 — a page footer read as fourteen capabilities | **yes**, 1 page |
 | Run 12 — the identity window's floor | **yes**, 1 page |
 | Run 10 — a date mid-sentence filed as a shipped change | no |
+| *(added after review)* the window body silently shortened, `WINDOW_CHARS` 1600 → 900 | **yes**, 1 page |
 
-**Four of five.** The fifth is caught by a unit test in `landscape-extract` that already
-existed, so the suite as a whole stops all five — but no frozen page carries a line that begins
-with a date and runs into prose, and that is a real gap rather than a rounding error. It is
-recorded here rather than papered over.
+**Five of six.** The one that gets away is caught by a unit test in `landscape-extract` that
+already existed, so the suite as a whole stops all six — but no frozen page carries a line that
+begins with a date and runs into prose, and that is a real gap rather than a rounding error. It
+is recorded here rather than papered over.
+
+The last row is there because of what review found, below.
 
 The failures name the page, quote its reason for being in the set, and print expected against
 got for every page that moved, not just the first:
@@ -84,6 +88,36 @@ basecamp-pricing.md  (Pricing)
   expected ["## Pro Unlimited", "## Pro"]
   got      ["## Pro Unlimited", "## Pro", "## I have pricing questions&hellip;"]
 ```
+
+### What review found: freezing the heading is not freezing the window
+
+The first version of this froze **only which headings won**. Review took one try to show what
+that leaves out: change Linear Business from `$16 per user/month` to `$999` in the frozen page,
+and all five tests stay green. Heading selection was unchanged, so nothing noticed.
+
+That is the wrong half. §5.4's argument is that a bad window and a bad model **cannot be told
+apart at the output**, which is the entire reason span selection is a stage — and a set that
+freezes the label on a window but not its contents asserts the cheap part. Every expectation now
+carries the body, stored one line per entry so a change reads as a changed line in review:
+
+```text
+linear-pricing.md  (Pricing)
+  the window under `### Business`
+  line 1
+    expected "$16 per user/month $16 per user/month"
+    got      "$999 per user/month $999 per user/month"
+```
+
+The `WINDOW_CHARS` row in the table above is the mutation that measures this, and it is one the
+first version could not have caught: shrinking a window does not change which heading wins.
+
+Review found a second thing in the subjects — the Linear Free subject expected
+`billing_period: monthly` from a window that states only `$0` and *"Free for everyone"*. The
+cadence belonged to the plan **below** it. That expectation would have marked the honest null
+answer wrong and rewarded a model for copying a neighbour's period, which is not a hypothetical
+failure: Run 3's scorecard has a model reporting `monthly` for plans with no published price at
+all. The subject expects `null` now, and a new check asserts every expected period is stated in
+**the part of the page about the plan being asked**, not merely somewhere on it.
 
 ### The seventeenth defect, found by building the set
 
