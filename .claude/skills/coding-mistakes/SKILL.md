@@ -270,6 +270,35 @@ answer is suppressed too and the reader is left looking at nothing.
 
 > **Ask this:** *who else is holding a copy of what I just deleted, and what tells them?*
 
+## 14. A guard written about the connection, not about the state
+
+**Written:** the fix for 13, sending the withdrawal only when *this connection* had already sent
+something:
+
+```rust
+if analysis.report.is_none() && !sent_sections.is_empty() { … }
+```
+
+**What a person saw:** the same stale claim as 13, one reconnect later. The reader's sections
+survive a reconnect **on purpose** — that is what stops a dropped stream wiping the page — while
+the server's record of what it has sent starts empty on every new connection. Drop, reclaim,
+reconnect, and the guard suppressed the withdrawal on the one connection that needed it.
+
+**Why the tests missed it:** every test drove a single connection. The defect only exists at the
+seam between two.
+
+**Rule:** when a guard's subject is *the connection* and the thing it protects is *the reader*,
+it is wrong at every reconnect. State the condition in terms of the durable thing — here, the
+row: **no report on the row means nothing backs what the reader holds**, whoever is connected.
+The price is that an ordinary new run also opens by withdrawing nothing, which is correct and
+free.
+
+**And once it is per-episode rather than per-poll, something has to rearm it.** A flag that is
+set and never cleared works for the first occurrence and is silent for the second.
+
+> **Ask this:** *does this condition mean the same thing on a fresh connection as on the one
+> that has been open for a minute? If it fires once per episode, what starts the next episode?*
+
 ---
 
 ## The checklist, before a PR
@@ -279,7 +308,7 @@ Seven questions. Two minutes. Every one of them comes from an entry above.
 1. **Lifecycle** — does anything infer "finished" from the presence of data rather than from a
    status? *(1)*
 2. **Mid-operation states** — which states exist only when something fails partway, and which of
-   them has a test? *(the pattern, 1, 3, 4, 12, 13)*
+   them has a test? *(the pattern, 1, 3, 4, 12, 13, 14)*
 3. **Duplication of a derived fact** — is any fact computed in two places from different inputs?
    *(4)*
 4. **Comparisons** — can I name a change my equality check cannot see? Does any validation have a
@@ -289,16 +318,17 @@ Seven questions. Two minutes. Every one of them comes from an entry above.
 6. **Honesty of the output** — are caps, drops and "found nothing" distinguishable from
    completeness? Does any prompt name a real subject? *(8, 10)*
 7. **Copies I do not own** — if two writes are in flight, which lands last? Who is holding what
-   I just deleted, and what tells them? *(12, 13)*
+   I just deleted, and what tells them? Does my guard still mean the same thing on a fresh
+   connection? *(12, 13, 14)*
 
 ## How these were found, and what that says
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13 | All in error paths; 13 was the half of a fix that stopped at the database |
+| Review | 1, 2, 3, 4, 13, 14 | All in error paths; 13 and 14 were successive halves of one fix |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |
-| Deliberately breaking the code to see if a test notices | 12 | The store was fast, so nothing raced until one was made slow |
+| Deliberately breaking the code to see if a test notices | 12, and the rearm in 14 | The store was fast, so nothing raced until one was made slow |
 | The test suite, before review | — | **None of the entries above** |
 
 **That last row is the point of this file.** The suite is good at protecting what it was written

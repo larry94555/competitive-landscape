@@ -114,6 +114,23 @@ stream sent, and the partial report a recovery fetch cached on the analysis.
 `reset` rather than `done` matters. A reader told a run finished does not reconnect, and a
 reclaimed run is the opposite of finished — *keep watching, and forget what you have*.
 
+**And review found the fix for that was itself half a fix.** It sent the retraction only when
+*this connection* had already sent something — and the reader's sections survive a reconnect on
+purpose, while the server's record of what it has sent starts empty on every new stream. Drop,
+reclaim, reconnect, and the guard suppressed the retraction on the one connection that needed it.
+
+The condition is the **row's** state now, not the connection's: *no report on the row means
+nothing backs what the reader holds*, whoever is connected. The same rule is applied at the other
+boundary, in the recovery fetch, which is the first thing to find out in that sequence. An
+ordinary new analysis is also report-less, so a run now opens by retracting nothing — correct,
+and free.
+
+Once it fires per *episode* rather than per poll, something has to rearm it. Nothing tested that,
+and a flag that is set and never cleared works for the first reclaim and is silent for the
+second — so a run that loses two workers leaves the second one's answers on screen with no sign
+anything is wrong. There is a test for two reclaims on one connection because breaking it on
+purpose was the only thing that noticed.
+
 Clearing `sent_sections` is not tidiness either: without it, a replacement run that reaches the
 **same** answer would be suppressed as a duplicate, and a reader whose screen had just been
 cleared would sit in front of an empty section for the whole second run. That is the failure mode
@@ -135,6 +152,10 @@ Same question as Run 17, same method — break it on purpose and see:
 | the memory is cleared but the reader is never told | **yes**, 2 tests |
 | a `done` is sent instead of a retraction | **yes**, 2 tests |
 | the client ignores the retraction | **yes**, 2 frontend tests |
+| the retraction is guarded on the connection rather than the row | **yes**, 2 tests |
+| it fires on every poll instead of once per episode | **yes** |
+| the flag never rearms, so a second reclaim is silent | **yes** |
+| the recovery fetch keeps stale sections across a reconnect | **yes**, 1 frontend test |
 
 The first row is the one worth pausing on. A reclaimed run goes `running` → **`queued`** →
 `running`, which is a *backwards* status transition no healthy analysis ever makes. A stream
@@ -148,7 +169,7 @@ nothing. It now runs against the real router with the store being mutated undern
 | | Rust tests | frontend tests |
 |---|---|---|
 | before | 442 | 24 |
-| after | **451** | **26** |
+| after | **454** | **27** |
 
 ### What is still not right
 

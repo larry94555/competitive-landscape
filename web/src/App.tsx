@@ -185,6 +185,13 @@ function useReport(
         void getAnalysis(id)
           .then((latest) => {
             if (cancelled) return;
+            // The same rule the stream applies, at the other boundary: **no report on the
+            // row means nothing backs what the reader is holding.** A drop, a reclaim, and a
+            // reconnect is the sequence where this fetch is the first thing to find out, and
+            // it holds two stale copies at that moment — the sections this hook accumulated,
+            // which survive a reconnect on purpose, and the partial report an earlier
+            // recovery fetch cached.
+            if (latest.report == null) setSections([]);
             // The stream's last word was "running" and the row now says otherwise. Leaving
             // the old value in state would have the page still saying "Reading…" over a
             // finished report.

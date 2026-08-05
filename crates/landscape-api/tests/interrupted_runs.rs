@@ -325,6 +325,133 @@ async fn a_reclaimed_run_does_not_leave_its_half_report_behind() {
 }
 
 #[tokio::test]
+async fn a_stream_that_opens_after_the_reclaim_still_retracts() {
+    // Review found the hole in the first version of the retraction. It fired only when *this
+    // connection* had sent something — and the reader's sections deliberately survive a
+    // reconnect, while `sent_sections` starts empty on every new stream.
+    //
+    // So: the connection that saw `$15` is already gone. This one opens on a row that was
+    // reclaimed while nobody was watching, and it has to retract anyway, because the reader
+    // it is talking to is still holding what the previous connection delivered.
+    let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+    let id = running_analysis(&store).await;
+    store
+        .save_progress(id, &report_saying("Pro costs $15"))
+        .await
+        .expect("progress");
+    store
+        .reclaim_stale(chrono::Duration::zero())
+        .await
+        .expect("reclaim");
+
+    let reader = Reader::open(&store, id).await;
+    let driving = {
+        let store = Arc::clone(&store);
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(900)).await;
+            store.claim_next().await.expect("claim").expect("requeued");
+            store
+                .complete(id, &report_saying("Pro costs $19"))
+                .await
+                .expect("complete");
+        })
+    };
+
+    let events = reader.drain().await;
+    driving.await.expect("the driver finished");
+
+    assert!(
+        events.iter().any(|e| e.contains("event: reset")),
+        "a stream opening on a reclaimed row sent no retraction, so a reader who reconnected          into it keeps the dead worker's answer: {events:#?}"
+    );
+}
+
+#[tokio::test]
+async fn a_run_with_nothing_written_yet_retracts_once_and_not_on_every_poll() {
+    // The cost of stating the rule about the row rather than the connection: an ordinary new
+    // analysis has no report either, so a stream opens by retracting nothing. That is correct
+    // and costs a reader nothing — but the loop polls twice a second, and a retraction per
+    // poll would be a section-clearing event twice a second for as long as the first page
+    // takes to read.
+    let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+    let id = running_analysis(&store).await;
+
+    let reader = Reader::open(&store, id).await;
+    let driving = {
+        let store = Arc::clone(&store);
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(1600)).await;
+            store
+                .complete(id, &report_saying("Pro costs $15"))
+                .await
+                .expect("complete");
+        })
+    };
+
+    let events = reader.drain().await;
+    driving.await.expect("the driver finished");
+
+    let resets = events.iter().filter(|e| e.contains("event: reset")).count();
+    assert_eq!(
+        resets, 1,
+        "a report-less row should be retracted once per episode, not once per poll: {events:#?}"
+    );
+}
+
+#[tokio::test]
+async fn a_second_reclaim_on_the_same_connection_retracts_again() {
+    // The retraction is sent once per report-less episode rather than once per poll, which
+    // means something has to *rearm* it. Nothing tested that, and the flag not clearing is
+    // both the easiest way to write it and completely silent — the first reclaim would work,
+    // and a run unlucky enough to lose two workers would leave the second dead worker's
+    // answers on screen with no sign anything was wrong.
+    let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+    let id = running_analysis(&store).await;
+    store
+        .save_progress(id, &report_saying("Pro costs $15"))
+        .await
+        .expect("progress");
+
+    let reader = Reader::open(&store, id).await;
+    let driving = {
+        let store = Arc::clone(&store);
+        tokio::spawn(async move {
+            for answer in ["Pro costs $19", "Pro costs $23"] {
+                tokio::time::sleep(Duration::from_millis(700)).await;
+                store
+                    .reclaim_stale(chrono::Duration::zero())
+                    .await
+                    .expect("reclaim");
+                tokio::time::sleep(Duration::from_millis(700)).await;
+                store.claim_next().await.expect("claim").expect("requeued");
+                store
+                    .save_progress(id, &report_saying(answer))
+                    .await
+                    .expect("progress");
+            }
+            tokio::time::sleep(Duration::from_millis(700)).await;
+            store
+                .complete(id, &report_saying("Pro costs $23"))
+                .await
+                .expect("complete");
+        })
+    };
+
+    let events = reader.drain().await;
+    driving.await.expect("the driver finished");
+
+    let resets = events.iter().filter(|e| e.contains("event: reset")).count();
+    assert_eq!(
+        resets, 2,
+        "two workers died and only one retraction was sent, so the reader kept the second          one's answers: {events:#?}"
+    );
+    assert!(
+        events.iter().any(|e| e.contains("Pro costs $23")),
+        "the last run's answer never arrived: {events:#?}"
+    );
+}
+
+#[tokio::test]
 async fn a_run_that_fails_ends_the_stream_with_a_reason_rather_than_a_silence() {
     // The other terminal state. A failure that closes the connection without a `done` looks
     // exactly like a dropped network to a client, so it reconnects — and then reconnects
