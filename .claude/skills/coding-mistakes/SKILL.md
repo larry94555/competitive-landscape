@@ -332,11 +332,37 @@ finds it different from the one it holds. That is what finally settled 13 and 14
 > **Ask this:** *can two different actors be in this state at the same time? If so, what does
 > this condition actually authorise?*
 
+## 16. A check that read the working tree instead of the commit
+
+**Written:** `python scripts/check_links.py`, run locally, green.
+
+**What a person saw:** CI red on the link checker for a file that exists on my disk. An
+untracked `PROJECT_STATUS.md` was in the working tree along with an uncommitted README row
+pointing at it; `git add -A` took the row and not the file, and the local checker resolved the
+link against a file that was never going to be checked out.
+
+**Why the tests missed it:** they did not miss it — they cannot see it. Every local check reads
+the working tree, and the working tree is not what is pushed. The gap only exists when the two
+differ, which is exactly when `git add -A` is used on a tree somebody else has been editing.
+
+**Rule:** for any check that reads *files* rather than code — links, generated assets,
+documentation that references paths — verify against a clean checkout of the commit, not the
+directory you are sitting in:
+
+```bash
+git worktree add --detach /tmp/check HEAD && cd /tmp/check && python3 scripts/check_links.py
+```
+
+And do not `git add -A` a tree you did not start clean. Read `git status` first, and commit
+someone else's work with them rather than around them.
+
+> **Ask this:** *would this check still pass on a fresh clone of what I am about to push?*
+
 ---
 
 ## The checklist, before a PR
 
-Eight questions. Two minutes. Every one of them comes from an entry above.
+Nine questions. Two minutes. Every one of them comes from an entry above.
 
 1. **Lifecycle** — does anything infer "finished" from the presence of data rather than from a
    status? *(1)*
@@ -355,6 +381,8 @@ Eight questions. Two minutes. Every one of them comes from an entry above.
    connection? *(12, 13, 14)*
 8. **Who is asking** — can two actors be in the state this condition tests? Am I authorising a
    situation when I mean to authorise a claimant? *(15)*
+9. **What am I actually shipping** — does `git status` hold anything I did not put there? Would
+   the file-reading checks pass on a clean checkout of this commit? *(16)*
 
 ## How these were found, and what that says
 
@@ -365,6 +393,7 @@ Eight questions. Two minutes. Every one of them comes from an entry above.
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |
 | Deliberately breaking the code to see if a test notices | 12, and the rearm in 14 | The store was fast, so nothing raced until one was made slow |
 | Writing down what a fix does *not* cover | 15 | Named as open in Run 18's "what is still not right", fixed in Run 19 |
+| CI, catching what a local run could not see | 16 | The local check read the working tree; CI reads the commit |
 | The test suite, before review | — | **None of the entries above** |
 
 **That last row is the point of this file.** The suite is good at protecting what it was written
