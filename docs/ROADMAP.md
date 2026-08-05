@@ -384,6 +384,20 @@ structural, and retrofitting them is expensive.
   ([ADR 0004](decisions/0004-require-every-property.md)).
 - Stale-analysis reclaim: a worker killed mid-run no longer strands its row in `running`
   forever. Found while writing [RUNBOOK.md](RUNBOOK.md), fixed, and in the store contract.
+  **The reclaim left the dead worker's partial report attached**, which Run 18 fixed: a queued
+  analysis was serving sections nobody stood behind, and the run that replaced it started from
+  an empty report — so a reader watching saw answers blank themselves out, which reads as a
+  retraction rather than a restart. Both stores clear the report with the requeue now, asserted
+  in the shared contract.
+- ~~Drive the orchestrator through the states a run only reaches when something goes wrong.~~
+  **Done** — [BENCHMARKS.md](BENCHMARKS.md) Run 18. A worker that dies, a run that is
+  reclaimed, a store slower than the pipeline feeding it. Two defects, both invisible to 442
+  passing tests: the reclaim above, and **progress writes that could land out of order**, so a
+  correction a reader had already been shown was undone in front of them. The stream loop —
+  where all four of Run 16's defects lived — is now driven by tests rather than by its helpers
+  being unit-tested around it. **Still open: there is no claim token**, so a worker slower than
+  the twenty-minute staleness threshold can still `complete` over its replacement. That needs a
+  generation column threaded through `claim_next`, `save_progress` and `complete`.
 - **A reference on every failure.** An internal error used to log its detail and tell the
   reader *"Something went wrong at our end"* — both true, and nothing joining them. Every
   request now carries an id into its span, its response header, and the body of a 5xx. Two

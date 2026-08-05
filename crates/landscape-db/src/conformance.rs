@@ -26,6 +26,19 @@ fn sample_report(subject: &str) -> Report {
     }
 }
 
+/// A report with something in it, so "the partial report is gone" is a real assertion rather
+/// than one that would pass against an empty one.
+fn half_a_report() -> Report {
+    Report {
+        sections: vec![landscape_core::Section::not_found(
+            "pricing",
+            "What it costs",
+            vec!["https://example.com/pricing".to_owned()],
+        )],
+        ..sample_report("example.com")
+    }
+}
+
 fn prompt(text: &str) -> NewAnalysis {
     NewAnalysis::parse(text).unwrap_or_else(|e| panic!("test prompt {text:?} is invalid: {e}"))
 }
@@ -206,16 +219,40 @@ pub async fn run(store: &impl Store) {
         AnalysisStatus::Running
     );
 
+    // The dead worker got partway. This is the state a reclaim actually finds: not a blank
+    // row, but one carrying a half-written report nobody is going to finish.
+    store
+        .save_progress(stranded.id, &half_a_report())
+        .await
+        .expect("progress");
+    assert!(
+        store
+            .get(stranded.id)
+            .await
+            .expect("get")
+            .report
+            .is_some_and(|r| !r.sections.is_empty()),
+        "the setup for the next assertion did not take"
+    );
+
     // With a zero threshold everything running is overdue.
     let reclaimed = store
         .reclaim_stale(chrono::Duration::zero())
         .await
         .expect("reclaim");
     assert_eq!(reclaimed, 1, "the stranded analysis should come back");
+    let back = store.get(stranded.id).await.expect("get");
     assert_eq!(
-        store.get(stranded.id).await.expect("get").status,
+        back.status,
         AnalysisStatus::Queued,
         "a reclaimed analysis is queued again, not failed - nothing has gone wrong with it"
+    );
+    assert!(
+        back.report.is_none(),
+        "a reclaimed analysis still carries the dead worker's partial report. Nobody stands \
+         behind those sections any more, and the run that replaces them starts from an empty \
+         report - so a reader watching sees answers they were already shown blank themselves \
+         out, which reads as a retraction rather than a restart"
     );
 
     // And it is claimable again, which is the whole point.

@@ -22,6 +22,8 @@ use anyhow::{Context, Result};
 use landscape_api::{router, AppState};
 use landscape_db::{MemoryStore, PgStore, Store};
 
+mod progress;
+
 /// Where the API listens unless `BIND_ADDR` says otherwise.
 ///
 /// Deliberately **not** 8080. That is llama.cpp's default, and this application is designed
@@ -511,27 +513,18 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
     let llm = landscape_llm::LlamaClient::from_env();
     let now = chrono::Utc::now();
 
+    let progress = progress::Progress::new(Arc::clone(store), analysis.id);
     let outcome = landscape_analyze::analyse_with(
         &fetcher,
         &llm,
         &origin,
         now,
         now.date_naive(),
-        &mut |so_far| {
-            // Fire and forget from inside a synchronous callback: the write is queued on the
-            // runtime and the analysis carries on. Ordering is not a concern because each
-            // write is the whole report so far, not a delta.
-            let store = Arc::clone(store);
-            let id = analysis.id;
-            let snapshot = so_far.clone();
-            tokio::spawn(async move {
-                if let Err(e) = store.save_progress(id, &snapshot).await {
-                    tracing::warn!(%id, error = %e, "could not save progress");
-                }
-            });
-        },
+        &mut |so_far| progress.record(so_far),
     )
     .await;
+    // Before `complete`, so the last progress write cannot land after the finished report.
+    progress.finish().await;
 
     if let Err(e) = store.complete(analysis.id, &outcome.report).await {
         tracing::error!(id = %analysis.id, error = %e, "could not save report");

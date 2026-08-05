@@ -28,6 +28,9 @@ uuid.workspace = true
 
 [dev-dependencies]
 tower = { version = "0.5", features = ["util"] }
+# The interrupted-run tests drive the SSE handler and mutate the store underneath it,
+# so they need a runtime as well as the router.
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
 
 [lints]
 workspace = true

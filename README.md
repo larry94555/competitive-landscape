@@ -353,6 +353,14 @@ sentence is not representable, so it cannot reach a reader by accident.
 end" plus a remedy; the detail is logged. There is a test asserting a connection string
 cannot appear in a response body.
 
+**A run that goes wrong is a state, not an exception.** A worker can be killed mid-analysis,
+so the row comes back to the queue on a sweep — and comes back *empty*, because a partial
+report belongs to the worker that wrote it. Progress writes go through one ordered writer, so
+a slow write cannot overwrite a newer report and undo a correction a reader has already seen.
+These are tested by driving the real stream while the store is mutated underneath it, because
+a suite built from runs that complete cannot reach the states a run only enters when something
+goes wrong.
+
 **Constrained decoding guarantees shape, never truth.** A model is forced to return the
 right *type*; nothing about that makes the values in it correct. A defective quantisation
 once passed every check we had — fast, always parseable, schema-valid throughout, and

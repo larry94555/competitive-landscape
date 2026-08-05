@@ -1151,7 +1151,7 @@ cargo install cargo-nextest --locked
 cargo nextest run --all-features
 ```
 
-**`97 tests run: 97 passed, 6 skipped`** — the six are the `#[ignore]`d ones that need a
+**`450 tests run: 450 passed, 6 skipped`** — the six are the `#[ignore]`d ones that need a
 database or a model. `cargo test --all-features --doc` runs alongside it, because nextest
 does not run doctests.
 
@@ -1169,6 +1169,8 @@ Worth knowing what a few of them are actually for:
 | `filling_in_a_price_the_page_does_not_state_is_a_fabrication` | The scoring rule the whole golden set turns on, tested without a model |
 | `every_frozen_page_still_reads_the_way_it_did` | Ten real pages and what the parsers must make of them. Sixteen defects were found by reading output by hand; this is the half of that a build can do |
 | `the_subjects_carved_from_real_pages_are_still_verbatim` | A subject a model keeps failing invites a quiet edit to its page text, and a subject edited until it passes measures nothing |
+| `a_slow_write_never_overwrites_a_newer_report` | Progress writes used to race. The store could end up holding the older report, so a correction a reader had already seen was undone in front of them |
+| `a_reader_watching_a_reclaimed_run_is_never_told_it_finished` | A reclaimed run goes `running` → `queued` → `running`. A stream that ended on "not running any more" would tell a reader it was finished, and a reader told that does not reconnect |
 
 The last one exists because two bugs once reached a reader through correct code and a stale
 README. Run it with:

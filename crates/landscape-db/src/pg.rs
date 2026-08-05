@@ -192,8 +192,12 @@ impl Store for PgStore {
     async fn reclaim_stale(&self, max_age: chrono::Duration) -> Result<u64> {
         // `started_at` rather than `created_at`: a job that waited an hour in the queue
         // before a worker picked it up has not been running for an hour.
+        // `report = NULL` with the requeue: the partial report belongs to the worker that
+        // died, and a queued row carrying sections nobody stands behind is worse than an
+        // empty one. The replacement run rebuilds from scratch, so keeping it would show a
+        // reader answers blanking themselves out mid-run.
         let done = sqlx::query(
-            "UPDATE analyses SET status = $1, started_at = NULL
+            "UPDATE analyses SET status = $1, started_at = NULL, report = NULL
              WHERE status = $2 AND started_at < now() - $3::interval",
         )
         .bind(AnalysisStatus::Queued.as_db_str())
