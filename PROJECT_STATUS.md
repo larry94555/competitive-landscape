@@ -18,14 +18,19 @@ what is true.
 
 The six states, in the order they must be reached. **None of them is met.**
 
-| # | State | Met? | The single thing standing in the way |
-|---|---|---|---|
-| **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **No.** *This row said "the software can do this on a laptop today" and that was wrong* — see [§1.5](#15-the-correction-that-produced-phase-d). | **Six things, five of them software.** [Phase D](docs/ROADMAP.md) is now the top of the roadmap: serve the app (**done**), give a run a URL (**done**), a build and a service, example ideas that run, several companies per report, a cap on anonymous runs. |
-| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | **A business idea does not run at all.** A prompt must name a domain; a description fails with `no_subject`. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
-| **S3** | **Ready for use** — friendly users should find no issue | **No.** | No permalink (a reload loses the run), no accounts, 6 of 9 report sections, no verification layer. |
-| **S4** | **Ready for general use** — promotable, word-of-mouth quality | **No.** | Everything in S3, plus no quality gates have ever been run against a deployed system. |
-| **S5** | **General use, free mode** — stable, email signup, community channels | **No.** | No authentication code exists anywhere in the repository. No knowledge base. |
-| **S6** | **General use, full mode** — notifications and paid subscriptions | **No.** | No billing, no watches, no email. A blocking commercial decision (merchant of record) is unmade. |
+| # | State | Met? | Percentage Left | The single thing standing in the way |
+|---|---|---|---|---|
+| **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **No.** *This row said "the software can do this on a laptop today" and that was wrong* — see [§1.5](#15-the-correction-that-produced-phase-d). | [**20%**](Full_Feature_List.md#s1--ready-for-a-guided-demo) | **Six things, five of them software.** [Phase D](docs/ROADMAP.md) is now the top of the roadmap: serve the app (**done**), a run has a URL (**in review**, [#36](https://github.com/larry94555/competitive-landscape/pull/36)), a build and a service, example ideas that run, several companies per report, a cap on anonymous runs. |
+| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**100%**](Full_Feature_List.md#s2--ready-for-demonstration) | **A business idea does not run at all.** A prompt must name a domain; a description fails with `no_subject`. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
+| **S3** | **Ready for use** — friendly users should find no issue | **No.** | [**96%**](Full_Feature_List.md#s3--ready-for-use) | No permalink (a reload loses the run), no accounts, 6 of 9 report sections, no verification layer. |
+| **S4** | **Ready for general use** — promotable, word-of-mouth quality | **No.** | [**100%**](Full_Feature_List.md#s4--ready-for-general-use) | Everything in S3, plus no quality gates have ever been run against a deployed system. |
+| **S5** | **General use, free mode** — stable, email signup, community channels | **No.** | [**100%**](Full_Feature_List.md#s5--general-use-free-mode) | No authentication code exists anywhere in the repository. No knowledge base. |
+| **S6** | **General use, full mode** — notifications and paid subscriptions | **No.** | [**100%**](Full_Feature_List.md#s6--general-use-full-mode) | No billing, no watches, no email. A blocking commercial decision (merchant of record) is unmade. |
+
+**Percentage Left is software only**, counted in pull requests and linked to the feature it comes
+from in [Full_Feature_List.md](Full_Feature_List.md) — **36 of 136 PRs done, 26% of the whole
+deliverable.** It excludes the deployment, the concierge interviews and the source-terms audit,
+none of which is a pull request, and the first of which blocks S1 whatever the 20% says.
 
 ### 1.5 The correction that produced Phase D
 
