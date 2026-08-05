@@ -33,6 +33,104 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 19 — telling two workers apart
+
+**Date:** 2026-08-05 · **Where:** this laptop · **Model:** none — this is the queue, the store
+and the stream.
+
+Run 18 left two things open and said so. Both were the same hole seen from different ends, and
+this closes it: **there was nothing that identified a claim.**
+
+The sweep returns a row that has been `running` for twenty minutes to the queue, because a row
+that has been running that long is probably a dead worker. It cannot tell a *dead* worker from a
+*slow* one — nothing can — so when the slow case happens, two live workers are running the same
+analysis and `status` says `running` for both. Whichever finished last won, and a reader got
+whichever report that was, with nothing anywhere recording that two had been produced.
+
+The reader's side is the same gap: Runs 17 and 18 chased a dead worker's sections off the screen
+twice, and each fix was a server-side judgement about **the connection** — *the report went
+away*, *this connection has already sent something*. A reader's sections survive a reconnect on
+purpose, and a fresh connection remembers nothing, so both were correct until the reader
+reconnected and wrong immediately after.
+
+### A claim is a number
+
+Every row carries a `generation`: how many times the run has been started. `claim_next` raises
+it, `reclaim_stale` raises it, and a worker quotes the number it was given on every write.
+
+```text
+save_progress(id, generation, report) -> Applied::Yes | Applied::ClaimRevoked
+```
+
+`ClaimRevoked` is an outcome and not an error, because the sweep doing its job is not a failure.
+The worker is told once, at the end, rather than per write.
+
+[ADR 0012](decisions/0012-a-claim-is-a-number.md) has the reasoning. The short version is that
+**a state describes the row and a number identifies the attempt**: "running" is true no matter
+which of two workers is running it, so no test on `status` can ever separate them.
+
+### And the number goes to the reader
+
+The stream announces it, and the **client** compares against the one it is holding — which is
+the part the previous two attempts could not do, because only the client knows what the client
+is showing.
+
+It also fixes something subtler that fell out while testing. `running` → `queued` → `running` is
+an *edge*, and the stream polls twice a second: in one of these tests the sweep and the
+replacement claim both landed between two polls, and **the status never said `queued` at all.**
+
+| | survives a reconnect | survives a poll gap |
+|---|---|---|
+| watching for `running` → `queued` | no | **no** |
+| the report going to `NULL` | no | yes |
+| a generation the client compares | **yes** | **yes** |
+
+A design that watched for the transition would have missed exactly the restarts that happened
+quickly.
+
+### Does any of it hold up?
+
+Eight ways of getting it wrong, put back into the code one at a time:
+
+| Reintroduced defect | Caught? |
+|---|---|
+| claiming does not raise the generation | **yes** |
+| the sweep does not raise the generation | **yes**, 2 tests |
+| `save_progress` ignores the generation | **yes** |
+| `complete` ignores the generation | **yes** |
+| the stream never says which run it is watching | **yes**, 3 tests |
+| a new generation does not clear the sent-payload memory | **yes** |
+| the client ignores a change of generation | **yes**, 3 frontend tests |
+| the recovery fetch does not check the generation | **yes**, 1 frontend test |
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 18 | 454 | 27 |
+| now | **456** | **27** |
+
+The frontend count is unchanged because the three tests that covered this were rewritten rather
+than added to: they used to send a `reset` event and now send a generation, which is the same
+scenario asserted against a better signal.
+
+### What is still not right
+
+**A replaced worker keeps working.** It finds out at its next write — within a page for progress,
+at the very end for `complete` — and until then it is spending prefill on a report that will be
+discarded. Stopping it needs cancellation threaded into `analyse_with`, which changes the
+pipeline's shape rather than the queue's and is worth doing on its own.
+
+**Postgres was not exercised here.** Docker would not start on this machine, so the `generation`
+column, the four `WHERE generation = $n` predicates and the two-query failure path are verified
+by CI's `rust (against postgres)` job rather than by me. The in-memory store and the Postgres
+store share one conformance body, which is what makes that a reasonable division of labour, but
+it is not the same as having run it.
+
+**The replacement wins because it holds the current number, not because its report is better.**
+That is the right default — the sweep exists precisely because the older claim looked dead — but
+it is a policy, and nothing measures how often it fires.
+
+---
+
 ## Run 18 — the states a run only reaches when something goes wrong
 
 **Date:** 2026-08-05 · **Where:** this laptop · **Model:** none — every defect here is in the

@@ -175,6 +175,41 @@ pub struct Analysis {
     /// Which *situation* a failed analysis is in, so the interface can say something useful.
     /// `None` unless the status is `Failed`.
     pub failure: Option<Failure>,
+    /// How many times this run has been started.
+    ///
+    /// **A claim is a number, not a state.** `status` cannot tell two workers apart — a slow
+    /// one and the replacement handed its row by the staleness sweep both see `running` — so
+    /// every write carries the generation it was claimed under, and one quoting an older number
+    /// is refused. See [`Applied`].
+    ///
+    /// It also goes out on the stream, which is the only way a client that reconnects can know
+    /// the sections it is holding belong to a run that no longer exists: a fresh connection has
+    /// no memory of the one it replaced.
+    ///
+    /// Not called `attempt` because [`Attempt`](crate::Attempt) is already a fetch of one URL,
+    /// and not `claim` because [`Claim`](crate::Claim) is a sentence a reader is shown.
+    ///
+    /// `0` means nothing has claimed it yet.
+    pub generation: u32,
+}
+
+/// Whether a write was applied, or refused because the claim behind it had been revoked.
+///
+/// Returned rather than logged inside the store: the worker is the only caller, and it is the
+/// one that needs to know its work is being discarded.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Applied {
+    Yes,
+    /// The row has moved on to a later attempt. Nothing was written.
+    ClaimRevoked,
+}
+
+impl Applied {
+    /// Whether the write took effect.
+    #[must_use]
+    pub const fn took_effect(self) -> bool {
+        matches!(self, Self::Yes)
+    }
 }
 
 #[cfg(test)]

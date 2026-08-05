@@ -80,130 +80,96 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    complete: {
-      name: "442 tests, all of runs that finish",
-      purpose: "Nothing goes wrong in any of them.",
+    twenty: {
+      name: "a row running for twenty minutes",
+      purpose: "Dead worker, or slow one?",
       lines: [
-        ['t', '  queued -> running -> complete'],
+        ['t', '  status   running'],
+        ['t', '  since    20 minutes'],
         ['c', ''],
-        ['c', '// Nine of the eleven defects on record are'],
-        ['c', '// states a run only reaches when something'],
-        ['c', '// goes wrong partway.'],
-        ['f', '// A passing run never enters one.']
+        ['c', '// Nothing can tell those apart.'],
+        ['f', '// So the sweep hands it on, and now'],
+        ['f', '// two live workers have the same job.']
       ]
     },
-    promise: {
-      name: "a comment that was half true",
-      purpose: "Written beside a spawned task.",
+    both: {
+      name: "and status says running for both",
+      purpose: "The guard authorised a situation.",
       lines: [
-        ['t', '// Ordering is not a concern because each'],
-        ['t', '// write is the whole report, not a delta.'],
+        ['t', "  WHERE status = 'running'"],
         ['c', ''],
-        ['c', '// True of the payloads.'],
-        ['f', '// False of the writes.']
+        ['c', '// True of the row, whichever worker'],
+        ['c', '// is asking.'],
+        ['f', '// Whichever finished last won.']
       ]
     },
-    landed: {
-      name: "so make the first write slow",
-      purpose: "And see which one lands last.",
+    silent: {
+      name: "and nothing recorded it",
+      purpose: "Two reports. One reader.",
       lines: [
-        ['s', '  writes landed ["second", "first"]'],
+        ['s', '  Pricing   Pro costs $15'],
         ['c', ''],
-        ['s', '    left:  "first"'],
-        ['s', '    right: "second"'],
-        ['c', ''],
-        ['c', '// The store keeps the older report.'],
-        ['f', '// A correction, undone as you watch.']
+        ['c', '// Correctly assembled. Correctly cited.'],
+        ['c', '// From a run that was abandoned.'],
+        ['f', '// Rare and silent is the worst pair.']
       ]
     },
-    ordered: {
-      name: "one writer, newest wins",
-      purpose: "Ordered, and coalescing.",
+    number: {
+      name: "so give the claim a name",
+      purpose: "generation: how many starts.",
       lines: [
-        ['f', '  watch channel -> one task'],
+        ['f', '  claim_next      generation + 1'],
+        ['f', '  reclaim_stale   generation + 1'],
         ['c', ''],
-        ['c', '// Faster than the store? Skip the middle'],
-        ['c', '// ones. Each snapshot is a whole report.'],
-        ['f', '// A queue that grows under load is how a'],
-        ['f', '// slow database becomes a slow reader.']
+        ['c', '// A state describes the row.'],
+        ['f', '// A number identifies the attempt.']
       ]
     },
-    dead: {
-      name: "then: a worker dies",
-      purpose: "The sweep returns the row.",
+    quote: {
+      name: "and every write quotes it",
+      purpose: "The loser finds out at the write.",
       lines: [
-        ['t', '  status   running -> queued'],
-        ['t', '  report   still there'],
+        ['f', '  save_progress(id, generation, report)'],
+        ['t', '    -> Applied::ClaimRevoked'],
         ['c', ''],
-        ['c', '// Queued, and serving sections from a'],
-        ['c', '// worker that no longer exists.'],
-        ['f', '// The next run starts from empty.']
+        ['c', '// An outcome, not an error: the sweep'],
+        ['c', '// doing its job is not a failure.']
       ]
     },
-    blank: {
-      name: "so the answers blank themselves out",
-      purpose: "Which reads as a retraction.",
+    edge: {
+      name: "the reader needed it too",
+      purpose: "Twice we watched for an edge.",
       lines: [
-        ['s', '  What it costs'],
-        ['s', '    Nothing found in public sources'],
+        ['t', '  running -> queued -> running'],
         ['c', ''],
-        ['c', '// It was a restart. Nobody said so.'],
-        ['f', '// The report goes with the worker now.']
+        ['c', '// The poll is every 500ms. In one test'],
+        ['c', '// both landed between two polls and the'],
+        ['s', '// status never said queued at all.']
       ]
     },
-    half: {
-      name: "and the fix was half a fix",
-      purpose: "The row was clean. The screen was not.",
+    value: {
+      name: "so send the value, not the edge",
+      purpose: "And let the client compare.",
       lines: [
-        ['f', '  row       report cleared'],
-        ['s', '  screen    Pro costs $15'],
+        ['f', '  event: generation'],
+        ['f', '  data: 3'],
         ['c', ''],
-        ['c', '// The open connection already sent it.'],
-        ['f', '// Clearing the source is not retracting'],
-        ['f', '// what a reader already has.']
-      ]
-    },
-    retract: {
-      name: "so say so, on the wire",
-      purpose: "reset, not done.",
-      lines: [
-        ['f', '  event: reset'],
-        ['c', ''],
-        ['c', '// done means stop watching.'],
-        ['f', '// reset means keep watching, and'],
-        ['f', '// forget what you have.'],
-        ['c', ''],
-        ['c', '// Forget the sent-payload memory too, or'],
-        ['c', '// the same answer is suppressed as a'],
-        ['c', '// duplicate and never arrives.']
-      ]
-    },
-    backwards: {
-      name: "and the status goes backwards",
-      purpose: "running -> queued -> running.",
-      lines: [
-        ['c', '// A stream ending on "not running any'],
-        ['c', '// more" would say done here.'],
-        ['c', ''],
-        ['f', '  done  <- only complete or failed'],
-        ['c', ''],
-        ['f', '// A reader told it finished does not'],
-        ['f', '// reconnect.']
+        ['c', '// Only a reader knows what a reader is'],
+        ['c', '// showing. A reconnected stream knows'],
+        ['c', '// nothing about the one it replaced.']
       ]
     },
     teeth: {
-      name: "do the new tests have teeth?",
-      purpose: "Put four defects back and see.",
+      name: "eight ways to get it wrong",
+      purpose: "Each one put back in.",
       lines: [
-        ['f', '  any non-running is the end    CAUGHT'],
-        ['f', '  failed closes silently        CAUGHT'],
-        ['f', '  empty sections streamed       CAUGHT'],
-        ['f', '  reclaim keeps the report      CAUGHT'],
-        ['f', '  no retraction on the wire     CAUGHT'],
+        ['f', '  claim does not raise it       CAUGHT'],
+        ['f', '  sweep does not raise it       CAUGHT'],
+        ['f', '  writes ignore it              CAUGHT'],
+        ['f', '  the stream never sends it     CAUGHT'],
         ['f', '  the client ignores it         CAUGHT'],
         ['c', ''],
-        ['c', '// The loop was never driven before.'],
-        ['c', '// Only its helpers were.']
+        ['c', '// And three more.']
       ]
     }
   };
@@ -247,33 +213,28 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:complete",  c: "Every test is of a run that finishes." },
-    { kind: "means",       a: "spot:#code",     c: "The defects live where they do not." },
+    { kind: "recognition", a: "file:twenty",  c: "A row running for twenty minutes." },
+    { kind: "means",       a: "spot:#code",   c: "Dead worker, or just a slow one?" },
 
-    { kind: "turn",        a: "file:promise",   c: "A comment said ordering was safe." },
-    { kind: "means",       a: "spot:#code",     c: "True of payloads. Not of writes." },
+    { kind: "turn",        a: "file:both",    c: "Status says running for both." },
+    { kind: "means",       a: "spot:#code",   c: "The guard authorised a situation." },
 
-    { kind: "result",      a: "file:landed",    c: "Make the first write slow." },
-    { kind: "means",       a: "spot:#code",     c: "The store keeps the older report." },
+    { kind: "result",      a: "file:silent",  c: "Two reports. One reader. No log." },
 
-    { kind: "result",      a: "file:ordered",   c: "One writer. The newest wins." },
+    { kind: "result",      a: "file:number",  c: "So give the claim a name." },
+    { kind: "means",       a: "spot:#code",   c: "A number identifies the attempt." },
 
-    { kind: "turn",        a: "file:dead",      c: "Then a worker dies mid-run." },
-    { kind: "means",       a: "spot:#code",     c: "Its half-report outlived it." },
+    { kind: "result",      a: "file:quote",   c: "Every write quotes it." },
 
-    { kind: "result",      a: "file:blank",     c: "So clear it with the requeue." },
+    { kind: "turn",        a: "file:edge",    c: "Twice we watched for an edge." },
+    { kind: "means",       a: "spot:#code",   c: "It fell between two polls." },
 
-    { kind: "turn",        a: "file:half",      c: "Review: that was half a fix." },
-    { kind: "means",       a: "spot:#code",     c: "The open connection already sent it." },
+    { kind: "result",      a: "file:value",   c: "Send the value. Let them compare." },
+    { kind: "means",       a: "spot:#code",   c: "Only a reader knows what it holds." },
 
-    { kind: "result",      a: "file:retract",   c: "So retract it, on the wire." },
-    { kind: "means",       a: "spot:#code",     c: "Not done. A reader told done leaves." },
+    { kind: "result",      a: "file:teeth",   c: "Eight ways wrong. Eight caught." },
 
-    { kind: "result",      a: "file:backwards", c: "The status runs backwards, and holds." },
-
-    { kind: "result",      a: "file:teeth",     c: "Defects put back. All of them caught." },
-
-    { kind: "close",       a: "hold",           c: "Test the run that goes wrong." }
+    { kind: "close",       a: "hold",         c: "Name the claim, not the state." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the

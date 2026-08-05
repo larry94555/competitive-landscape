@@ -85,9 +85,7 @@ pub(crate) async fn stream(
         // the same length as the wrong one it replaces.
         let mut sent_sections: HashMap<String, String> = HashMap::new();
         let mut sent_status: Option<AnalysisStatus> = None;
-        // Whether this connection has already said "what you hold is not backed by anything".
-        // Cleared when a report appears, so a second reclaim retracts again.
-        let mut retracted = false;
+        let mut sent_generation: Option<u32> = None;
 
         loop {
             let Ok(analysis) = store.get(id).await else {
@@ -102,30 +100,27 @@ pub(crate) async fn stream(
                 yield Ok(status_event(analysis.status));
             }
 
-            // **No report on the row means nothing backs what the reader is holding.** The
-            // worker that produced those sections died and the run went back to the queue;
-            // clearing the row is not enough, because this connection has already *sent* them
-            // and the reader's screen is the thing that has to change. Without a retraction
-            // the dead worker's claims sit there until the replacement happens to overwrite
-            // that same key — and if it never reaches that question, until the run ends.
+            // **Which run these sections belong to.** A reader watching one analysis can be
+            // watching two runs of it: a worker dies, the sweep hands the row on, and the
+            // replacement starts from nothing. The sections already delivered belong to a run
+            // that no longer exists, and the reader has to be told.
             //
-            // The condition is the row's state, deliberately **not** "this connection sent
-            // something". A first version tested `sent_sections`, and review found the hole:
-            // the reader's sections survive a reconnect on purpose, while `sent_sections`
-            // starts empty on every new stream. Drop, reclaim, reconnect, and the guard
-            // suppressed the retraction on the one connection that needed it most.
-            //
-            // A brand-new analysis is also report-less, so an ordinary run opens with a
-            // retraction of nothing. That is the price of stating the rule about the row
-            // rather than about the connection, and it costs a reader nothing.
-            if analysis.report.is_none() {
-                if !retracted {
-                    retracted = true;
+            // Sending the number and letting the client compare is what makes this work
+            // **across a reconnect**, which is where two earlier versions of this failed. A
+            // server-side condition — "the report went away", "this connection has sent
+            // something" — is about the connection, and a fresh connection remembers neither.
+            // The reader's own state is the durable thing, so the comparison belongs there.
+            if sent_generation != Some(analysis.generation) {
+                // Only *after* the first one: on a new connection this says nothing about
+                // whether the reader is holding anything, and the client decides that.
+                if sent_generation.is_some() {
+                    // Otherwise a replacement reaching the same answer is suppressed as a
+                    // duplicate, and a reader whose screen was just cleared sits in front of
+                    // an empty section for the whole second run.
                     sent_sections.clear();
-                    yield Ok(reset());
                 }
-            } else {
-                retracted = false;
+                sent_generation = Some(analysis.generation);
+                yield Ok(generation_event(analysis.generation));
             }
 
             if let Some(report) = &analysis.report {
@@ -182,12 +177,14 @@ fn done() -> Event {
     Event::default().event("done").data("")
 }
 
-/// Everything sent so far is withdrawn; the run is starting again.
+/// Which run the sections that follow belong to.
 ///
-/// Not `done`, which means the opposite — a reader told a run finished does not reconnect.
-/// This says the opposite: keep watching, and forget what you have.
-fn reset() -> Event {
-    Event::default().event("reset").data("")
+/// Not `done`, which would mean the opposite — a reader told a run finished does not
+/// reconnect. A change in this number says: keep watching, and forget what you have.
+fn generation_event(generation: u32) -> Event {
+    Event::default()
+        .event("generation")
+        .data(generation.to_string())
 }
 
 #[cfg(test)]

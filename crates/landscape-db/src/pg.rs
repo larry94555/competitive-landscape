@@ -11,7 +11,7 @@
 //! schema settles; until then a build that always works is worth more.
 
 use async_trait::async_trait;
-use landscape_core::{Analysis, AnalysisId, AnalysisStatus, Failure, NewAnalysis, Report};
+use landscape_core::{Analysis, AnalysisId, AnalysisStatus, Applied, Failure, NewAnalysis, Report};
 use sqlx::{postgres::PgPoolOptions, PgPool, Row};
 
 use crate::{Result, Store, StoreError};
@@ -60,6 +60,35 @@ impl PgStore {
 ///
 /// A status we cannot parse means the database holds something this binary does not
 /// understand — usually a rollback to an older version. Guessing would hide that.
+/// A generation as the column stores it.
+///
+/// Postgres has no unsigned integer, so the domain type and the column disagree by
+/// construction. The conversion lives in one place rather than at each of the four call sites.
+fn as_column(generation: u32) -> Result<i32> {
+    i32::try_from(generation)
+        .map_err(|_| StoreError::Corrupt(format!("generation {generation} will not fit a column")))
+}
+
+impl PgStore {
+    /// Why an update matched no rows: the analysis is gone, or the claim behind it is.
+    ///
+    /// Worth the second query. "Nothing happened" is two very different situations — one is a
+    /// bug or a bad id, the other is the staleness sweep working exactly as designed — and
+    /// collapsing them would report a healthy revocation as a missing analysis.
+    async fn missing_or_revoked(&self, id: AnalysisId) -> Result<Applied> {
+        let exists = sqlx::query("SELECT 1 AS one FROM analyses WHERE id = $1")
+            .bind(id.0)
+            .fetch_optional(&self.pool)
+            .await?
+            .is_some();
+        if exists {
+            Ok(Applied::ClaimRevoked)
+        } else {
+            Err(StoreError::NotFound(id))
+        }
+    }
+}
+
 fn analysis_from_row(row: &sqlx::postgres::PgRow) -> Result<Analysis> {
     let status_text: String = row.try_get("status")?;
     let status = AnalysisStatus::from_db_str(&status_text)
@@ -75,6 +104,13 @@ fn analysis_from_row(row: &sqlx::postgres::PgRow) -> Result<Analysis> {
     };
 
     let failure: Option<String> = row.try_get("failure_kind")?;
+
+    // The column is a signed integer because Postgres has no unsigned one. A negative value
+    // would mean the CHECK constraint in `0003_generation.sql` had been dropped, which is a
+    // corrupt row rather than a number to carry on with.
+    let generation: i32 = row.try_get("generation")?;
+    let generation = u32::try_from(generation)
+        .map_err(|_| StoreError::Corrupt(format!("negative generation {generation}")))?;
     Ok(Analysis {
         id: AnalysisId(row.try_get("id")?),
         prompt: row.try_get("prompt")?,
@@ -86,10 +122,11 @@ fn analysis_from_row(row: &sqlx::postgres::PgRow) -> Result<Analysis> {
         failure: (status == AnalysisStatus::Failed)
             .then(|| failure.as_deref().map(Failure::from_db_str))
             .flatten(),
+        generation,
     })
 }
 
-const COLUMNS: &str = "id, prompt, status, created_at, report, failure_kind";
+const COLUMNS: &str = "id, prompt, status, created_at, report, failure_kind, generation";
 
 #[async_trait]
 impl Store for PgStore {
@@ -119,7 +156,9 @@ impl Store for PgStore {
         // another transaction has locked is passed over rather than waited on, so workers
         // never queue behind each other for the same job.
         let row = sqlx::query(&format!(
-            "UPDATE analyses SET status = $1, started_at = now()
+            // `generation + 1` here and in `reclaim_stale`, so it counts how many times this
+            // run has been started. The worker quotes the value it is handed on every write.
+            "UPDATE analyses SET status = $1, started_at = now(), generation = generation + 1
              WHERE id = (
                  SELECT id FROM analyses
                  WHERE status = $2
@@ -137,56 +176,81 @@ impl Store for PgStore {
         row.as_ref().map(analysis_from_row).transpose()
     }
 
-    async fn save_progress(&self, id: AnalysisId, report: &Report) -> Result<()> {
+    async fn save_progress(
+        &self,
+        id: AnalysisId,
+        generation: u32,
+        report: &Report,
+    ) -> Result<Applied> {
         let json = serde_json::to_value(report)
             .map_err(|e| StoreError::Corrupt(format!("report will not serialise: {e}")))?;
-        // `WHERE status = 'running'` rather than by id alone: a worker that lost a race and
-        // writes late must not overwrite a finished report, and must not resurrect a failed
-        // row. A no-op is the correct outcome there, so no rows affected is not an error.
-        sqlx::query("UPDATE analyses SET report = $1 WHERE id = $2 AND status = $3")
-            .bind(json)
-            .bind(id.0)
-            .bind(AnalysisStatus::Running.as_db_str())
-            .execute(&self.pool)
-            .await?;
-        Ok(())
-    }
-
-    async fn complete(&self, id: AnalysisId, report: &Report) -> Result<()> {
-        let json = serde_json::to_value(report)
-            .map_err(|e| StoreError::Corrupt(format!("report will not serialise: {e}")))?;
+        // Both predicates, and they refuse different things. `status = 'running'` stops a late
+        // write resurrecting a finished or failed row; `generation` stops a worker whose claim
+        // was revoked writing over the run that replaced it, which `status` cannot see because
+        // both workers see `running`.
         let done = sqlx::query(
-            "UPDATE analyses SET status = $1, report = $2, finished_at = now() WHERE id = $3",
+            "UPDATE analyses SET report = $1
+             WHERE id = $2 AND status = $3 AND generation = $4",
         )
-        .bind(AnalysisStatus::Complete.as_db_str())
         .bind(json)
         .bind(id.0)
+        .bind(AnalysisStatus::Running.as_db_str())
+        .bind(as_column(generation)?)
         .execute(&self.pool)
         .await?;
 
         if done.rows_affected() == 0 {
-            return Err(StoreError::NotFound(id));
+            // Not an error, and deliberately not a `NotFound` either: a revoked claim is an
+            // ordinary outcome of the sweep doing its job.
+            return Ok(Applied::ClaimRevoked);
         }
-        Ok(())
+        Ok(Applied::Yes)
     }
 
-    async fn fail(&self, id: AnalysisId, kind: Failure, reason: &str) -> Result<()> {
+    async fn complete(&self, id: AnalysisId, generation: u32, report: &Report) -> Result<Applied> {
+        let json = serde_json::to_value(report)
+            .map_err(|e| StoreError::Corrupt(format!("report will not serialise: {e}")))?;
+        let done = sqlx::query(
+            "UPDATE analyses SET status = $1, report = $2, finished_at = now()
+             WHERE id = $3 AND generation = $4",
+        )
+        .bind(AnalysisStatus::Complete.as_db_str())
+        .bind(json)
+        .bind(id.0)
+        .bind(as_column(generation)?)
+        .execute(&self.pool)
+        .await?;
+
+        if done.rows_affected() == 0 {
+            return self.missing_or_revoked(id).await;
+        }
+        Ok(Applied::Yes)
+    }
+
+    async fn fail(
+        &self,
+        id: AnalysisId,
+        generation: u32,
+        kind: Failure,
+        reason: &str,
+    ) -> Result<Applied> {
         let done = sqlx::query(
             "UPDATE analyses SET status = $1, failure_reason = $2, failure_kind = $3,
                     finished_at = now()
-             WHERE id = $4",
+             WHERE id = $4 AND generation = $5",
         )
         .bind(AnalysisStatus::Failed.as_db_str())
         .bind(reason)
         .bind(kind.as_db_str())
         .bind(id.0)
+        .bind(as_column(generation)?)
         .execute(&self.pool)
         .await?;
 
         if done.rows_affected() == 0 {
-            return Err(StoreError::NotFound(id));
+            return self.missing_or_revoked(id).await;
         }
-        Ok(())
+        Ok(Applied::Yes)
     }
 
     async fn reclaim_stale(&self, max_age: chrono::Duration) -> Result<u64> {
@@ -197,7 +261,8 @@ impl Store for PgStore {
         // empty one. The replacement run rebuilds from scratch, so keeping it would show a
         // reader answers blanking themselves out mid-run.
         let done = sqlx::query(
-            "UPDATE analyses SET status = $1, started_at = NULL, report = NULL
+            "UPDATE analyses SET status = $1, started_at = NULL, report = NULL,
+                    generation = generation + 1
              WHERE status = $2 AND started_at < now() - $3::interval",
         )
         .bind(AnalysisStatus::Queued.as_db_str())

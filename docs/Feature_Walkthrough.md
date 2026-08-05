@@ -1151,7 +1151,7 @@ cargo install cargo-nextest --locked
 cargo nextest run --all-features
 ```
 
-**`454 tests run: 454 passed, 6 skipped`** — the six are the `#[ignore]`d ones that need a
+**`456 tests run: 456 passed, 6 skipped`** — the six are the `#[ignore]`d ones that need a
 database or a model. `cargo test --all-features --doc` runs alongside it, because nextest
 does not run doctests.
 
@@ -1172,6 +1172,7 @@ Worth knowing what a few of them are actually for:
 | `a_slow_write_never_overwrites_a_newer_report` | Progress writes used to race. The store could end up holding the older report, so a correction a reader had already seen was undone in front of them |
 | `a_reader_watching_a_reclaimed_run_is_never_told_it_finished` | A reclaimed run goes `running` → `queued` → `running`. A stream that ended on "not running any more" would tell a reader it was finished, and a reader told that does not reconnect |
 | `after_a_retraction_the_same_answer_is_sent_again_rather_than_suppressed` | The stream skips a payload it has already sent. Once a reader's screen is cleared, "already sent" is no longer true — and a replacement reaching the same answer would be suppressed and never appear |
+| `memory_store_satisfies_the_contract` (the revoked-claim half) | Two live workers on one analysis both see `running`. The generation is the only thing that can tell them apart, so a worker whose claim was swept away cannot write over the run that replaced it |
 
 The last one exists because two bugs once reached a reader through correct code and a stale
 README. Run it with:

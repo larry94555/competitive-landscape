@@ -495,15 +495,22 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
         // Not an error — a capability we do not have. Guessing a domain from a description
         // would produce a report that is correctly cited and about the wrong company.
         tracing::info!(id = %analysis.id, "no subject in prompt");
-        if let Err(e) = store
+        match store
             .fail(
                 analysis.id,
+                analysis.generation,
                 landscape_core::Failure::NoSubject,
                 landscape_analyze::subject::NO_SUBJECT,
             )
             .await
         {
-            tracing::error!(id = %analysis.id, error = %e, "could not record the failure");
+            Ok(landscape_core::Applied::ClaimRevoked) => {
+                tracing::warn!(id = %analysis.id, "claim revoked before the failure was recorded");
+            }
+            Ok(landscape_core::Applied::Yes) => {}
+            Err(e) => {
+                tracing::error!(id = %analysis.id, error = %e, "could not record the failure");
+            }
         }
         return;
     };
@@ -513,7 +520,7 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
     let llm = landscape_llm::LlamaClient::from_env();
     let now = chrono::Utc::now();
 
-    let progress = progress::Progress::new(Arc::clone(store), analysis.id);
+    let progress = progress::Progress::new(Arc::clone(store), analysis.id, analysis.generation);
     let outcome = landscape_analyze::analyse_with(
         &fetcher,
         &llm,
@@ -524,10 +531,30 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
     )
     .await;
     // Before `complete`, so the last progress write cannot land after the finished report.
-    progress.finish().await;
+    let ours = progress.finish().await;
+    if ours == progress::Outcome::Revoked {
+        // The sweep decided this run was dead and gave it to somebody else while we were
+        // still working on it. Saying so is the whole value of the generation: without it,
+        // this worker would finish, overwrite a live run's report with its own, and nothing
+        // anywhere would record that two workers had produced two reports for one reader.
+        tracing::warn!(
+            id = %analysis.id,
+            generation = analysis.generation,
+            "this run was reclaimed while we were working on it; the report is being discarded"
+        );
+    }
 
-    if let Err(e) = store.complete(analysis.id, &outcome.report).await {
-        tracing::error!(id = %analysis.id, error = %e, "could not save report");
+    match store
+        .complete(analysis.id, analysis.generation, &outcome.report)
+        .await
+    {
+        Ok(landscape_core::Applied::ClaimRevoked) => {
+            tracing::warn!(id = %analysis.id, "finished a run that had been reclaimed; discarded");
+        }
+        Ok(landscape_core::Applied::Yes) => {}
+        Err(e) => {
+            tracing::error!(id = %analysis.id, error = %e, "could not save report");
+        }
     }
 }
 

@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use landscape_core::{Analysis, AnalysisId, AnalysisStatus, Failure, NewAnalysis, Report};
+use landscape_core::{Analysis, AnalysisId, AnalysisStatus, Applied, Failure, NewAnalysis, Report};
 
 use crate::{Result, Store, StoreError};
 
@@ -45,6 +45,7 @@ impl Store for MemoryStore {
             created_at: chrono::Utc::now(),
             report: None,
             failure: None,
+            generation: 0,
         };
         self.lock().insert(analysis.id, analysis.clone());
         Ok(analysis)
@@ -72,37 +73,58 @@ impl Store for MemoryStore {
             Some(id) => {
                 let entry = map.get_mut(&id).ok_or(StoreError::NotFound(id))?;
                 entry.status = AnalysisStatus::Running;
+                // The number the worker will quote on every write. Raised here and in
+                // `reclaim_stale`, so it counts how many times this run has been started.
+                entry.generation = entry.generation.saturating_add(1);
                 Ok(Some(entry.clone()))
             }
         }
     }
 
-    async fn save_progress(&self, id: AnalysisId, report: &Report) -> Result<()> {
+    async fn save_progress(
+        &self,
+        id: AnalysisId,
+        generation: u32,
+        report: &Report,
+    ) -> Result<Applied> {
         let mut map = self.lock();
         let analysis = map.get_mut(&id).ok_or(StoreError::NotFound(id))?;
         // Deliberately does not touch `status`. Progress on a run that has already finished
         // is a late write from a worker that lost a race, and it must not resurrect the row.
-        if analysis.status == AnalysisStatus::Running {
-            analysis.report = Some(report.clone());
+        if analysis.generation != generation || analysis.status != AnalysisStatus::Running {
+            return Ok(Applied::ClaimRevoked);
         }
-        Ok(())
+        analysis.report = Some(report.clone());
+        Ok(Applied::Yes)
     }
 
-    async fn complete(&self, id: AnalysisId, report: &Report) -> Result<()> {
+    async fn complete(&self, id: AnalysisId, generation: u32, report: &Report) -> Result<Applied> {
         let mut map = self.lock();
         let entry = map.get_mut(&id).ok_or(StoreError::NotFound(id))?;
+        if entry.generation != generation {
+            return Ok(Applied::ClaimRevoked);
+        }
         entry.status = AnalysisStatus::Complete;
         entry.report = Some(report.clone());
-        Ok(())
+        Ok(Applied::Yes)
     }
 
-    async fn fail(&self, id: AnalysisId, kind: Failure, reason: &str) -> Result<()> {
+    async fn fail(
+        &self,
+        id: AnalysisId,
+        generation: u32,
+        kind: Failure,
+        reason: &str,
+    ) -> Result<Applied> {
         let mut map = self.lock();
         let entry = map.get_mut(&id).ok_or(StoreError::NotFound(id))?;
+        if entry.generation != generation {
+            return Ok(Applied::ClaimRevoked);
+        }
         entry.status = AnalysisStatus::Failed;
         entry.failure = Some(kind);
         tracing::warn!(%id, reason, kind = kind.as_db_str(), "analysis failed");
-        Ok(())
+        Ok(Applied::Yes)
     }
 
     async fn reclaim_stale(&self, max_age: chrono::Duration) -> Result<u64> {
@@ -120,6 +142,10 @@ impl Store for MemoryStore {
                 // starts from an empty report - so a reader watching sees answers they were
                 // already shown blank themselves out, which reads as a retraction.
                 entry.report = None;
+                // Raised here as well as on claim, so the worker that was running it is
+                // holding a revoked number the moment the sweep passes - not only once a
+                // replacement has picked the row up.
+                entry.generation = entry.generation.saturating_add(1);
                 n += 1;
             }
         }
