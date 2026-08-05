@@ -212,8 +212,146 @@ function box(): HTMLTextAreaElement {
   return screen.getByLabelText("What is your idea?");
 }
 
+/**
+ * A `fetch` whose GET returns a **finished** analysis with one section in it — what a shared
+ * link resolves to once the run behind it is over.
+ */
+function stubFinished(): void {
+  stubEventSource();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((_url: string, init?: RequestInit) =>
+      Promise.resolve({
+        ok: true,
+        status: init?.method === "POST" ? 201 : 200,
+        json: () =>
+          Promise.resolve({
+            ...queued(),
+            status: "complete",
+            report: {
+              subject: "https://basecamp.com",
+              searched_as: "https://basecamp.com",
+              generated_at: "2026-08-05T00:00:00Z",
+              model_id: "test",
+              prompt_version: 1,
+              sections: [
+                section("pricing", "Pricing & packaging", "Pro costs $15"),
+              ],
+              sources: [],
+            },
+          }),
+      } as Response),
+    ),
+  );
+}
+
+/** A `fetch` whose GET refuses, the way the API answers an id that is not there. */
+function stubNotFound(): void {
+  stubEventSource();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() =>
+      Promise.resolve({
+        ok: false,
+        status: 404,
+        json: () =>
+          Promise.resolve({
+            error: "We could not find that analysis.",
+            remedy: "Start a new one.",
+          }),
+      } as Response),
+    ),
+  );
+}
+
+/** Put the browser at a URL naming one analysis, as a shared link would. */
+function openAt(path: string): void {
+  window.history.replaceState({}, "", path);
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
+  // One jsdom window serves every test in this file, so a URL pushed by one of them is still
+  // there for the next. Without this reset a test that submits leaves `/a/<id>` behind, and
+  // every test after it opens that analysis instead of rendering the box.
+  window.history.replaceState({}, "", "/");
+});
+
+
+describe("a run has a URL", () => {
+  it("puts the analysis in the address bar as soon as it exists", async () => {
+    // Until this, every demo of the product died on a refresh: there was nothing in the URL
+    // to come back to, so a reader who reloaded — or who was sent a link — got an empty box.
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+
+    await waitFor(() =>
+      expect(window.location.pathname).toBe("/a/abc"),
+    );
+  });
+
+  it("opens the report a link points at", async () => {
+    stubFinished();
+    openAt("/a/abc");
+    render(<App />);
+
+    expect(await screen.findByText(/Pro costs \$15/)).toBeInTheDocument();
+    // And it fetched the id from the path rather than starting something new.
+    const calls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls.some((c) => String(c[0]).endsWith("/api/analyses/abc"))).toBe(
+      true,
+    );
+  });
+
+  it("says so while it is opening, rather than showing an empty box first", async () => {
+    // A shared link that renders "What is your idea?" for a moment reads as "there is
+    // nothing here" — the opposite of what the link promised.
+    stubFinished();
+    openAt("/a/abc");
+    render(<App />);
+
+    expect(screen.getByText(/Opening this report/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("What is your idea?")).toBeNull();
+    await screen.findByText(/Pro costs \$15/);
+  });
+
+  it("tells the reader when the link points at nothing", async () => {
+    // A dead link is the most likely thing to be sent to somebody, because it is the one a
+    // reader keeps. A blank page would leave them unsure whether it was them or us.
+    stubNotFound();
+    openAt("/a/gone");
+    render(<App />);
+
+    expect(
+      await screen.findByText(/could not find that analysis/i),
+    ).toBeInTheDocument();
+    // And the box is back, so there is something to do about it.
+    expect(screen.getByLabelText("What is your idea?")).toBeInTheDocument();
+  });
+
+  it("follows the back button to the empty box", async () => {
+    // `pushState` adds a history entry, so Back is a thing a reader will press. Leaving the
+    // report on screen while the address bar says otherwise is the disagreement that makes
+    // people distrust a page.
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(window.location.pathname).toBe("/a/abc"));
+
+    act(() => {
+      window.history.replaceState({}, "", "/");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    expect(await screen.findByLabelText("What is your idea?")).toBeInTheDocument();
+    expect(screen.queryByText(IDEA)).toBeNull();
+  });
 });
 
 describe("submitting an idea", () => {

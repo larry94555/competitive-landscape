@@ -20,7 +20,7 @@ The six states, in the order they must be reached. **None of them is met.**
 
 | # | State | Met? | The single thing standing in the way |
 |---|---|---|---|
-| **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **No.** *This row said "the software can do this on a laptop today" and that was wrong* — see [§1.5](#15-the-correction-that-produced-phase-d). | **Six things, five of them software.** [Phase D](docs/ROADMAP.md) is now the top of the roadmap: serve the app (**done**), give a run a URL, a build and a service, example ideas that run, several companies per report, a cap on anonymous runs. |
+| **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **No.** *This row said "the software can do this on a laptop today" and that was wrong* — see [§1.5](#15-the-correction-that-produced-phase-d). | **Six things, five of them software.** [Phase D](docs/ROADMAP.md) is now the top of the roadmap: serve the app (**done**), give a run a URL (**done**), a build and a service, example ideas that run, several companies per report, a cap on anonymous runs. |
 | **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | **A business idea does not run at all.** A prompt must name a domain; a description fails with `no_subject`. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
 | **S3** | **Ready for use** — friendly users should find no issue | **No.** | No permalink (a reload loses the run), no accounts, 6 of 9 report sections, no verification layer. |
 | **S4** | **Ready for general use** — promotable, word-of-mouth quality | **No.** | Everything in S3, plus no quality gates have ever been run against a deployed system. |
@@ -109,7 +109,7 @@ substitution is deliberate and is noted on each one.
 | [F8 The report itself](#f8--the-report-itself) | **R3–R4** | 6 of 9 sections, 4 of 6 extractors, no matrix, no charts. |
 | [F9 Claims you can check](#f9--claims-you-can-check) | **R4** | Structurally enforced at the type level; the verification pass is not built. |
 | [F10 PDF export](#f10--pdf-export) | **R0** | Not started. |
-| [F11 Share / permalink](#f11--share--permalink) | **R0** | Not started, and it blocks F2, F3 and any demo that survives a reload. **Phase D item D2** — the server side is in place; the client has to read the id from the path. |
+| [F11 Share / permalink](#f11--share--permalink) | **R1** | **A run has a URL.** `/a/{id}` opens it, the address bar carries it from the moment it exists, and Back returns to the box. Sharing beyond a raw link — a copy button, an OG card, an expiry story — is not built. |
 | [F12 What people are saying](#f12--what-people-are-saying) | **R0** | Not started. |
 | [F13 Copy as context](#f13--copy-as-context) | **R0** | Not started. Cheapest customer-visible item on the list. |
 | [F14 The wait](#f14--the-wait) | **R2** | Streaming works. The wait has never been measured on the target hardware. |
@@ -291,9 +291,16 @@ it: PDF download rate ≥25% of completed reports — it is a headline value mom
 
 ### F11 — Share / permalink
 
-**Rung: R0.** Not started, and it is a bigger deal than its size suggests: it blocks
-[F2](#f2--editing-the-product-idea), blocks [F3](#f3--asking-follow-up-questions), and means
-**any demo dies on a reload.** Cheap, and on the critical path to S1.
+**Rung: R1.** A run has a URL. `/a/{id}` opens it, `pushState` puts it in the address bar the
+moment the analysis exists, and the browser's Back button returns to the empty box. A link that
+points at nothing says so and leaves the box there, because a dead link is the one a reader is
+most likely to have kept.
+
+That unblocks [F2](#f2--editing-the-product-idea) and [F3](#f3--asking-follow-up-questions),
+both of which need something to return to, and it is what stops a demo dying on a reload.
+
+**Not built:** a copy-link control, link previews, and any answer to how long a URL stays good.
+Anonymous analyses live as long as the row does, which is a retention decision nobody has made.
 
 ### F12 — What people are saying
 
@@ -388,7 +395,6 @@ made a reader wait four minutes ([BENCHMARKS.md](docs/BENCHMARKS.md) Run 20).
 | Candidate generation for entity resolution | The disambiguation gate has nothing to disambiguate. |
 | Two of six extractors (trust, direction) | Two sections can never fill. |
 | Fetch cache + per-source extraction cache | The highest-leverage cache in the system, scheduled for this phase, absent. |
-| Share URL / permalink | A reload loses the run. |
 | Anonymous rate limit (2/day) | Unlimited anonymous inference on a free box. |
 | Example chips, stage rail, source cards, citation hover cards | The UI is functional and unfinished. |
 | Conditional GET; per-analysis fetch cap | Every run re-fetches everything. |
@@ -429,7 +435,7 @@ Ordered by what they hold up.
 |---|---|---|---|---|
 | **B1** | **No measurement of "relevant information returned."** The golden set scores extractors against frozen pages; nothing scores a *report about an idea* against a known-correct answer. | Every R2–R5 rung of [F1](#f1--searching-for-competitive-information-on-a-product-idea). Reporting the ladder at all. | Founder defines correct; agent builds | Needs sample ideas with hand-written competitor sets and a recall metric. Not on any phase's task list — **this is a gap in the plan, not just in the code.** |
 | **B2** | **The search channel does not exist.** No `landscape-search`, no SearXNG. | F1 R6/R7/R8, F2, F3, F8's matrix, S2 and everything after it. | Agent | The single largest piece of unbuilt software on the critical path. |
-| **B3** | **No permalink.** A run has no URL. | F2, F3, F11, any demo surviving a reload, S1. | Agent | Small. Disproportionate. |
+| ~~**B3**~~ | ~~**No permalink.**~~ **Closed.** `/a/{id}` opens a run, and the address bar carries it from the moment it exists. | ~~F2, F3, F11~~ | Agent | Small. Disproportionate. Done in Phase D. |
 | **B4** | **Source terms unaudited.** Reddit, X, YouTube, Stack Exchange, GitHub search limits, review-platform robots.txt. | F12, the discovery channel ranking, part of Phase 0's exit. | Founder — must be read in a browser from the primary source | Two of these can invalidate a planned feature. Half a day. |
 | **B5** | **Nothing is deployed.** No address, no SSH user, no key reachable from here; instance shape and Pay-As-You-Go status unconfirmed. | S1 through S6 — every readiness state is defined against a deployment. Phase 0's latency exit criterion. | Founder | Per [memory: Larry deploys to Oracle; Claude stops at the PR]. |
 | **B6** | **No transactional email provider.** | F4 (magic links), F7 (alerts and digests). | Founder provisions; agent integrates | Deliverability (SPF/DKIM/DMARC) is on the critical path for signup. |

@@ -181,6 +181,34 @@ cannot drift from it.
 
 ---
 
+## Part 2A — The run has a URL
+
+**Do this.** With an analysis on screen, look at the address bar. It says `/a/<id>` — it changed
+the moment the run was accepted.
+
+**Now press reload.**
+
+**You should see** the same analysis come back: the heading you typed, and either the report or
+the sections still arriving. **Copy the URL into another tab** and it opens there too.
+
+**Why it matters.** Until this existed a refresh lost the run entirely, and there was nothing to
+send anybody. It is also what the two features above it wait on — editing an idea and asking a
+follow-up both need something to return to.
+
+**Now press Back.** The box comes back empty, because the address bar and the page have to agree;
+a report still on screen under a URL that no longer names it is the disagreement that makes
+people stop trusting a page.
+
+**Try a link that points at nothing:** <http://localhost:8787/a/not-a-real-id>.
+
+> We could not find that analysis. Start a new one.
+
+**Why it matters.** A dead link is the one a reader is most likely to still have. A blank page
+would leave them unsure whether it was them or us, and the box is right there underneath so
+there is something to do about it.
+
+---
+
 ## Part 3 — The same thing over the API
 
 **Do this.**
