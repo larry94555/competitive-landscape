@@ -126,6 +126,9 @@ function useReport(
   // Read inside the stream callbacks, which outlive the render that created them.
   const analysisRef = useRef(analysis);
   analysisRef.current = analysis;
+  // Which run the sections in state belong to. A ref rather than state because it is compared
+  // and written inside callbacks, and because changing it is never itself a reason to render.
+  const generationRef = useRef<number | null>(null);
 
   const id = analysis?.id ?? null;
   const settled = analysis != null && isTerminal(analysis.status);
@@ -136,7 +139,30 @@ function useReport(
     setStatus(null);
     setSections([]);
     setAttempt(0);
+    generationRef.current = null;
   }, [id]);
+
+  /**
+   * The run these sections belong to, from wherever we heard it.
+   *
+   * **One decision, two inputs.** The stream says so on every connection and the recovery
+   * fetch says so when the stream has dropped, and both have to reach the same conclusion —
+   * a drop, a reclaim and a reconnect is precisely the sequence where they arrive in the
+   * wrong order and the reader is left holding a dead worker's answers.
+   */
+  const sawGeneration = useCallback((generation: number) => {
+    const held = generationRef.current;
+    generationRef.current = generation;
+    if (held === null || held === generation) return;
+    // The run started over. Two copies of the old run's answers are in play: the sections
+    // this hook accumulated, which survive a reconnect on purpose, and the partial report a
+    // recovery fetch cached on the analysis.
+    setSections([]);
+    const current = analysisRef.current;
+    if (current?.report != null) {
+      onFinishedRef.current({ ...current, report: null });
+    }
+  }, []);
 
   useEffect(() => {
     if (id === null || settled) return;
@@ -167,31 +193,17 @@ function useReport(
           return next;
         });
       },
-      onReset: () => {
-        if (cancelled) return;
-        // The run went back to the queue and a different worker will start it over. Two
-        // copies of the dead worker's answers are on screen and both have to go: the ones
-        // this stream sent, and the ones a recovery fetch cached on the analysis. Leaving
-        // either shows a reader a claim nobody stands behind — and if the replacement run
-        // never reaches that question, it stays there until the run ends.
-        setSections([]);
-        const current = analysisRef.current;
-        if (current?.report != null) {
-          onFinishedRef.current({ ...current, report: null });
-        }
+      onGeneration: (generation) => {
+        if (!cancelled) sawGeneration(generation);
       },
       onDone: () => {
         if (cancelled) return;
         void getAnalysis(id)
           .then((latest) => {
             if (cancelled) return;
-            // The same rule the stream applies, at the other boundary: **no report on the
-            // row means nothing backs what the reader is holding.** A drop, a reclaim, and a
-            // reconnect is the sequence where this fetch is the first thing to find out, and
-            // it holds two stale copies at that moment — the sections this hook accumulated,
-            // which survive a reconnect on purpose, and the partial report an earlier
-            // recovery fetch cached.
-            if (latest.report == null) setSections([]);
+            // Before the analysis is replaced below, so the clearing acts on what the reader
+            // is holding rather than on what has just arrived.
+            sawGeneration(latest.generation);
             // The stream's last word was "running" and the row now says otherwise. Leaving
             // the old value in state would have the page still saying "Reading…" over a
             // finished report.

@@ -16,7 +16,7 @@ pub use memory::MemoryStore;
 pub use pg::PgStore;
 
 use async_trait::async_trait;
-use landscape_core::{Analysis, AnalysisId, AnalysisStatus, Failure, NewAnalysis, Report};
+use landscape_core::{Analysis, AnalysisId, AnalysisStatus, Applied, Failure, NewAnalysis, Report};
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -47,6 +47,11 @@ pub trait Store: Send + Sync + std::fmt::Debug {
 
     /// Claim the oldest queued analysis and mark it running, atomically.
     ///
+    /// **Raises the row's generation**, and the returned [`Analysis::generation`] is what the
+    /// worker must quote on every write it makes. That is what makes a claim revocable: the
+    /// sweep raises it too, so a worker that has been replaced is holding a number the row has
+    /// moved past.
+    ///
     /// Returns `None` when the queue is empty. Two workers calling this concurrently must
     /// never receive the same analysis — the Postgres implementation relies on
     /// `FOR UPDATE SKIP LOCKED` for that, which is the reason the queue lives in the
@@ -63,10 +68,23 @@ pub trait Store: Send + Sync + std::fmt::Debug {
     ///
     /// The queue already lives in the database for the same reason a broker does not: a
     /// second thing to run is a second thing to fail, and at this scale the row is enough.
-    async fn save_progress(&self, id: AnalysisId, report: &Report) -> Result<()>;
+    ///
+    /// Refused when `generation` is not the row's current one — a worker whose claim has been
+    /// revoked must not write over the run that replaced it.
+    async fn save_progress(
+        &self,
+        id: AnalysisId,
+        generation: u32,
+        report: &Report,
+    ) -> Result<Applied>;
 
     /// Attach a finished report and mark the analysis complete.
-    async fn complete(&self, id: AnalysisId, report: &Report) -> Result<()>;
+    ///
+    /// Refused when `generation` is not the row's current one. **This is the case `status`
+    /// cannot express**: a worker slower than the staleness threshold and the replacement the
+    /// sweep handed its row to both see `running`, and without a number to compare, whichever
+    /// finished last won.
+    async fn complete(&self, id: AnalysisId, generation: u32, report: &Report) -> Result<Applied>;
 
     /// Mark an analysis failed.
     ///
@@ -74,7 +92,13 @@ pub trait Store: Send + Sync + std::fmt::Debug {
     /// shown verbatim — `migrations/0001_init.sql` says so. `kind` is the *situation*, from a
     /// closed set, so the interface can write a sentence a reader can act on without
     /// anything internal leaking into it.
-    async fn fail(&self, id: AnalysisId, kind: Failure, reason: &str) -> Result<()>;
+    async fn fail(
+        &self,
+        id: AnalysisId,
+        generation: u32,
+        kind: Failure,
+        reason: &str,
+    ) -> Result<Applied>;
 
     /// Return analyses that have been `running` longer than `max_age` to the queue.
     ///

@@ -30,7 +30,7 @@
 
 use std::sync::Arc;
 
-use landscape_core::{AnalysisId, Report};
+use landscape_core::{AnalysisId, Applied, Report};
 use landscape_db::Store;
 
 /// Accepts snapshots from the pipeline and writes them one at a time.
@@ -40,25 +40,47 @@ use landscape_db::Store;
 /// *after* the final report and leave a finished analysis holding a partial one.
 pub(crate) struct Progress {
     latest: tokio::sync::watch::Sender<Option<Report>>,
-    writer: tokio::task::JoinHandle<()>,
+    writer: tokio::task::JoinHandle<Outcome>,
+}
+
+/// What the writer task found out while nobody was looking.
+///
+/// A revoked claim is discovered by a *write*, which happens inside a spawned task with no way
+/// to return anything. Carrying it back out of [`Progress::finish`] is what lets the worker
+/// say so once, rather than the store logging it four times a minute.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Outcome {
+    /// Every write that was attempted took effect.
+    Ours,
+    /// The row moved to a later generation. This worker has been replaced.
+    Revoked,
 }
 
 impl Progress {
     /// Start writing progress for one analysis.
-    pub(crate) fn new(store: Arc<dyn Store>, id: AnalysisId) -> Self {
+    pub(crate) fn new(store: Arc<dyn Store>, id: AnalysisId, generation: u32) -> Self {
         let (latest, mut rx) = tokio::sync::watch::channel(None::<Report>);
         let writer = tokio::spawn(async move {
+            let mut outcome = Outcome::Ours;
             // `changed()` returns an error once every sender is gone, which is the signal to
             // stop: the run is over and `complete` owns the report from here.
             while rx.changed().await.is_ok() {
                 let snapshot = rx.borrow_and_update().clone();
                 let Some(report) = snapshot else { continue };
-                if let Err(e) = store.save_progress(id, &report).await {
-                    // A lost intermediate write costs a reader a few seconds of staleness.
-                    // Abandoning the run over it would cost them the report.
-                    tracing::warn!(%id, error = %e, "could not save progress");
+                match store.save_progress(id, generation, &report).await {
+                    // A revoked claim is not an error and not worth a line per write. The
+                    // sweep decided this row belongs to somebody else; the worker is told
+                    // once, at the end.
+                    Ok(Applied::ClaimRevoked) => outcome = Outcome::Revoked,
+                    Ok(Applied::Yes) => {}
+                    Err(e) => {
+                        // A lost intermediate write costs a reader a few seconds of
+                        // staleness. Abandoning the run over it would cost them the report.
+                        tracing::warn!(%id, error = %e, "could not save progress");
+                    }
                 }
             }
+            outcome
         });
         Self { latest, writer }
     }
@@ -78,10 +100,16 @@ impl Progress {
     /// write still in flight would land after it. Both stores refuse a `save_progress` on a
     /// row that is no longer `running`, so the damage is bounded — but relying on that is
     /// relying on a guard for ordinary operation, and the guard exists for lost races.
-    pub(crate) async fn finish(self) {
+    pub(crate) async fn finish(self) -> Outcome {
         drop(self.latest);
-        if let Err(e) = self.writer.await {
-            tracing::error!(error = %e, "the progress writer stopped badly");
+        match self.writer.await {
+            Ok(outcome) => outcome,
+            Err(e) => {
+                tracing::error!(error = %e, "the progress writer stopped badly");
+                // The writes may or may not have landed. Claiming the run is still ours is
+                // the safe reading: `complete` checks the generation for itself.
+                Outcome::Ours
+            }
         }
     }
 }
@@ -135,11 +163,22 @@ mod tests {
         async fn claim_next(&self) -> Result<Option<Analysis>> {
             self.inner.claim_next().await
         }
-        async fn complete(&self, id: AnalysisId, report: &Report) -> Result<()> {
-            self.inner.complete(id, report).await
+        async fn complete(
+            &self,
+            id: AnalysisId,
+            generation: u32,
+            report: &Report,
+        ) -> Result<Applied> {
+            self.inner.complete(id, generation, report).await
         }
-        async fn fail(&self, id: AnalysisId, kind: Failure, reason: &str) -> Result<()> {
-            self.inner.fail(id, kind, reason).await
+        async fn fail(
+            &self,
+            id: AnalysisId,
+            generation: u32,
+            kind: Failure,
+            reason: &str,
+        ) -> Result<Applied> {
+            self.inner.fail(id, generation, kind, reason).await
         }
         async fn reclaim_stale(&self, max_age: chrono::Duration) -> Result<u64> {
             self.inner.reclaim_stale(max_age).await
@@ -148,7 +187,12 @@ mod tests {
             self.inner.count_with_status(status).await
         }
 
-        async fn save_progress(&self, id: AnalysisId, report: &Report) -> Result<()> {
+        async fn save_progress(
+            &self,
+            id: AnalysisId,
+            generation: u32,
+            report: &Report,
+        ) -> Result<Applied> {
             let first = {
                 let mut seen = self.seen.lock().expect("not poisoned");
                 *seen += 1;
@@ -157,14 +201,16 @@ mod tests {
             if first {
                 tokio::time::sleep(Duration::from_millis(120)).await;
             }
-            self.inner.save_progress(id, report).await?;
-            self.writes.lock().expect("not poisoned").push(
-                report
-                    .sections
-                    .first()
-                    .map_or_else(|| "(no sections)".to_owned(), |s: &Section| s.title.clone()),
-            );
-            Ok(())
+            let applied = self.inner.save_progress(id, generation, report).await?;
+            if applied == Applied::Yes {
+                self.writes.lock().expect("not poisoned").push(
+                    report
+                        .sections
+                        .first()
+                        .map_or_else(|| "(no sections)".to_owned(), |s: &Section| s.title.clone()),
+                );
+            }
+            Ok(applied)
         }
     }
 
@@ -181,17 +227,17 @@ mod tests {
         }
     }
 
-    async fn running_analysis(store: &Arc<dyn Store>) -> AnalysisId {
+    async fn running_analysis(store: &Arc<dyn Store>) -> (AnalysisId, u32) {
         let queued = store
             .enqueue(&NewAnalysis::parse("a competitor report for basecamp.com").expect("valid"))
             .await
             .expect("enqueue");
-        store
+        let claimed = store
             .claim_next()
             .await
             .expect("claim")
             .expect("something to claim");
-        queued.id
+        (queued.id, claimed.generation)
     }
 
     #[tokio::test]
@@ -201,9 +247,9 @@ mod tests {
         // a reader sees as a section losing a claim it had already been shown.
         let slow = Arc::new(SlowFirstWrite::new());
         let store: Arc<dyn Store> = Arc::clone(&slow) as Arc<dyn Store>;
-        let id = running_analysis(&store).await;
+        let (id, generation) = running_analysis(&store).await;
 
-        let progress = Progress::new(Arc::clone(&store), id);
+        let progress = Progress::new(Arc::clone(&store), id, generation);
         progress.record(&report_titled("first"));
         // Long enough that a spawned second write would have finished while the first slept.
         tokio::time::sleep(Duration::from_millis(20)).await;
@@ -232,9 +278,9 @@ mod tests {
         // a whole report, so the newest is strictly better than a backlog of stale ones.
         let slow = Arc::new(SlowFirstWrite::new());
         let store: Arc<dyn Store> = Arc::clone(&slow) as Arc<dyn Store>;
-        let id = running_analysis(&store).await;
+        let (id, generation) = running_analysis(&store).await;
 
-        let progress = Progress::new(Arc::clone(&store), id);
+        let progress = Progress::new(Arc::clone(&store), id, generation);
         for title in ["one", "two", "three", "four"] {
             progress.record(&report_titled(title));
         }
@@ -259,9 +305,9 @@ mod tests {
         // is belt and braces — but the guard exists for lost races, not for ordinary operation.
         let slow = Arc::new(SlowFirstWrite::new());
         let store: Arc<dyn Store> = Arc::clone(&slow) as Arc<dyn Store>;
-        let id = running_analysis(&store).await;
+        let (id, generation) = running_analysis(&store).await;
 
-        let progress = Progress::new(Arc::clone(&store), id);
+        let progress = Progress::new(Arc::clone(&store), id, generation);
         progress.record(&report_titled("only"));
         progress.finish().await;
 
@@ -273,12 +319,56 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_worker_whose_claim_was_revoked_is_told_so() {
+        // The sweep decided this run was dead and handed it to somebody else, while this
+        // worker was still working on it. Every write it makes from here is refused — which
+        // is the point — but a refusal nobody surfaces is a machine spending ninety seconds
+        // of prefill on a report that will be thrown away, with nothing in the log saying so.
+        let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+        let (id, generation) = running_analysis(&store).await;
+
+        let progress = Progress::new(Arc::clone(&store), id, generation);
+        progress.record(&report_titled("before"));
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        // Twenty minutes pass, as far as the sweep is concerned.
+        store
+            .reclaim_stale(chrono::Duration::zero())
+            .await
+            .expect("reclaim");
+        store.claim_next().await.expect("claim").expect("requeued");
+
+        progress.record(&report_titled("after"));
+        assert_eq!(
+            progress.finish().await,
+            Outcome::Revoked,
+            "the worker was never told its run had been given to somebody else"
+        );
+
+        let stored = store.get(id).await.expect("get").report;
+        assert!(
+            stored.is_none(),
+            "a replaced worker wrote over the run that replaced it"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_run_nobody_interrupted_reports_that_it_kept_its_claim() {
+        // The other half, so `Revoked` cannot be what the type always says.
+        let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+        let (id, generation) = running_analysis(&store).await;
+        let progress = Progress::new(Arc::clone(&store), id, generation);
+        progress.record(&report_titled("only"));
+        assert_eq!(progress.finish().await, Outcome::Ours);
+    }
+
+    #[tokio::test]
     async fn recording_after_the_run_is_over_does_not_panic() {
         // `record` is called from a synchronous callback deep inside the pipeline, where
         // there is nothing sensible to do with an error. It must be impossible to fail.
         let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
-        let id = running_analysis(&store).await;
-        let progress = Progress::new(Arc::clone(&store), id);
+        let (id, generation) = running_analysis(&store).await;
+        let progress = Progress::new(Arc::clone(&store), id, generation);
         progress.writer.abort();
         progress.record(&report_titled("after"));
     }

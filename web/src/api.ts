@@ -54,6 +54,13 @@ export interface Analysis {
   readonly created_at: string;
   readonly report: Report | null;
   readonly failure: Failure | null;
+  /**
+   * How many times this run has been started.
+   *
+   * A worker can die and the queue hand its row to another, which starts over from nothing.
+   * When this changes, the sections already on screen belong to a run that no longer exists.
+   */
+  readonly generation: number;
 }
 
 /** What the server sends when it refuses a request. */
@@ -128,13 +135,14 @@ export interface Watcher {
   /** One section, the first time it has anything in it. */
   readonly onSection: (section: Section) => void;
   /**
-   * Everything sent so far is withdrawn; the run is starting again.
+   * Which run the sections that follow belong to.
    *
-   * A worker died and its analysis went back to the queue. The sections it produced are not
-   * wrong so much as unowned — nobody stands behind them, and the replacement run rebuilds
-   * from nothing. The opposite of `onDone`: keep watching, and forget what you have.
+   * A worker died and its analysis went back to the queue, so a different one is starting it
+   * over from nothing. The sections it produced are not wrong so much as unowned. The caller
+   * compares against the number it is holding, because only the caller knows what that is —
+   * a reconnected stream has no memory of the one it replaced.
    */
-  readonly onReset: () => void;
+  readonly onGeneration: (generation: number) => void;
   /** Nothing else is coming. The caller fetches the finished analysis. */
   readonly onDone: () => void;
 }
@@ -176,8 +184,11 @@ export function watchAnalysis(id: string, watcher: Watcher): () => void {
       // heading arriving late, which the final fetch puts right.
     }
   });
-  source.addEventListener("reset", () => {
-    watcher.onReset();
+  source.addEventListener("generation", (e) => {
+    const n = Number((e as MessageEvent<string>).data);
+    // A generation we cannot read is worse than one we ignore: clearing on `NaN` would wipe
+    // the reader's screen every poll.
+    if (Number.isInteger(n)) watcher.onGeneration(n);
   });
   source.addEventListener("done", () => {
     close();

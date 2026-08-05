@@ -10,7 +10,7 @@
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 // This module is test scaffolding: an assertion failure here must abort loudly.
 
-use landscape_core::{AnalysisStatus, Failure, NewAnalysis, Report};
+use landscape_core::{AnalysisStatus, Applied, Failure, NewAnalysis, Report};
 
 use crate::Store;
 
@@ -86,6 +86,10 @@ pub async fn run(store: &impl Store) {
         AnalysisStatus::Running,
         "claiming marks it running"
     );
+    assert!(
+        first.generation > a.generation,
+        "claiming has to raise the generation, or a worker cannot be told its claim is gone"
+    );
 
     // --- a claimed analysis is never handed out twice --------------------------
     let second = store
@@ -105,10 +109,13 @@ pub async fn run(store: &impl Store) {
     // What makes streaming possible: a reader waiting ninety seconds sees the pricing
     // section when pricing is done, not when everything is.
     let partial = sample_report(&a.prompt);
-    store
-        .save_progress(a.id, &partial)
-        .await
-        .expect("save progress");
+    assert_eq!(
+        store
+            .save_progress(a.id, first.generation, &partial)
+            .await
+            .expect("save progress"),
+        Applied::Yes
+    );
     let running = store.get(a.id).await.expect("get during run");
     assert_eq!(
         running.status,
@@ -121,8 +128,61 @@ pub async fn run(store: &impl Store) {
     );
 
     // --- completing attaches the report ----------------------------------------
+    // --- a revoked claim cannot write ------------------------------------------
+    // The case `status` cannot express. A worker slower than the staleness threshold and the
+    // replacement the sweep handed its row to *both* see `running`, so without a number to
+    // compare, whichever finished last won - and the reader got whichever report that was.
+    let stale = first.generation.saturating_sub(1);
+    assert_eq!(
+        store
+            .save_progress(a.id, stale, &sample_report("a run nobody is waiting for"))
+            .await
+            .expect("a revoked write is an outcome, not an error"),
+        Applied::ClaimRevoked,
+        "a worker holding an older generation wrote progress over the current run"
+    );
+    assert_eq!(
+        store
+            .complete(a.id, stale, &sample_report("a run nobody is waiting for"))
+            .await
+            .expect("a revoked write is an outcome, not an error"),
+        Applied::ClaimRevoked,
+        "a worker holding an older generation finished a run it no longer owns"
+    );
+    assert_eq!(
+        store
+            .fail(
+                a.id,
+                stale,
+                Failure::Internal,
+                "from a worker long replaced"
+            )
+            .await
+            .expect("a revoked write is an outcome, not an error"),
+        Applied::ClaimRevoked,
+        "a worker holding an older generation failed a run it no longer owns"
+    );
+    let untouched = store.get(a.id).await.expect("get after revoked writes");
+    assert_eq!(
+        untouched.status,
+        AnalysisStatus::Running,
+        "a revoked write changed the status"
+    );
+    assert_eq!(
+        untouched.report.map(|r| r.subject),
+        Some(partial.subject.clone()),
+        "a revoked write replaced the current run's report"
+    );
+
+    // --- completing attaches the report ----------------------------------------
     let report = sample_report(&a.prompt);
-    store.complete(a.id, &report).await.expect("complete");
+    assert_eq!(
+        store
+            .complete(a.id, first.generation, &report)
+            .await
+            .expect("complete"),
+        Applied::Yes
+    );
 
     let done = store.get(a.id).await.expect("get after complete");
     assert_eq!(done.status, AnalysisStatus::Complete);
@@ -141,10 +201,18 @@ pub async fn run(store: &impl Store) {
     // --- a late write does not resurrect a finished run ------------------------
     // A worker that lost a race writes progress after another finished the same row. The
     // correct outcome is nothing at all: the reader is looking at a complete report.
-    store
-        .save_progress(a.id, &sample_report("something else entirely"))
-        .await
-        .expect("a late write is not an error");
+    assert_eq!(
+        store
+            .save_progress(
+                a.id,
+                first.generation,
+                &sample_report("something else entirely")
+            )
+            .await
+            .expect("a late write is not an error"),
+        Applied::ClaimRevoked,
+        "a write to a finished run should report that it did nothing"
+    );
     let after = store.get(a.id).await.expect("get after a late write");
     assert_eq!(after.status, AnalysisStatus::Complete, "still complete");
     assert_eq!(
@@ -154,10 +222,18 @@ pub async fn run(store: &impl Store) {
     );
 
     // --- failing is terminal and records nothing user-facing -------------------
-    store
-        .fail(b.id, Failure::Internal, "network unreachable")
-        .await
-        .expect("fail");
+    assert_eq!(
+        store
+            .fail(
+                b.id,
+                second.generation,
+                Failure::Internal,
+                "network unreachable"
+            )
+            .await
+            .expect("fail"),
+        Applied::Yes
+    );
     let failed = store.get(b.id).await.expect("get after fail");
     assert_eq!(failed.status, AnalysisStatus::Failed);
     assert_eq!(
@@ -222,7 +298,7 @@ pub async fn run(store: &impl Store) {
     // The dead worker got partway. This is the state a reclaim actually finds: not a blank
     // row, but one carrying a half-written report nobody is going to finish.
     store
-        .save_progress(stranded.id, &half_a_report())
+        .save_progress(stranded.id, claimed.generation, &half_a_report())
         .await
         .expect("progress");
     assert!(
@@ -246,6 +322,10 @@ pub async fn run(store: &impl Store) {
         back.status,
         AnalysisStatus::Queued,
         "a reclaimed analysis is queued again, not failed - nothing has gone wrong with it"
+    );
+    assert!(
+        back.generation > claimed.generation,
+        "the sweep has to raise the generation, or the worker it just replaced can still          write - and it will not find out until it tries"
     );
     assert!(
         back.report.is_none(),

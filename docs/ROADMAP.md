@@ -396,9 +396,15 @@ structural, and retrofitting them is expensive.
   passing tests: the reclaim above, and **progress writes that could land out of order**, so a
   correction a reader had already been shown was undone in front of them. The stream loop —
   where all four of Run 16's defects lived — is now driven by tests rather than by its helpers
-  being unit-tested around it. **Still open: there is no claim token**, so a worker slower than
-  the twenty-minute staleness threshold can still `complete` over its replacement. That needs a
-  generation column threaded through `claim_next`, `save_progress` and `complete`.
+  being unit-tested around it. ~~**Still open: there is no claim token**~~ **Done** —
+  [BENCHMARKS.md](BENCHMARKS.md) Run 19 and
+  [ADR 0012](decisions/0012-a-claim-is-a-number.md). Every row carries a `generation`, raised by
+  both `claim_next` and `reclaim_stale`; a worker quotes the one it claimed on every write, and
+  a write quoting an older one is refused rather than applied. The number also goes out on the
+  stream, so a reader that reconnects into a different run knows the sections it is holding
+  belong to one that no longer exists — which no server-side judgement about a *connection*
+  could do. **Still open after that:** a replaced worker keeps working until its next write
+  fails, which needs cancellation threaded into `analyse_with`.
 - **A reference on every failure.** An internal error used to log its detail and tell the
   reader *"Something went wrong at our end"* — both true, and nothing joining them. Every
   request now carries an id into its span, its response header, and the body of a 5xx. Two

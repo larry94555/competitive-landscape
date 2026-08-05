@@ -299,16 +299,49 @@ set and never cleared works for the first occurrence and is silent for the secon
 > **Ask this:** *does this condition mean the same thing on a fresh connection as on the one
 > that has been open for a minute? If it fires once per episode, what starts the next episode?*
 
+**Resolved.** 13 and 14 were two attempts to describe *"the run started over"* with something
+other than a name for the run. The third attempt gave it one — a `generation` on the row, raised
+by both the claim and the sweep, sent to the client so the client can compare
+([ADR 0012](../../../docs/decisions/0012-a-claim-is-a-number.md)). Keep the entries: the two
+wrong answers are the useful part, and the shape they share — *a condition about the connection,
+protecting something that outlives connections* — is the thing to recognise next time.
+
+## 15. A state that two things can be in at once
+
+**Written:** `WHERE status = 'running'` as the guard on who may write to an analysis.
+
+**What a person saw:** nothing yet, and that is why it is here. The staleness sweep cannot tell a
+**dead** worker from a **slow** one — a row that has been `running` for twenty minutes looks the
+same either way — so when the slow case happens, two live workers are running the same analysis
+and `status` says `running` for both. Whichever finished last won. A reader would have got a
+report, correctly assembled and correctly cited, from a run that had been abandoned, with
+nothing in any log recording that two had been produced.
+
+**Why the tests missed it:** every test had one worker. The state is only reachable when a
+timeout fires against work that is still going, which no test had a reason to arrange.
+
+**Rule:** a guard has to name **the actor**, not the situation. "Is it running" is a property of
+the row and true for both claimants; "is this still *my* claim" needs something identifying the
+claim, which means a value the claimant carries and the store can check. The cheapest such value
+is a counter that goes up whenever the work is handed on.
+
+**And the same value is what a reader needs.** A status transition is an *edge* — miss the poll
+and it never happened. A generation is a *value*, so a client that reconnected, or blinked, still
+finds it different from the one it holds. That is what finally settled 13 and 14.
+
+> **Ask this:** *can two different actors be in this state at the same time? If so, what does
+> this condition actually authorise?*
+
 ---
 
 ## The checklist, before a PR
 
-Seven questions. Two minutes. Every one of them comes from an entry above.
+Eight questions. Two minutes. Every one of them comes from an entry above.
 
 1. **Lifecycle** — does anything infer "finished" from the presence of data rather than from a
    status? *(1)*
 2. **Mid-operation states** — which states exist only when something fails partway, and which of
-   them has a test? *(the pattern, 1, 3, 4, 12, 13, 14)*
+   them has a test? *(the pattern, 1, 3, 4, 12, 13, 14, 15)*
 3. **Duplication of a derived fact** — is any fact computed in two places from different inputs?
    *(4)*
 4. **Comparisons** — can I name a change my equality check cannot see? Does any validation have a
@@ -320,6 +353,8 @@ Seven questions. Two minutes. Every one of them comes from an entry above.
 7. **Copies I do not own** — if two writes are in flight, which lands last? Who is holding what
    I just deleted, and what tells them? Does my guard still mean the same thing on a fresh
    connection? *(12, 13, 14)*
+8. **Who is asking** — can two actors be in the state this condition tests? Am I authorising a
+   situation when I mean to authorise a claimant? *(15)*
 
 ## How these were found, and what that says
 
@@ -329,6 +364,7 @@ Seven questions. Two minutes. Every one of them comes from an entry above.
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |
 | Deliberately breaking the code to see if a test notices | 12, and the rearm in 14 | The store was fast, so nothing raced until one was made slow |
+| Writing down what a fix does *not* cover | 15 | Named as open in Run 18's "what is still not right", fixed in Run 19 |
 | The test suite, before review | — | **None of the entries above** |
 
 **That last row is the point of this file.** The suite is good at protecting what it was written

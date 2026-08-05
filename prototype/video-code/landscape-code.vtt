@@ -1,69 +1,57 @@
 WEBVTT
 
 1
-00:00:01.500 --> 00:00:05.100
-Every test is of a run that finishes.
+00:00:01.500 --> 00:00:04.800
+A row running for twenty minutes.
 
 2
-00:00:05.100 --> 00:00:08.600
-The defects live where they do not.
+00:00:04.800 --> 00:00:08.100
+Dead worker, or just a slow one?
 
 3
-00:00:08.600 --> 00:00:11.900
-A comment said ordering was safe.
+00:00:08.100 --> 00:00:11.100
+Status says running for both.
 
 4
-00:00:11.900 --> 00:00:15.200
-True of payloads. Not of writes.
+00:00:11.100 --> 00:00:14.400
+The guard authorised a situation.
 
 5
-00:00:15.200 --> 00:00:18.000
-Make the first write slow.
+00:00:14.400 --> 00:00:17.700
+Two reports. One reader. No log.
 
 6
-00:00:18.000 --> 00:00:21.300
-The store keeps the older report.
+00:00:17.700 --> 00:00:20.500
+So give the claim a name.
 
 7
-00:00:21.300 --> 00:00:24.300
-One writer. The newest wins.
+00:00:20.500 --> 00:00:23.800
+A number identifies the attempt.
 
 8
-00:00:24.300 --> 00:00:27.200
-Then a worker dies mid-run.
+00:00:23.800 --> 00:00:26.300
+Every write quotes it.
 
 9
-00:00:27.200 --> 00:00:30.200
-Its half-report outlived it.
+00:00:26.300 --> 00:00:29.300
+Twice we watched for an edge.
 
 10
-00:00:30.200 --> 00:00:33.200
-So clear it with the requeue.
+00:00:29.300 --> 00:00:32.100
+It fell between two polls.
 
 11
-00:00:33.200 --> 00:00:36.200
-Review: that was half a fix.
+00:00:32.100 --> 00:00:35.400
+Send the value. Let them compare.
 
 12
-00:00:36.200 --> 00:00:39.700
-The open connection already sent it.
+00:00:35.400 --> 00:00:38.800
+Only a reader knows what it holds.
 
 13
-00:00:39.700 --> 00:00:42.600
-So retract it, on the wire.
+00:00:38.800 --> 00:00:42.000
+Eight ways wrong. Eight caught.
 
 14
-00:00:42.600 --> 00:00:46.100
-Not done. A reader told done leaves.
-
-15
-00:00:46.100 --> 00:00:49.700
-The status runs backwards, and holds.
-
-16
-00:00:49.700 --> 00:00:53.300
-Defects put back. All of them caught.
-
-17
-00:00:53.300 --> 00:00:55.700
-Test the run that goes wrong.
+00:00:42.000 --> 00:00:44.500
+Name the claim, not the state.

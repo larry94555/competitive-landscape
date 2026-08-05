@@ -15,6 +15,7 @@ function queued(): Analysis {
     created_at: "2026-08-03T00:00:00Z",
     report: null,
     failure: null,
+    generation: 1,
   };
 }
 
@@ -110,7 +111,9 @@ function stubReclaimed(): void {
           Promise.resolve(
             init?.method === "POST"
               ? queued()
-              : { ...queued(), status: "queued", report: null },
+              // A reclaim raises the generation: that is what tells a reconnecting client
+              // the sections it is holding belong to a run that no longer exists.
+              : { ...queued(), status: "queued", report: null, generation: 2 },
           ),
       } as Response),
     ),
@@ -374,6 +377,7 @@ describe("watching a report being written", () => {
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     const stream = FakeEventSource.last!;
+    act(() => stream.send("generation", "1"));
     act(() => stream.send("status", "running"));
     act(() =>
       stream.send(
@@ -383,8 +387,9 @@ describe("watching a report being written", () => {
     );
     expect(await screen.findByText(/Pro costs \$15/)).toBeInTheDocument();
 
-    // The worker died and the sweep put the run back in the queue.
-    act(() => stream.send("reset", ""));
+    // The worker died and the sweep put the run back in the queue, which raises the
+    // generation — the signal that these sections belong to a run that no longer exists.
+    act(() => stream.send("generation", "2"));
     act(() => stream.send("status", "queued"));
 
     await waitFor(() =>
@@ -411,6 +416,7 @@ describe("watching a report being written", () => {
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     const stream = FakeEventSource.last!;
+    act(() => stream.send("generation", "1"));
     act(() =>
       stream.send(
         "section",
@@ -419,7 +425,7 @@ describe("watching a report being written", () => {
     );
     await screen.findByText(/Pro costs \$15/);
 
-    act(() => stream.send("reset", ""));
+    act(() => stream.send("generation", "2"));
     // The replacement run answers a different question entirely.
     act(() =>
       stream.send(
@@ -612,6 +618,7 @@ describe("after a reconnect", () => {
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     const dropped = FakeEventSource.last!;
+    act(() => dropped.send("generation", "1"));
     act(() => dropped.send("status", "running"));
     act(() =>
       dropped.send(

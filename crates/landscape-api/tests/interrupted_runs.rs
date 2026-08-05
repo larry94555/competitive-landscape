@@ -126,17 +126,43 @@ impl Reader {
     }
 }
 
-async fn running_analysis(store: &Arc<dyn Store>) -> AnalysisId {
+/// A claimed analysis, and the generation its worker holds.
+/// Every generation the stream announced, in order.
+fn generations(events: &[String]) -> Vec<u32> {
+    events
+        .iter()
+        .filter(|e| e.contains("event: generation"))
+        .filter_map(|e| {
+            e.lines()
+                .find_map(|l| l.strip_prefix("data: "))
+                .and_then(|d| d.trim().parse::<u32>().ok())
+        })
+        .collect()
+}
+
+async fn running_analysis(store: &Arc<dyn Store>) -> (AnalysisId, u32) {
     let queued = store
         .enqueue(&NewAnalysis::parse("a competitor report for basecamp.com").expect("valid"))
         .await
         .expect("enqueue");
-    store
+    let claimed = store
         .claim_next()
         .await
         .expect("claim")
         .expect("one queued");
-    queued.id
+    (queued.id, claimed.generation)
+}
+
+/// Reclaim the run and let a new worker take it, returning the generation that worker holds.
+async fn hand_to_another_worker(store: &Arc<dyn Store>, id: AnalysisId) -> u32 {
+    let n = store
+        .reclaim_stale(chrono::Duration::zero())
+        .await
+        .expect("reclaim");
+    assert_eq!(n, 1, "the stranded run should come back");
+    let claimed = store.claim_next().await.expect("claim").expect("requeued");
+    assert_eq!(claimed.id, id, "a different analysis was claimed");
+    claimed.generation
 }
 
 #[tokio::test]
@@ -146,9 +172,9 @@ async fn a_reader_watching_a_reclaimed_run_is_never_told_it_finished() {
     // long time — and the one thing that must not happen is the stream saying `done`, because
     // a reader who has been told it finished does not reconnect.
     let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
-    let id = running_analysis(&store).await;
+    let (id, generation) = running_analysis(&store).await;
     store
-        .save_progress(id, &report_saying("Pro costs $15"))
+        .save_progress(id, generation, &report_saying("Pro costs $15"))
         .await
         .expect("progress");
 
@@ -160,24 +186,18 @@ async fn a_reader_watching_a_reclaimed_run_is_never_told_it_finished() {
             // Let the reader see the first run's answer before anything happens to it.
             tokio::time::sleep(Duration::from_millis(700)).await;
 
-            // The worker died. The sweep finds it.
-            let n = store
-                .reclaim_stale(chrono::Duration::zero())
-                .await
-                .expect("reclaim");
-            assert_eq!(n, 1, "the stranded run should come back");
+            // The worker died. The sweep finds it, and a second worker takes it — reaching a
+            // different answer, because the first run's page may have been a redirect, a 404,
+            // or simply read in a different order.
+            let second = hand_to_another_worker(&store, id).await;
             tokio::time::sleep(Duration::from_millis(700)).await;
-
-            // A second worker takes it and reaches a different answer — the first run's page
-            // may have been a redirect, a 404, or simply read in a different order.
-            store.claim_next().await.expect("claim").expect("requeued");
             store
-                .save_progress(id, &report_saying("Pro costs $19"))
+                .save_progress(id, second, &report_saying("Pro costs $19"))
                 .await
                 .expect("progress");
             tokio::time::sleep(Duration::from_millis(700)).await;
             store
-                .complete(id, &report_saying("Pro costs $19"))
+                .complete(id, second, &report_saying("Pro costs $19"))
                 .await
                 .expect("complete");
         })
@@ -196,17 +216,12 @@ async fn a_reader_watching_a_reclaimed_run_is_never_told_it_finished() {
         "`done` must be the last thing sent: {events:#?}"
     );
 
-    // The backwards transition is real and the reader is told about it. `running` going back
-    // to `queued` is not a state a happy run ever reaches, and a client that assumed status
-    // only moves forward would be wrong here rather than at the end.
-    let statuses: Vec<&String> = events
-        .iter()
-        .filter(|e| e.contains("event: status"))
-        .collect();
-    assert!(
-        statuses.iter().any(|e| e.contains("queued")),
-        "a reclaimed run goes back to queued and the reader should see it: {statuses:#?}"
-    );
+    // **The status may never say `queued` at all**, and that is the case for the generation
+    // rather than against it. `running` -> `queued` -> `running` is an *edge*, and this loop
+    // polls twice a second: a sweep and a claim that land between two polls are invisible, and
+    // a design that depended on seeing the transition would miss exactly the restarts that
+    // happened quickly. A generation is a *value*, so a reader that reconnects — or one that
+    // simply blinked — still finds the number different from the one it is holding.
 
     // And the answer the reader is left with is the second run's, not the dead worker's.
     let last_section = events
@@ -219,34 +234,39 @@ async fn a_reader_watching_a_reclaimed_run_is_never_told_it_finished() {
         "the reader was left holding the dead worker's answer: {last_section}"
     );
 
-    // The eventual value is not the interesting part — review pointed out that asserting it
-    // misses the *interval*. Between the reclaim and the replacement finding pricing again,
-    // this connection has already sent `$15` and nothing has taken it back. So the retraction
-    // has to be on the wire, and it has to come before the replacement's answer.
-    let reset_at = events
+    // The eventual value is not the interesting part — asserting it misses the *interval*.
+    // Between the reclaim and the replacement finding pricing again, this connection has
+    // already sent `$15` and nothing has taken it back. The signal that it should be dropped
+    // has to be on the wire, and it has to arrive before the replacement's answer.
+    let seen = generations(&events);
+    assert!(
+        seen.len() >= 2 && seen[1] > seen[0],
+        "a reclaimed run must announce that it started over: {seen:?}"
+    );
+    let changed_at = events
         .iter()
-        .position(|e| e.contains("event: reset"))
-        .expect("a reclaimed run must retract what it already sent");
+        .position(|e| e.contains("event: generation") && e.contains(&seen[1].to_string()))
+        .expect("the new generation is on the wire");
     let nineteen_at = events
         .iter()
         .position(|e| e.contains("Pro costs $19"))
         .expect("the second run's answer");
     assert!(
-        reset_at < nineteen_at,
-        "the retraction has to arrive before the replacement, or the gap is exactly the          window where a reader is looking at a claim nobody stands behind: {events:#?}"
+        changed_at < nineteen_at,
+        "the new generation has to arrive before the replacement's answer, or the gap is          exactly the window where a reader is looking at a claim nobody stands behind:          {events:#?}"
     );
-    let fifteen_after: Vec<&String> = events[reset_at..]
+    let fifteen_after: Vec<&String> = events[changed_at..]
         .iter()
         .filter(|e| e.contains("Pro costs $15"))
         .collect();
     assert!(
         fifteen_after.is_empty(),
-        "the dead worker's answer was sent again after being retracted: {fifteen_after:#?}"
+        "the dead worker's answer was sent again after the run started over: {fifteen_after:#?}"
     );
 }
 
 #[tokio::test]
-async fn after_a_retraction_the_same_answer_is_sent_again_rather_than_suppressed() {
+async fn after_a_restart_the_same_answer_is_sent_again_rather_than_suppressed() {
     // The stream skips a section whose payload it has already sent. After a reset the reader
     // has thrown everything away, so "already sent" is no longer true — and a replacement run
     // that reaches the *same* answer would be suppressed by that memory and never appear.
@@ -254,9 +274,9 @@ async fn after_a_retraction_the_same_answer_is_sent_again_rather_than_suppressed
     // This is the failure mode of every de-duplicating cache: correct until the thing it is
     // deduplicating against is cleared somewhere else.
     let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
-    let id = running_analysis(&store).await;
+    let (id, generation) = running_analysis(&store).await;
     store
-        .save_progress(id, &report_saying("Pro costs $15"))
+        .save_progress(id, generation, &report_saying("Pro costs $15"))
         .await
         .expect("progress");
 
@@ -265,20 +285,16 @@ async fn after_a_retraction_the_same_answer_is_sent_again_rather_than_suppressed
         let store = Arc::clone(&store);
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(700)).await;
-            store
-                .reclaim_stale(chrono::Duration::zero())
-                .await
-                .expect("reclaim");
+            let second = hand_to_another_worker(&store, id).await;
             tokio::time::sleep(Duration::from_millis(700)).await;
-            store.claim_next().await.expect("claim").expect("requeued");
             // The same answer, from a different worker.
             store
-                .save_progress(id, &report_saying("Pro costs $15"))
+                .save_progress(id, second, &report_saying("Pro costs $15"))
                 .await
                 .expect("progress");
             tokio::time::sleep(Duration::from_millis(700)).await;
             store
-                .complete(id, &report_saying("Pro costs $15"))
+                .complete(id, second, &report_saying("Pro costs $15"))
                 .await
                 .expect("complete");
         })
@@ -287,13 +303,15 @@ async fn after_a_retraction_the_same_answer_is_sent_again_rather_than_suppressed
     let events = reader.drain().await;
     driving.await.expect("the driver finished");
 
-    let reset_at = events
+    let seen = generations(&events);
+    assert!(seen.len() >= 2, "the run started over: {seen:?}");
+    let changed_at = events
         .iter()
-        .position(|e| e.contains("event: reset"))
-        .expect("a reclaimed run retracts what it sent");
+        .position(|e| e.contains("event: generation") && e.contains(&seen[1].to_string()))
+        .expect("the new generation is on the wire");
     assert!(
-        events[reset_at..].iter().any(|e| e.contains("Pro costs $15")),
-        "after retracting it, the stream never sent the answer again - so a reader whose          screen was cleared would sit in front of an empty section for the whole second          run: {events:#?}"
+        events[changed_at..].iter().any(|e| e.contains("Pro costs $15")),
+        "after the run started over the stream never sent the answer again - so a reader          whose screen was cleared would sit in front of an empty section for the whole          second run: {events:#?}"
     );
 }
 
@@ -304,9 +322,9 @@ async fn a_reclaimed_run_does_not_leave_its_half_report_behind() {
     // report survived a reclaim, a queued analysis would be serving sections from a worker
     // that no longer exists.
     let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
-    let id = running_analysis(&store).await;
+    let (id, generation) = running_analysis(&store).await;
     store
-        .save_progress(id, &report_saying("Pro costs $15"))
+        .save_progress(id, generation, &report_saying("Pro costs $15"))
         .await
         .expect("progress");
     assert!(store.get(id).await.expect("get").report.is_some());
@@ -325,7 +343,7 @@ async fn a_reclaimed_run_does_not_leave_its_half_report_behind() {
 }
 
 #[tokio::test]
-async fn a_stream_that_opens_after_the_reclaim_still_retracts() {
+async fn a_stream_that_opens_after_the_reclaim_says_which_run_it_is_watching() {
     // Review found the hole in the first version of the retraction. It fired only when *this
     // connection* had sent something — and the reader's sections deliberately survive a
     // reconnect, while `sent_sections` starts empty on every new stream.
@@ -334,9 +352,9 @@ async fn a_stream_that_opens_after_the_reclaim_still_retracts() {
     // reclaimed while nobody was watching, and it has to retract anyway, because the reader
     // it is talking to is still holding what the previous connection delivered.
     let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
-    let id = running_analysis(&store).await;
+    let (id, generation) = running_analysis(&store).await;
     store
-        .save_progress(id, &report_saying("Pro costs $15"))
+        .save_progress(id, generation, &report_saying("Pro costs $15"))
         .await
         .expect("progress");
     store
@@ -349,9 +367,14 @@ async fn a_stream_that_opens_after_the_reclaim_still_retracts() {
         let store = Arc::clone(&store);
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(900)).await;
-            store.claim_next().await.expect("claim").expect("requeued");
+            let second = store
+                .claim_next()
+                .await
+                .expect("claim")
+                .expect("requeued")
+                .generation;
             store
-                .complete(id, &report_saying("Pro costs $19"))
+                .complete(id, second, &report_saying("Pro costs $19"))
                 .await
                 .expect("complete");
         })
@@ -360,21 +383,30 @@ async fn a_stream_that_opens_after_the_reclaim_still_retracts() {
     let events = reader.drain().await;
     driving.await.expect("the driver finished");
 
+    // The connection that saw `$15` is gone, so this one cannot know what the reader holds —
+    // which is exactly why the number goes on the wire instead of a server-side judgement
+    // about it. The row's generation is announced, the reader compares, and the sections from
+    // the run before the reclaim are the ones that do not match.
+    let seen = generations(&events);
+    let opened_with = seen
+        .first()
+        .copied()
+        .expect("a stream has to say which run it is watching");
     assert!(
-        events.iter().any(|e| e.contains("event: reset")),
-        "a stream opening on a reclaimed row sent no retraction, so a reader who reconnected          into it keeps the dead worker's answer: {events:#?}"
+        opened_with > generation,
+        "a stream opening on a reclaimed row announced generation {opened_with}, the same one          the dead worker was writing under - so a reader who reconnects into it has nothing          to compare and keeps that worker's answer: {events:#?}"
     );
 }
 
 #[tokio::test]
-async fn a_run_with_nothing_written_yet_retracts_once_and_not_on_every_poll() {
+async fn a_run_that_never_restarts_announces_its_generation_once() {
     // The cost of stating the rule about the row rather than the connection: an ordinary new
     // analysis has no report either, so a stream opens by retracting nothing. That is correct
-    // and costs a reader nothing — but the loop polls twice a second, and a retraction per
+    // and costs a reader nothing — but the loop polls twice a second, and announcing it per
     // poll would be a section-clearing event twice a second for as long as the first page
     // takes to read.
     let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
-    let id = running_analysis(&store).await;
+    let (id, generation) = running_analysis(&store).await;
 
     let reader = Reader::open(&store, id).await;
     let driving = {
@@ -382,7 +414,7 @@ async fn a_run_with_nothing_written_yet_retracts_once_and_not_on_every_poll() {
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(1600)).await;
             store
-                .complete(id, &report_saying("Pro costs $15"))
+                .complete(id, generation, &report_saying("Pro costs $15"))
                 .await
                 .expect("complete");
         })
@@ -391,24 +423,25 @@ async fn a_run_with_nothing_written_yet_retracts_once_and_not_on_every_poll() {
     let events = reader.drain().await;
     driving.await.expect("the driver finished");
 
-    let resets = events.iter().filter(|e| e.contains("event: reset")).count();
+    let seen = generations(&events);
     assert_eq!(
-        resets, 1,
-        "a report-less row should be retracted once per episode, not once per poll: {events:#?}"
+        seen,
+        vec![generation],
+        "a run that never restarts should announce its generation once, not once per poll:          {events:#?}"
     );
 }
 
 #[tokio::test]
-async fn a_second_reclaim_on_the_same_connection_retracts_again() {
+async fn a_second_reclaim_on_the_same_connection_is_announced_too() {
     // The retraction is sent once per report-less episode rather than once per poll, which
     // means something has to *rearm* it. Nothing tested that, and the flag not clearing is
     // both the easiest way to write it and completely silent — the first reclaim would work,
     // and a run unlucky enough to lose two workers would leave the second dead worker's
     // answers on screen with no sign anything was wrong.
     let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
-    let id = running_analysis(&store).await;
+    let (id, generation) = running_analysis(&store).await;
     store
-        .save_progress(id, &report_saying("Pro costs $15"))
+        .save_progress(id, generation, &report_saying("Pro costs $15"))
         .await
         .expect("progress");
 
@@ -416,22 +449,19 @@ async fn a_second_reclaim_on_the_same_connection_retracts_again() {
     let driving = {
         let store = Arc::clone(&store);
         tokio::spawn(async move {
+            let mut current = generation;
             for answer in ["Pro costs $19", "Pro costs $23"] {
                 tokio::time::sleep(Duration::from_millis(700)).await;
-                store
-                    .reclaim_stale(chrono::Duration::zero())
-                    .await
-                    .expect("reclaim");
+                current = hand_to_another_worker(&store, id).await;
                 tokio::time::sleep(Duration::from_millis(700)).await;
-                store.claim_next().await.expect("claim").expect("requeued");
                 store
-                    .save_progress(id, &report_saying(answer))
+                    .save_progress(id, current, &report_saying(answer))
                     .await
                     .expect("progress");
             }
             tokio::time::sleep(Duration::from_millis(700)).await;
             store
-                .complete(id, &report_saying("Pro costs $23"))
+                .complete(id, current, &report_saying("Pro costs $23"))
                 .await
                 .expect("complete");
         })
@@ -440,10 +470,15 @@ async fn a_second_reclaim_on_the_same_connection_retracts_again() {
     let events = reader.drain().await;
     driving.await.expect("the driver finished");
 
-    let resets = events.iter().filter(|e| e.contains("event: reset")).count();
+    let seen = generations(&events);
     assert_eq!(
-        resets, 2,
-        "two workers died and only one retraction was sent, so the reader kept the second          one's answers: {events:#?}"
+        seen.len(),
+        3,
+        "two workers died, so the reader should have been told about three runs - the          original and the two replacements: {seen:?}"
+    );
+    assert!(
+        seen.windows(2).all(|w| w[1] > w[0]),
+        "the generation has to move forwards every time, or a reader cannot tell a restart          from a repeat: {seen:?}"
     );
     assert!(
         events.iter().any(|e| e.contains("Pro costs $23")),
@@ -457,7 +492,7 @@ async fn a_run_that_fails_ends_the_stream_with_a_reason_rather_than_a_silence() 
     // exactly like a dropped network to a client, so it reconnects — and then reconnects
     // again, for as long as the reader leaves the tab open.
     let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
-    let id = running_analysis(&store).await;
+    let (id, generation) = running_analysis(&store).await;
     let reader = Reader::open(&store, id).await;
 
     let driving = {
@@ -467,6 +502,7 @@ async fn a_run_that_fails_ends_the_stream_with_a_reason_rather_than_a_silence() 
             store
                 .fail(
                     id,
+                    generation,
                     landscape_core::Failure::NoSubject,
                     "no subject in the prompt",
                 )
@@ -494,12 +530,15 @@ async fn a_section_that_arrives_empty_is_not_sent_until_it_has_something() {
     // helper. A section with no claims and a "not found" status is a question still being
     // read, and sending it would tell a reader we had finished looking at it.
     let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
-    let id = running_analysis(&store).await;
+    let (id, generation) = running_analysis(&store).await;
 
     let mut empty = report_saying("Pro costs $15");
     empty.sections[0].claims.clear();
     empty.sections[0].status = SectionStatus::NotFoundInPublicSources;
-    store.save_progress(id, &empty).await.expect("progress");
+    store
+        .save_progress(id, generation, &empty)
+        .await
+        .expect("progress");
 
     let reader = Reader::open(&store, id).await;
     let driving = {
@@ -507,7 +546,7 @@ async fn a_section_that_arrives_empty_is_not_sent_until_it_has_something() {
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_millis(900)).await;
             store
-                .complete(id, &report_saying("Pro costs $15"))
+                .complete(id, generation, &report_saying("Pro costs $15"))
                 .await
                 .expect("complete");
         })
