@@ -359,7 +359,9 @@ report belongs to the worker that wrote it. Every row carries a **generation** â
 has been started â€” which a worker quotes on every write, so a worker the sweep has replaced
 cannot finish over the run that replaced it. The number goes out on the stream too, because
 only a reader knows what a reader is showing: a client that reconnects into a different
-generation drops the sections it was holding. Progress writes go through one ordered writer, so
+generation drops the sections it was holding. And a replaced worker **stops**: the progress
+callback answers whether the run is still wanted, so it abandons the pages it has not read
+rather than spending the machine's only scarce resource on a report nothing will accept. Progress writes go through one ordered writer, so
 a slow write cannot overwrite a newer report and undo a correction a reader has already seen.
 These are tested by driving the real stream while the store is mutated underneath it, because
 a suite built from runs that complete cannot reach the states a run only enters when something

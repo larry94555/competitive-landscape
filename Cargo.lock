@@ -916,12 +916,15 @@ dependencies = [
 name = "landscape-analyze"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "chrono",
  "landscape-core",
  "landscape-discover",
  "landscape-extract",
  "landscape-fetch",
+ "landscape-golden",
  "landscape-llm",
+ "serde_json",
  "tokio",
 ]
 

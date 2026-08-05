@@ -28,6 +28,7 @@
 //! strictly better than a backlog of stale ones, and a queue that grows under load is how a
 //! slow database turns into a slow reader.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use landscape_core::{AnalysisId, Applied, Report};
@@ -41,6 +42,12 @@ use landscape_db::Store;
 pub(crate) struct Progress {
     latest: tokio::sync::watch::Sender<Option<Report>>,
     writer: tokio::task::JoinHandle<Outcome>,
+    /// Set by the writer task the first time a write is refused, read by [`Progress::record`].
+    ///
+    /// The revocation is discovered asynchronously — `record` cannot await — so the answer it
+    /// gives is *as of the last write that landed*, one or two windows behind. That is soon
+    /// enough: it saves the rest of the run, which is what the cost was.
+    revoked: Arc<AtomicBool>,
 }
 
 /// What the writer task found out while nobody was looking.
@@ -60,6 +67,8 @@ impl Progress {
     /// Start writing progress for one analysis.
     pub(crate) fn new(store: Arc<dyn Store>, id: AnalysisId, generation: u32) -> Self {
         let (latest, mut rx) = tokio::sync::watch::channel(None::<Report>);
+        let revoked = Arc::new(AtomicBool::new(false));
+        let flag = Arc::clone(&revoked);
         let writer = tokio::spawn(async move {
             let mut outcome = Outcome::Ours;
             // `changed()` returns an error once every sender is gone, which is the signal to
@@ -71,7 +80,10 @@ impl Progress {
                     // A revoked claim is not an error and not worth a line per write. The
                     // sweep decided this row belongs to somebody else; the worker is told
                     // once, at the end.
-                    Ok(Applied::ClaimRevoked) => outcome = Outcome::Revoked,
+                    Ok(Applied::ClaimRevoked) => {
+                        outcome = Outcome::Revoked;
+                        flag.store(true, Ordering::Relaxed);
+                    }
                     Ok(Applied::Yes) => {}
                     Err(e) => {
                         // A lost intermediate write costs a reader a few seconds of
@@ -82,16 +94,26 @@ impl Progress {
             }
             outcome
         });
-        Self { latest, writer }
+        Self {
+            latest,
+            writer,
+            revoked,
+        }
     }
 
-    /// Record the report so far. Never blocks, and never fails the run.
+    /// Record the report so far, and say whether the run is still wanted.
     ///
-    /// Called from a synchronous callback inside the pipeline, which is why it cannot await.
-    pub(crate) fn record(&self, report: &Report) {
+    /// Called from a synchronous callback inside the pipeline, which is why it cannot await —
+    /// and why the answer is the one the last landed write produced rather than this one's.
+    pub(crate) fn record(&self, report: &Report) -> landscape_analyze::Wanted {
         // `send_replace` rather than `send`: with no receiver left — the writer task having
         // ended — `send` reports an error nobody can act on, and the run must continue anyway.
         self.latest.send_replace(Some(report.clone()));
+        if self.revoked.load(Ordering::Relaxed) {
+            landscape_analyze::Wanted::No
+        } else {
+            landscape_analyze::Wanted::Yes
+        }
     }
 
     /// Stop accepting snapshots and wait for the one in flight to land.
@@ -349,6 +371,39 @@ mod tests {
         assert!(
             stored.is_none(),
             "a replaced worker wrote over the run that replaced it"
+        );
+    }
+
+    #[tokio::test]
+    async fn recording_says_to_stop_once_the_claim_is_gone() {
+        // The saving is everything the run would have done next. `record` is the only thing
+        // the pipeline calls often enough to carry the answer, and it is already the thing
+        // that discovers it — a refused write *is* how a worker learns it was replaced.
+        let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+        let (id, generation) = running_analysis(&store).await;
+        let progress = Progress::new(Arc::clone(&store), id, generation);
+
+        assert_eq!(
+            progress.record(&report_titled("first")),
+            landscape_analyze::Wanted::Yes,
+            "a run nobody has touched should carry on"
+        );
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        store
+            .reclaim_stale(chrono::Duration::zero())
+            .await
+            .expect("reclaim");
+        store.claim_next().await.expect("claim").expect("requeued");
+
+        // The first record after the reclaim is the write that gets refused; the answer is
+        // as of the last write that *landed*, so it takes one more to come back.
+        progress.record(&report_titled("during"));
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        assert_eq!(
+            progress.record(&report_titled("after")),
+            landscape_analyze::Wanted::No,
+            "a replaced worker was told to carry on, and would have read every remaining page"
         );
     }
 

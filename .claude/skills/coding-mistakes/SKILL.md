@@ -358,16 +358,61 @@ someone else's work with them rather than around them.
 
 > **Ask this:** *would this check still pass on a fresh clone of what I am about to push?*
 
+## 17. A mutation that silently hit the wrong copy
+
+**Written:** a harness that reintroduces a defect by replacing the first occurrence of a snippet,
+pointed at a `break` that three stages had just been given identical copies of.
+
+**What a person saw:** `MISSED` — reported against the loop I meant to break, when what had
+actually been broken was a different loop in the same file. I was one sentence away from writing
+"this is a real gap" into `BENCHMARKS.md` about a case that was covered.
+
+**Why the tests missed it:** the harness *is* the test of the tests. Nothing checks it, and its
+failure mode is a green-looking word rather than an error.
+
+**Rule:** a mutation has to be **verified to have landed where it was aimed** — anchor it on
+something unique to the site, and treat `MISSED` as a claim to check rather than a result to
+report. A "not caught" that is really "not applied" is the most expensive possible outcome of
+this technique, because it manufactures a gap that then gets written down as fact.
+
+> **Ask this:** *is the string I am replacing unique? If the same fix was applied in three
+> places, does my anchor say which one?*
+
+## 18. A guard that only runs when the work succeeded
+
+**Written:** the cancellation check placed inside the `Ok` arm of each extraction loop, with an
+`Err` arm beside it that only logged, and a `continue` that stepped past it when an answer was
+dropped as ungrounded.
+
+**What a person saw:** a worker whose claim had been revoked reading all twelve windows of a
+page anyway — the exact cost the change existed to remove — whenever the model was returning
+unparseable output or answers that would not ground.
+
+**Why the tests missed it:** every test had the model succeeding. The stub answered valid JSON,
+so the only path exercised was the one the check was on.
+
+**Rule:** a check that decides *whether to keep going* belongs at the end of the iteration, not
+inside the branch where the iteration went well. **The failure path is usually the one that most
+needs it** — here a run erroring is a slow run, and a slow run is the one the staleness sweep
+takes away, so the guard was missing precisely where its value was highest.
+
+The same shape shows up as `continue`: an early exit written to skip the *body* also skips
+everything after it, including code added later that has nothing to do with the reason for
+skipping.
+
+> **Ask this:** *what happens on the error branch and the `continue`? If this guard matters at
+> all, does it still run when the thing above it failed?*
+
 ---
 
 ## The checklist, before a PR
 
-Nine questions. Two minutes. Every one of them comes from an entry above.
+Eleven questions. Two minutes. Every one of them comes from an entry above.
 
 1. **Lifecycle** — does anything infer "finished" from the presence of data rather than from a
    status? *(1)*
 2. **Mid-operation states** — which states exist only when something fails partway, and which of
-   them has a test? *(the pattern, 1, 3, 4, 12, 13, 14, 15)*
+   them has a test? *(the pattern, 1, 3, 4, 12, 13, 14, 15, 18)*
 3. **Duplication of a derived fact** — is any fact computed in two places from different inputs?
    *(4)*
 4. **Comparisons** — can I name a change my equality check cannot see? Does any validation have a
@@ -383,17 +428,22 @@ Nine questions. Two minutes. Every one of them comes from an entry above.
    situation when I mean to authorise a claimant? *(15)*
 9. **What am I actually shipping** — does `git status` hold anything I did not put there? Would
    the file-reading checks pass on a clean checkout of this commit? *(16)*
+10. **Did my check run where I aimed it** — if I am reporting that something is *not* covered,
+    have I confirmed the thing I broke is the thing I meant to break? *(17)*
+11. **The unhappy branch** — does every guard still run when the step above it failed or was
+    skipped? Is there a test where the dependency *errors* rather than succeeds? *(18)*
 
 ## How these were found, and what that says
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14 | All in error paths; 13 and 14 were successive halves of one fix |
+| Review | 1, 2, 3, 4, 13, 14, 18 | All in error paths; 13 and 14 were successive halves of one fix |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |
 | Deliberately breaking the code to see if a test notices | 12, and the rearm in 14 | The store was fast, so nothing raced until one was made slow |
 | Writing down what a fix does *not* cover | 15 | Named as open in Run 18's "what is still not right", fixed in Run 19 |
 | CI, catching what a local run could not see | 16 | The local check read the working tree; CI reads the commit |
+| Doubting a `MISSED` instead of writing it down | 17 | The mutation had been applied to a different copy of the same code |
 | The test suite, before review | — | **None of the entries above** |
 
 **That last row is the point of this file.** The suite is good at protecting what it was written
