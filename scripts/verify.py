@@ -128,6 +128,20 @@ def clean_checkout() -> tuple[Path, object] | None:
     return tree, where
 
 
+def say(line: str) -> None:
+    """Print a line that may hold anything a tool wrote.
+
+    Windows consoles default to cp1252, and eslint's `✖` crashed this reporter *while it
+    was reporting a failure* — the one moment it has a job to do. A gate's output is arbitrary
+    bytes from somebody else's program, so it is written defensively rather than trusted.
+    """
+    try:
+        print(line, flush=True)
+    except UnicodeEncodeError:
+        encoding = sys.stdout.encoding or "ascii"
+        print(line.encode(encoding, "replace").decode(encoding), flush=True)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fast", action="store_true", help="skip the slow gates")
@@ -167,9 +181,9 @@ def main() -> int:
     width = max(len(name) for name, _, _ in results)
     for name, ok, detail in results:
         mark = "ok  " if ok else "FAIL"
-        print(f"  {mark}  {name:<{width}}  {detail.splitlines()[0] if detail else ''}")
+        say(f"  {mark}  {name:<{width}}  {detail.splitlines()[0] if detail else ''}")
         if not ok and detail:
-            print(f"      {detail}")
+            say(f"      {detail}")
 
     failed = [name for name, ok, _ in results if not ok]
     if failed:

@@ -36,12 +36,29 @@ pub struct Attempt {
     pub subject: String,
 }
 
-/// An origin without its scheme, which is how a person names a company.
-fn bare(origin: &str) -> String {
-    let host = origin
+impl Attempt {
+    /// `/changelog (404)` — the line itself, before anybody decides whose it is.
+    #[must_use]
+    pub fn line(&self) -> String {
+        format!("{} ({})", self.path, self.outcome)
+    }
+}
+
+/// A checked line with the company on the front.
+///
+/// **The one place that decides how a company is attached to a line.** Three surfaces render
+/// these — the coverage note, the empty section, and the merged report, which joins lines that
+/// were rendered before it knew there would be more than one company — and three format strings
+/// drift. An empty subject returns the line untouched rather than a leading space.
+#[must_use]
+pub fn attributed(subject: &str, line: &str) -> String {
+    if subject.is_empty() {
+        return line.to_owned();
+    }
+    let host = subject
         .trim_start_matches("https://")
         .trim_start_matches("http://");
-    format!("{host} ")
+    format!("{host} {line}")
 }
 
 /// What one question of the six is backed by.
@@ -136,10 +153,10 @@ impl Coverage {
             .iter()
             .take(SHOWN)
             .map(|a| {
-                if several && !a.subject.is_empty() {
-                    format!("{}{} ({})", bare(&a.subject), a.path, a.outcome)
+                if several {
+                    attributed(&a.subject, &a.line())
                 } else {
-                    format!("{} ({})", a.path, a.outcome)
+                    a.line()
                 }
             })
             .collect();
@@ -167,10 +184,10 @@ impl Coverage {
             .attempts
             .iter()
             .map(|a| {
-                if several && !a.subject.is_empty() {
-                    format!("{}{} ({})", bare(&a.subject), a.path, a.outcome)
+                if several {
+                    attributed(&a.subject, &a.line())
                 } else {
-                    format!("{} ({})", a.path, a.outcome)
+                    a.line()
                 }
             })
             .collect();

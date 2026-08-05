@@ -198,8 +198,10 @@ pub async fn analyse_many(
 /// — so a section that found nothing would describe only the first site's attempts, which is
 /// this project's honest-negative treatment failing in exactly the place it matters.
 ///
-/// Attribution survives the merge because every path in `sources` and `attempts` is a URL, and
-/// a URL names its company.
+/// Attribution survives the merge because every [`landscape_core::Attempt`] carries the origin
+/// it was tried against. It is **not** carried by the path: `attempts_for` stores `/pricing`,
+/// not `https://basecamp.com/pricing`, because the note used to be read under a heading that
+/// already named the company. I wrote the opposite here, and review checked the producer.
 fn coverage_by_question(finished: &[Analysis]) -> Vec<Coverage> {
     let mut merged: Vec<Coverage> = Vec::new();
     for one in finished.iter().flat_map(|a| a.coverage.iter()) {
@@ -227,6 +229,10 @@ fn joined(
 ) -> Report {
     let mut sections: Vec<Section> = Vec::new();
     let mut sources: Vec<Source> = Vec::new();
+    // From the companies this run set out to cover — the same reading as `Report::subjects`,
+    // and for the same reason: a company that says nothing is still one of the two being
+    // compared, and the one that spoke keeps its label.
+    let several = origins.len() > 1;
 
     for report in finished.iter().map(|a| &a.report).chain(in_flight) {
         // Every source this report brought, renumbered from where the last one left off.
@@ -242,6 +248,25 @@ fn joined(
         }
 
         for section in &report.sections {
+            // **The lines a reader sees, which are not the merged `Coverage`.** Each company is
+            // assembled on its own, so `to_section` rendered `/pricing (404)` while it was still
+            // true that one company was all there was. Joining those strings leaves the web
+            // report — which renders `section.checked` and never sees a `Coverage` — with two
+            // identical paths and no way to tell whose gap is whose. Review found this after
+            // the structured coverage had already been fixed, which is the lesson: the surface
+            // a person looks at is its own assertion.
+            let checked: Vec<String> = section
+                .checked
+                .iter()
+                .map(|line| {
+                    if several {
+                        landscape_core::attributed(&report.subject, line)
+                    } else {
+                        line.clone()
+                    }
+                })
+                .collect();
+
             let claims: Vec<Claim> = section
                 .claims
                 .iter()
@@ -265,7 +290,7 @@ fn joined(
             match sections.iter_mut().find(|s| s.key == section.key) {
                 Some(existing) => {
                     existing.claims.extend(claims);
-                    existing.checked.extend(section.checked.iter().cloned());
+                    existing.checked.extend(checked);
                     existing.notes.extend(section.notes.iter().cloned());
                     if !existing.claims.is_empty() {
                         existing.status = landscape_core::SectionStatus::Populated;
@@ -274,6 +299,7 @@ fn joined(
                 None => {
                     let mut merged = section.clone();
                     merged.claims = claims;
+                    merged.checked = checked;
                     sections.push(merged);
                 }
             }
@@ -1108,6 +1134,35 @@ mod joining {
             subjects.len(),
             origins.len(),
             "discovery's attempts do not say which company they belong to: {subjects:?}"
+        );
+
+        // **The lines the web report renders, not the coverage behind them.** Review found
+        // this after the coverage above was already right: `joined()` concatenates strings each
+        // company rendered while it was still the only one, so `report.sections[*].checked` -
+        // which the interface reads and a `Coverage` never reaches - still said `/pricing (404)`
+        // twice. Asserting the model and not the surface is how a fixed defect stays visible.
+        let checked: Vec<&str> = outcome
+            .report
+            .sections
+            .iter()
+            .flat_map(|s| s.checked.iter())
+            .map(String::as_str)
+            .collect();
+        assert!(
+            !checked.is_empty(),
+            "two unreachable origins produced no checked lines, so this asserts nothing"
+        );
+        for origin in &origins {
+            let host = origin.trim_start_matches("https://");
+            assert!(
+                checked.iter().any(|line| line.starts_with(host)),
+                "no checked line in the report belongs to {host}: {checked:?}"
+            );
+        }
+        let unattributed: Vec<&&str> = checked.iter().filter(|l| l.starts_with('/')).collect();
+        assert!(
+            unattributed.is_empty(),
+            "checked lines a reader cannot attribute: {unattributed:?}"
         );
     }
 

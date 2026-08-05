@@ -169,6 +169,73 @@ async fn hand_to_another_worker(store: &Arc<dyn Store>, id: AnalysisId) -> u32 {
 }
 
 #[tokio::test]
+async fn a_reader_is_told_which_companies_are_being_compared_before_the_run_ends() {
+    // **The label a reader needs is needed while they are waiting, not afterwards.** A claim
+    // says "Pro costs $15" and never names the company; whether to put the company beside it
+    // depends on how many are being compared, and that lives on `Report::subjects` — which the
+    // client does not have until it fetches the finished report. For the ninety seconds that
+    // matter there was no report, so the interface guessed from the claims on screen, and a
+    // company that had not answered yet took the label off the one that had.
+    //
+    // Review found this after the finished report had been fixed: same defect, one surface on.
+    let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+    let (id, generation) = running_analysis(&store).await;
+    let mut partial = report_saying("Pro costs $15");
+    partial.subjects = vec![
+        "https://basecamp.com".to_owned(),
+        "https://linear.app".to_owned(),
+    ];
+    store
+        .save_progress(id, generation, &partial)
+        .await
+        .expect("progress");
+
+    let reader = Reader::open(&store, id).await;
+    let driving = {
+        let store = Arc::clone(&store);
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(700)).await;
+            store
+                .complete(id, generation, &partial)
+                .await
+                .expect("complete");
+        })
+    };
+    let events = reader.drain().await;
+    driving.await.expect("the driver finished");
+
+    let at = events
+        .iter()
+        .position(|e| e.contains("event: subjects"))
+        .unwrap_or_else(|| panic!("no subjects event: {events:#?}"));
+    assert!(
+        events[at].contains("linear.app"),
+        "the subjects event does not name the companies: {}",
+        events[at]
+    );
+    // Before the claim it decides the rendering of. A label that arrives after the price it
+    // belongs to is a price a reader has already read unlabelled.
+    let claim_at = events
+        .iter()
+        .position(|e| e.contains("Pro costs $15"))
+        .unwrap_or_else(|| panic!("no section event: {events:#?}"));
+    assert!(
+        at < claim_at,
+        "the companies arrived after the first claim: {events:#?}"
+    );
+    // And once, not on every poll — a stream that repeats itself twice a second is a stream
+    // nobody can read in a network panel.
+    assert_eq!(
+        events
+            .iter()
+            .filter(|e| e.contains("event: subjects"))
+            .count(),
+        1,
+        "the subjects event repeated: {events:#?}"
+    );
+}
+
+#[tokio::test]
 async fn a_reader_watching_a_reclaimed_run_is_never_told_it_finished() {
     // A worker dies mid-run. Twenty minutes later the sweep returns the row to the queue and
     // another worker starts over. From the reader's side this is one analysis that takes a

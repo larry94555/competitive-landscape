@@ -175,6 +175,15 @@ export interface Watcher {
    * a reconnected stream has no memory of the one it replaced.
    */
   readonly onGeneration: (generation: number) => void;
+  /**
+   * Which companies this run set out to cover.
+   *
+   * Not which ones produced a claim — the difference is a company that says nothing, and the
+   * survivor's prices losing their label in a report that is still a comparison. The stream
+   * carries it because the report that holds `subjects` is not fetched until the run is over,
+   * and the first claim arrives long before that.
+   */
+  readonly onSubjects: (subjects: readonly string[]) => void;
   /** Nothing else is coming. The caller fetches the finished analysis. */
   readonly onDone: () => void;
 }
@@ -221,6 +230,18 @@ export function watchAnalysis(id: string, watcher: Watcher): () => void {
     // A generation we cannot read is worse than one we ignore: clearing on `NaN` would wipe
     // the reader's screen every poll.
     if (Number.isInteger(n)) watcher.onGeneration(n);
+  });
+  source.addEventListener("subjects", (e) => {
+    try {
+      const parsed: unknown = JSON.parse((e as MessageEvent<string>).data);
+      // Anything else is dropped rather than guessed at. A malformed list would decide
+      // whether every claim on screen is labelled, and the finished report says so anyway.
+      if (Array.isArray(parsed) && parsed.every((s) => typeof s === "string")) {
+        watcher.onSubjects(parsed);
+      }
+    } catch {
+      // See above: the label is left to the final fetch rather than put on a guess.
+    }
   });
   source.addEventListener("done", () => {
     close();

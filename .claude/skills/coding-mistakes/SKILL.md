@@ -23,7 +23,7 @@ the standard did not save us, with the specific question that would have.
 **Before writing** code that touches any of the classes below, read that class's rule and its
 "ask this" line.
 
-**Before opening a PR**, run [the two commands and five questions](#before-a-pr-two-commands-and-five-questions).
+**Before opening a PR**, run [the two commands and six questions](#before-a-pr-two-commands-and-six-questions).
 The commands are the part that does not depend on remembering; the questions take two minutes.
 
 **After a review finds something**, add an entry the same day. Format: what was written, what a
@@ -575,9 +575,40 @@ about to break is written down.
 > **Ask this:** *have I read the code that produces this, in this pull request — or am I
 > remembering what it produces?*
 
+## 25. Fixing the model and never looking at the surface
+
+**Written:** `Attempt.subject`, merged `Coverage`, a passing test on the merged coverage — and
+a web report still rendering `/pricing (404)` twice.
+
+**What a person saw:** review, again, one round after the fix. The structured data was right;
+the interface renders `section.checked`, which is a **list of strings each company rendered
+before it knew there would be another one**, and `joined()` concatenated those strings. My tests
+asserted the merged `Coverage` and called `to_section()` themselves — neither of which is the
+value the interface reads.
+
+Two more of the same shape landed in the same review. `several` was correct on the finished
+report and guessed from the claims **during the stream**, because `subjects` lives on a report
+that is not fetched until the run ends — so the label was wrong for the ninety seconds a reader
+is actually watching. And `<strong>{subject}</strong>{claim.text}` rendered
+`basecamp.comPro costs $15`, because JSX drops the whitespace around a newline and every
+assertion so far had matched the two halves **separately**.
+
+**Rule:** a fact has as many surfaces as it has renderings, and fixing the one that holds the
+data fixes none of the others. Fix a fact and then **list the surfaces**: the CLI, the merged
+report, the live stream, the rendered line. Assert on the value each surface actually reads —
+`report.sections[*].checked`, not the `Coverage` behind it; the whole line's text, not the two
+halves that compose it.
+
+And the timing half: a fact that arrives with the finished report is absent for the entire wait.
+If a reader looks at something before the report exists, whatever decides how it is rendered has
+to reach them before it does.
+
+> **Ask this:** *what does each surface read — and does the one a person looks at longest have
+> this yet?*
+
 ---
 
-## Before a PR: two commands and five questions
+## Before a PR: two commands and six questions
 
 **The commands come first, because they are the part that does not depend on remembering.**
 
@@ -599,7 +630,7 @@ one mutation per guard you added. This is the only mechanical check that has eve
 here — and a `MISSED` exits non-zero, because a test that cannot fail is a finding rather than a
 line in a table.
 
-### Then five questions
+### Then six questions
 
 Grouped by what has actually gone wrong, commonest first.
 
@@ -609,9 +640,10 @@ Grouped by what has actually gone wrong, commonest first.
    *(1, 3, 4, 12, 13, 14, 15, 18, 19, 19b)*
 
 2. **Which of my checks cannot fail?** **Open the producer and copy its shape** — do not write
-   what the value obviously is. Does the fixture already contain the thing I am asserting? If I
-   deleted the call to the function I just tested, would anything fail? Is there a case that
-   *should* fail and does? *(5, 20, 21, 24)*
+   what the value obviously is. **Assert on the value the surface reads**, not the structure
+   behind it, and on the whole line rather than the halves. Does the fixture already contain the
+   thing I am asserting? If I deleted the call to the function I just tested, would anything
+   fail? Is there a case that *should* fail and does? *(5, 20, 21, 24, 25)*
 
 3. **What is the scope of each guard, and of each wrapper?** A condition about *the connection*
    is wrong at every reconnect; a counter inside an effect does not survive a remount; a layer
@@ -622,7 +654,11 @@ Grouped by what has actually gone wrong, commonest first.
    pairing, or value separated from its evidence — and does anything still line up when one of
    them changes length? *(7)*
 
-5. **Is the output honest about what it does not know?** Are caps, drops, truncation and "found
+5. **Have I listed the surfaces?** One fact, rendered by the CLI, the merged report, the live
+   stream and the interface. Which of them still has the old shape — and does the one a reader
+   looks at *longest*, the stream, have this before it needs it? *(25)*
+
+6. **Is the output honest about what it does not know?** Are caps, drops, truncation and "found
    nothing" distinguishable from completeness? Does a merged view say which subject each part
    belongs to — **including when one subject produced nothing**? Am I counting the thing or the
    evidence for it? Does any prompt name a real company? *(2, 6, 8, 9, 10, 11, 23)*
@@ -631,7 +667,7 @@ Grouped by what has actually gone wrong, commonest first.
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |
 | Deliberately breaking the code to see if a test notices | 12, the rearm in 14, and 21 | The store was fast, so nothing raced until one was made slow. Now `scripts/mutate.py` |

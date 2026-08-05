@@ -671,6 +671,70 @@ describe("a report about several companies", () => {
     expect(screen.getByText("basecamp.com")).toBeInTheDocument();
   });
 
+  it("labels the first claim while the second company is still being read", async () => {
+    // Review found this one *after* the finished report was fixed. Mid-run there is no report
+    // yet — `subjects` lives on it, and it is not fetched until `done` — so the label was being
+    // guessed from the claims on screen again, one surface later. Basecamp answers first,
+    // Linear is still being read, and the price on screen has to say whose it is *now*: the
+    // reader is looking at it for the ninety seconds before the report exists.
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    const stream = FakeEventSource.last!;
+    act(() =>
+      stream.send(
+        "subjects",
+        JSON.stringify(["https://basecamp.com", "https://linear.app"]),
+      ),
+    );
+    act(() =>
+      stream.send(
+        "section",
+        JSON.stringify(
+          section("pricing", "Pricing & packaging", "Pro costs $15", "https://basecamp.com"),
+        ),
+      ),
+    );
+
+    expect(await screen.findByText(/Pro costs \$15/)).toBeInTheDocument();
+    expect(screen.getByText("basecamp.com")).toBeInTheDocument();
+  });
+
+  it("puts a space between the company and what it said", async () => {
+    // Review found `basecamp.comPro costs $15` on screen: JSX drops the whitespace around a
+    // newline, and every assertion so far had matched the two halves separately. This one
+    // reads the line the way a person does — and the way a copy-paste does.
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    const stream = FakeEventSource.last!;
+    act(() =>
+      stream.send(
+        "subjects",
+        JSON.stringify(["https://basecamp.com", "https://linear.app"]),
+      ),
+    );
+    act(() =>
+      stream.send(
+        "section",
+        JSON.stringify(
+          section("pricing", "Pricing & packaging", "Pro costs $15", "https://basecamp.com"),
+        ),
+      ),
+    );
+
+    const line = await screen.findByRole("listitem");
+    expect(line.textContent).toContain("basecamp.com Pro costs $15");
+  });
+
   it("does not repeat one company down a report about one company", async () => {
     // The other half. A name against every line of a single-company report is noise, and
     // noise is what teaches a reader to stop reading the labels that matter.
