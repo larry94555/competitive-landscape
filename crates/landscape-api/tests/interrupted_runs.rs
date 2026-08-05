@@ -51,6 +51,7 @@ fn report_saying(text: &str) -> Report {
             status: SectionStatus::Populated,
             claims: vec![Claim {
                 text: text.to_owned(),
+                subject: "https://basecamp.com".to_owned(),
                 source_label: "S1".to_owned(),
                 evidence_quote: "$15/user, billed monthly".to_owned(),
                 confidence: Confidence::High,
@@ -60,6 +61,7 @@ fn report_saying(text: &str) -> Report {
             notes: Vec::new(),
         }],
         sources: Vec::new(),
+        notes: Vec::new(),
     }
 }
 

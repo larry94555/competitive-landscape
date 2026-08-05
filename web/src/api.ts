@@ -20,6 +20,13 @@ export type SectionStatus = "populated" | "partial" | "not_found_in_public_sourc
 
 export interface Claim {
   readonly text: string;
+  /**
+   * Which company this is about, as the origin it was read from.
+   *
+   * A claim's text says what the page says — *"Pro costs $15"* — and never names the company.
+   * Once one section holds several companies, that is not enough to tell whose price is whose.
+   */
+  readonly subject: string;
   readonly source_label: string;
   readonly evidence_quote: string;
   readonly confidence: "high" | "medium" | "low";
@@ -45,6 +52,8 @@ export interface Report {
   readonly prompt_version: number;
   readonly sections: readonly Section[];
   readonly sources: readonly unknown[];
+  /** Anything true of the whole report — today, companies named and not analysed. */
+  readonly notes?: readonly string[];
 }
 
 export interface Analysis {

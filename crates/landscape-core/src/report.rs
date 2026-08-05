@@ -27,6 +27,20 @@ pub enum Confidence {
 pub struct Claim {
     /// One assertion, at most 400 characters.
     pub text: String,
+    /// Which company this is about, as the origin it was read from.
+    ///
+    /// **A claim's text does not name its subject, and should not.** An extractor reading
+    /// Basecamp's pricing page produces *"Pro costs $15"*, because that is what the page says;
+    /// putting the company into the sentence would be the renderer's job leaking into the data.
+    /// But once one section holds several companies, a reader looking at two prices has no way
+    /// to tell which is whose — so the subject travels *with* the claim rather than being
+    /// recoverable from it.
+    ///
+    /// Always set by the pipeline. **Whether to show it is the renderer's decision**: on a
+    /// report about one company every claim carries the same subject and printing it against
+    /// each one is noise, so it appears only when a report covers more than one.
+    #[serde(default)]
+    pub subject: String,
     /// Which source this came from — matches `Source::label`.
     pub source_label: String,
     /// The span from the source that supports it, copied verbatim.
@@ -94,6 +108,13 @@ pub struct Report {
     pub prompt_version: u32,
     pub sections: Vec<Section>,
     pub sources: Vec<Source>,
+    /// Anything true of the whole report rather than of one section.
+    ///
+    /// Today that is one thing: **which companies were named and not analysed.** Dropping a
+    /// subject in silence is the defect multi-company support exists to remove, and doing it at
+    /// a higher count would be the same defect wearing a bigger number.
+    #[serde(default)]
+    pub notes: Vec<String>,
 }
 
 impl Report {
@@ -151,6 +172,7 @@ mod tests {
     fn claim(source_label: &str) -> Claim {
         Claim {
             text: "Starter is $39 a month.".to_owned(),
+            subject: String::new(),
             source_label: source_label.to_owned(),
             evidence_quote: "Starter  $39 per month, up to 25 orders".to_owned(),
             confidence: Confidence::High,
@@ -174,6 +196,7 @@ mod tests {
                 notes: Vec::new(),
             }],
             sources,
+            notes: Vec::new(),
         }
     }
 

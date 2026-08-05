@@ -138,13 +138,36 @@ pub async fn analyse_many(
     today: NaiveDate,
     on_progress: &mut dyn FnMut(&Report) -> Wanted,
 ) -> Analysis {
+    // The cap is applied here rather than in the parser, so what it costs can be said out
+    // loud. Dropping the fourth company in silence would be the defect this feature exists to
+    // remove, at a higher count.
+    let (analysing, dropped) = origins.split_at(origins.len().min(subject::MAX_SUBJECTS));
+    let notes = if dropped.is_empty() {
+        Vec::new()
+    } else {
+        vec![format!(
+            "Comparing the first {} sites named. Not analysed: {}. Each company is its own              discovery, fetches and model calls, so more of them is a longer wait rather than              a bigger report - run them separately if you need all of these.",
+            analysing.len(),
+            dropped.join(", ")
+        )]
+    };
+    let origins = analysing;
+
     let mut finished: Vec<Analysis> = Vec::with_capacity(origins.len());
 
     for origin in origins {
         let stopped = {
             let so_far = &finished;
-            let mut merge_and_report =
-                |partial: &Report| on_progress(&joined(so_far, Some(partial), origins, llm, now));
+            let mut merge_and_report = |partial: &Report| {
+                on_progress(&joined(
+                    so_far,
+                    Some(partial),
+                    origins,
+                    notes.clone(),
+                    llm,
+                    now,
+                ))
+            };
             let one = analyse_with(fetcher, llm, origin, now, today, &mut merge_and_report).await;
             let stopped = one.stopped_early;
             finished.push(one);
@@ -158,13 +181,39 @@ pub async fn analyse_many(
         }
     }
 
-    let report = joined(&finished, None, origins, llm, now);
+    let report = joined(&finished, None, origins, notes, llm, now);
     Analysis {
         report,
-        coverage: finished.iter().flat_map(|a| a.coverage.clone()).collect(),
+        coverage: coverage_by_question(&finished),
         pages: finished.iter().flat_map(|a| a.pages.clone()).collect(),
         stopped_early: finished.iter().any(|a| a.stopped_early),
     }
+}
+
+/// One coverage record per question, however many companies were read.
+///
+/// **`Analysis::render` zips sections with coverage**, and the merged report has six sections
+/// however many subjects it covers. Concatenating each company's six would leave the renderer
+/// consuming the first company's and silently ignoring every other company's negative evidence
+/// — so a section that found nothing would describe only the first site's attempts, which is
+/// this project's honest-negative treatment failing in exactly the place it matters.
+///
+/// Attribution survives the merge because every path in `sources` and `attempts` is a URL, and
+/// a URL names its company.
+fn coverage_by_question(finished: &[Analysis]) -> Vec<Coverage> {
+    let mut merged: Vec<Coverage> = Vec::new();
+    for one in finished.iter().flat_map(|a| a.coverage.iter()) {
+        match merged.iter_mut().find(|c| c.question == one.question) {
+            Some(into) => {
+                into.sources.extend(one.sources.iter().cloned());
+                into.attempts.extend(one.attempts.iter().cloned());
+                into.pages_read += one.pages_read;
+                into.facts += one.facts;
+            }
+            None => merged.push(one.clone()),
+        }
+    }
+    merged
 }
 
 /// One report from several, with source labels reassigned so none collides.
@@ -172,6 +221,7 @@ fn joined(
     finished: &[Analysis],
     in_flight: Option<&Report>,
     origins: &[String],
+    notes: Vec<String>,
     llm: &landscape_llm::LlamaClient,
     now: DateTime<Utc>,
 ) -> Report {
@@ -203,6 +253,11 @@ fn joined(
                         .get(&claim.source_label)
                         .cloned()
                         .unwrap_or_else(|| claim.source_label.clone()),
+                    // **Stamped here rather than where the claim was built.** Each run's
+                    // report knows the company it is about; the extractors do not need to, and
+                    // putting it here means the one place that has to get it right is the one
+                    // place with tests around it.
+                    subject: report.subject.clone(),
                     ..claim.clone()
                 })
                 .collect();
@@ -233,6 +288,7 @@ fn joined(
         prompt_version: PROMPT_VERSION,
         sections,
         sources,
+        notes,
     }
 }
 
@@ -338,6 +394,7 @@ pub async fn analyse_with(
                         question,
                         Claim {
                             text: f.text.clone(),
+                            subject: String::new(),
                             source_label: label.clone(),
                             evidence_quote: f.quote.clone(),
                             confidence: f.confidence,
@@ -377,6 +434,7 @@ pub async fn analyse_with(
                 question,
                 Claim {
                     text: text.text,
+                    subject: String::new(),
                     source_label: label.clone(),
                     evidence_quote: text.quote,
                     confidence: text.confidence,
@@ -470,6 +528,7 @@ fn assemble(
         prompt_version: PROMPT_VERSION,
         sections,
         sources: sources.to_vec(),
+        notes: Vec::new(),
     };
     (report, coverage)
 }
@@ -746,6 +805,7 @@ mod joining {
                 status: SectionStatus::Populated,
                 claims: vec![Claim {
                     text: says.to_owned(),
+                    subject: origin.to_owned(),
                     source_label: "S1".to_owned(),
                     evidence_quote: says.to_owned(),
                     confidence: Confidence::High,
@@ -754,6 +814,7 @@ mod joining {
                 checked: vec![format!("{origin}/pricing")],
                 notes: Vec::new(),
             }],
+            notes: Vec::new(),
             sources: vec![Source {
                 label: "S1".to_owned(),
                 url: format!("{origin}/pricing"),
@@ -782,11 +843,12 @@ mod joining {
         let origins = vec!["https://a.com".to_owned(), "https://b.com".to_owned()];
         let merged = joined(
             &[
-                one_company("https://a.com", "A costs $10"),
-                one_company("https://b.com", "B costs $20"),
+                one_company("https://a.com", "Pro costs $15"),
+                one_company("https://b.com", "Business costs $16"),
             ],
             None,
             &origins,
+            Vec::new(),
             &llm(),
             at(),
         );
@@ -798,8 +860,11 @@ mod joining {
             .expect("one pricing section, not two");
         assert_eq!(merged.sections.len(), 1, "sections merged by question");
         assert_eq!(pricing.claims.len(), 2);
-        assert!(pricing.claims.iter().any(|c| c.text == "A costs $10"));
-        assert!(pricing.claims.iter().any(|c| c.text == "B costs $20"));
+        assert!(pricing.claims.iter().any(|c| c.text == "Pro costs $15"));
+        assert!(pricing
+            .claims
+            .iter()
+            .any(|c| c.text == "Business costs $16"));
     }
 
     #[test]
@@ -811,11 +876,12 @@ mod joining {
         let origins = vec!["https://a.com".to_owned(), "https://b.com".to_owned()];
         let merged = joined(
             &[
-                one_company("https://a.com", "A costs $10"),
-                one_company("https://b.com", "B costs $20"),
+                one_company("https://a.com", "Pro costs $15"),
+                one_company("https://b.com", "Business costs $16"),
             ],
             None,
             &origins,
+            Vec::new(),
             &llm(),
             at(),
         );
@@ -832,21 +898,25 @@ mod joining {
             "labels are unique across companies"
         );
 
+        // **Real claim text, deliberately.** The first version of this test invented
+        // `A costs $10` and `B costs $20`, which name their company — and review pointed out
+        // that this is exactly what hid the defect, because the real extractors produce
+        // `Pro costs $15`: what the page says, and nothing about who said it.
         for claim in &merged.sections[0].claims {
+            assert!(
+                !claim.text.contains("a.com") && !claim.text.contains("b.com"),
+                "the fixture names the company in the claim text, which no extractor does"
+            );
             let source = merged
                 .sources
                 .iter()
                 .find(|s| s.label == claim.source_label)
                 .expect("every claim resolves");
-            let company = if claim.text.starts_with('A') {
-                "a.com"
-            } else {
-                "b.com"
-            };
             assert!(
-                source.url.contains(company),
-                "{} cites {}, which belongs to the other company",
+                source.url.starts_with(&claim.subject),
+                "{} says it is about {} and cites {}, which is another company's page",
                 claim.text,
+                claim.subject,
                 source.url
             );
         }
@@ -858,11 +928,12 @@ mod joining {
         // has produced so far. Without the in-flight half, the page would show nothing new
         // until a whole company finished.
         let origins = vec!["https://a.com".to_owned(), "https://b.com".to_owned()];
-        let partial = one_company("https://b.com", "B costs $20").report;
+        let partial = one_company("https://b.com", "Business costs $16").report;
         let merged = joined(
-            &[one_company("https://a.com", "A costs $10")],
+            &[one_company("https://a.com", "Pro costs $15")],
             Some(&partial),
             &origins,
+            Vec::new(),
             &llm(),
             at(),
         );
@@ -872,9 +943,149 @@ mod joining {
     }
 
     #[test]
+    fn every_claim_says_which_company_it_is_about() {
+        // Without this a merged pricing section is two numbers and no names: the claim text is
+        // whatever the page said, and the web UI renders the text and a bare `[S1]`.
+        let origins = vec!["https://a.com".to_owned(), "https://b.com".to_owned()];
+        let merged = joined(
+            &[
+                one_company("https://a.com", "Pro costs $15"),
+                one_company("https://b.com", "Business costs $16"),
+            ],
+            None,
+            &origins,
+            Vec::new(),
+            &llm(),
+            at(),
+        );
+
+        let subjects: Vec<&str> = merged.sections[0]
+            .claims
+            .iter()
+            .map(|c| c.subject.as_str())
+            .collect();
+        assert_eq!(subjects, vec!["https://a.com", "https://b.com"]);
+    }
+
+    #[test]
+    fn coverage_is_one_record_per_question_however_many_companies() {
+        // `Analysis::render` zips sections with coverage, and the merged report has one section
+        // per question however many subjects it covers. Concatenating each company's six would
+        // leave the renderer reading the first company's and silently dropping the rest — so a
+        // section that found nothing would describe only the first site's attempts, which is
+        // the honest-negative treatment failing exactly where it matters most.
+        let a = Analysis {
+            coverage: vec![Coverage {
+                question: "pricing".to_owned(),
+                sources: vec!["https://a.com/pricing".to_owned()],
+                pages_read: 1,
+                facts: 0,
+                attempts: vec![landscape_core::Attempt {
+                    path: "https://a.com/pricing".to_owned(),
+                    outcome: "404".to_owned(),
+                }],
+            }],
+            ..one_company("https://a.com", "Pro costs $15")
+        };
+        let b = Analysis {
+            coverage: vec![Coverage {
+                question: "pricing".to_owned(),
+                sources: vec!["https://b.com/plans".to_owned()],
+                pages_read: 1,
+                facts: 0,
+                attempts: vec![landscape_core::Attempt {
+                    path: "https://b.com/plans".to_owned(),
+                    outcome: "404".to_owned(),
+                }],
+            }],
+            ..one_company("https://b.com", "Business costs $16")
+        };
+
+        let merged = coverage_by_question(&[a, b]);
+        assert_eq!(merged.len(), 1, "one record per question, not per company");
+        assert_eq!(merged[0].pages_read, 2);
+        // And both companies' negative evidence survives, because a path names its company.
+        let paths: Vec<&str> = merged[0].attempts.iter().map(|a| a.path.as_str()).collect();
+        assert_eq!(
+            paths,
+            vec!["https://a.com/pricing", "https://b.com/plans"],
+            "one company's attempts were dropped, so its 'nothing found' cannot be explained"
+        );
+    }
+
+    /// Origins in `.invalid`, which by RFC 2606 can never resolve.
+    ///
+    /// Enough to drive `analyse_many` end to end without a model or a reachable page: every
+    /// fetch fails fast, every subject produces an empty report, and what is being asserted is
+    /// the *joining* — which is the part that has no other way of being reached.
+    fn unreachable(n: usize) -> Vec<String> {
+        (0..n).map(|i| format!("https://s{i}.invalid")).collect()
+    }
+
+    #[tokio::test]
+    async fn analyse_many_says_which_companies_it_left_out() {
+        // Review's point: capping at three and dropping the fourth in silence is the same
+        // defect as taking the first and dropping the second, one count higher. Asserted on
+        // the real function rather than on a note handed to the joiner by a test.
+        let origins = unreachable(subject::MAX_SUBJECTS + 1);
+        let outcome = analyse_many(
+            &landscape_fetch::Fetcher::new(),
+            &llm(),
+            &origins,
+            at(),
+            at().date_naive(),
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+
+        let last = origins.last().expect("a dropped origin");
+        assert!(
+            outcome.report.notes.iter().any(|n| n.contains(last)),
+            "{last} was dropped without the report saying so: {:?}",
+            outcome.report.notes
+        );
+    }
+
+    #[tokio::test]
+    async fn analyse_many_reports_one_coverage_record_per_question() {
+        // `Analysis::render` zips sections with coverage. Two companies' worth concatenated
+        // would leave the second company's negative evidence unreachable — and this asserts it
+        // on the function the worker actually calls, not on the merge helper alone.
+        let origins = unreachable(2);
+        let outcome = analyse_many(
+            &landscape_fetch::Fetcher::new(),
+            &llm(),
+            &origins,
+            at(),
+            at().date_naive(),
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+
+        assert_eq!(
+            outcome.coverage.len(),
+            outcome.report.sections.len(),
+            "the renderer zips these two, so a mismatch drops somebody's evidence"
+        );
+        let mut questions: Vec<&str> = outcome
+            .coverage
+            .iter()
+            .map(|c| c.question.as_str())
+            .collect();
+        questions.sort_unstable();
+        let before = questions.len();
+        questions.dedup();
+        assert_eq!(
+            before,
+            questions.len(),
+            "a question appears twice: {questions:?}"
+        );
+    }
+
+    #[test]
     fn the_report_says_which_companies_it_is_about() {
         let origins = vec!["https://a.com".to_owned(), "https://b.com".to_owned()];
-        let merged = joined(&[], None, &origins, &llm(), at());
+        let merged = joined(&[], None, &origins, Vec::new(), &llm(), at());
         assert_eq!(merged.subject, "https://a.com, https://b.com");
         assert_eq!(merged.searched_as, "https://a.com, https://b.com");
     }

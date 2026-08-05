@@ -57,7 +57,7 @@ function stubEventSource(): void {
   vi.stubGlobal("EventSource", FakeEventSource);
 }
 
-function section(key: string, title: string, claim: string) {
+function section(key: string, title: string, claim: string, subject = "") {
   return {
     key,
     title,
@@ -65,6 +65,7 @@ function section(key: string, title: string, claim: string) {
     claims: [
       {
         text: claim,
+        subject,
         source_label: "S1",
         evidence_quote: "",
         confidence: "high" as const,
@@ -593,6 +594,60 @@ describe("submitting an idea", () => {
     // The submitted idea is still visible even though the box is empty — clearing the
     // input must not mean losing sight of what was asked.
     expect(await screen.findByText(IDEA)).toBeInTheDocument();
+  });
+});
+
+
+describe("a report about several companies", () => {
+  it("says whose each answer is, in the words the extractor really produces", async () => {
+    // Review found this, and found the reason the first version of the test missed it: my
+    // fixtures invented claim text like "A costs $10", which names the company. The real
+    // extractors produce "Pro costs $15" — what the page says, and nothing more — so a merged
+    // pricing section showed two prices with no way to tell whose either was.
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    const stream = FakeEventSource.last!;
+    const pricing = {
+      ...section("pricing", "Pricing & packaging", "Pro costs $15", "https://basecamp.com"),
+      claims: [
+        section("pricing", "p", "Pro costs $15", "https://basecamp.com").claims[0],
+        section("pricing", "p", "Business costs $16", "https://linear.app").claims[0],
+      ],
+    };
+    act(() => stream.send("section", JSON.stringify(pricing)));
+
+    expect(await screen.findByText(/Pro costs \$15/)).toBeInTheDocument();
+    // Both companies named, without their schemes, which is how a person writes them.
+    expect(screen.getByText("basecamp.com")).toBeInTheDocument();
+    expect(screen.getByText("linear.app")).toBeInTheDocument();
+  });
+
+  it("does not repeat one company down a report about one company", async () => {
+    // The other half. A name against every line of a single-company report is noise, and
+    // noise is what teaches a reader to stop reading the labels that matter.
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    act(() =>
+      FakeEventSource.last!.send(
+        "section",
+        JSON.stringify(
+          section("pricing", "Pricing & packaging", "Pro costs $15", "https://basecamp.com"),
+        ),
+      ),
+    );
+
+    expect(await screen.findByText(/Pro costs \$15/)).toBeInTheDocument();
+    expect(screen.queryByText("basecamp.com")).toBeNull();
   });
 });
 

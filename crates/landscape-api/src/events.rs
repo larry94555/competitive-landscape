@@ -216,6 +216,7 @@ mod tests {
 
     fn claim() -> Claim {
         Claim {
+            subject: String::new(),
             text: "Pro costs $15".to_owned(),
             source_label: "S1".to_owned(),
             evidence_quote: "$15/user".to_owned(),
@@ -288,6 +289,7 @@ mod tests {
                 section("changes", Vec::new()),
             ],
             sources: Vec::new(),
+            notes: Vec::new(),
         };
         let ready = report
             .sections

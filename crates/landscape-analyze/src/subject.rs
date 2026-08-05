@@ -56,6 +56,10 @@ pub const MAX_SUBJECTS: usize = 3;
 /// domain and the rest were dropped in silence. Naming two companies and being given one is the
 /// kind of wrong answer that looks like a right answer, because nothing on the page says the
 /// second was ignored.
+///
+/// **Uncapped on purpose.** [`MAX_SUBJECTS`] is a decision about how long a reader will wait,
+/// and applying it here would drop the fourth company as silently as the old code dropped the
+/// second. The caller takes as many as it will analyse and *says* what it left out.
 #[must_use]
 pub fn origins_in(prompt: &str) -> Vec<String> {
     let mut found: Vec<String> = Vec::new();
@@ -67,9 +71,6 @@ pub fn origins_in(prompt: &str) -> Vec<String> {
         // between *companies*, so a repeat is a duplicate rather than a second subject.
         if !found.iter().any(|seen| same_site(seen, &origin)) {
             found.push(origin);
-        }
-        if found.len() == MAX_SUBJECTS {
-            break;
         }
     }
     found
@@ -160,16 +161,13 @@ mod tests {
     }
 
     #[test]
-    fn no_more_subjects_than_the_wait_allows() {
-        // Each subject is its own discovery, fetches and model calls. The cap is about the
-        // reader's patience, and a prompt naming five companies gets the first three rather
-        // than a ten-minute wait.
+    fn every_site_is_returned_and_the_cap_is_somebody_elses_job() {
+        // Capping here would drop the fourth company as silently as the old code dropped the
+        // second — the same defect at a higher count. The parser returns what the prompt says
+        // and the caller decides what it can afford, so it can say what it left out.
         let many = "a.com b.com c.com d.com e.com";
-        assert_eq!(origins_in(many).len(), MAX_SUBJECTS);
-        assert_eq!(
-            origins_in(many),
-            vec!["https://a.com", "https://b.com", "https://c.com"]
-        );
+        assert_eq!(origins_in(many).len(), 5);
+        assert!(origins_in(many).len() > MAX_SUBJECTS);
     }
 
     #[test]

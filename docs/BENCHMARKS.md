@@ -90,10 +90,52 @@ Labels are reassigned as they merge. Three mutations, all caught:
 | sections are appended rather than merged by question | **yes**, 2 tests |
 | the company still being read is left out of the report | **yes** |
 
-| | tests |
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 20 | 460 | 39 |
+| now | **485** | **41** |
+
+### What review found: a comparison you cannot read
+
+Three things, and the first is the one that mattered.
+
+**No claim said whose it was.** The extractors produce what the page says — `Pro costs $15` —
+and never name the company, which is right: putting the subject into the sentence would be the
+renderer's job leaking into the data. But once one section holds several companies, a reader saw
+two prices and a bare `[S1]`, and the web UI renders neither `sources` nor a URL. The comparison
+was unreadable.
+
+**And the join tests hid it**, because their fixtures invented `A costs $10` and `B costs $20` —
+claim text that names its company, which no extractor produces. A fixture more convenient than
+reality is a fixture that tests the convenience.
+
+`Claim` carries a `subject` now, stamped where the reports are merged rather than where the
+claims are built — the merge is the function with tests around it. Shown beside each claim only
+when a report covers more than one company, because repeating one name down a single-company
+report is the noise that teaches people to stop reading labels.
+
+**A fourth company was dropped as silently as the second used to be.** `origins_in` capped at
+three and stopped scanning, which is the same defect at a higher count. The parser returns
+everything now and the *caller* applies the cap, so it can say what it left out — a note on the
+report, above the sections, where it changes what they mean.
+
+**Coverage was concatenated, not merged.** `Analysis::render` zips sections with coverage, and
+the merged report has one section per question however many subjects it covers — so the renderer
+consumed the first company's six records and silently ignored every other company's. A section
+that found nothing would have described only the first site's attempts, which is the
+honest-negative treatment failing exactly where it matters most.
+
+| Reintroduced defect | Caught? |
 |---|---|
-| Run 20 | 460 |
-| now | **481** |
+| the merge does not stamp the subject | **yes** |
+| the interface does not name the company | **yes** |
+| coverage is concatenated rather than merged | **yes** |
+| a dropped company is not mentioned | **yes** |
+
+The last two are asserted against `analyse_many` itself rather than its helpers, by pointing it
+at origins in `.invalid` — which by RFC 2606 can never resolve, so every fetch fails fast and
+what is left is the joining. It costs about six seconds of the suite, and it is the only way
+those two call sites can be reached without a model.
 
 ### What is still not right
 
@@ -103,9 +145,8 @@ into a set is `landscape-search`, and it is still the largest unbuilt thing in t
 **Three companies is six minutes**, per the table above. The wait is now the binding constraint
 on this feature rather than a background worry.
 
-**The report does not group by company on screen.** Every claim resolves to a source whose URL
-names its company, so nothing is ambiguous — but a reader comparing two prices has to follow two
-citations to be sure which is which.
+**The report is labelled, not grouped.** Each claim names its company, which is enough to read;
+a matrix that puts them side by side is `landscape-charts`, in S3.
 
 ---
 

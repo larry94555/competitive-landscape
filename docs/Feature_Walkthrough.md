@@ -1179,7 +1179,7 @@ cargo install cargo-nextest --locked
 cargo nextest run --all-features
 ```
 
-**`481 tests run: 481 passed, 6 skipped`** — the six are the `#[ignore]`d ones that need a
+**`485 tests run: 485 passed, 6 skipped`** — the six are the `#[ignore]`d ones that need a
 database or a model. `cargo test --all-features --doc` runs alongside it, because nextest
 does not run doctests.
 

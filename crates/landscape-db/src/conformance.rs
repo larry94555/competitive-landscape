@@ -23,6 +23,7 @@ fn sample_report(subject: &str) -> Report {
         prompt_version: 1,
         sections: Vec::new(),
         sources: Vec::new(),
+        notes: Vec::new(),
     }
 }
 

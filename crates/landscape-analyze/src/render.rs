@@ -19,8 +19,29 @@ impl Analysis {
     pub fn render(&self) -> String {
         let mut out = String::new();
         let report = &self.report;
+        // Whether this report covers more than one company, which decides whether each claim
+        // has to say whose it is.
+        let several = {
+            let mut seen: Vec<&str> = report
+                .sections
+                .iter()
+                .flat_map(|s| s.claims.iter())
+                .map(|c| c.subject.as_str())
+                .filter(|s| !s.is_empty())
+                .collect();
+            seen.sort_unstable();
+            seen.dedup();
+            seen.len() > 1
+        };
 
         let _ = writeln!(out, "# {}", report.subject);
+        for note in &report.notes {
+            let _ = writeln!(
+                out,
+                "
+> {note}"
+            );
+        }
         let _ = writeln!(
             out,
             "\nRead {} · {} source(s) cited · prompts v{}",
@@ -37,9 +58,17 @@ impl Analysis {
                 continue;
             }
             for claim in &section.claims {
+                // Whose price is this? On a report about one company the subject is the same
+                // on every line and printing it is noise; on a comparison it is the difference
+                // between a table and a list of numbers.
+                let whose = if several && !claim.subject.is_empty() {
+                    format!("**{}** - ", short(&claim.subject))
+                } else {
+                    String::new()
+                };
                 let _ = writeln!(
                     out,
-                    "\n- {} [{}·{}]",
+                    "\n- {whose}{} [{}·{}]",
                     claim.text,
                     claim.source_label,
                     confidence_code(claim.confidence)
@@ -80,6 +109,13 @@ impl Analysis {
     }
 }
 
+/// An origin without its scheme, which is how a person names a company.
+fn short(origin: &str) -> &str {
+    origin
+        .trim_start_matches("https://")
+        .trim_start_matches("http://")
+}
+
 /// `H`, `M`, `L` — the same one-letter code the source dispositions use.
 const fn confidence_code(confidence: Confidence) -> char {
     match confidence {
@@ -117,6 +153,7 @@ mod tests {
                 prompt_version: 1,
                 sections,
                 sources,
+                notes: Vec::new(),
             },
             coverage,
             pages: Vec::new(),
@@ -126,6 +163,7 @@ mod tests {
 
     fn populated() -> (Section, Coverage, Source) {
         let claim = Claim {
+            subject: String::new(),
             text: "Pro costs $15".to_owned(),
             source_label: "S1".to_owned(),
             evidence_quote: "$15/user, billed monthly".to_owned(),

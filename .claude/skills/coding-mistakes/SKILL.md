@@ -459,11 +459,53 @@ at least one test has to wrap it too, or the tests are exercising a configuratio
 > **Ask this:** *what is the scope of this guard, and what is the scope of the work it is
 > guarding? Does anything in `main.tsx` change how the component mounts?*
 
+## 20. A fixture that carried the property being asserted
+
+**Written:** a test of merging two companies' reports, with claim text invented as
+`A costs $10` and `B costs $20`.
+
+**What a person saw:** two prices in one section with no way to tell whose either was. The real
+extractors produce `Pro costs $15` — what the page says, and nothing about who said it — so the
+merged output carried no company anywhere, and the interface rendered only the text and a bare
+`[S1]`.
+
+**Why the tests missed it:** the fixture named the company *inside the claim text*, which is the
+thing the code was supposed to provide and does not. The assertion passed by reading data the
+test had put there itself.
+
+**Rule:** a fixture has to be shaped like what the real producer emits, especially in the field
+under test. If the assertion would still pass when the code does nothing, the fixture is
+answering the question instead of the code.
+
+**A cheap check:** assert the fixture *lacks* the property, right where you assert the code adds
+it — `assert!(!claim.text.contains("a.com"))` beside the check that the subject is `a.com`.
+
+> **Ask this:** *where did this value come from — the code, or the test?*
+
+## 21. Testing the helper and not the call site
+
+**Written:** merge functions with thorough tests, called from a function nothing could reach.
+
+**What a person saw:** nothing, and that is the point. Mutating `analyse_many` to concatenate
+coverage instead of merging it, and to drop the truncation notice, left every test green —
+because the tests called the merge helpers directly with hand-built inputs.
+
+**Why the tests missed it:** the helpers were tested; the *decision to use them* was not. A
+one-line call site is exactly the code most likely to be edited by someone who has not read the
+helper's doc comment.
+
+**Rule:** if a function is hard to reach, make it reachable rather than testing around it. Here
+that meant driving the real entry point with origins in `.invalid`, which RFC 2606 guarantees
+can never resolve — every fetch fails fast, and what is left is the joining. Six seconds of the
+suite for two call sites that could not otherwise be asserted at all.
+
+> **Ask this:** *if I deleted the call to the thing I just tested, would anything fail?*
+
 ---
 
 ## The checklist, before a PR
 
-Twelve questions. Two minutes. Every one of them comes from an entry above.
+Thirteen questions. Two minutes. Every one of them comes from an entry above.
 
 1. **Lifecycle** — does anything infer "finished" from the presence of data rather than from a
    status? *(1)*
@@ -490,15 +532,18 @@ Twelve questions. Two minutes. Every one of them comes from an entry above.
     skipped? Is there a test where the dependency *errors* rather than succeeds? *(18)*
 12. **Two at once** — if a second request, run or connection starts before the first finishes,
     which one writes? Does the loser touch anything, including in `finally`? *(12, 15, 19)*
+13. **Where did the value come from** — is my fixture shaped like what the real producer emits,
+    or does it already contain the thing I am asserting? If I deleted the call to the function I
+    just tested, would anything fail? *(20, 21)*
 
 ## How these were found, and what that says
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b | All in error paths; 13 and 14 were successive halves of one fix |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20 | All in error paths; 13 and 14 were successive halves of one fix |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |
-| Deliberately breaking the code to see if a test notices | 12, and the rearm in 14 | The store was fast, so nothing raced until one was made slow |
+| Deliberately breaking the code to see if a test notices | 12, the rearm in 14, and 21 | The store was fast, so nothing raced until one was made slow |
 | Writing down what a fix does *not* cover | 15 | Named as open in Run 18's "what is still not right", fixed in Run 19 |
 | CI, catching what a local run could not see | 16 | The local check read the working tree; CI reads the commit |
 | Doubting a `MISSED` instead of writing it down | 17 | The mutation had been applied to a different copy of the same code |

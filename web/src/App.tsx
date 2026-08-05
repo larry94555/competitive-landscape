@@ -329,10 +329,31 @@ function AnalysisView({
   // page at the moment of the fetch and show placeholder sections for questions still being
   // read — the two things the stream exists to avoid.
   const showing = live ? stillArriving(sections, report) : (report?.sections ?? sections);
+  // Whether this report covers more than one company, which decides whether each claim has to
+  // say whose it is. Derived from what is on screen rather than from the prompt, so a report
+  // that named three companies and found facts for one does not label that one needlessly.
+  const several =
+    new Set(
+      showing
+        .flatMap((s) => s.claims)
+        .map((c) => c.subject)
+        .filter((s) => s !== ""),
+    ).size > 1;
 
   return (
     <section aria-live="polite">
       <h2>{analysis.prompt}</h2>
+
+      {/*
+        Anything true of the whole report rather than one section — today, which companies were
+        named and not analysed. It sits above the sections because it changes what the sections
+        below it mean.
+      */}
+      {report?.notes?.map((note) => (
+        <p key={note} className="report-note">
+          {note}
+        </p>
+      ))}
 
       {report && report.searched_as !== "" && (
         <p className="searched-as">
@@ -360,6 +381,16 @@ function AnalysisView({
             <ul>
               {section.claims.map((claim) => (
                 <li key={`${claim.source_label}-${claim.text}`}>
+                  {/*
+                    Whose is this? A claim says what the page said — "Pro costs $15" — and
+                    never names the company, so on a report covering several a reader would be
+                    looking at two prices with no way to tell them apart. Shown only when there
+                    is more than one, because repeating the same name down a single-company
+                    report is noise.
+                  */}
+                  {several && claim.subject !== "" && (
+                    <strong className="subject">{withoutScheme(claim.subject)}</strong>
+                  )}
                   {claim.text} <cite>[{claim.source_label}]</cite>
                   {claim.evidence_quote !== "" && (
                     <blockquote>{claim.evidence_quote}</blockquote>
@@ -396,6 +427,11 @@ function AnalysisView({
  * "Nothing found in public sources" for a question still being read tells a reader we have
  * finished looking when we have not.
  */
+/** An origin without its scheme, which is how a person names a company. */
+function withoutScheme(origin: string): string {
+  return origin.replace(/^https?:\/\//, "");
+}
+
 function stillArriving(
   streamed: readonly Section[],
   report: Analysis["report"],
