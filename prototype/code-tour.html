@@ -80,96 +80,92 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    refused: {
-      name: "the write was refused",
-      purpose: "Good. And then what?",
+    reload: {
+      name: "press reload",
+      purpose: "And the run is gone.",
       lines: [
-        ['f', '  save_progress -> ClaimRevoked'],
+        ['t', '  localhost:8787/'],
         ['c', ''],
-        ['c', '// The sweep gave this run to somebody'],
-        ['c', '// else. Every write from here is refused.'],
-        ['t', '// And the worker kept reading pages.']
+        ['c', '// The analysis is still running on the'],
+        ['c', '// server. The page has no idea which one.'],
+        ['f', '// There was nothing to come back to.']
       ]
     },
-    spend: {
-      name: "for a report nothing will accept",
-      purpose: "90 to 180 seconds of prefill.",
+    send: {
+      name: "and nothing to send anyone",
+      purpose: "Which is most of a demo.",
       lines: [
-        ['t', '  page 3 of 8   reading'],
-        ['t', '  page 4 of 8   reading'],
-        ['t', '  page 5 of 8   reading'],
+        ['c', '// "Have a look at this" needs a link.'],
         ['c', ''],
-        ['c', '// Prefill is the only scarce thing'],
-        ['f', '// this machine has.']
+        ['t', '  F2  edit the idea      blocked'],
+        ['t', '  F3  ask a follow-up    blocked'],
+        ['f', '// Both need something to return to.']
       ]
     },
-    ask: {
-      name: "so let the callback answer",
-      purpose: "Wanted::Yes or Wanted::No.",
+    push: {
+      name: "so put it in the address bar",
+      purpose: "The moment it exists.",
       lines: [
-        ['f', '  enum Wanted { Yes, No }'],
+        ['f', '  /a/5ff24beb-1c39-422b-...'],
         ['c', ''],
-        ['c', '// A worker learns its claim is gone'],
-        ['c', '// by writing.'],
-        ['f', '// The progress callback is the write.']
+        ['c', '// pushState, not a navigation:'],
+        ['c', '// the page is already the right page.']
       ]
     },
-    breaks: {
-      name: "and break where it costs most",
-      purpose: "Between two model calls.",
+    read: {
+      name: "and read it back on load",
+      purpose: "The whole of the routing.",
       lines: [
-        ['f', '  page loop      break'],
-        ['f', '  pricing loop   break'],
-        ['f', '  features loop  break'],
-        ['f', '  identity loop  break'],
+        ['f', '  /^\/a\/([^/]+)\/?$/'],
         ['c', ''],
-        ['c', '// The answer lags by one window.'],
-        ['c', '// It saves everything after it.']
+        ['c', '// The server returns the page for any'],
+        ['c', '// path it does not claim, so what a'],
+        ['f', '// path means is decided here.']
       ]
     },
-    stub: {
-      name: "count the calls, not the answers",
-      purpose: "A stub llama-server.",
+    opening: {
+      name: "say so while it opens",
+      purpose: "A shared link lands here first.",
       lines: [
-        ['c', '// The question is not what the model'],
-        ['c', '// says. It is how many times it is asked.'],
+        ['s', '  What is your idea?'],
         ['c', ''],
-        ['f', '// So a stub is the better instrument -'],
-        ['f', '// and it runs without a GPU.']
+        ['c', '// Rendering the empty box for the moment'],
+        ['c', '// the fetch takes reads as "nothing here"'],
+        ['f', '  Opening this report...']
       ]
     },
-    saved: {
-      name: "twelve windows, one call",
-      purpose: "The page that took four minutes.",
+    dead: {
+      name: "and a link that points at nothing",
+      purpose: "The one a reader kept.",
       lines: [
-        ['t', '  told to stop        1 call'],
-        ['f', '  nobody stopping it  12 calls'],
+        ['f', '  We could not find that analysis.'],
+        ['f', '  Start a new one.'],
         ['c', ''],
-        ['f', '  notion pricing      1 of 5']
+        ['c', '// A blank page leaves them unsure'],
+        ['c', '// whether it was them or us.']
       ]
     },
-    control: {
-      name: "and the row that matters most",
-      purpose: "A stop that always fires.",
+    back: {
+      name: "Back is a button now",
+      purpose: "pushState added an entry.",
       lines: [
-        ['t', '  every run stops after one window'],
-        ['t', '                            CAUGHT'],
+        ['c', '// A report on screen under a URL that'],
+        ['c', '// no longer names it is the disagreement'],
+        ['c', '// that makes people distrust a page.'],
         ['c', ''],
-        ['c', '// It would look like a saving in every'],
-        ['c', '// number above, and turn every report'],
-        ['f', '// into its first window.']
+        ['f', '  popstate -> read the path again']
       ]
     },
-    gap: {
-      name: "one line still has no test",
-      purpose: "And it is written down.",
+    teeth: {
+      name: "six ways to get it wrong",
+      purpose: "Each one put back in.",
       lines: [
-        ['c', '// The page-level break. analyse_with'],
-        ['c', '// needs a Fetcher, whose SSRF guard'],
-        ['c', '// refuses loopback on purpose.'],
-        ['c', ''],
-        ['t', '// Subsumed in practice. That is an'],
-        ['t', '// argument, not a test.']
+        ['f', '  never pushed             CAUGHT'],
+        ['f', '  ignored on load          CAUGHT'],
+        ['f', '  back not followed        CAUGHT'],
+        ['f', '  no opening state         CAUGHT'],
+        ['f', '  dead link says nothing   CAUGHT'],
+        ['f', '  the match is too loose   CAUGHT']
       ]
     }
   };
@@ -213,28 +209,26 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:refused", c: "The write was refused. Good." },
-    { kind: "means",       a: "spot:#code",   c: "And the worker kept reading." },
+    { kind: "recognition", a: "file:reload",  c: "Press reload. The run is gone." },
+    { kind: "means",       a: "spot:#code",   c: "There was nothing to come back to." },
 
-    { kind: "turn",        a: "file:spend",   c: "Pages nobody will ever accept." },
-    { kind: "means",       a: "spot:#code",   c: "Prefill is all this machine has." },
+    { kind: "turn",        a: "file:send",    c: "And nothing to send anyone." },
+    { kind: "means",       a: "spot:#code",   c: "Two more features wait on it." },
 
-    { kind: "result",      a: "file:ask",     c: "So let the callback answer." },
-    { kind: "means",       a: "spot:#code",   c: "It already knows: it is the write." },
+    { kind: "result",      a: "file:push",    c: "So put it in the address bar." },
+    { kind: "result",      a: "file:read",    c: "And read it back on load." },
 
-    { kind: "result",      a: "file:breaks",  c: "Break between two model calls." },
+    { kind: "result",      a: "file:opening", c: "Say so while it opens." },
+    { kind: "means",       a: "spot:#code",   c: "An empty box reads as nothing here." },
 
-    { kind: "turn",        a: "file:stub",    c: "Count the calls, not the answers." },
-    { kind: "means",       a: "spot:#code",   c: "A stub, and no GPU needed." },
+    { kind: "turn",        a: "file:dead",    c: "A link that points at nothing." },
+    { kind: "means",       a: "spot:#code",   c: "That is the one they kept." },
 
-    { kind: "result",      a: "file:saved",   c: "Twelve windows. One call." },
+    { kind: "result",      a: "file:back",    c: "And Back is a button now." },
 
-    { kind: "result",      a: "file:control", c: "And a stop that always fires?" },
-    { kind: "means",       a: "spot:#code",   c: "Caught. That one matters most." },
+    { kind: "result",      a: "file:teeth",   c: "Six ways wrong. Six caught." },
 
-    { kind: "result",      a: "file:gap",     c: "One line still has no test." },
-
-    { kind: "close",       a: "hold",         c: "Stop work nobody is waiting for." }
+    { kind: "close",       a: "hold",         c: "A run you can send someone." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the

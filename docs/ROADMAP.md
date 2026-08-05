@@ -178,7 +178,7 @@ experiences.
 | # | Item | Why it is where it is | Size |
 |---|---|---|---|
 | **D1** | **The binary serves the built web app** | Without it "deployed" means an API nobody can see. Static files plus a single-page fallback, so a permalink survives a refresh. | **Done** |
-| **D2** | **A run has a URL** — `/a/{id}` | A demo you send someone must survive being opened. Today a reload loses the run entirely, which also makes D4 untestable by a second person. | Small |
+| **D2** | **A run has a URL** — `/a/{id}` | A demo you send someone must survive being opened. A reload used to lose the run entirely, which also made D4 untestable by a second person. | **Done** |
 | **D3** | **A build and a service** — aarch64 artefact, `web/dist` beside it, a unit file, and a RUNBOOK section | There is no Dockerfile, no service definition and no deploy procedure anywhere in the repository. This is what turns "deploy it" from a project into a command. | Small–medium |
 | **D4** | **Example ideas that really run** | A chip per sample idea, each mapping to two or three real competitor domains. **The analysis is real** — fetched, quoted, cited — and only the *choice of companies* is curated, which the interface says plainly. This is precisely what S1 means by "certain product ideas work reliably". | Medium |
 | **D5** | **More than one company in a report** | One company reads as a profile, not a competitive analysis. The report groups by company; discovery already returns per-origin pages. | Medium |

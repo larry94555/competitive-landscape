@@ -1,6 +1,13 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
 
-import { ApiError, createAnalysis, getAnalysis, isTerminal } from "./api";
+import {
+  analysisInPath,
+  ApiError,
+  createAnalysis,
+  getAnalysis,
+  isTerminal,
+  pathFor,
+} from "./api";
 
 /** A `fetch` that returns one canned response. */
 function stubFetch(status: number, body: unknown): void {
@@ -74,5 +81,28 @@ describe("getAnalysis", () => {
     stubFetch(200, { id: "xyz", prompt: "p", status: "complete", report: null });
     await getAnalysis("xyz");
     expect(fetch).toHaveBeenCalledWith("/api/analyses/xyz");
+  });
+});
+
+describe("the URL of one analysis", () => {
+  it("reads the id out of the path", () => {
+    expect(analysisInPath("/a/abc")).toBe("abc");
+    // A trailing slash is the same URL to a reader, and browsers add one freely.
+    expect(analysisInPath("/a/abc/")).toBe("abc");
+  });
+
+  it("is nothing anywhere else", () => {
+    // The landing page, and paths that merely start the same way. Treating `/about` as an
+    // analysis called "bout" is the sort of thing a looser match does quietly.
+    for (const path of ["/", "/about", "/a", "/a/", "/analyses/abc", "/a/abc/extra"]) {
+      expect(analysisInPath(path)).toBeNull();
+    }
+  });
+
+  it("round-trips with the path it builds", () => {
+    // One id, one URL, and the two halves cannot drift apart without this failing.
+    for (const id of ["abc", "2f9c1e88-4a1b-4c3d-9e2f-000000000001"]) {
+      expect(analysisInPath(pathFor(id))).toBe(id);
+    }
   });
 });

@@ -236,8 +236,10 @@ Then <http://127.0.0.1:8787>. `WEB_DIR` overrides where it looks for the build; 
 present it serves the API alone and says so, which is what `npm run dev` beside `cargo run`
 relies on.
 
-Any path the API does not claim returns `index.html`, because the page owns its own routing —
-that is what lets a link to one analysis survive a refresh.
+Any path the API does not claim returns `index.html`, because the page owns its own routing.
+**An analysis lives at `/a/{id}`**: the address bar carries it from the moment the run is
+accepted, so a reload reopens it and the link can be sent to somebody. A link that points at
+nothing says so rather than rendering an empty box.
 
 ### The documentation is tested
 

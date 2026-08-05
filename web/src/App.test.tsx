@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
@@ -212,8 +213,306 @@ function box(): HTMLTextAreaElement {
   return screen.getByLabelText("What is your idea?");
 }
 
+/**
+ * A `fetch` whose GET returns a **finished** analysis with one section in it — what a shared
+ * link resolves to once the run behind it is over.
+ */
+function stubFinished(): void {
+  stubEventSource();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((_url: string, init?: RequestInit) =>
+      Promise.resolve({
+        ok: true,
+        status: init?.method === "POST" ? 201 : 200,
+        json: () =>
+          Promise.resolve({
+            ...queued(),
+            status: "complete",
+            report: {
+              subject: "https://basecamp.com",
+              searched_as: "https://basecamp.com",
+              generated_at: "2026-08-05T00:00:00Z",
+              model_id: "test",
+              prompt_version: 1,
+              sections: [
+                section("pricing", "Pricing & packaging", "Pro costs $15"),
+              ],
+              sources: [],
+            },
+          }),
+      } as Response),
+    ),
+  );
+}
+
+/** A `fetch` whose GET refuses, the way the API answers an id that is not there. */
+function stubNotFound(): void {
+  stubEventSource();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() =>
+      Promise.resolve({
+        ok: false,
+        status: 404,
+        json: () =>
+          Promise.resolve({
+            error: "We could not find that analysis.",
+            remedy: "Start a new one.",
+          }),
+      } as Response),
+    ),
+  );
+}
+
+/**
+ * A `fetch` whose GET never resolves until the test says so.
+ *
+ * The only way to see a race between a navigation and a request already in flight.
+ */
+function stubDeferredGet(): {
+  resolve: (body: unknown) => void;
+  resolveNth: (n: number, body: unknown) => void;
+} {
+  stubEventSource();
+  const settlers: ((body: unknown) => void)[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      () =>
+        new Promise((res) => {
+          settlers.push((body: unknown) =>
+            res({
+              ok: true,
+              status: 200,
+              json: () => Promise.resolve(body),
+            } as Response),
+          );
+        }),
+    ),
+  );
+  return {
+    resolve: (body: unknown) => settlers[0]?.(body),
+    resolveNth: (n: number, body: unknown) => settlers[n]?.(body),
+  };
+}
+
+/** A finished report whose pricing section says one thing, so two can be told apart. */
+function finishedSaying(text: string): unknown {
+  return {
+    ...queued(),
+    status: "complete",
+    report: {
+      subject: "https://basecamp.com",
+      searched_as: "https://basecamp.com",
+      generated_at: "2026-08-05T00:00:00Z",
+      model_id: "test",
+      prompt_version: 1,
+      sections: [section("pricing", "Pricing & packaging", text)],
+      sources: [],
+    },
+  };
+}
+
+/** Put the browser at a URL naming one analysis, as a shared link would. */
+function openAt(path: string): void {
+  window.history.replaceState({}, "", path);
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
+  // One jsdom window serves every test in this file, so a URL pushed by one of them is still
+  // there for the next. Without this reset a test that submits leaves `/a/<id>` behind, and
+  // every test after it opens that analysis instead of rendering the box.
+  window.history.replaceState({}, "", "/");
+});
+
+
+describe("a run has a URL", () => {
+  it("puts the analysis in the address bar as soon as it exists", async () => {
+    // Until this, every demo of the product died on a refresh: there was nothing in the URL
+    // to come back to, so a reader who reloaded — or who was sent a link — got an empty box.
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+
+    await waitFor(() =>
+      expect(window.location.pathname).toBe("/a/abc"),
+    );
+  });
+
+  it("opens the report a link points at", async () => {
+    stubFinished();
+    openAt("/a/abc");
+    render(<App />);
+
+    expect(await screen.findByText(/Pro costs \$15/)).toBeInTheDocument();
+    // And it fetched the id from the path rather than starting something new.
+    const calls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls.some((c) => String(c[0]).endsWith("/api/analyses/abc"))).toBe(
+      true,
+    );
+  });
+
+  it("says so while it is opening, rather than showing an empty box first", async () => {
+    // A shared link that renders "What is your idea?" for a moment reads as "there is
+    // nothing here" — the opposite of what the link promised.
+    stubFinished();
+    openAt("/a/abc");
+    render(<App />);
+
+    expect(screen.getByText(/Opening this report/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("What is your idea?")).toBeNull();
+    await screen.findByText(/Pro costs \$15/);
+  });
+
+  it("tells the reader when the link points at nothing", async () => {
+    // A dead link is the most likely thing to be sent to somebody, because it is the one a
+    // reader keeps. A blank page would leave them unsure whether it was them or us.
+    stubNotFound();
+    openAt("/a/gone");
+    render(<App />);
+
+    expect(
+      await screen.findByText(/could not find that analysis/i),
+    ).toBeInTheDocument();
+    // And the box is back, so there is something to do about it.
+    expect(screen.getByLabelText("What is your idea?")).toBeInTheDocument();
+  });
+
+
+  it("ignores a report that arrives after the reader has navigated away", async () => {
+    // Review found this. The fetch for a link is started and then nothing checks, when it
+    // comes back, whether the address bar still names it — so pressing Back while a slow
+    // report was loading rendered that report under `/`.
+    const deferred = stubDeferredGet();
+    openAt("/a/slow");
+    render(<App />);
+    expect(screen.getByText(/Opening this report/)).toBeInTheDocument();
+
+    // Back to the box, while the GET is still in flight.
+    act(() => {
+      window.history.replaceState({}, "", "/");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(await screen.findByLabelText("What is your idea?")).toBeInTheDocument();
+
+    // And now the old request finishes.
+    await act(async () => {
+      deferred.resolve(finishedSaying("Pro costs $15"));
+    });
+
+    expect(screen.queryByText(/Pro costs \$15/)).toBeNull();
+    expect(screen.getByLabelText("What is your idea?")).toBeInTheDocument();
+    // And the stale request must not have left the page saying it was opening something.
+    expect(screen.queryByText(/Opening this report/)).toBeNull();
+  });
+
+
+  it("does not let a slow report overwrite the one the reader asked for next", async () => {
+    // The other half of the same race, and the more damaging one: two links opened in
+    // succession, the first answering last. A report under the wrong URL is worse than no
+    // report, because nothing about the page says it is the wrong one.
+    const deferred = stubDeferredGet();
+    openAt("/a/first");
+    render(<App />);
+
+    act(() => {
+      window.history.replaceState({}, "", "/a/second");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    // The second request answers first.
+    await act(async () => {
+      deferred.resolveNth(1, finishedSaying("Second costs $19"));
+    });
+    expect(await screen.findByText(/Second costs \$19/)).toBeInTheDocument();
+
+    // And now the first one, long overtaken, comes back.
+    await act(async () => {
+      deferred.resolveNth(0, finishedSaying("First costs $15"));
+    });
+
+    expect(screen.getByText(/Second costs \$19/)).toBeInTheDocument();
+    expect(screen.queryByText(/First costs \$15/)).toBeNull();
+  });
+
+
+  it("keeps saying it is opening when an older request finishes first", async () => {
+    // The third face of the race, and the quietest: an overtaken request finishing does not
+    // apply its report, but its `finally` still ran — clearing the state that says a *newer*
+    // link is loading. The reader gets the empty box while their report is still on its way.
+    const deferred = stubDeferredGet();
+    openAt("/a/first");
+    render(<App />);
+
+    act(() => {
+      window.history.replaceState({}, "", "/a/second");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    expect(screen.getByText(/Opening this report/)).toBeInTheDocument();
+
+    // Only the first, overtaken request answers.
+    await act(async () => {
+      deferred.resolveNth(0, finishedSaying("First costs $15"));
+    });
+
+    expect(screen.getByText(/Opening this report/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("What is your idea?")).toBeNull();
+  });
+
+  it("discards a request from a remount, which is what Strict Mode does", async () => {
+    // Review found this. The guard was a counter declared *inside* the effect, so it lived
+    // exactly as long as one effect instance — and React Strict Mode runs setup, cleanup,
+    // setup on mount. Two setups, two counters each starting at zero, and the first setup's
+    // request still looked current when it answered.
+    //
+    // `main.tsx` renders under `<StrictMode>`, so this is the production arrangement rather
+    // than a testing artefact.
+    const deferred = stubDeferredGet();
+    openAt("/a/abc");
+    render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    );
+
+    // The live mount's request answers first.
+    await act(async () => {
+      deferred.resolveNth(1, finishedSaying("Newest costs $19"));
+    });
+    expect(await screen.findByText(/Newest costs \$19/)).toBeInTheDocument();
+
+    // And the discarded mount's request comes back afterwards.
+    await act(async () => {
+      deferred.resolveNth(0, finishedSaying("Discarded costs $15"));
+    });
+
+    expect(screen.getByText(/Newest costs \$19/)).toBeInTheDocument();
+    expect(screen.queryByText(/Discarded costs \$15/)).toBeNull();
+  });
+
+  it("follows the back button to the empty box", async () => {
+    // `pushState` adds a history entry, so Back is a thing a reader will press. Leaving the
+    // report on screen while the address bar says otherwise is the disagreement that makes
+    // people distrust a page.
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(window.location.pathname).toBe("/a/abc"));
+
+    act(() => {
+      window.history.replaceState({}, "", "/");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    expect(await screen.findByLabelText("What is your idea?")).toBeInTheDocument();
+    expect(screen.queryByText(IDEA)).toBeNull();
+  });
 });
 
 describe("submitting an idea", () => {

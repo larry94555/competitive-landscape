@@ -125,6 +125,27 @@ export async function getAnalysis(id: string): Promise<Analysis> {
   return (await response.json()) as Analysis;
 }
 
+/**
+ * The analysis a URL is pointing at, if it is pointing at one.
+ *
+ * **A run with no URL cannot be shared, reopened or refreshed**, which is the single thing
+ * that made every demo of this die on a reload. `/a/{id}` is the whole of the routing; the
+ * server returns the page for any path it does not claim, so the client is what decides.
+ *
+ * Deliberately loose about what an id looks like. A malformed one produces a 404 from the API
+ * and the same "we could not find it" the reader would get for a deleted one, which is the
+ * honest answer to both and one code path instead of two.
+ */
+export function analysisInPath(pathname: string): string | null {
+  const found = /^\/a\/([^/]+)\/?$/.exec(pathname);
+  return found?.[1] ?? null;
+}
+
+/** Where one analysis lives. */
+export function pathFor(id: string): string {
+  return `/a/${id}`;
+}
+
 export function isTerminal(status: AnalysisStatus): boolean {
   return status === "complete" || status === "failed";
 }

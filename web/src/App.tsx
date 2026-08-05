@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  analysisInPath,
   ApiError,
   createAnalysis,
   getAnalysis,
   isTerminal,
+  pathFor,
   watchAnalysis,
   type Analysis,
   type AnalysisStatus,
@@ -23,12 +25,76 @@ export default function App(): React.JSX.Element {
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Nothing is known yet about a URL that names an analysis. Without this the page renders
+  // its empty state for a moment first, which on a shared link reads as "there is nothing
+  // here" immediately before the report appears.
+  const [opening, setOpening] = useState(() => analysisInPath(window.location.pathname));
+
+  // A URL that names an analysis opens it. This is the whole of the routing: the server
+  // returns the page for any path it does not claim, so what the path means is decided here.
+  //
+  // Runs on mount and on the browser's back and forward buttons, because both are the same
+  // event from a reader's side — the address bar says one thing and the page must agree.
+  // Which open is the current one. A fetch is started and answered later, and by then the
+  // address bar may name something else — so the same rule the worker uses for a revoked claim
+  // applies here: **carry a number, and only the newest may write.** Without it, pressing Back
+  // while a slow report loaded rendered that report under `/`.
+  //
+  // **A ref, not a variable inside the effect.** It has to outlive one effect instance: React
+  // Strict Mode runs setup, cleanup, setup on mount, and `main.tsx` renders under it — so a
+  // counter scoped to the effect gives each of the two setups its own, starting at zero, and
+  // the discarded mount's request still looks current when it answers.
+  const newest = useRef(0);
+
+  useEffect(() => {
+    const open = (): void => {
+      const mine = ++newest.current;
+      const id = analysisInPath(window.location.pathname);
+      setOpening(id);
+      if (id === null) {
+        // Bumping `newest` above is what cancels whatever was in flight.
+        setAnalysis(null);
+        return;
+      }
+      void getAnalysis(id)
+        .then((found) => {
+          if (mine !== newest.current) return;
+          setAnalysis(found);
+          setError(null);
+        })
+        .catch((e: unknown) => {
+          if (mine !== newest.current) return;
+          // A malformed id and a deleted one are the same situation from here, and the API
+          // says so with one 404 rather than two different failures.
+          setError(e instanceof ApiError ? e : new ApiError("Something went wrong."));
+          setAnalysis(null);
+        })
+        .finally(() => {
+          // Including here: an older `finally` would clear the *newer* open's state and take
+          // "Opening this report…" off the screen while it was still true.
+          if (mine === newest.current) setOpening(null);
+        });
+    };
+    open();
+    window.addEventListener("popstate", open);
+    return () => {
+      // Bumping it here invalidates anything this instance started — the discarded half of a
+      // Strict Mode double-mount, and a real unmount, which should not write either.
+      newest.current += 1;
+      window.removeEventListener("popstate", open);
+    };
+  }, []);
 
   const submit = useCallback(async () => {
     setError(null);
     setSubmitting(true);
     try {
-      setAnalysis(await createAnalysis(prompt));
+      const started = await createAnalysis(prompt);
+      setAnalysis(started);
+      // The URL names it from the moment it exists, so a reader who reloads — or sends the
+      // link to somebody — gets the run rather than an empty box. `pushState` rather than a
+      // navigation: the page is already the right page.
+      window.history.pushState({}, "", pathFor(started.id));
       // Clear only once it has been accepted. The empty box is what tells an
       // unregistered reader they have spent their one analysis — a box still holding
       // their words invites them to press Analyse again and be refused.
@@ -46,6 +112,16 @@ export default function App(): React.JSX.Element {
   }, [prompt]);
 
   const { status, sections } = useReport(analysis, setAnalysis);
+
+  if (opening !== null) {
+    // A shared link lands here first. Rendering the empty box for the moment the fetch takes
+    // reads as "there is nothing here", which is the opposite of what the link promised.
+    return (
+      <main>
+        <p>Opening this report…</p>
+      </main>
+    );
+  }
 
   return (
     <main>
