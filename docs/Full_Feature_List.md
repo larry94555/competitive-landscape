@@ -31,9 +31,8 @@ why. This page says how much is left.
 
 ## How to read the numbers
 
-**Done** counts a PR that is written, green and either merged or in review. **36 are merged**
-and two are open ([#37](https://github.com/larry94555/competitive-landscape/pull/37) and this
-one) — 38, and the Done column sums to exactly that.
+**Done** counts a PR that is written, green and either merged or in review. **37 are merged**
+and one is open (this one) — 38, and the Done column sums to exactly that.
 
 **The rows are themes, not individual PRs.** Which one belongs to which row is approximate,
 because several did two things at once; the totals are not.
