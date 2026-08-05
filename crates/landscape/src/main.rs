@@ -19,7 +19,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
-use landscape_api::{router, AppState};
+use landscape_api::AppState;
 use landscape_db::{MemoryStore, PgStore, Store};
 
 mod progress;
