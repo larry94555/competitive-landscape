@@ -44,7 +44,11 @@ fn decode() -> landscape_llm::Decode {
 /// first page of `plausible.io` is twelve capability windows, and a reader saw nothing for
 /// four minutes while they were read one at a time. `PRODUCT_SPEC.md` §2.1A asks for content
 /// in twenty to forty seconds, and a page is far too large a unit to deliver that.
-pub(crate) type Progress<'a> = &'a mut dyn FnMut(&[crate::Finding]);
+///
+/// **The return value is the caller saying whether to carry on.** A model call is the most
+/// expensive thing this program does, so the cheapest place to abandon a run nobody is waiting
+/// for is between two of them.
+pub(crate) type Progress<'a> = &'a mut dyn FnMut(&[crate::Finding]) -> crate::Wanted;
 
 /// Read one page for one question.
 pub(crate) async fn extract(
@@ -100,9 +104,12 @@ async fn pricing(
                 }
                 extracted.push(got);
                 // One plan is enough to put the section on somebody's screen.
-                so_far(&crate::claims_from_pricing(&PagePricing::assembled(
+                if so_far(&crate::claims_from_pricing(&PagePricing::assembled(
                     extracted.clone(),
-                )));
+                ))) == crate::Wanted::No
+                {
+                    break;
+                }
             }
             Err(e) => details.push(format!("model error: {e}")),
         }
@@ -166,10 +173,13 @@ async fn features(
                     unsupported += 1;
                 }
                 extracted.push(got);
-                so_far(&crate::claims_from_features(&PageFeatures::assembled(
+                if so_far(&crate::claims_from_features(&PageFeatures::assembled(
                     extracted.clone(),
                     found.considered,
-                )));
+                ))) == crate::Wanted::No
+                {
+                    break;
+                }
             }
             Err(e) => details.push(format!("model error: {e}")),
         }
@@ -331,9 +341,12 @@ async fn identity(
                     unsupported += 1;
                 }
                 extracted.push(kept);
-                so_far(&crate::claims_from_identity(&PageIdentity::assembled(
+                if so_far(&crate::claims_from_identity(&PageIdentity::assembled(
                     extracted.clone(),
-                )));
+                ))) == crate::Wanted::No
+                {
+                    break;
+                }
             }
             Err(e) => details.push(format!("model error: {e}")),
         }
@@ -503,6 +516,184 @@ Return the extraction as JSON."
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
+
+    /// A `llama-server` that answers instantly with the same valid extraction, and counts.
+    ///
+    /// **The saving from stopping a run is model calls, so model calls are what to count.**
+    /// `landscape-golden`'s model tests are `#[ignore]`d because CI has no GPU, and the same
+    /// would be true here — except the question is not *what the model says*, it is **how many
+    /// times it is asked**, and for that a stub is the better instrument as well as the one
+    /// that runs on every pull request.
+    struct StubModel {
+        base: String,
+        calls: Arc<AtomicUsize>,
+    }
+
+    impl StubModel {
+        async fn start(content: &'static str) -> Self {
+            let calls = Arc::new(AtomicUsize::new(0));
+            let counter = Arc::clone(&calls);
+            let app = axum::Router::new().route(
+                "/completion",
+                axum::routing::post(move || {
+                    let counter = Arc::clone(&counter);
+                    async move {
+                        counter.fetch_add(1, Ordering::Relaxed);
+                        axum::Json(serde_json::json!({ "content": content }))
+                    }
+                }),
+            );
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+                .await
+                .expect("a port");
+            let base = format!("http://{}", listener.local_addr().expect("an address"));
+            tokio::spawn(async move {
+                let _ = axum::serve(listener, app).await;
+            });
+            Self { base, calls }
+        }
+
+        fn calls(&self) -> usize {
+            self.calls.load(Ordering::Relaxed)
+        }
+    }
+
+    /// The real Basecamp features page: twelve capability windows, one model call each. The
+    /// shape that made a reader wait four minutes in `BENCHMARKS.md` Run 16, and therefore the
+    /// shape most worth abandoning when nobody is waiting any more.
+    fn twelve_windows() -> String {
+        landscape_golden::pages::load()
+            .expect("the page set loads")
+            .into_iter()
+            .find(|e| e.page == "basecamp-features.md")
+            .expect("the twelve-capability page")
+            .markdown()
+            .expect("it reads")
+    }
+
+    const A_CAPABILITY: &str =
+        r#"{"name":"The Project page keeps it all together","evidence_quote":"The Project page"}"#;
+
+    #[tokio::test]
+    async fn a_run_told_to_stop_does_not_call_the_model_again() {
+        let stub = StubModel::start(A_CAPABILITY).await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+        let page = twelve_windows();
+
+        let mut asked = 0usize;
+        let mut stop_at_once = |_: &[crate::Finding]| {
+            asked += 1;
+            crate::Wanted::No
+        };
+        extract(
+            &llm,
+            Answers::Features,
+            "https://basecamp.com/features",
+            &page,
+            NaiveDate::from_ymd_opt(2026, 8, 5).unwrap(),
+            &mut stop_at_once,
+        )
+        .await;
+
+        assert_eq!(asked, 1, "the caller should be asked once, then not again");
+        assert_eq!(
+            stub.calls(),
+            1,
+            "a twelve-window page kept calling the model after being told to stop - which is              the entire cost this exists to avoid"
+        );
+    }
+
+    /// The Notion pricing page: five plan windows, one model call each.
+    fn five_plan_windows() -> String {
+        landscape_golden::pages::load()
+            .expect("the page set loads")
+            .into_iter()
+            .find(|e| e.page == "notion-pricing.md")
+            .expect("the five-window pricing page")
+            .markdown()
+            .expect("it reads")
+    }
+
+    const A_PLAN: &str = r#"{"plan_name":"Plus","price_usd":10.0,"billing_period":"monthly","evidence_quote":"$10 per member / month"}"#;
+
+    #[tokio::test]
+    async fn the_pricing_loop_stops_too() {
+        // The same break in a different stage. Three loops call the model window by window,
+        // and a fix applied to one of them looks identical in a diff to a fix applied to all
+        // three — so more than one is asserted.
+        let stub = StubModel::start(A_PLAN).await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+        let page = five_plan_windows();
+        let windows = landscape_extract::span::every_plan(&page).len();
+        assert!(windows > 1, "the fixture should offer several windows");
+
+        let mut stop_at_once = |_: &[crate::Finding]| crate::Wanted::No;
+        extract(
+            &llm,
+            Answers::Pricing,
+            "https://www.notion.com/pricing",
+            &page,
+            NaiveDate::from_ymd_opt(2026, 8, 5).unwrap(),
+            &mut stop_at_once,
+        )
+        .await;
+        assert_eq!(
+            stub.calls(),
+            1,
+            "pricing kept reading after being told to stop"
+        );
+
+        let stub = StubModel::start(A_PLAN).await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+        let mut carry_on = |_: &[crate::Finding]| crate::Wanted::Yes;
+        extract(
+            &llm,
+            Answers::Pricing,
+            "https://www.notion.com/pricing",
+            &page,
+            NaiveDate::from_ymd_opt(2026, 8, 5).unwrap(),
+            &mut carry_on,
+        )
+        .await;
+        assert_eq!(
+            stub.calls(),
+            windows,
+            "and a run nobody stopped should read every plan on the page"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_run_nobody_stops_reads_every_window() {
+        // The control. Without it a bug that abandoned *every* run would pass the test above
+        // and look like a saving rather than like a report with one capability in it.
+        let stub = StubModel::start(A_CAPABILITY).await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+        let page = twelve_windows();
+        let windows = landscape_extract::capability::every_capability(&page)
+            .windows
+            .len();
+        assert!(windows > 1, "the fixture should offer several windows");
+
+        let mut carry_on = |_: &[crate::Finding]| crate::Wanted::Yes;
+        extract(
+            &llm,
+            Answers::Features,
+            "https://basecamp.com/features",
+            &page,
+            NaiveDate::from_ymd_opt(2026, 8, 5).unwrap(),
+            &mut carry_on,
+        )
+        .await;
+
+        assert_eq!(
+            stub.calls(),
+            windows,
+            "a run nobody interrupted should read every window the page offered"
+        );
+    }
 
     #[test]
     fn a_changelog_is_read_with_no_model() {

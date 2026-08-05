@@ -38,6 +38,23 @@ pub mod subject;
 pub use render::is_publishable;
 pub use sections::{title_for, SECTIONS};
 
+/// Whether the caller still wants what this run is producing.
+///
+/// **A worker can be replaced while it is working.** The staleness sweep hands its row to
+/// somebody else, every write it makes from then on is refused, and until this existed it kept
+/// reading pages and calling a model for a report that would be thrown away — up to a hundred
+/// and eighty seconds of the machine's only scarce resource, spent on nothing.
+///
+/// Returned from the progress callback because that is where the answer already is: the caller
+/// finds out its claim is gone *by writing*, and the progress callback is the write.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Wanted {
+    /// Carry on.
+    Yes,
+    /// Stop. Nobody is waiting for this any more.
+    No,
+}
+
 /// Everything one run produced: the report, and the trace that made it.
 #[derive(Debug, Clone)]
 pub struct Analysis {
@@ -50,6 +67,11 @@ pub struct Analysis {
     /// Kept because the pipeline's joins are still the thing most worth watching, and a
     /// report deliberately hides them. `landscape read` prints these; the product will not.
     pub pages: Vec<PageResult>,
+    /// Whether the run was abandoned because the caller said [`Wanted::No`].
+    ///
+    /// The report is whatever had been assembled at that point, and **it should not be
+    /// published**: it is a partial answer from a worker that has already been replaced.
+    pub stopped_early: bool,
 }
 
 /// What happened to one page.
@@ -83,7 +105,7 @@ pub async fn analyse(
     now: DateTime<Utc>,
     today: NaiveDate,
 ) -> Analysis {
-    analyse_with(fetcher, llm, origin, now, today, &mut |_| {}).await
+    analyse_with(fetcher, llm, origin, now, today, &mut |_| Wanted::Yes).await
 }
 
 /// The same, reporting the report so far after every page.
@@ -102,7 +124,7 @@ pub async fn analyse_with(
     origin: &str,
     now: DateTime<Utc>,
     today: NaiveDate,
-    on_progress: &mut dyn FnMut(&Report),
+    on_progress: &mut dyn FnMut(&Report) -> Wanted,
 ) -> Analysis {
     let found = landscape_discover::discover(fetcher, origin).await;
     let model_ready = llm.is_ready().await;
@@ -111,6 +133,7 @@ pub async fn analyse_with(
     let mut sources: Vec<Source> = Vec::new();
     let mut claims: Vec<(Answers, Claim)> = Vec::new();
     let mut opened: Vec<(Answers, usize)> = Vec::new();
+    let mut stopped_early = false;
 
     for source in &found.sources {
         let question = source.answers;
@@ -216,7 +239,7 @@ pub async fn analyse_with(
                     llm,
                     now,
                 );
-                on_progress(&so_far);
+                on_progress(&so_far)
             };
             stages::extract(llm, question, &source.url, &markdown, today, &mut emit).await
         };
@@ -257,7 +280,10 @@ pub async fn analyse_with(
 
         // One page done. Whoever is waiting can have what exists so far.
         let (so_far, _) = assemble(&found, &claims, &sources, &opened, origin, llm, now);
-        on_progress(&so_far);
+        if on_progress(&so_far) == Wanted::No {
+            stopped_early = true;
+            break;
+        }
     }
 
     let (report, coverage) = assemble(&found, &claims, &sources, &opened, origin, llm, now);
@@ -265,6 +291,7 @@ pub async fn analyse_with(
         report,
         coverage,
         pages,
+        stopped_early,
     }
 }
 

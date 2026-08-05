@@ -33,6 +33,97 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 20 — stopping work nobody wants
+
+**Date:** 2026-08-04 · **Where:** this laptop · **Model:** a stub, on purpose — see below.
+
+Run 19 gave a claim a number, so a worker the staleness sweep has replaced is refused at every
+write. It said plainly what it did not do:
+
+> A replaced worker keeps working. It finds out at its next write — within a page for progress,
+> at the very end for `complete` — and until then it is spending prefill on a report that will
+> be discarded.
+
+**Prefill is the only scarce resource this machine has.** A run is 90–180 seconds of it, and a
+replaced worker was spending all of the remainder on a report nothing would accept.
+
+### The stop
+
+The progress callback returns an answer now:
+
+```rust
+pub enum Wanted { Yes, No }
+```
+
+`Wanted::No` breaks the loop — the page loop in `analyse_with`, and the window loop in each of
+the three model-backed stages. **The callback is the right place for it because the answer is
+already there**: a worker learns its claim is gone *by writing*, and the progress callback is
+the write.
+
+The answer `record` gives is as of the last write that **landed**, so it lags by a window. That
+is soon enough: what it saves is everything the run had not started yet.
+
+### Counting what it saves
+
+A model call is the expensive thing, so a model call is the unit. The stub `llama-server`
+answers instantly and counts requests — and for this question a stub is a *better* instrument
+than a real model, not a worse one: the question is not what the model says, it is **how many
+times it is asked**. It also runs on every pull request, which `against_a_model` cannot.
+
+Against the real Basecamp features page — twelve capability windows, the page that made a reader
+wait four minutes in Run 16:
+
+| | model calls |
+|---|---|
+| told to stop after the first answer | **1** |
+| nobody stopping it | **12** |
+
+And the Notion pricing page, five plan windows: **1** against **5**.
+
+### Does it hold up?
+
+Five ways of getting it wrong, put back one at a time:
+
+| Reintroduced defect | Caught? |
+|---|---|
+| the features loop ignores the answer | **yes** |
+| the pricing loop ignores the answer | **yes** |
+| `record` never reports the claim gone | **yes** |
+| the writer never sets the flag | **yes** |
+| *every* run stops after one window | **yes** — the control |
+
+That last row is the one that matters most. A stop that fires always looks like a saving in
+every number above, and would quietly turn every report into its first window.
+
+| | tests |
+|---|---|
+| Run 19 | 456 |
+| now | **460** |
+
+### Why the stub, and not the pipeline
+
+`analyse_with` needs a `Fetcher`, whose SSRF guard refuses loopback **on purpose** — so a local
+page server is unreachable by design, and the whole-pipeline version of this test cannot be
+written without a seam that does not exist. `stages::extract` takes the Markdown directly, which
+is where every model call is made, so that is where the counting happens.
+
+### What is still not right
+
+**The page-loop break has no test.** Four of the five mutations above are caught; the fifth
+thing — `analyse_with` breaking *between pages* rather than between windows — is one line, and
+nothing exercises it, for the reason in the paragraph above. It is subsumed in practice (a
+revoked claim stops the window loop first) but that is an argument, not a test.
+
+**Nothing measures how often this fires.** The saving is real and unquantified: twenty minutes
+against a 90–180 s analysis makes a revoked claim rare, and there is no counter that would tell
+us if that changed.
+
+**The identity stage's loop is not asserted**, only pricing and features. It has the same break
+and at most three windows, so it is the cheapest of the three to get wrong and the least
+expensive to have wrong.
+
+---
+
 ## Run 19 — telling two workers apart
 
 **Date:** 2026-08-05 · **Where:** this laptop · **Model:** none — this is the queue, the store

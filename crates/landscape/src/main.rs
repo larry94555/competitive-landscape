@@ -531,17 +531,23 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
     )
     .await;
     // Before `complete`, so the last progress write cannot land after the finished report.
-    let ours = progress.finish().await;
-    if ours == progress::Outcome::Revoked {
+    if progress.finish().await == progress::Outcome::Revoked {
         // The sweep decided this run was dead and gave it to somebody else while we were
         // still working on it. Saying so is the whole value of the generation: without it,
         // this worker would finish, overwrite a live run's report with its own, and nothing
         // anywhere would record that two workers had produced two reports for one reader.
+        //
+        // **And there is nothing left to do.** `complete` would be refused for the same
+        // reason every write since has been, so making the call would buy a log line that
+        // says what this one already says. The pages this run did not read are the saving.
         tracing::warn!(
             id = %analysis.id,
             generation = analysis.generation,
-            "this run was reclaimed while we were working on it; the report is being discarded"
+            pages_read = outcome.pages.len(),
+            abandoned = outcome.stopped_early,
+            "this run was reclaimed while we were working on it; discarding what it produced"
         );
+        return;
     }
 
     match store
@@ -549,6 +555,8 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
         .await
     {
         Ok(landscape_core::Applied::ClaimRevoked) => {
+            // Reachable when the sweep lands between the last progress write and this one:
+            // no write had been refused yet, so nothing told the run to stop.
             tracing::warn!(id = %analysis.id, "finished a run that had been reclaimed; discarded");
         }
         Ok(landscape_core::Applied::Yes) => {}

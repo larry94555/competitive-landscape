@@ -403,8 +403,12 @@ structural, and retrofitting them is expensive.
   a write quoting an older one is refused rather than applied. The number also goes out on the
   stream, so a reader that reconnects into a different run knows the sections it is holding
   belong to one that no longer exists — which no server-side judgement about a *connection*
-  could do. **Still open after that:** a replaced worker keeps working until its next write
-  fails, which needs cancellation threaded into `analyse_with`.
+  could do. ~~**Still open after that:** a replaced worker keeps working until its next write
+  fails~~ **Done** — [BENCHMARKS.md](BENCHMARKS.md) Run 20. The progress callback answers
+  `Wanted::Yes`/`Wanted::No`, and `No` breaks the page loop and the window loop in all three
+  model-backed stages, so a replaced worker stops calling the model within a window rather than
+  at the end of the run. Twelve model calls become one on the page that made a reader wait four
+  minutes. **Still open:** nothing counts how often a claim is actually revoked.
 - **A reference on every failure.** An internal error used to log its detail and tell the
   reader *"Something went wrong at our end"* — both true, and nothing joining them. Every
   request now carries an id into its span, its response header, and the body of a 5xx. Two

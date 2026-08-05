@@ -120,6 +120,7 @@ mod tests {
             },
             coverage,
             pages: Vec::new(),
+            stopped_early: false,
         }
     }
 

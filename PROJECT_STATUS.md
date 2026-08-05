@@ -1,8 +1,6 @@
 # Project Status
 
-**As of 2026-08-04** · `main` at `9022141`, and it describes
-[#32](https://github.com/larry94555/competitive-landscape/pull/32) as landed — that is the one
-place this page runs ahead of the tree, and it is called out again in §3.
+**As of 2026-08-04** · `main` at `7648e17`, plus the branch this page is on.
 
 This page answers one question: **what can somebody actually do with this today, and what
 stands between here and each of the six states that matter.** It is deliberately separate from
@@ -355,10 +353,10 @@ runs. Plus the failure states a run only reaches when something goes wrong: a wo
 a reclaim, out-of-order progress writes, and a generation number that stops a replaced worker
 finishing over the run that replaced it.
 
-> **The generation is the one thing on this page that is not yet on `main`.** It is
-> [#32](https://github.com/larry94555/competitive-landscape/pull/32), open and green. Until it
-> merges, `migrations/` holds two files rather than the three counted in
-> [F4](#f4--sign-up--registration).
+A replaced worker now also **stops**: the progress callback answers whether the run is still
+wanted, and a worker the sweep has replaced abandons the pages it has not read rather than
+spending prefill on a report nothing will accept. Twelve model calls become one on the page that
+made a reader wait four minutes ([BENCHMARKS.md](docs/BENCHMARKS.md) Run 20).
 
 **Not built — the 45%:**
 
@@ -373,7 +371,6 @@ finishing over the run that replaced it.
 | Example chips, stage rail, source cards, citation hover cards | The UI is functional and unfinished. |
 | Conditional GET; per-analysis fetch cap | Every run re-fetches everything. |
 | SSE replay ring buffer (`Last-Event-ID`) | Reconnect re-reads from the row rather than resuming. Works; not what was specified. |
-| Cancellation threaded into `analyse_with` | A replaced worker keeps working until its next write is refused. |
 | Golden set to 25 subjects | 15 of 25, five of them fetched. |
 | Review-platform access audit | Same item as Phase 0 Track D. |
 

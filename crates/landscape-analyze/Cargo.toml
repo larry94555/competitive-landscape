@@ -18,6 +18,11 @@ landscape-llm.workspace = true
 chrono.workspace = true
 
 [dev-dependencies]
+# A stub `llama-server`, so the one thing worth asserting about cancellation — that the model
+# stops being called — can be asserted without a GPU.
+axum.workspace = true
+landscape-golden.workspace = true
+serde_json.workspace = true
 tokio.workspace = true
 
 [lints]
