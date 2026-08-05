@@ -169,9 +169,15 @@ asking what a demo needs.
 
 ### The rule for this phase
 
-**Nothing is done until a stranger with the link can see it.** No item below is complete because
-its tests pass; it is complete when it changes what somebody looking at the deployed site
-experiences.
+**Nothing is done until it can be demonstrated end to end on a laptop.** No item below is
+complete because its tests pass; it is complete when somebody sitting in front of
+`cargo run -p landscape -- dev` with a `llama-server` beside it can *see* the difference.
+
+**And deploying must change nothing but secrets.** Every readiness state in
+[PROJECT_STATUS.md](../PROJECT_STATUS.md) is defined by what the software can do, verified
+locally; the host is where other people get to see it. Everything environmental is already an
+environment variable — `BIND_ADDR`, `DATABASE_URL`, `LLAMA_URL`, `WEB_DIR` — and if running on
+the box ever needs a code change, that is a defect to fix rather than a task to schedule.
 
 ### The items, in order
 
@@ -179,10 +185,10 @@ experiences.
 |---|---|---|---|
 | **D1** | **The binary serves the built web app** | Without it "deployed" means an API nobody can see. Static files plus a single-page fallback, so a permalink survives a refresh. | **Done** |
 | **D2** | **A run has a URL** — `/a/{id}` | A demo you send someone must survive being opened. A reload used to lose the run entirely, which also made D4 untestable by a second person. | **Done** |
-| **D3** | **A build and a service** — aarch64 artefact, `web/dist` beside it, a unit file, and a RUNBOOK section | There is no Dockerfile, no service definition and no deploy procedure anywhere in the repository. This is what turns "deploy it" from a project into a command. | Small–medium |
+| **D3** | **A build and a service** — aarch64 artefact, `web/dist` beside it, a unit file, and a RUNBOOK section | There is no Dockerfile, no service definition and no deploy procedure anywhere in the repository. This is what turns "deploy it" from a project into a command. **Not part of any readiness state** — it decides who can see the software, not what it does. | Small–medium |
 | **D4** | **Example ideas that really run** | A chip per sample idea, each mapping to two or three real competitor domains. **The analysis is real** — fetched, quoted, cited — and only the *choice of companies* is curated, which the interface says plainly. This is precisely what S1 means by "certain product ideas work reliably". | Medium |
 | **D5** | **More than one company in a report** | One company reads as a profile, not a competitive analysis. The report groups by company; discovery already returns per-origin pages. | Medium |
-| **D6** | **A cap on anonymous runs** | Unlimited inference on a free box, once the URL is public, is the failure mode that ends the demo — and it needs no accounts, just a per-IP daily count. | Small |
+| **D6** | **A cap on anonymous runs** | Unlimited inference on a free box, once the URL is public, is the failure mode that ends the demo — and it needs no accounts, just a per-IP daily count. **Belongs with D3**: on a laptop it is a setting nobody needs. | Small |
 
 ### What is explicitly deferred until D is done
 
@@ -204,9 +210,12 @@ measurement is taken from the client's side of the deployment, not on the box.
 
 ### What "done" looks like for Phase D
 
-A link. Somebody who has never seen the project opens it, types or picks an idea, watches
-sections arrive, and reads a report about real companies with a quote and a source under every
-claim — then reloads the page and it is still there.
+**Locally:** somebody sitting at a laptop picks an example idea, watches sections arrive, and
+reads a report about real companies with a quote and a source under every claim — then reloads
+the page and it is still there. That is D1, D2, D4 and D5, and it is the definition of S1.
+
+**Then, separately:** D3 and D6 put the same build on a host, where the only difference is the
+values of four environment variables and the fact that other people can reach it.
 
 ---
 

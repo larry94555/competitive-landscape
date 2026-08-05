@@ -420,6 +420,7 @@ The code implements a specification written first. Start with
 
 | Document | Covers |
 |---|---|
+| [Full_Feature_List.md](docs/Full_Feature_List.md) | **Every feature, sorted by readiness state**, with what it costs in PRs, what is spent, and what is left |
 | [PROJECT_STATUS.md](PROJECT_STATUS.md) | **Where the project actually is** — feature by feature, phase by phase, with the blockers and risks behind each. Updated with every PR |
 | [phases/](docs/phases/) | **What only the founder can do, per phase** — with what "done" looks like and how it is verified |
 | [TUTORIAL.md](docs/TUTORIAL.md) | **An hour from a fresh clone to changing the code.** Start here if you are new |
