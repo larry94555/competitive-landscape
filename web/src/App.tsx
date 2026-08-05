@@ -111,7 +111,7 @@ export default function App(): React.JSX.Element {
     }
   }, [prompt]);
 
-  const { status, sections } = useReport(analysis, setAnalysis);
+  const { status, sections, subjects } = useReport(analysis, setAnalysis);
 
   if (opening !== null) {
     // A shared link lands here first. Rendering the empty box for the moment the fetch takes
@@ -163,7 +163,12 @@ export default function App(): React.JSX.Element {
       )}
 
       {analysis && (
-        <AnalysisView analysis={analysis} status={status} sections={sections} />
+        <AnalysisView
+          analysis={analysis}
+          status={status}
+          sections={sections}
+          subjects={subjects}
+        />
       )}
     </main>
   );
@@ -193,9 +198,16 @@ const RECONNECT_MS = 1000;
 function useReport(
   analysis: Analysis | null,
   onFinished: (a: Analysis) => void,
-): { status: AnalysisStatus | null; sections: readonly Section[] } {
+): {
+  status: AnalysisStatus | null;
+  sections: readonly Section[];
+  subjects: readonly string[];
+} {
   const [status, setStatus] = useState<AnalysisStatus | null>(null);
   const [sections, setSections] = useState<readonly Section[]>([]);
+  // The companies this run set out to cover, heard from the stream. State rather than a ref:
+  // it decides whether every claim on screen carries a label, so hearing it has to render.
+  const [subjects, setSubjects] = useState<readonly string[]>([]);
   const [attempt, setAttempt] = useState(0);
   const onFinishedRef = useRef(onFinished);
   onFinishedRef.current = onFinished;
@@ -214,6 +226,7 @@ function useReport(
   useEffect(() => {
     setStatus(null);
     setSections([]);
+    setSubjects([]);
     setAttempt(0);
     generationRef.current = null;
   }, [id]);
@@ -272,6 +285,12 @@ function useReport(
       onGeneration: (generation) => {
         if (!cancelled) sawGeneration(generation);
       },
+      onSubjects: (next) => {
+        // Not cleared on a new generation: the replacement run is comparing the same
+        // companies, and a screen that stops labelling halfway through a restart is the
+        // defect this exists to prevent, wearing a different hat.
+        if (!cancelled) setSubjects(next);
+      },
       onDone: () => {
         if (cancelled) return;
         void getAnalysis(id)
@@ -304,17 +323,19 @@ function useReport(
     };
   }, [id, settled, attempt]);
 
-  return { status, sections };
+  return { status, sections, subjects };
 }
 
 function AnalysisView({
   analysis,
   status,
   sections,
+  subjects,
 }: {
   analysis: Analysis;
   status: AnalysisStatus | null;
   sections: readonly Section[];
+  subjects: readonly string[];
 }): React.JSX.Element {
   const { report } = analysis;
   // **The stored status wins once it is terminal.** A dropped stream's last word was
@@ -329,10 +350,43 @@ function AnalysisView({
   // page at the moment of the fetch and show placeholder sections for questions still being
   // read — the two things the stream exists to avoid.
   const showing = live ? stillArriving(sections, report) : (report?.sections ?? sections);
+  // Whether this report covers more than one company, which decides whether each claim has to
+  // say whose it is.
+  //
+  // **From the companies analysed, not from the ones that produced a claim.** Deriving it from
+  // the claims on screen looks reasonable and is wrong in the case that matters: ask about two
+  // companies, have one of them say nothing, and the survivor's prices lose their label in a
+  // report that is still a comparison.
+  //
+  // Two sources because there are two moments. The finished report carries `subjects`; while it
+  // runs there is no report yet, so the stream says so directly. Leaving the live case to be
+  // guessed from the claims is the same defect one surface later — it was, and review found it
+  // there too.
+  const analysed = (report?.subjects?.length ?? 0) > 0 ? (report?.subjects ?? []) : subjects;
+  const several =
+    analysed.length > 1 ||
+    // Only for reports stored before `subjects` existed, which deserialise without it.
+    new Set(
+      showing
+        .flatMap((s) => s.claims)
+        .map((c) => c.subject)
+        .filter((s) => s !== ""),
+    ).size > 1;
 
   return (
     <section aria-live="polite">
       <h2>{analysis.prompt}</h2>
+
+      {/*
+        Anything true of the whole report rather than one section — today, which companies were
+        named and not analysed. It sits above the sections because it changes what the sections
+        below it mean.
+      */}
+      {report?.notes?.map((note) => (
+        <p key={note} className="report-note">
+          {note}
+        </p>
+      ))}
 
       {report && report.searched_as !== "" && (
         <p className="searched-as">
@@ -360,6 +414,24 @@ function AnalysisView({
             <ul>
               {section.claims.map((claim) => (
                 <li key={`${claim.source_label}-${claim.text}`}>
+                  {/*
+                    Whose is this? A claim says what the page said — "Pro costs $15" — and
+                    never names the company, so on a report covering several a reader would be
+                    looking at two prices with no way to tell them apart. Shown only when there
+                    is more than one, because repeating the same name down a single-company
+                    report is noise.
+                  */}
+                  {several && claim.subject !== "" && (
+                    <>
+                      {/*
+                        The space is written rather than left to CSS: JSX drops the whitespace
+                        around a newline, and without it the line reads `basecamp.comPro costs
+                        $15`. A margin would space the box and leave the *text* — which is what
+                        a reader copies, and what a test reads — still run together.
+                      */}
+                      <strong className="subject">{withoutScheme(claim.subject)}</strong>{" "}
+                    </>
+                  )}
                   {claim.text} <cite>[{claim.source_label}]</cite>
                   {claim.evidence_quote !== "" && (
                     <blockquote>{claim.evidence_quote}</blockquote>
@@ -396,6 +468,11 @@ function AnalysisView({
  * "Nothing found in public sources" for a question still being read tells a reader we have
  * finished looking when we have not.
  */
+/** An origin without its scheme, which is how a person names a company. */
+function withoutScheme(origin: string): string {
+  return origin.replace(/^https?:\/\//, "");
+}
+
 function stillArriving(
   streamed: readonly Section[],
   report: Analysis["report"],

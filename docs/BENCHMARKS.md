@@ -33,6 +33,123 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 21 — a comparison, not a profile
+
+**Date:** 2026-08-05 · **Where:** this laptop · **Model:** none — this is the join.
+
+`PROJECT_STATUS.md` has said since it was written that the product is *"a single-company public
+profile, not a competitive analysis"*. The reason was one line: `origin_in` returned the **first**
+site named in a prompt and the rest were dropped in silence.
+
+```text
+"compare basecamp.com vs linear.app"   ->   a report about Basecamp
+```
+
+Nothing on the page said the second company had been ignored, which is the shape of wrong answer
+that is hardest to notice: it looks exactly like a right answer to a different question.
+
+### Every site named is a subject
+
+`origins_in` returns them all, in the order written, without repeats — `basecamp.com` and
+`www.basecamp.com` are one company — **capped at three**.
+
+**The cap is about the wait, and it is the number to argue with.** Each subject is its own
+discovery, fetches and model calls, so a report on three takes roughly three times as long as
+one. At about two minutes a company on this laptop, three is already at the edge of
+`PRODUCT_SPEC.md` §2.1A's ninety-to-a-hundred-and-eighty seconds, and four is past it.
+
+| Subjects | Rough wait, here |
+|---|---|
+| 1 | ~2 min |
+| 3 | **~6 min** |
+
+**That is the honest problem with this feature**, and no part of it is solved by the join. It is
+what the next item — read order, and how many pages each subject is worth — exists to fix.
+
+### One section, every company
+
+Sections merge by question, so *What it costs* holds every company's prices. That is what makes
+the output a comparison rather than several reports stapled together, and it is the shape the
+feature matrix will eventually be built from.
+
+The pipeline for one company is untouched. `analyse_many` runs the existing, well-tested path
+once per subject and joins the results — a bug in the joining cannot reach into the reading.
+
+### The defect the join could most easily have introduced
+
+Each run numbers its own sources from `S1`. Merging without renaming gives two companies the same
+label, and **a reader following the citation for one company's price arrives at another
+company's pricing page.** Evidence attached to the wrong claim is the worst output this product
+can produce, and it would have looked perfectly well-formed.
+
+Labels are reassigned as they merge. Three mutations, all caught:
+
+| Reintroduced defect | Caught? |
+|---|---|
+| labels are not reassigned when merging | **yes** |
+| sections are appended rather than merged by question | **yes**, 2 tests |
+| the company still being read is left out of the report | **yes** |
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 20 | 460 | 39 |
+| now | **485** | **41** |
+
+### What review found: a comparison you cannot read
+
+Three things, and the first is the one that mattered.
+
+**No claim said whose it was.** The extractors produce what the page says — `Pro costs $15` —
+and never name the company, which is right: putting the subject into the sentence would be the
+renderer's job leaking into the data. But once one section holds several companies, a reader saw
+two prices and a bare `[S1]`, and the web UI renders neither `sources` nor a URL. The comparison
+was unreadable.
+
+**And the join tests hid it**, because their fixtures invented `A costs $10` and `B costs $20` —
+claim text that names its company, which no extractor produces. A fixture more convenient than
+reality is a fixture that tests the convenience.
+
+`Claim` carries a `subject` now, stamped where the reports are merged rather than where the
+claims are built — the merge is the function with tests around it. Shown beside each claim only
+when a report covers more than one company, because repeating one name down a single-company
+report is the noise that teaches people to stop reading labels.
+
+**A fourth company was dropped as silently as the second used to be.** `origins_in` capped at
+three and stopped scanning, which is the same defect at a higher count. The parser returns
+everything now and the *caller* applies the cap, so it can say what it left out — a note on the
+report, above the sections, where it changes what they mean.
+
+**Coverage was concatenated, not merged.** `Analysis::render` zips sections with coverage, and
+the merged report has one section per question however many subjects it covers — so the renderer
+consumed the first company's six records and silently ignored every other company's. A section
+that found nothing would have described only the first site's attempts, which is the
+honest-negative treatment failing exactly where it matters most.
+
+| Reintroduced defect | Caught? |
+|---|---|
+| the merge does not stamp the subject | **yes** |
+| the interface does not name the company | **yes** |
+| coverage is concatenated rather than merged | **yes** |
+| a dropped company is not mentioned | **yes** |
+
+The last two are asserted against `analyse_many` itself rather than its helpers, by pointing it
+at origins in `.invalid` — which by RFC 2606 can never resolve, so every fetch fails fast and
+what is left is the joining. It costs about six seconds of the suite, and it is the only way
+those two call sites can be reached without a model.
+
+### What is still not right
+
+**Nothing discovers a competitor.** This analyses the companies a reader names. Turning an idea
+into a set is `landscape-search`, and it is still the largest unbuilt thing in the project.
+
+**Three companies is six minutes**, per the table above. The wait is now the binding constraint
+on this feature rather than a background worry.
+
+**The report is labelled, not grouped.** Each claim names its company, which is enough to read;
+a matrix that puts them side by side is `landscape-charts`, in S3.
+
+---
+
 ## Run 20 — stopping work nobody wants
 
 **Date:** 2026-08-04 · **Where:** this laptop · **Model:** a stub, on purpose — see below.

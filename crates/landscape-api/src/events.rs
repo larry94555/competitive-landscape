@@ -86,6 +86,7 @@ pub(crate) async fn stream(
         let mut sent_sections: HashMap<String, String> = HashMap::new();
         let mut sent_status: Option<AnalysisStatus> = None;
         let mut sent_generation: Option<u32> = None;
+        let mut sent_subjects: Option<String> = None;
 
         loop {
             let Ok(analysis) = store.get(id).await else {
@@ -124,6 +125,20 @@ pub(crate) async fn stream(
             }
 
             if let Some(report) = &analysis.report {
+                // **Which companies this run set out to cover**, sent before the sections that
+                // depend on it. A claim says "Pro costs $15" and never names the company, so a
+                // reader watching a two-company run needs to know it *is* a two-company run
+                // before the first claim lands - and the report that would tell them is not
+                // fetched until the run is over. Deriving it from the claims on screen is the
+                // defect this feature was opened to remove, arriving one surface later.
+                if !report.subjects.is_empty() {
+                    let payload = subjects_payload(&report.subjects);
+                    if sent_subjects.as_ref() != Some(&payload) {
+                        sent_subjects = Some(payload.clone());
+                        yield Ok(Event::default().event("subjects").data(payload));
+                    }
+                }
+
                 for section in &report.sections {
                     if section.status == SectionStatus::NotFoundInPublicSources
                         && section.claims.is_empty()
@@ -173,6 +188,15 @@ fn payload_of(section: &Section) -> String {
     serde_json::to_string(section).unwrap_or_else(|_| section.key.clone())
 }
 
+/// The companies being compared, as a JSON array.
+///
+/// A list that will not serialise is a bug in the report type rather than something a reader can
+/// act on; an empty array is read by the client as "one company", which is the safe reading —
+/// the label is left off rather than put on the wrong thing.
+fn subjects_payload(subjects: &[String]) -> String {
+    serde_json::to_string(subjects).unwrap_or_else(|_| "[]".to_owned())
+}
+
 fn done() -> Event {
     Event::default().event("done").data("")
 }
@@ -216,6 +240,7 @@ mod tests {
 
     fn claim() -> Claim {
         Claim {
+            subject: String::new(),
             text: "Pro costs $15".to_owned(),
             source_label: "S1".to_owned(),
             evidence_quote: "$15/user".to_owned(),
@@ -283,11 +308,13 @@ mod tests {
             generated_at: at(),
             model_id: "test".to_owned(),
             prompt_version: 1,
+            subjects: Vec::new(),
             sections: vec![
                 section("pricing", Vec::new()),
                 section("changes", Vec::new()),
             ],
             sources: Vec::new(),
+            notes: Vec::new(),
         };
         let ready = report
             .sections

@@ -22,11 +22,43 @@ use crate::report::{Section, SectionStatus};
 /// One path we tried and what came back, as a coverage note repeats it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Attempt {
-    /// The path, not the whole URL — the note is read under a heading that already names the
-    /// company, and `/changelog (404)` is what a reader can retype.
+    /// The path, not the whole URL — `/changelog (404)` is what a reader can retype, and on a
+    /// report about one company the heading above it already says whose it is.
     pub path: String,
     /// `404`, `robots`, `200`. Short enough to sit in brackets.
     pub outcome: String,
+    /// Which company was tried, as the origin.
+    ///
+    /// **The heading stopped naming the company** once one section could hold several of them:
+    /// two companies each contribute `/pricing (404)`, and merged they are indistinguishable.
+    /// Shown only when a report covers more than one, for the same reason a claim's subject is.
+    #[serde(default)]
+    pub subject: String,
+}
+
+impl Attempt {
+    /// `/changelog (404)` — the line itself, before anybody decides whose it is.
+    #[must_use]
+    pub fn line(&self) -> String {
+        format!("{} ({})", self.path, self.outcome)
+    }
+}
+
+/// A checked line with the company on the front.
+///
+/// **The one place that decides how a company is attached to a line.** Three surfaces render
+/// these — the coverage note, the empty section, and the merged report, which joins lines that
+/// were rendered before it knew there would be more than one company — and three format strings
+/// drift. An empty subject returns the line untouched rather than a leading space.
+#[must_use]
+pub fn attributed(subject: &str, line: &str) -> String {
+    if subject.is_empty() {
+        return line.to_owned();
+    }
+    let host = subject
+        .trim_start_matches("https://")
+        .trim_start_matches("http://");
+    format!("{host} {line}")
 }
 
 /// What one question of the six is backed by.
@@ -95,15 +127,38 @@ impl Coverage {
     }
 
     /// `/changelog (404), /releases (404), /blog (200)`.
+    /// Whether these attempts span more than one company.
+    ///
+    /// Derived once and read in both places that render an attempt — two expressions computing
+    /// it from different inputs is entry 4 of the mistakes register.
+    fn covers_several(&self) -> bool {
+        let mut seen: Vec<&str> = self
+            .attempts
+            .iter()
+            .map(|a| a.subject.as_str())
+            .filter(|s| !s.is_empty())
+            .collect();
+        seen.sort_unstable();
+        seen.dedup();
+        seen.len() > 1
+    }
+
     fn render_attempts(&self) -> String {
         /// Enough to be convincing; short enough to read. The rest are counted.
         const SHOWN: usize = 6;
 
+        let several = self.covers_several();
         let mut parts: Vec<String> = self
             .attempts
             .iter()
             .take(SHOWN)
-            .map(|a| format!("{} ({})", a.path, a.outcome))
+            .map(|a| {
+                if several {
+                    attributed(&a.subject, &a.line())
+                } else {
+                    a.line()
+                }
+            })
             .collect();
         if self.attempts.len() > SHOWN {
             parts.push(format!("and {} more", self.attempts.len() - SHOWN));
@@ -121,10 +176,20 @@ impl Coverage {
     /// command that prints it.
     #[must_use]
     pub fn to_section(&self, title: impl Into<String>) -> Section {
+        // Two companies each tried `/pricing`, and a list of four identical-looking paths tells
+        // a reader nothing about which company found nothing. The name goes on only when there
+        // is more than one, because on a single-company report it is on the heading already.
+        let several = self.covers_several();
         let checked = self
             .attempts
             .iter()
-            .map(|a| format!("{} ({})", a.path, a.outcome))
+            .map(|a| {
+                if several {
+                    attributed(&a.subject, &a.line())
+                } else {
+                    a.line()
+                }
+            })
             .collect();
         let mut section = Section::not_found(self.question.clone(), title, checked);
         if !self.is_empty() {
@@ -141,6 +206,7 @@ mod tests {
 
     fn attempt(path: &str, outcome: &str) -> Attempt {
         Attempt {
+            subject: String::new(),
             path: path.to_owned(),
             outcome: outcome.to_owned(),
         }

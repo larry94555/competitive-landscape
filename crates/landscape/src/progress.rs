@@ -244,8 +244,10 @@ mod tests {
             generated_at: chrono::Utc::now(),
             model_id: "test".to_owned(),
             prompt_version: 1,
+            subjects: Vec::new(),
             sections: vec![Section::not_found("pricing", title, Vec::new())],
             sources: Vec::new(),
+            notes: Vec::new(),
         }
     }
 

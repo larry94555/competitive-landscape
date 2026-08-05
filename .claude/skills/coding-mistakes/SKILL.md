@@ -23,8 +23,8 @@ the standard did not save us, with the specific question that would have.
 **Before writing** code that touches any of the classes below, read that class's rule and its
 "ask this" line.
 
-**Before opening a PR**, run [the checklist](#the-checklist-before-a-pr). It is six questions and
-takes two minutes.
+**Before opening a PR**, run [the two commands and six questions](#before-a-pr-two-commands-and-six-questions).
+The commands are the part that does not depend on remembering; the questions take two minutes.
 
 **After a review finds something**, add an entry the same day. Format: what was written, what a
 person would have seen, why the tests missed it, the rule. Keep the failure concrete — the
@@ -172,6 +172,13 @@ first case where one of them is shorter.
 
 > **Ask this:** *can these two lists ever be different lengths, or ordered differently? Then they
 > are one list of pairs.*
+
+**It came back.** `Analysis::render` zips `sections` with `coverage`, and merging several
+companies' reports produced six sections and *N×6* coverage records — so the renderer read the
+first company's and silently dropped the rest, and a section that found nothing described only
+the first site's attempts. Same shape, two years of intent apart: **two collections joined by
+position, where one of them changed length.** Found by review, in the pull request that changed
+the length.
 
 ## 8. A worked example in a prompt is a source of facts
 
@@ -459,54 +466,234 @@ at least one test has to wrap it too, or the tests are exercising a configuratio
 > **Ask this:** *what is the scope of this guard, and what is the scope of the work it is
 > guarding? Does anything in `main.tsx` change how the component mounts?*
 
+## 20. A fixture that carried the property being asserted
+
+**Written:** a test of merging two companies' reports, with claim text invented as
+`A costs $10` and `B costs $20`.
+
+**What a person saw:** two prices in one section with no way to tell whose either was. The real
+extractors produce `Pro costs $15` — what the page says, and nothing about who said it — so the
+merged output carried no company anywhere, and the interface rendered only the text and a bare
+`[S1]`.
+
+**Why the tests missed it:** the fixture named the company *inside the claim text*, which is the
+thing the code was supposed to provide and does not. The assertion passed by reading data the
+test had put there itself.
+
+**Rule:** a fixture has to be shaped like what the real producer emits, especially in the field
+under test. If the assertion would still pass when the code does nothing, the fixture is
+answering the question instead of the code.
+
+**A cheap check:** assert the fixture *lacks* the property, right where you assert the code adds
+it — `assert!(!claim.text.contains("a.com"))` beside the check that the subject is `a.com`.
+
+> **Ask this:** *where did this value come from — the code, or the test?*
+
+## 21. Testing the helper and not the call site
+
+**Written:** merge functions with thorough tests, called from a function nothing could reach.
+
+**What a person saw:** nothing, and that is the point. Mutating `analyse_many` to concatenate
+coverage instead of merging it, and to drop the truncation notice, left every test green —
+because the tests called the merge helpers directly with hand-built inputs.
+
+**Why the tests missed it:** the helpers were tested; the *decision to use them* was not. A
+one-line call site is exactly the code most likely to be edited by someone who has not read the
+helper's doc comment.
+
+**Rule:** if a function is hard to reach, make it reachable rather than testing around it. Here
+that meant driving the real entry point with origins in `.invalid`, which RFC 2606 guarantees
+can never resolve — every fetch fails fast, and what is left is the joining. Six seconds of the
+suite for two call sites that could not otherwise be asserted at all.
+
+> **Ask this:** *if I deleted the call to the thing I just tested, would anything fail?*
+
+## 22. A layer that wrapped only what existed when it was added
+
+**Written:** the request-id middleware attached inside `router()`, with the single-page fallback
+added afterwards by `with_ui()`.
+
+**What a person saw:** every page and every asset came back with **no `x-request-id`, no span and
+no access line** — ADR 0005's invariant broken on the one surface a visitor actually touches, and
+on the only URL anybody types. The API kept its ids, so nothing looked wrong.
+
+**Why the tests missed it:** the API tests asserted the header on API routes, which still had it.
+Nothing asked the question about the surface that had just been added.
+
+**Rule:** `Router::layer` wraps the routes present *when it is called* and nothing added later,
+and the same is true of most middleware and decorator APIs. **Build the whole thing, then wrap
+it** — and where that is awkward, make the wrapping the last step in one function so there is
+exactly one place it can be got wrong. Here the routes are built without middleware and the layer
+goes on outermost, so `with_ui` cannot forget.
+
+> **Ask this:** *what did this wrapper actually enclose — everything, or everything that existed
+> on the line above it?*
+
+## 23. Deriving a fact from the evidence for it
+
+**Written:** *"does this report cover several companies?"* answered by counting the distinct
+subjects **on the claims**.
+
+**What a person saw:** ask about Basecamp and Linear, have Linear yield no pricing, and
+`Pro costs $15` renders with no company beside it — because one company produced claims, so the
+report stopped calling itself a comparison. The label disappears from exactly the report that
+needs it, since a reader who asked about two companies and sees one price cannot tell which one
+it is.
+
+**Why the tests missed it:** every multi-company test had every company producing a claim. The
+proxy and the fact agree on the happy path and come apart when something is silent — which is
+the register's oldest pattern wearing new clothes.
+
+**Rule:** *"did anything come back for X"* is not *"was X asked about"*. When a decision depends
+on **intent**, carry the intent — here `Report::subjects`, the list the run set out to cover —
+rather than inferring it from the results, which are the thing that may legitimately be empty.
+
+> **Ask this:** *am I counting the thing, or counting the evidence the thing produced? What does
+> this say when the answer is none?*
+
+## 24. Asserting a shape the producer does not emit — again, one comment later
+
+**Written:** a merge test for coverage attempts, with fixtures built as
+`"https://a.com/pricing"`.
+
+**What a person saw:** `Discovered::attempts_for` stores `path_of(&c.url)` — **`/pricing`**, not
+a URL, and the field's own doc comment explains why: *"the note is read under a heading that
+already names the company"*. Multi-company reports broke that assumption, so merging gave two
+companies an identical `/pricing (404)` each and a reader could not tell whose gap was whose. I
+had written *"attribution survives because every path is a URL"* in the pull request. It is not,
+and the test that was supposed to prove it had built the URLs itself.
+
+**Why this one is here rather than folded into 20:** it happened **in the same pull request that
+registered 20**, one review comment later. Knowing the rule did not help; the fixture was written
+before the rule was, and nothing re-read it.
+
+**Rule:** entry 20's rule, plus the part that makes it operational — **go and look at the
+producer.** Open the function that builds the value and copy its shape, rather than writing what
+the value "obviously" is. A doc comment on the field is usually where the assumption you are
+about to break is written down.
+
+> **Ask this:** *have I read the code that produces this, in this pull request — or am I
+> remembering what it produces?*
+
+## 25. Fixing the model and never looking at the surface
+
+**Written:** `Attempt.subject`, merged `Coverage`, a passing test on the merged coverage — and
+a web report still rendering `/pricing (404)` twice.
+
+**What a person saw:** review, again, one round after the fix. The structured data was right;
+the interface renders `section.checked`, which is a **list of strings each company rendered
+before it knew there would be another one**, and `joined()` concatenated those strings. My tests
+asserted the merged `Coverage` and called `to_section()` themselves — neither of which is the
+value the interface reads.
+
+Two more of the same shape landed in the same review. `several` was correct on the finished
+report and guessed from the claims **during the stream**, because `subjects` lives on a report
+that is not fetched until the run ends — so the label was wrong for the ninety seconds a reader
+is actually watching. And `<strong>{subject}</strong>{claim.text}` rendered
+`basecamp.comPro costs $15`, because JSX drops the whitespace around a newline and every
+assertion so far had matched the two halves **separately**.
+
+**Rule:** a fact has as many surfaces as it has renderings, and fixing the one that holds the
+data fixes none of the others. Fix a fact and then **list the surfaces**: the CLI, the merged
+report, the live stream, the rendered line. Assert on the value each surface actually reads —
+`report.sections[*].checked`, not the `Coverage` behind it; the whole line's text, not the two
+halves that compose it.
+
+And the timing half: a fact that arrives with the finished report is absent for the entire wait.
+If a reader looks at something before the report exists, whatever decides how it is rendered has
+to reach them before it does.
+
+> **Ask this:** *what does each surface read — and does the one a person looks at longest have
+> this yet?*
+
 ---
 
-## The checklist, before a PR
+## Before a PR: two commands and six questions
 
-Twelve questions. Two minutes. Every one of them comes from an entry above.
+**The commands come first, because they are the part that does not depend on remembering.**
 
-1. **Lifecycle** — does anything infer "finished" from the presence of data rather than from a
-   status? *(1)*
-2. **Mid-operation states** — which states exist only when something fails partway, and which of
-   them has a test? *(the pattern, 1, 3, 4, 12, 13, 14, 15, 18, 19)*
-3. **Duplication of a derived fact** — is any fact computed in two places from different inputs?
-   *(4)*
-4. **Comparisons** — can I name a change my equality check cannot see? Does any validation have a
-   case that should fail and does? *(2, 5)*
-5. **Things that belong together** — any parallel arrays, index-paired lists, or a value separated
-   from its evidence? *(7)*
-6. **Honesty of the output** — are caps, drops and "found nothing" distinguishable from
-   completeness? Does any prompt name a real subject? *(8, 10)*
-7. **Copies I do not own** — if two writes are in flight, which lands last? Who is holding what
-   I just deleted, and what tells them? Does my guard still mean the same thing on a fresh
-   connection? *(12, 13, 14)*
-8. **Who is asking** — can two actors be in the state this condition tests? Am I authorising a
-   situation when I mean to authorise a claimant? *(15)*
-9. **What am I actually shipping** — does `git status` hold anything I did not put there? Would
-   the file-reading checks pass on a clean checkout of this commit? *(16)*
-10. **Did my check run where I aimed it** — if I am reporting that something is *not* covered,
-    have I confirmed the thing I broke is the thing I meant to break? *(17)*
-11. **The unhappy branch** — does every guard still run when the step above it failed or was
-    skipped? Is there a test where the dependency *errors* rather than succeeds? *(18)*
-12. **Two at once** — if a second request, run or connection starts before the first finishes,
-    which one writes? Does the loser touch anything, including in `finally`? *(12, 15, 19)*
+```bash
+python3 scripts/verify.py
+```
+
+Every gate, each judged by its **own** exit code, with the file-reading checks run against a
+clean checkout of `HEAD` rather than your working tree. Entries 16 and 17 are both here: a link
+that resolved only because of an untracked file, and a `| tail && echo OK` that printed success
+over a broken build.
+
+```bash
+python3 scripts/mutate.py mutations.json
+```
+
+**Put back every defect your change is supposed to prevent, and confirm something fails.** Write
+one mutation per guard you added. This is the only mechanical check that has ever found a defect
+here — and a `MISSED` exits non-zero, because a test that cannot fail is a finding rather than a
+line in a table.
+
+### Then six questions
+
+Grouped by what has actually gone wrong, commonest first.
+
+1. **What states exist between "started" and "finished"?** Which of them has a test — a worker
+   replaced mid-run, a stream that drops, a request still in flight when the next one starts, a
+   step whose dependency *errored* rather than succeeded? Ten of the entries above live here.
+   *(1, 3, 4, 12, 13, 14, 15, 18, 19, 19b)*
+
+2. **Which of my checks cannot fail?** **Open the producer and copy its shape** — do not write
+   what the value obviously is. **Assert on the value the surface reads**, not the structure
+   behind it, and on the whole line rather than the halves. Does the fixture already contain the
+   thing I am asserting? If I deleted the call to the function I just tested, would anything
+   fail? Is there a case that *should* fail and does? *(5, 20, 21, 24, 25)*
+
+3. **What is the scope of each guard, and of each wrapper?** A condition about *the connection*
+   is wrong at every reconnect; a counter inside an effect does not survive a remount; a layer
+   wraps what existed when it was added. Does the guard outlive the thing it guards? *(14, 19b,
+   22)*
+
+4. **What travels together, and what is joined by position?** Any parallel collection, index
+   pairing, or value separated from its evidence — and does anything still line up when one of
+   them changes length? *(7)*
+
+5. **Have I listed the surfaces?** One fact, rendered by the CLI, the merged report, the live
+   stream and the interface. Which of them still has the old shape — and does the one a reader
+   looks at *longest*, the stream, have this before it needs it? *(25)*
+
+6. **Is the output honest about what it does not know?** Are caps, drops, truncation and "found
+   nothing" distinguishable from completeness? Does a merged view say which subject each part
+   belongs to — **including when one subject produced nothing**? Am I counting the thing or the
+   evidence for it? Does any prompt name a real company? *(2, 6, 8, 9, 10, 11, 23)*
 
 ## How these were found, and what that says
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b | All in error paths; 13 and 14 were successive halves of one fix |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |
-| Deliberately breaking the code to see if a test notices | 12, and the rearm in 14 | The store was fast, so nothing raced until one was made slow |
+| Deliberately breaking the code to see if a test notices | 12, the rearm in 14, and 21 | The store was fast, so nothing raced until one was made slow. Now `scripts/mutate.py` |
 | Writing down what a fix does *not* cover | 15 | Named as open in Run 18's "what is still not right", fixed in Run 19 |
-| CI, catching what a local run could not see | 16 | The local check read the working tree; CI reads the commit |
+| CI, catching what a local run could not see | 16 | The local check read the working tree; CI reads the commit. Now `scripts/verify.py` |
 | Doubting a `MISSED` instead of writing it down | 17 | The mutation had been applied to a different copy of the same code |
 | The test suite, before review | — | **None of the entries above** |
 
 **That last row is the point of this file.** The suite is good at protecting what it was written
-for and blind to what nobody thought of. The three things that have actually found defects here
-are *reading real output*, *using the product as a client does*
-([ADR 0011](../../../docs/decisions/0011-no-experiments-on-production.md)), and *somebody else
-reading the diff* — and the cheapest of the three is the checklist above, applied before anyone
-else has to.
+for and blind to what nobody thought of.
+
+### What that says about where to spend effort
+
+Four things have found defects here. Ranked by how much they cost:
+
+| | Cost | Finds |
+|---|---|---|
+| **Breaking the code on purpose** | minutes, and now one command | Guards nobody tested, fixtures that answer their own question |
+| **Reading real output** | an afternoon per run | Everything in `BENCHMARKS.md` Runs 5–16 |
+| **Using the product as a client does** | a browser and ten minutes | What 425 passing tests could not see ([ADR 0011](../../../docs/decisions/0011-no-experiments-on-production.md)) |
+| **Somebody else reading the diff** | another person | The largest share, and every one in an error path |
+
+**Only the first is mechanical, and it is the one that was being done by hand and thrown away.**
+It is `scripts/mutate.py` now. Writing a mutation for each guard a change adds is the closest
+thing here to a way of *not* needing the review that follows.
+
+The rest of this file is a memory aid for the other three. It works only if it is read before
+the code is written, which is why the two commands are at the top of the checklist and the
+questions are underneath them.

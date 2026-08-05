@@ -1,6 +1,6 @@
 # Full Feature List
 
-**As of 2026-08-05** · `main` at `ab271d1` · **36 of 133 PRs · 27% of the software deliverable**
+**As of 2026-08-05** · `main` at `ab271d1` · **38 of 133 PRs · 29% of the software deliverable**
 
 Every feature the roadmap describes, sorted by the readiness state that first requires it, with
 what it is estimated to cost in pull requests and how much of that is spent.
@@ -31,11 +31,15 @@ why. This page says how much is left.
 
 ## How to read the numbers
 
-**Done** counts a PR that is written, green and either merged or in review. **36 are merged**,
-and the Done column sums to exactly that.
+**Done** counts a PR that is written, green and either merged or in review. **37 are merged**
+and one is open (this one) — 38, and the Done column sums to exactly that.
 
-**The rows are themes, not individual PRs.** Which of the 36 belongs to which row is approximate,
+**The rows are themes, not individual PRs.** Which one belongs to which row is approximate,
 because several did two things at once; the totals are not.
+
+**An estimate that turns out wrong is corrected, and the correction is visible.** D5 was
+estimated at two PRs and took one, so its row says one — the point of the number is to be useful
+next time, not to be defended.
 
 **The estimates are a judgement, and their reliability falls off sharply with distance.** S1 is
 estimated against 35 PRs of actual history in this repository — that is the only part calibrated
@@ -54,24 +58,24 @@ only you can do; they are listed at the bottom and are not counted anywhere.
 
 | State | What it means | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
-| [**S1**](#s1--ready-for-a-guided-demo) | Ready for a guided demo | 41 | 35 | **6** | **85%** |
+| [**S1**](#s1--ready-for-a-guided-demo) | Ready for a guided demo | 41 | 37 | **4** | **90%** |
 | [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 19 | 0 | **19** | **0%** |
 | [**S3**](#s3--ready-for-use) | Friendly users find no issue | 26 | 1 | **25** | **4%** |
 | [**S4**](#s4--ready-for-general-use) | Promotable, word-of-mouth quality | 11 | 0 | **11** | **0%** |
 | [**S5**](#s5--general-use-free-mode) | Stable, email signup, community | 15 | 0 | **15** | **0%** |
 | [**S6**](#s6--general-use-full-mode) | Notifications and paid subscriptions | 21 | 0 | **21** | **0%** |
-| | **Total** | **133** | **36** | **97** | **27%** |
+| | **Total** | **133** | **38** | **95** | **29%** |
 | | *Getting it onto a host (not a state)* | *3* | *0* | *3* | *0%* |
 
-**The shape of that table is the answer to "how far are we".** S1 is six PRs from being
-demonstrable on a laptop, and all six are scoped. Everything after it is a cliff, and the cliff
+**The shape of that table is the answer to "how far are we".** S1 is four PRs from being
+demonstrable on a laptop, and all four are scoped. Everything after it is a cliff, and the cliff
 is one item: nothing turns a description into a set of companies.
 
 ---
 
 ## S1 — Ready for a guided demo
 
-*Only certain product ideas work reliably.* **Six PRs left**, all scoped, all verifiable on a
+*Only certain product ideas work reliably.* **Four PRs left**, all scoped, all verifiable on a
 laptop: `cargo run -p landscape -- dev`, a `llama-server` beside it, and a browser.
 
 | Feature | State | Est. PRs | Done | Left | Complete |
@@ -87,15 +91,15 @@ laptop: `cargo run -p landscape -- dev`, a `llama-server` beside it, and a brows
 | Queue, worker, SSE streaming, and the states an interrupted run reaches | S1 | 5 | 5 | 0 | 100% |
 | Regression instruments — golden set, ten frozen pages, the mistakes register | S1 | 3 | 3 | 0 | 100% |
 | Observability — request ids through span, header and body; runbook | S1 | 1 | 1 | 0 | 100% |
-| Planning documents — roadmap, phase checklists, status page | S1 | 3 | 3 | 0 | 100% |
+| Planning documents — roadmap, phase checklists, status page, feature list | S1 | 4 | 4 | 0 | 100% |
 | **D1** The binary serves the built web app | S1 | 1 | 1 | 0 | 100% |
 | **D2** A run has a URL — `/a/{id}`, survives a reload, can be sent to somebody | S1 | 1 | 1 | 0 | 100% |
 | **D4** Example ideas that really run — chips mapping to curated competitor sets | S1 | 2 | 0 | **2** | 0% |
-| **D5** More than one company in a report — grouped by company, not one profile | S1 | 2 | 0 | **2** | 0% |
+| **D5** More than one company in a report — every site named is a subject, one section holds them all | S1 | 1 | 1 | 0 | 100% |
 | Order the reads so content arrives first, and measure the wait end to end | S1 | 2 | 0 | **2** | 0% |
-| | | **41** | **35** | **6** | **85%** |
+| | | **41** | **37** | **4** | **90%** |
 
-**The risk inside those six.** A single company takes about two minutes on a laptop, and D5
+**The risk inside those four.** A single company takes about two minutes on a laptop, and D5
 multiplies that by the number of competitors. The last row exists to find that out and fix it
 with read order and page count rather than a faster model.
 

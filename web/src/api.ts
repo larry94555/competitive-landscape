@@ -20,6 +20,13 @@ export type SectionStatus = "populated" | "partial" | "not_found_in_public_sourc
 
 export interface Claim {
   readonly text: string;
+  /**
+   * Which company this is about, as the origin it was read from.
+   *
+   * A claim's text says what the page says — *"Pro costs $15"* — and never names the company.
+   * Once one section holds several companies, that is not enough to tell whose price is whose.
+   */
+  readonly subject: string;
   readonly source_label: string;
   readonly evidence_quote: string;
   readonly confidence: "high" | "medium" | "low";
@@ -43,8 +50,12 @@ export interface Report {
   readonly generated_at: string;
   readonly model_id: string;
   readonly prompt_version: number;
+  /** Every company the run set out to cover — not only the ones that produced a claim. */
+  readonly subjects?: readonly string[];
   readonly sections: readonly Section[];
   readonly sources: readonly unknown[];
+  /** Anything true of the whole report — today, companies named and not analysed. */
+  readonly notes?: readonly string[];
 }
 
 export interface Analysis {
@@ -164,6 +175,15 @@ export interface Watcher {
    * a reconnected stream has no memory of the one it replaced.
    */
   readonly onGeneration: (generation: number) => void;
+  /**
+   * Which companies this run set out to cover.
+   *
+   * Not which ones produced a claim — the difference is a company that says nothing, and the
+   * survivor's prices losing their label in a report that is still a comparison. The stream
+   * carries it because the report that holds `subjects` is not fetched until the run is over,
+   * and the first claim arrives long before that.
+   */
+  readonly onSubjects: (subjects: readonly string[]) => void;
   /** Nothing else is coming. The caller fetches the finished analysis. */
   readonly onDone: () => void;
 }
@@ -210,6 +230,18 @@ export function watchAnalysis(id: string, watcher: Watcher): () => void {
     // A generation we cannot read is worse than one we ignore: clearing on `NaN` would wipe
     // the reader's screen every poll.
     if (Number.isInteger(n)) watcher.onGeneration(n);
+  });
+  source.addEventListener("subjects", (e) => {
+    try {
+      const parsed: unknown = JSON.parse((e as MessageEvent<string>).data);
+      // Anything else is dropped rather than guessed at. A malformed list would decide
+      // whether every claim on screen is labelled, and the finished report says so anyway.
+      if (Array.isArray(parsed) && parsed.every((s) => typeof s === "string")) {
+        watcher.onSubjects(parsed);
+      }
+    } catch {
+      // See above: the label is left to the final fetch rather than put on a guess.
+    }
   });
   source.addEventListener("done", () => {
     close();

@@ -40,6 +40,27 @@ to be present, the work is not done.
 
 ---
 
+## Before a change is proposed
+
+Two commands, in this order:
+
+```bash
+python3 scripts/verify.py
+```
+
+```bash
+python3 scripts/mutate.py <your mutations>.json
+```
+
+The first runs every gate and takes each one's own exit status; the second reintroduces the
+defects your change is meant to prevent and reports anything nothing notices.
+
+**The second is the one that matters.** This standard describes how code should be written;
+`.claude/skills/coding-mistakes/SKILL.md` is the list of places the standard did not save us, and
+every mechanical defect in it was found by deliberately breaking something. A guard added without
+a mutation that kills it is a guard nobody has confirmed is load-bearing.
+
+
 ## 1. What "slop" means here, concretely
 
 "High quality" is unfalsifiable. This is the operational definition, drawn from what

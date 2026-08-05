@@ -152,6 +152,10 @@ impl Discovered {
             .map(|c| landscape_core::Attempt {
                 path: path_of(&c.url).to_owned(),
                 outcome: c.outcome.name(),
+                // From the URL that was actually tried, so it cannot disagree with the path
+                // beside it. Two companies both contribute `/pricing (404)`, and merged they
+                // are one indistinguishable list without this.
+                subject: origin_of(&c.url),
             })
             .collect()
     }
@@ -181,6 +185,13 @@ impl Discovered {
             attempts: self.attempts_for(question),
         }
     }
+}
+
+/// Scheme and host of a URL — the company a path was tried against.
+fn origin_of(url: &str) -> String {
+    let (scheme, rest) = url.split_once("://").unwrap_or(("https", url));
+    let host = rest.split(['/', '?', '#']).next().unwrap_or(rest);
+    format!("{scheme}://{host}")
 }
 
 /// The path part of a URL, for a note a reader can retype.

@@ -1,0 +1,180 @@
+[
+  {
+    "name": "the merge does not stamp the subject on each claim",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "                    subject: report.subject.clone(),",
+    "new": "                    subject: String::new(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "source labels are not reassigned when reports merge",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "            let label = format!(\"S{}\", sources.len() + 1);\n            renamed.insert(source.label.clone(), label.clone());",
+    "new": "            let label = source.label.clone();\n            renamed.insert(source.label.clone(), label.clone());",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "coverage is concatenated rather than merged by question",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        coverage: coverage_by_question(&finished),",
+    "new": "        coverage: finished.iter().flat_map(|a| a.coverage.clone()).collect(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a company named and not analysed is dropped in silence",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "    let notes = if dropped.is_empty() {",
+    "new": "    let notes = if true {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the interface does not name the company beside each claim",
+    "file": "web/src/App.tsx",
+    "old": "                  {several && claim.subject !== \"\" && (",
+    "new": "                  {false && claim.subject !== \"\" && (",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "comparison mode is read off the claims instead of the subjects analysed",
+    "file": "crates/landscape-analyze/src/render.rs",
+    "old": "        let several = report.subjects.len() > 1;",
+    "new": "        let several = report.sections.iter().flat_map(|s| s.claims.iter()).filter(|c| !c.subject.is_empty()).map(|c| c.subject.clone()).collect::<std::collections::BTreeSet<_>>().len() > 1;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "discovery's attempts do not carry the company they were tried against",
+    "file": "crates/landscape-discover/src/lib.rs",
+    "old": "                subject: origin_of(&c.url),",
+    "new": "                subject: String::new(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "an empty section's checked lines do not name their company",
+    "file": "crates/landscape-core/src/coverage.rs",
+    "old": "                if several {\n                    attributed(&a.subject, &a.line())\n                } else {\n                    a.line()\n                }\n            })\n            .collect();\n        let mut section",
+    "new": "                a.line()\n            })\n            .collect();\n        let mut section",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the finished report's companies are ignored in favour of the claims on screen",
+    "file": "web/src/App.tsx",
+    "old": "  const analysed = (report?.subjects?.length ?? 0) > 0 ? (report?.subjects ?? []) : subjects;",
+    "new": "  const analysed: readonly string[] = [];",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the merged report's checked lines keep the shape one company rendered them in",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "                .map(|line| {\n                    if several {\n                        landscape_core::attributed(&report.subject, line)\n                    } else {\n                        line.clone()\n                    }\n                })",
+    "new": "                .map(std::clone::Clone::clone)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the stream never says which companies are being compared",
+    "file": "crates/landscape-api/src/events.rs",
+    "old": "                if !report.subjects.is_empty() {",
+    "new": "                if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "the companies arrive after the first claim they decide the shape of",
+    "file": "crates/landscape-api/src/events.rs",
+    "old": "                for section in &report.sections {\n                    if section.status == SectionStatus::NotFoundInPublicSources",
+    "new": "                for section in report.sections.iter().take(0) {\n                    if section.status == SectionStatus::NotFoundInPublicSources",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "the live stream falls back to guessing the label from the claims on screen",
+    "file": "web/src/App.tsx",
+    "old": "  const analysed = (report?.subjects?.length ?? 0) > 0 ? (report?.subjects ?? []) : subjects;",
+    "new": "  const analysed = report?.subjects ?? [];",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the company runs into the words beside it",
+    "file": "web/src/App.tsx",
+    "old": "<strong className=\"subject\">{withoutScheme(claim.subject)}</strong>{\" \"}",
+    "new": "<strong className=\"subject\">{withoutScheme(claim.subject)}</strong>",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  }
+]
