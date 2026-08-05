@@ -1,0 +1,10 @@
+{
+  "page": "linear-docs-releases.md",
+  "from": "https://linear.app/docs/releases.md, frozen 2026-08-04",
+  "why": "Documentation about a feature called Releases, which is not a changelog. The control for the changes extractor: a page that mentions releases throughout and dates nothing must report no dated entries, because PRODUCT_SPEC.md 4 is explicit that this is not the same as no changes.",
+  "answers": "changes",
+  "changes": {
+    "entries": [],
+    "considered": 0
+  }
+}

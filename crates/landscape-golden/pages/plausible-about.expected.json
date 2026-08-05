@@ -1,0 +1,32 @@
+{
+  "page": "plausible-about.md",
+  "from": "https://plausible.io/about, frozen 2026-08-04",
+  "why": "The only about page of four that states all three facts, and it states the founding year in a sentence with a name between the verb and the preposition - \"Uku Taht started Plausible in December 2018\" - which is the phrasing that made `started in` miss it in Run 12.",
+  "answers": "identity",
+  "facts": [
+    {
+      "fact": "founded",
+      "text": [
+        "Uku Taht started Plausible in December 2018, building it alone as a simple privacy-friendly alternative to Google Analytics. Paid subscriptions launched in 2019.",
+        "In 2020, when it was still just Uku building and a few hundred paying customers, Marko Saric joined to handle marketing and communications. No outside funding, no growth team. The company has grown through product improvement and transparent communication ever since.",
+        "Plausible crossed $1 million in annual recurring revenue in 2022 and has continued to grow as a profitable, independently operated company."
+      ]
+    },
+    {
+      "fact": "headquarters",
+      "text": [
+        "# About",
+        "Plausible Analytics is an independent, open source analytics company based in the EU. We built it because web analytics had drifted far from its purpose: a simple way for site owners to understand their traffic without surveilling their visitors.",
+        "We do not use cookies and we do not collect personal data. No surveillance model, no data brokerage, no conflict of interest between what we sell and what our customers need."
+      ]
+    },
+    {
+      "fact": "employees",
+      "text": [
+        "You can read a detailed account of our early decisions and growth in our startup journey article .",
+        "Today Plausible is a team of 10. You can meet everyone on our team page .",
+        "## How we’re funded"
+      ]
+    }
+  ]
+}

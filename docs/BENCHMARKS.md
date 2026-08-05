@@ -33,6 +33,159 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 17 — the sixteen defects, written down, and a seventeenth found while writing them
+
+**Date:** 2026-08-05 · **Subjects:** ten frozen pages from six companies · **Where:** this
+laptop · **Model:** none, and that is the point.
+
+Runs 5 to 16 found sixteen defects. Every one was found the same way — point the pipeline at a
+real company, read the output, notice something wrong — and **not one of them is asserted
+anywhere.** The pipeline could regress to its Run 5 behaviour today and 437 tests would pass.
+
+The half of that method which needs no GPU is now a test. Ten real pages are frozen as
+Markdown in `crates/landscape-golden/pages/` (222 KB with their expectations), each beside a
+JSON file saying what the deterministic passes must make of it: **every plan window a pricing
+page yields, heading and body**; every capability window a features page names; the date, title
+and quote of every entry a changelog carries; the window each fact on an about page was read
+from.
+
+```bash
+cargo test -p landscape-golden --test the_pages
+```
+
+**0.11 s, no model, no network.** It runs on every pull request; `against_a_model` still cannot.
+
+### Does it actually catch anything?
+
+A golden set that has never failed is a set nobody has calibrated. So five of the sixteen
+defects were put back into the code, one at a time, and the set was asked:
+
+| The defect, as it originally was | Caught? |
+|---|---|
+| Run 7 — the scoring floor that let Basecamp's FAQ outrank both its plans | **yes**, 2 pages |
+| Run 7 — a window with no price in it could still win | **yes**, 1 page |
+| Run 8 — a page footer read as fourteen capabilities | **yes**, 1 page |
+| Run 12 — the identity window's floor | **yes**, 1 page |
+| Run 10 — a date mid-sentence filed as a shipped change | no |
+| *(added after review)* the window body silently shortened, `WINDOW_CHARS` 1600 → 900 | **yes**, 1 page |
+
+**Five of six.** The one that gets away is caught by a unit test in `landscape-extract` that
+already existed, so the suite as a whole stops all six — but no frozen page carries a line that
+begins with a date and runs into prose, and that is a real gap rather than a rounding error. It
+is recorded here rather than papered over.
+
+The last row is there because of what review found, below.
+
+The failures name the page, quote its reason for being in the set, and print expected against
+got for every page that moved, not just the first:
+
+```text
+2 of 10 frozen pages no longer read the way they did:
+
+basecamp-pricing.md  (Pricing)
+  why it is here: Two plans on one page, which is the finding Run 7 exists for…
+  plan windows
+  expected ["## Pro Unlimited", "## Pro"]
+  got      ["## Pro Unlimited", "## Pro", "## I have pricing questions&hellip;"]
+```
+
+### What review found: freezing the heading is not freezing the window
+
+The first version of this froze **only which headings won**. Review took one try to show what
+that leaves out: change Linear Business from `$16 per user/month` to `$999` in the frozen page,
+and all five tests stay green. Heading selection was unchanged, so nothing noticed.
+
+That is the wrong half. §5.4's argument is that a bad window and a bad model **cannot be told
+apart at the output**, which is the entire reason span selection is a stage — and a set that
+freezes the label on a window but not its contents asserts the cheap part. Every expectation now
+carries the body, stored one line per entry so a change reads as a changed line in review:
+
+```text
+linear-pricing.md  (Pricing)
+  the window under `### Business`
+  line 1
+    expected "$16 per user/month $16 per user/month"
+    got      "$999 per user/month $999 per user/month"
+```
+
+The `WINDOW_CHARS` row in the table above is the mutation that measures this, and it is one the
+first version could not have caught: shrinking a window does not change which heading wins.
+
+Review found a second thing in the subjects — the Linear Free subject expected
+`billing_period: monthly` from a window that states only `$0` and *"Free for everyone"*. The
+cadence belonged to the plan **below** it. That expectation would have marked the honest null
+answer wrong and rewarded a model for copying a neighbour's period, which is not a hypothetical
+failure: Run 3's scorecard has a model reporting `monthly` for plans with no published price at
+all. The subject expects `null` now, and a new check asserts every expected period is stated in
+**the part of the page about the plan being asked**, not merely somewhere on it.
+
+### The seventeenth defect, found by building the set
+
+Cloudflare's changelog was fetched as a tenth page. It reported **0 entries out of 0
+considered** — a page of two dozen releases read as a page with no dates on it.
+
+Every date on it is a `<time datetime="2026-08-04">Aug 4, 2026</time>`, which converts to:
+
+```text
+2026-08-04 Aug 4, 2026
+```
+
+Run 10 added a rule that a date must be followed by a separator or nothing, because *"Starting
+August 11 2026, Workers will run…"* is a promise, not a release. Here the thing following the
+date is **the same date, written for a person** — and the rule read it as prose and threw the
+line away. The most explicitly machine-readable date shape on the web was the one we could not
+read.
+
+| | entries read |
+|---|---|
+| before | **0** of 0 |
+| after | **24** of 24 |
+
+Two renderings of one date are now stepped over as one date. The guard is untouched for every
+other case, including the two-different-dates line — `2026-08-04 Aug 10, 2026 scheduled
+changes` is a publication date and a scheduled date, and which the entry belongs to is exactly
+what this parser refuses to guess.
+
+### The model-facing set, from real pages at last
+
+`docs/ROADMAP.md` has said since Run 5 that the new subjects **should be fetched pages, not
+written ones** — because the synthetic set was predicting a performance the pipeline does not
+have. Five of the fifteen subjects now are: each `source` is the verbatim window
+`span::every_plan` cuts from a frozen page, so the model is scored on the text it will actually
+be handed.
+
+| Subject | From | The thing it makes hard |
+|---|---|---|
+| `flat-price-for-the-whole-company` | Basecamp Pro Unlimited | $299/month flat, beside a storage figure written as `10x Pro` |
+| `per-user-price-among-service-numbers` | Basecamp Pro | $15/user competing with 500 GB, `24/7/365` and two trial lengths |
+| `free-tier-with-real-quotas` | Linear Free | `$0` competing with 2 teams and 250 issues |
+| `price-buried-under-its-own-feature-list` | Notion Plus | the answer is line two; eighty words of features follow |
+| `a-pricing-page-that-states-no-price` | Todoist | says `per user/month` with **no figure** — the page that produced `Beginner at $5`, where 5 is a project limit |
+
+A test asserts they are still verbatim in the frozen pages, because a subject a model keeps
+failing invites a quiet edit to the page text, and a subject edited until it passes measures
+nothing.
+
+### What this run does not claim
+
+It measures **us**, not a model. No accuracy number moved, because none was taken — the model
+half of the set still needs a `llama-server` and is still `#[ignore]`d. Ten pages from six
+companies is not a representative sample of the web, and four of the ten answer the pricing
+question. The claim is narrower and worth having anyway: the specific things sixteen runs of
+hand-reading found now fail a build instead of being remembered.
+
+### What is still not right
+
+**The date-in-prose rule has no frozen page**, per the table above.
+
+**Nothing freezes a page against the model half.** The five real subjects are scored only when
+somebody runs the bake-off by hand.
+
+**Four of ten pages are pricing.** Changes has three, features two, identity one — and identity
+is the extractor with the fewest rules and the most guesswork.
+
+---
+
 ## Run 16 — watched in a browser, which found two things the tests could not
 
 **Date:** 2026-08-04 · **Subject:** plausible.io · **Where:** a browser, on this laptop ·

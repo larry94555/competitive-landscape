@@ -1,0 +1,11 @@
+{
+  "id": "a-pricing-page-that-states-no-price",
+  "why": "The real Todoist plans section. Todoist draws its figures in JavaScript, so what a fetcher receives is the words `per user/month` with nothing in front of them — a page that announces it is about prices, names three plans, and states none. This is the subject that produced `Beginner at $5`, where the 5 is how many personal projects the free plan allows, and it is the strongest abstention case in the set because everything on the page says a price should be here.",
+  "ask": "Pro",
+  "source": "Prices in\nUSD\n## Plans\nIndividuals\n### Beginner\nStart organizing your life for free\nGet Started Manage subscription\nAn account with:\n-\n5 personal projects\n-\nSmart Quick Add\n-\nTask reminders\n-\nFlexible list & board layouts\n-\n3 filter views\n-\n1 week activity history\n-\nIntegrate email, calendar, and more\n-\nRamble\nIndividuals\n## Pro\nOrganize your work and life\nper user/month\nStart for free Manage subscription\nEverything in Beginner, plus:\n-\n300 personal projects\n-\nCalendar layout\n-\nTask duration\n-\nCustom task reminders\n-\n150 filter views\n-\nFull reporting history\n-\nTask Assist",
+  "expect": {
+    "plan_name": "Pro",
+    "price_usd": null,
+    "billing_period": null
+  }
+}

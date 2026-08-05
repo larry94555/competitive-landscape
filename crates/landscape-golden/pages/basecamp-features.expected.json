@@ -1,0 +1,110 @@
+{
+  "page": "basecamp-features.md",
+  "from": "https://basecamp.com/features, frozen 2026-08-03",
+  "why": "Capabilities written as headings with prose underneath, and a footer of fourteen bullets that are navigation. The guess before Run 8 was that a features page is a bullet list; reading bullets here would have reported Basecamp's footer as fourteen features.",
+  "answers": "features",
+  "capabilities": {
+    "named": [
+      {
+        "heading": "## The Project page keeps it all together",
+        "text": [
+          "## The Project page keeps it all together",
+          "In Basecamp, every project you create gets a dedicated page. From there you can customize the page with built-in tools (to-dos, message boards, chat rooms, a calendar, kanban card tables, etc). Add whatever you need to make progress on work together. Invite co-workers, colleagues, clients, volunteers, even AI Agents. Everything stays organized, automatically."
+        ]
+      },
+      {
+        "heading": "## Message Boards for announcements and discussions",
+        "text": [
+          "## Message Boards for announcements and discussions",
+          "Message Boards essentially replace email. All project announcements, discussions, presentations, etc, live on the message board as individual posts and threads. Any comments and replies are attached to the bottom of that message. Super simple, like a shared inbox for the project. And since all the conversations are centralized and stored in Basecamp, even people you bring into the project later can get up to speed quickly. No more forwarding dozens of lengthy email threads to someone. It’s all neatly organized in Basecamp."
+        ]
+      },
+      {
+        "heading": "## To-do Lists for tracking all the little things",
+        "text": [
+          "## To-do Lists for tracking all the little things",
+          "Make a list, or ten lists, however many you need. Assign items, set due dates, have discussions, attach files, even create subtasks. Drag items between lists. Set up who gets notified when a to-do is completed. It’s all so simple when it’s in Basecamp for your entire team to see. One central source of truth."
+        ]
+      },
+      {
+        "heading": "## Hill Charts show you where things really stand",
+        "text": [
+          "## Hill Charts show you where things really stand",
+          "Is the project going to be done on time? Are people stuck? Basecamp’s Hill Charts let you know exactly where things really stand."
+        ]
+      },
+      {
+        "heading": "## Card Tables for tracking work through stages",
+        "text": [
+          "## Card Tables for tracking work through stages",
+          "Card Tables are our take on kanban boards. It’s a wonderfully visual way to track work through a process. Add cards, set up columns, move work through phases. Specify who should be notified when a new card is added to the table, or to a specific column. It’s perfect for bug and issue tracking, software development, production work, or anything that goes through distinct phases."
+        ]
+      },
+      {
+        "heading": "## Campfire chats for quick, casual conversations",
+        "text": [
+          "## Campfire chats for quick, casual conversations",
+          "When you have Basecamp you don’t need Slack, WhatsApp, or another dedicated chat app. Just chat in Basecamp instead. Perfect for real-time conversations, quick file sharing, random question asking, stuff like that. Even add multiple chat rooms to a specific project if you’d like."
+        ]
+      },
+      {
+        "heading": "## The Basecamp Calendar for big dates",
+        "text": [
+          "## The Basecamp Calendar for big dates",
+          "Add a built-in calendar to your project. Track deadlines, milestones, events, meetings, anything with a time and date. And there’s even a global calendar that aggregates everything from individual project calendars. You can even subscribe to your Basecamp calendar in Outlook, Google Calendar, HEY Calendar, or any other calendar system you might use."
+        ]
+      },
+      {
+        "heading": "## Automatic Check-ins for recurring questions",
+        "text": [
+          "## Automatic Check-ins for recurring questions",
+          "Cut back on meetings and stand ups by setting up Automatic Check-ins instead. Set up questions that are asked on a regular schedule. Everyone’s answers are saved back to a single log for easy review whenever. For example, maybe you’ll have Basecamp automatically ask your team “What are you working on this week?” every Monday morning at 9am. You can look at everyone’s answers, or even hone in on just one person’s answers over time."
+        ]
+      },
+      {
+        "heading": "## Docs & Files for reference materials, assets, and links",
+        "text": [
+          "## Docs & Files for reference materials, assets, and links",
+          "Docs & Files keeps images, documents, PDFs, even cloudfiles (from other services like Figma, Google Docs, iCloud, Dropbox, and others) in neatly organized lists and folders inside your projects. Keep brand assets in one place where everyone can find them. Keep the client’s approved designs in one official spot. Instantly filter by person, file type, or keyword. Everything’s organized in Basecamp."
+        ]
+      },
+      {
+        "heading": "## My Tasks, Events, Today, Bookmarks, and Notes",
+        "text": [
+          "## My Tasks, Events, Today, Bookmarks, and Notes",
+          "Have instant access to your own personal tasks, events you’re part of, bookmarks you’ve saved, and personal notes you’ve taken, all right from the \"My Bar\" at the bottom of the screen. Keyboard accessible too, so you can hit a key and pop your assignments right up, all without leaving where you are and all without even moving your mouse."
+        ]
+      },
+      {
+        "heading": "## Reports for high-level overviews",
+        "text": [
+          "## Reports for high-level overviews",
+          "Get an instant read on where things stand with Basecamp’s Reports.",
+          "- The Lineup shows you projects plotted on a timeline.",
+          "- Someone’s activity shows you what any particular person has been up to.",
+          "- Someone’s assignments shows you everything assigned to someone.",
+          "- Mission Control shows you every project’s status in one view.",
+          "- The Hilltop shows you every project’s Hill Chart on a single screen.",
+          "- Added/Completed shows you all the tasks added/completed on a given day.",
+          "- Overdue shows you everything that’s late.",
+          "- Unassigned shows you all the work that remains unassigned.",
+          "- Timesheets shows you how much time has been spent on each project."
+        ]
+      },
+      {
+        "heading": "## Everything Views are like having x-ray vision",
+        "text": [
+          "## Everything Views are like having x-ray vision",
+          "A real game changer, Everything Views aggregate everything of a specific type no matter which project it’s in. Know someone uploaded a file this morning but don’t remember where? Check \"All Files\" and it’ll be right there. Know someone posted a comment but you can’t remember in which project? Check \"All Comments\" and it’ll be right there. Everything Views pull it all together onto a single page no matter where it lives in Basecamp.",
+          "- All Messages",
+          "- All Documents",
+          "- All Files",
+          "- All Comments",
+          "- All Check-In Answers",
+          "- All Forwarded Emails"
+        ]
+      }
+    ],
+    "considered": 18
+  }
+}

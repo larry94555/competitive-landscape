@@ -14,6 +14,7 @@
 
 #![allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
 
+use landscape_core::extract::BillingPeriod;
 use landscape_golden::{load, prompt_for, Subject};
 
 fn subjects() -> Vec<Subject> {
@@ -82,6 +83,87 @@ fn every_expected_answer_is_actually_on_the_page() {
             );
         }
     }
+}
+
+#[test]
+fn every_expected_billing_period_is_stated_on_the_page() {
+    // The same rule as `every_expected_answer_is_actually_on_the_page`, applied to the field
+    // it is easiest to get wrong. Review caught the Linear Free subject expecting `monthly`
+    // from a window that says only `$0` and "Free for everyone" — the cadence belonged to the
+    // plan *below* it. An expectation like that marks the honest null answer wrong and
+    // rewards copying a neighbouring plan's period, which is a real failure mode: the
+    // scorecard's own history has models reporting `monthly` for plans with no published
+    // price at all.
+    // Checking the whole page would not have caught it — the subject carries the neighbouring
+    // plan on purpose, so `per user/month` *is* somewhere in the source. The cadence has to be
+    // in the section belonging to the plan being asked about.
+    for s in subjects() {
+        let Some(period) = s.expect.billing_period else {
+            continue;
+        };
+        let section = section_for(&s.source, &s.ask).to_lowercase();
+        let words: &[&str] = match period {
+            BillingPeriod::Monthly => &["month", "monthly", "/mo"],
+            BillingPeriod::Yearly => &["year", "yearly", "annual", "annually"],
+            BillingPeriod::OneOff => &["one-off", "one time", "once", "single payment"],
+        };
+        assert!(
+            words.iter().any(|w| section.contains(w)),
+            "subject `{}` expects billing_period {period:?}, which the part of its page about \
+             {:?} never states. Either the honest answer is null, or the subject is quoting a \
+             neighbouring plan's cadence.",
+            s.id,
+            s.ask
+        );
+    }
+}
+
+/// The part of a page that belongs to one plan: its heading, down to the next heading of the
+/// same or a shallower level.
+///
+/// A plan's subtitle is a *deeper* heading — `## Pro Unlimited` above `### Top-of-the-line,
+/// all-inclusive pricing` — so stopping at any heading at all would cut most plans off before
+/// their price. Pages with no headings (the prose subjects) have one section, which is the
+/// whole page.
+fn section_for<'a>(source: &'a str, plan: &str) -> &'a str {
+    let lines: Vec<&str> = source.lines().collect();
+    let level = |l: &str| l.len() - l.trim_start_matches('#').len();
+    let text = |l: &str| l.trim_start_matches('#').trim().to_lowercase();
+    let wanted = plan.to_lowercase();
+
+    // Exact heading first: `Pro` must not match `Pro Unlimited` when both are on the page.
+    let start = lines
+        .iter()
+        .position(|l| level(l) > 0 && text(l) == wanted)
+        .or_else(|| {
+            lines
+                .iter()
+                .position(|l| level(l) > 0 && text(l).contains(&wanted))
+        });
+    let Some(start) = start else {
+        return source;
+    };
+
+    let depth = level(lines[start]);
+    let end = lines
+        .iter()
+        .enumerate()
+        .skip(start + 1)
+        .find(|(_, l)| level(l) > 0 && level(l) <= depth)
+        .map_or(lines.len(), |(i, _)| i);
+
+    let from = source
+        .lines()
+        .take(start)
+        .map(|l| l.len() + 1)
+        .sum::<usize>();
+    let to = source
+        .lines()
+        .take(end)
+        .map(|l| l.len() + 1)
+        .sum::<usize>()
+        .min(source.len());
+    &source[from..to]
 }
 
 #[test]

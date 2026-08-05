@@ -127,7 +127,17 @@ fn dated_line(line: &str) -> Option<Dated> {
     let stripped = strip_markers(line.trim());
     let (year, month, day, consumed) = parse_date(stripped)?;
 
-    let after = &stripped[consumed.len()..];
+    let mut after = &stripped[consumed.len()..];
+    // `<time datetime="2026-08-04">Aug 4, 2026</time>` converts to `2026-08-04 Aug 4, 2026`:
+    // the machine date, then the same day written for a person. Two renderings of one date are
+    // not a date running into a sentence, so the second is stepped over rather than rejected.
+    // BENCHMARKS.md Run 17 — this shape read Cloudflare's entire changelog as zero entries.
+    if let Some((y2, m2, d2, again)) = parse_date(after.trim_start()) {
+        if (y2, m2, d2) == (year, month, day) {
+            let offset = after.len() - after.trim_start().len() + again.len();
+            after = &after[offset..];
+        }
+    }
     let rest = after
         .trim()
         .trim_start_matches(['-', '—', '–', ':', '|', '·', '•'])
@@ -410,6 +420,45 @@ mod tests {
         // linear.app/docs/releases.md is documentation about a feature called Releases, and
         // this is what makes that visible rather than inventing a changelog from it.
         let page = "# Releases\n## Overview\nLinear can group issues into releases.";
+        assert!(every_change(page).entries.is_empty());
+    }
+
+    #[test]
+    fn a_machine_date_followed_by_the_same_date_in_words_is_one_date() {
+        // `<time datetime="2026-08-04">Aug 4, 2026</time>`. Cloudflare's changelog is built
+        // entirely of these, and reading the second date as prose rejected every entry on the
+        // page — 24 releases reported as none (BENCHMARKS.md Run 17). The most explicitly
+        // machine-readable date on the web was the one shape we could not read.
+        let page = "2026-08-04 Aug 4, 2026\n## Build and deploy Artifacts repos on every push";
+        let found = every_change(page);
+        assert_eq!(found.entries.len(), 1);
+        assert_eq!(
+            (
+                found.entries[0].year,
+                found.entries[0].month,
+                found.entries[0].day
+            ),
+            (2026, 8, 4)
+        );
+        assert_eq!(
+            found.entries[0].title,
+            "Build and deploy Artifacts repos on every push"
+        );
+    }
+
+    #[test]
+    fn two_different_dates_on_one_line_are_still_a_sentence() {
+        // The step-over is only safe because the two dates are the same day. `2026-08-04
+        // Aug 10, 2026` is a publication date and a scheduled date, and which one the entry
+        // belongs to is exactly the ambiguity this parser refuses to guess at.
+        let page = "2026-08-04 Aug 10, 2026 scheduled changes\n## Something";
+        assert!(every_change(page).entries.is_empty());
+    }
+
+    #[test]
+    fn a_future_date_inside_a_sentence_is_still_not_a_shipped_change() {
+        // Guarding the fix above against the finding it could undo.
+        let page = "Starting August 11 2026, Workers will run on Notion credits.\n## Pricing";
         assert!(every_change(page).entries.is_empty());
     }
 

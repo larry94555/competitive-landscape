@@ -295,6 +295,13 @@ holding it.
 - ~~Hand-build **10 golden-set subjects** with frozen HTML fixtures and human-written
   reference sheets.~~ **Done** — `crates/landscape-golden`, and
   [BENCHMARKS.md](BENCHMARKS.md) Run 3.
+- ~~Make the deterministic half of the golden set run in CI.~~ **Done** —
+  [BENCHMARKS.md](BENCHMARKS.md) Run 17. **Ten real pages from six companies are frozen** in
+  `crates/landscape-golden/pages/`, each with the windows, capabilities, dates and facts the
+  parsers must produce. `cargo test -p landscape-golden --test the_pages` takes 0.11 s and
+  needs no model, so unlike `against_a_model` it runs on every pull request. Calibrated by
+  putting six past defects back: it caught five, and the sixth is caught by a unit test.
+  Building it found a seventeenth defect — Cloudflare's whole changelog read as zero entries.
 
 **UX polish:** design tokens, typography scale, the report layout in Figma or static HTML.
 Decide the visual language for citations, confidence, and "not found" *now* — they are
@@ -576,6 +583,10 @@ loading screen; treat it as a P0 requirement.
   **The 15 new subjects should be fetched pages, not written ones.** Run 5 showed the current
   set predicting a performance the pipeline does not have: its pages are ~100 clean words
   about one plan, and a real pricing page is 1700 words with three plans and a cookie banner.
+  **15 of 25, and five of them are fetched** — Run 17. Each of the five is the verbatim window
+  `span::every_plan` cuts from a page in `pages/`, held there by a test, so the model is scored
+  on the text it is actually handed. The remaining ten should come the same way; the ten frozen
+  pages are the supply.
 
 **Exit criteria**
 - 20 consecutive analyses of varied subjects complete without a crash.

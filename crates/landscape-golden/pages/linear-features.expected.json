@@ -1,0 +1,70 @@
+{
+  "page": "linear-features.md",
+  "from": "https://linear.app/features, frozen 2026-08-03",
+  "why": "The other heading shape: two capabilities whose name sits on the line below a bare `###`, which a rule requiring a heading with text in it would lose. Also the page that a documentation URL held the features slot for until Run 9.",
+  "answers": "features",
+  "capabilities": {
+    "named": [
+      {
+        "heading": "Planning",
+        "text": [
+          "###",
+          "Planning",
+          "Set the product direction with projects and initiatives"
+        ]
+      },
+      {
+        "heading": "Building",
+        "text": [
+          "###",
+          "Building",
+          "Make progress with issue tracking and cycle planning"
+        ]
+      },
+      {
+        "heading": "### Artificial intelligence",
+        "text": [
+          "### Artificial intelligence",
+          "Streamline product development with AI-powered workflows and agents"
+        ]
+      },
+      {
+        "heading": "### Insights",
+        "text": [
+          "### Insights",
+          "Instant analytics for any stream of work"
+        ]
+      },
+      {
+        "heading": "### Mobile",
+        "text": [
+          "### Mobile",
+          "Move product work forward from anywhere"
+        ]
+      },
+      {
+        "heading": "### Customer Requests",
+        "text": [
+          "### Customer Requests",
+          "Build what customers",
+          "actually want"
+        ]
+      },
+      {
+        "heading": "### Linear Asks",
+        "text": [
+          "### Linear Asks",
+          "Turn workplace requests into actionable issues"
+        ]
+      },
+      {
+        "heading": "### Security",
+        "text": [
+          "### Security",
+          "Best-in-class security practices keep your work safe and se cure 0 n * d"
+        ]
+      }
+    ],
+    "considered": 8
+  }
+}
