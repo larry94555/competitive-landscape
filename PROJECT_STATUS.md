@@ -1,0 +1,498 @@
+# Project Status
+
+**As of 2026-08-04** · `main` at `9022141`, and it describes
+[#32](https://github.com/larry94555/competitive-landscape/pull/32) as landed — that is the one
+place this page runs ahead of the tree, and it is called out again in §3.
+
+This page answers one question: **what can somebody actually do with this today, and what
+stands between here and each of the six states that matter.** It is deliberately separate from
+[docs/ROADMAP.md](docs/ROADMAP.md), which is the plan. A plan says what is intended; this says
+what is true.
+
+> **How to keep it true:** update this file in the same PR that changes what it describes. A
+> status page maintained on its own schedule becomes fiction within a fortnight, and a
+> confident fiction is worse than no page. The [update rule](#8-how-this-page-is-maintained)
+> at the bottom says exactly what to touch.
+
+---
+
+## 1. The headline: can we show this to anyone?
+
+The six states, in the order they must be reached. **None of them is met.**
+
+| # | State | Met? | The single thing standing in the way |
+|---|---|---|---|
+| **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **No — but closest.** The software can do this on a laptop today. | **Nothing is deployed.** The definition says "if deployed to the Oracle Cloud", and there is no deployment, no host recorded, no access from here. |
+| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | **A business idea does not run at all.** A prompt must name a domain; a description fails with `no_subject`. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
+| **S3** | **Ready for use** — friendly users should find no issue | **No.** | No permalink (a reload loses the run), no accounts, 6 of 9 report sections, no verification layer. |
+| **S4** | **Ready for general use** — promotable, word-of-mouth quality | **No.** | Everything in S3, plus no quality gates have ever been run against a deployed system. |
+| **S5** | **General use, free mode** — stable, email signup, community channels | **No.** | No authentication code exists anywhere in the repository. No knowledge base. |
+| **S6** | **General use, full mode** — notifications and paid subscriptions | **No.** | No billing, no watches, no email. A blocking commercial decision (merchant of record) is unmade. |
+
+### The three facts behind that table
+
+**1. Nothing searches the public web.** The word "search" in the product description is not yet
+implemented. What runs today is *discovery on one named company's own domain* — `/pricing`,
+`/changelog`, `sitemap.xml`, `llms.txt` — capped at eight pages
+(`crates/landscape-discover/`). There is no search channel, no SearXNG, no off-site adapter.
+Every rung of every "Searching the Public Web" milestone sits behind that one unbuilt
+component.
+
+**2. It analyses one company, not a competitive set.** `origin_in` takes the *first* domain in
+the prompt and ignores the rest — `basecamp.com vs linear.app` analyses Basecamp alone
+(`the_first_site_named_is_the_subject`, in
+[`landscape-analyze/src/subject.rs`](crates/landscape-analyze/src/subject.rs)). There is no comparison, no
+feature matrix, no competitor discovery. The product is currently a **single-company public
+profile**, not a competitive analysis.
+
+**3. The percentage rungs cannot be reported, because nothing measures them.** The ladder below
+asks for "10% / 25% / 50% / 80% of relevant information returned for some sample ideas". That
+requires a set of sample **ideas** with known correct competitor sets and a recall metric.
+`landscape-golden` measures something different and narrower: whether the extractors and the
+model read a *frozen page* correctly. **Building the instrument is a prerequisite for reporting
+the ladder at all**, and it is not on any phase's task list. See [B1](#4-blockers).
+
+---
+
+## 2. Feature milestones
+
+### The ladder
+
+Every feature below is tracked against the same eight rungs.
+
+| Rung | Means |
+|---|---|
+| **R1** | Happy path — some information comes back |
+| **R2** | 10% of the relevant information, on sample ideas |
+| **R3** | 25% |
+| **R4** | 50% |
+| **R5** | 80% |
+| **R6** | Relevant information is returned — the feature does its job |
+| **R7** | **Ready for demo** — deployed, works for inputs we choose, demonstrable |
+| **R8** | **Ready for use** — deployed, works for any input, and an honest "nothing found" when there is nothing |
+
+For flow features — signup, subscription, community, notifications — "% of relevant information"
+has no meaning, so R2–R5 read as **% of the flow's steps working end to end**. That
+substitution is deliberate and is noted on each one.
+
+### Where every feature stands
+
+| Feature | Rung | One-line status |
+|---|---|---|
+| [F1 Searching for competitive information on a product idea](#f1--searching-for-competitive-information-on-a-product-idea) | **R1 partial** | Works for a prompt naming a domain. An idea returns nothing. |
+| [F2 Editing the product idea to get better results](#f2--editing-the-product-idea) | **R0** | No run has a URL; there is nothing to return to and edit. |
+| [F3 Asking follow-up questions](#f3--asking-follow-up-questions) | **R0** | Not started. Report is terminal — read it or run another. |
+| [F4 Sign up / registration](#f4--sign-up--registration) | **R0** | No authentication code exists in the repository. |
+| [F5 Subscription setup and cancellation](#f5--subscription-setup-and-cancellation) | **R0** | Not started, and blocked on an unmade commercial decision. |
+| [F6 Slack-like discussion and troubleshooting](#f6--slack-like-discussion-and-troubleshooting) | **R0** | Not started. |
+| [F7 Notifications for changes in public information](#f7--notifications-for-changes-in-public-information) | **R0** | Not started. The *detection* half has a deterministic parser already. |
+| [F8 The report itself](#f8--the-report-itself) | **R3–R4** | 6 of 9 sections, 4 of 6 extractors, no matrix, no charts. |
+| [F9 Claims you can check](#f9--claims-you-can-check) | **R4** | Structurally enforced at the type level; the verification pass is not built. |
+| [F10 PDF export](#f10--pdf-export) | **R0** | Not started. |
+| [F11 Share / permalink](#f11--share--permalink) | **R0** | Not started, and it blocks F2, F3 and any demo that survives a reload. |
+| [F12 What people are saying](#f12--what-people-are-saying) | **R0** | Not started. |
+| [F13 Copy as context](#f13--copy-as-context) | **R0** | Not started. Cheapest customer-visible item on the list. |
+| [F14 The wait](#f14--the-wait) | **R2** | Streaming works. The wait has never been measured on the target hardware. |
+
+---
+
+### F1 — Searching for competitive information on a product idea
+
+**Rung: R1, partially.** The happy path exists for one of the two input shapes.
+
+| Rung | State | Why |
+|---|---|---|
+| R1 happy path, minimal information | **Met for a domain. Not met for an idea.** | `basecamp.com` produces a six-section cited report. "an app that helps small farms sell to local restaurants" fails with `no_subject` and a remedy line. |
+| R2 10% of relevant information | **Unknown — unmeasurable.** | No idea-level golden set exists. See [B1](#4-blockers). |
+| R3 25% · R4 50% · R5 80% | **Unknown — unmeasurable.** | Same. |
+| R6 relevant information returned | **No.** | Single company, own domain only, 4 of 6 question kinds. |
+| R7 ready for demo | **No.** | Not deployed. |
+| R8 ready for use | **No.** | An idea-shaped prompt is the *normal* input and it does not run. |
+
+**What exists.** `crates/landscape-discover` (on-domain probes, sitemap, `llms.txt`, ranked and
+capped at 8), `crates/landscape-fetch` (SSRF guard at 100% coverage, robots.txt, per-host
+politeness), `crates/landscape-extract` (Markdown conversion, span pre-selection, four
+extractors), `crates/landscape-llm` (grammar-constrained decoding), `crates/landscape-analyze`
+(the orchestrator), SSE streaming, and a React page that renders sections as they land.
+
+**What is missing, in the order it blocks things:**
+
+1. **The search channel.** `landscape-search` does not exist as a crate. Without it there is no
+   path from a description to a company, and no source that is not the subject's own website.
+2. **Candidate generation for entity resolution.** The *gate* is built and unit-tested
+   (`landscape-core::subject`) — given scored candidates it resolves, asks, or reports nothing
+   found. Nothing generates candidates, because that needs the fetching the gate exists to
+   authorise. Built in this order on purpose.
+3. **Competitor set derivation.** Nothing turns one subject into several.
+4. **Two of six extractors** — trust posture and investment direction. The pipeline names the
+   kind and declines rather than running the wrong extractor.
+5. **No caching.** The fetch cache and per-source extraction cache — called the
+   highest-leverage cache in the system, and scheduled for Phase 1 — are not built. Two users
+   analysing the same competitor share no work.
+
+**Blockers:** [B1](#4-blockers) (no measurement), [B2](#4-blockers) (search channel),
+[B5](#4-blockers) (not deployed).
+**Risks:** [K1](#5-risks), [K2](#5-risks), [K5](#5-risks).
+
+---
+
+### F2 — Editing the product idea
+
+**Rung: R0.** Nothing to edit, because there is nothing to return to.
+
+A finished analysis has no URL. Reloading the page loses it. The interpretation header from
+`COMPETITIVE_DISCOVERY.md` §4–§6 — "we read your idea as *this*; correct it" — is specified and
+unbuilt. The `searched_as` line in the UI is the read-only ancestor of that control: it tells a
+reader what was searched for and gives them no way to change it.
+
+**Depends on:** [F11](#f11--share--permalink) first, then the interpretation header, then
+re-run-with-edits.
+**Blockers:** [B3](#4-blockers).
+
+---
+
+### F3 — Asking follow-up questions
+
+**Rung: R0.**
+
+Two different features are specified and neither is started: **clarifying questions** (≤3,
+chip-answerable, skippable, fired only when discovery fails to converge — Phase 2) and
+**conversational follow-up** on a finished report (`UI_FLOWS.md`). A report today is terminal.
+
+**Depends on:** F1 reaching R6, since a follow-up over a thin report inherits its thinness.
+
+---
+
+### F4 — Sign up / registration
+
+**Rung: R0.** Ladder reads as % of flow steps.
+
+There is no authentication code in the repository — no session, no cookie, no magic link, no
+`users` table. The three migrations are `analyses`, `failure_kind` and `generation`. Everything
+runs anonymously and unlimited; even the specified anonymous rate limit (2/day) is not built.
+
+Specified for Phase 3: magic-link auth, ~90-day sessions, free tier of 10 analyses/month,
+history, saved reports, usage meter, and GDPR export/delete.
+
+**Blockers:** [B6](#4-blockers) — transactional email is unprovisioned, and magic-link
+deliverability is on the critical path for this flow.
+
+---
+
+### F5 — Subscription setup and cancellation
+
+**Rung: R0.** Ladder reads as % of flow steps.
+
+Nothing exists. Beyond the code, one decision blocks writing any of it: **merchant of record,
+or not.** Stripe leaves VAT/GST/sales-tax registration and remittance as our legal obligation;
+Paddle or Lemon Squeezy absorb it at a higher fee. The roadmap recommends Stripe and requires
+the choice be recorded before billing code is written, because switching after customers exist
+is genuinely painful.
+
+**Blockers:** [B7](#4-blockers) — the merchant-of-record decision, unmade.
+**Risks:** [K7](#5-risks).
+
+---
+
+### F6 — Slack-like discussion and troubleshooting
+
+**Rung: R0.** Ladder reads as % of flow steps.
+
+The design is the "slash-lite" open knowledge base in `docs/SUPPORT_SYSTEM.md`: public
+searchable `/help` with slash commands, tags, threads, replies, voting and flagging, seeded
+with 25–30 official articles, indexable, with private support as the minority channel. None of
+it is built; no seed articles are written.
+
+Worth noting because it is easy to under-rate: this is the only feature on the list that is
+simultaneously **support**, **SEO surface** and **community**, and it is specified to exist
+*before* it is needed rather than after the first support spike.
+
+---
+
+### F7 — Notifications for changes in public information
+
+**Rung: R0**, with one genuine head start.
+
+`crates/landscape-extract/src/changes.rs` already extracts dated public changes from a
+changelog **using no model at all** — dates are on the deterministic side of the line. That is
+the detection primitive the watch loop needs.
+
+Everything else is absent: the scheduler, conditional GET and content hashing, near-duplicate
+suppression, importance scoring, digests, alert email, one-click feedback, unsubscribe and
+bounce handling. And there is no email provider.
+
+**Risks:** [K6](#5-risks) — this is the retention thesis. If watches are not the hook, the
+subscription's primary justification is wrong, and that is not knowable until it ships.
+
+---
+
+### F8 — The report itself
+
+**Rung: R3–R4.** The shape is right; the content is a third of what is specified.
+
+| Specified | Built |
+|---|---|
+| Nine sections | **Six.** Pricing, what it does, recent changes, company facts, trust, direction. |
+| Six question kinds with extractors | **Four.** Trust and direction have none. |
+| Feature comparison matrix, five-state cells | **None.** Needs a competitor set, which does not exist. |
+| SVG charts (feature matrix, cost-at-scale) | **None.** |
+| Coverage notes — "nothing found, here is what was checked" | **Built, and it is the strongest thing here.** Distinguishes four different silences. |
+
+The three absent sections — positioning, sentiment themes, SWOT — are interpretation over
+sources the pipeline does not gather. They are honestly absent rather than empty, which is the
+right call: an empty section that can never fill teaches a reader to skim past empty sections.
+
+---
+
+### F9 — Claims you can check
+
+**Rung: R4.** The strongest area of the codebase, and still half-built.
+
+**Built:** a `Claim` cannot be constructed without a source label and a verbatim quote, so an
+unsourced sentence is not representable. `Report::every_claim_is_traceable` refuses a report
+whose citation does not resolve. Constrained decoding gives a 100/100 schema-valid round trip.
+Ten real pages are frozen with what the parsers must make of them.
+
+**Not built:** `landscape-verify` — exact→normalized→fuzzy quote matching against the fetched
+source, drop accounting, type-specific validators (price/period consistency, date sanity,
+version verbatim checks), and the single regeneration retry. Until it exists, "the quote is in
+the source" is guaranteed by *construction* in our own code but never *re-checked against the
+page*, and the citation-coverage and drop-rate gates (≥97% / ≤3%) cannot be measured.
+
+**Risk [K3](#5-risks):** a defective quantisation once passed every check in place at the time —
+fast, always parseable, schema-valid, and wrong. Shape guarantees are not accuracy guarantees.
+
+---
+
+### F10 — PDF export
+
+**Rung: R0.** Not started. Typst templates specified for Phase 2. Note the metric attached to
+it: PDF download rate ≥25% of completed reports — it is a headline value moment, not a nicety.
+
+### F11 — Share / permalink
+
+**Rung: R0.** Not started, and it is a bigger deal than its size suggests: it blocks
+[F2](#f2--editing-the-product-idea), blocks [F3](#f3--asking-follow-up-questions), and means
+**any demo dies on a reload.** Cheap, and on the critical path to S1.
+
+### F12 — What people are saying
+
+**Rung: R0.** Hacker News and GitHub only, both unambiguously open. Reddit, X and LinkedIn are
+excluded — X on cost, Reddit on terms — and the plan's answer is to disclose them by name with
+prefilled searches the reader opens themselves. The Reddit exclusion currently **rests on
+vendor blogs who sell Reddit data access**, which our own trust model would classify as
+interested parties. Unconfirmed ([B4](#4-blockers)).
+
+### F13 — Copy as context
+
+**Rung: R0.** The whole report as clean Markdown with every URL and date, sized to paste into
+the reader's own AI assistant. Near-free to build, and it is the feature that settles the
+positioning: not a worse chatbot, but the evidence file a chatbot cannot assemble.
+
+### F14 — The wait
+
+**Rung: R2.** Streaming is real: sections appear as they are finished, and watching it in a
+browser found two defects 425 passing tests had not.
+
+What is not true yet: **first content in 40 seconds.** Locally it is nearer two minutes,
+because nothing chooses the order pages are read in — the changelog needs no model and could go
+first. And no end-to-end figure exists for the target hardware at all, because the target
+hardware has nothing on it. The target is p50 ≤180s with first content ≤40s on the free tier.
+
+---
+
+## 3. Phase milestones
+
+Percentages are **software only** — work an agent does in this repository — and exclude founder
+work such as the concierge interviews, the terms audit and the deployment. They are a judgement
+made by counting each phase's "Ship" and "Technical tasks" entries against what is in the tree,
+with the evidence beside them. Where a phase's remaining work is mostly *not* software, that is
+said rather than hidden in a number.
+
+| Phase | Begun | 25% | 50% | 80% | Complete | Software |
+|---|---|---|---|---|---|---|
+| **0** Foundations & model bake-off | ☑ | ☑ | ☑ | ☑ | ☐ | **~90%** |
+| **1** Vertical slice: anonymous analysis | ☑ | ☑ | ☑ | ☐ | ☐ | **~55%** |
+| **2** Grounding verification, PDF & quality | ☑ | ☐ | ☐ | ☐ | ☐ | **~10%** |
+| **3** Accounts, limits, knowledge base | ☐ | ☐ | ☐ | ☐ | ☐ | **0%** |
+| **4** Monetization | ☐ | ☐ | ☐ | ☐ | ☐ | **0%** |
+| **5** Watchlists & notifications | ☐ | ☐ | ☐ | ☐ | ☐ | **0%** |
+| **6** Cold start & growth | ☐ | ☐ | ☐ | ☐ | ☐ | **0%** |
+| **7** Retention, scale & model upgrade | ☐ | ☐ | ☐ | ☐ | ☐ | **0%** |
+| **8** Sustainability | ☐ | ☐ | ☐ | ☐ | ☐ | **0%** |
+
+### Phase 0 — at 80%, not complete
+
+**Software remaining:** one exit criterion, and it is not really software — *a measured,
+realistic end-to-end latency estimate.* Partial: one extraction takes ~3.8s on the router tier
+under contention, so 120s buys roughly 32 of them before any fetching. There is no end-to-end
+figure because there is no deployment to measure from a client's side, which is the only place
+[ADR 0011](docs/decisions/0011-no-experiments-on-production.md) permits measuring it.
+
+**Non-software remaining, and it is the higher-risk half:**
+
+- **The concierge five (G1 gate).** ≥5 hand-made reports delivered to real founders, with
+  reactions recorded. **Not started.** This is the highest-risk open item in the whole roadmap:
+  everything from Phase 1 onward is built on an unvalidated assumption about the report format,
+  the buyer and the price.
+- **The source-terms audit (Track D).** **Not started.** Decides whether review platforms are a
+  data source or a wall, and the discovery ranking is written against an assumption until it is
+  answered.
+- **The Oracle box.** Provisioned, but nothing here can reach it — no address, no SSH user, no
+  key. The shape (4 OCPU / 24 GB aarch64) and the Pay-As-You-Go conversion are both unconfirmed
+  from this workspace.
+
+**Closed on evidence, and worth keeping visible:** the model choice (Qwen3-4B Q4_K_M extracts;
+the 1.7B invented a price on `contact-sales` and is a router, not an extractor), `q8_0` KV
+quantisation, grammar-constrained round trip at 100/100, the observability decision, and every
+merge gate green on an empty repository.
+
+### Phase 1 — past 50%, short of 80%
+
+**Built:** the whole spine. Prompt → queue → worker → discovery → fetch → Markdown → span
+pre-selection → extraction → assembled cited report → SSE → a React page that fills in as it
+runs. Plus the failure states a run only reaches when something goes wrong: a worker that dies,
+a reclaim, out-of-order progress writes, and a generation number that stops a replaced worker
+finishing over the run that replaced it.
+
+> **The generation is the one thing on this page that is not yet on `main`.** It is
+> [#32](https://github.com/larry94555/competitive-landscape/pull/32), open and green. Until it
+> merges, `migrations/` holds two files rather than the three counted in
+> [F4](#f4--sign-up--registration).
+
+**Not built — the 45%:**
+
+| Missing | Consequence |
+|---|---|
+| `landscape-search` / SearXNG | An idea cannot become a company. **The phase's defining gap.** |
+| Candidate generation for entity resolution | The disambiguation gate has nothing to disambiguate. |
+| Two of six extractors (trust, direction) | Two sections can never fill. |
+| Fetch cache + per-source extraction cache | The highest-leverage cache in the system, scheduled for this phase, absent. |
+| Share URL / permalink | A reload loses the run. |
+| Anonymous rate limit (2/day) | Unlimited anonymous inference on a free box. |
+| Example chips, stage rail, source cards, citation hover cards | The UI is functional and unfinished. |
+| Conditional GET; per-analysis fetch cap | Every run re-fetches everything. |
+| SSE replay ring buffer (`Last-Event-ID`) | Reconnect re-reads from the row rather than resuming. Works; not what was specified. |
+| Cancellation threaded into `analyse_with` | A replaced worker keeps working until its next write is refused. |
+| Golden set to 25 subjects | 15 of 25, five of them fetched. |
+| Review-platform access audit | Same item as Phase 0 Track D. |
+
+**Exit criteria, none yet met:** 20 consecutive varied analyses without a crash (never run);
+p50 ≤240s and first content ≤45s on the target host (never measured there); 100% schema
+validity (held on the golden set, not on live runs); *"the founder would show it to a stranger
+without apologizing"* — the honest answer today is no, because the stranger would type an idea.
+
+### Phase 2 — begun, ~10%
+
+Two items are genuinely in: **embedded-state extraction** (`landscape-extract::embedded` —
+tier 2 of the rendering ladder), and the **JS-rendering gap measurement** that produced
+[ADR 0009](docs/decisions/0009-no-headless-browser.md): 28 real pricing pages, 85.7% print the
+price in static HTML, gap 3.6%, so the browser tier is not built and 400 MB stays with the
+models. That decision is marked provisional — Phase 2's exit re-measures it.
+
+Absent: the comparison matrix, charts, `landscape-verify`, discovery from a category or an
+idea, clarifying questions, discussion signals, PDF, evidence badges, feedback capture, the
+demo pipeline, the eval suite with CI gates, and the golden set at 50 subjects.
+
+### Phases 3–8 — not begun
+
+No code. Each is gated on the phase before it, and Phases 4–8 are additionally gated on the
+G2 validation gate (≥10 beta users, ≥3 who say they would pay, ≥1 who does) which cannot be
+attempted until [S2](#1-the-headline-can-we-show-this-to-anyone) is reached.
+
+---
+
+## 4. Blockers
+
+Ordered by what they hold up.
+
+| # | Blocker | Holds up | Owner | Note |
+|---|---|---|---|---|
+| **B1** | **No measurement of "relevant information returned."** The golden set scores extractors against frozen pages; nothing scores a *report about an idea* against a known-correct answer. | Every R2–R5 rung of [F1](#f1--searching-for-competitive-information-on-a-product-idea). Reporting the ladder at all. | Founder defines correct; agent builds | Needs sample ideas with hand-written competitor sets and a recall metric. Not on any phase's task list — **this is a gap in the plan, not just in the code.** |
+| **B2** | **The search channel does not exist.** No `landscape-search`, no SearXNG. | F1 R6/R7/R8, F2, F3, F8's matrix, S2 and everything after it. | Agent | The single largest piece of unbuilt software on the critical path. |
+| **B3** | **No permalink.** A run has no URL. | F2, F3, F11, any demo surviving a reload, S1. | Agent | Small. Disproportionate. |
+| **B4** | **Source terms unaudited.** Reddit, X, YouTube, Stack Exchange, GitHub search limits, review-platform robots.txt. | F12, the discovery channel ranking, part of Phase 0's exit. | Founder — must be read in a browser from the primary source | Two of these can invalidate a planned feature. Half a day. |
+| **B5** | **Nothing is deployed.** No address, no SSH user, no key reachable from here; instance shape and Pay-As-You-Go status unconfirmed. | S1 through S6 — every readiness state is defined against a deployment. Phase 0's latency exit criterion. | Founder | Per [memory: Larry deploys to Oracle; Claude stops at the PR]. |
+| **B6** | **No transactional email provider.** | F4 (magic links), F7 (alerts and digests). | Founder provisions; agent integrates | Deliverability (SPF/DKIM/DMARC) is on the critical path for signup. |
+| **B7** | **Merchant-of-record decision unmade.** | F5, and all of Phase 4. | Founder | Must be recorded *before* billing code is written. |
+| **B8** | **The G1 concierge gate is unattempted.** ≥5 hand-made reports to real people. | Confidence in everything built since. Phase 0's completion. | Founder | Needs no code and no server. |
+
+---
+
+## 5. Risks
+
+| # | Risk | Likelihood · Impact | Where it shows | Mitigation, and whether it is in place |
+|---|---|---|---|---|
+| **K1** | **We are 20 weeks from a user and have not met one.** The report format, the buyer and the price are all assumptions. | High · Severe | Everything built since Phase 0 | The concierge track exists precisely for this and is [B8](#4-blockers), unstarted. **Not mitigated.** |
+| **K2** | **The headline input does not run.** "Type a business idea" is the product's promise; typing one fails. | Certain today · Severe | [F1](#f1--searching-for-competitive-information-on-a-product-idea) | Blocked on [B2](#4-blockers). The failure is at least *honest* — it names what is missing and suggests a domain — rather than guessing a company, which would be the most expensive wrong answer available. |
+| **K3** | **Shape is not truth.** Constrained decoding guarantees a valid type and nothing about the values. A defective quantisation once passed every check we had. | Medium · Severe | [F9](#f9--claims-you-can-check) | Golden set with abstain-required subjects: in place. `landscape-verify` re-checking quotes against sources: **not built.** |
+| **K4** | **Free-tier latency.** Four ARM cores cannot serve the 15–25s promise; prefill dominates. Users abandon mid-stream. | Certain at Rung 0 · High | [F14](#f14--the-wait) | Deterministic-first extraction and span pre-selection are built and working. Caching, section-parallel generation and read-ordering are not. Never measured on the target host ([B5](#4-blockers)). |
+| **K5** | **Distribution, not features, is the likely cause of death.** The plan's only answer is one launch window in Phase 6, and the weekly distribution workstream was meant to start at Phase 1. | High · Severe | Not visible in the repository at all | The workstream is written as a standing weekly commitment. **No evidence it has started.** |
+| **K6** | **The retention thesis may be wrong.** Subscriptions are justified by watches; nobody has been asked whether they want alerts. | Medium · High | [F7](#f7--notifications-for-changes-in-public-information) | Gate G3 (≥35% of users create a watch) exists and is unreachable for now. |
+| **K7** | **Tax and merchant-of-record.** Choosing Stripe leaves VAT/GST/sales-tax obligations with us; switching after customers exist is painful. | Medium · Medium | [F5](#f5--subscription-setup-and-cancellation) | Decision required before code. [B7](#4-blockers). |
+| **K8** | **A working-slow plan read as a failed plan.** Honest re-baseline is 42–48 weeks to Phase 6, not 20–24. Infrastructure at €0–15/month tolerates any schedule; a founder's morale may not. | Medium · High | This page | Re-baselining early is the cheap prevention. **This page is part of that mitigation** — it is here to make slow-but-real progress legible. |
+| **K9** | **This page going stale.** A status page nobody updates becomes a confident fiction. | Medium · Medium | This page | The [update rule](#8-how-this-page-is-maintained) below. |
+
+---
+
+## 6. What "done" looks like for the next three states
+
+The shortest honest path, in order. Nothing here is a schedule.
+
+**To S1 — a guided demo.** Deploy what exists ([B5](#4-blockers)); add a permalink
+([B3](#4-blockers)); pick two or three subjects that read well and verify each end to end on the
+box. Everything else can stay as it is. **The gap is deployment, not software.**
+
+**To S2 — any business idea handled correctly.** Build the search channel ([B2](#4-blockers));
+generate entity candidates so the existing disambiguation gate has something to work on; derive
+a competitor set rather than one origin; add the remaining two extractors so no section is
+permanently empty; and hold on to the honest-gap treatment, since S2's own definition requires
+that "no public information" be reported gracefully rather than as a failure.
+
+**To S3 — friendly users find no issue.** `landscape-verify` and the quality gates; caching so a
+second user on the same subject is fast; the report at nine sections with the matrix; PDF; and
+the eval suite running in CI. Plus the first honest answer to *"would you show this to a
+stranger without apologizing?"*
+
+---
+
+## 7. What is genuinely strong
+
+A status page that only lists gaps misrepresents the project as much as one that only lists
+wins. Four things here are ahead of where a project this early usually is, and each is a thing
+that is expensive to retrofit and cheap to keep:
+
+- **The quality gates predate the code.** `fmt`, `clippy -D warnings`, `deny`, `gitleaks`,
+  `tsc --strict`, aarch64 cross-compile — all green on an empty repository, so the first real PR
+  met the bar rather than establishing a lower one. `unwrap`/`expect`/`panic` are denied, not
+  warned.
+- **The honest-negative treatment is real and tested.** A section that found nothing says what
+  was checked, and distinguishes four different silences: our gap, the company's gap, a page
+  found and never opened, and a page read that stated nothing. Its first run found a changelog
+  answering 200 that nothing had ever opened.
+- **The failure states are driven by tests, not reasoned about.** A worker that dies mid-run, a
+  reclaim, out-of-order progress writes, a reader holding a dead worker's answers. Two defects
+  invisible to 442 passing tests were found by driving the real stream while mutating the store
+  underneath it.
+- **The documentation is executed.** Every fenced `bash` block in the README is run against a
+  booted binary in CI, because two bugs once reached a reader through correct code and stale
+  prose.
+
+---
+
+## 8. How this page is maintained
+
+**Update it in the PR that changes what it describes.** Specifically:
+
+| If the PR… | Touch |
+|---|---|
+| Moves a feature's capability | Its row in [§2](#where-every-feature-stands) and its detail block |
+| Completes or adds a phase item | The row in [§3](#3-phase-milestones) and that phase's remaining-work list |
+| Closes or opens a blocker | [§4](#4-blockers), and any feature that referenced it |
+| Changes what a risk depends on | [§5](#5-risks) |
+| Makes a readiness state reachable | [§1](#1-the-headline-can-we-show-this-to-anyone) — and say so in the PR title |
+
+**Two rules for the numbers.** A percentage moves only when something in the tree moves — not
+when a plan changes. And a rung is claimed only when it can be demonstrated: **R2 through R5
+cannot honestly be claimed by anyone until [B1](#4-blockers) is closed**, because until then
+there is nothing that could tell us we are wrong.
