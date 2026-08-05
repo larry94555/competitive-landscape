@@ -403,16 +403,42 @@ skipping.
 > **Ask this:** *what happens on the error branch and the `continue`? If this guard matters at
 > all, does it still run when the thing above it failed?*
 
+## 19. An async result applied without asking whether it is still wanted
+
+**Written:** a fetch started on navigation, with `then`, `catch` and `finally` that all wrote to
+state without checking the address bar still named the thing they had asked for.
+
+**What a person saw:** press Back while a slow report is loading, and the report renders under
+the wrong URL. Two more faces of the same race: a slow report overwriting the one asked for
+*next*, and an overtaken request's `finally` clearing the "still opening" state of a newer one —
+so the reader gets an empty box while their report is on its way.
+
+**Why the tests missed it:** every test resolved its fetch immediately. A race needs one request
+still in flight when the next event arrives, which a stub that answers instantly can never
+produce.
+
+**Rule:** an async result is a message from the past. Before it writes anything, it has to ask
+whether it is still the current one — **carry a number and let only the newest write.** This is
+the same shape as [the claim generation](../../../docs/decisions/0012-a-claim-is-a-number.md):
+a state ("we are loading") cannot tell two loads apart, and a number can.
+
+**And the cleanup path needs the check too.** `finally` runs for the loser as well as the
+winner, so an unguarded one reaches across and clears the winner's state — the quietest of the
+three, because nothing wrong is displayed, only something right removed.
+
+> **Ask this:** *if a second one of these starts before the first comes back, which of them
+> writes — and does the loser touch anything on its way out?*
+
 ---
 
 ## The checklist, before a PR
 
-Eleven questions. Two minutes. Every one of them comes from an entry above.
+Twelve questions. Two minutes. Every one of them comes from an entry above.
 
 1. **Lifecycle** — does anything infer "finished" from the presence of data rather than from a
    status? *(1)*
 2. **Mid-operation states** — which states exist only when something fails partway, and which of
-   them has a test? *(the pattern, 1, 3, 4, 12, 13, 14, 15, 18)*
+   them has a test? *(the pattern, 1, 3, 4, 12, 13, 14, 15, 18, 19)*
 3. **Duplication of a derived fact** — is any fact computed in two places from different inputs?
    *(4)*
 4. **Comparisons** — can I name a change my equality check cannot see? Does any validation have a
@@ -432,12 +458,14 @@ Eleven questions. Two minutes. Every one of them comes from an entry above.
     have I confirmed the thing I broke is the thing I meant to break? *(17)*
 11. **The unhappy branch** — does every guard still run when the step above it failed or was
     skipped? Is there a test where the dependency *errors* rather than succeeds? *(18)*
+12. **Two at once** — if a second request, run or connection starts before the first finishes,
+    which one writes? Does the loser touch anything, including in `finally`? *(12, 15, 19)*
 
 ## How these were found, and what that says
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18 | All in error paths; 13 and 14 were successive halves of one fix |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19 | All in error paths; 13 and 14 were successive halves of one fix |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |
 | Deliberately breaking the code to see if a test notices | 12, and the rearm in 14 | The store was fast, so nothing raced until one was made slow |
