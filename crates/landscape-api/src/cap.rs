@@ -106,13 +106,28 @@ struct Today {
     gates: HashMap<u64, Arc<tokio::sync::Mutex<()>>>,
 }
 
+/// What the time is, so that a midnight can be tested rather than waited for.
+///
+/// The same discipline `landscape-analyze` already follows by taking `now` as an argument: a
+/// decision that reads the operating system's clock cannot be tested at the boundary where it
+/// is interesting, and this one's interesting boundary is exactly midnight.
+type Clock = Box<dyn Fn() -> DateTime<Utc> + Send + Sync>;
+
 /// Which runs each anonymous address has started today.
-#[derive(Debug)]
 pub struct Cap {
     limit: usize,
     /// Per process, from the operating system. Never logged, never stored.
     keys: RandomState,
     today: Mutex<Today>,
+    clock: Clock,
+}
+
+impl std::fmt::Debug for Cap {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Cap")
+            .field("limit", &self.limit)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Today {
@@ -126,9 +141,14 @@ impl Today {
     /// reproduced it through the public API: record an id on the 7th, record a stale one on
     /// the 6th, and the 7th's id is gone.
     ///
-    /// A stale caller is now ignored rather than allowed to rewrite history. It costs at most
-    /// one uncounted run per address per midnight — bounded, and in the direction of letting
-    /// somebody through rather than losing the record of everybody.
+    /// A stale caller is ignored rather than allowed to rewrite history.
+    ///
+    /// **That is not, on its own, a bound.** I claimed it cost "at most one uncounted run per
+    /// midnight" and it did not: every request waiting on the old day's gate wakes holding it,
+    /// finds its reads empty and its writes dropped, and is admitted free — so a queue built
+    /// up before midnight is admitted whole. Review found it. The bound comes from the caller
+    /// retrying under the current day, which [`Cap::is_current`] is for; this only makes the
+    /// stale path *harmless*, not *finite*.
     ///
     /// One place, because four methods need it and four copies of a date comparison is four
     /// chances for one of them to keep yesterday.
@@ -146,6 +166,14 @@ impl Cap {
     /// A cap of `limit` runs a day.
     #[must_use]
     pub fn of(limit: usize) -> Self {
+        Self::telling_the_time(limit, Box::new(Utc::now))
+    }
+
+    /// The same, with the clock supplied.
+    ///
+    /// For the tests that have to put a midnight in the middle of a request.
+    #[must_use]
+    pub fn telling_the_time(limit: usize, clock: Clock) -> Self {
         Self {
             limit,
             keys: RandomState::new(),
@@ -153,7 +181,28 @@ impl Cap {
             // than assumed. Starting from a real clock read here would be one more thing that
             // cannot be tested without waiting.
             today: Mutex::new(Today::default()),
+            clock,
         }
+    }
+
+    /// What the time is, as this cap sees it.
+    #[must_use]
+    pub fn now(&self) -> DateTime<Utc> {
+        (self.clock)()
+    }
+
+    /// Whether `today` is still the day this is holding — **without advancing it**.
+    ///
+    /// Asked after a gate has been acquired, because acquiring one is a wait and the day can
+    /// turn during it. A caller that finds the answer is `false` is holding a lock on a day
+    /// that is over: its reads will be empty and its writes dropped, so it has to start again
+    /// under the day that is current now.
+    #[must_use]
+    pub fn is_current(&self, today: NaiveDate) -> bool {
+        self.today
+            .lock()
+            .map(|state| state.on == today)
+            .unwrap_or(false)
     }
 
     /// From the environment, or [`DEFAULT_DAILY_LIMIT`].

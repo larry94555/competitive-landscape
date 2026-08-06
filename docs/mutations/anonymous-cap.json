@@ -119,8 +119,8 @@
   {
     "name": "two requests from one address can decide at the same time",
     "file": "crates/landscape-api/src/routes.rs",
-    "old": "        let gate = state.cap.gate_for(&client, today);\n        let _deciding = gate.lock().await;",
-    "new": "",
+    "old": "            let deciding = state.cap.gate_for(&client, today).lock_owned().await;",
+    "new": "            let deciding = std::sync::Arc::new(tokio::sync::Mutex::new(())).lock_owned().await;",
     "run": [
       "cargo",
       "nextest",
@@ -160,6 +160,19 @@
     "file": "crates/landscape-api/src/cap.rs",
     "old": "        if !state.on_day(today) {\n            return;\n        }\n        state\n            .started\n            .entry(self.keys.hash_one(client))",
     "new": "        state.on_day(today);\n        state\n            .started\n            .entry(self.keys.hash_one(client))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "a request that waited through midnight decides under the day that is over",
+    "file": "crates/landscape-api/src/routes.rs",
+    "old": "            if state.cap.is_current(today) {\n                break (now, today, deciding);\n            }",
+    "new": "            if true {\n                break (now, today, deciding);\n            }",
     "run": [
       "cargo",
       "nextest",

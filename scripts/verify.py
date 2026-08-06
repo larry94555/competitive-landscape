@@ -74,6 +74,11 @@ class Gate:
 
 def gates(web: bool) -> list[Gate]:
     found = [
+        # **Against the working tree, deliberately.** Every other file-reading check runs on a
+        # clean checkout of HEAD, because a link that resolves only because of an untracked
+        # file is the defect there. This one is the opposite: it exists to stop a deliberate
+        # defect *reaching* a commit, so asking HEAD would only ever find it too late.
+        Gate("no live mutations", [sys.executable, "scripts/no_live_mutations.py"]),
         Gate("fmt", ["cargo", "fmt", "--all", "--check"]),
         # `--all-features` and `--all-targets`, because CI uses both and a lint that only fires
         # on a test target is exactly the one a hurried local run misses.

@@ -691,6 +691,61 @@ forgiving direction, where losing the day's record was neither.
 
 > **Ask this:** *what did this request capture before it waited, and is it still true?*
 
+### And the fourth round: harmless is not the same as bounded
+
+Making the stale path harmless was still not the end, and the reason is worth the entry on its
+own. I wrote that ignoring a stale caller *"costs at most one uncounted run per address per
+midnight"* — a bound, stated in a comment, that I had not checked.
+
+It was false. A gate is asked for **before** it is awaited, so any number of requests can take
+the old day's gate and queue. When one new-day request advances the day and clears the gate map,
+every waiter still holds the old `Arc`: each then reads an empty list, has its writes dropped,
+and is admitted free. **A queue built up before midnight was admitted whole**, at a boundary
+anybody can predict. Review found it.
+
+The fix is to notice the day moved *after* acquiring the gate, and start again under the current
+one. What genuinely crosses is the single request already admitted when the day turned — which
+is what I had claimed without having earned it.
+
+**Rule:** "this can only happen once" is a quantity, and a quantity in a comment is a claim. If
+it is worth writing down, it is worth a test that counts — mine asserts *how many* got through,
+not merely that the mechanism exists.
+
+> **Ask this:** *I have written "at most one" — one what, and what stops the second?*
+
+---
+
+## 28. The harness that could not fail either
+
+**Written:** `scripts/mutate.py`, reporting `MISSED` for fourteen mutations in a row.
+
+**What a person saw:** me, believing the suite had gone blind. It had not. A hung test process
+was holding the compiled binary, so every link failed with `LNK1104`, **no test ran at all** —
+and the harness read "no test reported a failure" as "no test noticed". Its only guard against
+that was a check for `error[`, which catches rustc's own diagnostics and not a linker error, a
+locked executable, or a runner that died.
+
+**The tool built to find checks that cannot fail contained one.**
+
+Worse, the interrupted run left a deliberate defect in the tree — `analysis.status !=
+AnalysisStatus::Failed`, the inverse of the rule the pull request existed to add — and `git add
+-A` committed it. I then checked the one file I suspected, found and fixed it there, and did not
+check the others. A second file had it too.
+
+**Rules, three:**
+
+- **A verdict needs positive evidence that the thing ran.** `mutate.py` now requires a test
+  runner's summary line before it will report anything at all; without one it says `BROKEN`.
+- **Never `git add -A` while a harness is editing the tree.** The mutation files are a list of
+  defects this repository can recognise, so `scripts/no_live_mutations.py` reads them the other
+  way round and refuses a tree containing one. It is the first gate in `verify.py`, and the only
+  one that runs against the **working tree** rather than a clean checkout — because its job is
+  to stop something reaching a commit, not to notice afterwards.
+- **When a tool has corrupted the tree once, check all of it.** I fixed the file I expected and
+  shipped the one I did not, which is the same error twice in five minutes.
+
+> **Ask this:** *did this actually run — and is the tree still the tree I think it is?*
+
 ---
 
 ## Before a PR: two commands and seven questions
@@ -722,7 +777,7 @@ Grouped by what has actually gone wrong, commonest first.
 1. **What happens between two of my `await`s?** If a decision reads and then acts, what does a
    second request arriving in the gap see? Was this correct only while it was synchronous? And
    **what did it capture before it waited** — a clock, a version, a count — that may not be true
-   any more? *(27)*
+   any more? And if I have written *"at most one"* anywhere, what stops the second? *(27)*
 
 2. **What states exist between "started" and "finished"?** Which of them has a test — a worker
    replaced mid-run, a stream that drops, a request still in flight when the next one starts, a
@@ -758,7 +813,8 @@ Grouped by what has actually gone wrong, commonest first.
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27 |
+| Its own tooling | 28 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |
 | Deliberately breaking the code to see if a test notices | 12, the rearm in 14, and 21 | The store was fast, so nothing raced until one was made slow. Now `scripts/mutate.py` |

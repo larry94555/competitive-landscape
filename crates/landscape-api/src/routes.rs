@@ -231,18 +231,35 @@ async fn create_analysis(
         crate::cap::client_in(headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()));
     if state.cap.applies_to(client.as_deref()) {
         let client = client.unwrap_or_default();
-        let now = chrono::Utc::now();
-        let today = now.date_naive();
 
-        // **One decision about this address at a time.** Reading what it started, asking the
-        // store which of those still count, enqueueing and recording are four steps with an
-        // `await` between each - so twenty requests arriving together all read the same list
-        // and all pass a limit of two. Review reproduced it: nine of twenty were accepted.
+        // **The day can turn while this request waits for its turn.** Acquiring the gate is a
+        // wait, so the clock is read again on each attempt and the decision is abandoned if
+        // the day moved underneath it.
         //
-        // Held until this request has recorded its own id, which is the only point after
-        // which another request would see it.
-        let gate = state.cap.gate_for(&client, today);
-        let _deciding = gate.lock().await;
+        // Without this, a queue that formed before midnight woke afterwards holding the old
+        // day's gate: every one of those requests read an empty list, had its writes dropped,
+        // and was admitted free. Review found it - and found that the "at most one crossing
+        // request" I had claimed was not a bound at all, because the queue can be any length.
+        //
+        // Bounded rather than `loop`: the day only advances, so one retry is the real case,
+        // and a clock behaving strangely must not spin here for ever.
+        let mut attempt = 0;
+        let (now, today, _deciding) = loop {
+            let now = state.cap.now();
+            let today = now.date_naive();
+            // Owned, so the guard can outlive this iteration's binding of the gate itself.
+            let deciding = state.cap.gate_for(&client, today).lock_owned().await;
+            if state.cap.is_current(today) {
+                break (now, today, deciding);
+            }
+            attempt += 1;
+            if attempt >= 3 {
+                // Three midnights during one request is not a clock this can reason about.
+                // Refusing would turn a strange clock into an outage; the guard rail fails
+                // open here as it does everywhere else in this type.
+                break (now, today, deciding);
+            }
+        };
 
         let started = state.cap.started_today(&client, today);
 
@@ -403,6 +420,65 @@ mod tests {
         }
     }
 
+    /// A store that holds the very first `enqueue` until it is let go.
+    ///
+    /// This is what puts a midnight *inside* a request: one request is stopped with the gate in
+    /// its hand while others queue behind it, and the test moves the clock in between.
+    #[derive(Debug)]
+    struct HoldsTheFirstEnqueue {
+        inner: Arc<dyn Store>,
+        seen: std::sync::atomic::AtomicUsize,
+        go: Arc<tokio::sync::Notify>,
+    }
+
+    #[async_trait::async_trait]
+    impl Store for HoldsTheFirstEnqueue {
+        async fn enqueue(&self, new: &NewAnalysis) -> landscape_db::Result<Analysis> {
+            if self.seen.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+                self.go.notified().await;
+            }
+            self.inner.enqueue(new).await
+        }
+        async fn get(&self, id: AnalysisId) -> landscape_db::Result<Analysis> {
+            tokio::task::yield_now().await;
+            self.inner.get(id).await
+        }
+        async fn claim_next(&self) -> landscape_db::Result<Option<Analysis>> {
+            self.inner.claim_next().await
+        }
+        async fn save_progress(
+            &self,
+            id: AnalysisId,
+            generation: u32,
+            report: &landscape_core::Report,
+        ) -> landscape_db::Result<landscape_core::Applied> {
+            self.inner.save_progress(id, generation, report).await
+        }
+        async fn complete(
+            &self,
+            id: AnalysisId,
+            generation: u32,
+            report: &landscape_core::Report,
+        ) -> landscape_db::Result<landscape_core::Applied> {
+            self.inner.complete(id, generation, report).await
+        }
+        async fn fail(
+            &self,
+            id: AnalysisId,
+            generation: u32,
+            failure: landscape_core::Failure,
+            reason: &str,
+        ) -> landscape_db::Result<landscape_core::Applied> {
+            self.inner.fail(id, generation, failure, reason).await
+        }
+        async fn reclaim_stale(&self, max_age: chrono::Duration) -> landscape_db::Result<u64> {
+            self.inner.reclaim_stale(max_age).await
+        }
+        async fn count_with_status(&self, status: AnalysisStatus) -> landscape_db::Result<i64> {
+            self.inner.count_with_status(status).await
+        }
+    }
+
     /// All three, for the tests that need to see what an address is holding.
     fn capped_parts(limit: usize) -> (axum::Router, Arc<dyn Store>, Arc<crate::cap::Cap>) {
         let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
@@ -513,6 +589,104 @@ mod tests {
         assert_eq!(
             accepted, 2,
             "the limit is two and {accepted} requests were accepted"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn a_queue_that_formed_before_midnight_is_not_admitted_whole() {
+        // **Review found that my bound was not a bound.** Making the stale path harmless made
+        // it *harmless*, not *finite*: `gate_for` is called before its gate is awaited, so any
+        // number of requests can take the old day's gate and queue behind one another. When a
+        // new-day request advances the day and clears the gate map, every one of those waiters
+        // still holds the old `Arc` — and each then read an empty list, had its writes
+        // dropped, and was admitted free. A queue built before midnight was admitted whole, at
+        // a boundary anybody can predict.
+        //
+        // **What is actually allowed to cross is one request**: the one already admitted under
+        // the old day when the day turned. Everything behind it has to start again under the
+        // new day, which is what `is_current` after the gate is for.
+        //
+        // **Deterministic, and nothing sleeps.** The clock is a value this test owns, so the
+        // midnight happens exactly where it is put.
+        use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
+
+        fn at(day: u32, hour: u32, minute: u32) -> i64 {
+            chrono::NaiveDate::from_ymd_opt(2026, 8, day)
+                .expect("a real date")
+                .and_hms_opt(hour, minute, 0)
+                .expect("a real time")
+                .and_utc()
+                .timestamp()
+        }
+
+        let clock = Arc::new(AtomicI64::new(at(6, 23, 59)));
+        // Every request reads the clock once before asking for a gate, with no `await` in
+        // between — so counting the reads is how this test knows they are all holding one.
+        let reads = Arc::new(AtomicUsize::new(0));
+        let cap = {
+            let clock = Arc::clone(&clock);
+            let reads = Arc::clone(&reads);
+            Arc::new(crate::cap::Cap::telling_the_time(
+                2,
+                Box::new(move || {
+                    reads.fetch_add(1, Ordering::SeqCst);
+                    chrono::DateTime::from_timestamp(clock.load(Ordering::SeqCst), 0)
+                        .expect("a real instant")
+                }),
+            ))
+        };
+
+        let go = Arc::new(tokio::sync::Notify::new());
+        let store: Arc<dyn Store> = Arc::new(HoldsTheFirstEnqueue {
+            inner: Arc::new(MemoryStore::new()),
+            seen: AtomicUsize::new(0),
+            go: Arc::clone(&go),
+        });
+        let app = router(AppState {
+            store,
+            cap: Arc::clone(&cap),
+        });
+
+        let send = |app: axum::Router| {
+            tokio::spawn(async move {
+                app.oneshot(post_from("198.51.100.7", IDEA))
+                    .await
+                    .expect("response")
+                    .status()
+            })
+        };
+
+        // Four arrive a minute before midnight. The first takes the gate and stops inside the
+        // store; the other three queue behind it.
+        let queued: Vec<_> = (0..4).map(|_| send(app.clone())).collect();
+        while reads.load(Ordering::SeqCst) < 4 {
+            tokio::task::yield_now().await;
+        }
+
+        // Midnight. A fresh request arrives, rolls the day forward and clears the gate map —
+        // which is what strands the four behind a gate that no longer belongs to anything.
+        clock.store(at(7, 0, 30), Ordering::SeqCst);
+        let after_midnight = send(app.clone())
+            .await
+            .expect("the new day's request finished");
+        assert_eq!(after_midnight, StatusCode::CREATED);
+
+        // Now let the one holding the old gate finish, and the three behind it wake.
+        go.notify_one();
+
+        let mut accepted = usize::from(after_midnight == StatusCode::CREATED);
+        for one in queued {
+            if one.await.expect("the request finished") == StatusCode::CREATED {
+                accepted += 1;
+            }
+        }
+
+        // Two a day, plus the single request that was already admitted when the day turned.
+        // Without the retry this was five: the whole queue, free.
+        assert!(
+            accepted <= 3,
+            "a queue that formed before midnight was admitted whole: {accepted} accepted \
+             against a limit of 2"
         );
     }
 

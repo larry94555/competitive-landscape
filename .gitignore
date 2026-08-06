@@ -22,3 +22,7 @@ prototype/demo-page.html
 # which makes CPython write one of these next to it.
 __pycache__/
 *.pyc
+
+# The mutation harness leaves one of these beside a file while it is running. It is a
+# scratch copy of your own source and must never be committed - see docs/mutations/README.md.
+*.mutate-backup

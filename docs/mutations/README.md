@@ -48,6 +48,13 @@ nothing, and this paragraph is the reason it is absent.
 Every entry must be a defect a person can picture. `"labels are not reassigned when reports
 merge"` is one; `"change line 214"` is not, and will mean nothing to whoever reads it next.
 
+**These files are also read backwards.** `scripts/no_live_mutations.py` takes every `new`
+payload as the shape of a defect this repository can recognise, and refuses a working tree that
+contains one — because an interrupted run leaves the deliberate defect in place, and a
+`git add -A` will commit it. That has happened; entry 28 of the register is the account. It is
+the first gate `verify.py` runs, and the only one that looks at the working tree rather than at
+a clean checkout of `HEAD`.
+
 A file here is only worth keeping while its anchors still match the code. `scripts/mutate.py`
 refuses an anchor it cannot find, and an anchor that has silently become non-unique — so a stale
 file says so rather than quietly measuring the wrong thing.
