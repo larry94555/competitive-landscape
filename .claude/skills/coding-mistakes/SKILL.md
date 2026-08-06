@@ -675,6 +675,22 @@ three.
 
 > **Ask this:** *is my double faster than the real thing in a way the test depends on?*
 
+### And the third round: the clock the decision carries
+
+Serialising the sequence was still not the end. Each request captures the date **before** it
+waits for its gate and for the store, so one admitted a second before midnight finishes a second
+after it — and a rollover written as *"reset whenever the date differs"* let that request wind
+the day **backwards** and clear what the new day had already recorded. The next request rolled
+forward into an empty day and was handed a fresh allowance. Review reproduced it deterministically
+through the public API.
+
+**A value captured before an await is a value from the past by the time it is used.** Rollover is
+monotonic now, and a caller carrying an old date is ignored rather than allowed to rewrite
+history — which costs at most one uncounted run per address per midnight, bounded and in the
+forgiving direction, where losing the day's record was neither.
+
+> **Ask this:** *what did this request capture before it waited, and is it still true?*
+
 ---
 
 ## Before a PR: two commands and seven questions
@@ -704,8 +720,9 @@ line in a table.
 Grouped by what has actually gone wrong, commonest first.
 
 1. **What happens between two of my `await`s?** If a decision reads and then acts, what does a
-   second request arriving in the gap see? Was this correct only while it was synchronous?
-   *(27)*
+   second request arriving in the gap see? Was this correct only while it was synchronous? And
+   **what did it capture before it waited** — a clock, a version, a count — that may not be true
+   any more? *(27)*
 
 2. **What states exist between "started" and "finished"?** Which of them has a test — a worker
    replaced mid-run, a stream that drops, a request still in flight when the next one starts, a

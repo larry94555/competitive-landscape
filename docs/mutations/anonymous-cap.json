@@ -41,8 +41,8 @@
   {
     "name": "yesterday's runs are kept, so nobody gets a new day",
     "file": "crates/landscape-api/src/cap.rs",
-    "old": "        if self.on != today {\n            self.on = today;\n            self.started.clear();\n            self.gates.clear();\n        }",
-    "new": "        self.on = today;",
+    "old": "        if today > self.on {\n            self.on = today;\n            self.started.clear();\n            self.gates.clear();\n        }\n        today == self.on",
+    "new": "        self.on = today;\n        true",
     "run": [
       "cargo",
       "nextest",
@@ -134,6 +134,32 @@
     "file": "crates/landscape-api/src/routes.rs",
     "old": "        state.cap.keep(&client, today, still);",
     "new": "        drop(still);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "a request from yesterday winds the day back and clears it",
+    "file": "crates/landscape-api/src/cap.rs",
+    "old": "        if today > self.on {",
+    "new": "        if today != self.on {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "a stale write lands in today's list instead of being dropped",
+    "file": "crates/landscape-api/src/cap.rs",
+    "old": "        if !state.on_day(today) {\n            return;\n        }\n        state\n            .started\n            .entry(self.keys.hash_one(client))",
+    "new": "        state.on_day(today);\n        state\n            .started\n            .entry(self.keys.hash_one(client))",
     "run": [
       "cargo",
       "nextest",

@@ -116,16 +116,29 @@ pub struct Cap {
 }
 
 impl Today {
-    /// Forget everything if the day has turned over.
+    /// Move to `today` if it is newer, and say whether this is the day being held.
+    ///
+    /// **The clock only goes forward.** Each request captures the date *before* it waits for
+    /// its address's gate and for the store, so one admitted a second before midnight can
+    /// finish a second after it — and the version that reset on any difference let that
+    /// request wind the day back and clear what the new day had already recorded. The next
+    /// request then rolled forward into an empty day and was given a fresh allowance. Review
+    /// reproduced it through the public API: record an id on the 7th, record a stale one on
+    /// the 6th, and the 7th's id is gone.
+    ///
+    /// A stale caller is now ignored rather than allowed to rewrite history. It costs at most
+    /// one uncounted run per address per midnight — bounded, and in the direction of letting
+    /// somebody through rather than losing the record of everybody.
     ///
     /// One place, because four methods need it and four copies of a date comparison is four
     /// chances for one of them to keep yesterday.
-    fn roll_over(&mut self, today: NaiveDate) {
-        if self.on != today {
+    fn on_day(&mut self, today: NaiveDate) -> bool {
+        if today > self.on {
             self.on = today;
             self.started.clear();
             self.gates.clear();
         }
+        today == self.on
     }
 }
 
@@ -175,7 +188,11 @@ impl Cap {
             // rail that takes the site down is worse than one that lets a request past.
             return Arc::new(tokio::sync::Mutex::new(()));
         };
-        state.roll_over(today);
+        if !state.on_day(today) {
+            // Yesterday's request, finishing late. A gate of its own serialises it against
+            // nothing, which is right: there is nothing left of its day to protect.
+            return Arc::new(tokio::sync::Mutex::new(()));
+        }
         Arc::clone(state.gates.entry(self.keys.hash_one(client)).or_default())
     }
 
@@ -190,7 +207,9 @@ impl Cap {
         let Ok(mut state) = self.today.lock() else {
             return;
         };
-        state.roll_over(today);
+        if !state.on_day(today) {
+            return;
+        }
         let key = self.keys.hash_one(client);
         if still.is_empty() {
             state.started.remove(&key);
@@ -223,7 +242,9 @@ impl Cap {
             // guard rail that fails closed on the whole site is worse than one that fails open.
             return Vec::new();
         };
-        state.roll_over(today);
+        if !state.on_day(today) {
+            return Vec::new();
+        }
         state
             .started
             .get(&self.keys.hash_one(client))
@@ -240,7 +261,9 @@ impl Cap {
         let Ok(mut state) = self.today.lock() else {
             return;
         };
-        state.roll_over(today);
+        if !state.on_day(today) {
+            return;
+        }
         state
             .started
             .entry(self.keys.hash_one(client))
@@ -380,6 +403,47 @@ mod tests {
             client_in(Some("198.51.100.7")).as_deref(),
             Some("198.51.100.7")
         );
+    }
+
+    #[test]
+    fn a_request_that_crossed_midnight_does_not_wipe_the_new_day() {
+        // **Review's reproduction, exactly.** Every request captures the date before it waits
+        // for its address's gate and for the store, so one admitted a second before midnight
+        // can finish a second after it. Resetting on any difference let that request wind the
+        // day back and clear what the new day had recorded - and the next request rolled
+        // forward into an empty day and was handed a fresh allowance.
+        let cap = Cap::of(2);
+        let todays = an_id();
+        cap.record("198.51.100.7", day(7), todays);
+        cap.record("198.51.100.7", day(6), an_id());
+
+        assert_eq!(
+            cap.started_today("198.51.100.7", day(7)),
+            vec![todays],
+            "a request from yesterday erased today"
+        );
+    }
+
+    #[test]
+    fn a_late_reconciliation_from_yesterday_changes_nothing() {
+        // The same boundary through the other writer. `keep` replaces a list, so a stale one
+        // would not merely add - it would overwrite the new day with the old day's survivors.
+        let cap = Cap::of(2);
+        let todays = an_id();
+        cap.record("198.51.100.7", day(7), todays);
+        cap.keep("198.51.100.7", day(6), vec![an_id(), an_id()]);
+
+        assert_eq!(cap.started_today("198.51.100.7", day(7)), vec![todays]);
+    }
+
+    #[test]
+    fn yesterday_reads_as_empty_rather_than_as_today() {
+        // A stale reader must not be handed the new day's list either: it would count runs
+        // against an allowance that has already been reset, and refuse somebody who is owed
+        // one.
+        let cap = Cap::of(2);
+        cap.record("198.51.100.7", day(7), an_id());
+        assert!(cap.started_today("198.51.100.7", day(6)).is_empty());
     }
 
     #[test]
