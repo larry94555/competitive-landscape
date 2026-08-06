@@ -120,6 +120,58 @@ async function readError(response: Response): Promise<never> {
   );
 }
 
+/** One idea the first screen offers, and the text clicking it puts in the box. */
+export interface Example {
+  readonly id: string;
+  readonly idea: string;
+  readonly companies: readonly string[];
+  readonly why: string;
+  /**
+   * What goes in the box.
+   *
+   * Built by the server, and it already contains the companies. The browser must not
+   * assemble this: which words join an idea to its domains is one decision, and the parser
+   * that reads them back out lives on the other side of it.
+   */
+  readonly prompt: string;
+}
+
+/** The examples, with the sentence that says what is curated about them. */
+export interface Examples {
+  readonly note: string;
+  readonly examples: readonly Example[];
+}
+
+/**
+ * The ideas to offer on the first screen.
+ *
+ * **Failure is silent on purpose.** These are a way in, not the product: a reader who can
+ * type still has everything, and an error banner over an empty box would make a missing
+ * convenience look like a broken application.
+ */
+export async function getExamples(): Promise<Examples | null> {
+  try {
+    const response = await fetch("/api/examples");
+    if (!response.ok) return null;
+    const body: unknown = await response.json();
+    // Checked rather than asserted. Everything else here is reached through a `!response.ok`
+    // guard that makes the shape the server's promise; this one is rendered on the *first*
+    // screen, so a body that is not what we expect must degrade to "no chips" and not to an
+    // exception thrown while the page is drawing itself.
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      !Array.isArray((body as Examples).examples) ||
+      typeof (body as Examples).note !== "string"
+    ) {
+      return null;
+    }
+    return body as Examples;
+  } catch {
+    return null;
+  }
+}
+
 export async function createAnalysis(prompt: string): Promise<Analysis> {
   const response = await fetch("/api/analyses", {
     method: "POST",

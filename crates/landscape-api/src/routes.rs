@@ -50,6 +50,10 @@ pub fn router(state: AppState) -> Router {
 fn routes(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(health))
+        // The ideas the first screen offers. `GET` and no state: it is a constant, and it is
+        // served rather than compiled into the page so that the list, the command that checks
+        // it and the test that parses it are one list.
+        .route("/api/examples", get(list_examples))
         .route("/api/analyses", post(create_analysis))
         .route("/api/analyses/{id}", get(get_analysis))
         // Server-sent events for one analysis. A reader watching a report fill in
@@ -147,6 +151,44 @@ async fn health(State(state): State<AppState>) -> Result<Json<Health>, ApiError>
         queued,
         version: env!("CARGO_PKG_VERSION"),
     }))
+}
+
+/// `GET /api/examples` — the curated ideas, and what the interface must say about them.
+///
+/// **The note travels with the list.** An interface free to render the chips without it would
+/// be free to imply the reports are curated too, which is the one misreading this feature can
+/// cause — and the sentence would then live in a component nobody reviews.
+async fn list_examples() -> Json<Examples> {
+    Json(Examples {
+        note: landscape_core::CURATION_NOTE,
+        examples: landscape_core::examples()
+            .into_iter()
+            .map(|example| Listed {
+                prompt: example.prompt(),
+                example,
+            })
+            .collect(),
+    })
+}
+
+#[derive(Debug, Serialize)]
+struct Examples {
+    /// What is curated and what is not, in one sentence.
+    note: &'static str,
+    examples: Vec<Listed>,
+}
+
+/// One example on the wire.
+#[derive(Debug, Serialize)]
+struct Listed {
+    #[serde(flatten)]
+    example: landscape_core::Example,
+    /// The text the chip puts in the box.
+    ///
+    /// Sent rather than assembled in the browser: the format is one decision - which words
+    /// join an idea to its companies - and a second copy of it in TypeScript would be a second
+    /// thing to keep in step with the parser that has to read the result back.
+    prompt: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -295,6 +337,44 @@ mod tests {
         let body = json_body(res).await;
         assert_eq!(body["status"], "ok");
         assert_eq!(body["queued"], 0);
+    }
+
+    #[tokio::test]
+    async fn the_examples_arrive_with_the_sentence_that_explains_them() {
+        // The endpoint the first screen calls. It carries the note as well as the list, so an
+        // interface cannot render the chips and leave off what is curated about them.
+        let res = app()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/examples")
+                    .body(Body::empty())
+                    .expect("build request"),
+            )
+            .await
+            .expect("response");
+
+        assert_eq!(res.status(), StatusCode::OK);
+        let body = json_body(res).await;
+        let listed = body["examples"].as_array().expect("a list of examples");
+        assert!(!listed.is_empty(), "the first screen would have no chips");
+        assert!(
+            body["note"]
+                .as_str()
+                .is_some_and(|n| n.contains("chosen by hand")),
+            "the list arrived without the sentence that qualifies it: {body}"
+        );
+        // Every chip carries the text it will put in the box - including the companies, so a
+        // reader can see and edit the curated part rather than take it on trust.
+        for example in listed {
+            let prompt = example["prompt"].as_str().unwrap_or_default();
+            for company in example["companies"].as_array().expect("companies") {
+                let company = company.as_str().unwrap_or_default();
+                assert!(
+                    prompt.contains(company),
+                    "{company} is curated out of sight: {example}"
+                );
+            }
+        }
     }
 
     #[tokio::test]

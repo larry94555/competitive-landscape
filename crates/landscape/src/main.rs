@@ -62,6 +62,16 @@ enum Role {
     ///
     /// FACT_CHECKING §3.3's structured probes, sitemap and llms.txt, ranked and capped at 8.
     Discover,
+    /// Check that the demo's curated ideas still have pages worth reading.
+    ///
+    /// The catalogue in `landscape-core` promises one thing about each domain: that discovery
+    /// finds pages for the six questions. **A promise about the live web goes stale on
+    /// somebody else's schedule** — a site drops its sitemap, moves pricing behind an anchor,
+    /// or starts refusing our user agent — and the place that would be discovered is the demo.
+    ///
+    /// No model, and no database. This is discovery alone, which is what makes it something
+    /// that can be run before sending somebody a link.
+    Examples,
     /// Discover, fetch, convert and extract — the whole path, for one company.
     ///
     /// The first command that runs every piece in order. It exists because each piece has
@@ -112,9 +122,10 @@ async fn main() -> Result<()> {
         Some("fetch") => Role::Fetch,
         Some("gap") => Role::Gap,
         Some("discover") => Role::Discover,
+        Some("examples") => Role::Examples,
         Some("read") => Role::Read,
         Some(other) => anyhow::bail!(
-            "unknown command {other:?}.              Try: dev, serve, worker, migrate, fetch, gap, discover, read"
+            "unknown command {other:?}.              Try: dev, serve, worker, migrate, fetch, gap, discover, read, examples"
         ),
     };
 
@@ -128,6 +139,9 @@ async fn main() -> Result<()> {
     }
     if role == Role::Discover {
         return discover_sources(&args).await;
+    }
+    if role == Role::Examples {
+        return check_examples().await;
     }
     if role == Role::Read {
         return read_company(&args).await;
@@ -282,6 +296,73 @@ Example:
     Ok(())
 }
 
+/// `landscape examples` — run discovery against every company the demo offers.
+///
+/// **The curated list is the only part of this product that makes a promise about somebody
+/// else's website**, and it is the part that will rot without anybody touching this
+/// repository. This is the command that finds out, and it exits non-zero when an example has
+/// lost the question a comparison is mostly about.
+///
+/// Pricing is the one treated as fatal. A missing changelog produces a coverage note that is a
+/// real finding — *"no page found, checked /changelog, /releases"* — and reads as the product
+/// working. A missing pricing page on every example turns the demo into a page of coverage
+/// notes.
+async fn check_examples() -> Result<()> {
+    let fetcher = landscape_fetch::Fetcher::new();
+    let mut poor: Vec<String> = Vec::new();
+
+    for example in landscape_core::examples() {
+        println!(
+            "
+{} - {}",
+            example.id,
+            example.prompt()
+        );
+        for company in &example.companies {
+            let origin = format!("https://{company}");
+            let started = std::time::Instant::now();
+            let found = landscape_discover::discover(&fetcher, &origin).await;
+            let mut answered: Vec<&str> = found
+                .sources
+                .iter()
+                .map(|c| c.answers.name())
+                .collect::<std::collections::BTreeSet<_>>()
+                .into_iter()
+                .collect();
+            answered.sort_unstable();
+            let priced = answered.contains(&"pricing");
+            println!(
+                "  {:<24} {} source(s) in {}s, answering: {}{}",
+                company,
+                found.sources.len(),
+                started.elapsed().as_secs(),
+                if answered.is_empty() {
+                    "nothing".to_owned()
+                } else {
+                    answered.join(", ")
+                },
+                if priced { "" } else { "   <- NO PRICING PAGE" }
+            );
+            if !priced {
+                poor.push(format!("{company} (in {})", example.id));
+            }
+        }
+    }
+
+    println!();
+    if poor.is_empty() {
+        println!("every example still has a pricing page to read.");
+        return Ok(());
+    }
+    // Non-zero, because a demo that has quietly stopped working is exactly the thing a
+    // summary line at the end of a long output gets skimmed past.
+    anyhow::bail!(
+        "{} of the demo's companies no longer admit a pricing page: {}",
+        poor.len(),
+        poor.join(", ")
+    )
+}
+
 /// `landscape read <origin>` — discovery, extraction, and the report they add up to.
 ///
 /// The orchestration lives in `landscape-analyze`, which is the change that made this a
@@ -350,7 +431,7 @@ async fn run(role: Role, store: Arc<dyn Store>) -> Result<()> {
     match role {
         Role::Migrate => Ok(()),
         // Handled before any store exists; see `main`.
-        Role::Fetch | Role::Gap | Role::Discover | Role::Read => Ok(()),
+        Role::Fetch | Role::Gap | Role::Discover | Role::Read | Role::Examples => Ok(()),
         Role::Serve => serve(store).await,
         Role::Worker => worker(store).await,
         Role::Dev => {

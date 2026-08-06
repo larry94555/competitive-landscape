@@ -80,101 +80,124 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    dropped: {
-      name: "compare A vs B",
-      purpose: "And get a report about A.",
+    empty: {
+      name: "one box, and nothing in it",
+      purpose: "Where a demo dies.",
       lines: [
-        ['t', '  "compare basecamp.com vs linear.app"'],
+        ['t', '  What is your idea?'],
         ['c', ''],
-        ['s', '  -> a report about Basecamp'],
+        ['s', '  [                              ]'],
         ['c', ''],
-        ['c', '// origin_in returned the first site'],
-        ['f', '// named. The rest went nowhere.']
+        ['c', '// Somebody who has never used this'],
+        ['f', '// does not know what to type.']
       ]
     },
-    silent: {
-      name: "and nothing said so",
-      purpose: "The worst kind of wrong.",
+    invented: {
+      name: "so they invent one",
+      purpose: "And it names no website.",
       lines: [
-        ['c', '// It looks exactly like a right answer'],
-        ['c', '// to a different question.'],
+        ['t', '  "a tool for small farms"'],
         ['c', ''],
-        ['f', '// A single-company profile, sold as a'],
-        ['f', '// competitive analysis.']
+        ['s', '  no_subject'],
+        ['c', ''],
+        ['c', '// The failure is honest. It is also'],
+        ['f', '// the end of the demo.']
       ]
     },
-    all: {
-      name: "so take every site named",
-      purpose: "In order, no repeats.",
+    ideas: {
+      name: "three ideas, six companies",
+      purpose: "Each one really runs.",
       lines: [
-        ['f', '  origins_in(prompt)'],
-        ['c', ''],
-        ['f', '  basecamp.com'],
-        ['f', '  linear.app'],
-        ['c', ''],
-        ['c', '// www.basecamp.com is the same company'],
-        ['c', '// written twice, not a second subject.']
+        ['f', '  project management'],
+        ['t', '    basecamp.com vs linear.app'],
+        ['f', '  privacy-friendly analytics'],
+        ['t', '    usefathom.com vs simpleanalytics'],
+        ['f', '  a shared inbox'],
+        ['t', '    helpscout.com vs front.com']
       ]
     },
-    cap: {
-      name: "capped at three",
-      purpose: "And the cap is the wait.",
+    curated: {
+      name: "and only one thing is curated",
+      purpose: "The choice of companies.",
       lines: [
-        ['t', '  1 subject    ~2 min'],
-        ['s', '  3 subjects   ~6 min'],
+        ['c', '// No stored answers. No cached report.'],
+        ['c', '// Nothing here reaches a claim.'],
         ['c', ''],
-        ['c', '// Each one is its own discovery,'],
-        ['c', '// fetches and model calls.'],
-        ['f', '// This is the number to argue with.']
+        ['f', '  fetched, quoted and cited'],
+        ['f', '  at the moment you click']
       ]
     },
-    merge: {
-      name: "one section, every company",
-      purpose: "Not two reports stapled together.",
+    box: {
+      name: "so the companies go in the box",
+      purpose: "Where you can see and edit them.",
       lines: [
-        ['f', '  What it costs'],
-        ['f', '    Basecamp Pro    $15/user'],
-        ['f', '    Linear Business $16/user'],
+        ['t', '  privacy-friendly website analytics'],
+        ['t', '  - usefathom.com vs simpleanalytics.com'],
         ['c', ''],
-        ['c', '// This is the shape a feature matrix'],
-        ['c', '// gets built from.']
+        ['c', '// A chip that expanded to companies'],
+        ['c', '// you never saw would curate in the'],
+        ['f', '// one place you cannot check.']
       ]
     },
-    labels: {
-      name: "and the defect it nearly caused",
-      purpose: "Each run numbers from S1.",
+    parser: {
+      name: "and the parser reads it back",
+      purpose: "The one the worker really calls.",
       lines: [
-        ['s', '  A costs $10   [S1]'],
-        ['s', '  B costs $20   [S1]'],
+        ['f', '  origins_in(example.prompt())'],
+        ['f', '    == example.companies'],
         ['c', ''],
-        ['c', '// Follow the citation for A and you'],
-        ['c', '// arrive at B pricing page.'],
-        ['f', '// Evidence on the wrong claim is the'],
-        ['f', '// worst thing this can produce.']
+        ['c', '// A list of domains in a file is a'],
+        ['f', '// promise. This is the part that can'],
+        ['f', '// fail.']
       ]
     },
-    rename: {
-      name: "so rename as they merge",
-      purpose: "And test that they resolve.",
+    stale: {
+      name: "a promise about somebody else",
+      purpose: "It goes stale on their schedule.",
       lines: [
-        ['f', '  labels not reassigned      CAUGHT'],
-        ['f', '  sections appended          CAUGHT'],
-        ['f', '  in-flight company dropped  CAUGHT'],
+        ['c', '// A sitemap disappears. Pricing moves'],
+        ['c', '// behind an anchor. A user agent is'],
+        ['c', '// refused.'],
         ['c', ''],
-        ['c', '// The one-company path is untouched.'],
-        ['f', '// A bug in joining cannot reach the'],
-        ['f', '// reading.']
+        ['s', '// The first to find out is whoever'],
+        ['s', '// you sent the link to.']
+      ]
+    },
+    check: {
+      name: "so the demo is checkable",
+      purpose: "No model. No database.",
+      lines: [
+        ['f', '  landscape examples'],
+        ['c', ''],
+        ['f', '  basecamp.com    6 sources  16s'],
+        ['f', '  linear.app      8 sources  20s'],
+        ['t', '  six for six on pricing'],
+        ['c', ''],
+        ['s', '// Non-zero if one loses its prices.']
+      ]
+    },
+    wait: {
+      name: "and the number left over",
+      purpose: "Two companies is four minutes.",
+      lines: [
+        ['t', '  2 companies   ~4 min'],
+        ['s', '  3 companies   ~6 min'],
+        ['c', ''],
+        ['c', '// Three is what the analyser allows.'],
+        ['f', '// Two is what somebody who clicked'],
+        ['f', '// a link will sit through.']
       ]
     },
     left: {
-      name: "and what is still missing",
-      purpose: "It compares what you name.",
+      name: "what this does not do",
+      purpose: "It steps over the gap.",
       lines: [
-        ['c', '// Nothing discovers a competitor.'],
-        ['c', '// Turning an idea into a set is'],
-        ['c', '// landscape-search, still unbuilt.'],
+        ['c', '// Nothing turns a description into'],
+        ['c', '// companies. That is landscape-search,'],
+        ['c', '// still unbuilt.'],
         ['c', ''],
-        ['t', '// And three companies is six minutes.']
+        ['t', '// These are three descriptions whose'],
+        ['t', '// companies were already known.']
       ]
     }
   };
@@ -218,25 +241,25 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:dropped", c: "Compare A vs B. Get a report on A." },
-    { kind: "means",       a: "spot:#code",   c: "The rest went nowhere." },
+    { kind: "recognition", a: "file:empty",    c: "One box, and nothing in it." },
+    { kind: "means",       a: "spot:#code",    c: "You do not know what to type." },
 
-    { kind: "turn",        a: "file:silent",  c: "And nothing on the page said so." },
+    { kind: "turn",        a: "file:invented", c: "So you invent something. It names no site." },
 
-    { kind: "result",      a: "file:all",     c: "So take every site named." },
-    { kind: "result",      a: "file:cap",     c: "Capped at three. The cap is the wait." },
-    { kind: "means",       a: "spot:#code",   c: "Six minutes is the honest number." },
+    { kind: "result",      a: "file:ideas",    c: "Three ideas. Six real companies." },
+    { kind: "result",      a: "file:curated",  c: "Only the choice of companies is curated." },
+    { kind: "means",       a: "spot:#code",    c: "Everything else is fetched when you click." },
 
-    { kind: "result",      a: "file:merge",   c: "One section holds every company." },
+    { kind: "result",      a: "file:box",      c: "So the companies go in the box." },
+    { kind: "result",      a: "file:parser",   c: "And the real parser reads them back out." },
 
-    { kind: "turn",        a: "file:labels",  c: "Each run numbers its sources from S1." },
-    { kind: "means",       a: "spot:#code",   c: "Follow A citation, arrive at B." },
+    { kind: "turn",        a: "file:stale",    c: "But it is a promise about somebody else's site." },
+    { kind: "result",      a: "file:check",    c: "One command. Six for six on pricing." },
 
-    { kind: "result",      a: "file:rename",  c: "Rename as they merge. Three caught." },
+    { kind: "result",      a: "file:wait",     c: "Two companies is four minutes. That is what is left." },
+    { kind: "result",      a: "file:left",     c: "It steps over the gap. It does not close it." },
 
-    { kind: "result",      a: "file:left",    c: "It still only compares what you name." },
-
-    { kind: "close",       a: "hold",         c: "A comparison, not a profile." }
+    { kind: "close",       a: "hold",          c: "Somewhere to start." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -279,8 +302,8 @@
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "Using it ourselves",
-    blurb: "The stream was being sent to nobody: the frontend still polled. Wiring it up meant watching a report arrive in a browser for the first time, and the two defects that turned up were invisible to 425 passing tests.",
+    title: "Somewhere to start",
+    blurb: "An empty box is where a demo dies: the prompts people invent name no website, so the run fails before anything is read. Three ideas over six real companies, only the choice of companies curated, and a command that re-checks all six against the live web.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

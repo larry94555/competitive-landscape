@@ -97,6 +97,7 @@ applies with the system package manager, or Postgres.app.
 | `cargo run -p landscape -- gap <file>` | Measures where prices live across a list of pricing pages |
 | `cargo run -p landscape -- discover <origin>` | Finds the pages worth reading about one company |
 | `cargo run -p landscape -- read <origin>` | The whole path: discover, fetch, convert, extract |
+| `cargo run -p landscape -- examples` | Re-checks the demo's six curated companies against the live web. Non-zero if one has lost its pricing page |
 
 Add `--store memory` to any of them to skip Postgres entirely.
 
@@ -134,6 +135,20 @@ curl -s http://127.0.0.1:8787/api/health
 `queued` comes from storage rather than from a constant, so a healthy response also proves
 the process can reach its database. A health check that only proves the process is running
 will report healthy while every request fails.
+
+### The ideas the first screen offers
+
+```bash
+curl -s http://127.0.0.1:8787/api/examples
+```
+
+Three ideas over six real companies, each with the sentence that goes in the box — companies
+included, so what is curated is visible and editable rather than expanded behind the reader.
+The response carries the note the interface must show beside them: **only the choice of
+companies is curated**, and everything a report says is fetched, quoted and cited on the spot.
+
+`cargo run -p landscape -- examples` re-checks all six against the live web and exits non-zero
+if one has lost the pricing page a comparison is mostly about.
 
 ### Start an analysis
 

@@ -280,16 +280,25 @@ function stubDeferredGet(): {
   vi.stubGlobal(
     "fetch",
     vi.fn(
-      () =>
-        new Promise((res) => {
-          settlers.push((body: unknown) =>
-            res({
+      (url: string) =>
+        // The first screen asks for its examples on mount. Answering that here rather than
+        // queueing it keeps `resolveNth` counting the requests these tests are about — a
+        // harness that numbers *every* request is one any new fetch silently renumbers.
+        String(url).includes("/api/examples")
+          ? Promise.resolve({
               ok: true,
               status: 200,
-              json: () => Promise.resolve(body),
-            } as Response),
-          );
-        }),
+              json: () => Promise.resolve({ note: "", examples: [] }),
+            } as Response)
+          : new Promise((res) => {
+              settlers.push((body: unknown) =>
+                res({
+                  ok: true,
+                  status: 200,
+                  json: () => Promise.resolve(body),
+                } as Response),
+              );
+            }),
     ),
   );
   return {
@@ -597,6 +606,122 @@ describe("submitting an idea", () => {
   });
 });
 
+
+describe("the ideas offered on the first screen", () => {
+  const CATALOGUE = {
+    note: "The companies in these examples were chosen by hand. Everything the report says about them is fetched, quoted and cited when you click - nothing here is stored or written in advance.",
+    examples: [
+      {
+        id: "project-management",
+        idea: "project management for a small design agency",
+        companies: ["basecamp.com", "linear.app"],
+        why: "The two ends of the same market.",
+        prompt:
+          "project management for a small design agency - basecamp.com vs linear.app",
+      },
+    ],
+  };
+
+  /** A `fetch` that serves the catalogue and accepts a POST. */
+  function stubWithExamples(catalogue: unknown = CATALOGUE): void {
+    stubEventSource();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string, init?: RequestInit) =>
+        Promise.resolve({
+          ok: true,
+          status: init?.method === "POST" ? 201 : 200,
+          json: () =>
+            Promise.resolve(
+              String(url).includes("/api/examples")
+                ? catalogue
+                : init?.method === "POST"
+                  ? queued()
+                  : { ...queued(), status: "complete" },
+            ),
+        } as Response),
+      ),
+    );
+  }
+
+  it("fills the box with the companies rather than expanding them behind the reader", async () => {
+    // The honesty of the feature. A chip that put the idea in the box and passed the domains
+    // separately would hide the curated part in the one place a reader cannot check it — so
+    // what lands in the box is a sentence they could have typed, and can edit.
+    stubWithExamples();
+    const user = userEvent.setup();
+    render(<App />);
+
+    const chip = await screen.findByRole("button", {
+      name: /project management for a small design agency/i,
+    });
+    await user.click(chip);
+
+    expect(box().value).toBe(
+      "project management for a small design agency - basecamp.com vs linear.app",
+    );
+  });
+
+  it("does not start the run when a chip is clicked", async () => {
+    // Four minutes of somebody else's electricity, started by a click meant to read a label.
+    // The reader looks at the sentence and presses Analyse themselves.
+    stubWithExamples();
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /project management/i }),
+    );
+
+    const calls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls.some((c) => (c[1] as RequestInit | undefined)?.method === "POST")).toBe(
+      false,
+    );
+  });
+
+  it("says what is curated and what is not", async () => {
+    // The sentence comes from the server with the list. Rendering the chips without it would
+    // let a reader assume the reports were written in advance too.
+    stubWithExamples();
+    render(<App />);
+    expect(await screen.findByText(/chosen by hand/i)).toBeInTheDocument();
+    expect(screen.getByText(/fetched, quoted and cited/i)).toBeInTheDocument();
+  });
+
+  it("still lets somebody type when the examples cannot be loaded", async () => {
+    // They are a way in, not the product. An error banner over an empty box would make a
+    // missing convenience look like a broken application.
+    // A body with a perfectly good note and a list that is not a list. Two guards read this
+    // shape, and a fixture missing *both* fields would let either one carry the test alone.
+    stubWithExamples({ note: "chosen by hand", examples: "not a list" });
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+
+    expect(await screen.findByText(IDEA)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("takes the examples off the screen once there is a report to read", async () => {
+    // They are scaffolding for the empty state. Leaving them under a report invites a click
+    // that throws away what the reader is looking at.
+    stubWithExamples();
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /project management/i }),
+    );
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+
+    // The analysis is on screen — that is what `IDEA` is, the prompt the stub reports back.
+    expect(await screen.findByText(IDEA)).toBeInTheDocument();
+    expect(screen.queryByText(/chosen by hand/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /project management/i })).toBeNull();
+  });
+});
 
 describe("a report about several companies", () => {
   it("says whose each answer is, in the words the extractor really produces", async () => {

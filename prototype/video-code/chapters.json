@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "Using it ourselves",
-    "blurb": "The stream was being sent to nobody: the frontend still polled. Wiring it up meant watching a report arrive in a browser for the first time, and the two defects that turned up were invisible to 425 passing tests.",
-    "seconds": 41.5
+    "title": "Somewhere to start",
+    "blurb": "An empty box is where a demo dies: the prompts people invent name no website, so the run fails before anything is read. Three ideas over six real companies, only the choice of companies curated, and a command that re-checks all six against the live web.",
+    "seconds": 49.3
   }
 ]

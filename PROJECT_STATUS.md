@@ -1,6 +1,6 @@
 # Project Status
 
-**As of 2026-08-05** · `main` at `ab271d1`, plus the branch this page is on.
+**As of 2026-08-05** · `main` at `6d758cf`, plus the two branches in review.
 
 This page answers one question: **what can somebody actually do with this today, and what
 stands between here and each of the six states that matter.** It is deliberately separate from
@@ -20,7 +20,7 @@ The six states, in the order they must be reached. **None of them is met.**
 
 | # | State | Met? | Percentage Left | The single thing standing in the way |
 |---|---|---|---|---|
-| **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **No.** *This row said "the software can do this on a laptop today" and that was wrong* — see [§1.5](#15-the-correction-that-produced-phase-d). | [**10%**](docs/Full_Feature_List.md#s1--ready-for-a-guided-demo) | **Two things, both software, both testable here.** Serve the app (**done**), a run has a URL (**done**), several companies in one report (**done**) — then: example ideas that really run, and a read order that puts content on screen early. |
+| **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **No — and for one reason only, which is the wait.** *This row once said "the software can do this on a laptop today" and that was wrong* — see [§1.5](#15-the-correction-that-produced-phase-d). | [**5%**](docs/Full_Feature_List.md#s1--ready-for-a-guided-demo) | **One thing.** Serve the app (**done**), a run has a URL (**done**), several companies in one report (**done**), example ideas that really run (**done**) — what is left is a read order that puts content on screen early, because an example names two companies and two companies is about four minutes. |
 | **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**100%**](docs/Full_Feature_List.md#s2--ready-for-demonstration) | **A business idea does not run at all.** A prompt must name a domain; a description fails with `no_subject`. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
 | **S3** | **Ready for use** — friendly users should find no issue | **No.** | [**96%**](docs/Full_Feature_List.md#s3--ready-for-use) | 6 of 9 report sections, no verification layer, no comparison matrix, no accounts. |
 | **S4** | **Ready for general use** — promotable, word-of-mouth quality | **No.** | [**100%**](docs/Full_Feature_List.md#s4--ready-for-general-use) | Everything in S3, plus no quality gates have ever been run against a deployed system. |
@@ -34,7 +34,7 @@ finished when it is demonstrable end to end on a development machine — Rust, N
 defect rather than a step in the plan.
 
 **Percentage Left is software only**, counted in pull requests and linked to the feature it comes
-from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **38 of 133 PRs done, 29% of the whole
+from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **39 of 132 PRs done, 30% of the whole
 deliverable.** Getting it onto a host is a
 [separate three-PR track](docs/Full_Feature_List.md#getting-it-onto-a-host) that gates *who can see*
 the software rather than what it can do, and the concierge interviews and source-terms audit are
@@ -118,7 +118,7 @@ substitution is deliberate and is noted on each one.
 
 | Feature | Rung | One-line status |
 |---|---|---|
-| [F1 Searching for competitive information on a product idea](#f1--searching-for-competitive-information-on-a-product-idea) | **R1 partial** | Works for a prompt naming a domain. An idea returns nothing — until Phase D's example chips, which run real analyses over curated competitor sets. |
+| [F1 Searching for competitive information on a product idea](#f1--searching-for-competitive-information-on-a-product-idea) | **R1 partial** | Works for a prompt naming a domain, and the first screen now offers three ideas that do — real analyses over six curated companies. An idea nobody curated still returns nothing. |
 | [F2 Editing the product idea to get better results](#f2--editing-the-product-idea) | **R0** | No run has a URL; there is nothing to return to and edit. |
 | [F3 Asking follow-up questions](#f3--asking-follow-up-questions) | **R0** | Not started. Report is terminal — read it or run another. |
 | [F4 Sign up / registration](#f4--sign-up--registration) | **R0** | No authentication code exists in the repository. |
@@ -141,7 +141,7 @@ substitution is deliberate and is noted on each one.
 
 | Rung | State | Why |
 |---|---|---|
-| R1 happy path, minimal information | **Met for a domain. Not met for an idea.** | `basecamp.com` produces a six-section cited report. "an app that helps small farms sell to local restaurants" fails with `no_subject` and a remedy line. |
+| R1 happy path, minimal information | **Met for a domain, and for three ideas. Not met for an idea in general.** | `basecamp.com` produces a six-section cited report. So do the three example ideas, over two real companies each. "an app that helps small farms sell to local restaurants" still fails with `no_subject` and a remedy line — **the curated ideas step over that gap, they do not close it.** |
 | R2 10% of relevant information | **Unknown — unmeasurable.** | No idea-level golden set exists. See [B1](#4-blockers). |
 | R3 25% · R4 50% · R5 80% | **Unknown — unmeasurable.** | Same. |
 | R6 relevant information returned | **No.** | Single company, own domain only, 4 of 6 question kinds. |
@@ -153,6 +153,13 @@ capped at 8), `crates/landscape-fetch` (SSRF guard at 100% coverage, robots.txt,
 politeness), `crates/landscape-extract` (Markdown conversion, span pre-selection, four
 extractors), `crates/landscape-llm` (grammar-constrained decoding), `crates/landscape-analyze`
 (the orchestrator), SSE streaming, and a React page that renders sections as they land.
+
+**What the example ideas are and are not.** Three ideas on the first screen, each naming two
+real companies, each producing a real fetched and cited report. Only the *choice of companies*
+is curated: the sentence a chip puts in the box contains the domains, so a reader can see and
+edit them, and `landscape examples` re-checks all six against the live web and fails if one has
+lost its pricing page. **This does not move the rungs below**, because it does not turn a
+description into companies — it hands over three descriptions whose companies are already known.
 
 **What is missing, in the order it blocks things:**
 
@@ -340,6 +347,11 @@ positioning: not a worse chatbot, but the evidence file a chatbot cannot assembl
 **Rung: R2.** Streaming is real: sections appear as they are finished, and watching it in a
 browser found two defects 425 passing tests had not.
 
+**And it is now the only thing between here and S1.** Every example idea names two companies at
+about two minutes each, so the demo somebody is sent takes about four minutes. That is outside
+`PRODUCT_SPEC.md` §2.1A's ninety-to-a-hundred-and-eighty seconds, and it is a real number rather
+than an estimate — [BENCHMARKS.md](docs/BENCHMARKS.md) Runs 21 and 22.
+
 What is not true yet: **first content in 40 seconds.** Locally it is nearer two minutes,
 because nothing chooses the order pages are read in — the changelog needs no model and could go
 first. And no end-to-end figure exists for the target hardware at all, because the target
@@ -416,7 +428,7 @@ made a reader wait four minutes ([BENCHMARKS.md](docs/BENCHMARKS.md) Run 20).
 | Two of six extractors (trust, direction) | Two sections can never fill. |
 | Fetch cache + per-source extraction cache | The highest-leverage cache in the system, scheduled for this phase, absent. |
 | Anonymous rate limit (2/day) | Unlimited anonymous inference on a free box. |
-| Example chips, stage rail, source cards, citation hover cards | The UI is functional and unfinished. |
+| Stage rail, source cards, citation hover cards | The UI is functional and unfinished. **Example chips are built** — three ideas over six companies, with what is curated said beside them. |
 | Conditional GET; per-analysis fetch cap | Every run re-fetches everything. |
 | SSE replay ring buffer (`Last-Event-ID`) | Reconnect re-reads from the row rather than resuming. Works; not what was specified. |
 | Golden set to 25 subjects | 15 of 25, five of them fetched. |
@@ -484,9 +496,12 @@ Ordered by what they hold up.
 
 The shortest honest path, in order. Nothing here is a schedule.
 
-**To S1 — a guided demo.** Deploy what exists ([B5](#4-blockers)); add a permalink
-([B3](#4-blockers)); pick two or three subjects that read well and verify each end to end on the
-box. Everything else can stay as it is. **The gap is deployment, not software.**
+**To S1 — a guided demo.** One thing: **the wait.** The permalink is built, the binary serves
+the page, a report covers every company named, and three ideas over six real companies are on
+the first screen and re-checkable against the live web. What is left is a read order that puts
+content on screen early — the changelog needs no model and could go first — and the page count
+each company is worth. **The gap is software, and it is one item.** Deploying it afterwards
+([B5](#4-blockers)) changes who can see it, not what it does.
 
 **To S2 — any business idea handled correctly.** Build the search channel ([B2](#4-blockers));
 generate entity candidates so the existing disambiguation gate has something to work on; derive

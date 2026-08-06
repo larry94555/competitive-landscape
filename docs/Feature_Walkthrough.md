@@ -29,6 +29,7 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | **Measuring where a price lives on real pages** | **Yes** — Part 8C |
 | **Finding which pages to read about a company** | **Yes** — Part 8D |
 | **The whole path: discover, fetch, convert, extract plans and capabilities** | **Yes** — Part 8E |
+| **Ideas to start from, over companies checked against the live web** | **Yes** — Part 2B |
 | Reading real web pages *as part of a report* | No — the fetcher exists, nothing calls it yet |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
 | Accounts, quotas, payment | No |
@@ -142,8 +143,8 @@ cd web && npm run dev
 
 Open <http://localhost:5173>.
 
-**You should see** one heading — *What is your idea?* — one box, one button. No examples, no
-options, no navigation. **Analyse** is greyed out until you type something.
+**You should see** one heading — *What is your idea?* — one box, one button, and under them
+three ideas to start from. **Analyse** is greyed out until you type something.
 
 **Type:** `an app that helps small farms sell to local restaurants` and press **Analyse**.
 
@@ -178,6 +179,75 @@ it, and retyping something you just wrote is a worse punishment than a typo dese
 **Why it matters.** The message says the limit *and* what to do. It comes from the server, not
 from the frontend inventing its own wording — so there is one rule, in one place, and the UI
 cannot drift from it.
+
+---
+
+## Part 2B — The ideas on the first screen
+
+**Do this.** Below the box, under *Or start from one of these*, click **privacy-friendly
+website analytics**.
+
+**You should see** the box fill with:
+
+```text
+privacy-friendly website analytics - usefathom.com vs simpleanalytics.com
+```
+
+**and nothing else happen.** No run starts. The companies are in the sentence, in the box, and
+you can edit them before pressing anything.
+
+**Why it matters.** An empty box is where a demo dies: somebody who has never used this does
+not know what a good prompt looks like, and the prompts people invent — *"a tool for small
+farms"* — name no website, so the run fails with a reason before anything is read.
+
+**And what is curated is said out loud**, in the line under the ideas:
+
+> The companies in these examples were chosen by hand. Everything the report says about them is
+> fetched, quoted and cited when you click - nothing here is stored or written in advance.
+
+That sentence comes from the server with the list, not from the page. It is a claim about the
+product, and a claim that lives only in a component is one nobody reviews.
+
+**Delete `vs simpleanalytics.com` from the box** and press **Analyse**: you get a report about
+one company. Nothing is expanded behind you, so editing the sentence edits the run.
+
+### Check the companies still answer
+
+The catalogue promises one thing about six websites nobody here controls: that discovery finds
+pages worth reading. That goes stale on somebody else's schedule.
+
+**Do this.**
+
+```bash
+cargo run -p landscape -- examples
+```
+
+**You should see** something close to this — the numbers move, the shape should not:
+
+```text
+project-management - project management for a small design agency - basecamp.com vs linear.app
+  basecamp.com             6 source(s) in 16s, answering: direction, features, identity, pricing, trust
+  linear.app               8 source(s) in 20s, answering: changes, direction, features, identity, pricing, trust
+
+website-analytics - privacy-friendly website analytics - usefathom.com vs simpleanalytics.com
+  usefathom.com            8 source(s) in 18s, answering: changes, direction, features, identity, pricing, trust
+  simpleanalytics.com      8 source(s) in 32s, answering: changes, features, identity, pricing, trust
+
+shared-inbox - a shared inbox for a small support team - helpscout.com vs front.com
+  helpscout.com            8 source(s) in 35s, answering: changes, direction, features, identity, pricing, trust
+  front.com                8 source(s) in 25s, answering: changes, direction, features, identity, pricing, trust
+
+every example still has a pricing page to read.
+```
+
+No model and no database — this is discovery against the real sites, which is why it takes
+about two and a half minutes. **It exits non-zero if any company has lost its pricing page**,
+and only for that: a missing changelog produces a coverage note, and a coverage note is the
+product working. A missing pricing page is a demo that opens on a page of coverage notes.
+
+Notice Basecamp answers five of six. There is no Basecamp changelog to find, which is a fact
+about Basecamp — and worth keeping in the demo, because one of the three ideas then shows the
+honest negative beside real prices.
 
 ---
 

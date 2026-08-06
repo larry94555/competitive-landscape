@@ -33,6 +33,92 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 22 — the six companies the demo offers, checked against the live web
+
+**Date:** 2026-08-05 · **Where:** this laptop · **Model:** none — this is discovery alone.
+
+`ROADMAP.md` §2·D item D4 asks for example ideas that *really run*. The word doing the work is
+"really": a list of plausible-looking domains in a source file is a promise about somebody
+else's website, and it is the one promise in this repository that can be broken by people who
+have never heard of it. A site drops its sitemap, moves pricing behind an anchor, or starts
+refusing our user agent, and the first person to find out is whoever was sent the link.
+
+So the list is checkable, by a command with no model and no database behind it:
+
+```bash
+cargo run -p landscape -- examples
+```
+
+### What it found
+
+| Idea | Company | Sources | Discovery | Questions answered |
+|---|---|---|---:|---:|---|
+| project management | basecamp.com | 6 | 16s | pricing, features, identity, trust, direction |
+| | linear.app | 8 | 20s | **all six** |
+| website analytics | usefathom.com | 8 | 18s | **all six** |
+| | simpleanalytics.com | 8 | 32s | pricing, features, changes, identity, trust |
+| shared inbox | helpscout.com | 8 | 35s | **all six** |
+| | front.com | 8 | 25s | **all six** |
+
+Six for six on pricing, which is the one the command treats as fatal. **A missing changelog is
+a coverage note and a coverage note is the product working** — *"no page found. Checked:
+/changelog (404), /releases (404)"* is a finding. A missing pricing page is a demo that opens
+on a page of coverage notes, so `landscape examples` exits non-zero for that and only that.
+
+Basecamp has no changelog to find. That is true of Basecamp rather than a defect here, and it
+is worth keeping in the demo for exactly that reason: one of the six ideas shows the honest
+negative beside real prices.
+
+### The wait these imply, and why two companies rather than three
+
+Discovery is 16–35 seconds a company. The model is the rest: about **two minutes a company** on
+this laptop, from Run 21, which no part of this run changes.
+
+| Companies in an example | Rough wait, here |
+|---|---|
+| 2 | **~4 min** |
+| 3 | ~6 min |
+
+`MAX_SUBJECTS` allows three. Every example ships **two**, and the difference between those two
+numbers is the whole argument: three is what the analyser will do, two is what somebody who
+clicked a link will sit through. `PRODUCT_SPEC.md` §2.1A asks for ninety to a hundred and
+eighty seconds and neither number is inside it — which is the standing item Phase D's risk
+section names, and no part of this feature pretends otherwise.
+
+### What was curated, and what a test can hold
+
+Only the choice of companies. Every claim is fetched, quoted and cited when somebody clicks;
+nothing in the catalogue is an answer, a cached report, or text that reaches a claim.
+
+That distinction is enforced rather than promised: `Example::prompt` puts the companies **into
+the sentence the reader sees and can edit**, and the test that matters runs each prompt through
+`origins_in` — the parser the worker really calls — and asserts the companies come back out.
+
+| Reintroduced defect | Caught? |
+|---|---|
+| a chip expands to companies the reader never saw | **yes** |
+| the words joining an idea to its companies glue two domains into one | **yes** |
+| an example names a fourth company and is silently capped when it runs | **yes** |
+| an example names one company, so the demo shows a profile | **yes** |
+| the list is served without the sentence that qualifies it | **yes** |
+| the interface says nothing about what is curated | **yes** |
+| clicking an idea starts four minutes of work nobody asked for | **yes** |
+| a malformed catalogue takes the first screen down with it | **yes** |
+| the ideas stay under the report and invite a click that throws it away | **yes** |
+
+Ten mutations, all caught — **two of them only after the mutation itself was corrected.** One
+appended text to an idea that `origins_in` steps over as its own word, so it broke nothing; the
+other removed one of two guards while the second still carried the case. Both reported `MISSED`
+about code that was fine, which is what the register says to check first and is why the harness
+is a committed file rather than something typed once.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 21 | 485 | 41 |
+| now | **498** | **49** |
+
+---
+
 ## Run 21 — a comparison, not a profile
 
 **Date:** 2026-08-05 · **Where:** this laptop · **Model:** none — this is the join.
