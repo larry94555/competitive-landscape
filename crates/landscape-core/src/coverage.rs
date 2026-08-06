@@ -101,10 +101,14 @@ impl Coverage {
     #[must_use]
     pub fn note(&self) -> String {
         if !self.is_empty() {
+            // **Pages read, not pages admitted.** These come apart whenever a page is found
+            // and not opened - a fetch that failed, and now a second page for a question the
+            // budget did not buy - and `sources.len()` would then claim facts came from more
+            // pages than were ever read. A count nobody can check is the thing this type
+            // exists to prevent.
             return format!(
-                "{} fact(s) from {} source(s)",
-                self.facts,
-                self.sources.len()
+                "{} fact(s) from {} page(s) read",
+                self.facts, self.pages_read
             );
         }
         if self.attempts.is_empty() && self.sources.is_empty() {
@@ -287,7 +291,26 @@ mod tests {
             attempts: vec![attempt("/pricing", "200")],
         };
         assert!(!covered.is_empty());
-        assert_eq!(covered.note(), "3 fact(s) from 1 source(s)");
+        assert_eq!(covered.note(), "3 fact(s) from 1 page(s) read");
+    }
+
+    #[test]
+    fn a_page_admitted_and_not_read_is_not_counted_as_one_the_facts_came_from() {
+        // Two pricing pages admitted, one read - which is the ordinary case now that each
+        // question is worth one page that needs a model. Saying "from 2 source(s)" would
+        // credit facts to a page nobody opened, and a reader following that count arrives at
+        // a page that says nothing about the number beside it.
+        let covered = Coverage {
+            question: "pricing".to_owned(),
+            sources: vec![
+                "https://e.com/pricing".to_owned(),
+                "https://e.com/plans".to_owned(),
+            ],
+            pages_read: 1,
+            facts: 3,
+            attempts: vec![attempt("/pricing", "200"), attempt("/plans", "200")],
+        };
+        assert_eq!(covered.note(), "3 fact(s) from 1 page(s) read");
     }
 
     #[test]

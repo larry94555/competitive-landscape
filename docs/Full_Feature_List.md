@@ -1,6 +1,6 @@
 # Full Feature List
 
-**As of 2026-08-05** · `main` at `6d758cf` · **39 of 132 PRs · 30% of the software deliverable**
+**As of 2026-08-06** · `main` at `50d7d1d` · **40 of 131 PRs · 31% of the software deliverable**
 
 Every feature the roadmap describes, sorted by the readiness state that first requires it, with
 what it is estimated to cost in pull requests and how much of that is spent.
@@ -31,8 +31,8 @@ why. This page says how much is left.
 
 ## How to read the numbers
 
-**Done** counts a PR that is written, green and either merged or in review. **37 are merged**
-and two are open — #38 and this one — 39, and the Done column sums to exactly that.
+**Done** counts a PR that is written, green and either merged or in review. **39 are merged**
+and one is open — this one — 40, and the Done column sums to exactly that.
 
 **The rows are themes, not individual PRs.** Which one belongs to which row is approximate,
 because several did two things at once; the totals are not.
@@ -61,27 +61,27 @@ only you can do; they are listed at the bottom and are not counted anywhere.
 
 | State | What it means | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
-| [**S1**](#s1--ready-for-a-guided-demo) | Ready for a guided demo | 40 | 38 | **2** | **95%** |
+| [**S1**](#s1--ready-for-a-guided-demo) | Ready for a guided demo | 39 | 39 | **0** | **100%** |
 | [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 19 | 0 | **19** | **0%** |
 | [**S3**](#s3--ready-for-use) | Friendly users find no issue | 26 | 1 | **25** | **4%** |
 | [**S4**](#s4--ready-for-general-use) | Promotable, word-of-mouth quality | 11 | 0 | **11** | **0%** |
 | [**S5**](#s5--general-use-free-mode) | Stable, email signup, community | 15 | 0 | **15** | **0%** |
 | [**S6**](#s6--general-use-full-mode) | Notifications and paid subscriptions | 21 | 0 | **21** | **0%** |
-| | **Total** | **132** | **39** | **93** | **30%** |
+| | **Total** | **131** | **40** | **91** | **31%** |
 | | *Getting it onto a host (not a state)* | *3* | *0* | *3* | *0%* |
 
-**The shape of that table is the answer to "how far are we".** S1 is **two PRs** from being
-demonstrable on a laptop, and both are the same subject: the wait. Everything after it is a
-cliff, and the cliff is one item — nothing turns a description into a set of companies, which is
-exactly the gap D4's curated ideas step over rather than close.
+**The shape of that table is the answer to "how far are we".** **S1 is complete** — the guided
+demo runs on a laptop, end to end, over real companies. Everything after it is a cliff, and the
+cliff is one item: nothing turns a description into a set of companies, which is exactly the gap
+D4's curated ideas step over rather than close.
 
 ---
 
 ## S1 — Ready for a guided demo
 
-*Only certain product ideas work reliably.* **Two PRs left**, both about the wait rather than
-about what the report contains, and both verifiable on a laptop: `cargo run -p landscape -- dev`,
-a `llama-server` beside it, and a browser.
+*Only certain product ideas work reliably.* **Done.** Pick an example idea, watch sections
+arrive, read a cited report about real companies, reload and it is still there — on a laptop,
+with `cargo run -p landscape -- dev`, a `llama-server` beside it, and a browser.
 
 | Feature | State | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
@@ -101,13 +101,19 @@ a `llama-server` beside it, and a browser.
 | **D2** A run has a URL — `/a/{id}`, survives a reload, can be sent to somebody | S1 | 1 | 1 | 0 | 100% |
 | **D4** Example ideas that really run — three ideas over six companies checked against the live web | S1 | 1 | 1 | 0 | 100% |
 | **D5** More than one company in a report — every site named is a subject, one section holds them all | S1 | 1 | 1 | 0 | 100% |
-| Order the reads so content arrives first, and measure the wait end to end | S1 | 2 | 0 | **2** | 0% |
-| | | **40** | **38** | **2** | **95%** |
+| Order the reads so content arrives first, and measure the wait end to end | S1 | 1 | 1 | 0 | 100% |
+| | | **39** | **39** | **0** | **100%** |
 
-**The risk inside those two, and it is the only one left.** A single company takes about two
-minutes on a laptop and every example names two, so a demo is about four minutes — outside the
-ninety to a hundred and eighty seconds `PRODUCT_SPEC.md` §2.1A asks for. The remaining row exists
-to fix that with read order and page count rather than a faster model.
+**What the last row actually bought.** The page that needs no model is read first, so first
+content on `linear.app` is **23 seconds and does not involve the model at all** — inside §2.1A's
+window. Each question is worth one page that needs a model, which takes the six demo companies
+from 128 model calls to 88, and the pages left unread are named on the report.
+
+**The seconds are still not settled, and that is not a code change.** One call's cost belongs to
+the model and the machine. `landscape cost` counts the calls with no model running; the
+end-to-end figure is taken from a client's side of a deployment
+([ADR 0011](decisions/0011-no-experiments-on-production.md)), which is measurement rather than
+software — and it is why this row is done while the number is still open.
 
 **And this is the one number a laptop cannot settle by itself.** The target host is four ARM
 cores against a developer machine's many, so the local figure is a lower bound rather than an

@@ -80,124 +80,111 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    empty: {
-      name: "one box, and nothing in it",
-      purpose: "Where a demo dies.",
+    waiting: {
+      name: "ninety seconds of nothing",
+      purpose: "The last thing between here and a demo.",
       lines: [
-        ['t', '  What is your idea?'],
+        ['t', '  Reading public web pages...'],
         ['c', ''],
-        ['s', '  [                              ]'],
+        ['s', '  (nothing on screen)'],
         ['c', ''],
-        ['c', '// Somebody who has never used this'],
-        ['f', '// does not know what to type.']
+        ['c', '// The spec asks for content in twenty'],
+        ['f', '// to forty seconds.']
       ]
     },
-    invented: {
-      name: "so they invent one",
-      purpose: "And it names no website.",
+    notspeed: {
+      name: "and it is not the model's speed",
+      purpose: "It is how often we ask.",
       lines: [
-        ['t', '  "a tool for small farms"'],
+        ['c', '// Every extractor works a window at a'],
+        ['c', '// time. One model call per window.'],
         ['c', ''],
-        ['s', '  no_subject'],
-        ['c', ''],
-        ['c', '// The failure is honest. It is also'],
-        ['f', '// the end of the demo.']
+        ['f', '  linear.app/docs    12 windows'],
+        ['f', '  linear.app/features 8 windows'],
+        ['t', '// The windows are the wait.']
       ]
     },
-    ideas: {
-      name: "three ideas, six companies",
-      purpose: "Each one really runs.",
+    parsed: {
+      name: "one page needs no model",
+      purpose: "A changelog is parsed, not generated.",
       lines: [
-        ['f', '  project management'],
-        ['t', '    basecamp.com vs linear.app'],
-        ['f', '  privacy-friendly analytics'],
-        ['t', '    usefathom.com vs simpleanalytics'],
-        ['f', '  a shared inbox'],
-        ['t', '    helpscout.com vs front.com']
-      ]
-    },
-    curated: {
-      name: "and only one thing is curated",
-      purpose: "The choice of companies.",
-      lines: [
-        ['c', '// No stored answers. No cached report.'],
-        ['c', '// Nothing here reaches a claim.'],
+        ['f', '  Answers::Changes => changes(...)'],
         ['c', ''],
-        ['f', '  fetched, quoted and cited'],
-        ['f', '  at the moment you click']
+        ['c', '// Dates are on the deterministic side'],
+        ['c', '// of the line. It costs one fetch.'],
+        ['t', '// So it is read first.']
       ]
     },
-    box: {
-      name: "so the companies go in the box",
-      purpose: "Where you can see and edit them.",
+    firstcontent: {
+      name: "and that is first content",
+      purpose: "Measured with no model at all.",
       lines: [
-        ['t', '  privacy-friendly website analytics'],
-        ['t', '  - usefathom.com vs simpleanalytics.com'],
+        ['f', '  first content 23s'],
+        ['f', '  whole report  26s'],
         ['c', ''],
-        ['c', '// A chip that expanded to companies'],
-        ['c', '// you never saw would curate in the'],
-        ['f', '// one place you cannot check.']
+        ['t', '  Coding sessions on mobile'],
+        ['t', '  Introducing Loops'],
+        ['c', ''],
+        ['c', '// Seven real dated changes.']
       ]
     },
-    parser: {
-      name: "and the parser reads it back",
-      purpose: "The one the worker really calls.",
+    second: {
+      name: "the second page for a question",
+      purpose: "Where the wait doubles.",
       lines: [
-        ['f', '  origins_in(example.prompt())'],
-        ['f', '    == example.companies'],
+        ['s', '  linear.app/docs    12 calls'],
         ['c', ''],
-        ['c', '// A list of domains in a file is a'],
-        ['f', '// promise. This is the part that can'],
-        ['f', '// fail.']
+        ['c', '// A question that already has an'],
+        ['c', '// answer, asked again a dozen times,'],
+        ['f', '// while somebody watches.']
       ]
     },
-    stale: {
-      name: "a promise about somebody else",
-      purpose: "It goes stale on their schedule.",
+    named: {
+      name: "so one page a question",
+      purpose: "And the rest are named.",
       lines: [
-        ['c', '// A sitemap disappears. Pricing moves'],
-        ['c', '// behind an anchor. A user agent is'],
-        ['c', '// refused.'],
+        ['f', '  Read the first page for each'],
+        ['f', '  question. 2 further page(s) were'],
+        ['f', '  found and not read: /plans, /docs.'],
         ['c', ''],
-        ['s', '// The first to find out is whoever'],
-        ['s', '// you sent the link to.']
+        ['c', '// On the report, above the sections.'],
+        ['t', '// A shorter list with nothing beside'],
+        ['t', '// it is a wrong one.']
       ]
     },
-    check: {
-      name: "so the demo is checkable",
+    counted: {
+      name: "counted, not promised",
       purpose: "No model. No database.",
       lines: [
-        ['f', '  landscape examples'],
+        ['f', '  landscape cost linear.app'],
         ['c', ''],
-        ['f', '  basecamp.com    6 sources  16s'],
-        ['f', '  linear.app      8 sources  20s'],
-        ['t', '  six for six on pricing'],
+        ['t', '  discovery order   24 calls,  3'],
+        ['f', '  as this run reads 12 calls,  0'],
         ['c', ''],
-        ['s', '// Non-zero if one loses its prices.']
+        ['c', '// Six companies: 128 -> 88.']
       ]
     },
-    wait: {
-      name: "and the number left over",
-      purpose: "Two companies is four minutes.",
+    uneven: {
+      name: "and it is not uniform",
+      purpose: "Which is the honest part.",
       lines: [
-        ['t', '  2 companies   ~4 min'],
-        ['s', '  3 companies   ~6 min'],
+        ['s', '  basecamp.com   14 -> 14'],
+        ['c', '// No changelog. Nothing to reorder,'],
+        ['c', '// nothing to skip.'],
         ['c', ''],
-        ['c', '// Three is what the analyser allows.'],
-        ['f', '// Two is what somebody who clicked'],
-        ['f', '// a link will sit through.']
+        ['t', '// A change that does nothing for a'],
+        ['t', '// company should do nothing, visibly.']
       ]
     },
-    left: {
-      name: "what this does not do",
-      purpose: "It steps over the gap.",
+    seconds: {
+      name: "the number we cannot give you",
+      purpose: "The seconds belong to the model.",
       lines: [
-        ['c', '// Nothing turns a description into'],
-        ['c', '// companies. That is landscape-search,'],
-        ['c', '// still unbuilt.'],
+        ['c', '// What one call costs is the model and'],
+        ['c', '// the machine, not this pipeline.'],
         ['c', ''],
-        ['t', '// These are three descriptions whose'],
-        ['t', '// companies were already known.']
+        ['t', '// 20 of those 23 seconds are'],
+        ['t', '// discovery. That is the next lever.']
       ]
     }
   };
@@ -241,25 +228,23 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:empty",    c: "One box, and nothing in it." },
-    { kind: "means",       a: "spot:#code",    c: "You do not know what to type." },
+    { kind: "recognition", a: "file:waiting",      c: "Ninety seconds of nothing on screen." },
+    { kind: "means",       a: "spot:#code",        c: "The spec asks for twenty to forty." },
 
-    { kind: "turn",        a: "file:invented", c: "So you invent something. It names no site." },
+    { kind: "turn",        a: "file:notspeed",     c: "It is not the model's speed. It is how often we ask." },
 
-    { kind: "result",      a: "file:ideas",    c: "Three ideas. Six real companies." },
-    { kind: "result",      a: "file:curated",  c: "Only the choice of companies is curated." },
-    { kind: "means",       a: "spot:#code",    c: "Everything else is fetched when you click." },
+    { kind: "result",      a: "file:parsed",       c: "One page needs no model, so it goes first." },
+    { kind: "result",      a: "file:firstcontent", c: "First content, 23 seconds. No model running." },
 
-    { kind: "result",      a: "file:box",      c: "So the companies go in the box." },
-    { kind: "result",      a: "file:parser",   c: "And the real parser reads them back out." },
+    { kind: "turn",        a: "file:second",       c: "And the second page for a question doubles the wait." },
+    { kind: "result",      a: "file:named",        c: "So one page a question, and the rest are named." },
 
-    { kind: "turn",        a: "file:stale",    c: "But it is a promise about somebody else's site." },
-    { kind: "result",      a: "file:check",    c: "One command. Six for six on pricing." },
+    { kind: "result",      a: "file:counted",      c: "Counted with no model. 128 calls become 88." },
+    { kind: "result",      a: "file:uneven",       c: "Basecamp changes by nothing, and that is right." },
 
-    { kind: "result",      a: "file:wait",     c: "Two companies is four minutes. That is what is left." },
-    { kind: "result",      a: "file:left",     c: "It steps over the gap. It does not close it." },
+    { kind: "result",      a: "file:seconds",      c: "The seconds are the model's. Discovery is next." },
 
-    { kind: "close",       a: "hold",          c: "Somewhere to start." }
+    { kind: "close",       a: "hold",              c: "S1: a demo you can sit through." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -302,8 +287,8 @@
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "Somewhere to start",
-    blurb: "An empty box is where a demo dies: the prompts people invent name no website, so the run fails before anything is read. Three ideas over six real companies, only the choice of companies curated, and a command that re-checks all six against the live web.",
+    title: "The wait",
+    blurb: "The pipeline's share of the wait is not the model's speed but how often it asks. The page that needs no model is read first, so first content is 23 seconds with nothing loaded; each question is worth one page that does, taking six companies from 128 model calls to 88, with everything skipped named on the report.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

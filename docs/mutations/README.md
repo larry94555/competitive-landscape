@@ -6,6 +6,7 @@ be **put back** and the suite asked whether it notices.
 ```bash
 python3 scripts/mutate.py docs/mutations/several-companies.json
 python3 scripts/mutate.py docs/mutations/example-ideas.json
+python3 scripts/mutate.py docs/mutations/read-order.json
 ```
 
 **Why these are committed when the register says to keep them in a scratchpad.** Most are

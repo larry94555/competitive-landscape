@@ -98,6 +98,7 @@ applies with the system package manager, or Postgres.app.
 | `cargo run -p landscape -- discover <origin>` | Finds the pages worth reading about one company |
 | `cargo run -p landscape -- read <origin>` | The whole path: discover, fetch, convert, extract |
 | `cargo run -p landscape -- examples` | Re-checks the demo's six curated companies against the live web. Non-zero if one has lost its pricing page |
+| `cargo run -p landscape -- cost <origin>` | How many model calls one company is worth, counted with no model running |
 
 Add `--store memory` to any of them to skip Postgres entirely.
 

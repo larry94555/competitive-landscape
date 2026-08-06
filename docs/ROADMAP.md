@@ -202,11 +202,18 @@ ahead of the product and should stop until the product catches up.
 laptop, and the target host is four ARM cores. D5 multiplies that by the number of competitors.
 A demo that takes ten minutes is not a demo.
 
-So D5 carries a hard constraint: **measure before promising.** Two or three companies, a small
-number of pages each, and if the measured wait on the box exceeds roughly three minutes, the
-answer is fewer pages and a read-order that puts the deterministic changelog first — not a
-faster model. [ADR 0011](decisions/0011-no-experiments-on-production.md) still applies: that
-measurement is taken from the client's side of the deployment, not on the box.
+So D5 carried a hard constraint: **measure before promising.** That is now done, and the
+answer was the one predicted here — fewer pages and a read order that puts the deterministic
+changelog first, not a faster model. Each question is worth one page that needs a model and the
+skipped pages are named on the report; across the six demo companies that is **128 model calls
+down to 88**, with first content free for four of the six
+([BENCHMARKS.md](BENCHMARKS.md) Run 23).
+
+**The seconds are still not settled here, and cannot be.** One call's cost belongs to the model
+and the machine; `landscape cost` counts the calls with no model running, and `landscape read`
+prints the two timings for a run somebody takes themselves.
+[ADR 0011](decisions/0011-no-experiments-on-production.md) still applies: the end-to-end figure
+is taken from the client's side of the deployment, not on the box.
 
 ### What "done" looks like for Phase D
 
@@ -214,11 +221,14 @@ measurement is taken from the client's side of the deployment, not on the box.
 reads a report about real companies with a quote and a source under every claim — then reloads
 the page and it is still there. That is D1, D2, D4 and D5, and it is the definition of S1.
 
-**All four are done.** The local half of Phase D is closed: the binary serves the page, a run
-has a URL that survives a reload, the first screen offers three ideas over six real companies
-that were checked against the live web, and a report covers every company named. What is left
-in this phase is D3 and D6 — the build, the service, and the per-IP cap — and none of it
-changes what the software does.
+**All four are done, and so is the wait.** The local half of Phase D is closed: the binary
+serves the page, a run has a URL that survives a reload, the first screen offers three ideas
+over six real companies that were checked against the live web, a report covers every company
+named, and the reads are ordered so the first thing on screen costs no model call at all —
+23 seconds on `linear.app`, measured, inside §2.1A's window. **S1 is complete.**
+
+What is left in this phase is D3 and D6 — the build, the service, and the per-IP cap — and
+none of it changes what the software does.
 
 **Then, separately:** D3 and D6 put the same build on a host, where the only difference is the
 values of four environment variables and the fact that other people can reach it.
