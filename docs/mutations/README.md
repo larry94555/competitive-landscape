@@ -7,6 +7,7 @@ be **put back** and the suite asked whether it notices.
 python3 scripts/mutate.py docs/mutations/several-companies.json
 python3 scripts/mutate.py docs/mutations/example-ideas.json
 python3 scripts/mutate.py docs/mutations/read-order.json
+python3 scripts/mutate.py docs/mutations/anonymous-cap.json
 ```
 
 **Why these are committed when the register says to keep them in a scratchpad.** Most are
@@ -38,8 +39,21 @@ the mutation could no longer fail — which is the thing this harness exists to 
 itself. It was re-aimed at a rule that was real and unenforced. **Retiring a mutation is a normal
 outcome; keeping one to preserve a green line is not.**
 
+**Not every property can be mutated.** *"A prompt that was refused costs nothing"* holds because
+the prompt is parsed before anything is counted — a structural fact, not a branch. Every
+single-line edit that removes it stops compiling, which `mutate.py` reports as `BROKEN` rather
+than pretending. The test stays; the mutation was dropped rather than left in the file proving
+nothing, and this paragraph is the reason it is absent.
+
 Every entry must be a defect a person can picture. `"labels are not reassigned when reports
 merge"` is one; `"change line 214"` is not, and will mean nothing to whoever reads it next.
+
+**These files are also read backwards.** `scripts/no_live_mutations.py` takes every `new`
+payload as the shape of a defect this repository can recognise, and refuses a working tree that
+contains one — because an interrupted run leaves the deliberate defect in place, and a
+`git add -A` will commit it. That has happened; entry 28 of the register is the account. It is
+the first gate `verify.py` runs, and the only one that looks at the working tree rather than at
+a clean checkout of `HEAD`.
 
 A file here is only worth keeping while its anchors still match the code. `scripts/mutate.py`
 refuses an anchor it cannot find, and an anchor that has silently become non-unique — so a stale

@@ -623,7 +623,7 @@ async fn serve(store: Arc<dyn Store>) -> Result<()> {
     // Nothing needs it. In production the binary serves the page and the API from one origin,
     // and `vite.config.ts` proxies `/api` in development — so the browser has never actually
     // been making a cross-origin request.
-    let app = landscape_api::with_ui(AppState { store }, &landscape_api::web_dir());
+    let app = landscape_api::with_ui(AppState::new(store), &landscape_api::web_dir());
 
     let listener = tokio::net::TcpListener::bind(&addr)
         .await

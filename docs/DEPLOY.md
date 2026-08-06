@@ -20,17 +20,28 @@ fixing rather than a step worth documenting.
 
 ## Before you start: two things that will bite
 
-### The URL has no rate limit on it
+### The URL has a cap on it now, and it is not a wall
 
-**D6 is not built.** There is no per-IP cap, no accounts, and no anonymous quota. Every request
-to `POST /api/analyses` starts a run that occupies the model for minutes on a machine with four
-cores. A public URL is an open invitation to spend all of it.
+**D6 is built.** One anonymous address may start **two analyses a day** — `PRODUCT_SPEC.md`
+§2.1's number — after which `POST /api/analyses` answers `429` with a sentence saying when to
+come back. Reading a report, watching one arrive and reloading its URL are never capped: the
+cap counts where a run *starts*, because that is the request that occupies the model for
+minutes.
 
-Until D6 exists, the mitigation is **step 8**: a `remote_ip` allow-list in Caddy, so the
-application answers one address and refuses the rest. It is one line, and it is the difference
-between a demo and a box you have to rebuild.
+Change it with `ANONYMOUS_DAILY_LIMIT` in `/etc/landscape/landscape.env`. It reads the client
+from `X-Forwarded-For` — **the rightmost entry, which is what Caddy observed** — so it depends
+on the application being reachable only through the proxy, which is what `BIND_ADDR` on
+loopback arranges.
 
-It is deliberately *not* in the firewall, and the reason is worth knowing before you start: the
+**Two a day is not a wall, and this is still worth knowing.** The cap is per address, it resets
+at midnight UTC — which the refusal states, rather than saying "tomorrow" — and it is held in
+memory, so a restart clears it. **A failed analysis costs nothing**, including one the worker
+fails after accepting it. It stops a URL being drained by strangers; it is not an accounting
+record.
+
+**Keep the allow-list in step 8 anyway while you are trying this out.** Two analyses a day from
+each of many addresses is still more than four ARM cores will enjoy, and until you want an
+audience, one address is the simplest answer. It is deliberately *not* in the firewall: the
 certificate authority has to reach this host, so ports 80 and 443 cannot be restricted to you.
 Review found that contradiction in the first version of this document, where the two halves made
 each other impossible.

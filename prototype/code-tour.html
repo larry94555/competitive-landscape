@@ -80,111 +80,102 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    waiting: {
-      name: "ninety seconds of nothing",
-      purpose: "The last thing between here and a demo.",
+    open: {
+      name: "a URL and no limit on it",
+      purpose: "One request, minutes of the only model.",
       lines: [
-        ['t', '  Reading public web pages...'],
+        ['t', '  POST /api/analyses'],
         ['c', ''],
-        ['s', '  (nothing on screen)'],
+        ['s', '  -> four cores, for minutes'],
         ['c', ''],
-        ['c', '// The spec asks for content in twenty'],
-        ['f', '// to forty seconds.']
+        ['c', '// No accounts. No quota. Once the'],
+        ['f', '// link is public, that is an invitation.']
       ]
     },
-    notspeed: {
-      name: "and it is not the model's speed",
-      purpose: "It is how often we ask.",
+    number: {
+      name: "two a day",
+      purpose: "The spec picked the number.",
       lines: [
-        ['c', '// Every extractor works a window at a'],
-        ['c', '// time. One model call per window.'],
+        ['f', '  DEFAULT_DAILY_LIMIT = 2'],
         ['c', ''],
-        ['f', '  linear.app/docs    12 windows'],
-        ['f', '  linear.app/features 8 windows'],
-        ['t', '// The windows are the wait.']
+        ['c', '// One analysis is a demo. A second is'],
+        ['c', '// somebody trying their own idea.'],
+        ['t', '// Generous enough to prove value.'],
+        ['t', '// Tight enough to survive.']
       ]
     },
-    parsed: {
-      name: "one page needs no model",
-      purpose: "A changelog is parsed, not generated.",
+    whose: {
+      name: "but whose two?",
+      purpose: "Behind a proxy the peer is the proxy.",
       lines: [
-        ['f', '  Answers::Changes => changes(...)'],
+        ['c', '// The client is in X-Forwarded-For.'],
+        ['c', '// And that header is appended to,'],
+        ['c', '// not replaced.'],
         ['c', ''],
-        ['c', '// Dates are on the deterministic side'],
-        ['c', '// of the line. It costs one fetch.'],
-        ['t', '// So it is read first.']
+        ['s', '  1.2.3.4, 198.51.100.7'],
+        ['s', '  ^ a claim   ^ what we saw']
       ]
     },
-    firstcontent: {
-      name: "and that is first content",
-      purpose: "Measured with no model at all.",
+    rightmost: {
+      name: "so read it from the right",
+      purpose: "The observation, not the claim.",
       lines: [
-        ['f', '  first content 23s'],
-        ['f', '  whole report  26s'],
+        ['f', '  header.rsplit(\',\').next()'],
         ['c', ''],
-        ['t', '  Coding sessions on mobile'],
-        ['t', '  Introducing Loops'],
-        ['c', ''],
-        ['c', '// Seven real dated changes.']
+        ['c', '// Taking the first entry is how a cap'],
+        ['f', '// like this is walked past on the'],
+        ['f', '// first afternoon it is public.']
       ]
     },
-    second: {
-      name: "the second page for a question",
-      purpose: "Where the wait doubles.",
+    laptop: {
+      name: "and no header is a laptop",
+      purpose: "Not a stranger.",
       lines: [
-        ['s', '  linear.app/docs    12 calls'],
+        ['c', '// Nothing in front of it, so nobody'],
+        ['c', '// to be protected from.'],
         ['c', ''],
-        ['c', '// A question that already has an'],
-        ['c', '// answer, asked again a dozen times,'],
-        ['f', '// while somebody watches.']
+        ['t', '  landscape dev -> uncapped'],
+        ['f', '// Two a day would make this unusable'],
+        ['f', '// to whoever is building it.']
       ]
     },
-    named: {
-      name: "so one page a question",
-      purpose: "And the rest are named.",
+    where: {
+      name: "counted where a run starts",
+      purpose: "And nowhere else.",
       lines: [
-        ['f', '  Read the first page for each'],
-        ['f', '  question. 2 further page(s) were'],
-        ['f', '  found and not read: /plans, /docs.'],
+        ['f', '  POST /api/analyses    counted'],
+        ['t', '  GET  /api/analyses/id  free'],
+        ['t', '  GET  .../events        free'],
+        ['t', '  GET  /api/examples     free'],
         ['c', ''],
-        ['c', '// On the report, above the sections.'],
-        ['t', '// A shorter list with nothing beside'],
-        ['t', '// it is a wrong one.']
+        ['c', '// A reader cut off mid-report would'],
+        ['c', '// do more damage than the abuse.']
       ]
     },
-    counted: {
-      name: "counted, not promised",
-      purpose: "No model. No database.",
+    said: {
+      name: "and the refusal says what to do",
+      purpose: "Nothing they typed was wrong.",
       lines: [
-        ['f', '  landscape cost linear.app'],
+        ['f', '  429'],
+        ['f', '  You have started 2 analyses today'],
         ['c', ''],
-        ['t', '  discovery order   24 calls,  3'],
-        ['f', '  as this run reads 12 calls,  0'],
+        ['t', '  Come back tomorrow, or run your'],
+        ['t', '  own copy - it is open source.'],
         ['c', ''],
-        ['c', '// Six companies: 128 -> 88.']
+        ['c', '// The spec offers "sign in" here.'],
+        ['s', '// There are no accounts yet.']
       ]
     },
-    uneven: {
-      name: "and it is not uniform",
-      purpose: "Which is the honest part.",
+    kept: {
+      name: "what is kept",
+      purpose: "A keyed hash, for one day.",
       lines: [
-        ['s', '  basecamp.com   14 -> 14'],
-        ['c', '// No changelog. Nothing to reorder,'],
-        ['c', '// nothing to skip.'],
+        ['c', '// The key is new in every process,'],
+        ['c', '// so the table cannot be read back'],
+        ['c', '// to anybody.'],
         ['c', ''],
-        ['t', '// A change that does nothing for a'],
-        ['t', '// company should do nothing, visibly.']
-      ]
-    },
-    seconds: {
-      name: "the number we cannot give you",
-      purpose: "The seconds belong to the model.",
-      lines: [
-        ['c', '// What one call costs is the model and'],
-        ['c', '// the machine, not this pipeline.'],
-        ['c', ''],
-        ['t', '// 20 of those 23 seconds are'],
-        ['t', '// discovery. That is the next lever.']
+        ['s', '// A restart clears the counts. That'],
+        ['s', '// is the cost of not using a table.']
       ]
     }
   };
@@ -228,23 +219,21 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:waiting",      c: "Ninety seconds of nothing on screen." },
-    { kind: "means",       a: "spot:#code",        c: "The spec asks for twenty to forty." },
+    { kind: "recognition", a: "file:open",      c: "A public URL, and no limit on it." },
+    { kind: "means",       a: "spot:#code",     c: "One request is minutes of the only model." },
 
-    { kind: "turn",        a: "file:notspeed",     c: "It is not the model's speed. It is how often we ask." },
+    { kind: "result",      a: "file:number",    c: "Two a day. The spec picked the number." },
 
-    { kind: "result",      a: "file:parsed",       c: "One page needs no model, so it goes first." },
-    { kind: "result",      a: "file:firstcontent", c: "First content, 23 seconds. No model running." },
+    { kind: "turn",        a: "file:whose",     c: "But whose two? The header is appended to, not replaced." },
+    { kind: "result",      a: "file:rightmost", c: "So read it from the right: what we saw, not what they claim." },
 
-    { kind: "turn",        a: "file:second",       c: "And the second page for a question doubles the wait." },
-    { kind: "result",      a: "file:named",        c: "So one page a question, and the rest are named." },
+    { kind: "result",      a: "file:laptop",    c: "No header is a laptop, and a laptop is not a stranger." },
+    { kind: "result",      a: "file:where",     c: "Counted where a run starts. Reading is always free." },
 
-    { kind: "result",      a: "file:counted",      c: "Counted with no model. 128 calls become 88." },
-    { kind: "result",      a: "file:uneven",       c: "Basecamp changes by nothing, and that is right." },
+    { kind: "result",      a: "file:said",      c: "Nothing they typed was wrong, so the refusal says what to do." },
+    { kind: "result",      a: "file:kept",      c: "A keyed hash, for one day, in memory." },
 
-    { kind: "result",      a: "file:seconds",      c: "The seconds are the model's. Discovery is next." },
-
-    { kind: "close",       a: "hold",              c: "S1: a demo you can sit through." }
+    { kind: "close",       a: "hold",           c: "Phase D is done." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -287,8 +276,8 @@
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "The wait",
-    blurb: "The pipeline's share of the wait is not the model's speed but how often it asks. The page that needs no model is read first, so first content is 23 seconds with nothing loaded; each question is worth one page that does, taking six companies from 128 model calls to 88, with everything skipped named on the report.",
+    title: "Two a day",
+    blurb: "A public URL with no cap is an invitation to spend a machine that has one model and four cores. Two analyses a day per address, read from the entry the proxy observed rather than the one a client claims, counted where a run starts so a reader is never cut off — and a refusal that says what to do rather than only what went wrong.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

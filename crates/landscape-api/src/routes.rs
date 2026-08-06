@@ -19,6 +19,23 @@ use crate::extract::Json as ValidJson;
 #[derive(Clone)]
 pub struct AppState {
     pub store: Arc<dyn Store>,
+    /// How many runs one anonymous address may start in a day.
+    ///
+    /// In the state rather than a layer because it has to be *counted where the run starts*
+    /// and nowhere else: a reader watching a report they already began must never be cut off
+    /// by a cap, and a middleware over the whole router would do exactly that.
+    pub cap: Arc<crate::cap::Cap>,
+}
+
+impl AppState {
+    /// The ordinary way to build one: a store, and the cap the environment asks for.
+    #[must_use]
+    pub fn new(store: Arc<dyn Store>) -> Self {
+        Self {
+            store,
+            cap: Arc::new(crate::cap::Cap::from_env()),
+        }
+    }
 }
 
 impl std::fmt::Debug for AppState {
@@ -198,9 +215,85 @@ struct CreateAnalysis {
 
 async fn create_analysis(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     ValidJson(body): ValidJson<CreateAnalysis>,
 ) -> Result<(StatusCode, Json<Analysis>), ApiError> {
+    // **The prompt is checked first, and nothing is reserved.** `PRODUCT_SPEC.md` §2.1 and
+    // `UI_FLOWS.md` §2.2 both say a failed analysis costs nothing; the first version of this
+    // counted before parsing, so a typo spent half of somebody's day. Review found it.
     let new = NewAnalysis::parse(&body.prompt)?;
+
+    // Counted here and nowhere else. This is the only request that starts minutes of work on
+    // the one model this machine has; reading a report, watching one arrive, or listing the
+    // examples cost nothing worth rationing, and capping them would cut off a reader in the
+    // middle of something they already started.
+    let client =
+        crate::cap::client_in(headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()));
+    if state.cap.applies_to(client.as_deref()) {
+        let client = client.unwrap_or_default();
+
+        // **The day can turn while this request waits for its turn.** Acquiring the gate is a
+        // wait, so the clock is read again on each attempt and the decision is abandoned if
+        // the day moved underneath it.
+        //
+        // Without this, a queue that formed before midnight woke afterwards holding the old
+        // day's gate: every one of those requests read an empty list, had its writes dropped,
+        // and was admitted free. Review found it - and found that the "at most one crossing
+        // request" I had claimed was not a bound at all, because the queue can be any length.
+        //
+        // Bounded rather than `loop`: the day only advances, so one retry is the real case,
+        // and a clock behaving strangely must not spin here for ever.
+        let mut attempt = 0;
+        let (now, today, _deciding) = loop {
+            let now = state.cap.now();
+            let today = now.date_naive();
+            // Owned, so the guard can outlive this iteration's binding of the gate itself.
+            let deciding = state.cap.gate_for(&client, today).lock_owned().await;
+            if state.cap.is_current(today) {
+                break (now, today, deciding);
+            }
+            attempt += 1;
+            if attempt >= 3 {
+                // Three midnights during one request is not a clock this can reason about.
+                // Refusing would turn a strange clock into an outage; the guard rail fails
+                // open here as it does everywhere else in this type.
+                break (now, today, deciding);
+            }
+        };
+
+        let started = state.cap.started_today(&client, today);
+
+        // **How many still count is asked of the store, not remembered.** A run the worker
+        // later marked failed is not charged for - and the worker is a different process, so
+        // there is nowhere a refund could have been sent even if one had been reserved.
+        let mut still: Vec<landscape_core::AnalysisId> = Vec::with_capacity(started.len());
+        for id in started {
+            match state.store.get(id).await {
+                Ok(analysis) if analysis.status == AnalysisStatus::Failed => {}
+                // A row that cannot be read is counted rather than forgiven: the alternative
+                // is that a store hiccup hands out an unlimited allowance.
+                _ => still.push(id),
+            }
+        }
+        let charged = still.len();
+        // Written back, so a failed id is asked about once rather than on every later request.
+        state.cap.keep(&client, today, still);
+
+        let limit = state.cap.limit();
+        if charged >= limit {
+            return Err(ApiError::TooManyToday {
+                used: charged,
+                limit,
+                resets: crate::cap::resets_after(now),
+            });
+        }
+
+        let analysis = state.store.enqueue(&new).await?;
+        // After the store accepted it, so an enqueue that fails costs nothing either.
+        state.cap.record(&client, today, analysis.id);
+        return Ok((StatusCode::CREATED, Json(analysis)));
+    }
+
     let analysis = state.store.enqueue(&new).await?;
     Ok((StatusCode::CREATED, Json(analysis)))
 }
@@ -231,9 +324,7 @@ mod tests {
     use tower::ServiceExt;
 
     fn app() -> Router {
-        router(AppState {
-            store: Arc::new(MemoryStore::new()),
-        })
+        router(AppState::new(Arc::new(MemoryStore::new())))
     }
 
     async fn json_body(res: axum::response::Response) -> serde_json::Value {
@@ -254,6 +345,569 @@ mod tests {
             .expect("build request")
     }
 
+    /// A prompt the API accepts, so a test about the cap is not also a test about parsing.
+    const IDEA: &str = "an app that helps small farms sell to restaurants";
+
+    /// A router whose cap allows `limit` a day, so the number under test is the number here
+    /// rather than whatever the environment happens to hold.
+    fn app_capped_at(limit: usize) -> axum::Router {
+        capped_with_store(limit).0
+    }
+
+    /// The same, keeping the store — for the tests that need to drive a run to a terminal
+    /// state the way the worker would.
+    fn capped_with_store(limit: usize) -> (axum::Router, Arc<dyn Store>) {
+        let (app, store, _) = capped_parts(limit);
+        (app, store)
+    }
+
+    /// A store that gives the scheduler a chance between its steps.
+    ///
+    /// **The in-memory store is too fast to expose a race that a real one exposes every time.**
+    /// `MemoryStore::get` takes a lock and returns without ever awaiting anything, so twenty
+    /// concurrent requests can run to completion one after another and a genuine
+    /// check-then-act bug looks fine. Postgres does I/O and always yields.
+    ///
+    /// A regression that depends on the fast store's timing is a flaky one - it caught the
+    /// missing lock on one run and missed it on the next, which is how this was found. This
+    /// puts the interleaving point back where a real deployment has it.
+    #[derive(Debug)]
+    struct YieldsBetweenSteps(Arc<dyn Store>);
+
+    #[async_trait::async_trait]
+    impl Store for YieldsBetweenSteps {
+        async fn enqueue(&self, new: &NewAnalysis) -> landscape_db::Result<Analysis> {
+            tokio::task::yield_now().await;
+            self.0.enqueue(new).await
+        }
+        async fn get(&self, id: AnalysisId) -> landscape_db::Result<Analysis> {
+            tokio::task::yield_now().await;
+            self.0.get(id).await
+        }
+        async fn claim_next(&self) -> landscape_db::Result<Option<Analysis>> {
+            self.0.claim_next().await
+        }
+        async fn save_progress(
+            &self,
+            id: AnalysisId,
+            generation: u32,
+            report: &landscape_core::Report,
+        ) -> landscape_db::Result<landscape_core::Applied> {
+            self.0.save_progress(id, generation, report).await
+        }
+        async fn complete(
+            &self,
+            id: AnalysisId,
+            generation: u32,
+            report: &landscape_core::Report,
+        ) -> landscape_db::Result<landscape_core::Applied> {
+            self.0.complete(id, generation, report).await
+        }
+        async fn fail(
+            &self,
+            id: AnalysisId,
+            generation: u32,
+            failure: landscape_core::Failure,
+            reason: &str,
+        ) -> landscape_db::Result<landscape_core::Applied> {
+            self.0.fail(id, generation, failure, reason).await
+        }
+        async fn reclaim_stale(&self, max_age: chrono::Duration) -> landscape_db::Result<u64> {
+            self.0.reclaim_stale(max_age).await
+        }
+        async fn count_with_status(&self, status: AnalysisStatus) -> landscape_db::Result<i64> {
+            self.0.count_with_status(status).await
+        }
+    }
+
+    /// A store that holds the very first `enqueue` until it is let go.
+    ///
+    /// This is what puts a midnight *inside* a request: one request is stopped with the gate in
+    /// its hand while others queue behind it, and the test moves the clock in between.
+    #[derive(Debug)]
+    struct HoldsTheFirstEnqueue {
+        inner: Arc<dyn Store>,
+        seen: std::sync::atomic::AtomicUsize,
+        go: Arc<tokio::sync::Notify>,
+    }
+
+    #[async_trait::async_trait]
+    impl Store for HoldsTheFirstEnqueue {
+        async fn enqueue(&self, new: &NewAnalysis) -> landscape_db::Result<Analysis> {
+            if self.seen.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+                self.go.notified().await;
+            }
+            self.inner.enqueue(new).await
+        }
+        async fn get(&self, id: AnalysisId) -> landscape_db::Result<Analysis> {
+            tokio::task::yield_now().await;
+            self.inner.get(id).await
+        }
+        async fn claim_next(&self) -> landscape_db::Result<Option<Analysis>> {
+            self.inner.claim_next().await
+        }
+        async fn save_progress(
+            &self,
+            id: AnalysisId,
+            generation: u32,
+            report: &landscape_core::Report,
+        ) -> landscape_db::Result<landscape_core::Applied> {
+            self.inner.save_progress(id, generation, report).await
+        }
+        async fn complete(
+            &self,
+            id: AnalysisId,
+            generation: u32,
+            report: &landscape_core::Report,
+        ) -> landscape_db::Result<landscape_core::Applied> {
+            self.inner.complete(id, generation, report).await
+        }
+        async fn fail(
+            &self,
+            id: AnalysisId,
+            generation: u32,
+            failure: landscape_core::Failure,
+            reason: &str,
+        ) -> landscape_db::Result<landscape_core::Applied> {
+            self.inner.fail(id, generation, failure, reason).await
+        }
+        async fn reclaim_stale(&self, max_age: chrono::Duration) -> landscape_db::Result<u64> {
+            self.inner.reclaim_stale(max_age).await
+        }
+        async fn count_with_status(&self, status: AnalysisStatus) -> landscape_db::Result<i64> {
+            self.inner.count_with_status(status).await
+        }
+    }
+
+    /// All three, for the tests that need to see what an address is holding.
+    fn capped_parts(limit: usize) -> (axum::Router, Arc<dyn Store>, Arc<crate::cap::Cap>) {
+        let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+        let cap = Arc::new(crate::cap::Cap::of(limit));
+        let app = router(AppState {
+            store: Arc::clone(&store),
+            cap: Arc::clone(&cap),
+        });
+        (app, store, cap)
+    }
+
+    /// The same POST, arriving through a reverse proxy that has appended what it saw.
+    fn post_from(client: &str, prompt: &str) -> Request<Body> {
+        Request::builder()
+            .method("POST")
+            .uri("/api/analyses")
+            .header("content-type", "application/json")
+            .header("x-forwarded-for", client)
+            .body(Body::from(
+                serde_json::json!({ "prompt": prompt }).to_string(),
+            ))
+            .expect("build request")
+    }
+
+    #[tokio::test]
+    async fn a_third_analysis_in_one_day_is_refused_with_something_to_do_about_it() {
+        // ROADMAP D6. One request starts minutes of work on the only model this machine has,
+        // and until now a public URL was an invitation to spend all of it.
+        let app = app_capped_at(2);
+        for _ in 0..2 {
+            let res = app
+                .clone()
+                .oneshot(post_from("198.51.100.7", IDEA))
+                .await
+                .expect("response");
+            assert_eq!(res.status(), StatusCode::CREATED);
+        }
+
+        let res = app
+            .oneshot(post_from("198.51.100.7", IDEA))
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::TOO_MANY_REQUESTS);
+
+        let body = json_body(res).await;
+        assert!(
+            body["error"]
+                .as_str()
+                .is_some_and(|e| e.contains("limit of 2")),
+            "the refusal does not say what the limit is: {body}"
+        );
+        assert!(
+            body["remedy"]
+                .as_str()
+                .is_some_and(|r| r.contains("does not count")),
+            "a refusal with no way forward is a dead end: {body}"
+        );
+        // `UI_FLOWS.md` section 2.2: the message says **when** it resets. "Tomorrow" is not
+        // that - west of UTC the allowance comes back later the same local day.
+        assert!(
+            body["error"]
+                .as_str()
+                .is_some_and(|e| e.contains("resets at") && e.contains("UTC")),
+            "the refusal does not say when the limit resets: {body}"
+        );
+        // A rejected request is fully explained by its own message. A reference here would
+        // suggest they have hit something worth reporting.
+        assert!(body["reference"].is_null(), "{body}");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn twenty_requests_at_once_still_only_get_two() {
+        // **Review reproduced this against the previous commit**: twenty simultaneous POSTs
+        // carrying one address produced nine acceptances against a limit of two. Deciding is
+        // four steps with an `await` between each - read what the address started, ask the
+        // store which still count, enqueue, record - and every gap is one two requests fit
+        // through together.
+        //
+        // The barrier is what makes it a race rather than twenty requests in a queue: every
+        // task is held at the same point and released together.
+        let inner: Arc<dyn Store> = Arc::new(MemoryStore::new());
+        let store: Arc<dyn Store> = Arc::new(YieldsBetweenSteps(inner));
+        let app = router(AppState {
+            store,
+            cap: Arc::new(crate::cap::Cap::of(2)),
+        });
+        let together = Arc::new(tokio::sync::Barrier::new(20));
+
+        let mut attempts = Vec::with_capacity(20);
+        for _ in 0..20 {
+            let app = app.clone();
+            let together = Arc::clone(&together);
+            attempts.push(tokio::spawn(async move {
+                together.wait().await;
+                app.oneshot(post_from("198.51.100.7", IDEA))
+                    .await
+                    .expect("response")
+                    .status()
+            }));
+        }
+
+        let mut accepted = 0usize;
+        for attempt in attempts {
+            if attempt.await.expect("the request finished") == StatusCode::CREATED {
+                accepted += 1;
+            }
+        }
+        assert_eq!(
+            accepted, 2,
+            "the limit is two and {accepted} requests were accepted"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn a_queue_that_formed_before_midnight_is_not_admitted_whole() {
+        // **Review found that my bound was not a bound.** Making the stale path harmless made
+        // it *harmless*, not *finite*: `gate_for` is called before its gate is awaited, so any
+        // number of requests can take the old day's gate and queue behind one another. When a
+        // new-day request advances the day and clears the gate map, every one of those waiters
+        // still holds the old `Arc` — and each then read an empty list, had its writes
+        // dropped, and was admitted free. A queue built before midnight was admitted whole, at
+        // a boundary anybody can predict.
+        //
+        // **What is actually allowed to cross is one request**: the one already admitted under
+        // the old day when the day turned. Everything behind it has to start again under the
+        // new day, which is what `is_current` after the gate is for.
+        //
+        // **Deterministic, and nothing sleeps.** The clock is a value this test owns, so the
+        // midnight happens exactly where it is put.
+        use std::sync::atomic::{AtomicI64, AtomicUsize, Ordering};
+
+        fn at(day: u32, hour: u32, minute: u32) -> i64 {
+            chrono::NaiveDate::from_ymd_opt(2026, 8, day)
+                .expect("a real date")
+                .and_hms_opt(hour, minute, 0)
+                .expect("a real time")
+                .and_utc()
+                .timestamp()
+        }
+
+        let clock = Arc::new(AtomicI64::new(at(6, 23, 59)));
+        // Every request reads the clock once before asking for a gate, with no `await` in
+        // between — so counting the reads is how this test knows they are all holding one.
+        let reads = Arc::new(AtomicUsize::new(0));
+        let cap = {
+            let clock = Arc::clone(&clock);
+            let reads = Arc::clone(&reads);
+            Arc::new(crate::cap::Cap::telling_the_time(
+                2,
+                Box::new(move || {
+                    reads.fetch_add(1, Ordering::SeqCst);
+                    chrono::DateTime::from_timestamp(clock.load(Ordering::SeqCst), 0)
+                        .expect("a real instant")
+                }),
+            ))
+        };
+
+        let go = Arc::new(tokio::sync::Notify::new());
+        let store: Arc<dyn Store> = Arc::new(HoldsTheFirstEnqueue {
+            inner: Arc::new(MemoryStore::new()),
+            seen: AtomicUsize::new(0),
+            go: Arc::clone(&go),
+        });
+        let app = router(AppState {
+            store,
+            cap: Arc::clone(&cap),
+        });
+
+        let send = |app: axum::Router| {
+            tokio::spawn(async move {
+                app.oneshot(post_from("198.51.100.7", IDEA))
+                    .await
+                    .expect("response")
+                    .status()
+            })
+        };
+
+        // Four arrive a minute before midnight. The first takes the gate and stops inside the
+        // store; the other three queue behind it.
+        let queued: Vec<_> = (0..4).map(|_| send(app.clone())).collect();
+        while reads.load(Ordering::SeqCst) < 4 {
+            tokio::task::yield_now().await;
+        }
+
+        // Midnight. A fresh request arrives, rolls the day forward and clears the gate map —
+        // which is what strands the four behind a gate that no longer belongs to anything.
+        clock.store(at(7, 0, 30), Ordering::SeqCst);
+        let after_midnight = send(app.clone())
+            .await
+            .expect("the new day's request finished");
+        assert_eq!(after_midnight, StatusCode::CREATED);
+
+        // Now let the one holding the old gate finish, and the three behind it wake.
+        go.notify_one();
+
+        let mut accepted = usize::from(after_midnight == StatusCode::CREATED);
+        for one in queued {
+            if one.await.expect("the request finished") == StatusCode::CREATED {
+                accepted += 1;
+            }
+        }
+
+        // Two a day, plus the single request that was already admitted when the day turned.
+        // Without the retry this was five: the whole queue, free.
+        assert!(
+            accepted <= 3,
+            "a queue that formed before midnight was admitted whole: {accepted} accepted \
+             against a limit of 2"
+        );
+    }
+
+    #[tokio::test]
+    async fn failed_runs_are_forgotten_rather_than_asked_about_for_ever() {
+        // Failures are free, so an address can collect them without limit - and each one would
+        // otherwise cost a store read on every later request, turning n failures into n² reads
+        // across a day while this map grows for as long as the process lives. Review found it.
+        let (app, store, cap) = capped_parts(1);
+
+        for _ in 0..3 {
+            let res = app
+                .clone()
+                .oneshot(post_from("198.51.100.7", IDEA))
+                .await
+                .expect("response");
+            assert_eq!(res.status(), StatusCode::CREATED);
+
+            let claimed = store
+                .claim_next()
+                .await
+                .expect("claim")
+                .expect("one queued");
+            store
+                .fail(
+                    claimed.id,
+                    claimed.generation,
+                    landscape_core::Failure::NoSubject,
+                    "no company named",
+                )
+                .await
+                .expect("fail");
+        }
+
+        // A fourth request reconciles, and what it leaves behind is its own run alone.
+        let res = app
+            .oneshot(post_from("198.51.100.7", IDEA))
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::CREATED);
+
+        let held = cap.started_today("198.51.100.7", chrono::Utc::now().date_naive());
+        assert_eq!(
+            held.len(),
+            1,
+            "three failed runs are still being asked about: {held:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn one_visitor_spending_the_day_does_not_refuse_the_next_one() {
+        // The way a cap can be worse than no cap: the first person through exhausting it for
+        // everybody who arrives after them.
+        let app = app_capped_at(1);
+        let _ = app.clone().oneshot(post_from("198.51.100.7", IDEA)).await;
+
+        let res = app
+            .oneshot(post_from("203.0.113.9", IDEA))
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::CREATED);
+    }
+
+    #[tokio::test]
+    async fn a_forged_forwarded_header_does_not_buy_a_fresh_allowance() {
+        // **The bypass.** A proxy appends what it saw rather than replacing the header, so a
+        // client that sends its own value gets `theirs, ours` - and reading the leftmost entry
+        // would let one machine mint a new quota with every request.
+        let app = app_capped_at(1);
+        let res = app
+            .clone()
+            .oneshot(post_from("198.51.100.7", IDEA))
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::CREATED);
+
+        let res = app
+            .oneshot(post_from("10.0.0.99, 198.51.100.7", IDEA))
+            .await
+            .expect("response");
+        assert_eq!(
+            res.status(),
+            StatusCode::TOO_MANY_REQUESTS,
+            "a client that names itself in X-Forwarded-For got a second allowance"
+        );
+    }
+
+    #[tokio::test]
+    async fn reading_a_report_is_never_capped() {
+        // The cap counts where a run *starts*. A reader who has already begun one - watching
+        // it arrive, reloading its URL, opening the examples - must never be cut off, and a
+        // middleware over the whole router would have done exactly that.
+        let app = app_capped_at(1);
+        let created = app
+            .clone()
+            .oneshot(post_from("198.51.100.7", IDEA))
+            .await
+            .expect("response");
+        let id = json_body(created).await["id"]
+            .as_str()
+            .expect("an id")
+            .to_owned();
+
+        for _ in 0..5 {
+            let res = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(format!("/api/analyses/{id}"))
+                        .header("x-forwarded-for", "198.51.100.7")
+                        .body(Body::empty())
+                        .expect("build request"),
+                )
+                .await
+                .expect("response");
+            assert_eq!(res.status(), StatusCode::OK, "a reader was cut off");
+        }
+
+        // And the first screen still offers its ideas to somebody who has used their runs.
+        let res = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/examples")
+                    .header("x-forwarded-for", "198.51.100.7")
+                    .body(Body::empty())
+                    .expect("build request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn a_request_with_no_proxy_in_front_of_it_is_not_capped() {
+        // A laptop. `landscape dev` with a two-a-day limit would be unusable to the person
+        // building it, and the abuse this exists for arrives over the internet.
+        let app = app_capped_at(1);
+        for _ in 0..4 {
+            let res = app
+                .clone()
+                .oneshot(post_analysis(IDEA))
+                .await
+                .expect("response");
+            assert_eq!(res.status(), StatusCode::CREATED);
+        }
+    }
+
+    #[tokio::test]
+    async fn a_prompt_that_was_refused_costs_nothing() {
+        // `PRODUCT_SPEC.md` §2.1: *"a failed analysis costs nothing"*. The first version of
+        // this counted before the prompt was parsed, so a typo spent half of somebody's day -
+        // and nothing had started, no page was read and no model was asked anything. Review
+        // found it.
+        let app = app_capped_at(1);
+        let res = app
+            .clone()
+            .oneshot(post_from("198.51.100.7", "a crm"))
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+
+        let res = app
+            .oneshot(post_from("198.51.100.7", IDEA))
+            .await
+            .expect("response");
+        assert_eq!(
+            res.status(),
+            StatusCode::CREATED,
+            "a rejected prompt was charged for"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_analysis_the_worker_failed_gives_the_allowance_back() {
+        // The other half, and the one that decides the shape: a run can fail *after* it was
+        // accepted, in a different process. There is nowhere a reservation could be refunded
+        // to - so nothing is reserved, and how many still count is asked of the store.
+        let (app, store) = capped_with_store(1);
+
+        let created = app
+            .clone()
+            .oneshot(post_from("198.51.100.7", IDEA))
+            .await
+            .expect("response");
+        assert_eq!(created.status(), StatusCode::CREATED);
+
+        // Spent, until it fails.
+        let res = app
+            .clone()
+            .oneshot(post_from("198.51.100.7", IDEA))
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::TOO_MANY_REQUESTS);
+
+        // What the worker does to a prompt naming no company: claim it, then fail it.
+        let claimed = store
+            .claim_next()
+            .await
+            .expect("claim")
+            .expect("one queued");
+        store
+            .fail(
+                claimed.id,
+                claimed.generation,
+                landscape_core::Failure::NoSubject,
+                "no company named",
+            )
+            .await
+            .expect("fail");
+
+        let res = app
+            .oneshot(post_from("198.51.100.7", IDEA))
+            .await
+            .expect("response");
+        assert_eq!(
+            res.status(),
+            StatusCode::CREATED,
+            "a failed analysis was still charged for"
+        );
+    }
+
     #[tokio::test]
     async fn the_event_stream_opens_for_an_analysis_that_exists() {
         // A reader watching a report fill in. The stream is opened before anything has been
@@ -264,17 +918,15 @@ mod tests {
             .await
             .expect("enqueue");
 
-        let res = router(AppState {
-            store: Arc::clone(&store),
-        })
-        .oneshot(
-            Request::builder()
-                .uri(format!("/api/analyses/{}/events", created.id))
-                .body(Body::empty())
-                .expect("build request"),
-        )
-        .await
-        .expect("response");
+        let res = router(AppState::new(Arc::clone(&store)))
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/analyses/{}/events", created.id))
+                    .body(Body::empty())
+                    .expect("build request"),
+            )
+            .await
+            .expect("response");
 
         assert_eq!(res.status(), StatusCode::OK);
         let content_type = res

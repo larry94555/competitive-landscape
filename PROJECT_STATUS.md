@@ -1,6 +1,6 @@
 # Project Status
 
-**As of 2026-08-06** · `main` at `50d7d1d`, plus the branch this page is on.
+**As of 2026-08-06** · `main` at `de1fa8d`, plus the branch this page is on.
 
 This page answers one question: **what can somebody actually do with this today, and what
 stands between here and each of the six states that matter.** It is deliberately separate from
@@ -215,7 +215,10 @@ chip-answerable, skippable, fired only when discovery fails to converge — Phas
 
 There is no authentication code in the repository — no session, no cookie, no magic link, no
 `users` table. The three migrations are `analyses`, `failure_kind` and `generation`. Everything
-runs anonymously and unlimited; even the specified anonymous rate limit (2/day) is not built.
+runs anonymously — but no longer unlimited: **the specified 2/day anonymous cap is built**, per
+address, counted where a run starts, and a failed analysis costs nothing. It needs no account,
+which is the point of it; what is still missing is everything a *signed-in* reader would get
+instead.
 
 Specified for Phase 3: magic-link auth, ~90-day sessions, free tier of 10 analyses/month,
 history, saved reports, usage meter, and GDPR export/delete.
@@ -435,7 +438,7 @@ made a reader wait four minutes ([BENCHMARKS.md](docs/BENCHMARKS.md) Run 20).
 | Competitor *discovery* | Several companies can be analysed, but only ones the reader names. |
 | Two of six extractors (trust, direction) | Two sections can never fill. |
 | Fetch cache + per-source extraction cache | The highest-leverage cache in the system, scheduled for this phase, absent. |
-| Anonymous rate limit (2/day) | Unlimited anonymous inference on a free box. |
+| ~~Anonymous rate limit (2/day)~~ | **Built.** Two a day per address, hashed, reset daily. |
 | Stage rail, source cards, citation hover cards | The UI is functional and unfinished. **Example chips are built** — three ideas over six companies, with what is curated said beside them. |
 | Conditional GET; per-analysis fetch cap | Every run re-fetches everything. |
 | SSE replay ring buffer (`Last-Event-ID`) | Reconnect re-reads from the row rather than resuming. Works; not what was specified. |

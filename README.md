@@ -107,6 +107,7 @@ Add `--store memory` to any of them to skip Postgres entirely.
 | `DATABASE_URL` | *(none)* | Required unless `--store memory` |
 | `BIND_ADDR` | `127.0.0.1:8787` | Change if the port is taken |
 | `RUST_LOG` | `landscape=info` | `landscape=debug` for query-level detail |
+| `ANONYMOUS_DAILY_LIMIT` | `2` | Analyses one address may start in a day. Only counts requests that arrived through a reverse proxy |
 
 ### Ports
 
@@ -280,8 +281,9 @@ because a test that cannot fail is a finding rather than a footnote.
 
 The classes of defect these come from are in
 [`.claude/skills/coding-mistakes/SKILL.md`](.claude/skills/coding-mistakes/SKILL.md) —
-twenty-six entries, each with the symptom a reader would have seen and the question that would
-have caught it.
+twenty-eight entries, each with the symptom a reader would have seen and the question that
+would have caught it — one recording four rounds of review on a single feature, and one about
+the harness above reporting a clean miss when nothing had run at all.
 
 ### The documentation is tested
 

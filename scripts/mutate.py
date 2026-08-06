@@ -79,6 +79,27 @@ def failing_tests(output: str) -> list[str]:
     return seen
 
 
+def ran_any_tests(output: str) -> bool:
+    """Whether the runner got far enough to execute anything.
+
+    Both runners announce what they ran when they finish, pass or fail. Nothing else in the
+    output tells "every test passed" apart from "no test ever started".
+    """
+    return any(
+        mark in output
+        for mark in ("tests run:", "test result:", "Tests ", "Test Files")
+    )
+
+
+def last_meaningful_line(output: str) -> str:
+    """One line worth reading from a run that produced no summary."""
+    for line in reversed(output.splitlines()):
+        stripped = line.strip()
+        if stripped and not stripped.startswith(("=", "|", "note:")):
+            return stripped[:160]
+    return "no output at all"
+
+
 def apply(mutation: dict) -> int:
     path = ROOT / mutation["file"]
     name = mutation["name"]
@@ -123,6 +144,22 @@ def apply(mutation: dict) -> int:
 
     if "error[" in output or "error TS" in output:
         print(f"  BROKEN       {name}\n      the mutation does not compile, so it proves nothing")
+        return 1
+
+    if not ran_any_tests(output):
+        # **A run that never got as far as running is not a MISSED.** This printed "nothing
+        # failed" for fourteen mutations in a row once, because a hung test process was holding
+        # the binary and every link failed - and the check above only catches rustc's own
+        # diagnostics, not a linker error, a lock on an executable, or a runner that died.
+        #
+        # The tool built to find checks that cannot fail had one in it. The rule is positive
+        # evidence: a verdict is only about the code if the suite actually ran, and the
+        # summary line is the proof that it did.
+        print(
+            f"  BROKEN       {name}\n"
+            "      the suite did not run, so this says nothing about the code.\n"
+            f"      {last_meaningful_line(output)}"
+        )
         return 1
 
     caught = failing_tests(output)

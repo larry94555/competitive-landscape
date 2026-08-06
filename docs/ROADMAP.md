@@ -189,7 +189,7 @@ the box ever needs a code change, that is a defect to fix rather than a task to 
 | **D3** | **A build and a service** — aarch64 artefact, `web/dist` beside it, unit files, and [DEPLOY.md](DEPLOY.md) | `scripts/build-release.sh` produces `dist/`; `deploy/` holds three systemd units, an env file and a Caddyfile; the procedure and its failure modes are written. **Written, not walked** — no box is reachable from this repository, so the first person through corrects it. **Not part of any readiness state** — it decides who can see the software, not what it does. | **Done** |
 | **D4** | **Example ideas that really run** | A chip per sample idea, each over two real competitor domains. **The analysis is real** — fetched, quoted, cited — and only the *choice of companies* is curated, which the interface says plainly, in a sentence served with the list. Two rather than three: three is what the analyser allows, two is what somebody who clicked a link will wait for. `landscape examples` re-checks all six against the live web, because a promise about somebody else's website goes stale on their schedule. | **Done** |
 | **D5** | **More than one company in a report** | One company reads as a profile, not a competitive analysis. Every site named in the prompt is now a subject, capped at three for the wait, and one section holds every company's answers. | **Done** |
-| **D6** | **A cap on anonymous runs** | Unlimited inference on a free box, once the URL is public, is the failure mode that ends the demo — and it needs no accounts, just a per-IP daily count. **Belongs with D3**: on a laptop it is a setting nobody needs. | Small |
+| **D6** | **A cap on anonymous runs** | Two a day per address, `PRODUCT_SPEC.md` §2.1's number, counted where a run *starts* so a reader watching one is never cut off. **A failed analysis costs nothing** — nothing is reserved, and how many still count is asked of the store, so a run the worker fails stops counting. The address is the rightmost `X-Forwarded-For` entry — the one the proxy observed rather than the one a client claims. A request with no proxy in front of it is a laptop and is not counted. The refusal names the reset instant, per `UI_FLOWS.md` §2.2. | **Done** |
 
 ### What is explicitly deferred until D is done
 
@@ -232,8 +232,9 @@ over six real companies that were checked against the live web, a report covers 
 named, and the reads are ordered so the first thing on screen costs no model call at all —
 23 seconds on `linear.app`, measured, inside §2.1A's window. **S1 is complete.**
 
-What is left in this phase is D3 and D6 — the build, the service, and the per-IP cap — and
-none of it changes what the software does.
+**Phase D is complete.** D3 put the build, the units and the procedure in the repository; D6
+put a cap on the URL. Neither changed what the software does — they decide who can see it and
+how much of it one stranger may spend.
 
 **Then, separately:** D3 and D6 put the same build on a host, where the only difference is the
 values of four environment variables and the fact that other people can reach it.

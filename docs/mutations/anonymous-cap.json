@@ -1,0 +1,184 @@
+[
+  {
+    "name": "the leftmost forwarded entry is trusted, so a client names its own address",
+    "file": "crates/landscape-api/src/cap.rs",
+    "old": "        .rsplit(',')",
+    "new": "        .split(',')",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "the cap counts but never refuses",
+    "file": "crates/landscape-api/src/routes.rs",
+    "old": "        if charged >= limit {",
+    "new": "        if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "one visitor's runs are counted against everybody",
+    "file": "crates/landscape-api/src/cap.rs",
+    "old": "            .get(&self.keys.hash_one(client))",
+    "new": "            .get(&0u64)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "yesterday's runs are kept, so nobody gets a new day",
+    "file": "crates/landscape-api/src/cap.rs",
+    "old": "        if today > self.on {\n            self.on = today;\n            self.started.clear();\n            self.gates.clear();\n        }\n        today == self.on",
+    "new": "        self.on = today;\n        true",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "a laptop with no proxy in front of it is capped like a stranger",
+    "file": "crates/landscape-api/src/cap.rs",
+    "old": "        client.is_some() && self.limit > 0",
+    "new": "        self.limit > 0",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "a misconfigured limit of zero refuses everybody instead of nobody",
+    "file": "crates/landscape-api/src/cap.rs",
+    "old": "        client.is_some() && self.limit > 0",
+    "new": "        client.is_some()",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "an analysis the worker failed is still charged for",
+    "file": "crates/landscape-api/src/routes.rs",
+    "old": "                Ok(analysis) if analysis.status == AnalysisStatus::Failed => {}",
+    "new": "                Ok(analysis) if analysis.status != AnalysisStatus::Failed => still.push(id),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "the reset instant is the moment asked rather than the next midnight",
+    "file": "crates/landscape-api/src/cap.rs",
+    "old": "    (now.date_naive() + chrono::Days::new(1))",
+    "new": "    (now.date_naive() + chrono::Days::new(0))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "the refusal says no and offers nothing to do about it",
+    "file": "crates/landscape-api/src/error.rs",
+    "old": "                    remedy: Some(\n                        concat!(\n                            \"Each analysis reads live pages and runs a model for several \",\n                            \"minutes, so the free limit is per day. An analysis that fails \",\n                            \"does not count. Or run your own copy - it is open source.\"\n                        )\n                        .to_owned(),\n                    ),",
+    "new": "                    remedy: None,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "two requests from one address can decide at the same time",
+    "file": "crates/landscape-api/src/routes.rs",
+    "old": "            let deciding = state.cap.gate_for(&client, today).lock_owned().await;",
+    "new": "            let deciding = std::sync::Arc::new(tokio::sync::Mutex::new(())).lock_owned().await;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "a failed run is asked about again on every later request",
+    "file": "crates/landscape-api/src/routes.rs",
+    "old": "        state.cap.keep(&client, today, still);",
+    "new": "        drop(still);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "a request from yesterday winds the day back and clears it",
+    "file": "crates/landscape-api/src/cap.rs",
+    "old": "        if today > self.on {",
+    "new": "        if today != self.on {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "a stale write lands in today's list instead of being dropped",
+    "file": "crates/landscape-api/src/cap.rs",
+    "old": "        if !state.on_day(today) {\n            return;\n        }\n        state\n            .started\n            .entry(self.keys.hash_one(client))",
+    "new": "        state.on_day(today);\n        state\n            .started\n            .entry(self.keys.hash_one(client))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "a request that waited through midnight decides under the day that is over",
+    "file": "crates/landscape-api/src/routes.rs",
+    "old": "            if state.cap.is_current(today) {\n                break (now, today, deciding);\n            }",
+    "new": "            if true {\n                break (now, today, deciding);\n            }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  }
+]
