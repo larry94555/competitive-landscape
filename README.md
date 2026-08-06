@@ -473,6 +473,7 @@ The code implements a specification written first. Start with
 | [CODING_QUALITY.md](docs/CODING_QUALITY.md) | The standard this code is held to |
 | [Feature_Walkthrough.md](docs/Feature_Walkthrough.md) | **Test every feature that exists today, by hand.** Start here if you want to see what works |
 | [RUNBOOK.md](docs/RUNBOOK.md) | What to do when something breaks |
+| [DEPLOY.md](docs/DEPLOY.md) | Putting it on an Oracle Ampere A1, step by step |
 | [Demo_Walkthrough.md](docs/Demo_Walkthrough.md) | The demo films, and the build that compiles them |
 
 ---

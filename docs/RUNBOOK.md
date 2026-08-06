@@ -181,3 +181,30 @@ reports, refuse new ones, and say so plainly.
 | `DATABASE_URL is not set` | No `.env` | `cp .env.example .env`, or add `--store memory` |
 | `docker compose` hangs, no error | Docker Desktop's privileged service is stopped | `Set-Service com.docker.service -StartupType Automatic; Start-Service com.docker.service` as Administrator — or use the WSL Postgres path in `README.md` |
 | Postgres tests fail on claim order | Two tests sharing a schema | Each test creates its own; if a run was killed, stale `test_*` schemas may remain |
+
+---
+
+## 6. Deployment
+
+The procedure is [DEPLOY.md](DEPLOY.md). This section is what to do when following it does not
+work — and **the first three are all the same mistake**, which is that a closed port and a
+broken application look identical from a browser.
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Connection times out from your machine | The VCN security list has no ingress rule | Console, Networking, Security Lists. DEPLOY.md §4a |
+| Still times out with the rule in place | The instance's own iptables. Oracle's Ubuntu images drop everything but SSH and persist it | `sudo iptables -L INPUT --line-numbers` and insert **before** the final REJECT, then `netfilter-persistent save` |
+| Times out only on 443 | Caddy could not get a certificate, so nothing is listening | `journalctl -u caddy` — usually port 80 is closed, which Let's Encrypt needs |
+| `502 Bad Gateway` | `landscape-api` is down, or `BIND_ADDR` disagrees with the Caddyfile | `systemctl status landscape-api`; they must both say `127.0.0.1:8787` |
+| `landscape-api` exits immediately | `DATABASE_URL` wrong, or Postgres not up. It applies migrations on boot and refuses to serve if it cannot | `journalctl -u landscape-api -n 50`. The message names which |
+| Analyses stay `queued` | `landscape-worker` is down or cannot reach Postgres | `systemctl status landscape-worker`. Both processes need the same `DATABASE_URL` |
+| Every section empty, but the report renders | `llama-server` is not up | **The changelog section will still fill**, because it needs no model. That is how you tell this apart from a fetching problem |
+| `llama-server` restart-loops on boot | Four gigabytes off a free-tier volume is slow, and the unit gave up | `TimeoutStartSec` is 300s in the shipped unit; raise it rather than assume a crash |
+| Sections all arrive at once at the end | A proxy is buffering the event stream | `flush_interval -1` in the Caddyfile. Without it the streaming feature is undone by the thing in front of it |
+
+### 6.1 A run that will not die
+
+Stopping the worker mid-analysis is safe and is the ordinary way to deploy: the row is left
+`running`, the staleness sweep returns it to the queue, and a replacement starts it from nothing
+rather than finishing over it. If a row is stuck `running` with no worker alive, the sweep has
+not reached it yet — it is time-based, not a signal.

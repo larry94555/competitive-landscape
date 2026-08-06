@@ -1,0 +1,41 @@
+# The extraction model.
+#
+# Qwen3-4B Q4_K_M, which is the model the golden set is scored against — `docs/MODEL_BAKEOFF.md`
+# and ADR 0007. The 1.7B is a router, not an extractor: it invented a price on a contact-sales
+# page, which is the one failure this product cannot ship.
+#
+# `--ctx-size 12288` matches what the bake-off measured. Span pre-selection means a prompt is a
+# window rather than a page, so this is generous rather than tight.
+
+[Unit]
+Description=llama-server (Qwen3-4B Q4_K_M)
+Documentation=https://github.com/larry94555/competitive-landscape/blob/main/docs/DEPLOY.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=landscape
+Group=landscape
+WorkingDirectory=/opt/landscape
+ExecStart=/opt/landscape/bin/llama-server \
+    --model /opt/landscape/models/Qwen3-4B-Q4_K_M.gguf \
+    --host 127.0.0.1 \
+    --port 8080 \
+    --ctx-size 12288 \
+    --threads 4
+Restart=on-failure
+RestartSec=10s
+# Loading four gigabytes off a free-tier volume is not fast, and a restart loop during it
+# would look exactly like a crash loop.
+TimeoutStartSec=300s
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

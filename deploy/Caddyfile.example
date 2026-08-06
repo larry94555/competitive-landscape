@@ -1,0 +1,17 @@
+# TLS, and the only thing on the box listening to the internet.
+#
+# Caddy gets a Let's Encrypt certificate by itself, which is the whole reason it is here rather
+# than nginx: one less thing to renew and forget. Replace the name with yours.
+#
+# **Without a domain there is no certificate**, and the honest reading of that is in
+# docs/DEPLOY.md step 8: prompts and reports would cross the internet in clear text.
+
+landscape.example.com {
+    encode gzip
+
+    # Server-sent events. Buffering them would turn a report that fills in over ninety seconds
+    # into one that appears all at once at the end — which is the feature, undone by a proxy.
+    reverse_proxy 127.0.0.1:8787 {
+        flush_interval -1
+    }
+}

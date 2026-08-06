@@ -1,0 +1,36 @@
+# The HTTP API and the web app it serves.
+#
+# Separate from the worker on purpose: an analysis takes minutes and a restart of the thing
+# serving pages should not kill one in flight. They share the database, which is the only
+# thing they need to agree about.
+
+[Unit]
+Description=Landscape API
+Documentation=https://github.com/larry94555/competitive-landscape/blob/main/docs/DEPLOY.md
+# Postgres must be up: the process applies migrations on boot and exits if it cannot connect.
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=landscape
+Group=landscape
+WorkingDirectory=/opt/landscape
+EnvironmentFile=/etc/landscape/landscape.env
+ExecStart=/opt/landscape/bin/landscape serve
+Restart=on-failure
+RestartSec=5s
+
+# It reads its own directory and talks to Postgres over localhost. Nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/landscape
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,40 @@
+# Claims queued analyses and runs them.
+#
+# **This is the process that needs the model.** It is `After=` llama-server rather than
+# `Requires=`: a worker that starts before the model is ready does not fail, it reads the
+# changelog — which needs no model — and reports the rest honestly. A hard dependency would
+# turn a slow model load into a dead queue.
+
+[Unit]
+Description=Landscape worker
+Documentation=https://github.com/larry94555/competitive-landscape/blob/main/docs/DEPLOY.md
+After=network-online.target postgresql.service llama-server.service
+Wants=network-online.target llama-server.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=landscape
+Group=landscape
+WorkingDirectory=/opt/landscape
+EnvironmentFile=/etc/landscape/landscape.env
+ExecStart=/opt/landscape/bin/landscape worker
+Restart=on-failure
+RestartSec=5s
+
+# A worker killed mid-analysis leaves its row `running`; the staleness sweep returns it to the
+# queue and another worker starts it over. Stopping one is safe, and nothing is lost but time.
+KillSignal=SIGTERM
+TimeoutStopSec=30s
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/landscape
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target
