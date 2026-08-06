@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "Somewhere to start",
-    "blurb": "An empty box is where a demo dies: the prompts people invent name no website, so the run fails before anything is read. Three ideas over six real companies, only the choice of companies curated, and a command that re-checks all six against the live web.",
-    "seconds": 49.3
+    "title": "The wait",
+    "blurb": "The pipeline's share of the wait is not the model's speed but how often it asks. The page that needs no model is read first, so first content is 23 seconds with nothing loaded; each question is worth one page that does, taking six companies from 128 model calls to 88, with everything skipped named on the report.",
+    "seconds": 46.8
   }
 ]

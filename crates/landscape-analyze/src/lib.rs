@@ -30,11 +30,15 @@ use landscape_core::{
 };
 use landscape_discover::probes::Answers;
 
+mod order;
 mod render;
 mod sections;
 mod stages;
 pub mod subject;
 
+pub use order::{
+    is_deterministic, may_yield_content, model_calls_for, plan, tally, Plan, PAGES_PER_QUESTION,
+};
 pub use render::is_publishable;
 pub use sections::{title_for, SECTIONS};
 
@@ -306,6 +310,19 @@ fn joined(
         }
     }
 
+    // **Each company's own notes travel with it.** The budget note is written per company -
+    // one may have had a second pricing page and the other not - and a merge that kept only
+    // the caller's notes would drop the sentence saying what was left unread, which is the
+    // half of the shorter wait a reader is owed.
+    let mut notes = notes;
+    for report in finished.iter().map(|a| &a.report).chain(in_flight) {
+        for note in &report.notes {
+            if !notes.contains(note) {
+                notes.push(note.clone());
+            }
+        }
+    }
+
     Report {
         subject: origins.join(", "),
         searched_as: origins.join(", "),
@@ -340,7 +357,28 @@ pub async fn analyse_with(
     on_progress: &mut dyn FnMut(&Report) -> Wanted,
 ) -> Analysis {
     let found = landscape_discover::discover(fetcher, origin).await;
-    let model_ready = llm.is_ready().await;
+    // **Asked for at most once, and not until a page needs it.** Health is one request against
+    // the same client, and that client waits 180 seconds - the whole report budget - because
+    // prefill on four ARM cores is slow. An endpoint that accepts the connection and never
+    // answers would therefore have spent the entire wait *before the changelog was fetched*,
+    // which is this feature's central guarantee failing in exactly the case it is for: the
+    // model being unhealthy. Review found it. `None` means nobody has needed to know yet.
+    let mut model_ready: Option<bool> = None;
+
+    // **When each page is read, and how many are read at all** — `order`. The page that needs
+    // no model goes first so the first thing on screen costs a fetch rather than a chain of
+    // model calls, and each question is worth one page that does need one. The pages that are
+    // left are named on the report rather than dropped in silence.
+    let plan = order::plan(&found.sources);
+    let notes: Vec<String> = plan.note().into_iter().collect();
+
+    let reading = Reading {
+        found: &found,
+        origin,
+        llm,
+        now,
+        notes: &notes,
+    };
 
     let mut pages: Vec<PageResult> = Vec::new();
     let mut sources: Vec<Source> = Vec::new();
@@ -348,7 +386,7 @@ pub async fn analyse_with(
     let mut opened: Vec<(Answers, usize)> = Vec::new();
     let mut stopped_early = false;
 
-    for source in &found.sources {
+    for source in &plan.read {
         let question = source.answers;
         if !sections::has_extractor(question) {
             pages.push(PageResult {
@@ -392,8 +430,21 @@ pub async fn analyse_with(
         }
 
         // A changelog is parsed, not generated, so it is read whether or not a model is
-        // running — ARCHITECTURE §5.4. Everything else needs one.
-        if question != Answers::Changes && !model_ready {
+        // running — ARCHITECTURE §5.4. Everything else needs one, and this is the first place
+        // that is true, so this is where the question is finally asked.
+        let ready = if order::is_deterministic(question) {
+            true
+        } else {
+            match model_ready {
+                Some(known) => known,
+                None => {
+                    let asked = llm.is_ready().await;
+                    model_ready = Some(asked);
+                    asked
+                }
+            }
+        };
+        if !ready {
             pages.push(PageResult {
                 url: source.url.clone(),
                 question,
@@ -444,15 +495,7 @@ pub async fn analyse_with(
                         independence_group: origin.to_owned(),
                     });
                 }
-                let (so_far, _) = assemble(
-                    &found,
-                    &with_partial,
-                    &with_source,
-                    opened,
-                    origin,
-                    llm,
-                    now,
-                );
+                let (so_far, _) = assemble(&reading, &with_partial, &with_source, opened);
                 on_progress(&so_far)
             };
             stages::extract(llm, question, &source.url, &markdown, today, &mut emit).await
@@ -494,14 +537,14 @@ pub async fn analyse_with(
         }
 
         // One page done. Whoever is waiting can have what exists so far.
-        let (so_far, _) = assemble(&found, &claims, &sources, &opened, origin, llm, now);
+        let (so_far, _) = assemble(&reading, &claims, &sources, &opened);
         if on_progress(&so_far) == Wanted::No {
             stopped_early = true;
             break;
         }
     }
 
-    let (report, coverage) = assemble(&found, &claims, &sources, &opened, origin, llm, now);
+    let (report, coverage) = assemble(&reading, &claims, &sources, &opened);
     Analysis {
         report,
         coverage,
@@ -514,15 +557,33 @@ pub async fn analyse_with(
 ///
 /// Called after every page as well as at the end, which is the point: a partial report and a
 /// finished one are the same shape, and nothing downstream needs to know which it has.
+/// What does not change while one company is being read.
+///
+/// Grouped because [`assemble`] is called four times a run - after every window, after every
+/// page, and at the end - and threading seven arguments through each of those is how a caller
+/// ends up passing the right value in the wrong position.
+struct Reading<'a> {
+    found: &'a landscape_discover::Discovered,
+    origin: &'a str,
+    llm: &'a landscape_llm::LlamaClient,
+    now: DateTime<Utc>,
+    /// Anything true of the whole report - today, the pages the budget left unread.
+    notes: &'a [String],
+}
+
 fn assemble(
-    found: &landscape_discover::Discovered,
+    reading: &Reading<'_>,
     claims: &[(Answers, Claim)],
     sources: &[Source],
     opened: &[(Answers, usize)],
-    origin: &str,
-    llm: &landscape_llm::LlamaClient,
-    now: DateTime<Utc>,
 ) -> (Report, Vec<Coverage>) {
+    let Reading {
+        found,
+        origin,
+        llm,
+        now,
+        notes,
+    } = *reading;
     let coverage: Vec<Coverage> = sections::SECTIONS
         .iter()
         .map(|(question, _)| {
@@ -558,7 +619,7 @@ fn assemble(
         subjects: Vec::new(),
         sections,
         sources: sources.to_vec(),
-        notes: Vec::new(),
+        notes: notes.to_vec(),
     };
     (report, coverage)
 }
@@ -1085,6 +1146,66 @@ mod joining {
         );
     }
 
+    /// A model endpoint that accepts the connection and then says nothing, for ever.
+    ///
+    /// **The failure mode a timeout is written for and a test almost never has.** An
+    /// unreachable address answers immediately - the connection is refused - so it exercises
+    /// none of the waiting. This accepts, holds the socket, and never writes a byte.
+    async fn a_model_that_never_answers(
+    ) -> (landscape_llm::LlamaClient, tokio::task::JoinHandle<()>) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind a port for the stalling model");
+        let port = listener.local_addr().expect("the bound address").port();
+        let holding = tokio::spawn(async move {
+            let mut held = Vec::new();
+            while let Ok((socket, _)) = listener.accept().await {
+                // Kept alive deliberately: dropping it would close the connection and turn a
+                // stall into a fast error, which is the case this is not about.
+                held.push(socket);
+            }
+        });
+        (
+            landscape_llm::LlamaClient::new(format!("http://127.0.0.1:{port}")),
+            holding,
+        )
+    }
+
+    #[tokio::test]
+    async fn a_model_that_never_answers_does_not_delay_a_run_that_needs_no_model() {
+        // Review found this, and it is the whole feature failing in the case it exists for.
+        // `is_ready()` used to be awaited before the plan was built and before anything was
+        // fetched — on the same client, which waits 180 seconds because prefill on four ARM
+        // cores is slow. So a model that accepted connections and stalled would spend the
+        // entire report budget *before the changelog was opened*, and the page that needs no
+        // model would arrive after the wait it was supposed to remove.
+        //
+        // The origins are `.invalid` (RFC 2606), so nothing is fetched and no page ever needs
+        // the model. Health must therefore never be asked, and this must return at once.
+        let (stalling, holding) = a_model_that_never_answers().await;
+        let started = std::time::Instant::now();
+        let outcome = analyse_many(
+            &landscape_fetch::Fetcher::new(),
+            &stalling,
+            &unreachable(1),
+            at(),
+            at().date_naive(),
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+        let took = started.elapsed();
+        holding.abort();
+
+        assert!(
+            took < std::time::Duration::from_secs(30),
+            "a stalled model held up a run that needed no model: {took:?}"
+        );
+        assert!(
+            !outcome.report.sections.is_empty(),
+            "the run produced no report at all"
+        );
+    }
+
     #[tokio::test]
     async fn analyse_many_reports_one_coverage_record_per_question() {
         // `Analysis::render` zips sections with coverage. Two companies' worth concatenated
@@ -1163,6 +1284,67 @@ mod joining {
         assert!(
             unattributed.is_empty(),
             "checked lines a reader cannot attribute: {unattributed:?}"
+        );
+    }
+
+    #[test]
+    fn each_company_keeps_its_own_note_about_what_it_did_not_read() {
+        // The budget is decided per company: one may have had a second pricing page and the
+        // other not. A merge that kept only the caller's notes would drop the sentence saying
+        // what the shorter wait cost — which is the half of the trade a reader is owed, and it
+        // would go missing exactly on the comparisons that are slowest.
+        let origins = vec!["https://a.com".to_owned(), "https://b.com".to_owned()];
+        let mut first = one_company("https://a.com", "Pro costs $15");
+        first.report.notes = vec!["a.com: 2 further page(s) were found and not read".to_owned()];
+        let mut second = one_company("https://b.com", "Business costs $16");
+        second.report.notes = vec!["b.com: 1 further page(s) were found and not read".to_owned()];
+
+        let merged = joined(
+            &[first, second],
+            None,
+            &origins,
+            vec!["Comparing the first 2 sites named.".to_owned()],
+            &llm(),
+            at(),
+        );
+
+        assert!(
+            merged.notes.iter().any(|n| n.contains("a.com: 2 further")),
+            "the first company's note was dropped: {:?}",
+            merged.notes
+        );
+        assert!(
+            merged.notes.iter().any(|n| n.contains("b.com: 1 further")),
+            "the second company's note was dropped: {:?}",
+            merged.notes
+        );
+        assert!(
+            merged
+                .notes
+                .iter()
+                .any(|n| n.contains("Comparing the first")),
+            "the caller's own note was lost: {:?}",
+            merged.notes
+        );
+    }
+
+    #[test]
+    fn one_note_written_by_both_companies_is_said_once() {
+        // Two companies with the same shape of skipped page produce the same sentence. Saying
+        // it twice above the sections reads as two different findings.
+        let origins = vec!["https://a.com".to_owned(), "https://b.com".to_owned()];
+        let note = "1 further page(s) were found and not read".to_owned();
+        let mut first = one_company("https://a.com", "Pro costs $15");
+        first.report.notes = vec![note.clone()];
+        let mut second = one_company("https://b.com", "Business costs $16");
+        second.report.notes = vec![note.clone()];
+
+        let merged = joined(&[first, second], None, &origins, Vec::new(), &llm(), at());
+        assert_eq!(
+            merged.notes.iter().filter(|n| **n == note).count(),
+            1,
+            "{:?}",
+            merged.notes
         );
     }
 

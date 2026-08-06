@@ -30,6 +30,7 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | **Finding which pages to read about a company** | **Yes** — Part 8D |
 | **The whole path: discover, fetch, convert, extract plans and capabilities** | **Yes** — Part 8E |
 | **Ideas to start from, over companies checked against the live web** | **Yes** — Part 2B |
+| **What a run will cost a model, counted without one** | **Yes** — Part 2C |
 | Reading real web pages *as part of a report* | No — the fetcher exists, nothing calls it yet |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
 | Accounts, quotas, payment | No |
@@ -248,6 +249,79 @@ product working. A missing pricing page is a demo that opens on a page of covera
 Notice Basecamp answers five of six. There is no Basecamp changelog to find, which is a fact
 about Basecamp — and worth keeping in the demo, because one of the three ideas then shows the
 honest negative beside real prices.
+
+---
+
+## Part 2C — What the wait costs, before you spend it
+
+The pipeline's share of the wait is not the model's speed — it is **how many times it asks.**
+Every extractor works a window at a time and makes one model call per window, so the windows on
+the pages a run will read *are* the run's cost, and they can be counted with no model running.
+
+**Do this.**
+
+```bash
+cargo run -p landscape -- cost https://linear.app
+```
+
+**You should see** something close to this — the numbers move with the site, the shape should
+not:
+
+```text
+page, in reading order                               answers     calls
+------------------------------------------------------------------------
+linear.app/changelog                                 changes         0   <- content, no model
+linear.app/pricing                                   pricing         3
+linear.app/features                                  features        8
+linear.app/about                                     identity        1
+linear.app/security                                  trust           0
+linear.app/careers                                   direction       0
+linear.app/plans                                     pricing         0   <- not read, one page a question
+linear.app/docs                                      features       12   <- not read, one page a question
+------------------------------------------------------------------------
+                                             in total before a first chance
+every admitted page, discovery's order             24                  1
+as this run reads them                             12                  0
+```
+
+**"A first chance", not "content".** Extractors report after every window, so a reader's first
+chance comes one call into a page — and whether that call answers is unknowable without running
+it. The measured figure is the one `landscape read` prints below.
+
+**Two things are being decided there**, and both are ours rather than the model's.
+
+**The changelog is read first**, because it is parsed rather than generated — so the first thing
+on screen costs a fetch instead of a chain of model calls. **And each question is worth one page
+that needs a model**: `/docs` alone would have been twelve more calls for a question already
+answered. The pages that are not read are named — in this output, and on the report itself.
+
+### Now watch it arrive
+
+**Do this**, with no `llama-server` running at all:
+
+```bash
+cargo run -p landscape -- read https://linear.app
+```
+
+**You should see** dated changes in the report — *Coding sessions on mobile*, and six more —
+and, on the last line:
+
+```text
+first content 23s - whole report 26s
+```
+
+**Why it matters.** `PRODUCT_SPEC.md` §2.1A asks for content in twenty to forty seconds. That is
+23, and **the model was not running** — which is the property worth having, because the model is
+the part that will be slowest on four ARM cores.
+
+About 20 of those 23 seconds are discovery, so that is the next thing to shorten. It is also why
+the number is printed rather than described: run it yourself and it will tell you where the
+time went on your machine.
+
+**A company with no changelog behaves exactly as it did before.** Try
+`cargo run -p landscape -- cost https://basecamp.com`: nothing to reorder, no second pages to
+skip, same fourteen calls. A change that does nothing for some companies should do *nothing*
+for them, visibly.
 
 ---
 

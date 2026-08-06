@@ -1,0 +1,132 @@
+[
+  {
+    "name": "the page that needs no model is read in discovery's order like everything else",
+    "file": "crates/landscape-analyze/src/order.rs",
+    "old": "    read.extend(\n        affordable\n            .iter()\n            .filter(|c| is_deterministic(c.answers))\n            .cloned(),\n    );\n    read.extend(\n        affordable\n            .iter()\n            .filter(|c| !is_deterministic(c.answers))\n            .cloned(),\n    );",
+    "new": "    read.extend(affordable.iter().cloned());",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a changelog is treated as needing a model, so it is capped and read late",
+    "file": "crates/landscape-analyze/src/order.rs",
+    "old": "    matches!(question, Answers::Changes)",
+    "new": "    false",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "every admitted page is read, so the wait is whatever discovery found",
+    "file": "crates/landscape-analyze/src/order.rs",
+    "old": "            Some(n) if *n >= PAGES_PER_QUESTION => skipped.push(candidate.clone()),",
+    "new": "            Some(n) if false => skipped.push(candidate.clone()),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the budget drops a question's only page",
+    "file": "crates/landscape-analyze/src/order.rs",
+    "old": "            None => {\n                spent.push((candidate.answers, 1));\n                affordable.push(candidate.clone());\n            }",
+    "new": "            None => {\n                spent.push((candidate.answers, 1));\n                skipped.push(candidate.clone());\n            }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "pages are left unread and the report does not say so",
+    "file": "crates/landscape-analyze/src/order.rs",
+    "old": "        if self.skipped.is_empty() {\n            return None;\n        }",
+    "new": "        return None;\n        #[allow(unreachable_code)]\n        if self.skipped.is_empty() {\n            return None;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the merged report drops each company's note about what it did not read",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "    let mut notes = notes;\n    for report in finished.iter().map(|a| &a.report).chain(in_flight) {\n        for note in &report.notes {\n            if !notes.contains(note) {\n                notes.push(note.clone());\n            }\n        }\n    }",
+    "new": "    let notes = notes;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "facts are credited to pages that were admitted rather than read",
+    "file": "crates/landscape-core/src/coverage.rs",
+    "old": "                \"{} fact(s) from {} page(s) read\",\n                self.facts, self.pages_read",
+    "new": "                \"{} fact(s) from {} page(s) read\",\n                self.facts,\n                self.sources.len()",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the model's health is asked for before anything is read",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "    let mut model_ready: Option<bool> = None;",
+    "new": "    let mut model_ready: Option<bool> = Some(llm.is_ready().await);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a page the run would skip for its quality is counted as a model call",
+    "file": "crates/landscape-analyze/src/order.rs",
+    "old": "    if !landscape_extract::quality::assess(markdown)\n        .quality\n        .worth_extracting()\n    {\n        return 0;\n    }\n    match question {",
+    "new": "    match question {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a whole first page is counted as the wait before content, not one call",
+    "file": "crates/landscape-analyze/src/order.rs",
+    "old": "                before += usize::from(calls > 0);\n                seen = true;",
+    "new": "                before += calls;\n                seen = true;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  }
+]

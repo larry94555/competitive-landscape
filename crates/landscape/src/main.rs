@@ -72,6 +72,17 @@ enum Role {
     /// No model, and no database. This is discovery alone, which is what makes it something
     /// that can be run before sending somebody a link.
     Examples,
+    /// What one company will cost a model, before any model is asked.
+    ///
+    /// **The wait is the last thing between this and a demo somebody will sit through**, and
+    /// it is not the model's speed — it is how many times the pipeline asks. Every extractor
+    /// works a window at a time and makes one call per window, so the number of windows on the
+    /// pages a run will read *is* the run's model cost, and it can be counted with no model
+    /// running at all.
+    ///
+    /// Needs no `llama-server` and no database. That is what makes it something to run before
+    /// sending somebody a link rather than after they complain.
+    Cost,
     /// Discover, fetch, convert and extract — the whole path, for one company.
     ///
     /// The first command that runs every piece in order. It exists because each piece has
@@ -123,9 +134,10 @@ async fn main() -> Result<()> {
         Some("gap") => Role::Gap,
         Some("discover") => Role::Discover,
         Some("examples") => Role::Examples,
+        Some("cost") => Role::Cost,
         Some("read") => Role::Read,
         Some(other) => anyhow::bail!(
-            "unknown command {other:?}.              Try: dev, serve, worker, migrate, fetch, gap, discover, read, examples"
+            "unknown command {other:?}.              Try: dev, serve, worker, migrate, fetch, gap, discover, read, examples, cost"
         ),
     };
 
@@ -142,6 +154,9 @@ async fn main() -> Result<()> {
     }
     if role == Role::Examples {
         return check_examples().await;
+    }
+    if role == Role::Cost {
+        return count_model_calls(&args).await;
     }
     if role == Role::Read {
         return read_company(&args).await;
@@ -296,6 +311,115 @@ Example:
     Ok(())
 }
 
+/// `landscape cost <origin>` — how many model calls this company is worth, without a model.
+///
+/// Prints the pages a run would read **in the order it would read them**, the windows each one
+/// holds, and the two numbers that decide whether somebody waits: **calls before the first
+/// thing on screen**, and calls in total.
+///
+/// The per-call figure is not measured here and deliberately so — it belongs to the model and
+/// the machine, `BENCHMARKS.md` has it, and multiplying is the reader's job. What this counts
+/// is the part the pipeline decides.
+async fn count_model_calls(args: &[String]) -> Result<()> {
+    let origin = args.get(1).filter(|a| !a.starts_with("--")).context(
+        "usage: landscape cost <origin>
+
+Example:
+  landscape cost https://basecamp.com",
+    )?;
+
+    let fetcher = landscape_fetch::Fetcher::new();
+    let found = landscape_discover::discover(&fetcher, origin).await;
+    let plan = landscape_analyze::plan(&found.sources);
+
+    // Every admitted page fetched once, including the ones the run will not read - their cost
+    // is the thing being compared against.
+    let mut read_pages: Vec<(String, &str, usize, bool)> = Vec::new();
+    for source in &found.sources {
+        let (calls, yields) = match fetcher.get(&source.url).await {
+            Ok(page) => {
+                let markdown = landscape_extract::markdown::from_body(&page.body);
+                (
+                    landscape_analyze::model_calls_for(source.answers, &markdown),
+                    landscape_analyze::may_yield_content(source.answers, &markdown),
+                )
+            }
+            Err(_) => (0, false),
+        };
+        read_pages.push((source.url.clone(), source.answers.name(), calls, yields));
+    }
+    let cost_of = |url: &str| -> (usize, bool) {
+        read_pages
+            .iter()
+            .find(|(u, _, _, _)| u == url)
+            .map_or((0, false), |(_, _, calls, yields)| (*calls, *yields))
+    };
+
+    println!(
+        "
+{:<52} {:<10} {:>6}",
+        "page, in reading order", "answers", "calls"
+    );
+    println!("{}", "-".repeat(72));
+    for source in &plan.read {
+        let (calls, yields) = cost_of(&source.url);
+        println!(
+            "{:<52} {:<10} {:>6}{}",
+            trim(&source.url),
+            source.answers.name(),
+            calls,
+            if yields && calls == 0 {
+                "   <- content, no model"
+            } else {
+                ""
+            }
+        );
+    }
+    for source in &plan.skipped {
+        let (calls, _) = cost_of(&source.url);
+        println!(
+            "{:<52} {:<10} {:>6}   <- not read, one page a question",
+            trim(&source.url),
+            source.answers.name(),
+            calls
+        );
+    }
+    println!("{}", "-".repeat(72));
+
+    let now = landscape_analyze::tally(plan.read.iter().map(|c| cost_of(&c.url)));
+    let before = landscape_analyze::tally(found.sources.iter().map(|c| cost_of(&c.url)));
+    println!(
+        "{:<44} {:>8} {:>18}",
+        "", "in total", "before a first chance"
+    );
+    println!(
+        "{:<44} {:>8} {:>18}",
+        "every admitted page, discovery's order", before.0, before.1
+    );
+    println!(
+        "{:<44} {:>8} {:>18}",
+        "as this run reads them", now.0, now.1
+    );
+    println!(
+        "
+A chance of content, not a promise of one: whether a call answers is unknowable
+without running it. `landscape read` prints the measured figure. Multiply by what one
+call costs on your machine - that number belongs to the model, not to this pipeline."
+    );
+    Ok(())
+}
+
+/// A URL short enough for a column.
+fn trim(url: &str) -> String {
+    let bare = url
+        .trim_start_matches("https://")
+        .trim_start_matches("http://");
+    if bare.chars().count() <= 50 {
+        return bare.to_owned();
+    }
+    format!("{}…", bare.chars().take(49).collect::<String>())
+}
+
 /// `landscape examples` — run discovery against every company the demo offers.
 ///
 /// **The curated list is the only part of this product that makes a promise about somebody
@@ -386,7 +510,27 @@ Example:
     // The one place the clock is read. Everything downstream takes the time as an argument so
     // that what a report says about a 90-day window can be tested without waiting 90 days.
     let now = chrono::Utc::now();
-    let analysis = landscape_analyze::analyse(&fetcher, &llm, origin, now, now.date_naive()).await;
+    // **The two numbers `PRODUCT_SPEC.md` 2.1A actually asks for**, taken rather than
+    // estimated: when the first claim reached whoever was waiting, and when the run ended.
+    // `landscape cost` counts the model calls with no model running; this is the same run with
+    // one, and it is the measurement a person takes for themselves.
+    let started = std::time::Instant::now();
+    let mut first_content: Option<std::time::Duration> = None;
+    let analysis = landscape_analyze::analyse_with(
+        &fetcher,
+        &llm,
+        origin,
+        now,
+        now.date_naive(),
+        &mut |report: &landscape_core::Report| {
+            if first_content.is_none() && report.sections.iter().any(|s| !s.claims.is_empty()) {
+                first_content = Some(started.elapsed());
+            }
+            landscape_analyze::Wanted::Yes
+        },
+    )
+    .await;
+    let took = started.elapsed();
 
     println!(
         "{:<44} {:<6} {:<5} {:<6} extracted",
@@ -416,6 +560,17 @@ Example:
 
     println!("\n{}", "=".repeat(100));
     println!("{}", analysis.render());
+
+    // Last, because it is the line worth carrying away. Against PRODUCT_SPEC 2.1A: content in
+    // twenty to forty seconds, the whole report inside ninety to a hundred and eighty.
+    println!(
+        "first content {} - whole report {:.0}s",
+        first_content.map_or_else(
+            || "never - nothing was extracted".to_owned(),
+            |d| format!("{:.0}s", d.as_secs_f64())
+        ),
+        took.as_secs_f64()
+    );
     Ok(())
 }
 
@@ -431,7 +586,9 @@ async fn run(role: Role, store: Arc<dyn Store>) -> Result<()> {
     match role {
         Role::Migrate => Ok(()),
         // Handled before any store exists; see `main`.
-        Role::Fetch | Role::Gap | Role::Discover | Role::Read | Role::Examples => Ok(()),
+        Role::Fetch | Role::Gap | Role::Discover | Role::Read | Role::Examples | Role::Cost => {
+            Ok(())
+        }
         Role::Serve => serve(store).await,
         Role::Worker => worker(store).await,
         Role::Dev => {
