@@ -4,11 +4,13 @@ import {
   ApiError,
   createAnalysis,
   getAnalysis,
+  getExamples,
   isTerminal,
   pathFor,
   watchAnalysis,
   type Analysis,
   type AnalysisStatus,
+  type Examples,
   type Section,
 } from "./api";
 
@@ -29,6 +31,9 @@ export default function App(): React.JSX.Element {
   // its empty state for a moment first, which on a shared link reads as "there is nothing
   // here" immediately before the report appears.
   const [opening, setOpening] = useState(() => analysisInPath(window.location.pathname));
+  // The ideas offered on the first screen. `null` until they arrive, and `null` for ever if
+  // they do not — see `getExamples`: a missing convenience must not look like a broken page.
+  const [examples, setExamples] = useState<Examples | null>(null);
 
   // A URL that names an analysis opens it. This is the whole of the routing: the server
   // returns the page for any path it does not claim, so what the path means is decided here.
@@ -45,6 +50,16 @@ export default function App(): React.JSX.Element {
   // counter scoped to the effect gives each of the two setups its own, starting at zero, and
   // the discarded mount's request still looks current when it answers.
   const newest = useRef(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getExamples().then((found) => {
+      if (!cancelled) setExamples(found);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const open = (): void => {
@@ -143,6 +158,46 @@ export default function App(): React.JSX.Element {
           {submitting ? "Starting…" : "Analyse"}
         </button>
       </form>
+
+      {/*
+        Ideas to start from, below the box rather than above it. A reader who came with their
+        own idea should meet the box first; one who came to look around finds these without
+        having to invent a prompt — and the prompts people invent are the ones this pipeline
+        cannot resolve, so an empty box is where a demo dies.
+
+        Clicking one **fills the box and does not submit.** The reader sees the sentence,
+        including the companies, and can change it before anything is fetched. That is the
+        whole of what "the curation is visible" means here.
+      */}
+      {analysis === null && examples !== null && examples.examples.length > 0 && (
+        <section className="examples" aria-labelledby="examples-heading">
+          <h2 id="examples-heading">Or start from one of these</h2>
+          <ul>
+            {examples.examples.map((example) => (
+              <li key={example.id}>
+                <button
+                  type="button"
+                  className="example"
+                  onClick={() => {
+                    setPrompt(example.prompt);
+                    setError(null);
+                  }}
+                >
+                  <strong>{example.idea}</strong>
+                  <span className="companies">{example.companies.join(" vs ")}</span>
+                  <span className="why">{example.why}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {/*
+            The server's sentence, not one written here. What is curated and what is not is a
+            claim about the product, and a claim that lives only in a component is one nobody
+            reviews.
+          */}
+          <p className="curation">{examples.note}</p>
+        </section>
+      )}
 
       {error && (
         <p role="alert">

@@ -12,6 +12,7 @@
 
 pub mod analysis;
 pub mod coverage;
+pub mod examples;
 pub mod extract;
 pub mod report;
 pub mod source;
@@ -19,6 +20,7 @@ pub mod subject;
 
 pub use analysis::{Analysis, AnalysisId, AnalysisStatus, Applied, Failure, NewAnalysis};
 pub use coverage::{attributed, Attempt, Coverage};
+pub use examples::{examples, Example, CURATION_NOTE};
 pub use extract::{
     BillingPeriod, Change, FeatureExtraction, IdentityExtraction, PageChanges, PageFeatures,
     PageIdentity, PagePricing, PricingExtraction, Stated,

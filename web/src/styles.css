@@ -73,3 +73,33 @@ cite { font-family: ui-monospace, monospace; font-size: 0.8rem; color: var(--acc
   padding: 0.1rem 0.4rem;
   user-select: all;
 }
+
+/* The ideas offered on the first screen. Below the box: somebody who came with their own
+   idea meets the box first, and somebody who came to look around still finds a way in. */
+.examples { margin-top: 2.5rem; }
+.examples h2 { font-size: 1rem; color: var(--muted); font-weight: 600; }
+.examples ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+
+button.example {
+  display: block;
+  width: 100%;
+  margin: 0;
+  text-align: left;
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  padding: 0.8rem 1rem;
+  font-weight: 400;
+}
+button.example:hover { border-color: var(--accent); }
+button.example strong { display: block; }
+.example .companies {
+  display: block;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+.example .why { display: block; color: var(--muted); font-size: 0.9rem; margin-top: 0.3rem; }
+
+/* What is curated and what is not. Small, and never omitted. */
+.curation { color: var(--muted); font-size: 0.85rem; }

@@ -1,0 +1,157 @@
+[
+  {
+    "name": "a chip expands to companies the reader never saw",
+    "file": "crates/landscape-core/src/examples.rs",
+    "old": "        format!(\"{} - {}\", self.idea, self.companies.join(\" vs \"))",
+    "new": "        self.idea.clone()",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core",
+      "-p",
+      "landscape-analyze",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "an example names one company, so the demo shows a profile",
+    "file": "crates/landscape-core/src/examples.rs",
+    "old": "            companies: vec![\"basecamp.com\".to_owned(), \"linear.app\".to_owned()],",
+    "new": "            companies: vec![\"basecamp.com\".to_owned()],",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "an example names a fourth company and is silently capped when it runs",
+    "file": "crates/landscape-core/src/examples.rs",
+    "old": "            companies: vec![\"helpscout.com\".to_owned(), \"front.com\".to_owned()],",
+    "new": "            companies: vec![\"helpscout.com\".to_owned(), \"front.com\".to_owned(), \"zendesk.com\".to_owned(), \"intercom.com\".to_owned()],",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the words joining an idea to its companies glue two domains into one",
+    "file": "crates/landscape-core/src/examples.rs",
+    "old": "        format!(\"{} - {}\", self.idea, self.companies.join(\" vs \"))",
+    "new": "        format!(\"{} - {}\", self.idea, self.companies.join(\"/vs/\"))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the list is served without the sentence that qualifies it",
+    "file": "crates/landscape-api/src/routes.rs",
+    "old": "        note: landscape_core::CURATION_NOTE,",
+    "new": "        note: \"\",",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "the interface says nothing about what is curated",
+    "file": "web/src/App.tsx",
+    "old": "          <p className=\"curation\">{examples.note}</p>",
+    "new": "          <p className=\"curation\"></p>",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "clicking an idea starts four minutes of work the reader did not ask for",
+    "file": "web/src/App.tsx",
+    "old": "                    setPrompt(example.prompt);\n                    setError(null);",
+    "new": "                    setPrompt(example.prompt);\n                    setError(null);\n                    void submit();",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the box is filled with the idea and the companies are passed behind it",
+    "file": "web/src/App.tsx",
+    "old": "                    setPrompt(example.prompt);",
+    "new": "                    setPrompt(example.idea);",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the ideas render without the sentence that qualifies them",
+    "file": "web/src/api.ts",
+    "old": "      typeof (body as Examples).note !== \"string\"",
+    "new": "      false",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the ideas stay under the report and invite a click that throws it away",
+    "file": "web/src/App.tsx",
+    "old": "      {analysis === null && examples !== null && examples.examples.length > 0 && (",
+    "new": "      {examples !== null && examples.examples.length > 0 && (",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the entries inside a well-formed list are trusted rather than checked",
+    "file": "web/src/api.ts",
+    "old": "    const usable = (body as Examples).examples.filter(isExample);",
+    "new": "    const usable = (body as Examples).examples as Example[];",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "an entry's companies are taken on trust once the other fields look right",
+    "file": "web/src/api.ts",
+    "old": "    Array.isArray(example.companies) &&\n    example.companies.every((company) => typeof company === \"string\")",
+    "new": "    true",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  }
+]

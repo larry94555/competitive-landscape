@@ -129,6 +129,52 @@ pub const NO_SUBJECT: &str = "this prompt does not name a website, and finding o
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod the_examples {
+    //! The curated ideas, run through the parser that will really read them.
+    //!
+    //! **This is the test the catalogue exists for.** A list of domains in a file is a promise;
+    //! putting each prompt through `origins_in` - the function the worker calls, not a
+    //! reimplementation of it - is the part that can fail. A wording change that breaks the
+    //! parser's reading of a domain would otherwise be found by whoever clicked the chip.
+
+    use super::{origins_in, MAX_SUBJECTS};
+
+    #[test]
+    fn every_example_prompt_resolves_to_exactly_the_companies_it_names() {
+        for example in landscape_core::examples() {
+            let expected: Vec<String> = example
+                .companies
+                .iter()
+                .map(|c| format!("https://{c}"))
+                .collect();
+            assert_eq!(
+                origins_in(&example.prompt()),
+                expected,
+                "{} does not parse to its own companies. The prompt is {:?}",
+                example.id,
+                example.prompt()
+            );
+        }
+    }
+
+    #[test]
+    fn no_example_is_capped_when_it_runs() {
+        // The cap drops companies and says so in a note above the sections. That note is right
+        // for a prompt somebody typed and wrong on a curated example, where it would mean the
+        // demo shipped an idea it cannot run.
+        for example in landscape_core::examples() {
+            assert!(
+                example.companies.len() <= MAX_SUBJECTS,
+                "{} names {} companies and the cap is {MAX_SUBJECTS}",
+                example.id,
+                example.companies.len()
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
     #[test]
     fn every_site_named_is_a_subject() {
