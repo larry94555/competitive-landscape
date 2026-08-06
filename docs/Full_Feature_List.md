@@ -246,13 +246,21 @@ software rather than **what it can do**, and the states above are complete witho
 
 | Feature | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|
-| **D3** A deployable artefact — aarch64 build, `web/dist` beside it, a service unit, a RUNBOOK deploy section | 2 | 0 | **2** | 0% |
+| **D3** A deployable artefact — aarch64 build, `web/dist` beside it, service units, [DEPLOY.md](DEPLOY.md) and a RUNBOOK section | 1 | 1 | 0 | 100% |
 | **D6** A cap on anonymous runs — a per-IP daily count, before a URL is public | 1 | 0 | **1** | 0% |
-| | **3** | **0** | **3** | **0%** |
+| | **2** | **1** | **1** | **50%** |
 
 **D6 is here rather than in S1 deliberately.** Unlimited anonymous inference is only a problem
 once strangers can reach the box; on a laptop it is not a missing capability, it is a setting
-nobody needs.
+nobody needs. **It is now the only thing left on this track**, and [DEPLOY.md](DEPLOY.md) opens
+with it: until the cap exists, the mitigation is a `remote_ip` allow-list in the reverse proxy,
+because the ports themselves cannot be restricted — the certificate authority has to reach the
+host.
+
+**D3 is done in the sense this table counts and not in the sense that matters most.** The
+artefact, the units and the procedure exist and are reviewable; **no box has run them.** The
+first deployment is where this stops being a plan, and the procedure says so at the top rather
+than pretending otherwise.
 
 ### The invariant this track depends on
 

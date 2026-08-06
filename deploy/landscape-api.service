@@ -1,0 +1,45 @@
+# The HTTP API and the web app it serves.
+#
+# Separate from the worker on purpose: an analysis takes minutes and a restart of the thing
+# serving pages should not kill one in flight. They share the database, which is the only
+# thing they need to agree about.
+
+[Unit]
+Description=Landscape API
+Documentation=https://github.com/larry94555/competitive-landscape/blob/main/docs/DEPLOY.md
+# Postgres must be up: the process applies migrations on boot and exits if it cannot connect.
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=landscape
+Group=landscape
+WorkingDirectory=/opt/landscape
+EnvironmentFile=/etc/landscape/landscape.env
+ExecStart=/opt/landscape/bin/landscape serve
+Restart=on-failure
+RestartSec=5s
+
+# It reads its own directory and talks to Postgres over localhost. Nothing else.
+# **Nothing here writes to disk.** Logs go to the journal, reports go to Postgres. Review
+# pointed out that `ReadWritePaths=/opt/landscape` let a compromised process replace the very
+# binary and frontend it serves - so there is no writable path at all, and `ProtectSystem=strict`
+# with no exception means the whole filesystem is read-only to it. The artefacts are root-owned;
+# this user only needs to read them.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+# RUNBOOK.md section 2 says a cap on each unit turns a machine-wide OOM into one service
+# failing, which is far easier to diagnose. Serving pages and JSON is not memory-hungry;
+# raise it if the journal shows this being killed rather than guessing upward now.
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target

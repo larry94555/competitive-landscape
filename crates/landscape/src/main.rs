@@ -611,11 +611,19 @@ async fn serve(store: Arc<dyn Store>) -> Result<()> {
     // ordered wrongly here — see the note there.
     // The API and the built web app, when there is one. Without the app the binary serves JSON
     // and a visitor gets nothing to look at, which is what made the whole thing undeployable.
-    let app = landscape_api::with_ui(AppState { store }, &landscape_api::web_dir())
-        // The dev frontend runs on a different port, so the browser treats it as another
-        // origin. Permissive is fine while everything is served from localhost; this
-        // tightens to an allow-list before anything is deployed.
-        .layer(tower_http::cors::CorsLayer::permissive());
+    // **No CORS layer at all**, and that is the tightening the comment here used to promise.
+    //
+    // It was `CorsLayer::permissive()` — every origin, every method, every header — with a note
+    // saying it would be narrowed before deployment. Review pointed out what that costs the
+    // moment there is a deployment: a page on any other site, opened by somebody whose address
+    // is allowed through the firewall, can POST an analysis from their browser and spend the
+    // box's only scarce resource. An allow-list at the network edge does not help, because the
+    // request comes *from* the allowed machine.
+    //
+    // Nothing needs it. In production the binary serves the page and the API from one origin,
+    // and `vite.config.ts` proxies `/api` in development — so the browser has never actually
+    // been making a cross-origin request.
+    let app = landscape_api::with_ui(AppState { store }, &landscape_api::web_dir());
 
     let listener = tokio::net::TcpListener::bind(&addr)
         .await

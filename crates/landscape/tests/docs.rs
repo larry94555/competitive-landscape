@@ -256,6 +256,45 @@ impl Drop for Server {
 
 #[test]
 #[ignore = "spawns the binary and shells out to curl; run with --ignored or in CI"]
+fn the_served_api_does_not_invite_other_websites_to_use_it() {
+    // Review found this in the deployment pull request, which is where it stops being
+    // theoretical. The binary shipped `CorsLayer::permissive()` — every origin, method and
+    // header — under a comment promising to narrow it before deployment.
+    //
+    // **What that costs is not obvious until there is a box.** The mitigation for having no
+    // per-IP cap is a firewall allowing one address. A page on any other site, opened in the
+    // browser of the person at that address, can POST an analysis straight through it: the
+    // request comes *from* the allowed machine, so the network edge sees nothing wrong, and
+    // each one occupies the model for minutes.
+    //
+    // Asserted against the **booted binary** rather than a router built in a test, because the
+    // layer was added in `main.rs` and a test of the library would not have seen it.
+    let server = Server::start();
+
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "curl -si -H 'Origin: https://not-our-site.example'              http://127.0.0.1:{}/api/health",
+            server.port
+        ))
+        .output()
+        .expect("curl should run - is it on PATH?");
+
+    let response = String::from_utf8_lossy(&output.stdout).to_lowercase();
+    assert!(
+        response.contains("200 ok"),
+        "the health endpoint did not answer, so this test proves nothing:
+{response}"
+    );
+    assert!(
+        !response.contains("access-control-allow-origin"),
+        "the API tells other websites they may call it:
+{response}"
+    );
+}
+
+#[test]
+#[ignore = "spawns the binary and shells out to curl; run with --ignored or in CI"]
 fn every_documented_curl_actually_works() {
     let server = Server::start();
 
