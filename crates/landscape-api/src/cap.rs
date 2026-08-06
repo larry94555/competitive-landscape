@@ -63,7 +63,7 @@
 use std::collections::hash_map::RandomState;
 use std::collections::HashMap;
 use std::hash::BuildHasher;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use chrono::{DateTime, NaiveDate, Utc};
 use landscape_core::AnalysisId;
@@ -87,12 +87,23 @@ pub enum Allowed {
 }
 
 /// What each address started today.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct Today {
     on: NaiveDate,
     /// Ids rather than a number, because whether one still counts is a question about the
     /// analysis and can change after it was started.
     started: HashMap<u64, Vec<AnalysisId>>,
+    /// One lock per address, so a decision about it cannot overlap another.
+    ///
+    /// **Deciding is not one step.** Reading what an address started, asking the store which
+    /// of those still count, enqueueing and remembering the new id are four, with an `await`
+    /// between each - so without this, twenty requests arriving together all read the same
+    /// empty list and all pass a limit of two. Review reproduced exactly that: nine of twenty
+    /// were accepted.
+    ///
+    /// Per address rather than one lock for everybody, because the work being serialised
+    /// includes store reads and one visitor should not wait behind another's.
+    gates: HashMap<u64, Arc<tokio::sync::Mutex<()>>>,
 }
 
 /// Which runs each anonymous address has started today.
@@ -104,6 +115,20 @@ pub struct Cap {
     today: Mutex<Today>,
 }
 
+impl Today {
+    /// Forget everything if the day has turned over.
+    ///
+    /// One place, because four methods need it and four copies of a date comparison is four
+    /// chances for one of them to keep yesterday.
+    fn roll_over(&mut self, today: NaiveDate) {
+        if self.on != today {
+            self.on = today;
+            self.started.clear();
+            self.gates.clear();
+        }
+    }
+}
+
 impl Cap {
     /// A cap of `limit` runs a day.
     #[must_use]
@@ -111,13 +136,10 @@ impl Cap {
         Self {
             limit,
             keys: RandomState::new(),
-            today: Mutex::new(Today {
-                // Any date: the first request replaces it, because the day is compared rather
-                // than assumed. Starting from a real clock read here would be one more thing
-                // that cannot be tested without waiting.
-                on: NaiveDate::default(),
-                started: HashMap::new(),
-            }),
+            // Any date: the first request replaces it, because the day is compared rather
+            // than assumed. Starting from a real clock read here would be one more thing that
+            // cannot be tested without waiting.
+            today: Mutex::new(Today::default()),
         }
     }
 
@@ -139,6 +161,42 @@ impl Cap {
     #[must_use]
     pub const fn limit(&self) -> usize {
         self.limit
+    }
+
+    /// The lock to hold while deciding about this address.
+    ///
+    /// Held across the whole sequence — read, reconcile, enqueue, record — because any gap
+    /// between them is a gap two requests can both fit through.
+    #[must_use]
+    pub fn gate_for(&self, client: &str, today: NaiveDate) -> Arc<tokio::sync::Mutex<()>> {
+        let Ok(mut state) = self.today.lock() else {
+            // A poisoned lock means another thread panicked holding it. A fresh gate serialises
+            // nothing, which is the same failing-open this type does everywhere else: a guard
+            // rail that takes the site down is worse than one that lets a request past.
+            return Arc::new(tokio::sync::Mutex::new(()));
+        };
+        state.roll_over(today);
+        Arc::clone(state.gates.entry(self.keys.hash_one(client)).or_default())
+    }
+
+    /// Replace what this address is holding, after the store has been asked about each id.
+    ///
+    /// **Failed ids are dropped here rather than skipped every time.** They are free, so an
+    /// address can accumulate them without limit — and each one would then cost a store read
+    /// on every later request, turning `n` failures into `n²` reads across a day and growing
+    /// this map for as long as the process lives. Review found it. Only ids that still count
+    /// are kept, which bounds the list by the work in flight.
+    pub fn keep(&self, client: &str, today: NaiveDate, still: Vec<AnalysisId>) {
+        let Ok(mut state) = self.today.lock() else {
+            return;
+        };
+        state.roll_over(today);
+        let key = self.keys.hash_one(client);
+        if still.is_empty() {
+            state.started.remove(&key);
+        } else {
+            state.started.insert(key, still);
+        }
     }
 
     /// Whether this cap applies to this request at all.
@@ -165,10 +223,7 @@ impl Cap {
             // guard rail that fails closed on the whole site is worse than one that fails open.
             return Vec::new();
         };
-        if state.on != today {
-            state.on = today;
-            state.started.clear();
-        }
+        state.roll_over(today);
         state
             .started
             .get(&self.keys.hash_one(client))
@@ -185,10 +240,7 @@ impl Cap {
         let Ok(mut state) = self.today.lock() else {
             return;
         };
-        if state.on != today {
-            state.on = today;
-            state.started.clear();
-        }
+        state.roll_over(today);
         state
             .started
             .entry(self.keys.hash_one(client))

@@ -232,20 +232,35 @@ async fn create_analysis(
     if state.cap.applies_to(client.as_deref()) {
         let client = client.unwrap_or_default();
         let now = chrono::Utc::now();
-        let started = state.cap.started_today(&client, now.date_naive());
+        let today = now.date_naive();
+
+        // **One decision about this address at a time.** Reading what it started, asking the
+        // store which of those still count, enqueueing and recording are four steps with an
+        // `await` between each - so twenty requests arriving together all read the same list
+        // and all pass a limit of two. Review reproduced it: nine of twenty were accepted.
+        //
+        // Held until this request has recorded its own id, which is the only point after
+        // which another request would see it.
+        let gate = state.cap.gate_for(&client, today);
+        let _deciding = gate.lock().await;
+
+        let started = state.cap.started_today(&client, today);
 
         // **How many still count is asked of the store, not remembered.** A run the worker
         // later marked failed is not charged for - and the worker is a different process, so
         // there is nowhere a refund could have been sent even if one had been reserved.
-        let mut charged = 0usize;
+        let mut still: Vec<landscape_core::AnalysisId> = Vec::with_capacity(started.len());
         for id in started {
             match state.store.get(id).await {
                 Ok(analysis) if analysis.status == AnalysisStatus::Failed => {}
                 // A row that cannot be read is counted rather than forgiven: the alternative
                 // is that a store hiccup hands out an unlimited allowance.
-                _ => charged += 1,
+                _ => still.push(id),
             }
         }
+        let charged = still.len();
+        // Written back, so a failed id is asked about once rather than on every later request.
+        state.cap.keep(&client, today, still);
 
         let limit = state.cap.limit();
         if charged >= limit {
@@ -258,7 +273,7 @@ async fn create_analysis(
 
         let analysis = state.store.enqueue(&new).await?;
         // After the store accepted it, so an enqueue that fails costs nothing either.
-        state.cap.record(&client, now.date_naive(), analysis.id);
+        state.cap.record(&client, today, analysis.id);
         return Ok((StatusCode::CREATED, Json(analysis)));
     }
 
@@ -325,12 +340,78 @@ mod tests {
     /// The same, keeping the store — for the tests that need to drive a run to a terminal
     /// state the way the worker would.
     fn capped_with_store(limit: usize) -> (axum::Router, Arc<dyn Store>) {
+        let (app, store, _) = capped_parts(limit);
+        (app, store)
+    }
+
+    /// A store that gives the scheduler a chance between its steps.
+    ///
+    /// **The in-memory store is too fast to expose a race that a real one exposes every time.**
+    /// `MemoryStore::get` takes a lock and returns without ever awaiting anything, so twenty
+    /// concurrent requests can run to completion one after another and a genuine
+    /// check-then-act bug looks fine. Postgres does I/O and always yields.
+    ///
+    /// A regression that depends on the fast store's timing is a flaky one - it caught the
+    /// missing lock on one run and missed it on the next, which is how this was found. This
+    /// puts the interleaving point back where a real deployment has it.
+    #[derive(Debug)]
+    struct YieldsBetweenSteps(Arc<dyn Store>);
+
+    #[async_trait::async_trait]
+    impl Store for YieldsBetweenSteps {
+        async fn enqueue(&self, new: &NewAnalysis) -> landscape_db::Result<Analysis> {
+            tokio::task::yield_now().await;
+            self.0.enqueue(new).await
+        }
+        async fn get(&self, id: AnalysisId) -> landscape_db::Result<Analysis> {
+            tokio::task::yield_now().await;
+            self.0.get(id).await
+        }
+        async fn claim_next(&self) -> landscape_db::Result<Option<Analysis>> {
+            self.0.claim_next().await
+        }
+        async fn save_progress(
+            &self,
+            id: AnalysisId,
+            generation: u32,
+            report: &landscape_core::Report,
+        ) -> landscape_db::Result<landscape_core::Applied> {
+            self.0.save_progress(id, generation, report).await
+        }
+        async fn complete(
+            &self,
+            id: AnalysisId,
+            generation: u32,
+            report: &landscape_core::Report,
+        ) -> landscape_db::Result<landscape_core::Applied> {
+            self.0.complete(id, generation, report).await
+        }
+        async fn fail(
+            &self,
+            id: AnalysisId,
+            generation: u32,
+            failure: landscape_core::Failure,
+            reason: &str,
+        ) -> landscape_db::Result<landscape_core::Applied> {
+            self.0.fail(id, generation, failure, reason).await
+        }
+        async fn reclaim_stale(&self, max_age: chrono::Duration) -> landscape_db::Result<u64> {
+            self.0.reclaim_stale(max_age).await
+        }
+        async fn count_with_status(&self, status: AnalysisStatus) -> landscape_db::Result<i64> {
+            self.0.count_with_status(status).await
+        }
+    }
+
+    /// All three, for the tests that need to see what an address is holding.
+    fn capped_parts(limit: usize) -> (axum::Router, Arc<dyn Store>, Arc<crate::cap::Cap>) {
         let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+        let cap = Arc::new(crate::cap::Cap::of(limit));
         let app = router(AppState {
             store: Arc::clone(&store),
-            cap: Arc::new(crate::cap::Cap::of(limit)),
+            cap: Arc::clone(&cap),
         });
-        (app, store)
+        (app, store, cap)
     }
 
     /// The same POST, arriving through a reverse proxy that has appended what it saw.
@@ -390,6 +471,95 @@ mod tests {
         // A rejected request is fully explained by its own message. A reference here would
         // suggest they have hit something worth reporting.
         assert!(body["reference"].is_null(), "{body}");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn twenty_requests_at_once_still_only_get_two() {
+        // **Review reproduced this against the previous commit**: twenty simultaneous POSTs
+        // carrying one address produced nine acceptances against a limit of two. Deciding is
+        // four steps with an `await` between each - read what the address started, ask the
+        // store which still count, enqueue, record - and every gap is one two requests fit
+        // through together.
+        //
+        // The barrier is what makes it a race rather than twenty requests in a queue: every
+        // task is held at the same point and released together.
+        let inner: Arc<dyn Store> = Arc::new(MemoryStore::new());
+        let store: Arc<dyn Store> = Arc::new(YieldsBetweenSteps(inner));
+        let app = router(AppState {
+            store,
+            cap: Arc::new(crate::cap::Cap::of(2)),
+        });
+        let together = Arc::new(tokio::sync::Barrier::new(20));
+
+        let mut attempts = Vec::with_capacity(20);
+        for _ in 0..20 {
+            let app = app.clone();
+            let together = Arc::clone(&together);
+            attempts.push(tokio::spawn(async move {
+                together.wait().await;
+                app.oneshot(post_from("198.51.100.7", IDEA))
+                    .await
+                    .expect("response")
+                    .status()
+            }));
+        }
+
+        let mut accepted = 0usize;
+        for attempt in attempts {
+            if attempt.await.expect("the request finished") == StatusCode::CREATED {
+                accepted += 1;
+            }
+        }
+        assert_eq!(
+            accepted, 2,
+            "the limit is two and {accepted} requests were accepted"
+        );
+    }
+
+    #[tokio::test]
+    async fn failed_runs_are_forgotten_rather_than_asked_about_for_ever() {
+        // Failures are free, so an address can collect them without limit - and each one would
+        // otherwise cost a store read on every later request, turning n failures into n² reads
+        // across a day while this map grows for as long as the process lives. Review found it.
+        let (app, store, cap) = capped_parts(1);
+
+        for _ in 0..3 {
+            let res = app
+                .clone()
+                .oneshot(post_from("198.51.100.7", IDEA))
+                .await
+                .expect("response");
+            assert_eq!(res.status(), StatusCode::CREATED);
+
+            let claimed = store
+                .claim_next()
+                .await
+                .expect("claim")
+                .expect("one queued");
+            store
+                .fail(
+                    claimed.id,
+                    claimed.generation,
+                    landscape_core::Failure::NoSubject,
+                    "no company named",
+                )
+                .await
+                .expect("fail");
+        }
+
+        // A fourth request reconciles, and what it leaves behind is its own run alone.
+        let res = app
+            .oneshot(post_from("198.51.100.7", IDEA))
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::CREATED);
+
+        let held = cap.started_today("198.51.100.7", chrono::Utc::now().date_naive());
+        assert_eq!(
+            held.len(),
+            1,
+            "three failed runs are still being asked about: {held:?}"
+        );
     }
 
     #[tokio::test]

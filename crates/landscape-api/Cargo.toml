@@ -31,6 +31,9 @@ tower = { version = "0.5", features = ["util"] }
 # The interrupted-run tests drive the SSE handler and mutate the store underneath it,
 # so they need a runtime as well as the router.
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time"] }
+# For the test double that yields between a store's steps, so a check-then-act race is
+# reproducible rather than a matter of scheduling luck.
+async-trait.workspace = true
 
 [lints]
 workspace = true

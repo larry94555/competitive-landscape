@@ -41,8 +41,8 @@
   {
     "name": "yesterday's runs are kept, so nobody gets a new day",
     "file": "crates/landscape-api/src/cap.rs",
-    "old": "        if state.on != today {\n            state.on = today;\n            state.started.clear();\n        }\n        state\n            .started\n            .get(&self.keys.hash_one(client))",
-    "new": "        state.on = today;\n        state\n            .started\n            .get(&self.keys.hash_one(client))",
+    "old": "        if self.on != today {\n            self.on = today;\n            self.started.clear();\n            self.gates.clear();\n        }",
+    "new": "        self.on = today;",
     "run": [
       "cargo",
       "nextest",
@@ -81,7 +81,7 @@
     "name": "an analysis the worker failed is still charged for",
     "file": "crates/landscape-api/src/routes.rs",
     "old": "                Ok(analysis) if analysis.status == AnalysisStatus::Failed => {}",
-    "new": "                Ok(_) => charged += 1,",
+    "new": "                Ok(analysis) if analysis.status != AnalysisStatus::Failed => still.push(id),",
     "run": [
       "cargo",
       "nextest",
@@ -108,6 +108,32 @@
     "file": "crates/landscape-api/src/error.rs",
     "old": "                    remedy: Some(\n                        concat!(\n                            \"Each analysis reads live pages and runs a model for several \",\n                            \"minutes, so the free limit is per day. An analysis that fails \",\n                            \"does not count. Or run your own copy - it is open source.\"\n                        )\n                        .to_owned(),\n                    ),",
     "new": "                    remedy: None,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "two requests from one address can decide at the same time",
+    "file": "crates/landscape-api/src/routes.rs",
+    "old": "        let gate = state.cap.gate_for(&client, today);\n        let _deciding = gate.lock().await;",
+    "new": "",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "a failed run is asked about again on every later request",
+    "file": "crates/landscape-api/src/routes.rs",
+    "old": "        state.cap.keep(&client, today, still);",
+    "new": "        drop(still);",
     "run": [
       "cargo",
       "nextest",

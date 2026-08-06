@@ -23,7 +23,7 @@ the standard did not save us, with the specific question that would have.
 **Before writing** code that touches any of the classes below, read that class's rule and its
 "ask this" line.
 
-**Before opening a PR**, run [the two commands and six questions](#before-a-pr-two-commands-and-six-questions).
+**Before opening a PR**, run [the two commands and seven questions](#before-a-pr-two-commands-and-seven-questions).
 The commands are the part that does not depend on remembering; the questions take two minutes.
 
 **After a review finds something**, add an entry the same day. Format: what was written, what a
@@ -638,9 +638,46 @@ arrives without the sentence qualifying it must render **no chips at all**, not 
 the qualification. Retiring a mutation is a normal outcome; leaving it in place to keep a green
 line is not.
 
+## 27. A decision made in four steps, with an await between each
+
+**Written:** read what this address started, ask the store which of those still count, enqueue,
+record the new id — a per-client cap, in four `await`s.
+
+**What a person saw:** review sent twenty simultaneous requests carrying one address at a limit
+of two, and **nine were accepted.** Every one of them read the same empty list before any of
+them had recorded anything. Each step was right; the sequence was not atomic, and a cap is a
+decision about a sequence.
+
+**What made it mine rather than unlucky:** the *previous* version of this held a single
+`Mutex` and did all its counting inside it — atomic by accident. Replacing the reservation with
+"ask the store, then decide" introduced `await` points into what had been one critical section,
+and I did not notice that I had spent the property that made it correct.
+
+**Rule:** check-then-act across an `await` is check-then-act across a gap somebody else fits
+through. When a fix turns a synchronous decision into an asynchronous one, ask what was true
+because it was synchronous. Serialise the whole sequence — per key, so one caller does not wait
+behind another's store reads.
+
+> **Ask this:** *between reading and acting, does anything yield — and what happens if a second
+> request arrives exactly there?*
+
+### And the regression for it was flaky, which is nearly as bad
+
+The first version of the concurrency test caught the missing lock on one run and missed it on
+the next. `MemoryStore::get` takes a lock and returns **without ever awaiting**, so twenty
+concurrent requests can run to completion one after another and a genuine race looks fine.
+Postgres does I/O and yields every time.
+
+**A test double that is faster than production hides exactly the bugs concurrency tests exist to
+find.** The fix was a store wrapper that yields between its steps, putting the interleaving point
+back where a deployment has it — and the mutation then failed five times out of five instead of
+three.
+
+> **Ask this:** *is my double faster than the real thing in a way the test depends on?*
+
 ---
 
-## Before a PR: two commands and six questions
+## Before a PR: two commands and seven questions
 
 **The commands come first, because they are the part that does not depend on remembering.**
 
@@ -662,36 +699,40 @@ one mutation per guard you added. This is the only mechanical check that has eve
 here — and a `MISSED` exits non-zero, because a test that cannot fail is a finding rather than a
 line in a table.
 
-### Then six questions
+### Then seven questions
 
 Grouped by what has actually gone wrong, commonest first.
 
-1. **What states exist between "started" and "finished"?** Which of them has a test — a worker
+1. **What happens between two of my `await`s?** If a decision reads and then acts, what does a
+   second request arriving in the gap see? Was this correct only while it was synchronous?
+   *(27)*
+
+2. **What states exist between "started" and "finished"?** Which of them has a test — a worker
    replaced mid-run, a stream that drops, a request still in flight when the next one starts, a
    step whose dependency *errored* rather than succeeded? Ten of the entries above live here.
    *(1, 3, 4, 12, 13, 14, 15, 18, 19, 19b)*
 
-2. **Which of my checks cannot fail?** **Open the producer and copy its shape** — do not write
+3. **Which of my checks cannot fail?** **Open the producer and copy its shape** — do not write
    what the value obviously is. **Assert on the value the surface reads**, not the structure
    behind it, and on the whole line rather than the halves. Is my malformed fixture broken in
    the shape the guard *already* handles, or in the shape it does not? *(26)* Does the fixture already contain the
    thing I am asserting? If I deleted the call to the function I just tested, would anything
    fail? Is there a case that *should* fail and does? *(5, 20, 21, 24, 25)*
 
-3. **What is the scope of each guard, and of each wrapper?** A condition about *the connection*
+4. **What is the scope of each guard, and of each wrapper?** A condition about *the connection*
    is wrong at every reconnect; a counter inside an effect does not survive a remount; a layer
    wraps what existed when it was added. Does the guard outlive the thing it guards? *(14, 19b,
    22)*
 
-4. **What travels together, and what is joined by position?** Any parallel collection, index
+5. **What travels together, and what is joined by position?** Any parallel collection, index
    pairing, or value separated from its evidence — and does anything still line up when one of
    them changes length? *(7)*
 
-5. **Have I listed the surfaces?** One fact, rendered by the CLI, the merged report, the live
+6. **Have I listed the surfaces?** One fact, rendered by the CLI, the merged report, the live
    stream and the interface. Which of them still has the old shape — and does the one a reader
    looks at *longest*, the stream, have this before it needs it? *(25)*
 
-6. **Is the output honest about what it does not know?** Are caps, drops, truncation and "found
+7. **Is the output honest about what it does not know?** Are caps, drops, truncation and "found
    nothing" distinguishable from completeness? Does a merged view say which subject each part
    belongs to — **including when one subject produced nothing**? Am I counting the thing or the
    evidence for it? Does any prompt name a real company? *(2, 6, 8, 9, 10, 11, 23)*
@@ -700,7 +741,7 @@ Grouped by what has actually gone wrong, commonest first.
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |
 | Deliberately breaking the code to see if a test notices | 12, the rearm in 14, and 21 | The store was fast, so nothing raced until one was made slow. Now `scripts/mutate.py` |
