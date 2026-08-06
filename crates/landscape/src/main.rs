@@ -341,7 +341,7 @@ Example:
                 let markdown = landscape_extract::markdown::from_body(&page.body);
                 (
                     landscape_analyze::model_calls_for(source.answers, &markdown),
-                    landscape_analyze::yields_content(source.answers, &markdown),
+                    landscape_analyze::may_yield_content(source.answers, &markdown),
                 )
             }
             Err(_) => (0, false),
@@ -386,37 +386,27 @@ Example:
     }
     println!("{}", "-".repeat(72));
 
-    let now = tally(plan.read.iter().map(|c| cost_of(&c.url)));
-    let before = tally(found.sources.iter().map(|c| cost_of(&c.url)));
-    println!("{:<44} {:>8} {:>14}", "", "in total", "before content");
+    let now = landscape_analyze::tally(plan.read.iter().map(|c| cost_of(&c.url)));
+    let before = landscape_analyze::tally(found.sources.iter().map(|c| cost_of(&c.url)));
     println!(
-        "{:<44} {:>8} {:>14}",
+        "{:<44} {:>8} {:>18}",
+        "", "in total", "before a first chance"
+    );
+    println!(
+        "{:<44} {:>8} {:>18}",
         "every admitted page, discovery's order", before.0, before.1
     );
     println!(
-        "{:<44} {:>8} {:>14}",
+        "{:<44} {:>8} {:>18}",
         "as this run reads them", now.0, now.1
     );
     println!(
         "
-Multiply by what one call costs on your machine - `BENCHMARKS.md` has the number, and 
-it belongs to the model rather than to this pipeline."
+A chance of content, not a promise of one: whether a call answers is unknowable
+without running it. `landscape read` prints the measured figure. Multiply by what one
+call costs on your machine - that number belongs to the model, not to this pipeline."
     );
     Ok(())
-}
-
-/// Calls in total, and calls before the first page that puts anything on screen.
-fn tally(pages: impl Iterator<Item = (usize, bool)>) -> (usize, usize) {
-    let (mut total, mut before, mut seen) = (0usize, 0usize, false);
-    for (calls, yields) in pages {
-        total += calls;
-        if !seen {
-            before += calls;
-            // A page that produces nothing is not first content, however cheap it was.
-            seen = yields;
-        }
-    }
-    (total, before)
 }
 
 /// A URL short enough for a column.

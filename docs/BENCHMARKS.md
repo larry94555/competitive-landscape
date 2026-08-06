@@ -81,13 +81,13 @@ named on the report**, the same rule the capability cap and the subject cap alre
 
 Model calls, counted by running the real span-finders over the real pages:
 
-| Company | Before | After | Before first content | After |
+| Company | Before | After | Before a first chance | After |
 |---|---:|---:|---:|---:|
-| basecamp.com | 14 | **14** | 2 | **2** |
-| linear.app | 24 | **12** | 3 | **0** |
-| usefathom.com | 15 | **15** | 2 | **0** |
+| basecamp.com | 14 | **14** | 1 | **1** |
+| linear.app | 24 | **12** | 1 | **0** |
+| usefathom.com | 15 | **15** | 1 | **0** |
 | simpleanalytics.com | 24 | **15** | 1 | **0** |
-| helpscout.com | 25 | **18** | 6 | **6** |
+| helpscout.com | 25 | **18** | 1 | **1** |
 | front.com | 26 | **14** | 1 | **0** |
 | **total** | **128** | **88** | | |
 
@@ -98,11 +98,38 @@ Model calls, counted by running the real span-finders over the real pages:
   this does nothing for must run exactly as it did, and it does.
 - **usefathom.com keeps all fifteen calls** and still gets its first content free: no second
   pages, but a changelog that parses.
-- **helpscout.com still spends six calls before content.** Its `changes` page is `/blog`, and
-  the blog yields no dated entries the parser accepts, so first content falls back to pricing.
+- **helpscout.com still spends a call before content.** Its `changes` page is `/blog`, and the
+  blog yields no dated entries the parser accepts, so the first chance falls back to pricing.
   Deterministic-first pays only when the deterministic page actually answers.
 
+**The right-hand columns are one call, not several, and review is why.** The first version of
+this table counted *every* window on the first page that could show something — twelve calls for
+a twelve-window page. Extractors report progress after **each** window, so a reader's first
+chance comes after one call rather than after the page. The old numbers made the pipeline look
+worse than it was and made an approximation look precise; both are corrected above, and the
+column is now named *a first chance* because that is what it is. Whether a call answers, and
+whether the answer survives grounding, is unknowable without running it.
+
+So the first-content win here is **one model call and a dependency**, not a large number of
+calls. The dependency is the part that matters, and the next section is about it.
+
 Per example — two companies each — that is 26, 30 and 32 calls, against 38, 39 and 51.
+
+### The dependency this removes, which review found still in place
+
+`analyse_with` used to ask `llm.is_ready()` **before it built the plan and before it fetched
+anything.** That health request runs on the same client as everything else, and that client
+waits 180 seconds — the whole report budget — because prefill on four ARM cores is slow.
+
+So a model endpoint that accepted the connection and then stalled would have spent the entire
+wait *before the changelog was opened*. **The one guarantee this change exists to make would have
+failed in exactly the situation it is for**: the model being unhealthy.
+
+Health is now asked for at most once, and not until a page needs it — which, because the
+deterministic page is read first, means not until after the first content has already gone out.
+The regression stands up a listener that accepts connections and never answers, and asserts a
+run that needs no model finishes in well under the timeout. It takes 0.05 seconds; before the
+fix it took 180.
 
 ### The number this cannot give you
 
@@ -131,11 +158,20 @@ this change would have made it the ordinary case.
 | pages are left unread and the report does not say so | **yes** |
 | the merged report drops each company's note about what it did not read | **yes** |
 | facts are credited to pages that were admitted rather than read | **yes** |
+| the model's health is asked for before anything is read | **yes** |
+| a page the run would skip for its quality is counted as a model call | **yes** |
+| a whole first page is counted as the wait before content, not one call | **yes** |
+
+**And `cost` was counting a page the run would not open.** `analyse_with` skips a page below the
+quality floor before any extractor sees it; the counter handed the same markdown straight to the
+span finders, so a two-line page with a plan name and a price reported one call where the real
+run makes none. The quality gate is inside the shared counting function now — a prediction of the
+run has to include everything the run decides, or it is a prediction of a different program.
 
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 22 | 498 | 51 |
-| now | **509** | **51** |
+| now | **514** | **51** |
 
 ---
 

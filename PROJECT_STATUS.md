@@ -349,9 +349,10 @@ browser found two defects 425 passing tests had not.
 
 **And first content now meets §2.1A.** The page that needs no model is read first, so on
 `linear.app` the first thing on screen is seven dated changes at **23 seconds, with no model
-involved at all** — measured, not estimated. Each question is worth one page that needs a model,
-taking the six demo companies from 128 model calls to 88, and the skipped pages are named on the
-report ([BENCHMARKS.md](docs/BENCHMARKS.md) Run 23).
+involved at all** — measured, not estimated, and not delayed even by a model that has stopped
+answering. Each question is worth one page that needs a model, taking the six demo companies from
+128 model calls to 88, and the skipped pages are named on the report
+([BENCHMARKS.md](docs/BENCHMARKS.md) Run 23).
 
 **What is still open is the seconds, and it is not a code change.** One call's cost belongs to
 the model and the machine; `landscape cost` counts the calls with no model running, and the

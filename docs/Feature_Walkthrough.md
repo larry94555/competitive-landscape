@@ -279,10 +279,14 @@ linear.app/careers                                   direction       0
 linear.app/plans                                     pricing         0   <- not read, one page a question
 linear.app/docs                                      features       12   <- not read, one page a question
 ------------------------------------------------------------------------
-                                             in total before content
-every admitted page, discovery's order             24              3
-as this run reads them                             12              0
+                                             in total before a first chance
+every admitted page, discovery's order             24                  1
+as this run reads them                             12                  0
 ```
+
+**"A first chance", not "content".** Extractors report after every window, so a reader's first
+chance comes one call into a page — and whether that call answers is unknowable without running
+it. The measured figure is the one `landscape read` prints below.
 
 **Two things are being decided there**, and both are ours rather than the model's.
 

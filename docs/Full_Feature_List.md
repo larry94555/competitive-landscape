@@ -106,8 +106,9 @@ with `cargo run -p landscape -- dev`, a `llama-server` beside it, and a browser.
 
 **What the last row actually bought.** The page that needs no model is read first, so first
 content on `linear.app` is **23 seconds and does not involve the model at all** — inside §2.1A's
-window. Each question is worth one page that needs a model, which takes the six demo companies
-from 128 model calls to 88, and the pages left unread are named on the report.
+window, and after review, not even dependent on the model being *reachable*. Each question is
+worth one page that needs a model, which takes the six demo companies from 128 model calls to 88,
+and the pages left unread are named on the report.
 
 **The seconds are still not settled, and that is not a code change.** One call's cost belongs to
 the model and the machine. `landscape cost` counts the calls with no model running; the

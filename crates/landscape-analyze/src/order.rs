@@ -141,8 +141,23 @@ pub fn plan(sources: &[Candidate]) -> Plan {
 /// a page holds are its price. This is the same span-finding code the run uses, called for its
 /// count rather than its content — not an estimate of the pipeline but the pipeline's own
 /// arithmetic, which is the only kind of prediction worth printing.
+///
+/// **The quality gate is applied here too**, and review is the reason: `analyse_with` skips a
+/// page that is not [`worth_extracting`] before any extractor sees it, and a counter that did
+/// not would report a call for a two-line page whose only words are a plan name and a price —
+/// below `MIN_WORDS`, so the real run never opens it, while `every_plan` happily finds a window
+/// on it. A prediction of the run has to include everything the run decides, or it is a
+/// prediction of a different program.
+///
+/// [`worth_extracting`]: landscape_extract::quality::Quality::worth_extracting
 #[must_use]
 pub fn model_calls_for(question: Answers, markdown: &str) -> usize {
+    if !landscape_extract::quality::assess(markdown)
+        .quality
+        .worth_extracting()
+    {
+        return 0;
+    }
     match question {
         Answers::Pricing => landscape_extract::span::every_plan(markdown).len(),
         Answers::Features => landscape_extract::capability::every_capability(markdown)
@@ -156,19 +171,58 @@ pub fn model_calls_for(question: Answers, markdown: &str) -> usize {
     }
 }
 
-/// Whether a page would put anything on screen, counted the same way.
+/// Whether a page is a *chance* of content — not a promise of it.
 ///
-/// Used to say *when* a reader first sees something rather than only what a run costs: a page
-/// with no windows is free and also produces nothing, and calling that "first content" would
-/// make the number this exists to report meaningless.
+/// **The distinction matters and review made it.** For a deterministic page this is exact: the
+/// dated entries are already parsed, so either they are there or they are not. For a
+/// model-backed page it means only that a window exists to ask about — whether the model
+/// answers, and whether the answer survives grounding, is unknowable without running it.
+///
+/// So everything counted from this is named an *opportunity*. The measured figure is the one
+/// `landscape read` prints after a real run.
 #[must_use]
-pub fn yields_content(question: Answers, markdown: &str) -> bool {
+pub fn may_yield_content(question: Answers, markdown: &str) -> bool {
     match question {
-        Answers::Changes => !landscape_extract::changes::every_change(markdown)
-            .entries
-            .is_empty(),
+        Answers::Changes => {
+            if !landscape_extract::quality::assess(markdown)
+                .quality
+                .worth_extracting()
+            {
+                return false;
+            }
+            !landscape_extract::changes::every_change(markdown)
+                .entries
+                .is_empty()
+        }
         _ => model_calls_for(question, markdown) > 0,
     }
+}
+
+/// Calls in total, and calls before the **first chance** of something on screen.
+///
+/// **One call on the page that first offers content, not all of its windows.** Review found the
+/// arithmetic: extractors report progress after *every* window, so a twelve-window first page
+/// gives a reader their first chance after one call rather than twelve. Counting the page as
+/// twelve made this pipeline look worse than it is, and made a number that is already an
+/// approximation look precise.
+#[must_use]
+pub fn tally(pages: impl Iterator<Item = (usize, bool)>) -> (usize, usize) {
+    let (mut total, mut before, mut seen) = (0usize, 0usize, false);
+    for (calls, may_yield) in pages {
+        total += calls;
+        if !seen {
+            if may_yield {
+                // The first opportunity on this page: one call, or none at all if the page
+                // needs no model.
+                before += usize::from(calls > 0);
+                seen = true;
+            } else {
+                // Nothing here to see, so everything it spends is spent before content.
+                before += calls;
+            }
+        }
+    }
+    (total, before)
 }
 
 #[cfg(test)]
@@ -294,6 +348,49 @@ mod tests {
             c("https://e.com/changelog", Answers::Changes),
         ]);
         assert_eq!(plan.note(), None);
+    }
+
+    #[test]
+    fn a_page_below_the_quality_floor_costs_what_the_run_will_spend_on_it() {
+        // Review found this. `analyse_with` skips a page that is not worth extracting before
+        // any extractor sees it, so the run makes no call — but the span finder, handed the
+        // same markdown directly, still finds a priced-plan window. A counter that reports one
+        // call there is predicting a different program.
+        let too_thin = "# Pro
+$10/month";
+        assert!(
+            !landscape_extract::quality::assess(too_thin)
+                .quality
+                .worth_extracting(),
+            "the fixture is no longer below the floor, so this test proves nothing"
+        );
+        assert!(
+            !landscape_extract::span::every_plan(too_thin).is_empty(),
+            "the fixture has no span, so a missing quality gate would not show up"
+        );
+        assert_eq!(model_calls_for(Answers::Pricing, too_thin), 0);
+        assert!(!may_yield_content(Answers::Pricing, too_thin));
+    }
+
+    #[test]
+    fn the_first_chance_of_content_is_one_call_and_not_a_whole_page() {
+        // Extractors report after every window, so a twelve-window first page gives a reader
+        // their first chance after one call. Counting twelve made the pipeline look worse than
+        // it is — and made a number that is already an approximation look precise.
+        assert_eq!(tally([(12, true), (8, true)].into_iter()), (20, 1));
+    }
+
+    #[test]
+    fn a_page_that_can_show_nothing_is_charged_in_full_before_content() {
+        // The other half. A page with no windows produces nothing, so everything spent on the
+        // pages before the first real chance still counts as waiting.
+        assert_eq!(tally([(3, false), (5, true)].into_iter()), (8, 4));
+    }
+
+    #[test]
+    fn a_deterministic_first_page_costs_nothing_before_content() {
+        // The whole point of reading it first, as arithmetic.
+        assert_eq!(tally([(0, true), (12, true)].into_iter()), (12, 0));
     }
 
     #[test]

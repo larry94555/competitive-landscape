@@ -37,7 +37,7 @@ mod stages;
 pub mod subject;
 
 pub use order::{
-    is_deterministic, model_calls_for, plan, yields_content, Plan, PAGES_PER_QUESTION,
+    is_deterministic, may_yield_content, model_calls_for, plan, tally, Plan, PAGES_PER_QUESTION,
 };
 pub use render::is_publishable;
 pub use sections::{title_for, SECTIONS};
@@ -357,7 +357,13 @@ pub async fn analyse_with(
     on_progress: &mut dyn FnMut(&Report) -> Wanted,
 ) -> Analysis {
     let found = landscape_discover::discover(fetcher, origin).await;
-    let model_ready = llm.is_ready().await;
+    // **Asked for at most once, and not until a page needs it.** Health is one request against
+    // the same client, and that client waits 180 seconds - the whole report budget - because
+    // prefill on four ARM cores is slow. An endpoint that accepts the connection and never
+    // answers would therefore have spent the entire wait *before the changelog was fetched*,
+    // which is this feature's central guarantee failing in exactly the case it is for: the
+    // model being unhealthy. Review found it. `None` means nobody has needed to know yet.
+    let mut model_ready: Option<bool> = None;
 
     // **When each page is read, and how many are read at all** — `order`. The page that needs
     // no model goes first so the first thing on screen costs a fetch rather than a chain of
@@ -424,8 +430,21 @@ pub async fn analyse_with(
         }
 
         // A changelog is parsed, not generated, so it is read whether or not a model is
-        // running — ARCHITECTURE §5.4. Everything else needs one.
-        if question != Answers::Changes && !model_ready {
+        // running — ARCHITECTURE §5.4. Everything else needs one, and this is the first place
+        // that is true, so this is where the question is finally asked.
+        let ready = if order::is_deterministic(question) {
+            true
+        } else {
+            match model_ready {
+                Some(known) => known,
+                None => {
+                    let asked = llm.is_ready().await;
+                    model_ready = Some(asked);
+                    asked
+                }
+            }
+        };
+        if !ready {
             pages.push(PageResult {
                 url: source.url.clone(),
                 question,
@@ -1124,6 +1143,66 @@ mod joining {
             outcome.report.notes.iter().any(|n| n.contains(last)),
             "{last} was dropped without the report saying so: {:?}",
             outcome.report.notes
+        );
+    }
+
+    /// A model endpoint that accepts the connection and then says nothing, for ever.
+    ///
+    /// **The failure mode a timeout is written for and a test almost never has.** An
+    /// unreachable address answers immediately - the connection is refused - so it exercises
+    /// none of the waiting. This accepts, holds the socket, and never writes a byte.
+    async fn a_model_that_never_answers(
+    ) -> (landscape_llm::LlamaClient, tokio::task::JoinHandle<()>) {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("bind a port for the stalling model");
+        let port = listener.local_addr().expect("the bound address").port();
+        let holding = tokio::spawn(async move {
+            let mut held = Vec::new();
+            while let Ok((socket, _)) = listener.accept().await {
+                // Kept alive deliberately: dropping it would close the connection and turn a
+                // stall into a fast error, which is the case this is not about.
+                held.push(socket);
+            }
+        });
+        (
+            landscape_llm::LlamaClient::new(format!("http://127.0.0.1:{port}")),
+            holding,
+        )
+    }
+
+    #[tokio::test]
+    async fn a_model_that_never_answers_does_not_delay_a_run_that_needs_no_model() {
+        // Review found this, and it is the whole feature failing in the case it exists for.
+        // `is_ready()` used to be awaited before the plan was built and before anything was
+        // fetched — on the same client, which waits 180 seconds because prefill on four ARM
+        // cores is slow. So a model that accepted connections and stalled would spend the
+        // entire report budget *before the changelog was opened*, and the page that needs no
+        // model would arrive after the wait it was supposed to remove.
+        //
+        // The origins are `.invalid` (RFC 2606), so nothing is fetched and no page ever needs
+        // the model. Health must therefore never be asked, and this must return at once.
+        let (stalling, holding) = a_model_that_never_answers().await;
+        let started = std::time::Instant::now();
+        let outcome = analyse_many(
+            &landscape_fetch::Fetcher::new(),
+            &stalling,
+            &unreachable(1),
+            at(),
+            at().date_naive(),
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+        let took = started.elapsed();
+        holding.abort();
+
+        assert!(
+            took < std::time::Duration::from_secs(30),
+            "a stalled model held up a run that needed no model: {took:?}"
+        );
+        assert!(
+            !outcome.report.sections.is_empty(),
+            "the run produced no report at all"
         );
     }
 

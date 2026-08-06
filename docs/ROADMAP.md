@@ -206,8 +206,12 @@ So D5 carried a hard constraint: **measure before promising.** That is now done,
 answer was the one predicted here — fewer pages and a read order that puts the deterministic
 changelog first, not a faster model. Each question is worth one page that needs a model and the
 skipped pages are named on the report; across the six demo companies that is **128 model calls
-down to 88**, with first content free for four of the six
+down to 88**, and for four of the six the first chance of content now costs no model call at all
 ([BENCHMARKS.md](BENCHMARKS.md) Run 23).
+
+**The larger part of that is a dependency rather than a count.** First content no longer waits on
+the model being *healthy*, which review found still true after the reorder: the readiness check
+ran before anything was fetched, on a client that waits 180 seconds.
 
 **The seconds are still not settled here, and cannot be.** One call's cost belongs to the model
 and the machine; `landscape cost` counts the calls with no model running, and `landscape read`
