@@ -39,6 +39,12 @@ the mutation could no longer fail — which is the thing this harness exists to 
 itself. It was re-aimed at a rule that was real and unenforced. **Retiring a mutation is a normal
 outcome; keeping one to preserve a green line is not.**
 
+**Not every property can be mutated.** *"A prompt that was refused costs nothing"* holds because
+the prompt is parsed before anything is counted — a structural fact, not a branch. Every
+single-line edit that removes it stops compiling, which `mutate.py` reports as `BROKEN` rather
+than pretending. The test stays; the mutation was dropped rather than left in the file proving
+nothing, and this paragraph is the reason it is absent.
+
 Every entry must be a defect a person can picture. `"labels are not reassigned when reports
 merge"` is one; `"change line 214"` is not, and will mean nothing to whoever reads it next.
 

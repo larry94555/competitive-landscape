@@ -216,8 +216,9 @@ chip-answerable, skippable, fired only when discovery fails to converge — Phas
 There is no authentication code in the repository — no session, no cookie, no magic link, no
 `users` table. The three migrations are `analyses`, `failure_kind` and `generation`. Everything
 runs anonymously — but no longer unlimited: **the specified 2/day anonymous cap is built**, per
-address, counted where a run starts. It needs no account, which is the point of it; what is
-still missing is everything a *signed-in* reader would get instead.
+address, counted where a run starts, and a failed analysis costs nothing. It needs no account,
+which is the point of it; what is still missing is everything a *signed-in* reader would get
+instead.
 
 Specified for Phase 3: magic-link auth, ~90-day sessions, free tier of 10 analyses/month,
 history, saved reports, usage meter, and GDPR export/delete.

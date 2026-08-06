@@ -26,9 +26,14 @@ pub enum ApiError {
     /// Separate from [`Self::BadRequestWithRemedy`] because it is not a mistake: nothing they
     /// typed was wrong, and a message implying otherwise would send them off editing a prompt
     /// that was fine.
+    ///
+    /// `resets` is carried rather than described. `UI_FLOWS.md` §2.2 requires the message to
+    /// say **when** the limit resets, and "tomorrow" is not that: the counter turns over at
+    /// midnight UTC, which west of it is later the same local day.
     TooManyToday {
         used: usize,
         limit: usize,
+        resets: chrono::DateTime<chrono::Utc>,
     },
     /// Something broke on our side. The detail is logged, never returned.
     Internal(String),
@@ -76,11 +81,16 @@ impl IntoResponse for ApiError {
                     reference: None,
                 },
             ),
-            Self::TooManyToday { used, limit } => (
+            Self::TooManyToday {
+                used,
+                limit,
+                resets,
+            } => (
                 StatusCode::TOO_MANY_REQUESTS,
                 Body {
                     error: format!(
-                        "You have started {used} analyses today, which is the free limit of {limit}."
+                        "You have started {used} analyses today, which is the free limit of {limit}. It resets at {} UTC.",
+                        resets.format("%H:%M on %-d %B")
                     ),
                     // **The honest remedy, not the specified one.** `PRODUCT_SPEC.md` §2.1
                     // offers "sign in for 10 a month" here; there are no accounts yet, and
@@ -89,8 +99,8 @@ impl IntoResponse for ApiError {
                     remedy: Some(
                         concat!(
                             "Each analysis reads live pages and runs a model for several ",
-                            "minutes, so the free limit is per day. Come back tomorrow, or ",
-                            "run your own copy - it is open source."
+                            "minutes, so the free limit is per day. An analysis that fails ",
+                            "does not count. Or run your own copy - it is open source."
                         )
                         .to_owned(),
                     ),

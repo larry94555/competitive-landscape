@@ -14,8 +14,8 @@
   },
   {
     "name": "the cap counts but never refuses",
-    "file": "crates/landscape-api/src/cap.rs",
-    "old": "        if *used >= self.limit {",
+    "file": "crates/landscape-api/src/routes.rs",
+    "old": "        if charged >= limit {",
     "new": "        if false {",
     "run": [
       "cargo",
@@ -28,8 +28,8 @@
   {
     "name": "one visitor's runs are counted against everybody",
     "file": "crates/landscape-api/src/cap.rs",
-    "old": "        let key = self.keys.hash_one(client);",
-    "new": "        let key = 0u64;",
+    "old": "            .get(&self.keys.hash_one(client))",
+    "new": "            .get(&0u64)",
     "run": [
       "cargo",
       "nextest",
@@ -39,10 +39,10 @@
     ]
   },
   {
-    "name": "yesterday's counts are kept, so nobody gets a new day",
+    "name": "yesterday's runs are kept, so nobody gets a new day",
     "file": "crates/landscape-api/src/cap.rs",
-    "old": "        if state.on != today {\n            state.on = today;\n            state.counts.clear();\n        }",
-    "new": "        state.on = today;",
+    "old": "        if state.on != today {\n            state.on = today;\n            state.started.clear();\n        }\n        state\n            .started\n            .get(&self.keys.hash_one(client))",
+    "new": "        state.on = today;\n        state\n            .started\n            .get(&self.keys.hash_one(client))",
     "run": [
       "cargo",
       "nextest",
@@ -54,8 +54,8 @@
   {
     "name": "a laptop with no proxy in front of it is capped like a stranger",
     "file": "crates/landscape-api/src/cap.rs",
-    "old": "        let Some(client) = client else {\n            return Allowed::Yes;\n        };",
-    "new": "        let client = client.unwrap_or(\"local\");",
+    "old": "        client.is_some() && self.limit > 0",
+    "new": "        self.limit > 0",
     "run": [
       "cargo",
       "nextest",
@@ -67,8 +67,8 @@
   {
     "name": "a misconfigured limit of zero refuses everybody instead of nobody",
     "file": "crates/landscape-api/src/cap.rs",
-    "old": "        if self.limit == 0 {\n            return Allowed::Yes;\n        }",
-    "new": "        if false {\n            return Allowed::Yes;\n        }",
+    "old": "        client.is_some() && self.limit > 0",
+    "new": "        client.is_some()",
     "run": [
       "cargo",
       "nextest",
@@ -78,10 +78,23 @@
     ]
   },
   {
-    "name": "the cap is applied after the prompt is parsed, so bad prompts are free",
+    "name": "an analysis the worker failed is still charged for",
     "file": "crates/landscape-api/src/routes.rs",
-    "old": "    if let crate::cap::Allowed::No { used, limit } = state\n        .cap\n        .allow(client.as_deref(), chrono::Utc::now().date_naive())\n    {\n        return Err(ApiError::TooManyToday { used, limit });\n    }\n\n    let new = NewAnalysis::parse(&body.prompt)?;",
-    "new": "    let new = NewAnalysis::parse(&body.prompt)?;\n    if let crate::cap::Allowed::No { used, limit } = state\n        .cap\n        .allow(client.as_deref(), chrono::Utc::now().date_naive())\n    {\n        return Err(ApiError::TooManyToday { used, limit });\n    }\n",
+    "old": "                Ok(analysis) if analysis.status == AnalysisStatus::Failed => {}",
+    "new": "                Ok(_) => charged += 1,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "the reset instant is the moment asked rather than the next midnight",
+    "file": "crates/landscape-api/src/cap.rs",
+    "old": "    (now.date_naive() + chrono::Days::new(1))",
+    "new": "    (now.date_naive() + chrono::Days::new(0))",
     "run": [
       "cargo",
       "nextest",
@@ -93,7 +106,7 @@
   {
     "name": "the refusal says no and offers nothing to do about it",
     "file": "crates/landscape-api/src/error.rs",
-    "old": "                    remedy: Some(\n                        concat!(\n                            \"Each analysis reads live pages and runs a model for several \",\n                            \"minutes, so the free limit is per day. Come back tomorrow, or \",\n                            \"run your own copy - it is open source.\"\n                        )\n                        .to_owned(),\n                    ),",
+    "old": "                    remedy: Some(\n                        concat!(\n                            \"Each analysis reads live pages and runs a model for several \",\n                            \"minutes, so the free limit is per day. An analysis that fails \",\n                            \"does not count. Or run your own copy - it is open source.\"\n                        )\n                        .to_owned(),\n                    ),",
     "new": "                    remedy: None,",
     "run": [
       "cargo",

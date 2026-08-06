@@ -34,8 +34,10 @@ on the application being reachable only through the proxy, which is what `BIND_A
 loopback arranges.
 
 **Two a day is not a wall, and this is still worth knowing.** The cap is per address, it resets
-at midnight UTC, and it is held in memory — so a restart clears it. It stops a URL being drained
-by strangers; it is not an accounting record.
+at midnight UTC — which the refusal states, rather than saying "tomorrow" — and it is held in
+memory, so a restart clears it. **A failed analysis costs nothing**, including one the worker
+fails after accepting it. It stops a URL being drained by strangers; it is not an accounting
+record.
 
 **Keep the allow-list in step 8 anyway while you are trying this out.** Two analyses a day from
 each of many addresses is still more than four ARM cores will enjoy, and until you want an

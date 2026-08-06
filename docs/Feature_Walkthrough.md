@@ -362,14 +362,41 @@ And the body says what to do rather than only what went wrong:
 
 ```json
 {
-    "error": "You have started 2 analyses today, which is the free limit of 2.",
-    "remedy": "Each analysis reads live pages and runs a model for several minutes, so the free limit is per day. Come back tomorrow, or run your own copy - it is open source."
+    "error": "You have started 2 analyses today, which is the free limit of 2. It resets at 00:00 on 7 August UTC.",
+    "remedy": "Each analysis reads live pages and runs a model for several minutes, so the free limit is per day. An analysis that fails does not count. Or run your own copy - it is open source."
 }
 ```
 
-**Why it matters.** The remedy is the honest one. `PRODUCT_SPEC.md` offers *"sign in for 10 a
-month"* at this moment, and there are no accounts yet — sending somebody to a door that does not
-exist would be worse than telling them to come back.
+**It says when, not "tomorrow".** `UI_FLOWS.md` §2.2 asks for the instant, and review pointed
+out that the word is ambiguous: the counter turns over at midnight UTC, which west of it is
+later the same local day.
+
+**And the remedy is the honest one.** `PRODUCT_SPEC.md` offers *"sign in for 10 a month"* at
+this moment, and there are no accounts yet — sending somebody to a door that does not exist
+would be worse than telling them what does work.
+
+### A failed analysis costs nothing
+
+`PRODUCT_SPEC.md` §2.1 and `UI_FLOWS.md` §2.2 both say so. **Do this** from a fresh address:
+
+```bash
+curl -sX POST http://127.0.0.1:8787/api/analyses -H 'content-type: application/json' -H 'x-forwarded-for: 203.0.113.9' -d '{"prompt":"a crm"}' -o /dev/null -w 'bad prompt %{http_code}
+'
+curl -sX POST http://127.0.0.1:8787/api/analyses -H 'content-type: application/json' -H 'x-forwarded-for: 203.0.113.9' -d '{"prompt":"an app that helps small farms sell to local restaurants"}' -o /dev/null -w 'then      %{http_code}
+'
+```
+
+**You should see:**
+
+```text
+bad prompt 400
+then      201
+```
+
+A typo spends nothing. Nothing is reserved at all: what is kept is the list of analyses the
+address started, and how many still count is asked of the store on each request — so a run the
+*worker* later marks failed stops counting too, which matters because the worker is a different
+process and there would be nowhere to send a refund.
 
 ### What is not capped
 

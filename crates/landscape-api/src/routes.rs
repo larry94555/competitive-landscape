@@ -218,23 +218,50 @@ async fn create_analysis(
     headers: axum::http::HeaderMap,
     ValidJson(body): ValidJson<CreateAnalysis>,
 ) -> Result<(StatusCode, Json<Analysis>), ApiError> {
-    // **Here and nowhere else.** This is the only request that starts minutes of work on the
-    // one model this machine has; reading a report, watching one arrive, or listing the
+    // **The prompt is checked first, and nothing is reserved.** `PRODUCT_SPEC.md` §2.1 and
+    // `UI_FLOWS.md` §2.2 both say a failed analysis costs nothing; the first version of this
+    // counted before parsing, so a typo spent half of somebody's day. Review found it.
+    let new = NewAnalysis::parse(&body.prompt)?;
+
+    // Counted here and nowhere else. This is the only request that starts minutes of work on
+    // the one model this machine has; reading a report, watching one arrive, or listing the
     // examples cost nothing worth rationing, and capping them would cut off a reader in the
     // middle of something they already started.
-    //
-    // Before the prompt is parsed, because a prompt that fails still occupied the endpoint,
-    // and a cap that only counted valid ones would be walked past with invalid ones.
     let client =
         crate::cap::client_in(headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()));
-    if let crate::cap::Allowed::No { used, limit } = state
-        .cap
-        .allow(client.as_deref(), chrono::Utc::now().date_naive())
-    {
-        return Err(ApiError::TooManyToday { used, limit });
+    if state.cap.applies_to(client.as_deref()) {
+        let client = client.unwrap_or_default();
+        let now = chrono::Utc::now();
+        let started = state.cap.started_today(&client, now.date_naive());
+
+        // **How many still count is asked of the store, not remembered.** A run the worker
+        // later marked failed is not charged for - and the worker is a different process, so
+        // there is nowhere a refund could have been sent even if one had been reserved.
+        let mut charged = 0usize;
+        for id in started {
+            match state.store.get(id).await {
+                Ok(analysis) if analysis.status == AnalysisStatus::Failed => {}
+                // A row that cannot be read is counted rather than forgiven: the alternative
+                // is that a store hiccup hands out an unlimited allowance.
+                _ => charged += 1,
+            }
+        }
+
+        let limit = state.cap.limit();
+        if charged >= limit {
+            return Err(ApiError::TooManyToday {
+                used: charged,
+                limit,
+                resets: crate::cap::resets_after(now),
+            });
+        }
+
+        let analysis = state.store.enqueue(&new).await?;
+        // After the store accepted it, so an enqueue that fails costs nothing either.
+        state.cap.record(&client, now.date_naive(), analysis.id);
+        return Ok((StatusCode::CREATED, Json(analysis)));
     }
 
-    let new = NewAnalysis::parse(&body.prompt)?;
     let analysis = state.store.enqueue(&new).await?;
     Ok((StatusCode::CREATED, Json(analysis)))
 }
@@ -292,11 +319,18 @@ mod tests {
     /// A router whose cap allows `limit` a day, so the number under test is the number here
     /// rather than whatever the environment happens to hold.
     fn app_capped_at(limit: usize) -> axum::Router {
+        capped_with_store(limit).0
+    }
+
+    /// The same, keeping the store — for the tests that need to drive a run to a terminal
+    /// state the way the worker would.
+    fn capped_with_store(limit: usize) -> (axum::Router, Arc<dyn Store>) {
         let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
-        router(AppState {
-            store,
+        let app = router(AppState {
+            store: Arc::clone(&store),
             cap: Arc::new(crate::cap::Cap::of(limit)),
-        })
+        });
+        (app, store)
     }
 
     /// The same POST, arriving through a reverse proxy that has appended what it saw.
@@ -342,8 +376,16 @@ mod tests {
         assert!(
             body["remedy"]
                 .as_str()
-                .is_some_and(|r| r.contains("tomorrow")),
+                .is_some_and(|r| r.contains("does not count")),
             "a refusal with no way forward is a dead end: {body}"
+        );
+        // `UI_FLOWS.md` section 2.2: the message says **when** it resets. "Tomorrow" is not
+        // that - west of UTC the allowance comes back later the same local day.
+        assert!(
+            body["error"]
+                .as_str()
+                .is_some_and(|e| e.contains("resets at") && e.contains("UTC")),
+            "the refusal does not say when the limit resets: {body}"
         );
         // A rejected request is fully explained by its own message. A reference here would
         // suggest they have hit something worth reporting.
@@ -449,10 +491,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_prompt_that_is_refused_still_costs_one_of_the_day() {
-        // Counted before the prompt is parsed. Otherwise the endpoint can be walked past with
-        // prompts that fail - each one still occupying it - and the cap counts only the
-        // requests that were going to be fine anyway.
+    async fn a_prompt_that_was_refused_costs_nothing() {
+        // `PRODUCT_SPEC.md` §2.1: *"a failed analysis costs nothing"*. The first version of
+        // this counted before the prompt was parsed, so a typo spent half of somebody's day -
+        // and nothing had started, no page was read and no model was asked anything. Review
+        // found it.
         let app = app_capped_at(1);
         let res = app
             .clone()
@@ -465,7 +508,60 @@ mod tests {
             .oneshot(post_from("198.51.100.7", IDEA))
             .await
             .expect("response");
+        assert_eq!(
+            res.status(),
+            StatusCode::CREATED,
+            "a rejected prompt was charged for"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_analysis_the_worker_failed_gives_the_allowance_back() {
+        // The other half, and the one that decides the shape: a run can fail *after* it was
+        // accepted, in a different process. There is nowhere a reservation could be refunded
+        // to - so nothing is reserved, and how many still count is asked of the store.
+        let (app, store) = capped_with_store(1);
+
+        let created = app
+            .clone()
+            .oneshot(post_from("198.51.100.7", IDEA))
+            .await
+            .expect("response");
+        assert_eq!(created.status(), StatusCode::CREATED);
+
+        // Spent, until it fails.
+        let res = app
+            .clone()
+            .oneshot(post_from("198.51.100.7", IDEA))
+            .await
+            .expect("response");
         assert_eq!(res.status(), StatusCode::TOO_MANY_REQUESTS);
+
+        // What the worker does to a prompt naming no company: claim it, then fail it.
+        let claimed = store
+            .claim_next()
+            .await
+            .expect("claim")
+            .expect("one queued");
+        store
+            .fail(
+                claimed.id,
+                claimed.generation,
+                landscape_core::Failure::NoSubject,
+                "no company named",
+            )
+            .await
+            .expect("fail");
+
+        let res = app
+            .oneshot(post_from("198.51.100.7", IDEA))
+            .await
+            .expect("response");
+        assert_eq!(
+            res.status(),
+            StatusCode::CREATED,
+            "a failed analysis was still charged for"
+        );
     }
 
     #[tokio::test]

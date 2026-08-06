@@ -28,9 +28,22 @@
 //! would make the application unusable to the person building it, and the threat this exists
 //! for arrives over the internet.
 //!
+//! # A failed analysis costs nothing
+//!
+//! `PRODUCT_SPEC.md` §2.1 and `UI_FLOWS.md` §2.2 both say so, and the first version of this
+//! did the opposite: it reserved an allowance before the prompt was even parsed, so a typo
+//! spent half of somebody's day. Review found it.
+//!
+//! **Nothing is reserved now.** What is kept is the *list of analyses this address started
+//! today*, and how many of them still count is asked of the store each time — a run that ended
+//! in [`AnalysisStatus::Failed`] is not one of them. That makes the rule fall out of the data
+//! rather than needing a refund path, which matters because there is nowhere to refund *to*:
+//! the API and the worker are separate processes, and a run that fails does so in the other
+//! one.
+//!
 //! # What is stored
 //!
-//! A keyed hash of the address and a count, in memory, for one day.
+//! A keyed hash of the address, and the ids it started, in memory, for one day.
 //!
 //! The key comes from [`RandomState`] — the operating system's randomness, fresh per process —
 //! so the table cannot be read back to an address, and a restart makes yesterday's hashes
@@ -39,7 +52,10 @@
 //!
 //! **A restart resets the counts.** That is the honest cost of not putting this in the
 //! database, and it is proportionate: the cap exists to stop a URL being drained by strangers,
-//! not to be an accounting record. If it ever needs to survive a restart, it needs a table.
+//! not to be an accounting record. If it ever needs to survive a restart, it needs a table —
+//! and an address in that table, which is a privacy decision rather than a schema one.
+//!
+//! [`AnalysisStatus::Failed`]: landscape_core::AnalysisStatus::Failed
 //!
 //! [`DEPLOY.md`]: https://github.com/larry94555/competitive-landscape/blob/main/docs/DEPLOY.md
 //! [`RandomState`]: std::collections::hash_map::RandomState
@@ -49,7 +65,8 @@ use std::collections::HashMap;
 use std::hash::BuildHasher;
 use std::sync::Mutex;
 
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
+use landscape_core::AnalysisId;
 
 /// Analyses one anonymous address may start in a day, unless configured otherwise.
 ///
@@ -69,14 +86,16 @@ pub enum Allowed {
     No { used: usize, limit: usize },
 }
 
-/// The counts, for today.
+/// What each address started today.
 #[derive(Debug)]
 struct Today {
     on: NaiveDate,
-    counts: HashMap<u64, usize>,
+    /// Ids rather than a number, because whether one still counts is a question about the
+    /// analysis and can change after it was started.
+    started: HashMap<u64, Vec<AnalysisId>>,
 }
 
-/// How many runs each anonymous address has started today.
+/// Which runs each anonymous address has started today.
 #[derive(Debug)]
 pub struct Cap {
     limit: usize,
@@ -97,7 +116,7 @@ impl Cap {
                 // than assumed. Starting from a real clock read here would be one more thing
                 // that cannot be tested without waiting.
                 on: NaiveDate::default(),
-                counts: HashMap::new(),
+                started: HashMap::new(),
             }),
         }
     }
@@ -122,46 +141,72 @@ impl Cap {
         self.limit
     }
 
-    /// Count one attempt, and say whether it may proceed.
+    /// Whether this cap applies to this request at all.
     ///
-    /// `client` is `None` when the request did not arrive through a proxy — see the module
-    /// documentation. `today` is an argument rather than a clock read, so "it resets tomorrow"
-    /// is a test rather than a promise.
+    /// `None` means the request did not arrive through a proxy — see the module documentation
+    /// — and a limit of zero is read as "no cap", because refusing everybody is a plausible
+    /// thing to configure by accident and never a thing to configure on purpose.
+    #[must_use]
+    pub const fn applies_to(&self, client: Option<&str>) -> bool {
+        client.is_some() && self.limit > 0
+    }
+
+    /// The analyses this address started today, oldest first.
     ///
-    /// **Counted before the run, not after.** A run that fails still spent the machine's time,
-    /// and a cap that only counted successes would be defeated by prompts that fail.
-    pub fn allow(&self, client: Option<&str>, today: NaiveDate) -> Allowed {
-        let Some(client) = client else {
-            return Allowed::Yes;
-        };
-        // A limit of zero would refuse everybody, which is a plausible thing to configure by
-        // accident and never a thing to configure on purpose.
-        if self.limit == 0 {
-            return Allowed::Yes;
-        }
-
-        let key = self.keys.hash_one(client);
-
+    /// **Ids, not a count.** How many of them still count against the day is a question about
+    /// each analysis — a failed one costs nothing — and the caller is the one that can ask.
+    ///
+    /// `today` is an argument rather than a clock read, so "it resets tomorrow" is a test
+    /// rather than a promise.
+    pub fn started_today(&self, client: &str, today: NaiveDate) -> Vec<AnalysisId> {
         let Ok(mut state) = self.today.lock() else {
             // A poisoned lock means another thread panicked holding it. Refusing every request
             // afterwards would turn one panic into an outage; the cap is a guard rail, and a
             // guard rail that fails closed on the whole site is worse than one that fails open.
-            return Allowed::Yes;
+            return Vec::new();
         };
         if state.on != today {
             state.on = today;
-            state.counts.clear();
+            state.started.clear();
         }
-        let used = state.counts.entry(key).or_insert(0);
-        if *used >= self.limit {
-            return Allowed::No {
-                used: *used,
-                limit: self.limit,
-            };
-        }
-        *used += 1;
-        Allowed::Yes
+        state
+            .started
+            .get(&self.keys.hash_one(client))
+            .cloned()
+            .unwrap_or_default()
     }
+
+    /// Remember that this address started this analysis.
+    ///
+    /// **Called after the store accepted it**, so a prompt that was refused and an enqueue that
+    /// failed both cost nothing — which is what `PRODUCT_SPEC.md` §2.1 asks for and what the
+    /// first version of this got wrong.
+    pub fn record(&self, client: &str, today: NaiveDate, started: AnalysisId) {
+        let Ok(mut state) = self.today.lock() else {
+            return;
+        };
+        if state.on != today {
+            state.on = today;
+            state.started.clear();
+        }
+        state
+            .started
+            .entry(self.keys.hash_one(client))
+            .or_default()
+            .push(started);
+    }
+}
+
+/// The instant this day's allowance comes back: the next midnight, UTC.
+///
+/// **Stated rather than implied.** `UI_FLOWS.md` §2.2 requires the refusal to say *when* it
+/// resets, and "come back tomorrow" is not that: west of UTC the allowance returns later the
+/// same local day, and east of it, sooner than the word suggests.
+#[must_use]
+pub fn resets_after(now: DateTime<Utc>) -> DateTime<Utc> {
+    (now.date_naive() + chrono::Days::new(1))
+        .and_hms_opt(0, 0, 0)
+        .map_or(now, |midnight| midnight.and_utc())
 }
 
 impl Default for Cap {
@@ -193,38 +238,32 @@ mod tests {
         NaiveDate::from_ymd_opt(2026, 8, n).expect("a real date")
     }
 
-    #[test]
-    fn two_analyses_are_allowed_and_the_third_is_not() {
-        // PRODUCT_SPEC §2.1's number, as behaviour.
-        let cap = Cap::of(2);
-        assert_eq!(cap.allow(Some("198.51.100.7"), day(6)), Allowed::Yes);
-        assert_eq!(cap.allow(Some("198.51.100.7"), day(6)), Allowed::Yes);
-        assert_eq!(
-            cap.allow(Some("198.51.100.7"), day(6)),
-            Allowed::No { used: 2, limit: 2 }
-        );
+    fn an_id() -> AnalysisId {
+        AnalysisId::new()
     }
 
     #[test]
-    fn one_address_using_it_all_does_not_refuse_anybody_else() {
+    fn what_an_address_started_today_comes_back() {
+        let cap = Cap::of(2);
+        let first = an_id();
+        cap.record("198.51.100.7", day(6), first);
+        assert_eq!(cap.started_today("198.51.100.7", day(6)), vec![first]);
+    }
+
+    #[test]
+    fn one_address_does_not_see_another_one_s_runs() {
         // The failure that would make this worse than having no cap: one visitor exhausting
         // the day for everybody who arrives after them.
         let cap = Cap::of(2);
-        for _ in 0..5 {
-            cap.allow(Some("198.51.100.7"), day(6));
-        }
-        assert_eq!(cap.allow(Some("203.0.113.9"), day(6)), Allowed::Yes);
+        cap.record("198.51.100.7", day(6), an_id());
+        assert!(cap.started_today("203.0.113.9", day(6)).is_empty());
     }
 
     #[test]
     fn tomorrow_starts_again() {
         let cap = Cap::of(1);
-        assert_eq!(cap.allow(Some("198.51.100.7"), day(6)), Allowed::Yes);
-        assert!(matches!(
-            cap.allow(Some("198.51.100.7"), day(6)),
-            Allowed::No { .. }
-        ));
-        assert_eq!(cap.allow(Some("198.51.100.7"), day(7)), Allowed::Yes);
+        cap.record("198.51.100.7", day(6), an_id());
+        assert!(cap.started_today("198.51.100.7", day(7)).is_empty());
     }
 
     #[test]
@@ -232,10 +271,10 @@ mod tests {
         // The memory half of the same rule. A map that only ever grew would be a slow leak on
         // a box with 24GB and no restarts.
         let cap = Cap::of(2);
-        cap.allow(Some("198.51.100.7"), day(6));
-        cap.allow(Some("203.0.113.9"), day(6));
-        cap.allow(Some("192.0.2.1"), day(7));
-        let held = cap.today.lock().expect("not poisoned").counts.len();
+        cap.record("198.51.100.7", day(6), an_id());
+        cap.record("203.0.113.9", day(6), an_id());
+        cap.record("192.0.2.1", day(7), an_id());
+        let held = cap.today.lock().expect("not poisoned").started.len();
         assert_eq!(held, 1, "yesterday's addresses are still being counted");
     }
 
@@ -243,15 +282,13 @@ mod tests {
     fn a_request_that_did_not_come_through_a_proxy_is_not_capped() {
         // A laptop. Two a day would make the application unusable to whoever is building it,
         // and the abuse this exists for arrives over the internet.
-        let cap = Cap::of(1);
-        assert_eq!(cap.allow(None, day(6)), Allowed::Yes);
-        assert_eq!(cap.allow(None, day(6)), Allowed::Yes);
+        assert!(!Cap::of(1).applies_to(None));
     }
 
     #[test]
     fn a_limit_of_zero_is_read_as_no_cap_rather_than_no_service() {
-        let cap = Cap::of(0);
-        assert_eq!(cap.allow(Some("198.51.100.7"), day(6)), Allowed::Yes);
+        assert!(!Cap::of(0).applies_to(Some("198.51.100.7")));
+        assert!(Cap::of(1).applies_to(Some("198.51.100.7")));
     }
 
     #[test]
@@ -267,16 +304,15 @@ mod tests {
     }
 
     #[test]
-    fn a_forged_header_cannot_buy_a_second_allowance() {
-        // The same point, as the behaviour a person would see rather than a parse.
+    fn a_forged_header_lands_in_the_same_bucket_as_the_honest_one() {
+        // The same point, as the behaviour rather than the parse: both spellings of the same
+        // client have to be one address, or one machine has as many allowances as it likes.
         let cap = Cap::of(1);
-        let first = client_in(Some("198.51.100.7"));
-        let forged = client_in(Some("10.0.0.99, 198.51.100.7"));
-        assert_eq!(cap.allow(first.as_deref(), day(6)), Allowed::Yes);
-        assert!(matches!(
-            cap.allow(forged.as_deref(), day(6)),
-            Allowed::No { .. }
-        ));
+        let honest = client_in(Some("198.51.100.7")).expect("an address");
+        let forged = client_in(Some("10.0.0.99, 198.51.100.7")).expect("an address");
+        let started = an_id();
+        cap.record(&honest, day(6), started);
+        assert_eq!(cap.started_today(&forged, day(6)), vec![started]);
     }
 
     #[test]
@@ -292,5 +328,23 @@ mod tests {
             client_in(Some("198.51.100.7")).as_deref(),
             Some("198.51.100.7")
         );
+    }
+
+    #[test]
+    fn the_allowance_comes_back_at_the_next_midnight_utc() {
+        // `UI_FLOWS.md` §2.2 asks the refusal to say *when*, so the instant has to be a value
+        // rather than a word. Late in the day and early in it must both land on the same
+        // boundary, or the sentence is worse than "tomorrow" was.
+        let late = "2026-08-06T23:59:00Z"
+            .parse::<DateTime<Utc>>()
+            .expect("a real instant");
+        let early = "2026-08-06T00:01:00Z"
+            .parse::<DateTime<Utc>>()
+            .expect("a real instant");
+        let midnight = "2026-08-07T00:00:00Z"
+            .parse::<DateTime<Utc>>()
+            .expect("a real instant");
+        assert_eq!(resets_after(late), midnight);
+        assert_eq!(resets_after(early), midnight);
     }
 }
