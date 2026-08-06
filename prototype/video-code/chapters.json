@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "The wait",
-    "blurb": "The pipeline's share of the wait is not the model's speed but how often it asks. The page that needs no model is read first, so first content is 23 seconds with nothing loaded; each question is worth one page that does, taking six companies from 128 model calls to 88, with everything skipped named on the report.",
-    "seconds": 46.8
+    "title": "Two a day",
+    "blurb": "A public URL with no cap is an invitation to spend a machine that has one model and four cores. Two analyses a day per address, read from the entry the proxy observed rather than the one a client claims, counted where a run starts so a reader is never cut off — and a refusal that says what to do rather than only what went wrong.",
+    "seconds": 43.9
   }
 ]

@@ -107,6 +107,7 @@ Add `--store memory` to any of them to skip Postgres entirely.
 | `DATABASE_URL` | *(none)* | Required unless `--store memory` |
 | `BIND_ADDR` | `127.0.0.1:8787` | Change if the port is taken |
 | `RUST_LOG` | `landscape=info` | `landscape=debug` for query-level detail |
+| `ANONYMOUS_DAILY_LIMIT` | `2` | Analyses one address may start in a day. Only counts requests that arrived through a reverse proxy |
 
 ### Ports
 

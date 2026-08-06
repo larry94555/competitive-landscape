@@ -31,6 +31,7 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | **The whole path: discover, fetch, convert, extract plans and capabilities** | **Yes** — Part 8E |
 | **Ideas to start from, over companies checked against the live web** | **Yes** — Part 2B |
 | **What a run will cost a model, counted without one** | **Yes** — Part 2C |
+| **A cap on how much of the box one stranger may spend** | **Yes** — Part 2D |
 | Reading real web pages *as part of a report* | No — the fetcher exists, nothing calls it yet |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
 | Accounts, quotas, payment | No |
@@ -162,9 +163,12 @@ three ideas to start from. **Analyse** is greyed out until you type something.
 a report came back — with the page polling until it settled. The report is empty because
 nothing fetches yet, but the *shape* is the real one.
 
-The box clearing is deliberate. Without an account you get one analysis a day, and an empty
-box is what says so — a box still holding your words invites you to press Analyse again and
-be refused.
+The box clearing is deliberate. Without an account you get **two analyses a day** — and an
+empty box is what says so, because a box still holding your words invites you to press Analyse
+again and be refused.
+
+**You will not hit that limit here.** The cap counts the address a reverse proxy reports, and a
+laptop has none in front of it — see Part 2D.
 
 ### Now break it
 
@@ -322,6 +326,73 @@ time went on your machine.
 `cargo run -p landscape -- cost https://basecamp.com`: nothing to reorder, no second pages to
 skip, same fourteen calls. A change that does nothing for some companies should do *nothing*
 for them, visibly.
+
+---
+
+## Part 2D — Two a day, and only for strangers
+
+`PRODUCT_SPEC.md` §2.1 allows an anonymous visitor **two analyses a day**. One request starts
+minutes of work on the only model the machine has, so a public URL with no cap is an invitation
+to spend all of it.
+
+**A laptop is not a stranger.** The cap counts the address a reverse proxy reports in
+`X-Forwarded-For`; a request straight to the binary has none, so nothing you do locally is
+counted. That is why Part 2 never runs out.
+
+**Do this** to see it anyway — the header is all it takes, because that is exactly what a proxy
+would send:
+
+```bash
+for i in 1 2 3; do
+  curl -sX POST http://127.0.0.1:8787/api/analyses \
+    -H 'content-type: application/json' \
+    -H 'x-forwarded-for: 198.51.100.7' \
+    -d '{"prompt":"an app that helps small farms sell to local restaurants"}' \
+    -w ' <- %{http_code}\n' -o /dev/null
+done
+```
+
+**You should see** two `201`s and then:
+
+```text
+ <- 429
+```
+
+And the body says what to do rather than only what went wrong:
+
+```json
+{
+    "error": "You have started 2 analyses today, which is the free limit of 2.",
+    "remedy": "Each analysis reads live pages and runs a model for several minutes, so the free limit is per day. Come back tomorrow, or run your own copy - it is open source."
+}
+```
+
+**Why it matters.** The remedy is the honest one. `PRODUCT_SPEC.md` offers *"sign in for 10 a
+month"* at this moment, and there are no accounts yet — sending somebody to a door that does not
+exist would be worse than telling them to come back.
+
+### What is not capped
+
+**Do this**, with the same header, after being refused:
+
+```bash
+curl -s http://127.0.0.1:8787/api/examples -H 'x-forwarded-for: 198.51.100.7' -o /dev/null -w '%{http_code}\n'
+```
+
+**You should see** `200`. Reading a report, watching one arrive over the stream, reloading its
+URL and looking at the example ideas are all free. **The cap counts where a run starts** — a
+reader cut off in the middle of something they already began would be a limit doing more damage
+than the thing it prevents.
+
+### Changing it
+
+```bash
+ANONYMOUS_DAILY_LIMIT=10 cargo run -p landscape -- dev --store memory
+```
+
+Unset is two. It resets at midnight UTC, it is held in memory so a restart clears it, and the
+address is stored as a keyed hash whose key is new in every process — so the table cannot be
+read back to anybody.
 
 ---
 

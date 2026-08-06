@@ -21,6 +21,15 @@ pub enum ApiError {
         remedy: String,
     },
     NotFound,
+    /// The caller has had their share of the day.
+    ///
+    /// Separate from [`Self::BadRequestWithRemedy`] because it is not a mistake: nothing they
+    /// typed was wrong, and a message implying otherwise would send them off editing a prompt
+    /// that was fine.
+    TooManyToday {
+        used: usize,
+        limit: usize,
+    },
     /// Something broke on our side. The detail is logged, never returned.
     Internal(String),
 }
@@ -64,6 +73,29 @@ impl IntoResponse for ApiError {
                 Body {
                     error: "No analysis with that reference.".to_owned(),
                     remedy: Some("It may have been removed. Start a new one.".to_owned()),
+                    reference: None,
+                },
+            ),
+            Self::TooManyToday { used, limit } => (
+                StatusCode::TOO_MANY_REQUESTS,
+                Body {
+                    error: format!(
+                        "You have started {used} analyses today, which is the free limit of {limit}."
+                    ),
+                    // **The honest remedy, not the specified one.** `PRODUCT_SPEC.md` §2.1
+                    // offers "sign in for 10 a month" here; there are no accounts yet, and
+                    // sending somebody to a door that does not exist is worse than telling
+                    // them to come back. This sentence changes when signing in does.
+                    remedy: Some(
+                        concat!(
+                            "Each analysis reads live pages and runs a model for several ",
+                            "minutes, so the free limit is per day. Come back tomorrow, or ",
+                            "run your own copy - it is open source."
+                        )
+                        .to_owned(),
+                    ),
+                    // No reference, for the same reason a rejected prompt has none: nothing
+                    // went wrong that anybody needs to look up.
                     reference: None,
                 },
             ),

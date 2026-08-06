@@ -1,0 +1,106 @@
+[
+  {
+    "name": "the leftmost forwarded entry is trusted, so a client names its own address",
+    "file": "crates/landscape-api/src/cap.rs",
+    "old": "        .rsplit(',')",
+    "new": "        .split(',')",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "the cap counts but never refuses",
+    "file": "crates/landscape-api/src/cap.rs",
+    "old": "        if *used >= self.limit {",
+    "new": "        if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "one visitor's runs are counted against everybody",
+    "file": "crates/landscape-api/src/cap.rs",
+    "old": "        let key = self.keys.hash_one(client);",
+    "new": "        let key = 0u64;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "yesterday's counts are kept, so nobody gets a new day",
+    "file": "crates/landscape-api/src/cap.rs",
+    "old": "        if state.on != today {\n            state.on = today;\n            state.counts.clear();\n        }",
+    "new": "        state.on = today;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "a laptop with no proxy in front of it is capped like a stranger",
+    "file": "crates/landscape-api/src/cap.rs",
+    "old": "        let Some(client) = client else {\n            return Allowed::Yes;\n        };",
+    "new": "        let client = client.unwrap_or(\"local\");",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "a misconfigured limit of zero refuses everybody instead of nobody",
+    "file": "crates/landscape-api/src/cap.rs",
+    "old": "        if self.limit == 0 {\n            return Allowed::Yes;\n        }",
+    "new": "        if false {\n            return Allowed::Yes;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "the cap is applied after the prompt is parsed, so bad prompts are free",
+    "file": "crates/landscape-api/src/routes.rs",
+    "old": "    if let crate::cap::Allowed::No { used, limit } = state\n        .cap\n        .allow(client.as_deref(), chrono::Utc::now().date_naive())\n    {\n        return Err(ApiError::TooManyToday { used, limit });\n    }\n\n    let new = NewAnalysis::parse(&body.prompt)?;",
+    "new": "    let new = NewAnalysis::parse(&body.prompt)?;\n    if let crate::cap::Allowed::No { used, limit } = state\n        .cap\n        .allow(client.as_deref(), chrono::Utc::now().date_naive())\n    {\n        return Err(ApiError::TooManyToday { used, limit });\n    }\n",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "the refusal says no and offers nothing to do about it",
+    "file": "crates/landscape-api/src/error.rs",
+    "old": "                    remedy: Some(\n                        concat!(\n                            \"Each analysis reads live pages and runs a model for several \",\n                            \"minutes, so the free limit is per day. Come back tomorrow, or \",\n                            \"run your own copy - it is open source.\"\n                        )\n                        .to_owned(),\n                    ),",
+    "new": "                    remedy: None,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  }
+]

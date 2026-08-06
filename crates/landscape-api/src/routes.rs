@@ -19,6 +19,23 @@ use crate::extract::Json as ValidJson;
 #[derive(Clone)]
 pub struct AppState {
     pub store: Arc<dyn Store>,
+    /// How many runs one anonymous address may start in a day.
+    ///
+    /// In the state rather than a layer because it has to be *counted where the run starts*
+    /// and nowhere else: a reader watching a report they already began must never be cut off
+    /// by a cap, and a middleware over the whole router would do exactly that.
+    pub cap: Arc<crate::cap::Cap>,
+}
+
+impl AppState {
+    /// The ordinary way to build one: a store, and the cap the environment asks for.
+    #[must_use]
+    pub fn new(store: Arc<dyn Store>) -> Self {
+        Self {
+            store,
+            cap: Arc::new(crate::cap::Cap::from_env()),
+        }
+    }
 }
 
 impl std::fmt::Debug for AppState {
@@ -198,8 +215,25 @@ struct CreateAnalysis {
 
 async fn create_analysis(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     ValidJson(body): ValidJson<CreateAnalysis>,
 ) -> Result<(StatusCode, Json<Analysis>), ApiError> {
+    // **Here and nowhere else.** This is the only request that starts minutes of work on the
+    // one model this machine has; reading a report, watching one arrive, or listing the
+    // examples cost nothing worth rationing, and capping them would cut off a reader in the
+    // middle of something they already started.
+    //
+    // Before the prompt is parsed, because a prompt that fails still occupied the endpoint,
+    // and a cap that only counted valid ones would be walked past with invalid ones.
+    let client =
+        crate::cap::client_in(headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()));
+    if let crate::cap::Allowed::No { used, limit } = state
+        .cap
+        .allow(client.as_deref(), chrono::Utc::now().date_naive())
+    {
+        return Err(ApiError::TooManyToday { used, limit });
+    }
+
     let new = NewAnalysis::parse(&body.prompt)?;
     let analysis = state.store.enqueue(&new).await?;
     Ok((StatusCode::CREATED, Json(analysis)))
@@ -231,9 +265,7 @@ mod tests {
     use tower::ServiceExt;
 
     fn app() -> Router {
-        router(AppState {
-            store: Arc::new(MemoryStore::new()),
-        })
+        router(AppState::new(Arc::new(MemoryStore::new())))
     }
 
     async fn json_body(res: axum::response::Response) -> serde_json::Value {
@@ -254,6 +286,188 @@ mod tests {
             .expect("build request")
     }
 
+    /// A prompt the API accepts, so a test about the cap is not also a test about parsing.
+    const IDEA: &str = "an app that helps small farms sell to restaurants";
+
+    /// A router whose cap allows `limit` a day, so the number under test is the number here
+    /// rather than whatever the environment happens to hold.
+    fn app_capped_at(limit: usize) -> axum::Router {
+        let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+        router(AppState {
+            store,
+            cap: Arc::new(crate::cap::Cap::of(limit)),
+        })
+    }
+
+    /// The same POST, arriving through a reverse proxy that has appended what it saw.
+    fn post_from(client: &str, prompt: &str) -> Request<Body> {
+        Request::builder()
+            .method("POST")
+            .uri("/api/analyses")
+            .header("content-type", "application/json")
+            .header("x-forwarded-for", client)
+            .body(Body::from(
+                serde_json::json!({ "prompt": prompt }).to_string(),
+            ))
+            .expect("build request")
+    }
+
+    #[tokio::test]
+    async fn a_third_analysis_in_one_day_is_refused_with_something_to_do_about_it() {
+        // ROADMAP D6. One request starts minutes of work on the only model this machine has,
+        // and until now a public URL was an invitation to spend all of it.
+        let app = app_capped_at(2);
+        for _ in 0..2 {
+            let res = app
+                .clone()
+                .oneshot(post_from("198.51.100.7", IDEA))
+                .await
+                .expect("response");
+            assert_eq!(res.status(), StatusCode::CREATED);
+        }
+
+        let res = app
+            .oneshot(post_from("198.51.100.7", IDEA))
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::TOO_MANY_REQUESTS);
+
+        let body = json_body(res).await;
+        assert!(
+            body["error"]
+                .as_str()
+                .is_some_and(|e| e.contains("limit of 2")),
+            "the refusal does not say what the limit is: {body}"
+        );
+        assert!(
+            body["remedy"]
+                .as_str()
+                .is_some_and(|r| r.contains("tomorrow")),
+            "a refusal with no way forward is a dead end: {body}"
+        );
+        // A rejected request is fully explained by its own message. A reference here would
+        // suggest they have hit something worth reporting.
+        assert!(body["reference"].is_null(), "{body}");
+    }
+
+    #[tokio::test]
+    async fn one_visitor_spending_the_day_does_not_refuse_the_next_one() {
+        // The way a cap can be worse than no cap: the first person through exhausting it for
+        // everybody who arrives after them.
+        let app = app_capped_at(1);
+        let _ = app.clone().oneshot(post_from("198.51.100.7", IDEA)).await;
+
+        let res = app
+            .oneshot(post_from("203.0.113.9", IDEA))
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::CREATED);
+    }
+
+    #[tokio::test]
+    async fn a_forged_forwarded_header_does_not_buy_a_fresh_allowance() {
+        // **The bypass.** A proxy appends what it saw rather than replacing the header, so a
+        // client that sends its own value gets `theirs, ours` - and reading the leftmost entry
+        // would let one machine mint a new quota with every request.
+        let app = app_capped_at(1);
+        let res = app
+            .clone()
+            .oneshot(post_from("198.51.100.7", IDEA))
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::CREATED);
+
+        let res = app
+            .oneshot(post_from("10.0.0.99, 198.51.100.7", IDEA))
+            .await
+            .expect("response");
+        assert_eq!(
+            res.status(),
+            StatusCode::TOO_MANY_REQUESTS,
+            "a client that names itself in X-Forwarded-For got a second allowance"
+        );
+    }
+
+    #[tokio::test]
+    async fn reading_a_report_is_never_capped() {
+        // The cap counts where a run *starts*. A reader who has already begun one - watching
+        // it arrive, reloading its URL, opening the examples - must never be cut off, and a
+        // middleware over the whole router would have done exactly that.
+        let app = app_capped_at(1);
+        let created = app
+            .clone()
+            .oneshot(post_from("198.51.100.7", IDEA))
+            .await
+            .expect("response");
+        let id = json_body(created).await["id"]
+            .as_str()
+            .expect("an id")
+            .to_owned();
+
+        for _ in 0..5 {
+            let res = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(format!("/api/analyses/{id}"))
+                        .header("x-forwarded-for", "198.51.100.7")
+                        .body(Body::empty())
+                        .expect("build request"),
+                )
+                .await
+                .expect("response");
+            assert_eq!(res.status(), StatusCode::OK, "a reader was cut off");
+        }
+
+        // And the first screen still offers its ideas to somebody who has used their runs.
+        let res = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/examples")
+                    .header("x-forwarded-for", "198.51.100.7")
+                    .body(Body::empty())
+                    .expect("build request"),
+            )
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn a_request_with_no_proxy_in_front_of_it_is_not_capped() {
+        // A laptop. `landscape dev` with a two-a-day limit would be unusable to the person
+        // building it, and the abuse this exists for arrives over the internet.
+        let app = app_capped_at(1);
+        for _ in 0..4 {
+            let res = app
+                .clone()
+                .oneshot(post_analysis(IDEA))
+                .await
+                .expect("response");
+            assert_eq!(res.status(), StatusCode::CREATED);
+        }
+    }
+
+    #[tokio::test]
+    async fn a_prompt_that_is_refused_still_costs_one_of_the_day() {
+        // Counted before the prompt is parsed. Otherwise the endpoint can be walked past with
+        // prompts that fail - each one still occupying it - and the cap counts only the
+        // requests that were going to be fine anyway.
+        let app = app_capped_at(1);
+        let res = app
+            .clone()
+            .oneshot(post_from("198.51.100.7", "a crm"))
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+
+        let res = app
+            .oneshot(post_from("198.51.100.7", IDEA))
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::TOO_MANY_REQUESTS);
+    }
+
     #[tokio::test]
     async fn the_event_stream_opens_for_an_analysis_that_exists() {
         // A reader watching a report fill in. The stream is opened before anything has been
@@ -264,17 +478,15 @@ mod tests {
             .await
             .expect("enqueue");
 
-        let res = router(AppState {
-            store: Arc::clone(&store),
-        })
-        .oneshot(
-            Request::builder()
-                .uri(format!("/api/analyses/{}/events", created.id))
-                .body(Body::empty())
-                .expect("build request"),
-        )
-        .await
-        .expect("response");
+        let res = router(AppState::new(Arc::clone(&store)))
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/api/analyses/{}/events", created.id))
+                    .body(Body::empty())
+                    .expect("build request"),
+            )
+            .await
+            .expect("response");
 
         assert_eq!(res.status(), StatusCode::OK);
         let content_type = res
