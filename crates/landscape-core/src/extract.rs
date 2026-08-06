@@ -623,6 +623,218 @@ fn normalise(name: &str) -> String {
     squash(base)
 }
 
+/// Whether a page says it **holds** an assurance, or that it is **working towards** one.
+///
+/// **This distinction is the entire extractor.** A security page that says *"SOC 2 Type II
+/// report available on request"* and one that says *"SOC 2 is on our roadmap for 2027"* both
+/// contain the words *SOC 2*, and reporting them the same way would be the shape of wrong
+/// answer this project keeps finding: correct-looking, fully cited, and about a different
+/// fact. A buyer choosing between two vendors on compliance is choosing on exactly this.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Assurance {
+    /// The page states it as something they have.
+    Holds,
+    /// The page states it as something they are working towards — in progress, planned,
+    /// pursuing, "expected".
+    Pursuing,
+}
+
+impl Assurance {
+    /// How a report words it.
+    #[must_use]
+    pub const fn wording(self) -> &'static str {
+        match self {
+            Self::Holds => "states",
+            Self::Pursuing => "says it is working towards",
+        }
+    }
+}
+
+/// One assurance a trust or security page names.
+///
+/// The fifth question kind. Deliberately shaped like [`FeatureExtraction`], because the job is
+/// the same: a name, the condition attached to it, and the words that support both.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct TrustExtraction {
+    /// The standard as the page names it — `SOC 2`, `ISO 27001`, `GDPR`. `None` when the
+    /// window turned out to be about something else.
+    pub standard: Option<String>,
+
+    /// Whether they say they have it or are working towards it.
+    ///
+    /// `None` when the page names the standard without saying which — *"questions about SOC 2?
+    /// contact us"* names it and claims nothing, and a report that turned that into a ✓ would
+    /// be inventing the fact a reader came for.
+    pub status: Option<Assurance>,
+
+    /// The words the page used, copied verbatim — checkable the same way a price's quote is.
+    pub evidence_quote: Option<String>,
+}
+
+impl TrustExtraction {
+    /// An extraction that found nothing.
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            standard: None,
+            status: None,
+            evidence_quote: None,
+        }
+    }
+
+    /// Whether the quote, if there is one, really appears in the source.
+    #[must_use]
+    pub fn quote_is_verbatim(&self, source: &str) -> bool {
+        let Some(quote) = &self.evidence_quote else {
+            return true;
+        };
+        let quote = squash(quote);
+        quote.is_empty() || squash(source).contains(&quote)
+    }
+
+    /// Whether the standard it names is written in the section it was read from.
+    ///
+    /// **A model that has read about a company knows which certifications that company holds**,
+    /// and a security page is exactly the prompt that invites it to say so from memory. The
+    /// same check `FeatureExtraction::name_is_from` makes, for the same reason.
+    #[must_use]
+    pub fn standard_is_from(&self, source: &str) -> bool {
+        let Some(standard) = &self.standard else {
+            return true;
+        };
+        let haystack = squash(&source.to_lowercase());
+        let needle = squash(&standard.to_lowercase());
+        !needle.is_empty() && haystack.contains(&needle)
+    }
+}
+
+/// Every assurance one page names, assembled from its windows.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct PageTrust {
+    /// In the order the page presents them.
+    pub assurances: Vec<TrustExtraction>,
+    /// How many candidates the page offered before any cap was applied.
+    ///
+    /// The same discipline `PageFeatures` follows: a short list with no number beside it is a
+    /// wrong list.
+    pub considered: usize,
+}
+
+impl PageTrust {
+    /// Assemble per-window extractions into what the page says.
+    ///
+    /// Drops the ones that named nothing, and the same standard named twice — a page that
+    /// lists SOC 2 in a summary and again in a table states one fact, not two.
+    ///
+    /// **A standard with no status is kept**, and says so when it is rendered. Dropping it
+    /// would turn "the page mentions SOC 2 and does not say they have it" into silence, and
+    /// silence reads as "not mentioned" — which is a different, wrong answer.
+    #[must_use]
+    pub fn assembled(
+        extractions: impl IntoIterator<Item = TrustExtraction>,
+        considered: usize,
+    ) -> Self {
+        let mut assurances: Vec<TrustExtraction> = Vec::new();
+        for got in extractions {
+            let Some(name) = got.standard.as_deref().map(normalise) else {
+                continue;
+            };
+            if name.is_empty()
+                || assurances
+                    .iter()
+                    .any(|kept| kept.standard.as_deref().map(normalise).as_deref() == Some(&name))
+            {
+                continue;
+            }
+            assurances.push(got);
+        }
+        Self {
+            assurances,
+            considered,
+        }
+    }
+
+    /// Whether the page named nothing at all.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.assurances.is_empty()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod trust_tests {
+    use super::*;
+
+    fn holding(standard: &str, status: Option<Assurance>, quote: &str) -> TrustExtraction {
+        TrustExtraction {
+            standard: Some(standard.to_owned()),
+            status,
+            evidence_quote: Some(quote.to_owned()),
+        }
+    }
+
+    #[test]
+    fn a_standard_the_section_does_not_name_is_refused() {
+        // **The failure a security page invites.** A model that has read about a company knows
+        // which certifications it holds, and an ungrounded answer here is a compliance claim
+        // invented about a real company - the most expensive wrong answer this product can
+        // produce, and it would arrive fully cited.
+        let section = "We hold ISO 27001 and publish our report annually.";
+        assert!(!holding("SOC 2 Type II", Some(Assurance::Holds), "").standard_is_from(section));
+        assert!(holding("ISO 27001", Some(Assurance::Holds), "").standard_is_from(section));
+    }
+
+    #[test]
+    fn a_quote_that_is_not_in_the_section_is_caught() {
+        let section = "Our SOC 2 Type II report is available under NDA.";
+        assert!(holding("SOC 2", None, "available under NDA").quote_is_verbatim(section));
+        assert!(!holding("SOC 2", None, "we are fully certified").quote_is_verbatim(section));
+    }
+
+    #[test]
+    fn a_standard_named_without_a_claim_survives_assembly() {
+        // Dropping it would turn "the page mentions SOC 2 and does not say they have it" into
+        // silence - and silence reads as "not mentioned", which is a different, wrong answer.
+        let page = PageTrust::assembled([holding("SOC 2", None, "questions about SOC 2?")], 1);
+        assert_eq!(page.assurances.len(), 1);
+        assert!(page.assurances[0].status.is_none());
+    }
+
+    #[test]
+    fn the_same_standard_twice_is_one_fact() {
+        let page = PageTrust::assembled(
+            [
+                holding("GDPR", Some(Assurance::Holds), "a"),
+                holding("gdpr", Some(Assurance::Holds), "b"),
+            ],
+            2,
+        );
+        assert_eq!(page.assurances.len(), 1);
+    }
+
+    #[test]
+    fn an_extraction_that_named_nothing_is_dropped() {
+        let page = PageTrust::assembled([TrustExtraction::empty()], 1);
+        assert!(page.is_empty());
+    }
+
+    #[test]
+    fn holding_and_pursuing_are_worded_differently() {
+        // The entire extractor. If these two ever read the same, a roadmap item becomes a
+        // certification and a buyer chooses on it.
+        assert_ne!(Assurance::Holds.wording(), Assurance::Pursuing.wording());
+        assert!(Assurance::Pursuing.wording().contains("working towards"));
+    }
+
+    #[test]
+    fn the_count_the_page_offered_is_kept() {
+        let page = PageTrust::assembled([holding("SOC 2", Some(Assurance::Holds), "q")], 9);
+        assert_eq!(page.considered, 9);
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {

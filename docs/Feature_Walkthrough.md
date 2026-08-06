@@ -32,6 +32,7 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | **Ideas to start from, over companies checked against the live web** | **Yes** — Part 2B |
 | **What a run will cost a model, counted without one** | **Yes** — Part 2C |
 | **A cap on how much of the box one stranger may spend** | **Yes** — Part 2D |
+| **What a security page claims, and what it only mentions** | **Yes** — Part 2E |
 | Reading real web pages *as part of a report* | No — the fetcher exists, nothing calls it yet |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
 | Accounts, quotas, payment | No |
@@ -420,6 +421,68 @@ ANONYMOUS_DAILY_LIMIT=10 cargo run -p landscape -- dev --store memory
 Unset is two. It resets at midnight UTC, it is held in memory so a restart clears it, and the
 address is stored as a keyed hash whose key is new in every process — so the table cannot be
 read back to anybody.
+
+---
+
+## Part 2E — What a security page says, and what it only mentions
+
+Two of the six questions had no extractor. A page admitted for *Trust & security posture* was
+discovered, fetched, and then skipped — the fetch spent and the section permanently empty. This
+is the fifth question kind.
+
+**Do this.**
+
+```bash
+cargo run -p landscape -- cost https://linear.app
+```
+
+**You should see** the trust page now carrying a cost, where it used to be free because nothing
+read it:
+
+```text
+linear.app/security                                  trust           4
+```
+
+Four calls, because the page names four standards. **The scanner finds them; the model only
+reads the claim.** A compliance standard is a closed vocabulary — a company does not invent one —
+so nothing can be reported that was not first found written on the page. What is left for the
+model is the part that is genuinely reading:
+
+> *"SOC 2 Type II report available under NDA"* — they have it.
+> *"SOC 2 is on our roadmap for 2027"* — they do not.
+
+Both contain the words *SOC 2*, and a report that treated them alike would be this project's
+characteristic wrong answer: correct-looking, fully cited, and about a different fact.
+
+### A page with nothing named costs nothing
+
+**Do this.**
+
+```bash
+cargo run -p landscape -- cost https://basecamp.com
+```
+
+**You should see** `trust 0` — Basecamp's security page names no standard from the list, so no
+model call is made and the section says the page was read and stated nothing. That is a fact
+about Basecamp rather than a gap in the report, and it is the honest-negative treatment doing
+its job on a new question.
+
+### Where a frozen page comes from
+
+The golden set holds real pages, frozen. Until now there was no account of how one was made:
+
+```bash
+cargo run -p landscape -- fetch https://linear.app/security --markdown
+```
+
+Everything after the `---` is exactly what `crates/landscape-golden/pages/linear-security.md`
+contains — converted by the same code that reads a page in production, which is the only way a
+frozen page is evidence about the pipeline rather than about a converter nobody runs.
+
+**That page earned its keep on the first run.** Linear says `SOC 2` in a banner and `SOC 2 Type
+II` in the section that explains it, and the extractor reported both — the same certification
+told to a reader twice, at two precisions, for two model calls. The more precise spelling wins
+now, and the frozen expectation is what would notice if that stopped being true.
 
 ---
 

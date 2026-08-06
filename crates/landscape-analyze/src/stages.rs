@@ -64,6 +64,7 @@ pub(crate) async fn extract(
         Answers::Features => features(llm, url, markdown, so_far).await,
         Answers::Changes => changes(markdown, today),
         Answers::Identity => identity(llm, url, markdown, so_far).await,
+        Answers::Trust => trust(llm, url, markdown, so_far).await,
         _ => Outcome {
             claims: Vec::new(),
             summary: format!("no extractor yet for {} pages", question.name()),
@@ -233,6 +234,170 @@ async fn features(
             .map(|w| w.text.split_whitespace().count())
             .sum(),
     }
+}
+
+/// What a trust page says it holds, one named standard at a time.
+///
+/// **The scanner finds the name; the model reads the claim.** A compliance standard is a closed
+/// vocabulary, so nothing can be reported that `assurance::every_assurance` did not first find
+/// written on the page — which removes the failure the feature extractor has to defend against
+/// with grounding alone, where a model asked to *"list the certifications"* invents one.
+///
+/// What is left for the model is the part that is genuinely reading: whether the page says they
+/// **have** it or are **working towards** it. Both spellings contain the same words, and a
+/// report that treated them alike would be this project's characteristic wrong answer —
+/// correct-looking, fully cited, about a different fact.
+async fn trust(
+    llm: &landscape_llm::LlamaClient,
+    url: &str,
+    markdown: &str,
+    so_far: Progress<'_>,
+) -> Outcome {
+    let found = landscape_extract::assurance::every_assurance(markdown);
+    if found.named.is_empty() {
+        return Outcome {
+            claims: Vec::new(),
+            // Said in the words of what was looked for, because "nothing found" on a security
+            // page usually means the page is reassurance rather than a list of standards - and
+            // that is a finding about the company rather than about us.
+            summary: "no named standard on the page".to_owned(),
+            details: Vec::new(),
+            window_words: 0,
+        };
+    }
+
+    let mut extracted: Vec<landscape_core::TrustExtraction> = Vec::with_capacity(found.named.len());
+    let mut details = Vec::new();
+    let (mut unsupported, mut ungrounded) = (0usize, 0usize);
+
+    for named in &found.named {
+        match llm
+            .generate::<landscape_core::TrustExtraction>(
+                &assurance_prompt(url, &named.standard, &named.span),
+                &decode(),
+            )
+            .await
+        {
+            Ok(got) => match judge_assurance(&got, &named.span.prompt_text()) {
+                Judged::Keep => extracted.push(got),
+                Judged::QuoteNotVerbatim => {
+                    unsupported += 1;
+                    extracted.push(got);
+                }
+                Judged::NotInTheSection => ungrounded += 1,
+            },
+            Err(e) => details.push(format!("model error: {e}")),
+        }
+        if so_far(&crate::claims_from_trust(
+            &landscape_core::PageTrust::assembled(extracted.clone(), found.considered),
+        )) == crate::Wanted::No
+        {
+            break;
+        }
+    }
+
+    let page = landscape_core::PageTrust::assembled(extracted, found.considered);
+    let claims = crate::claims_from_trust(&page);
+
+    let mut lines: Vec<String> = page
+        .assurances
+        .iter()
+        .map(|a| {
+            let name = a.standard.as_deref().unwrap_or("unnamed");
+            match a.status {
+                Some(status) => format!("{name} ({})", status.wording()),
+                None => format!("{name} (named, nothing claimed)"),
+            }
+        })
+        .collect();
+    if ungrounded > 0 {
+        lines.push(format!(
+            "{ungrounded} standard(s) dropped - not named in the section"
+        ));
+    }
+    if unsupported > 0 {
+        lines.push(format!(
+            "{unsupported} quote(s) not found in the section they came from"
+        ));
+    }
+    lines.extend(details);
+
+    // The cap is stated rather than applied quietly, the same as the capability cap.
+    let capped = if found.considered > found.named.len() {
+        format!(" (of {} the page names)", found.considered)
+    } else {
+        String::new()
+    };
+    Outcome {
+        claims,
+        summary: format!("{} standard(s) read{capped}", page.assurances.len()),
+        details: lines,
+        window_words: found
+            .named
+            .iter()
+            .map(|n| n.span.text.split_whitespace().count())
+            .sum(),
+    }
+}
+
+/// What to do with one extraction, decided without a model in the room.
+///
+/// **A pure function so the decision can be tested.** The rest of the stage cannot run without
+/// a `llama-server`, so a judgement made inline is a judgement nothing holds still — and this
+/// one is the difference between a report and a fabricated compliance claim.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Judged {
+    /// Grounded, and quoted from the section.
+    Keep,
+    /// Grounded, but the quote is not in the section. Kept and counted: the standard is real,
+    /// and the reader is told the evidence was not verbatim.
+    QuoteNotVerbatim,
+    /// The section does not name this standard. **Dropped.** A model that has read about a
+    /// company knows which certifications it holds, and a security page is exactly the prompt
+    /// that invites it to answer from memory.
+    NotInTheSection,
+}
+
+pub(crate) fn judge_assurance(got: &landscape_core::TrustExtraction, section: &str) -> Judged {
+    if !got.standard_is_from(section) {
+        return Judged::NotInTheSection;
+    }
+    if got.quote_is_verbatim(section) {
+        Judged::Keep
+    } else {
+        Judged::QuoteNotVerbatim
+    }
+}
+
+/// One standard at a time, and the only question is whether they say they have it.
+fn assurance_prompt(url: &str, standard: &str, window: &Span) -> String {
+    let section: String = window.prompt_text().chars().take(6000).collect();
+    format!(
+        "You are reading one section of a company's security or trust page. The section \
+         mentions {standard}. Say what the section claims about it.
+
+         Page: {url}
+
+         Rules:
+         - standard must be copied from the section exactly as the section spells it. It is \
+           {standard} or nothing.
+         - status is holds when the section says they have it, are certified, are compliant, \
+           or that a report or certificate exists.
+         - status is pursuing when the section says they are working towards it, it is in \
+           progress, planned, expected, or on a roadmap.
+         - Leave status null when the section only mentions the standard without saying \
+           either - a question, a link, or a contact address is not a claim.
+         - Use only the words of this section. Do not use anything you know about this \
+           company from elsewhere.
+         - evidence_quote must be copied from the section word for word.
+
+         SECTION
+---
+{section}
+---
+
+Return the extraction as JSON."
+    )
 }
 
 /// Dated entries, parsed. **No model runs here.**
@@ -878,5 +1043,66 @@ mod tests {
     #[test]
     fn the_prompt_version_is_stated_so_two_runs_can_be_compared() {
         assert_eq!(crate::PROMPT_VERSION, 1);
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod judging_assurances {
+    use super::{judge_assurance, Judged};
+    use landscape_core::{Assurance, TrustExtraction};
+
+    fn got(standard: &str, quote: &str) -> TrustExtraction {
+        TrustExtraction {
+            standard: Some(standard.to_owned()),
+            status: Some(Assurance::Holds),
+            evidence_quote: Some(quote.to_owned()),
+        }
+    }
+
+    const SECTION: &str = "Linear undergoes regular SOC 2 Type II audits.";
+
+    #[test]
+    fn a_standard_the_section_names_is_kept() {
+        assert_eq!(
+            judge_assurance(
+                &got("SOC 2 Type II", "regular SOC 2 Type II audits"),
+                SECTION
+            ),
+            Judged::Keep
+        );
+    }
+
+    #[test]
+    fn a_standard_the_section_never_names_is_dropped() {
+        // **The fabricated compliance claim.** A model that has read about this company knows
+        // it holds ISO 27001; the section in front of it says nothing of the sort, and a
+        // report that carried it would be a false certification claim about a real company,
+        // fully cited.
+        assert_eq!(
+            judge_assurance(&got("ISO 27001", "we hold ISO 27001"), SECTION),
+            Judged::NotInTheSection
+        );
+    }
+
+    #[test]
+    fn a_quote_that_is_not_in_the_section_is_kept_and_counted() {
+        // The standard is real - the section names it - so dropping the whole finding would
+        // lose a true fact over a paraphrased quote. It is counted instead, and the count is
+        // printed beside the page.
+        assert_eq!(
+            judge_assurance(&got("SOC 2 Type II", "we are fully certified"), SECTION),
+            Judged::QuoteNotVerbatim
+        );
+    }
+
+    #[test]
+    fn an_extraction_that_named_nothing_is_not_treated_as_grounded_evidence() {
+        // `standard_is_from` answers true for `None`, which is right - there is nothing to
+        // ground - and the assembler is what drops it. This test exists so that pairing is
+        // deliberate rather than a coincidence two files apart.
+        let empty = TrustExtraction::empty();
+        assert_eq!(judge_assurance(&empty, SECTION), Judged::Keep);
+        assert!(landscape_core::PageTrust::assembled([empty], 1).is_empty());
     }
 }

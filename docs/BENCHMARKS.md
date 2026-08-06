@@ -33,6 +33,109 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 24 — the fifth question, and the page it was reading instead
+
+**Date:** 2026-08-06 · **Where:** this laptop · **Model:** none — every number below is counted
+without one.
+
+Two of the six questions had no extractor. A page admitted for *Trust & security posture* was
+discovered, fetched, and then skipped with `no extractor yet for trust pages` — the fetch spent,
+the section permanently empty. This closes the first of the two.
+
+### The vocabulary is closed, which changes the design
+
+A capability can be called anything and a price can be any number, but **a company does not
+invent a compliance standard.** It names one of a few dozen that already exist, and spells them
+the way the auditors do.
+
+So the scanner finds the mention deterministically, from a named list, and the model is asked
+one small question about each: *do they say they have it, or that they are working towards it?*
+
+```text
+SOC 2 Type II                          found by the scanner, no model
+…report available under NDA            read by the model: holds, or pursuing?
+```
+
+**That split is the whole argument.** A model asked to *"list the certifications on this page"*
+will return SOC 2 for a page that never mentions it, and grounding would be the only thing
+between that and a published claim that a real company holds a certification it does not. Here
+the name comes from the page by construction — nothing can be reported that the scanner did not
+first find written down — and the model only judges a sentence it has in front of it.
+
+### What it costs
+
+Model calls per company, counted by `landscape cost` with no model running:
+
+| Company | Before | After | Standards named |
+|---|---:|---:|---|
+| basecamp.com | 14 | **14** | none |
+| linear.app | 12 | **17** | SOC 2 Type II, GDPR, HIPAA, ISO 27001 |
+| usefathom.com | 15 | **17** | 2 |
+| simpleanalytics.com | 15 | **18** | 3 |
+| helpscout.com | 18 | **19** | 1 |
+| front.com | 14 | **18** | 4 |
+| **total** | **88** | **103** | |
+
+**+17%, and the trade is stated rather than buried.** A section that could never fill now fills
+for five of the six, and the sixth is the honest case: basecamp.com's security page names no
+standard from the list, so the extractor reports nothing and the coverage note says the page was
+read and stated nothing. That is a fact about Basecamp, not a gap in the reader's report.
+
+A page of reassurance with nothing named costs **zero** calls — the scanner runs first, so the
+model is never asked about a page that has no answer on it.
+
+### The measurement found something the tests could not
+
+`basecamp.com` was reading `/status` and skipping `/security`.
+
+Both are admitted for the trust question, only the first is read
+([Run 23](#run-23--the-wait-and-the-two-decisions-that-are-ours)'s one-page-per-question budget),
+and discovery ranked them equally. So the extractor would have shipped unable to fire on a
+company that publishes a security page — **the feature working in tests and doing nothing in the
+product**, which is precisely what Phase D exists to stop happening again.
+
+A status page is not a broad page; it is a page about a *different question*. It reports whether
+the service is up now. `specificity` ranks it after `/security` now, and `usefathom.com` went
+from 0 standards to 2 on that change alone.
+
+### Freezing a real security page paid for itself immediately
+
+`linear-security.md` is the first frozen trust page, and the first regeneration showed the
+extractor reporting **both `SOC 2` and `SOC 2 Type II`** — a banner and the section that explains
+it, the same certification told to a reader twice, at two precisions, for two model calls.
+
+The more precise spelling now wins wherever it appears. Four standards, one each.
+
+| Reintroduced defect | Caught? |
+|---|---|
+| a standard the section never named is reported anyway | **yes** |
+| the grounding check accepts a standard that is not in the section | **yes** |
+| a roadmap item is reported the same way as a certification | **yes** |
+| the report asserts the certification rather than the claim | **yes** |
+| a standard mentioned without a claim is reported as one | **yes** |
+| a standard named without a claim is dropped instead of reported | **yes** |
+| the same standard at two precisions is reported twice | **yes** |
+| a shorter spelling wins over the precise one | **yes** |
+| a name that runs into another word is read as that name | **yes** |
+| the window is the line alone, without the sentence that carries the claim | **yes** |
+| the cap is applied and the number the page offered is lost | **yes** |
+| a status page outranks the security page for the trust question | **yes** |
+| a trust page is fetched and skipped as if it had no extractor | **yes** |
+| a trust page costs nothing in the prediction the cost command prints | **yes** |
+
+Fourteen, all caught. Two needed re-aiming after `cargo fmt` moved their anchors, and one was
+`MISSED` for a real reason: the stage's grounding decision was written inline in an `async fn`
+that cannot run without a model, so nothing held it still. It is a pure function now, with its
+own tests — **the check that decides whether a fabricated compliance claim reaches a reader was
+the one thing here no test could reach.**
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 23 | 509 | 51 |
+| now | **570** | **51** |
+
+---
+
 ## Run 23 — the wait, and the two decisions that are ours
 
 **Date:** 2026-08-06 · **Where:** this laptop · **Model:** none — every number below is counted

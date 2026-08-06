@@ -47,6 +47,7 @@ pub enum Answers {
     Features,
     Changes,
     Identity,
+    Trust,
 }
 
 /// What the deterministic passes must produce for one frozen page.
@@ -78,6 +79,9 @@ pub struct PageExpectation {
     /// The window read for each fact the page states. `Answers::Identity`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub facts: Option<Vec<FactWindow>>,
+    /// Each standard the page names, and how many it named. `Answers::Trust`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assurances: Option<Assurances>,
 }
 
 /// One window, heading and body.
@@ -137,6 +141,38 @@ pub struct FactWindow {
     /// The window, one entry per line. The fact is only as good as what it was read from —
     /// Run 12's finding was a window, not a parser.
     pub text: Vec<String>,
+}
+
+/// What a trust page yields.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Assurances {
+    /// Each standard, in page order, with the window it was read from.
+    pub named: Vec<NamedStandard>,
+    /// How many the page named before the cap.
+    pub considered: usize,
+}
+
+/// One standard and the words around it.
+///
+/// The window is frozen for the same reason a plan window is: **the standard is only as good as
+/// what it was read from.** A scanner that finds `SOC 2` and hands the model a window from the
+/// wrong paragraph produces a confident answer about a different sentence, and freezing only
+/// the name would assert the cheaper half.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NamedStandard {
+    /// As the page spells it.
+    pub standard: String,
+    /// The window, one entry per line.
+    pub text: Vec<String>,
+}
+
+impl From<landscape_extract::assurance::Named> for NamedStandard {
+    fn from(found: landscape_extract::assurance::Named) -> Self {
+        Self {
+            standard: found.standard,
+            text: found.span.text.lines().map(str::to_owned).collect(),
+        }
+    }
 }
 
 /// Where the frozen pages live.
@@ -241,6 +277,41 @@ impl PageExpectation {
             if found.considered != expected.considered {
                 out.push(format!(
                     "changes considered: expected {}, got {}",
+                    expected.considered, found.considered
+                ));
+            }
+        }
+
+        if let Some(expected) = &self.assurances {
+            let found = landscape_extract::assurance::every_assurance(&markdown);
+            let got: Vec<NamedStandard> =
+                found.named.into_iter().map(NamedStandard::from).collect();
+            if got.len() != expected.named.len() {
+                out.push(format!(
+                    "standards named: expected {}, got {}",
+                    expected.named.len(),
+                    got.len()
+                ));
+            }
+            for (i, (want, have)) in expected.named.iter().zip(&got).enumerate() {
+                if want.standard != have.standard {
+                    out.push(format!(
+                        "standard {i}: expected {}, got {}",
+                        want.standard, have.standard
+                    ));
+                }
+                // The window too, for the same reason the plan windows are frozen: a name read
+                // from the wrong paragraph is a confident answer about a different sentence.
+                if want.text != have.text {
+                    out.push(format!(
+                        "standard {i} ({}) window\n  expected {:?}\n  got      {:?}",
+                        want.standard, want.text, have.text
+                    ));
+                }
+            }
+            if found.considered != expected.considered {
+                out.push(format!(
+                    "standards considered: expected {}, got {}",
                     expected.considered, found.considered
                 ));
             }
@@ -400,6 +471,7 @@ mod tests {
                 Answers::Features => e.capabilities.is_some(),
                 Answers::Changes => e.changes.is_some(),
                 Answers::Identity => e.facts.is_some(),
+                Answers::Trust => e.assurances.is_some(),
             };
             assert!(asserted, "{} asserts nothing about {:?}", e.page, e.answers);
         }

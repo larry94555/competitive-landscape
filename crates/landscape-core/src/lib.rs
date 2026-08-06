@@ -22,8 +22,8 @@ pub use analysis::{Analysis, AnalysisId, AnalysisStatus, Applied, Failure, NewAn
 pub use coverage::{attributed, Attempt, Coverage};
 pub use examples::{examples, Example, CURATION_NOTE};
 pub use extract::{
-    BillingPeriod, Change, FeatureExtraction, IdentityExtraction, PageChanges, PageFeatures,
-    PageIdentity, PagePricing, PricingExtraction, Stated,
+    Assurance, BillingPeriod, Change, FeatureExtraction, IdentityExtraction, PageChanges,
+    PageFeatures, PageIdentity, PagePricing, PageTrust, PricingExtraction, Stated, TrustExtraction,
 };
 pub use report::{Claim, Confidence, Report, Section, SectionStatus};
 pub use source::{Disposition, Source};

@@ -93,7 +93,7 @@ applies with the system package manager, or Postgres.app.
 | `cargo run -p landscape -- serve` | The HTTP API alone |
 | `cargo run -p landscape -- worker` | Claims queued analyses and runs them |
 | `cargo run -p landscape -- migrate` | Applies migrations and exits |
-| `cargo run -p landscape -- fetch <url>` | Fetches one URL through every policy and says what happened. Needs no database |
+| `cargo run -p landscape -- fetch <url> [--markdown]` | Fetches one URL through every policy and says what happened. `--markdown` prints the converted page, which is what a golden page is made of. Needs no database |
 | `cargo run -p landscape -- gap <file>` | Measures where prices live across a list of pricing pages |
 | `cargo run -p landscape -- discover <origin>` | Finds the pages worth reading about one company |
 | `cargo run -p landscape -- read <origin>` | The whole path: discover, fetch, convert, extract |

@@ -1,0 +1,194 @@
+[
+  {
+    "name": "a standard the section never named is reported anyway",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "    if !got.standard_is_from(section) {\n        return Judged::NotInTheSection;\n    }",
+    "new": "    if false {\n        return Judged::NotInTheSection;\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the grounding check accepts a standard that is not in the section",
+    "file": "crates/landscape-core/src/extract.rs",
+    "old": "        !needle.is_empty() && haystack.contains(&needle)\n    }\n}\n\n/// Every assurance one page names, assembled from its windows.",
+    "new": "        !needle.is_empty()\n    }\n}\n\n/// Every assurance one page names, assembled from its windows.",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a roadmap item is reported the same way as a certification",
+    "file": "crates/landscape-core/src/extract.rs",
+    "old": "            Self::Pursuing => \"says it is working towards\",",
+    "new": "            Self::Pursuing => \"states\",",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the report asserts the certification rather than the claim",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "                    Some(status) => format!(\"{} {name}\", status.wording()),",
+    "new": "                    Some(_) => format!(\"is {name} certified\"),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a standard mentioned without a claim is reported as one",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "                    None => format!(\"names {name} without saying whether they hold it\"),",
+    "new": "                    None => format!(\"states {name}\"),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a standard named without a claim is dropped instead of reported",
+    "file": "crates/landscape-core/src/extract.rs",
+    "old": "            let Some(name) = got.standard.as_deref().map(normalise) else {\n                continue;\n            };\n            if name.is_empty()\n                || assurances",
+    "new": "            let Some(name) = got.standard.as_deref().map(normalise) else {\n                continue;\n            };\n            if got.status.is_none()\n                || name.is_empty()\n                || assurances",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the same standard at two precisions is reported twice",
+    "file": "crates/landscape-extract/src/assurance.rs",
+    "old": "                .find(|kept| subsumes(&kept.standard, &found))",
+    "new": "                .find(|kept| kept.standard == found)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a shorter spelling wins over the precise one",
+    "file": "crates/landscape-extract/src/assurance.rs",
+    "old": "                if found.len() > kept.standard.len() {",
+    "new": "                if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a name that runs into another word is read as that name",
+    "file": "crates/landscape-extract/src/assurance.rs",
+    "old": "            if !bounded(line, start, end) {\n                continue;\n            }",
+    "new": "            if false {\n                continue;\n            }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract"
+    ]
+  },
+  {
+    "name": "the window is the line alone, without the sentence that carries the claim",
+    "file": "crates/landscape-extract/src/assurance.rs",
+    "old": "    let end = (at + 1).min(lines.len().saturating_sub(1));",
+    "new": "    let end = at;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "the cap is applied and the number the page offered is lost",
+    "file": "crates/landscape-extract/src/assurance.rs",
+    "old": "            considered += 1;\n            if named.len() < MAX_ASSURANCES {",
+    "new": "            if named.len() < MAX_ASSURANCES {\n                considered += 1;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract"
+    ]
+  },
+  {
+    "name": "a status page outranks the security page for the trust question",
+    "file": "crates/landscape-discover/src/probes.rs",
+    "old": "    const BROAD: [&str; 6] = [\"blog\", \"news\", \"docs\", \"documentation\", \"product\", \"status\"];",
+    "new": "    const BROAD: [&str; 5] = [\"blog\", \"news\", \"docs\", \"documentation\", \"product\"];",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a trust page is fetched and skipped as if it had no extractor",
+    "file": "crates/landscape-analyze/src/sections.rs",
+    "old": "            | Answers::Identity\n            | Answers::Trust",
+    "new": "            | Answers::Identity",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a trust page costs nothing in the prediction the cost command prints",
+    "file": "crates/landscape-analyze/src/order.rs",
+    "old": "        Answers::Trust => landscape_extract::assurance::every_assurance(markdown)\n            .named\n            .len(),",
+    "new": "        Answers::Trust => 0,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  }
+]

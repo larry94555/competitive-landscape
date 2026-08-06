@@ -164,6 +164,11 @@ pub fn model_calls_for(question: Answers, markdown: &str) -> usize {
             .windows
             .len(),
         Answers::Identity => landscape_extract::identity::every_fact(markdown).len(),
+        // One call per standard the page names. The scanner finds them without a model, so a
+        // page full of reassurance and no named standard costs nothing at all.
+        Answers::Trust => landscape_extract::assurance::every_assurance(markdown)
+            .named
+            .len(),
         // Parsed, not generated. The reason it is read first.
         Answers::Changes => 0,
         // No extractor yet, so the page is not opened and nothing is spent.
@@ -370,6 +375,30 @@ $10/month";
         );
         assert_eq!(model_calls_for(Answers::Pricing, too_thin), 0);
         assert!(!may_yield_content(Answers::Pricing, too_thin));
+    }
+
+    #[test]
+    fn a_trust_page_costs_one_call_for_each_standard_it_names() {
+        // The prediction has to include the newest extractor, or `landscape cost` reports a
+        // run that no longer exists - the same rule the quality gate is here for.
+        let page = "# Security
+
+We hold SOC 2 Type II.
+
+We are ISO 27001 certified too.";
+        assert_eq!(model_calls_for(Answers::Trust, page), 2);
+        assert!(may_yield_content(Answers::Trust, page));
+    }
+
+    #[test]
+    fn a_security_page_that_names_no_standard_costs_nothing() {
+        // The common case, and the reason the scanner runs before the model: a page of
+        // reassurance with nothing named spends no calls at all.
+        let page = "# Security
+
+We take security seriously and encrypt everything in transit.";
+        assert_eq!(model_calls_for(Answers::Trust, page), 0);
+        assert!(!may_yield_content(Answers::Trust, page));
     }
 
     #[test]
