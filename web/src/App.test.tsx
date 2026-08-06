@@ -704,6 +704,46 @@ describe("the ideas offered on the first screen", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("shows no ideas at all when the sentence that qualifies them is missing", async () => {
+    // The rule the API enforces on its side: the note travels with the list. Chips rendered
+    // without it would let a reader assume the reports were written in advance too — so the
+    // honest degradation is no chips, not chips with the qualification quietly dropped.
+    stubWithExamples({ examples: CATALOGUE.examples });
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.type(box(), IDEA);
+    expect(
+      screen.queryByRole("button", { name: /project management/i }),
+    ).toBeNull();
+    expect(screen.queryByText(/Or start from one of these/i)).toBeNull();
+  });
+
+  it("drops one malformed idea and still shows the others", async () => {
+    // Review found this. The first guard checked that `examples` was an array and stopped
+    // there, which reads as validation and is not: an entry with a null `companies` reached
+    // `companies.join(" vs ")` and threw while the first screen was drawing itself — the one
+    // path that is supposed to degrade in silence. A bad row costs the reader that row.
+    stubWithExamples({
+      note: CATALOGUE.note,
+      examples: [
+        { ...CATALOGUE.examples[0], id: "broken", idea: "a broken one", companies: null },
+        CATALOGUE.examples[0],
+      ],
+    });
+    render(<App />);
+
+    // The good one is on screen, so the malformed entry did not take the list with it.
+    expect(
+      await screen.findByRole("button", {
+        name: /project management for a small design agency/i,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("a broken one")).toBeNull();
+    // And the page is drawn rather than blank, which is what the exception used to cost.
+    expect(screen.getByText(/chosen by hand/i)).toBeInTheDocument();
+  });
+
   it("takes the examples off the screen once there is a report to read", async () => {
     // They are scaffolding for the empty state. Leaving them under a report invites a click
     // that throws away what the reader is looking at.

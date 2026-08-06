@@ -24,12 +24,18 @@ Two of them went stale in a later round — the code they aimed at was the code 
 keep: a mutation that no longer applies is a maintenance job, and one that applies and is missed
 is a defect.
 
-`example-ideas.json` earned its keep differently: **two of its ten reported `MISSED` about code
-that was fine.** One appended text to a prompt that the parser steps over as its own word, so it
+`example-ideas.json` earned its keep differently: **three of its twelve reported `MISSED` about
+code that was fine.** One appended text to a prompt that the parser steps over as its own word, so it
 broke nothing; the other removed one of two guards while the second still carried the case. The
 docstring's rule — *check the mutation before believing the test is missing* — is there because
 this is the usual way a `MISSED` line is wrong, and both were corrected rather than written up
 as gaps.
+
+The third is the more interesting failure: a review fix made a mutation's defect **unreachable**.
+Removing the `Array.isArray` guard stopped changing anything once every entry was filtered, so
+the mutation could no longer fail — which is the thing this harness exists to find, pointed at
+itself. It was re-aimed at a rule that was real and unenforced. **Retiring a mutation is a normal
+outcome; keeping one to preserve a green line is not.**
 
 Every entry must be a defect a person can picture. `"labels are not reassigned when reports
 merge"` is one; `"change line 214"` is not, and will mean nothing to whoever reads it next.

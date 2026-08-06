@@ -105,17 +105,30 @@ the sentence the reader sees and can edit**, and the test that matters runs each
 | clicking an idea starts four minutes of work nobody asked for | **yes** |
 | a malformed catalogue takes the first screen down with it | **yes** |
 | the ideas stay under the report and invite a click that throws it away | **yes** |
+| the entries inside a well-formed list are trusted rather than checked | **yes** |
+| an entry's companies are taken on trust once the other fields look right | **yes** |
+| the ideas render without the sentence that qualifies them | **yes** |
 
-Ten mutations, all caught — **two of them only after the mutation itself was corrected.** One
-appended text to an idea that `origins_in` steps over as its own word, so it broke nothing; the
-other removed one of two guards while the second still carried the case. Both reported `MISSED`
-about code that was fine, which is what the register says to check first and is why the harness
-is a committed file rather than something typed once.
+Twelve mutations, all caught — **three of them only after the mutation itself was corrected.**
+One appended text to an idea that `origins_in` steps over as its own word, so it broke nothing;
+one removed one of two guards while the second still carried the case; and one stopped being a
+defect at all when review's fix made its target redundant, so it was re-aimed at a rule that was
+real and unenforced. All three reported `MISSED` about code that was fine, which is what the
+register says to check first and is why the harness is a committed file rather than something
+typed once.
+
+### What review found: a guard that validates the box, not what is in it
+
+`getExamples` checked that `examples` was an array and `note` a string, then cast the whole
+payload. **One entry with `companies: null` passes that untouched** and throws in
+`companies.join(" vs ")` — while the first screen is drawing itself, on the one path designed to
+degrade in silence. The fixture missed it by being malformed at the top level, which is the
+shape the guard already handled. Register entry 26.
 
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 21 | 485 | 41 |
-| now | **498** | **49** |
+| now | **498** | **51** |
 
 ---
 

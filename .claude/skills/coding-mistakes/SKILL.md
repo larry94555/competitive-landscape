@@ -606,6 +606,38 @@ to reach them before it does.
 > **Ask this:** *what does each surface read — and does the one a person looks at longest have
 > this yet?*
 
+## 26. Validating the container and trusting the leaves
+
+**Written:** a body checked with *"is `examples` an array, is `note` a string"*, then
+`return body as Examples`.
+
+**What a person saw:** review. One entry with `companies: null` passes that guard untouched,
+reaches `companies.join(" vs ")` in the renderer, and throws **while the first screen is drawing
+itself** — on the one code path whose whole design is to degrade in silence. The guard reads as
+validation. It validates the box the data came in.
+
+**Why the test missed it:** my malformed fixture was malformed *at the top level*
+(`examples: "not a list"`), so it exercised the container check and never an entry. A fixture
+that is broken in the shape the guard already handles cannot find the shape it does not.
+
+**Rule:** a cast is a claim about **every field of every element**, so validate to the depth the
+renderer reads. `as` after a partial check is the same lie as `as` after no check. And when a
+list can be partly bad, decide which way it degrades: dropping bad entries costs a reader one
+row, dropping the list makes one broken row look like an outage.
+
+> **Ask this:** *what does the renderer actually touch — and is every one of those reached by
+> my check and by my fixture?*
+
+### And the tail of this one, which is about the harness
+
+Fixing it made an existing mutation stop being a defect. Removing the `Array.isArray` check no
+longer changes anything, because a non-array now throws inside `.filter` and the surrounding
+`try` returns the same `null`. **A mutation whose defect has become unreachable is a check that
+cannot fail**, so it was re-aimed at a rule that is real and was not enforced: a list that
+arrives without the sentence qualifying it must render **no chips at all**, not chips without
+the qualification. Retiring a mutation is a normal outcome; leaving it in place to keep a green
+line is not.
+
 ---
 
 ## Before a PR: two commands and six questions
@@ -641,7 +673,8 @@ Grouped by what has actually gone wrong, commonest first.
 
 2. **Which of my checks cannot fail?** **Open the producer and copy its shape** — do not write
    what the value obviously is. **Assert on the value the surface reads**, not the structure
-   behind it, and on the whole line rather than the halves. Does the fixture already contain the
+   behind it, and on the whole line rather than the halves. Is my malformed fixture broken in
+   the shape the guard *already* handles, or in the shape it does not? *(26)* Does the fixture already contain the
    thing I am asserting? If I deleted the call to the function I just tested, would anything
    fail? Is there a case that *should* fail and does? *(5, 20, 21, 24, 25)*
 
@@ -667,7 +700,7 @@ Grouped by what has actually gone wrong, commonest first.
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |
 | Deliberately breaking the code to see if a test notices | 12, the rearm in 14, and 21 | The store was fast, so nothing raced until one was made slow. Now `scripts/mutate.py` |

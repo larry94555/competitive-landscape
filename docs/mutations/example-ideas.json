@@ -107,10 +107,10 @@
     "cwd": "web"
   },
   {
-    "name": "a malformed catalogue takes the first screen down with it",
+    "name": "the ideas render without the sentence that qualifies them",
     "file": "web/src/api.ts",
-    "old": "      !Array.isArray((body as Examples).examples) ||",
-    "new": "      false ||",
+    "old": "      typeof (body as Examples).note !== \"string\"",
+    "new": "      false",
     "run": [
       "npx",
       "vitest",
@@ -123,6 +123,30 @@
     "file": "web/src/App.tsx",
     "old": "      {analysis === null && examples !== null && examples.examples.length > 0 && (",
     "new": "      {examples !== null && examples.examples.length > 0 && (",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the entries inside a well-formed list are trusted rather than checked",
+    "file": "web/src/api.ts",
+    "old": "    const usable = (body as Examples).examples.filter(isExample);",
+    "new": "    const usable = (body as Examples).examples as Example[];",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "an entry's companies are taken on trust once the other fields look right",
+    "file": "web/src/api.ts",
+    "old": "    Array.isArray(example.companies) &&\n    example.companies.every((company) => typeof company === \"string\")",
+    "new": "    true",
     "run": [
       "npx",
       "vitest",
