@@ -245,9 +245,10 @@ software rather than **what it can do**, and the states above are complete witho
 
 **D6 is here rather than in S1 deliberately.** Unlimited anonymous inference is only a problem
 once strangers can reach the box; on a laptop it is not a missing capability, it is a setting
-nobody needs. **It is now the only thing left on this track**, and
-[DEPLOY.md](DEPLOY.md) opens with it: until the cap exists, the mitigation is a security-list
-rule allowing one address rather than the internet.
+nobody needs. **It is now the only thing left on this track**, and [DEPLOY.md](DEPLOY.md) opens
+with it: until the cap exists, the mitigation is a `remote_ip` allow-list in the reverse proxy,
+because the ports themselves cannot be restricted — the certificate authority has to reach the
+host.
 
 **D3 is done in the sense this table counts and not in the sense that matters most.** The
 artefact, the units and the procedure exist and are reviewable; **no box has run them.** The

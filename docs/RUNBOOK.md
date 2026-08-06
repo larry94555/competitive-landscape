@@ -201,6 +201,11 @@ broken application look identical from a browser.
 | Every section empty, but the report renders | `llama-server` is not up | **The changelog section will still fill**, because it needs no model. That is how you tell this apart from a fetching problem |
 | `llama-server` restart-loops on boot | Four gigabytes off a free-tier volume is slow, and the unit gave up | `TimeoutStartSec` is 300s in the shipped unit; raise it rather than assume a crash |
 | Sections all arrive at once at the end | A proxy is buffering the event stream | `flush_interval -1` in the Caddyfile. Without it the streaming feature is undone by the thing in front of it |
+| `403 Not open yet.` from your own browser | Your address is not the one in the Caddy allow-list, or it changed | `curl -s https://ifconfig.me`, then the `@allowed remote_ip` line. A home connection's address moves |
+| The certificate never issues | DNS does not point here yet, or port 80 is closed | `dig +short <name>` first; issuance is rate-limited, so check before retrying |
+| The certificate issued once and expired | Renewal failed silently for sixty days | `journalctl -u caddy --since '70 days ago' \| grep -i renew`. This is why step 8 says to confirm a renewal rather than trust the first success |
+| A service was killed and the journal says `oom` | `MemoryMax=` did its job | One service failing instead of the machine. Raise the cap on that unit if the journal shows it repeatedly |
+| The deploy did not take | The unit files were not reinstalled | DEPLOY.md step 10 copies `deploy/*.service` and reloads. A binary-only update leaves the old unit in place |
 
 ### 6.1 A run that will not die
 

@@ -27,14 +27,17 @@ RestartSec=5s
 KillSignal=SIGTERM
 TimeoutStopSec=30s
 
+# Read-only, for the same reason as the API: nothing it does needs to write to /opt.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/landscape
 ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
+
+# It holds a page's Markdown and the windows cut from it, not a model. 2G is generous.
+MemoryMax=2G
 
 [Install]
 WantedBy=multi-user.target

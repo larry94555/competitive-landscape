@@ -24,12 +24,26 @@ ExecStart=/opt/landscape/bin/llama-server \
     --port 8080 \
     --ctx-size 12288 \
     --threads 4
+
+# **This is what makes the unit "started" mean "answering".** With `Type=simple` systemd counts
+# the service as up the instant it forks, so `TimeoutStartSec` alone bounds nothing — review
+# caught the unit claiming otherwise. `ExecStartPost` runs inside the start timeout, so polling
+# until /health answers gives the timeout something real to bound, and makes the worker's
+# `After=` mean the model is loaded rather than merely spawned.
+ExecStartPost=/bin/sh -c 'until curl -sf http://127.0.0.1:8080/health >/dev/null; do sleep 5; done'
+# Loading two and a half gigabytes off a free-tier volume is not fast, and a restart loop during
+# it would look exactly like a crash loop.
+TimeoutStartSec=600s
+
 Restart=on-failure
 RestartSec=10s
-# Loading four gigabytes off a free-tier volume is not fast, and a restart loop during it
-# would look exactly like a crash loop.
-TimeoutStartSec=300s
 
+# The model is ~2.5GB of weights plus the KV cache for a 12k context. RUNBOOK.md section 2 asks
+# for this on every unit: without it, a model that grows past what is free takes the database and
+# the API down with it, and the journal shows three services dying at once instead of one.
+MemoryMax=8G
+
+# It reads a model file and answers on localhost. Nothing else, and nothing writable.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

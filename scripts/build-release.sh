@@ -38,9 +38,13 @@ mkdir -p "$out/bin" "$out/web"
 cp "$bin_dir/landscape" "$out/bin/landscape"
 cp -r web/dist "$out/web/dist"
 
-# Which commit this is. A box serving a report nobody can reproduce is the thing ADR 0005's
-# request ids exist to prevent, and this is the same argument one level up.
-git rev-parse HEAD > "$out/COMMIT"
+# **What is running, in one file.** A box serving a report nobody can reproduce is the thing
+# ADR 0005's request ids exist to prevent, and this is the same argument one level up. The
+# inference artefacts are appended on the box, where they are installed - see DEPLOY.md step 6.
+{
+    echo "commit $(git rev-parse HEAD)"
+    echo "built  $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+} > "$out/MANIFEST"
 
 echo
 echo "dist/ ready:"

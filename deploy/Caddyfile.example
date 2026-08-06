@@ -1,17 +1,35 @@
 # TLS, and the only thing on the box listening to the internet.
 #
 # Caddy gets a Let's Encrypt certificate by itself, which is the whole reason it is here rather
-# than nginx: one less thing to renew and forget. Replace the name with yours.
+# than nginx: one less thing to renew and forget.
 #
-# **Without a domain there is no certificate**, and the honest reading of that is in
-# docs/DEPLOY.md step 8: prompts and reports would cross the internet in clear text.
+# **The allow-list is here rather than in the firewall, and review is the reason.** Restricting
+# ports 80 and 443 to one address at the Oracle security list made the procedure impossible:
+# the certificate authority has to reach this host to validate the domain, and it does not come
+# from your address. So the ports are open to the internet, the certificate can be issued and
+# renewed, and the *application* is the thing behind a list of one.
+#
+# Until D6 exists — a per-IP cap — this is what stands between a public URL and unlimited
+# inference on four cores.
 
 landscape.example.com {
-    encode gzip
+    # Your address. `curl -s https://ifconfig.me` on the machine you will browse from.
+    # A CIDR is fine: 203.0.113.0/24.
+    @allowed remote_ip 203.0.113.4
 
-    # Server-sent events. Buffering them would turn a report that fills in over ninety seconds
-    # into one that appears all at once at the end — which is the feature, undone by a proxy.
-    reverse_proxy 127.0.0.1:8787 {
-        flush_interval -1
+    handle @allowed {
+        encode gzip
+
+        # Server-sent events. Buffering them would turn a report that fills in over ninety
+        # seconds into one that appears all at once at the end — the feature, undone by a proxy.
+        reverse_proxy 127.0.0.1:8787 {
+            flush_interval -1
+        }
+    }
+
+    # Everybody else, including whoever finds the domain in a certificate transparency log
+    # minutes after it is issued.
+    handle {
+        respond "Not open yet." 403
     }
 }

@@ -34,7 +34,7 @@ TypeScript + React frontend · Rust backend · local llama.cpp inference on Orac
 | [FACT_CHECKING.md](FACT_CHECKING.md) | Information gathering & fact-checking: source discovery, the two-axis trust model, competitive-set derivation, the nine-level verification pipeline, misinformation/disinformation handling, and how a reader independently confirms every claim |
 | [Fable_Evaluation.md](Fable_Evaluation.md) · [Evaluation_Action_Plan.md](Evaluation_Action_Plan.md) | Pre-implementation evaluation of the whole plan, and the disposition of every finding with its impact on implementation |
 | [CODING_QUALITY.md](CODING_QUALITY.md) | The code quality standard: simplicity budgets, design patterns, testing, linting, hooks, ADRs, the tutorial, review process, and the agent contract |
-| [DEPLOY.md](DEPLOY.md) | Putting it on an Oracle Ampere A1: the instance, the two firewalls, the build, the units, TLS — and the measurement that can only be taken from the client's side |
+| [DEPLOY.md](DEPLOY.md) | Putting it on an Oracle Ampere A1: the instance, the two firewalls, DNS, the pinned inference artefacts, the units, TLS with an allow-list in front of the application — and the measurement that can only be taken from the client's side |
 
 ---
 

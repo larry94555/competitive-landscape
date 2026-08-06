@@ -23,14 +23,23 @@ Restart=on-failure
 RestartSec=5s
 
 # It reads its own directory and talks to Postgres over localhost. Nothing else.
+# **Nothing here writes to disk.** Logs go to the journal, reports go to Postgres. Review
+# pointed out that `ReadWritePaths=/opt/landscape` let a compromised process replace the very
+# binary and frontend it serves - so there is no writable path at all, and `ProtectSystem=strict`
+# with no exception means the whole filesystem is read-only to it. The artefacts are root-owned;
+# this user only needs to read them.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/landscape
 ProtectKernelTunables=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
+
+# RUNBOOK.md section 2 says a cap on each unit turns a machine-wide OOM into one service
+# failing, which is far easier to diagnose. Serving pages and JSON is not memory-hungry;
+# raise it if the journal shows this being killed rather than guessing upward now.
+MemoryMax=1G
 
 [Install]
 WantedBy=multi-user.target

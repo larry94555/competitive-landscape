@@ -7,7 +7,9 @@
 > wrong, and a procedure nobody has walked is the deployment equivalent of a backup nobody has
 > restored ([RUNBOOK.md](RUNBOOK.md) §3.1 makes the same admission about the restore drill).
 >
-> Where a step is a guess rather than a reading of our own code, it says so.
+> Where a step is a guess rather than a reading of our own code, it says so — the ACME challenge
+> and the allow-list in step 8, and the iptables rule numbering in step 4, are the two I would
+> check first.
 
 **Deploying changes nothing but secrets.** Everything environmental is already an environment
 variable — `BIND_ADDR`, `DATABASE_URL`, `LLAMA_URL`, `WEB_DIR` — and nothing in the code branches
@@ -24,9 +26,14 @@ fixing rather than a step worth documenting.
 to `POST /api/analyses` starts a run that occupies the model for minutes on a machine with four
 cores. A public URL is an open invitation to spend all of it.
 
-Until D6 exists, the mitigation is **step 4**: allow ingress from your own address only, and
-widen it when there is something to widen it for. That is one line in a security list, and it is
-the difference between a demo and a box you have to rebuild.
+Until D6 exists, the mitigation is **step 8**: a `remote_ip` allow-list in Caddy, so the
+application answers one address and refuses the rest. It is one line, and it is the difference
+between a demo and a box you have to rebuild.
+
+It is deliberately *not* in the firewall, and the reason is worth knowing before you start: the
+certificate authority has to reach this host, so ports 80 and 443 cannot be restricted to you.
+Review found that contradiction in the first version of this document, where the two halves made
+each other impossible.
 
 ### The wait is four minutes, and this box is slower than a laptop
 
@@ -103,13 +110,23 @@ This is the step that wastes an afternoon, because closed ports look identical t
 application.
 
 **a. The VCN security list**, in the Oracle console — Networking → Virtual Cloud Networks → your
-VCN → Security Lists → Default. Add an ingress rule:
+VCN → Security Lists → Default. Add ingress rules:
 
 | Source | Protocol | Port |
 |---|---|---|
-| `YOUR.IP.ADDR.ESS/32` | TCP | 443 (and 80, for the certificate) |
+| `0.0.0.0/0` | TCP | 80 |
+| `0.0.0.0/0` | TCP | 443 |
 
-**Your address, not `0.0.0.0/0`** — see the D6 warning above.
+**Open to the internet, and the allow-list moves up a layer.** The first version of this
+document restricted both ports to one address, and review pointed out that this made the
+procedure impossible: Let's Encrypt validates the domain by reaching this host, and it does not
+come from your address. A certificate could never have been issued — and if one somehow had,
+renewal would have failed sixty days later, quietly.
+
+So the ports are open, the certificate works, and **Caddy is what refuses everybody but you** —
+step 8. That is a weaker boundary than a firewall and it is the one that can actually exist: it
+is one process rather than the whole box, and a refused request never reaches the application or
+the model.
 
 **b. The instance's own iptables.** Oracle's Ubuntu images ship with rules that accept SSH and
 drop the rest, and they survive reboots through `netfilter-persistent`. A security list rule
@@ -146,20 +163,32 @@ sudo useradd --system --home /opt/landscape --shell /usr/sbin/nologin landscape 
 sudo mkdir -p /opt/landscape/{bin,web,models}
 sudo cp dist/bin/landscape /opt/landscape/bin/
 sudo cp -r dist/web/dist /opt/landscape/web/dist
-sudo cp dist/COMMIT /opt/landscape/
-sudo chown -R landscape:landscape /opt/landscape
+sudo cp dist/MANIFEST /opt/landscape/
+sudo chown -R root:root /opt/landscape
+sudo chmod -R go-w /opt/landscape
 ```
+
+**Leave it root-owned.** The services read these files and never write them, so nothing needs to
+be handed over. The first version of this document chowned the lot to the service user, and
+review pointed out what that buys an attacker: a compromised API or worker could replace the
+binary it runs from and survive every restart afterwards. The units carry no writable path
+either, so `ProtectSystem=strict` leaves the whole filesystem read-only to them.
 
 ## 6. The model
 
 `llama-server` has to be built for aarch64; there is no package for it.
 
+**Pinned, both of them.** An inference artefact taken from a moving branch means the same
+application commit can be deployed twice and behave differently — and every quality number this
+project has would be about a build nobody can reproduce.
+
 ```bash
 git clone https://github.com/ggml-org/llama.cpp
 cd llama.cpp
+git checkout b10291
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release -j4
-sudo cp build/bin/llama-server /opt/landscape/bin/
+sudo install -o root -g root -m 0755 build/bin/llama-server /opt/landscape/bin/
 ```
 
 Then the model — **Qwen3-4B Q4_K_M**, which is the one the golden set is scored against
@@ -167,14 +196,26 @@ Then the model — **Qwen3-4B Q4_K_M**, which is the one the golden set is score
 a router, not an extractor: it invented a price on a contact-sales page, which is the one failure
 this product cannot ship.
 
+The model is pinned to a revision rather than `main`, and checked afterwards:
+
 ```bash
-sudo -u landscape curl -L --output /opt/landscape/models/Qwen3-4B-Q4_K_M.gguf \
-  https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf
+sudo curl -L --output /opt/landscape/models/Qwen3-4B-Q4_K_M.gguf \
+  https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/bc640142c66e1fdd12af0bd68f40445458f3869b/Qwen3-4B-Q4_K_M.gguf
+
+echo '7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5  /opt/landscape/models/Qwen3-4B-Q4_K_M.gguf' | sha256sum --check
+sudo chmod 0444 /opt/landscape/models/Qwen3-4B-Q4_K_M.gguf
 ```
 
-> *Unverified: the exact file name inside that repository. If the download 404s, browse the
-> repository's files and take the `Q4_K_M` one — the unit file expects that path, so either fix
-> the name here or fix it in the unit.*
+The revision, the file name and the checksum were read from Hugging Face's API rather than
+guessed, and the file is 2,497,280,256 bytes. **If `sha256sum` disagrees, stop.** A model that is
+not the one the golden set scored makes every quality figure on this project inapplicable to
+what is running.
+
+Record what you actually used, beside what the application was built from:
+
+```bash
+printf 'llama.cpp b10291\nmodel bc640142c66e1fdd12af0bd68f40445458f3869b\n' | sudo tee -a /opt/landscape/MANIFEST
+```
 
 ## 7. The services
 
@@ -202,24 +243,53 @@ curl -s http://127.0.0.1:8787/api/health
 process can reach Postgres. A health check that only proves the process is running would report
 healthy while every request failed.
 
-## 8. TLS
+## 8. DNS, then TLS
+
+**The domain has to point here first.** Caddy asks for a certificate on the name in its config,
+and the authority resolves that name and connects to it — so with no record there is nothing to
+validate and no certificate. This step was missing from the first version of this document.
+
+At your registrar or DNS host:
+
+| Type | Name | Value |
+|---|---|---|
+| `A` | `landscape` (or `@`) | your instance's public IPv4 |
+
+Check it resolves from your machine — `dig +short landscape.example.com` — **before** starting
+Caddy. Failed issuance is rate-limited by Let's Encrypt, so the cheap order is DNS, check, then
+Caddy.
 
 ```bash
 sudo apt-get install -y caddy
 sudo cp deploy/Caddyfile.example /etc/caddy/Caddyfile
-sudo nano /etc/caddy/Caddyfile        # your domain name
+sudo nano /etc/caddy/Caddyfile        # your domain, and your address in the allow-list
 sudo systemctl restart caddy
+journalctl -u caddy -f                # watch the certificate arrive
 ```
 
-Caddy gets the certificate itself, which is why it is here rather than nginx — one less thing to
-renew and forget. The config sets `flush_interval -1` deliberately: **buffering server-sent
-events would turn a report that fills in over ninety seconds into one that appears all at once at
-the end**, which is the feature undone by a proxy.
+Two things in that config are deliberate.
 
-**Without a domain there is no certificate.** You can point a browser at
-`http://YOUR_IP:8787` after changing `BIND_ADDR` to `0.0.0.0:8787` and opening that port — but
-then the prompts somebody types and the reports they read cross the internet in clear text. Fine
-for ten minutes of your own testing; not something to send anybody.
+**The `remote_ip` allow-list** is what step 4 moved up here — the application is behind a list of
+one, because the ports cannot be. Put the address you will browse from; `curl -s https://ifconfig.me`
+tells you what it is. Everybody else gets a 403, which matters more than it sounds: a new
+certificate appears in public certificate-transparency logs within minutes of being issued, and
+scanners read those logs.
+
+**`flush_interval -1`** stops the event stream being buffered. Without it a report that fills in
+over ninety seconds arrives all at once at the end — the feature, undone by the thing in front
+of it.
+
+> **The ACME challenge and the allow-list.** Caddy answers the validation request itself, ahead
+> of the routes above, so the 403 should not block issuance. **This is the step I am least able
+> to verify from here.** If the first `journalctl -u caddy` shows a challenge failing, widen the
+> matcher, let the certificate issue, then narrow it again — and confirm a renewal in the log
+> before trusting it, because the failure mode is silent and sixty days away.
+
+**Without a domain there is no certificate.** You can point a browser at `http://YOUR_IP:8787`
+after changing `BIND_ADDR` to `0.0.0.0:8787` and opening that port — but then the prompts
+somebody types and the reports they read cross the internet in clear text, and there is no
+allow-list in front of the application at all. Fine for ten minutes of your own testing; not
+something to send anybody.
 
 ## 9. Now measure it, from here rather than there
 
@@ -249,9 +319,23 @@ cd competitive-landscape && git pull && ./scripts/build-release.sh
 sudo systemctl stop landscape-api landscape-worker
 sudo cp dist/bin/landscape /opt/landscape/bin/
 sudo rm -rf /opt/landscape/web/dist && sudo cp -r dist/web/dist /opt/landscape/web/dist
-sudo cp dist/COMMIT /opt/landscape/
-sudo chown -R landscape:landscape /opt/landscape
+sudo cp dist/MANIFEST /opt/landscape/
+sudo chown -R root:root /opt/landscape && sudo chmod -R go-w /opt/landscape
+
+# **The unit files are part of the deploy.** The first draft of this recipe copied only the
+# binary, so a change to a memory cap or a startup gate would have sat in the repository for
+# months while the box ran the version from the first install.
+sudo cp deploy/*.service /etc/systemd/system/
+sudo systemctl daemon-reload
+
 sudo systemctl start landscape-api landscape-worker
+```
+
+If `deploy/llama-server.service` changed, restart that one too. It is left out above because
+reloading the model costs minutes and most updates do not touch it:
+
+```bash
+sudo systemctl restart llama-server
 ```
 
 Migrations apply on boot, so there is no separate step and no window where the binary and the
