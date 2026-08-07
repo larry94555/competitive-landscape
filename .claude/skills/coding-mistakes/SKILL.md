@@ -951,6 +951,39 @@ just changed. The tests assert on `note()`, on `to_section().checked`, and on `r
 
 > **Ask this:** *is my assertion on the thing a person sees, or on the thing I just edited?*
 
+## 35. A threshold asserted as a number instead of as the decision it drives
+
+**Written:** by me, in `landscape-search::candidates`.
+
+```rust
+assert!(found[0].confidence < 0.5, "an outage produced confidence: {found:#?}");
+```
+
+**What a reviewer saw:** three queries sent, two failing, and the single hit from the third
+scoring **0.47** — which is under 0.5, so the test passed, and over
+`subject::MINIMUM_CONFIDENCE = 0.35`, so the gate **resolved it** and an analysis would have run
+against a company that appeared in one search. The test was named for the property *"an outage is
+not unanimity"* and asserted a number that had nothing to do with the floor the number is
+compared against.
+
+**A threshold has exactly one meaning, and it is downstream.** `0.5` was a number I picked while
+writing the test because it looked comfortably low. The only number that means anything about
+that score is the one the gate refuses at — and it lives in another crate, which is exactly why
+reaching for a literal felt reasonable.
+
+**The fix has two halves.** The regression runs `suggest → describe → resolve` and asserts the
+**verdict**, not the score. And the score for an uncorroborated candidate is now *derived from*
+`MINIMUM_CONFIDENCE` rather than chosen to sit below it, so moving the gate's floor cannot
+silently make uncorroborated candidates resolvable again.
+
+**Rule:** when a value exists to be compared against a threshold, a test that asserts anything
+other than the comparison's *outcome* is testing a number nobody uses. And when code has to sit
+on one side of somebody else's constant, derive it from that constant — a literal chosen to be
+"clearly below" is a second source of truth with no way to notice it drifting.
+
+> **Ask this:** *what decision does this number drive, and am I asserting the decision or the
+> number?*
+
 ---
 
 ## Before a PR: two commands and eight questions
@@ -999,7 +1032,8 @@ Grouped by what has actually gone wrong, commonest first.
    the shape the guard *already* handles, or in the shape it does not? *(26)* Does the fixture already contain the
    thing I am asserting? If I deleted the call to the function I just tested, would anything
    fail? Is there a case that *should* fail and does? **And when a mutation survives, is the
-   guard untested or unnecessary?** *(5, 20, 21, 24, 25, 32)*
+   guard untested or unnecessary?** **And if this value exists to cross a threshold, am I
+   asserting the threshold's outcome or a number of my own?** *(5, 20, 21, 24, 25, 32, 35)*
 
 5. **What is the scope of each guard, and of each wrapper?** A condition about *the connection*
    is wrong at every reconnect; a counter inside an effect does not survive a remount; a layer
@@ -1025,7 +1059,7 @@ Grouped by what has actually gone wrong, commonest first.
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34 |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35 |
 | The mutation harness | 32 | The only one it found before review did, and it deleted a rule rather than adding a test |
 | Its own tooling | 28 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |

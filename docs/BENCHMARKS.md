@@ -107,6 +107,44 @@ than the first element.
 The property matters because the gate compares the **first two** scores against
 `AMBIGUITY_MARGIN`. Which two those are cannot be luck.
 
+### Three things review found, and all three were about identity
+
+The score was defensible and the **thing being scored** was wrong three times over — which is
+worse, because entity resolution is the one step where a mistake is invisible downstream: a
+report about the wrong company is internally consistent, fully cited, and wrong in every section.
+
+**One company was three.** `registrable()` lowercased and stripped `www.` and stopped there, so
+`example.com`, `app.example.com` and `docs.example.com` were three candidates. That divides the
+cross-query agreement the whole score rests on, and spends three of the five slots a reader
+chooses from on one vendor — turning a clear subject into an ambiguous one. It computes a
+registrable domain now, with a **closed list of multi-label public suffixes** so `bbc.co.uk` is a
+company and `co.uk` is not. The list is a deliberate subset of the PSL, and the limit is stated:
+an unlisted multi-label suffix groups one label too short, which merges rather than splits.
+
+**The page that named a company was not its front page.** `describe` fetched the shallowest
+*search result*, which for a real company is often `/pricing` — whose first heading is `Pricing`.
+A reader would have been asked to choose between three companies, one of them called *Pricing*.
+The home page is built from the host now.
+
+**And a single search could resolve a subject.** Three queries sent, two failing, and the one hit
+from the third scored `0.8 × 1/3 + 0.2 = 0.47` — over `MINIMUM_CONFIDENCE`, so the gate resolved
+it and an analysis would have run against a company that appeared in one search. Corroboration is
+required: below two agreeing queries the score is **derived from the gate's own floor** rather
+than chosen to look low, so the two cannot drift apart in silence.
+
+**The test for that last one asserted `confidence < 0.5`** and passed the whole time, because
+0.47 is less than 0.5 and also more than 0.35. A number instead of the behaviour, which is the
+register's own rule about asserting on the surface — the regression runs
+`suggest → describe → resolve` and asserts the *verdict* now.
+
+### And the fix put a hole in the tests above it
+
+Adding the corroboration floor left every existing score test comparing a **corroborated**
+candidate against a **floored** one — so nothing distinguished two-of-three agreement from
+three-of-three, and the divisor could have been anything at all. The harness said so on the next
+run: a mutation that had been caught for two rounds went missed on a change that fixed something
+else. A fix is a change, and the tests around it are part of what it changes.
+
 ### What is not measured here
 
 **No engine has been asked.** Docker's daemon does not start where this was built, which is the
@@ -122,7 +160,7 @@ clarifying-question row of S2 — one piece of work away, and named rather than 
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 27 | 687 | 51 |
-| now | **711** | **51** |
+| now | **719** | **51** |
 
 ---
 

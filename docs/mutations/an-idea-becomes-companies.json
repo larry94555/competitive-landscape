@@ -143,10 +143,10 @@
     ]
   },
   {
-    "name": "www and the bare host are two different companies",
+    "name": "every subdomain of one company is counted as its own company",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "    lowered.strip_prefix(\"www.\").unwrap_or(&lowered).to_owned()",
-    "new": "    lowered",
+    "old": "    let labels: Vec<&str> = lowered.split('.').filter(|l| !l.is_empty()).collect();",
+    "new": "    let labels: Vec<&str> = std::iter::once(lowered.as_str()).collect();",
     "run": [
       "cargo",
       "nextest",
@@ -186,6 +186,58 @@
     "file": "crates/landscape-search/src/candidates.rs",
     "old": "    for one in found.iter().take(NAMED) {",
     "new": "    for one in found.iter() {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a public suffix is treated as a company, so every .co.uk site is one",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    let keep = if MULTI_LABEL_SUFFIXES.contains(&last_two.as_str()) {\n        3\n    } else {\n        2\n    };",
+    "new": "    let keep = 2;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the shallowest search result is fetched instead of the front page",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        let page = fetch(home_page(&one.host)).await;",
+    "new": "        let page = fetch(one.shallowest.clone()).await;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a company found by one search of three can be chosen for a reader",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    if agreed < CORROBORATION {",
+    "new": "    if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "an uncorroborated score drifts above the floor the gate refuses at",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        return landscape_core::subject::MINIMUM_CONFIDENCE / 2.0;",
+    "new": "        return 0.4;",
     "run": [
       "cargo",
       "nextest",

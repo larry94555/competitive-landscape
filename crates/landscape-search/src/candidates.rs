@@ -69,6 +69,17 @@ use crate::queries::Query;
 /// for edits that could not affect the other, which is a version nobody can reason from.
 pub const IDEA_QUERY_SET: &str = "2026-08-07.1";
 
+/// How many differently-worded queries have to agree before a candidate can be chosen for a
+/// reader rather than offered to one.
+///
+/// **Two, and the number is the whole argument of this module.** A host one query returned has
+/// agreed with nothing; the score is built on agreement, so a candidate with none of it has no
+/// score worth comparing. Review found what that cost: three queries sent, two failing, and the
+/// single hit from the third scored `0.8 × 1/3 + 0.2 = 0.47` — above
+/// [`landscape_core::subject::MINIMUM_CONFIDENCE`], so the gate resolved it and an analysis
+/// would have run against a company that appeared in one search.
+pub const CORROBORATION: usize = 2;
+
 /// The most companies worth putting in front of a reader.
 ///
 /// The gate asks a reader to choose between candidates, and a list of twenty is not a question —
@@ -130,7 +141,12 @@ pub struct Found {
     pub confidence: f32,
     /// How many of the queries returned this host at all.
     pub agreed: usize,
-    /// The shallowest URL seen on this host, which is the one worth fetching.
+    /// The shallowest URL seen on this host.
+    ///
+    /// **The depth signal, and not the fetch target.** Review found [`describe`] fetching this:
+    /// the shallowest *search result* can still be `/pricing`, and a page's first heading then
+    /// becomes the company's name — a reader offered *"Pricing"* as one of three companies to
+    /// choose between. The home page is built from [`Self::host`] instead.
     pub shallowest: String,
 }
 
@@ -261,6 +277,13 @@ pub fn score(agreed: usize, asked: usize, depth: usize) -> f32 {
     if asked == 0 {
         return 0.0;
     }
+    if agreed < CORROBORATION {
+        // **Below the floor the gate refuses at, derived from it rather than guessed.** A number
+        // chosen to be "clearly low" would drift the day somebody moved `MINIMUM_CONFIDENCE`,
+        // and the drift would be silent: an uncorroborated candidate would start resolving
+        // again with nothing in either file to say so.
+        return landscape_core::subject::MINIMUM_CONFIDENCE / 2.0;
+    }
     #[expect(
         clippy::cast_precision_loss,
         reason = "counts here are single digits; the cap is three queries and five candidates"
@@ -283,6 +306,11 @@ pub fn score(agreed: usize, asked: usize, depth: usize) -> f32 {
 /// a search engine is choosing between an engine's opinions. `fetch` returns the Markdown of a
 /// URL, so this is the same conversion every extractor reads.
 ///
+/// **And the front page is the front page**, built from the host, rather than the shallowest URL
+/// a search happened to return. Review found the difference: the shallowest result for a company
+/// is often `/pricing`, whose first heading is *"Pricing"* — offered to a reader as the name of
+/// one of the companies they are choosing between.
+///
 /// A host whose front page cannot be read keeps its host as its name and says so, rather than
 /// being dropped: *"we could not read this one"* is a thing a reader can act on, and a candidate
 /// silently missing from a list is not.
@@ -293,7 +321,7 @@ where
 {
     let mut out = Vec::with_capacity(found.len().min(NAMED));
     for one in found.iter().take(NAMED) {
-        let page = fetch(one.shallowest.clone()).await;
+        let page = fetch(home_page(&one.host)).await;
         let (name, what_it_is) = page.map_or_else(
             || {
                 (
@@ -311,6 +339,15 @@ where
         });
     }
     out
+}
+
+/// The company's front page.
+///
+/// `https`, always: a candidate arrives from a search engine, and asking for a company's home
+/// page over plaintext because a result happened to be `http` is a downgrade nobody asked for.
+/// The fetcher's guard is still what decides whether the URL may be reached at all.
+fn home_page(host: &str) -> String {
+    format!("https://{host}/")
 }
 
 /// A page's own name for itself, and the first line that says what it is.
@@ -342,10 +379,48 @@ fn naming(host: &str, markdown: &str) -> (String, String) {
     (name, what)
 }
 
-/// The registrable host: lowercased, no `www.`
+/// Public suffixes with more than one label, so `bbc.co.uk` is a company and `co.uk` is not.
+///
+/// **A closed list, and a deliberate subset of the Public Suffix List.** The full list is ten
+/// thousand entries that go stale, shipped for a step whose worst outcome is *two candidates
+/// where there should be one* — which the gate then asks a reader about. These are the suffixes
+/// a description in English is likely to turn up, and the limit is stated rather than implied:
+/// a registrable domain under a multi-label suffix **not** on this list is grouped one label too
+/// short, which merges two companies rather than splitting one. That is the worse direction, so
+/// the list errs towards being long.
+const MULTI_LABEL_SUFFIXES: [&str; 30] = [
+    "co.uk", "org.uk", "me.uk", "ltd.uk", "plc.uk", "net.uk", "sch.uk", "ac.uk", "gov.uk",
+    "com.au", "net.au", "org.au", "edu.au", "gov.au", "co.nz", "net.nz", "org.nz", "govt.nz",
+    "co.jp", "or.jp", "ne.jp", "ac.jp", "go.jp", "com.br", "com.mx", "com.ar", "co.za", "co.in",
+    "com.sg", "com.tr",
+];
+
+/// The registrable domain: lowercased, and one host per company.
+///
+/// **Review found the first version splitting one company into three.** It lowercased and
+/// stripped `www.`, so `example.com`, `app.example.com` and `docs.example.com` were three
+/// candidates — which divides the cross-query agreement the whole score is built on, and can
+/// spend most of the five slots on one vendor. A clear subject becomes an ambiguous one.
+///
+/// So the last two labels are the company, unless the last two are a public suffix, in which
+/// case it is the last three. See [`MULTI_LABEL_SUFFIXES`] for what that list does and does not
+/// cover.
 fn registrable(host: &str) -> String {
     let lowered = host.trim().trim_end_matches('.').to_lowercase();
-    lowered.strip_prefix("www.").unwrap_or(&lowered).to_owned()
+    let labels: Vec<&str> = lowered.split('.').filter(|l| !l.is_empty()).collect();
+    if labels.len() <= 2 {
+        return labels.join(".");
+    }
+    let last_two = labels[labels.len() - 2..].join(".");
+    let keep = if MULTI_LABEL_SUFFIXES.contains(&last_two.as_str()) {
+        3
+    } else {
+        2
+    };
+    if labels.len() <= keep {
+        return labels.join(".");
+    }
+    labels[labels.len() - keep..].join(".")
 }
 
 /// Whether this host is a place people talk about companies rather than a company.
@@ -636,6 +711,184 @@ It does a thing for other companies."
         .await;
         assert_eq!(described.len(), NAMED);
         assert_eq!(*fetched.lock().unwrap(), NAMED);
+    }
+
+    #[test]
+    fn every_subdomain_of_one_company_is_one_company() {
+        // **Review found the first version splitting one company into three.** Agreement is
+        // what the whole score rests on, and `example.com`, `app.example.com` and
+        // `docs.example.com` as three candidates divides it three ways — then spends three of
+        // the five slots a reader chooses from on one vendor.
+        let results = vec![
+            vec![hit("https://example.com/")],
+            vec![hit("https://app.example.com/dashboard")],
+            vec![hit("https://docs.example.com/start")],
+        ];
+        let found = from_results(&results, 3);
+        assert_eq!(found.len(), 1, "{found:#?}");
+        assert_eq!(found[0].host, "example.com");
+        assert_eq!(found[0].agreed, 3, "the agreement was split: {found:#?}");
+    }
+
+    #[test]
+    fn two_companies_are_still_two_companies() {
+        // The other direction, and the worse one: merging two vendors into one candidate would
+        // put a company on a reader's list that no query ever returned.
+        let results = vec![vec![hit("https://a.com/"), hit("https://b.com/")]];
+        let found = from_results(&results, 1);
+        assert_eq!(found.len(), 2, "{found:#?}");
+    }
+
+    #[test]
+    fn a_public_suffix_is_not_a_company() {
+        // `bbc.co.uk` is a company; `co.uk` is not, and grouping on the last two labels would
+        // file every British company under one candidate.
+        assert_eq!(registrable("www.bbc.co.uk"), "bbc.co.uk");
+        assert_eq!(registrable("news.bbc.co.uk"), "bbc.co.uk");
+        assert_eq!(registrable("shop.example.com.au"), "example.com.au");
+        assert_ne!(registrable("bbc.co.uk"), registrable("itv.co.uk"));
+
+        // And an ordinary two-label suffix is not treated as one.
+        assert_eq!(registrable("deep.sub.example.com"), "example.com");
+        assert_eq!(registrable("EXAMPLE.COM."), "example.com");
+        assert_eq!(registrable("example.com"), "example.com");
+    }
+
+    #[tokio::test]
+    async fn the_page_that_names_a_company_is_its_front_page() {
+        // **Review found `describe` fetching the shallowest search result.** For a real company
+        // that is often `/pricing`, whose first heading is `Pricing` — so a reader would have
+        // been asked to choose between three companies, one of them called "Pricing".
+        let found = vec![Found {
+            host: "usefathom.com".to_owned(),
+            confidence: 0.9,
+            agreed: 3,
+            shallowest: "https://usefathom.com/pricing".to_owned(),
+        }];
+        let asked = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+        let seen = std::sync::Arc::clone(&asked);
+        let described = describe(&found, move |url| {
+            let seen = std::sync::Arc::clone(&seen);
+            async move {
+                seen.lock().unwrap().push(url.clone());
+                Some(if url.ends_with("/pricing") {
+                    "# Pricing
+Plans start at $14 a month."
+                        .to_owned()
+                } else {
+                    "# Fathom Analytics
+Simple, privacy-first website analytics."
+                        .to_owned()
+                })
+            }
+        })
+        .await;
+
+        assert_eq!(
+            asked.lock().unwrap().as_slice(),
+            ["https://usefathom.com/".to_owned()],
+            "the pricing page was fetched to name the company"
+        );
+        assert_eq!(described[0].name, "Fathom Analytics");
+    }
+
+    #[tokio::test]
+    async fn one_search_out_of_three_never_resolves_by_itself() {
+        // **End to end, because the number was not the point — the gate's answer was.** The old
+        // test asserted `confidence < 0.5` and passed while 0.47 sailed over
+        // `MINIMUM_CONFIDENCE`: two queries fail, the third returns one company, and an
+        // analysis runs against a company that appeared in a single search.
+        let engine = Canned {
+            per_query: vec![Ok(vec![hit("https://lonely.example/")]), Err(()), Err(())],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (found, failures) = suggest(&engine, "a market nobody agrees about").await;
+        assert_eq!(failures, 2);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].agreed, 1);
+
+        let named = describe(&found, |_url| async {
+            Some(
+                "# Lonely
+The only thing one search returned."
+                    .to_owned(),
+            )
+        })
+        .await;
+        let verdict = landscape_core::subject::resolve(
+            "a market nobody agrees about",
+            named,
+            vec!["three queries, two of which did not complete".to_owned()],
+        );
+        assert!(
+            matches!(
+                verdict,
+                landscape_core::subject::Resolution::NothingFound { .. }
+            ),
+            "one search resolved a subject: {verdict:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn two_searches_agreeing_do_resolve() {
+        // The other half, so the rule above is a rule and not a refusal to answer.
+        let engine = Canned {
+            per_query: vec![
+                Ok(vec![hit("https://agreed.example/")]),
+                Ok(vec![hit("https://agreed.example/pricing")]),
+                Err(()),
+            ],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (found, _) = suggest(&engine, "something two engines agree about").await;
+        assert_eq!(found[0].agreed, 2);
+
+        let named = describe(&found, |_url| async {
+            Some(
+                "# Agreed
+A company two searches both returned."
+                    .to_owned(),
+            )
+        })
+        .await;
+        let verdict = landscape_core::subject::resolve("something", named, Vec::new());
+        match verdict {
+            landscape_core::subject::Resolution::Resolved { entity } => {
+                assert_eq!(entity.canonical_domain, "agreed.example");
+            }
+            other => panic!("corroborated candidate did not resolve: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn more_agreement_is_more_confidence_all_the_way_up() {
+        // **Not just corroborated-or-not.** Adding the corroboration floor left every test
+        // above it comparing a corroborated candidate with a floored one, so nothing
+        // distinguished two-of-three from three-of-three and the divisor could have been
+        // anything. The mutation harness said so.
+        let two_of_three = score(2, 3, 0);
+        let three_of_three = score(3, 3, 0);
+        assert!(
+            three_of_three > two_of_three,
+            "unanimity is worth no more than a majority: {three_of_three} vs {two_of_three}"
+        );
+        // And the gap is the agreement, not the URL: both are front pages here.
+        assert!(
+            (three_of_three - two_of_three) > 0.2,
+            "{three_of_three} vs {two_of_three}"
+        );
+    }
+
+    #[test]
+    fn an_uncorroborated_candidate_scores_below_the_floor_the_gate_refuses_at() {
+        // Derived from the gate's own constant rather than a number chosen to look low, so the
+        // two cannot drift apart in silence.
+        let alone = score(1, 3, 0);
+        assert!(
+            alone < landscape_core::subject::MINIMUM_CONFIDENCE,
+            "{alone} would reach the gate"
+        );
+        assert!(score(2, 3, 0) > landscape_core::subject::MINIMUM_CONFIDENCE);
     }
 
     #[test]
