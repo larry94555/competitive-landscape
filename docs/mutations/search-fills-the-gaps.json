@@ -1,0 +1,290 @@
+[
+  {
+    "name": "search leads instead of filling - every question is asked about",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "const fn worth_searching(stopped_early: bool, gaps: &[Answers]) -> bool {\n    !stopped_early && !gaps.is_empty()",
+    "new": "const fn worth_searching(stopped_early: bool, gaps: &[Answers]) -> bool {\n    !stopped_early",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a gap nobody could search reads as a gap somebody looked into",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "    if failures == Failures::NoEngine {",
+    "new": "    if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "an engine that is down is swallowed rather than reported",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "                failures += 1;",
+    "new": "                let _ = &mut failures;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a page the run already read is admitted a second time",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "    let admitted = landscape_search::admit::admit(\n        &target.host,\n        already,",
+    "new": "    let admitted = landscape_search::admit::admit(\n        &target.host,\n        &[],",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "search reads as many pages as it likes",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        PAGES_FROM_SEARCH,\n    );",
+    "new": "        usize::MAX,\n    );",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a question whose page was read and said nothing counts as answered",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "            .filter(|question| !self.claims.iter().any(|(q, _)| q == question))",
+    "new": "            .filter(|question| !self.pages.iter().any(|p| p.question == *question))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a stranger's page is filed under the company's own voice",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "    if disposition == Disposition::Primary {\n        return origin.to_owned();\n    }",
+    "new": "    if true {\n        return origin.to_owned();\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "every page search found is treated as the company speaking",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "            candidate: hit.to_candidate(),\n            disposition: hit.disposition,",
+    "new": "            candidate: hit.to_candidate(),\n            disposition: Disposition::Primary,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a claim from a page we could not attribute is not marked where it is read",
+    "file": "crates/landscape-analyze/src/render.rs",
+    "old": "        .filter(|s| s.disposition != Disposition::Primary)",
+    "new": "        .filter(|_| false)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the source list says how far we got without saying what that means",
+    "file": "crates/landscape-analyze/src/render.rs",
+    "old": "                source.disposition.reader_description()",
+    "new": "                \"\"",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a run the reader walked away from searches anyway",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "const fn worth_searching(stopped_early: bool, gaps: &[Answers]) -> bool {\n    !stopped_early && !gaps.is_empty()",
+    "new": "const fn worth_searching(stopped_early: bool, gaps: &[Answers]) -> bool {\n    !gaps.is_empty()",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the note counts every admitted page as the company's own",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        .filter(|f| f.disposition == Disposition::Primary)\n        .count();",
+    "new": "        .count();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a page that never opened is reported as one that was read",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        .filter(|hit| so_far.was_read(&hit.url))",
+    "new": "        .filter(|hit| !hit.url.is_empty())",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a fetch that failed still counts as an extractor having run",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "            .any(|p| p.url == url && p.window_words.is_some())",
+    "new": "            .any(|p| p.url == url)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a question search read a page for is reported as unchecked",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "                coverage.sources.push(page.url.clone());",
+    "new": "                let _ = &page.url;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "one company's search note is credited to whichever company merges first",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "    let who = origin\n        .trim_start_matches(\"https://\")\n        .trim_start_matches(\"http://\");",
+    "new": "    let who = \"this company\";",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "an admitted page nobody opened is left out of the note entirely",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "    if unread > 0 {",
+    "new": "    if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a page search admitted is left out of the coverage it belongs to",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        so_far.searched.extend(searched_pages(&admitted));",
+    "new": "        let _ = &admitted;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a searched page is counted in coverage but never shown to a reader",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "                coverage.attempts.push(landscape_core::Attempt {",
+    "new": "                let _unused = (|| landscape_core::Attempt {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a searched page read and one never opened look alike in the evidence",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "                    outcome: if page.read { \"read\" } else { \"not read\" }.to_owned(),",
+    "new": "                    outcome: \"read\".to_owned(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a page found and not read is counted without being named",
+    "file": "crates/landscape-core/src/coverage.rs",
+    "old": "                \"{} page(s) found and not read - our gap, not theirs. Checked: {}\",\n                self.sources.len(),\n                self.render_attempts()",
+    "new": "                \"{} page(s) found and not read - our gap, not theirs.{}\",\n                self.sources.len(),\n                \"\"",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the whole URL of a stranger's page is trimmed to a path",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "                    path: page.url.clone(),",
+    "new": "                    path: \"/searched\".to_owned(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  }
+]

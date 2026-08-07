@@ -22,8 +22,13 @@ use crate::report::{Section, SectionStatus};
 /// One path we tried and what came back, as a coverage note repeats it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Attempt {
-    /// The path, not the whole URL — `/changelog (404)` is what a reader can retype, and on a
-    /// report about one company the heading above it already says whose it is.
+    /// What a reader can go and look at.
+    ///
+    /// **A path for the subject's own pages** — `/changelog (404)` is what a reader can retype,
+    /// and on a report about one company the heading above it already says whose it is. **A
+    /// whole URL for a page somebody else hosts**, because that page is not the subject's and
+    /// its host is the part that matters about it. Search is what made the second kind
+    /// reachable.
     pub path: String,
     /// `404`, `robots`, `200`. Short enough to sit in brackets.
     pub outcome: String,
@@ -120,9 +125,15 @@ impl Coverage {
             return format!("no page found. Checked: {}", self.render_attempts());
         }
         if self.pages_read == 0 {
+            // **Named, not just counted.** Every other silence here says what was checked, and
+            // this one said only how many — so a reader was told a page existed and given no
+            // way to look at it. That was survivable while every page came from the subject's
+            // own domain and the heading said whose it was; a page a search engine found sits
+            // on somebody else's host, and the host is the part that matters about it.
             return format!(
-                "{} page(s) found and not read - our gap, not theirs",
-                self.sources.len()
+                "{} page(s) found and not read - our gap, not theirs. Checked: {}",
+                self.sources.len(),
+                self.render_attempts()
             );
         }
         format!(

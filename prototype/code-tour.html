@@ -80,112 +80,97 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    last: {
-      name: "the last section that could never fill",
-      purpose: "One of six questions had no extractor.",
+    built: {
+      name: "a search channel nothing called",
+      purpose: "Reachable from one command, and nowhere else.",
       lines: [
-        ['t', '  Where they are investing'],
+        ['f', '  landscape search linear.app'],
         ['c', ''],
-        ['s', '  no extractor yet for direction pages'],
+        ['s', '  no analysis calls any of it'],
         ['c', ''],
-        ['c', '// Discovery admitted the careers page.'],
-        ['f', '// Nothing ever opened it.']
+        ['c', '// The crate was right. It was also'],
+        ['f', '// a road that led nowhere.']
       ]
     },
-    written: {
-      name: "but somebody wrote these on purpose",
-      purpose: "A job title is a line, not a judgement.",
+    weaker: {
+      name: "and it measured the wrong gap",
+      purpose: "A page found is not a question answered.",
       lines: [
-        ['f', '  Senior / Staff Product Engineer'],
-        ['f', '  Senior Counsel'],
+        ['s', '  helpscout.com/blog'],
+        ['s', '    admitted for changes'],
+        ['s', '    yields no dated entry'],
         ['c', ''],
-        ['c', '// A date is parsed, not generated.'],
-        ['t', '// So is this. No model runs here.']
+        ['f', '// Answered? A page was found.'],
+        ['t', '// Empty? Nothing filled it.']
       ]
     },
-    sorted: {
-      name: "so do not sort them",
-      purpose: "The page is right about its own company.",
+    sharper: {
+      name: "so ask what filled, not what was found",
+      purpose: "One line, and the reason this belongs here.",
       lines: [
-        ['s', '  Product Marketing Manager'],
-        ['s', '    filed under Product Management'],
-        ['s', '  Developer Relations'],
-        ['s', '    filed under Marketing'],
+        ['t', '  !self.claims.iter()'],
+        ['t', '      .any(|(q, _)| q == question)'],
         ['c', ''],
-        ['f', '// A keyword gets both wrong.']
+        ['c', '// An analysis knows what filled.'],
+        ['f', '// A command that reads nothing cannot.']
       ]
     },
-    magic: {
-      name: "and one group is called Magic",
-      purpose: "No table of functions contains it.",
+    order: {
+      name: "search fills, it does not lead",
+      purpose: "Structural, not a comment.",
       lines: [
-        ['t', '  Magic'],
-        ['t', '    Production Designer'],
+        ['f', '  probes first, always'],
+        ['t', '  then the gaps become queries'],
         ['c', ''],
-        ['c', '// Report the titles as written.'],
-        ['f', '// The reader does the sorting.']
+        ['c', '// A company whose own pages answered'],
+        ['c', '// everything sends no query at all.']
       ]
     },
-    above: {
-      name: "everything dangerous is above the list",
-      purpose: "Three real pages. Three near misses.",
+    whose: {
+      name: "but whose page is it",
+      purpose: "The company, or a stranger.",
       lines: [
-        ['s', '  The Pragmatic Engineer'],
-        ['s', '  Staff Java Engineer in Brno, 2015'],
-        ['s', '  Kelsey Weber , Engineering Manager'],
+        ['f', '  e.com/pricing        Primary'],
+        ['s', '  someblog.example/e   Unverified'],
         ['c', ''],
-        ['f', '// A podcast. An employee. A quote.']
+        ['c', '// One is the company speaking.'],
+        ['t', '// The other is somebody else.']
       ]
     },
-    scope: {
-      name: "so start where the page says",
-      purpose: "Its own heading, and the next one stops it.",
+    marked: {
+      name: "so say so where it is read",
+      purpose: "Not two screens below, in a list.",
       lines: [
-        ['t', '  ## Open roles'],
-        ['f', '  Senior / Staff Product Engineer'],
-        ['f', '  Senior Counsel'],
-        ['s', '  ## Our Hiring Process'],
+        ['t', '  - (U) states unlimited seats [S4]'],
         ['c', ''],
-        ['c', '// Below that, a hiring manager is'],
-        ['c', '// a job somebody already has.']
+        ['f', '  [S4] ... (U - a page we could read'],
+        ['f', '       but could not fully attribute)'],
+        ['c', ''],
+        ['c', '// A code beside a URL is not a marking.']
       ]
     },
-    deleted: {
-      name: "the harness deleted a rule",
-      purpose: "Nothing failed. So nothing needed it.",
+    pair: {
+      name: "the harness found the real hole",
+      purpose: "A page, parted from its standing.",
       lines: [
-        ['s', '  match plurals too'],
+        ['s', '  read_one(page, disposition)'],
         ['c', ''],
-        ['f', '  Developers   Partners   Managers'],
+        ['s', '  every result -> Primary'],
+        ['f', '  680 tests pass'],
         ['c', ''],
-        ['c', '// Every line it reached was a'],
-        ['t', '// navigation label. It is gone.']
+        ['t', '// Two arguments. One value now.']
       ]
     },
-    cost: {
-      name: "what it costs",
-      purpose: "Counted, with no model running.",
+    quiet: {
+      name: "and without an engine, nothing",
+      purpose: "The laptop default is unchanged.",
       lines: [
-        ['t', '  16 calls  ->  16'],
+        ['f', '  no SEARX_URL'],
+        ['t', '  the planned pages, exactly'],
         ['c', ''],
-        ['f', '  a whole section, for a fetch'],
-        ['t', '  helpscout first content: 1 -> 0'],
-        ['c', ''],
-        ['c', '// Five of six companies now start'],
-        ['c', '// with no model call at all.']
-      ]
-    },
-    gone: {
-      name: "and the string that said so",
-      purpose: "A predicate nobody can make false.",
-      lines: [
-        ['s', '  fn has_extractor(q) -> bool'],
-        ['s', '      true   // for all six'],
-        ['c', ''],
-        ['f', '  match q { .. }   // no wildcard'],
-        ['c', ''],
-        ['t', '// A seventh question is now a'],
-        ['t', '// build error, not a log line.']
+        ['c', '// And the report says which questions'],
+        ['c', '// went unsearched - so a gap nobody'],
+        ['c', '// looked into never reads as an answer.']
       ]
     }
   };
@@ -229,21 +214,19 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:last",    c: "The last section that could never fill." },
-    { kind: "means",       a: "spot:#code",   c: "Discovery found the page. Nothing opened it." },
+    { kind: "recognition", a: "file:built",   c: "A search channel that no analysis called." },
+    { kind: "means",       a: "file:weaker",  c: "And it measured a gap by what was found." },
 
-    { kind: "turn",        a: "file:written", c: "But somebody wrote these down on purpose." },
-    { kind: "result",      a: "file:sorted",  c: "So do not sort them. A keyword gets it wrong." },
-    { kind: "result",      a: "file:magic",   c: "One group is called Magic. Report what is written." },
+    { kind: "turn",        a: "file:sharper", c: "Ask what filled instead. One line." },
+    { kind: "result",      a: "file:order",   c: "Probes first, so search fills and never leads." },
 
-    { kind: "turn",        a: "file:above",   c: "A podcast. An employee. A testimonial." },
-    { kind: "result",      a: "file:scope",   c: "So start where the page says its list starts." },
+    { kind: "turn",        a: "file:whose",   c: "But whose page came back — theirs, or a stranger's?" },
+    { kind: "result",      a: "file:marked",  c: "So mark it where the claim is read." },
 
-    { kind: "result",      a: "file:deleted", c: "Then the harness deleted a rule nothing needed." },
-    { kind: "result",      a: "file:cost",    c: "16 calls stay 16. A whole section, for a fetch." },
-    { kind: "result",      a: "file:gone",    c: "And a seventh question is now a build error." },
+    { kind: "result",      a: "file:pair",    c: "The harness found the hole: a page parted from its standing." },
+    { kind: "result",      a: "file:quiet",   c: "And with no engine, the run is exactly as it was." },
 
-    { kind: "close",       a: "hold",         c: "No section left that can never fill." }
+    { kind: "close",       a: "hold",         c: "The gaps a company's own pages leave, asked about." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the

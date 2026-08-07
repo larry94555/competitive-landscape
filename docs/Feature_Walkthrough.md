@@ -34,6 +34,7 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | **A cap on how much of the box one stranger may spend** | **Yes** — Part 2D |
 | **What a security page claims, and what it only mentions** | **Yes** — Part 2E |
 | **Where a company is investing, read off its careers page for no model calls** | **Yes** — Part 2F |
+| **Searching the web for the questions a company's own pages left empty** | **Yes** — Part 8F |
 | **The questions probes could not answer, and the queries that follow from them** | **Yes** — Part 8F |
 | Reading real web pages *as part of a report* | No — the fetcher exists, nothing calls it yet |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
@@ -1363,10 +1364,37 @@ an `http`/`https` URL never appears at all.
 > not being read; the error carries the number rather than flattening it for exactly that reason.
 > The first person through corrects these instructions.
 
-**What this does not do.** No analysis calls any of it. Typing *"an app that helps small farms sell
-to local restaurants"* into the box still fails with `no_subject`, because turning a description
-into a company needs candidate generation and competitor-set derivation, which are the next two
-pieces. See [BENCHMARKS.md](BENCHMARKS.md) Run 26.
+### An analysis asks the same questions, of what its own reading left empty
+
+This command computes its gaps from what discovery **admitted**, which is the only measure a
+command that reads nothing can use. An analysis has a sharper one — what actually produced a
+claim — and uses it.
+
+**Do this**, with `SEARX_URL` set:
+
+```bash
+cargo run -p landscape -- read https://basecamp.com
+```
+
+**You should see** the planned pages first, then up to three more below them, and a note on the
+report naming the questions that were searched for. Every page a search found that sits on the
+company's own domain is treated exactly as a probe's page is. Every page that does not is marked
+where the claim is read:
+
+```text
+- (U) states it offers unlimited projects [S6·M]
+
+[S6] … — https://someblog.example/… (U — a page we could read but could not fully attribute)
+```
+
+**Without `SEARX_URL` nothing changes** — the run reads exactly the pages discovery planned, and
+the report says which questions went unsearched rather than letting them read as questions
+somebody looked into.
+
+**What this still does not do.** Typing *"an app that helps small farms sell to local
+restaurants"* into the box fails with `no_subject`. Search fills gaps about a company you named;
+turning a description into a company needs candidate generation and competitor-set derivation,
+which are the next two pieces. See [BENCHMARKS.md](BENCHMARKS.md) Run 27.
 
 ---
 

@@ -900,6 +900,57 @@ it, the output should not exist.
 > **Ask this:** *what is my fallback assuming that my main path was given? If the answer is
 > "where to look", why is reading everything the right answer instead of reading nothing?*
 
+## 34. A sentence written from the plan, not from the run
+
+**Written:** by me, in `landscape-analyze`, three times in one pull request, each a different
+surface of the same habit.
+
+**What a reviewer saw:**
+
+* The search note said *"3 page(s) were read"* — computed immediately after admission, before
+  a single one had been fetched. A dead host, a page below the quality floor, and a run the
+  reader walked away from all counted as reads.
+* A question whose only page came from search reported *"nothing was checked - our gap, not
+  theirs"*, because `Coverage` is built from what discovery admitted and search was the first
+  thing ever to add a page discovery had not.
+* Both note branches said *"this company"*, and `analyse_many` merges every subject's notes and
+  drops duplicates — so two companies with the same gaps collapsed into one ambiguous sentence
+  and the other was thrown away.
+
+**None of these is a wording problem, and treating them as one is the trap.** The first is a
+count taken from a list of intentions; the second is a summary derived from one of the two
+sources that now feed it; the third is a string that was correct in the only context it had ever
+been rendered in. The reading itself was right in all three cases, which is what made them easy
+to miss: the *account* of the run was assembled from what the code meant to do.
+
+**Rule:** a sentence about what a run did has to be computed from the record of what it did —
+after it did it. When you add a second producer of anything a summary reads, the summary is part
+of the change, not a caller of it. And a note that will be merged with somebody else's has to
+name whose it is, because deduplication cannot ask.
+
+> **Ask this:** *is this number counted from what happened, or from what I asked for — and if I
+> add a second source of these, does everything that summarises them know?*
+
+### The sequel, and it is the older rule failing
+
+The fix for the coverage half of that entry extended `Coverage.sources` — and **I asserted on
+`Coverage.sources`**, which is the field, not the surface. Review ran the same state through
+`Coverage::note()` and got:
+
+```text
+read 1 page(s), none stated anything. Checked: nothing
+```
+
+`sources` is a count; `attempts` is the list a reader is shown, and only discovery wrote to it.
+So the report said a page had been opened and offered nothing to go and look at — for a page on
+somebody else's host, where the host is the only thing that identifies it.
+
+**Entry 25 is the rule I already had**: *assert on the value the surface reads, not the structure
+behind it.* I had it, and I still reached for the field, because the field was the thing I had
+just changed. The tests assert on `note()`, on `to_section().checked`, and on `render()` now.
+
+> **Ask this:** *is my assertion on the thing a person sees, or on the thing I just edited?*
+
 ---
 
 ## Before a PR: two commands and eight questions
@@ -968,13 +1019,13 @@ Grouped by what has actually gone wrong, commonest first.
    belongs to — **including when one subject produced nothing**? Am I counting the thing or the
    evidence for it? Does any prompt name a real company? **And is any caveat I have written
    living only in a log, where the reader of the claim will never meet it?** *(2, 6, 8, 9, 10,
-   11, 23, 33)*
+   11, 23, 33, 34)*
 
 ## How these were found, and what that says
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33 |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34 |
 | The mutation harness | 32 | The only one it found before review did, and it deleted a rule rather than adding a test |
 | Its own tooling | 28 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |

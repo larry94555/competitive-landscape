@@ -9,7 +9,7 @@
 
 use std::fmt::Write as _;
 
-use landscape_core::{Confidence, Report, SectionStatus};
+use landscape_core::{Confidence, Disposition, Report, SectionStatus};
 
 use crate::Analysis;
 
@@ -60,9 +60,15 @@ impl Analysis {
                 } else {
                     String::new()
                 };
+                // **Marked in the body, not only in the source list.** FACT_CHECKING §3.2.4
+                // puts an unverified source in the report body *"marked unverified, with
+                // why"*, and a code beside a URL two screens down is neither: a reader
+                // skimming claims would take a stranger's page for the company speaking. The
+                // "why" is on the source line, which is where the link is.
                 let _ = writeln!(
                     out,
-                    "\n- {whose}{} [{}·{}]",
+                    "\n- {whose}{}{} [{}·{}]",
+                    marking(report, &claim.source_label),
                     claim.text,
                     claim.source_label,
                     confidence_code(claim.confidence)
@@ -80,11 +86,12 @@ impl Analysis {
         for source in &report.sources {
             let _ = writeln!(
                 out,
-                "\n[{}] {} — {} ({})",
+                "\n[{}] {} — {} ({} — {})",
                 source.label,
                 source.title,
                 source.url,
-                source.disposition.code()
+                source.disposition.code(),
+                source.disposition.reader_description()
             );
         }
 
@@ -101,6 +108,21 @@ impl Analysis {
         }
         out
     }
+}
+
+/// What goes in front of a claim whose source is not the company speaking.
+///
+/// Empty for a primary source, which is nearly every claim — a marker on every line is a marker
+/// nobody reads. A claim whose label resolves to nothing gets no marking here and is caught by
+/// [`is_publishable`] instead, which refuses the whole report rather than annotating one line
+/// of it.
+fn marking(report: &Report, label: &str) -> String {
+    report
+        .sources
+        .iter()
+        .find(|s| s.label == label)
+        .filter(|s| s.disposition != Disposition::Primary)
+        .map_or_else(String::new, |s| format!("({}) ", s.disposition.code()))
 }
 
 /// An origin without its scheme, which is how a person names a company.
@@ -198,8 +220,32 @@ mod tests {
         assert!(text.contains("Pro costs $15 [S1·H]"), "{text}");
         assert!(text.contains("> $15/user, billed monthly"), "{text}");
         assert!(
-            text.contains("[S1] Pricing — https://e.com/pricing (P)"),
+            text.contains("[S1] Pricing — https://e.com/pricing (P — the company's own page)"),
             "{text}"
+        );
+        // A primary claim carries no marking. A marker on every line is a marker nobody reads.
+        assert!(!text.contains("- (P)"), "{text}");
+    }
+
+    #[test]
+    fn a_claim_from_a_page_we_could_not_attribute_says_so_where_it_is_read() {
+        // FACT_CHECKING §3.2.4 puts an unverified source in the report body *marked unverified,
+        // with why*. A code beside a URL two screens below the claim is neither, and search is
+        // what makes this reachable: until an analysis called it, every source was the
+        // company's own page and nothing could be anything but `P`.
+        let (mut section, coverage, mut source) = populated();
+        source.disposition = Disposition::Unverified;
+        source.url = "https://someblog.example/linear-review".to_owned();
+        section.claims[0].text = "states it offers unlimited seats".to_owned();
+
+        let text = analysis(vec![section], vec![coverage], vec![source]).render();
+        assert!(
+            text.contains("- (U) states it offers unlimited seats [S1·H]"),
+            "an unattributed page read as the company speaking:\n{text}"
+        );
+        assert!(
+            text.contains("(U — a page we could read but could not fully attribute)"),
+            "the why is missing from the source line:\n{text}"
         );
     }
 

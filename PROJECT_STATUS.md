@@ -1,6 +1,6 @@
 # Project Status
 
-**As of 2026-08-07** · `main` at `46e675c`, plus the branch this page is on.
+**As of 2026-08-07** · `main` at `b174728`, plus the branch this page is on.
 
 This page answers one question: **what can somebody actually do with this today, and what
 stands between here and each of the six states that matter.** It is deliberately separate from
@@ -21,7 +21,7 @@ The six states, in the order they must be reached. **S1 is met.** The rest are n
 | # | State | Met? | Percentage Left | The single thing standing in the way |
 |---|---|---|---|---|
 | **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **Yes.** Pick an example idea, watch sections arrive, read a cited report about real companies, reload and it is still there. On a laptop. *This row once said the opposite twice* — see [§1.5](#15-the-correction-that-produced-phase-d). | [**0%**](docs/Full_Feature_List.md#s1--ready-for-a-guided-demo) | Nothing. Serve the app, a run has a URL, several companies in one report, example ideas that really run, and reads ordered so first content costs no model call — 23s on `linear.app`, measured. |
-| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**83%**](docs/Full_Feature_List.md#s2--ready-for-demonstration) | **A business idea does not run at all.** A prompt must name a domain; a description fails with `no_subject`. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). **17% done.** The search channel — the thing every remaining row waits on — is a quarter built: `landscape-search` asks templated queries for the questions probes could not answer, and **nothing calls it from an analysis yet.** |
+| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**78%**](docs/Full_Feature_List.md#s2--ready-for-demonstration) | **A business idea does not run at all.** A prompt must name a domain; a description fails with `no_subject`. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). **22% done.** The search channel is half built, and **an analysis calls it now**: the questions its own pages left empty are searched for, up to three more pages are read, and a page we could not attribute is marked where the claim is read. What is still missing is turning a *description* into a company. |
 | **S3** | **Ready for use** — friendly users should find no issue | **No.** | [**96%**](docs/Full_Feature_List.md#s3--ready-for-use) | 6 of 9 report sections, no verification layer, no comparison matrix, no accounts. |
 | **S4** | **Ready for general use** — promotable, word-of-mouth quality | **No.** | [**100%**](docs/Full_Feature_List.md#s4--ready-for-general-use) | Everything in S3, plus no quality gates have ever been run against a deployed system. |
 | **S5** | **General use, free mode** — stable, email signup, community channels | **No.** | [**100%**](docs/Full_Feature_List.md#s5--general-use-free-mode) | No authentication code exists anywhere in the repository. No knowledge base. |
@@ -34,7 +34,7 @@ finished when it is demonstrable end to end on a development machine — Rust, N
 defect rather than a step in the plan.
 
 **Percentage Left is software only**, counted in pull requests and linked to the feature it comes
-from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **43 of 130 PRs done, 33% of the whole
+from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **44 of 130 PRs done, 34% of the whole
 deliverable.** Getting it onto a host is a
 [separate three-PR track](docs/Full_Feature_List.md#getting-it-onto-a-host) that gates *who can see*
 the software rather than what it can do, and the concierge interviews and source-terms audit are
@@ -70,13 +70,14 @@ consecutive pieces of correct work left the readiness table untouched.
 
 ### The three facts behind that table
 
-**1. No analysis searches the public web.** What an analysis runs today is *discovery on one
-named company's own domain* — `/pricing`, `/changelog`, `sitemap.xml`, `llms.txt` — capped at
-eight pages (`crates/landscape-discover/`). **A search channel now exists and no analysis calls
-it**: `crates/landscape-search/` turns unanswered questions into templated queries, asks a
-SearXNG behind a provider seam, and decides what each result may be used for — reachable from
-`landscape search <origin>` and from nowhere else. Every rung of every "Searching the Public Web"
-milestone still sits behind that join, plus candidate generation and competitor-set derivation.
+**1. An analysis searches the public web for what its own reading left empty.** Discovery still
+runs first and unchanged — `/pricing`, `/changelog`, `sitemap.xml`, `llms.txt`, capped at eight
+pages. **What is new is the join**: after those pages are read, the questions that produced *no
+claim* become templated queries, a SearXNG behind a provider seam is asked, and up to three
+admitted pages are read on top of the plan. Nothing changes without `SEARX_URL`, which is the
+laptop default. What is still missing for the "Searching the Public Web" milestones is the front
+half: nothing turns a *description* into a company, so search fills gaps about a company you
+named rather than finding you one.
 
 **2. It analyses the companies you name, and cannot find any you do not.** Every site in the
 prompt is now a subject — `basecamp.com vs linear.app` reports on both, capped at three for the
@@ -145,7 +146,7 @@ substitution is deliberate and is noted on each one.
 | R1 happy path, minimal information | **Met for a domain, and for three ideas. Not met for an idea in general.** | `basecamp.com` produces a six-section cited report. So do the three example ideas, over two real companies each. "an app that helps small farms sell to local restaurants" still fails with `no_subject` and a remedy line — **the curated ideas step over that gap, they do not close it.** |
 | R2 10% of relevant information | **Unknown — unmeasurable.** | No idea-level golden set exists. See [B1](#4-blockers). |
 | R3 25% · R4 50% · R5 80% | **Unknown — unmeasurable.** | Same. |
-| R6 relevant information returned | **No.** | Single company, own domain only, 4 of 6 question kinds. |
+| R6 relevant information returned | **No.** | Several named companies, all 6 question kinds, and off-domain pages now reachable when the company's own leave a question empty. What is missing is finding the companies. |
 | R7 ready for demo | **No.** | Not deployed. |
 | R8 ready for use | **No.** | An idea-shaped prompt is the *normal* input and it does not run. |
 

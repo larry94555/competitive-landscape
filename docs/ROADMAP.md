@@ -694,15 +694,18 @@ the single most important phase; everything after it is commerce and polish.
   table and can never set a cell inside it. Ranking and capping are `landscape-discover`'s,
   reused rather than reimplemented, with a new `Via::Search` ordered below every other
   provenance.
-  **Still open, and this is the whole of what it means:** **no analysis calls it.** It is
-  reachable from `landscape search <origin>` and from nowhere else, so a prompt that names no
-  domain still fails with `no_subject`. That join, candidate generation, and competitor-set
-  derivation are the other three PRs of this row.
-  One limit worth naming rather than discovering later: a question counts as unanswered when
-  discovery admitted **no page** for it, not when the section came back **empty**. Help Scout's
-  `/blog` is admitted for *changes* and yields nothing dated, so no search is triggered for a
-  section that will be blank. `Coverage` already tells those silences apart; wiring the trigger
-  to it needs the orchestrator.
+  **An analysis calls it now** — [BENCHMARKS.md](BENCHMARKS.md) Run 27, the second PR of this
+  row. After the planned pages are read, the questions that produced **no claim** become the
+  queries, up to three admitted pages are read on top of the plan, and each carries the standing
+  admission gave it: the company's own page sets values as a probe's does, and a page we could
+  not attribute is marked `(U)` **where the claim is read** rather than only in the source list,
+  which is what `FACT_CHECKING.md` §3.2.4 asks for.
+  That closes the limit Run 26 named rather than leaving it: a question no longer counts as
+  answered because discovery *admitted* a page for it. Help Scout's `/blog` is admitted for
+  *changes* and yields nothing dated — that section is a gap now, and it is searched for.
+  **Still open:** a prompt that names no domain fails with `no_subject`. Candidate generation
+  and competitor-set derivation are the other two PRs of this row, and both are about finding a
+  company rather than reading one.
   **SearXNG itself has not been run against this.** `docker compose --profile search up -d
   searxng` and a checked-in `settings.yml` are in the repository and unwalked, for the same
   reason D3 is — the first person through corrects it.
