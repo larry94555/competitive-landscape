@@ -188,5 +188,31 @@
       "-p",
       "landscape-extract"
     ]
+  },
+  {
+    "name": "the standard attached is a constant rather than the one the scanner found",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "                extracted.push(claim.about(&named.standard));",
+    "new": "                extracted.push(claim.about(\"ISO 27001\"));",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the model is asked about a page that names no standard",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "    let found = landscape_extract::assurance::every_assurance(markdown);\n    if found.named.is_empty() {",
+    "new": "    let found = landscape_extract::assurance::every_assurance(markdown);\n    if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
   }
 ]

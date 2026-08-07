@@ -738,6 +738,93 @@ mod tests {
     const A_CAPABILITY: &str =
         r#"{"name":"The Project page keeps it all together","evidence_quote":"The Project page"}"#;
 
+    /// What the stub says about one standard: a claim, and no name — because the generated
+    /// type has no name field to fill.
+    const A_CLAIM: &str =
+        r#"{"status":"holds","evidence_quote":"undergoes regular SOC 2 Type II audits"}"#;
+
+    /// A section naming two standards, which is the case the old check could not survive.
+    const TWO_STANDARDS: &str = "# Security\n\nLinear undergoes regular SOC 2 Type II audits.\n\nISO 27001 is on our roadmap for next year.\n\nWe encrypt everything in transit and at rest, and publish our posture here.";
+
+    #[tokio::test]
+    async fn the_standard_reported_is_the_one_the_scanner_found() {
+        // **Review found that nothing tested this wiring.** Replacing `claim.about(&named
+        // .standard)` with a hard-coded standard left all 572 tests green — so the class of
+        // defect the previous round removed could walk straight back in.
+        //
+        // I had said the stage was untestable without a model. There is a `StubModel` forty
+        // lines below the code I was editing, used by nine tests. The claim was wrong and I
+        // did not check it.
+        //
+        // The page names two standards. The stub answers with a claim and no name at all, so
+        // whatever reaches the report can only have come from the scanner.
+        let stub = StubModel::start(A_CLAIM).await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+
+        let outcome = trust(
+            &llm,
+            "https://linear.app/security",
+            TWO_STANDARDS,
+            &mut |_| crate::Wanted::Yes,
+        )
+        .await;
+
+        let said: Vec<&str> = outcome.claims.iter().map(|c| c.text.as_str()).collect();
+        assert!(
+            said.iter().any(|t| t.contains("SOC 2 Type II")),
+            "the precise standard the scanner found is not in the report: {said:?}"
+        );
+        assert!(
+            said.iter().any(|t| t.contains("ISO 27001")),
+            "the second standard on the page is missing: {said:?}"
+        );
+        // Two standards named, two windows, two calls - one question each.
+        assert_eq!(stub.calls(), 2, "one call per standard the scanner found");
+    }
+
+    #[tokio::test]
+    async fn a_page_that_names_no_standard_never_asks_the_model() {
+        // The scanner runs first, so a security page that is reassurance and nothing else
+        // costs nothing at all. This is the arithmetic `landscape cost` prints, asserted
+        // against the stage that does it rather than against the counter that predicts it.
+        let stub = StubModel::start(A_CLAIM).await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+
+        let outcome = trust(
+            &llm,
+            "https://basecamp.com/security",
+            "# Security\n\nWe take security seriously and encrypt everything in transit.",
+            &mut |_| crate::Wanted::Yes,
+        )
+        .await;
+
+        assert!(outcome.claims.is_empty());
+        assert_eq!(stub.calls(), 0, "a page with nothing named was still read");
+        assert!(
+            outcome.summary.contains("no named standard"),
+            "{}",
+            outcome.summary
+        );
+    }
+
+    #[tokio::test]
+    async fn a_trust_run_told_to_stop_asks_no_further_questions() {
+        // Every other extractor is checked for this; the newest one has to be too, or the
+        // saving that `Wanted::No` exists for quietly stops applying to a fifth of the run.
+        let stub = StubModel::start(A_CLAIM).await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+
+        let _ = trust(
+            &llm,
+            "https://linear.app/security",
+            TWO_STANDARDS,
+            &mut |_| crate::Wanted::No,
+        )
+        .await;
+
+        assert_eq!(stub.calls(), 1, "it asked again after being told to stop");
+    }
+
     #[tokio::test]
     async fn a_run_told_to_stop_does_not_call_the_model_again() {
         let stub = StubModel::start(A_CAPABILITY).await;

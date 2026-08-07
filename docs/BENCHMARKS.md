@@ -122,7 +122,8 @@ The more precise spelling now wins wherever it appears. Four standards, one each
 | a trust page is fetched and skipped as if it had no extractor | **yes** |
 | a trust page costs nothing in the prediction the cost command prints | **yes** |
 
-Fourteen, all caught.
+Sixteen, all caught — including the two that guard the wiring itself, added after review
+replaced `claim.about(&named.standard)` with a constant and watched every test pass.
 
 ### What review found, and why two of those rows now say *unrepresentable*
 
@@ -151,7 +152,7 @@ is uncapped now; only the windows that will be read are capped.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 23 | 509 | 51 |
-| now | **572** | **51** |
+| now | **575** | **51** |
 
 ---
 
