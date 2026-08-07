@@ -79,6 +79,12 @@ nothing, and this paragraph is the reason it is absent.
 Every entry must be a defect a person can picture. `"labels are not reassigned when reports
 merge"` is one; `"change line 214"` is not, and will mean nothing to whoever reads it next.
 
+**And sometimes the answer is a dependency.** `an-idea-becomes-companies.json` had a mutation for
+a hand-written list of public suffixes, and the mutation passed while the list was wrong: it
+tested that the *listed* suffixes worked. What no mutation could test was the entries nobody had
+thought of, which is the whole failure mode of a curated subset. Review found `github.io`, the
+list became the `psl` crate, and the mutation now asks whether the boundary is computed at all.
+
 **A surviving mutation has two answers, and the second one is easy to miss.**
 `where-they-invest.json` produced three, and only two of them wanted a test. The third put back
 a plural-matching rule in the careers scanner and nothing failed — because nothing needed the

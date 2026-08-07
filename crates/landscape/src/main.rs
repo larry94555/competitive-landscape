@@ -73,6 +73,13 @@ enum Role {
     /// auditable half of retrieval, and a laptop with no `SEARX_URL` should still be able to
     /// see what would be asked.
     Search,
+    /// Turn a description into the companies it might be about.
+    ///
+    /// FACT_CHECKING §3.1 step 2, and the thing the disambiguation gate in
+    /// `landscape-core::subject` has been waiting for since Phase 1. Prints the queries a
+    /// description produces whether or not an engine is configured, then — with `SEARX_URL` —
+    /// the companies, their scores, and the gate's verdict.
+    Candidates,
     /// Check that the demo's curated ideas still have pages worth reading.
     ///
     /// The catalogue in `landscape-core` promises one thing about each domain: that discovery
@@ -145,11 +152,12 @@ async fn main() -> Result<()> {
         Some("gap") => Role::Gap,
         Some("discover") => Role::Discover,
         Some("search") => Role::Search,
+        Some("candidates") => Role::Candidates,
         Some("examples") => Role::Examples,
         Some("cost") => Role::Cost,
         Some("read") => Role::Read,
         Some(other) => anyhow::bail!(
-            "unknown command {other:?}.              Try: dev, serve, worker, migrate, fetch, gap, discover, search, read, examples, cost"
+            "unknown command {other:?}.              Try: dev, serve, worker, migrate, fetch, gap, discover, search, candidates, read, examples, cost"
         ),
     };
 
@@ -166,6 +174,9 @@ async fn main() -> Result<()> {
     }
     if role == Role::Search {
         return search_for_gaps(&args).await;
+    }
+    if role == Role::Candidates {
+        return suggest_candidates(&args).await;
     }
     if role == Role::Examples {
         return check_examples().await;
@@ -359,6 +370,126 @@ Example:
 /// twice is how one of them ends up passing `None` for ever without anybody noticing.
 fn searching(engine: &landscape_search::Searx) -> &dyn landscape_search::SourceProvider {
     engine
+}
+
+/// `landscape candidates "<description>"` — the companies a description might be about.
+///
+/// **The step that has been missing.** `landscape-core::subject::resolve` — the disambiguation
+/// gate — was built in Phase 1 before anything could feed it, deliberately: written afterwards
+/// it would be a check bolted onto a pipeline that already ran without it. This is what feeds
+/// it, and running the two together is the point of the command.
+///
+/// Four things in order, and only the third needs infrastructure:
+///
+/// 1. **The queries the description produces.** Templated and versioned, printed with no engine
+///    configured, because the auditable half of retrieval should be visible on a laptop.
+/// 2. **The hosts, grouped and scored**, with the arithmetic shown — how many queries agreed,
+///    and how shallow the shallowest URL was. A score nobody can explain makes the gate's
+///    decision unaccountable.
+/// 3. **The name and the line a reader would choose between**, fetched from each company's own
+///    front page rather than taken from the engine's title.
+/// 4. **The gate's verdict**: resolved, ambiguous, or nothing found.
+async fn suggest_candidates(args: &[String]) -> Result<()> {
+    let description = args.get(1).filter(|a| !a.starts_with("--")).context(
+        "usage: landscape candidates \"<description>\"
+
+Examples:
+  landscape candidates \"privacy-friendly website analytics\"
+  landscape candidates \"a shared inbox for a small support team\"
+
+Set SEARX_URL to run the queries; without it the queries are printed and nothing is asked.",
+    )?;
+
+    println!("idea      {description}");
+    println!("query set {}", landscape_search::candidates::IDEA_QUERY_SET);
+    let queries = landscape_search::candidates::for_idea(description);
+    for q in &queries {
+        println!("  {}", q.text);
+    }
+    if queries.is_empty() {
+        println!("\nNothing to ask: a description with no words in it would send bare");
+        println!("boilerplate to an engine, which returns the internet.");
+        return Ok(());
+    }
+
+    let Some(engine) = landscape_search::Searx::from_env()? else {
+        println!(
+            "\n{} is not set, so nothing was asked. The queries above are what would go.",
+            landscape_search::searx::URL_VAR
+        );
+        return Ok(());
+    };
+
+    let (found, failures) = landscape_search::candidates::suggest(&engine, description).await;
+    println!(
+        "\n{:<34} {:>7} {:>8}  shallowest",
+        "company", "agreed", "score"
+    );
+    println!("{}", "-".repeat(78));
+    for one in &found {
+        println!(
+            "{:<34} {:>3}/{:<3} {:>8.2}  {}",
+            one.host,
+            one.agreed,
+            queries.len(),
+            one.confidence,
+            one.shallowest
+        );
+    }
+    if found.is_empty() {
+        println!("(nothing that looked like a company)");
+    }
+    if failures > 0 {
+        println!(
+            "\n{failures} of {} queries did not complete, so this list is thinner than it would be.",
+            queries.len()
+        );
+    }
+
+    // The names come from each company's own front page. An engine's title is the engine's.
+    let fetcher = landscape_fetch::Fetcher::new();
+    let named = landscape_search::candidates::describe(&found, |url| {
+        let fetcher = &fetcher;
+        async move {
+            fetcher
+                .get(&url)
+                .await
+                .ok()
+                .map(|page| landscape_extract::markdown::from_body(&page.body))
+        }
+    })
+    .await;
+
+    println!("\nas a reader would see them");
+    for c in &named {
+        println!("  {} - {}", c.name, c.canonical_domain);
+        if !c.what_it_is.is_empty() {
+            println!("      {}", c.what_it_is);
+        }
+    }
+
+    let checked: Vec<String> = queries.iter().map(|q| q.text.clone()).collect();
+    match landscape_core::subject::resolve(description, named, checked) {
+        landscape_core::subject::Resolution::Resolved { entity } => {
+            println!("\nresolved  {} ({})", entity.name, entity.canonical_domain);
+            println!("An analysis would run against that domain.");
+        }
+        landscape_core::subject::Resolution::Ambiguous {
+            question,
+            candidates,
+        } => {
+            println!("\nambiguous {question}");
+            for c in &candidates {
+                println!("  - {} ({})", c.name, c.canonical_domain);
+            }
+            println!("One chip click prevents an entire wrong report - PRODUCT_SPEC 3.");
+        }
+        landscape_core::subject::Resolution::NothingFound { checked } => {
+            println!("\nnothing found. Asked: {}", checked.join(", "));
+            println!("Offering a list we do not believe in would invite somebody to pick one.");
+        }
+    }
+    Ok(())
 }
 
 async fn search_for_gaps(args: &[String]) -> Result<()> {
@@ -772,6 +903,7 @@ async fn run(role: Role, store: Arc<dyn Store>) -> Result<()> {
         | Role::Gap
         | Role::Discover
         | Role::Search
+        | Role::Candidates
         | Role::Read
         | Role::Examples
         | Role::Cost => Ok(()),

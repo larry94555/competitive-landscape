@@ -62,6 +62,7 @@
 //! [`Disposition::may_set_a_table_value`]: landscape_core::Disposition::may_set_a_table_value
 
 pub mod admit;
+pub mod candidates;
 pub mod provider;
 pub mod queries;
 pub mod searx;

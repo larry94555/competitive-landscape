@@ -96,6 +96,7 @@ applies with the system package manager, or Postgres.app.
 | `cargo run -p landscape -- fetch <url> [--markdown]` | Fetches one URL through every policy and says what happened. `--markdown` prints the converted page, which is what a golden page is made of. Needs no database |
 | `cargo run -p landscape -- gap <file>` | Measures where prices live across a list of pricing pages |
 | `cargo run -p landscape -- discover <origin>` | Finds the pages worth reading about one company |
+| `cargo run -p landscape -- candidates "<description>"` | Turns a description into the companies it might be about, and runs the disambiguation gate over them. Prints the queries with no engine configured; with `SEARX_URL`, the hosts, their scores, the name each takes from its own front page, and the gate's verdict |
 | `cargo run -p landscape -- search <origin> [--name "Help Scout"]` | The questions discovery left unanswered, the queries they produce, and — with `SEARX_URL` set — the pages that come back and what each may be used for. Prints the queries either way, and asks nothing without an engine |
 | `cargo run -p landscape -- read <origin>` | The whole path: discover, fetch, convert, extract |
 | `cargo run -p landscape -- examples` | Re-checks the demo's six curated companies against the live web. Non-zero if one has lost its pricing page |
@@ -109,7 +110,7 @@ Add `--store memory` to any of them to skip Postgres entirely.
 | `BIND_ADDR` | `127.0.0.1:8787` | Change if the port is taken |
 | `RUST_LOG` | `landscape=info` | `landscape=debug` for query-level detail |
 | `ANONYMOUS_DAILY_LIMIT` | `2` | Analyses one address may start in a day. Only counts requests that arrived through a reverse proxy |
-| `SEARX_URL` | *(none)* | The SearXNG that `landscape search` asks, **and that an analysis asks for the questions a company's own pages left empty**. Without it a run reads exactly the pages discovery planned and the report says which questions went unsearched. **No default, deliberately** — a fallback to a public instance would send what strangers type to a third party. Start one with `docker compose --profile search up -d searxng` and set `http://localhost:8888` |
+| `SEARX_URL` | *(none)* | The SearXNG that `landscape search` and `landscape candidates` ask, **and that an analysis asks for the questions a company's own pages left empty**. Without it a run reads exactly the pages discovery planned and the report says which questions went unsearched. **No default, deliberately** — a fallback to a public instance would send what strangers type to a third party. Start one with `docker compose --profile search up -d searxng` and set `http://localhost:8888` |
 
 ### Ports
 
@@ -289,13 +290,14 @@ because a test that cannot fail is a finding rather than a footnote.
 
 The classes of defect these come from are in
 [`.claude/skills/coding-mistakes/SKILL.md`](.claude/skills/coding-mistakes/SKILL.md) —
-thirty-four entries, each with the symptom a reader would have seen and the question that would
+thirty-five entries, each with the symptom a reader would have seen and the question that would
 have caught it — one recording four rounds of review on a single feature, one about the harness
 above reporting a clean miss when nothing had run at all, one about the time I told a reviewer
 something could not be tested without checking, one where a surviving mutation meant the rule
 should be **deleted** rather than tested, and one where a fallback ran the safe path's rules over
 input the safe path had never been given, and one where the reading was right and the account of
-it was written from the plan instead of from the run.
+it was written from the plan instead of from the run, and one where a test asserted a number
+instead of the decision that number drives.
 
 ### The documentation is tested
 
