@@ -42,7 +42,7 @@
 
 use landscape_core::subject::{Candidate, Resolution, MINIMUM_CONFIDENCE};
 
-use crate::candidates::{Described, CORROBORATION};
+use crate::candidates::{Described, Vocabulary, CORROBORATION, NAMED};
 
 /// How many content words a description needs before it is about a *kind* of thing.
 ///
@@ -114,12 +114,13 @@ impl Because {
     }
 }
 
-/// A company that was found and is not in the report, and which of four things happened.
+/// A company that was found and is not in the report, and which of five things happened.
 ///
-/// **Four, and they are not interchangeable.** *"One search found it"*, *"we do not believe the
-/// score"*, *"its page says nothing about what you asked for"* and *"we could not read its
-/// page"* are four different facts, and only the last one is about us. Collapsing them into
-/// *"not included"* is the same defect [`landscape_core::coverage`] was written to stop.
+/// **Five, and they are not interchangeable.** *"One search found it"*, *"we do not believe the
+/// score"*, *"its page says nothing about what you asked for"*, *"we could not read its page"*
+/// and *"we never asked for its page"* are five different facts, and the last two are about us.
+/// Collapsing them into *"not included"* is the same defect [`landscape_core::coverage`] was
+/// written to stop.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Aside {
     /// Fewer than [`CORROBORATION`] of the searches returned it.
@@ -130,12 +131,20 @@ pub enum Aside {
     ///
     /// A statement about the page, and only reachable when the page was read.
     ElsewhereEntirely,
-    /// Its front page could not be read, so nothing about it could be checked.
+    /// Its front page was requested and could not be read, so nothing could be checked.
     ///
     /// **Not the same as [`Self::ElsewhereEntirely`].** One says the company is in another
     /// market; this one says we do not know, and a reader who names the domain themselves gets
     /// the report anyway.
     Unread,
+    /// It ranked below the front pages we were willing to fetch.
+    ///
+    /// **Review found this one missing entirely.** The candidate list used to be truncated to
+    /// five before anything here could see it, so a sixth corroborated company was neither
+    /// compared nor reported as excluded — a competitor dropped in silence, which is the defect
+    /// this module exists to remove. The budget is real and stays; what changed is that
+    /// spending it is now something a reader is told about.
+    BeyondTheFetchBudget { budget: usize },
 }
 
 impl Aside {
@@ -155,6 +164,10 @@ impl Aside {
                  domain yourself and we will read it"
                     .to_owned()
             }
+            Self::BeyondTheFetchBudget { budget } => format!(
+                "it ranked below the {budget} companies whose front pages we read, so we never \
+                 asked for its page - name the domain yourself and we will read it"
+            ),
         }
     }
 }
@@ -230,15 +243,27 @@ pub fn content_words(description: &str) -> Vec<String> {
 
 /// Which of the description's words a page uses.
 ///
-/// Substring matching on a lowercased page, so `analytics` is found inside `web analytics` and
-/// inside `Analytics.` — a page is prose, not a token stream, and requiring whole-word equality
-/// would miss a company whose front page is one styled sentence.
+/// **Whole words, on the page's own token boundaries.** Review found what substring matching
+/// did: `content_words("art marketplace")` yields `art`, a front page reading *"Tools for
+/// startups"* contains those three letters inside `startups`, and the company was admitted to
+/// the report with the sentence *"its own front page uses \"art\""* — evidence for a claim,
+/// manufactured out of a coincidence of spelling.
+///
+/// The substring version was justified as finding `analytics` inside `web analytics` and
+/// `Analytics.`, and **it never needed to be**: splitting on non-alphanumerics finds both, plus
+/// `analytics/` and `(analytics)`. What is genuinely lost is plurals — a page saying `tool` does
+/// not match `tools` — and being strict is the safe direction for evidence a reader is shown.
 #[must_use]
 pub fn shared(words: &[String], page: &str) -> Vec<String> {
-    let lowered = page.to_lowercase();
+    let on_the_page: Vec<String> = page
+        .to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|t| !t.is_empty())
+        .map(str::to_owned)
+        .collect();
     words
         .iter()
-        .filter(|w| lowered.contains(w.as_str()))
+        .filter(|w| on_the_page.iter().any(|t| t == *w))
         .cloned()
         .collect()
 }
@@ -278,14 +303,15 @@ pub fn assemble(described: Vec<Described>, asked: usize) -> Set {
             Some(Aside::Unconvincing)
         } else {
             match shares {
-                None => Some(Aside::Unread),
-                Some(ref s) if s.len() < SHARED_WORDS => Some(Aside::ElsewhereEntirely),
-                Some(_) => None,
+                Vocabulary::NotRequested => Some(Aside::BeyondTheFetchBudget { budget: NAMED }),
+                Vocabulary::Unreadable => Some(Aside::Unread),
+                Vocabulary::Read(ref s) if s.len() < SHARED_WORDS => Some(Aside::ElsewhereEntirely),
+                Vocabulary::Read(_) => None,
             }
         };
         match (aside, shares) {
             (Some(why), _) => set.set_aside.push((candidate, why)),
-            (None, Some(shares)) => set.members.push(Member {
+            (None, Vocabulary::Read(shares)) => set.members.push(Member {
                 candidate,
                 because: Because {
                     agreed,
@@ -293,10 +319,10 @@ pub fn assemble(described: Vec<Described>, asked: usize) -> Set {
                     shares,
                 },
             }),
-            // Unreachable: `shares == None` always produces `Aside::Unread` above. Written as a
+            // Unreachable: every state but `Read` produces an `Aside` above. Written as a
             // set-aside rather than an `unreachable!`, because a panic here takes a worker down
             // over a company nobody had to include.
-            (None, None) => set.set_aside.push((candidate, Aside::Unread)),
+            (None, _) => set.set_aside.push((candidate, Aside::Unread)),
         }
     }
     // Best first, then by domain so a tie is stable between runs rather than however the
@@ -331,12 +357,7 @@ fn quoted(words: &[String]) -> String {
 mod tests {
     use super::*;
 
-    fn described(
-        domain: &str,
-        agreed: usize,
-        confidence: f32,
-        shares: Option<&[&str]>,
-    ) -> Described {
+    fn described(domain: &str, agreed: usize, confidence: f32, shares: Vocabulary) -> Described {
         Described {
             candidate: Candidate {
                 name: domain.to_owned(),
@@ -345,8 +366,12 @@ mod tests {
                 confidence,
             },
             agreed,
-            shares: shares.map(|s| s.iter().map(|w| (*w).to_owned()).collect()),
+            shares,
         }
+    }
+
+    fn read(words: &[&str]) -> Vocabulary {
+        Vocabulary::Read(words.iter().map(|w| (*w).to_owned()).collect())
     }
 
     #[test]
@@ -395,9 +420,38 @@ mod tests {
     }
 
     #[test]
-    fn sharing_is_not_case_sensitive_and_reads_inside_a_word() {
+    fn a_word_inside_another_word_is_not_a_word_the_page_uses() {
+        // **Review found the evidence being manufactured.** `shared` matched substrings, so a
+        // front page reading *"Tools for startups"* was reported as using the word `art` -
+        // enough on its own to admit the company, with `Because::sentence` telling the reader
+        // a reason that was never true of that page.
+        let words = content_words("art marketplace");
+        assert!(
+            shared(&words, "# Toolbox\n\nTools for startups.").is_empty(),
+            "a coincidence of spelling was reported as evidence"
+        );
+        assert_eq!(
+            shared(&words, "An art marketplace."),
+            vec!["art", "marketplace"]
+        );
+    }
+
+    #[test]
+    fn punctuation_and_case_do_not_hide_a_word_the_page_really_uses() {
+        // The other half, and the reason substring matching looked justified: these were the
+        // cases it was written for, and splitting on non-alphanumerics finds every one.
         let words = content_words("analytics");
-        assert_eq!(shared(&words, "Web Analytics."), vec!["analytics"]);
+        for page in [
+            "Web Analytics.",
+            "# ANALYTICS",
+            "(analytics)",
+            "privacy/analytics/web",
+            "**analytics**",
+        ] {
+            assert_eq!(shared(&words, page), vec!["analytics"], "{page}");
+        }
+        // And the honest cost of being strict: a plural is a different token.
+        assert!(shared(&["tool".to_owned()], "Tools for teams.").is_empty());
     }
 
     #[test]
@@ -410,11 +464,11 @@ mod tests {
     fn the_set_is_the_companies_whose_pages_match_and_the_rest_say_why() {
         let set = assemble(
             vec![
-                described("plausible.io", 3, 1.0, Some(&["privacy", "analytics"])),
-                described("onesearch.example", 1, 0.175, Some(&["analytics"])),
-                described("notionpress.example", 3, 1.0, Some(&[])),
-                described("unreachable.example", 3, 1.0, None),
-                described("weak.example", 2, 0.30, Some(&["analytics"])),
+                described("plausible.io", 3, 1.0, read(&["privacy", "analytics"])),
+                described("onesearch.example", 1, 0.175, read(&["analytics"])),
+                described("notionpress.example", 3, 1.0, read(&[])),
+                described("unreachable.example", 3, 1.0, Vocabulary::Unreadable),
+                described("weak.example", 2, 0.30, read(&["analytics"])),
             ],
             3,
         );
@@ -446,11 +500,38 @@ mod tests {
     }
 
     #[test]
+    fn a_company_below_the_fetch_budget_is_reported_rather_than_dropped() {
+        // **Review found it dropped.** The candidate list was truncated to five before this
+        // function saw it, so a sixth corroborated company was neither compared nor named as
+        // excluded - which is the whole guarantee this module makes.
+        let set = assemble(
+            vec![described("sixth.example", 3, 1.0, Vocabulary::NotRequested)],
+            3,
+        );
+        assert!(set.members.is_empty());
+        assert_eq!(
+            set.set_aside[0].1,
+            Aside::BeyondTheFetchBudget { budget: NAMED }
+        );
+        // Not `Unread`: nobody asked for the page, so nothing about it failed.
+        assert_ne!(set.set_aside[0].1, Aside::Unread);
+        assert!(set.set_aside[0].1.sentence().contains("never"));
+    }
+
+    #[test]
     fn a_page_we_could_not_read_is_not_reported_as_a_page_about_something_else() {
         // Two silences that look identical from the outside: nothing shared because the page
         // is about another market, and nothing shared because there was no page. Only the
         // first is a statement about the company.
-        let set = assemble(vec![described("unreachable.example", 3, 1.0, None)], 3);
+        let set = assemble(
+            vec![described(
+                "unreachable.example",
+                3,
+                1.0,
+                Vocabulary::Unreadable,
+            )],
+            3,
+        );
         assert_eq!(set.set_aside.len(), 1);
         assert_eq!(set.set_aside[0].1, Aside::Unread);
         assert_ne!(set.set_aside[0].1, Aside::ElsewhereEntirely);
@@ -461,7 +542,7 @@ mod tests {
     fn the_strongest_reason_is_the_one_a_reader_is_given() {
         // One search found it *and* its page is about something else. "Nothing corroborates it"
         // is the fact that decided; reporting the vocabulary would suggest the search agreed.
-        let set = assemble(vec![described("thin.example", 1, 0.175, Some(&[]))], 3);
+        let set = assemble(vec![described("thin.example", 1, 0.175, read(&[]))], 3);
         assert_eq!(
             set.set_aside[0].1,
             Aside::Uncorroborated {
@@ -475,9 +556,9 @@ mod tests {
     fn the_set_is_ordered_best_first_and_ties_are_stable() {
         let set = assemble(
             vec![
-                described("zeta.example", 3, 0.8, Some(&["analytics"])),
-                described("alpha.example", 3, 0.8, Some(&["analytics"])),
-                described("best.example", 3, 1.0, Some(&["analytics"])),
+                described("zeta.example", 3, 0.8, read(&["analytics"])),
+                described("alpha.example", 3, 0.8, read(&["analytics"])),
+                described("best.example", 3, 1.0, read(&["analytics"])),
             ],
             3,
         );
@@ -507,7 +588,7 @@ mod tests {
         // The same rule the score follows. A company found by the one search that came back
         // must not read as "1 of the 1 searches returned it".
         let set = assemble(
-            vec![described("one.example", 2, 0.53, Some(&["analytics"]))],
+            vec![described("one.example", 2, 0.53, read(&["analytics"]))],
             3,
         );
         assert!(set.members[0].because.sentence().contains("2 of the 3"));

@@ -2189,6 +2189,74 @@ mod joining {
     }
 
     #[tokio::test]
+    async fn a_company_that_could_have_been_compared_is_named_and_the_rest_are_counted() {
+        // **Two different silences in one list.** A company two searches agreed on could have
+        // been in the report, so it is named with its reason. A host one search returned could
+        // not have been, and there can be twenty of them - naming those turns a note into a
+        // search results page, which is its own way of not being read.
+        let aside = |domain: &str, why: landscape_search::competitors::Aside| {
+            (
+                landscape_core::subject::Candidate {
+                    name: domain.to_owned(),
+                    canonical_domain: domain.to_owned(),
+                    what_it_is: "a company".to_owned(),
+                    confidence: 0.9,
+                },
+                why,
+            )
+        };
+        let set = landscape_search::competitors::Set {
+            members: vec![found("Fathom", "usefathom.com", 3)],
+            set_aside: vec![
+                aside(
+                    "sixth.example",
+                    landscape_search::competitors::Aside::BeyondTheFetchBudget { budget: 5 },
+                ),
+                aside(
+                    "one.example",
+                    landscape_search::competitors::Aside::Uncorroborated {
+                        agreed: 1,
+                        asked: 3,
+                    },
+                ),
+                aside(
+                    "two.example",
+                    landscape_search::competitors::Aside::Uncorroborated {
+                        agreed: 1,
+                        asked: 3,
+                    },
+                ),
+            ],
+        };
+        let many = unreachable(4);
+        let outcome = analyse_many(
+            &landscape_fetch::Fetcher::new(),
+            &llm(),
+            &Asked {
+                set: Some(&set),
+                ..named(&many)
+            },
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+
+        let left_out = outcome
+            .report
+            .notes
+            .iter()
+            .find(|n| n.starts_with("Also found"))
+            .expect("the exclusions note");
+        assert!(left_out.contains("sixth.example"), "{left_out}");
+        assert!(left_out.contains("never asked for its page"), "{left_out}");
+        // Counted, not named - and counted, not silent.
+        assert!(left_out.contains("2 further sites"), "{left_out}");
+        assert!(
+            !left_out.contains("one.example") && !left_out.contains("two.example"),
+            "twenty one-hit hosts would be a search results page: {left_out}"
+        );
+    }
+
+    #[tokio::test]
     async fn no_company_is_named_in_a_note_that_the_report_does_not_compare() {
         // **The cap and the note have to agree.** `MAX_SUBJECTS` drops the fourth company, and
         // a note naming five while three are read is the silent-drop defect with better prose

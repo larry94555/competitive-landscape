@@ -1461,7 +1461,14 @@ the report would compare
       3 of the 3 searches returned it, and its own front page uses "privacy", "analytics"
   not compared: Notion Press (notionpress.example)
       its own front page uses none of the words you typed
+  not compared: sixth.example
+      it ranked below the 5 companies whose front pages we read, so we never asked for
+      its page - name the domain yourself and we will read it
 ```
+
+**Every company found appears somewhere in that list.** Reading a front page costs somebody
+else a request, so only the first five are fetched — and the budget being spent is a line a
+reader can act on rather than a company that quietly stops existing.
 
 **Try it with one word** and the same command answers a different question:
 
@@ -1505,12 +1512,18 @@ why, and who was left out:
 > uses "privacy", "analytics".
 >
 > Also found and not compared: Notion Press (notionpress.example) - its own front page uses
-> none of the words you typed.
+> none of the words you typed. 3 further sites returned by only one search, which is not
+> enough to corroborate anything.
 ```
 
 **The third note is the one worth arguing about.** A competitor found and dropped in silence is
 the defect this whole row exists to remove; naming it costs a sentence, and a reader who
 disagrees can name the domain themselves.
+
+**Named, or counted, and the line between them is corroboration.** A company two searches agreed
+on could have been in the report, so it is named with its reason. A host one search returned
+could not have been, and there can be twenty — naming those turns a note into a search results
+page, which is its own way of not being read. `landscape candidates` still prints every one.
 
 **And when a one-word name matches more than one product**, the run still refuses and names
 them, so a reader can pick by typing one:

@@ -1130,6 +1130,82 @@ either.
 
 ---
 
+## 39. A cap written for one consumer, still applied when a second one arrived
+
+**Written:** by me, deriving a competitor set from candidates that were already being scored.
+
+```rust
+found.truncate(MAX_CANDIDATES);   // "the most companies worth putting in front of a reader"
+```
+
+That line was **correct** when it was written. The only consumer was a disambiguation chip list,
+and twenty candidates in a chip list is a search results page with your name on it.
+
+Then a second consumer arrived — a *set*, whose entire promised guarantee was *"a company we
+found and did not compare is named, never dropped"*. Six corroborated companies in, five out, and
+the sixth was neither a member nor an exclusion. **The guarantee was being broken one function
+above the code that makes it**, by a line nobody had touched and whose comment still read true.
+
+**Why the review caught it and the tests did not.** The test asserted `found.len() ==
+MAX_CANDIDATES` — the cap was *pinned*, and there was a mutation defending it. Every test agreed
+the truncation should happen, because every one of them predated the consumer that made it wrong.
+A green suite here means *"this still does what it used to"*, which is the one question that
+cannot detect this class of defect.
+
+**What the fix is not.** The budget was real — each name costs a request against a stranger's
+server — so deleting it would have traded one defect for a politer one. It moved from
+*truncating the list* to *bounding the fetch*, and what it costs became something a reader is
+told: a fifth `Aside`, `BeyondTheFetchBudget`, naming the company and the number.
+
+**Rule:** when you add a consumer to an existing pipeline, read every `truncate`, `take`, `min`,
+`filter` and early `return` upstream of it and ask *whose question was this answering?* A limit
+justified by presentation is not a limit on data, and the comment above it will not say so —
+because when it was written there was no difference.
+
+> **Ask this:** *this cap was right for the old caller. Is my new caller the same kind of caller?*
+
+---
+
+## 40. A justification in a doc comment that had never been tested against its alternative
+
+**Written:** by me, matching a reader's words against a company's front page.
+
+```rust
+/// Substring matching on a lowercased page, so `analytics` is found inside `web analytics` and
+/// inside `Analytics.` — a page is prose, not a token stream, and requiring whole-word equality
+/// would miss a company whose front page is one styled sentence.
+pub fn shared(words: &[String], page: &str) -> Vec<String> {
+    let lowered = page.to_lowercase();
+    words.iter().filter(|w| lowered.contains(w.as_str())).cloned().collect()
+}
+```
+
+**What it did:** `content_words("art marketplace")` yields `art`. A front page reading *"Tools
+for startups"* contains those three letters inside `startups`. One shared word is enough to admit
+a company, so an unrelated company entered the report — and the sentence explaining why told the
+reader *"its own front page uses \"art\""*, citing a word that page never used. **Evidence
+manufactured out of a coincidence of spelling.**
+
+**The defect is in the paragraph, not the line.** Both examples the comment offers —
+`web analytics` and `Analytics.` — are found *perfectly well* by splitting on non-alphanumerics.
+The justification described a cost that the rejected alternative does not have. It was written
+from the shape of the idea rather than from trying it, and then it sat there being persuasive:
+the test underneath it was named `sharing_is_not_case_sensitive_and_reads_inside_a_word`, so the
+wrong behaviour had a test asserting it was intended.
+
+This is [entry 34](#34-a-sentence-written-from-the-plan-not-from-the-run)'s failure aimed at a
+rationale instead of at output. A confident *"X would not work because Y"* is a claim about Y,
+and it is checkable in about a minute.
+
+**Rule:** a doc comment that rejects an alternative has to name a case where the alternative
+actually fails, and that case belongs in a test. If you cannot write the test, the comment is a
+preference wearing an argument's clothes — write *"chosen because"* rather than *"because the
+other one would"*.
+
+> **Ask this:** *have I run the thing this comment says would not work?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

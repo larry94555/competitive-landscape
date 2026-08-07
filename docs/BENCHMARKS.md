@@ -91,20 +91,22 @@ The divisor is the searches **sent**, not the ones that answered — the rule Ru
 established for the score, carried into the sentence. An engine that answered twice out of three
 must not produce *"2 of the 2 searches returned it"*.
 
-### Four ways to be left out, and two of them look identical from outside
+### Five ways to be left out, and three of them look identical from outside
 
 | Set aside | What it says |
 |---|---|
 | `Uncorroborated` | One search found it, so nothing corroborates it |
 | `Unconvincing` | Corroborated and still below the floor |
-| `ElsewhereEntirely` | Its front page was read and uses none of your words |
-| `Unread` | Its front page could not be read, so nothing could be checked |
+| `ElsewhereEntirely` | Its front page **was read** and uses none of your words |
+| `Unread` | Its front page was requested and could not be read |
+| `BeyondTheFetchBudget` | It ranked below the front pages we were willing to fetch |
 
-**The last two are the pair that matters.** Both produce an empty list of shared words, and only
-one of them is a statement about the company. `Described::shares` is `Option<Vec<String>>` for
-exactly that reason: `Some([])` says *we looked and it is about something else*, `None` says *we
-could not look*. A reader told the first about a page nobody read has been told something false,
-and the mutation that collapses them is in the catalogue.
+**The last three all produce an empty list of shared words and only the first is about the
+company.** `Described::shares` started as `Option<Vec<String>>`, where `None` meant *the page
+could not be read* — and review then found a company that was never fetched at all, with nowhere
+to put it that was not a lie about one of the other two. It is a three-state `Vocabulary` now:
+`Read(words)`, `Unreadable`, `NotRequested`. An `Option` could hold two of those, which is why it
+held the wrong two.
 
 Every company left out is **named** in the report. A competitor dropped in silence is the defect
 this row exists to remove, one company further out than the one it removed first.
@@ -154,10 +156,59 @@ it is the only thing holding this feature back on its own merits.
 **And no engine has been asked**, still: Docker's daemon does not start where this was built, so
 every test is a canned provider over the real code path.
 
+### Review: the cap that pre-empted the guarantee, and evidence made of spelling
+
+Two [P1]s, both reproduced before anything changed.
+
+**`from_results` truncated to five before the set could see the list.** Six corroborated
+companies in, five out — and the sixth was neither compared nor reported as excluded:
+
+```text
+six corroborated companies searched; from_results kept 5
+   c0.example agreed 3   c1.example agreed 3   c2.example agreed 3
+   c3.example agreed 3   c4.example agreed 3
+```
+
+That cap was written for *a list a reader picks one company from*, where five is generous. A set
+is a different consumer of the same list, and against it the cap was exactly the silent drop this
+row exists to remove — the guarantee was being broken one line above the code that makes it.
+
+The budget itself is real: every name costs a request against somebody's server. So it moved from
+*truncating* to *fetching*. `from_results` returns the complete ranked list, `describe` fetches
+the first `NAMED = 5` and marks the rest `Vocabulary::NotRequested`, and `assemble` turns those
+into `Aside::BeyondTheFetchBudget` — **a named exclusion a reader can act on**, rather than an
+absence nothing records.
+
+**And `shared` matched substrings.** `content_words("art marketplace")` yields `art`; a front page
+reading *"Tools for startups"* contains those three letters inside `startups`:
+
+```text
+words   = ["art", "marketplace"]
+shares  = ["art"]
+because = 3 of the 3 searches returned it, and its own front page uses "art"
+```
+
+One shared word is enough to admit a company, so a corroborated but unrelated result entered the
+report and the sentence explaining why cited a word the page never used. **Evidence manufactured
+out of a coincidence of spelling** — the failure this project's whole quoting discipline exists
+to prevent, reached by a different route.
+
+The doc comment defending the substring match said it was needed to find `analytics` inside `web
+analytics` and `Analytics.` — and **it never was**: splitting on non-alphanumerics finds both,
+plus `(analytics)` and `analytics/`. The justification had never been checked against the
+alternative it rejected. What is genuinely lost is plurals, and being strict is the safe
+direction for evidence a reader is shown.
+
+**One note changed shape as a consequence.** With nothing truncated, every one-hit host reaches
+`set_aside`, and naming twenty of them turns a report note into a search results page. The line
+is corroboration: a company two searches agreed on **could** have been in the report and is named
+with its reason; the rest are counted — *"3 further sites returned by only one search"* — which is
+a number rather than a silence, and `landscape candidates` still prints every one.
+
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 29 | 738 | 51 |
-| now | **759** | **51** |
+| now | **763** | **51** |
 
 ---
 

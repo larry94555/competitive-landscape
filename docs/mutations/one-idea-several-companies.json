@@ -54,8 +54,8 @@
   {
     "name": "a page nobody could read is reported as a page about another market",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "                None => Some(Aside::Unread),",
-    "new": "                None => Some(Aside::ElsewhereEntirely),",
+    "old": "                Vocabulary::Unreadable => Some(Aside::Unread),",
+    "new": "                Vocabulary::Unreadable => Some(Aside::ElsewhereEntirely),",
     "run": [
       "cargo",
       "nextest",
@@ -67,8 +67,8 @@
   {
     "name": "a page that could not be read shares an empty list rather than nothing",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "        let shares = page\n            .as_deref()\n            .map(|markdown| crate::competitors::shared(words, markdown));",
-    "new": "        let shares = Some(\n            page.as_deref()\n                .map(|markdown| crate::competitors::shared(words, markdown))\n                .unwrap_or_default(),\n        );",
+    "old": "        let shares = page.as_deref().map_or(Vocabulary::Unreadable, |markdown| {\n            Vocabulary::Read(crate::competitors::shared(words, markdown))\n        });",
+    "new": "        let shares = Vocabulary::Read(\n            page.as_deref()\n                .map(|markdown| crate::competitors::shared(words, markdown))\n                .unwrap_or_default(),\n        );",
     "run": [
       "cargo",
       "nextest",
@@ -80,8 +80,8 @@
   {
     "name": "a company whose page shares nothing joins the comparison anyway",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "                Some(ref s) if s.len() < SHARED_WORDS => Some(Aside::ElsewhereEntirely),",
-    "new": "                Some(ref s) if s.len() < 0 => Some(Aside::ElsewhereEntirely),",
+    "old": "                Vocabulary::Read(ref s) if s.len() < SHARED_WORDS => Some(Aside::ElsewhereEntirely),",
+    "new": "                Vocabulary::Read(ref s) if s.len() < 0 => Some(Aside::ElsewhereEntirely),",
     "run": [
       "cargo",
       "nextest",
@@ -197,8 +197,8 @@
   {
     "name": "sharing a word is case sensitive",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "    let lowered = page.to_lowercase();",
-    "new": "    let lowered = page.to_owned();",
+    "old": "    let on_the_page: Vec<String> = page\n        .to_lowercase()",
+    "new": "    let on_the_page: Vec<String> = page\n        .to_owned()",
     "run": [
       "cargo",
       "nextest",
@@ -262,7 +262,7 @@
   {
     "name": "companies found and set aside are not mentioned to a reader",
     "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "    if !set.set_aside.is_empty() {",
+    "old": "    if !could_have.is_empty() {",
     "new": "    if false {",
     "run": [
       "cargo",
@@ -342,6 +342,123 @@
     "file": "crates/landscape-search/src/competitors.rs",
     "old": "            .map(|m| format!(\"https://{}\", m.candidate.canonical_domain))",
     "new": "            .map(|m| format!(\"https://{}\", m.candidate.name))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a word inside another word counts as a word the page uses",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "        .filter(|w| on_the_page.iter().any(|t| t == *w))",
+    "new": "        .filter(|w| page.to_lowercase().contains(w.as_str()))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "punctuation around a word hides it from the page",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    let on_the_page: Vec<String> = page\n        .to_lowercase()\n        .split(|c: char| !c.is_alphanumeric())",
+    "new": "    let on_the_page: Vec<String> = page\n        .to_lowercase()\n        .split(' ')",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a company beyond the fetch budget is dropped rather than deferred",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        if rank >= NAMED {",
+    "new": "        if rank >= NAMED {\n            continue;\n        }\n        if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a page nobody asked for is reported as a page that failed",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "                Vocabulary::NotRequested => Some(Aside::BeyondTheFetchBudget { budget: NAMED }),",
+    "new": "                Vocabulary::NotRequested => Some(Aside::Unread),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a company beyond the fetch budget joins the comparison unread",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "                Vocabulary::NotRequested => Some(Aside::BeyondTheFetchBudget { budget: NAMED }),",
+    "new": "                Vocabulary::NotRequested => None,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "every front page found is fetched, whatever the budget says",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        if rank >= NAMED {",
+    "new": "        if rank >= usize::MAX {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a company that could have been compared is counted rather than named",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "    let (could_have, single): (Vec<_>, Vec<_>) = set.set_aside.iter().partition(|(_, why)| {\n        !matches!(\n            why,\n            landscape_search::competitors::Aside::Uncorroborated { .. }\n        )\n    });",
+    "new": "    let (could_have, single): (Vec<_>, Vec<_>) = set.set_aside.iter().partition(|_| false);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "twenty one-hit hosts are named one by one in a report note",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "    let (could_have, single): (Vec<_>, Vec<_>) = set.set_aside.iter().partition(|(_, why)| {\n        !matches!(\n            why,\n            landscape_search::competitors::Aside::Uncorroborated { .. }\n        )\n    });",
+    "new": "    let (could_have, single): (Vec<_>, Vec<_>) = set.set_aside.iter().partition(|_| true);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the sites only one search returned are not mentioned at all",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "    if !single.is_empty() {",
+    "new": "    if false {",
     "run": [
       "cargo",
       "nextest",

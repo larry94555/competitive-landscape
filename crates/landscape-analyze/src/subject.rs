@@ -268,15 +268,40 @@ pub fn found_for_you(set: &landscape_search::competitors::Set, analysing: usize)
 
     // **A company found and left out in silence is the defect this row exists to remove**, at
     // one company's remove from the one it removed first. Naming them costs a sentence.
-    if !set.set_aside.is_empty() {
-        notes.push(format!(
-            "Also found and not compared: {}.",
-            set.set_aside
+    //
+    // **Named, or counted, and the line between them is corroboration.** A company two searches
+    // agreed on could have been in the report, so it is named with its reason. A host one search
+    // returned could not have been, and there can be twenty of them — naming those turns a note
+    // into a search results page, which is a different way of not being read. They are counted
+    // instead, and the count is still not a silence: `landscape candidates` prints every one.
+    let (could_have, single): (Vec<_>, Vec<_>) = set.set_aside.iter().partition(|(_, why)| {
+        !matches!(
+            why,
+            landscape_search::competitors::Aside::Uncorroborated { .. }
+        )
+    });
+
+    let mut said = Vec::new();
+    if !could_have.is_empty() {
+        said.push(format!(
+            "Also found and not compared: {}",
+            could_have
                 .iter()
                 .map(|(c, why)| format!("{} ({}) - {}", c.name, c.canonical_domain, why.sentence()))
                 .collect::<Vec<_>>()
                 .join("; ")
         ));
+    }
+    if !single.is_empty() {
+        said.push(format!(
+            "{} further {} returned by only one search, which is not enough to corroborate \
+             anything",
+            single.len(),
+            if single.len() == 1 { "site" } else { "sites" }
+        ));
+    }
+    if !said.is_empty() {
+        notes.push(format!("{}.", said.join(". ")));
     }
     notes
 }

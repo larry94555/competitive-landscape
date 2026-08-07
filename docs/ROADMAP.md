@@ -728,10 +728,10 @@ the single most important phase; everything after it is commerce and polish.
   for the feature.
   Every company in the report carries **why it is there**, in countable terms — how many of the
   searches returned it, and which of the reader's words its own front page uses — and every
-  company found and left out carries which of **four** things happened to it: one search only,
-  a score we do not believe, a front page about another market, or a front page nobody could
-  read. The last two look identical from the outside and are not: one is about the company and
-  one is about us.
+  company found and left out carries which of **five** things happened to it: one search only,
+  a score we do not believe, a front page about another market, a front page nobody could read,
+  or a front page we never asked for. The last three look identical from the outside and are
+  not: only the first of them is about the company.
   **Still open:** competitors of a **named company** rather than only of a description, chips
   for the one-word names the gate still refuses in prose, and *"no public information"* reported
   at the level of a whole set.
