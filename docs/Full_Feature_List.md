@@ -168,7 +168,7 @@ the caches**. The next piece of work here was the cliff itself, and it started.
 templated query set built from the questions discovery came back empty on, a `SourceProvider`
 seam with a SearXNG adapter behind it, and an admission step that decides what a result may be
 used for — the company's own domain is Primary, everything else is Unverified and therefore may
-never set a value in a comparison table. It is exercised by `landscape search <origin>` and by 45
+never set a value in a comparison table. It is exercised by `landscape search <origin>` and by 41
 tests, seven of them over a real socket.
 
 **It is not wired into the orchestrator, and typing an idea still fails.** That is the next PR,

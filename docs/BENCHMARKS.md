@@ -194,7 +194,7 @@ and host are case-insensitive.
 **An error swallowed into a weaker object.** `.build().unwrap_or_default()` replaced a client
 carrying the eight-second timeout with one carrying none. Now fallible.
 
-**45 tests, and seven of them use a socket.** `tests/against_a_server.rs` stands up a listener,
+**41 tests — 34 unit and seven over a socket.** `tests/against_a_server.rs` stands up a listener,
 points a real client at it, and asserts on **what arrived** as well as what came back — the
 percent-encoding of a template full of quotes, the endpoint the query is appended to, a 403
 carrying its number, a dead port becoming `Unreachable` rather than a hang, a redirect that is

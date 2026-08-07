@@ -454,7 +454,7 @@ than reading one.
 
 | Missing | Consequence |
 |---|---|
-| `landscape-search` wired into an analysis | **The crate is built** — templated versioned queries for the questions probes left unanswered, a `SourceProvider` seam, a SearXNG adapter, host-based admission, 45 tests. **Nothing calls it**, so an idea still cannot become a company. **The phase's defining gap**, now a join rather than an invention. |
+| `landscape-search` wired into an analysis | **The crate is built** — templated versioned queries for the questions probes left unanswered, a `SourceProvider` seam, a SearXNG adapter, host-based admission, 41 tests (34 unit, 7 over a socket). **Nothing calls it**, so an idea still cannot become a company. **The phase's defining gap**, now a join rather than an invention. |
 | Candidate generation for entity resolution | The disambiguation gate has nothing to disambiguate. |
 | Competitor *discovery* | Several companies can be analysed, but only ones the reader names. |
 | ~~One of six extractors (direction)~~ | **Built.** All six questions extract, and two of them need no model. The `no extractor yet` branch is deleted rather than left unreachable, so a seventh question is a build error. |
