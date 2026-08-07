@@ -1014,6 +1014,78 @@ survive being written down beside its own exceptions.
 > **Ask this:** *does my comment justifying this contain the sentence that refutes it — and which
 > direction does being wrong fail in?*
 
+## 36. A fixture with one element cannot test an ordering
+
+**Written:** by me, testing that a report says *who it is about* before it says anything else.
+
+```rust
+assert_eq!(notes.iter().position(|n| n.contains("You described")), Some(0));
+```
+
+**Why it could not fail:** the fixture analysed **one** company, so `notes` held exactly one
+note. `insert(0, ..)` and `insert(len(), ..)` put it in the same place, and the mutation that
+moved the sentence to the bottom of the report passed the whole suite. The assertion named a
+position and the fixture had no positions.
+
+**This is the fourth time in three pull requests** that a test covered something other than what
+its name claimed — a sentence rejected by the wrong rule, a page absent from `pages` rather than
+present-and-unread, a helper tested while its call site was not, and now an ordering with nothing
+to order. Each one was found by the mutation harness and none by reading the test.
+
+**Rule:** a property about *position*, *precedence*, *first*, *worst* or *nearest* needs a
+fixture with at least two candidates for the position to be about — and ideally one where the
+wrong answer is the one a naive implementation would give. Before asserting an index, ask what
+else is in the collection; if the answer is "nothing", the assertion is about a constant.
+
+> **Ask this:** *if my fixture had one element, would this assertion mean anything?*
+
+---
+
+## 37. A failure counted and then dropped, and the silence that followed reported as a fact
+
+**Written:** by me, resolving a description into a company through three search queries.
+
+```rust
+let (found, failures) = suggest(engine, description).await;
+if failures > 0 {
+    tracing::warn!(failures, "some candidate searches did not complete");
+}
+match verdict {
+    Resolution::NothingFound { .. } => Chosen::None(NOTHING_RESOLVED.to_owned()),
+    ...
+}
+```
+
+**What a reader got when all three queries failed:** *"we searched for companies matching that
+description and found none"* — and, as the evidence of the looking, a `checked` list holding all
+three queries, none of which had reached an engine.
+
+**Why it is not a logging bug.** The count was correct, was carried out of the function, and was
+even written down. It just never reached the sentence. **A failure that is observed and then not
+allowed to change any decision is the same as a failure that was swallowed** — the log line makes
+it worse, because it reads like handling.
+
+Two rules had been collapsed into one number, and they pull in opposite directions:
+
+| | Counts | Because |
+|---|---|---|
+| The score | queries **sent** | One answer out of three is not agreement. Divide by what answered and an outage manufactures unanimity. |
+| The audit trail | queries **completed** | It is shown as *"we checked these"*, and a query that never ran checked nothing. |
+
+A single `usize` cannot serve both, and whichever rule you write first, the other silently gets
+the wrong answer. `Queried { completed, failed }` is the smallest type that can.
+
+**And the refusals split too.** *"We looked and found nobody"* and *"we could not finish
+looking"* are different facts about different subjects — one about a market, one about us — and
+only the second is fixed by waiting. This is the third time this project has found two sentences
+sharing one branch; each time the fix was a sentence, not a flag.
+
+**Rule:** when a failure produces a count, find the sentence that count must change before
+writing the log line. If no sentence changes, the count is decoration. And prefer a small struct
+over a number the moment two callers want to divide by different halves of it.
+
+> **Ask this:** *if every one of these calls failed, what would a reader be told — and is it true?*
+
 ---
 
 ## Before a PR: two commands and eight questions
@@ -1090,7 +1162,7 @@ Grouped by what has actually gone wrong, commonest first.
 | Found by | Entries | |
 |---|---|---|
 | Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35 |
-| The mutation harness | 32 | The only one it found before review did, and it deleted a rule rather than adding a test |
+| The mutation harness | 32, 36 | The only one it found before review did, and it deleted a rule rather than adding a test |
 | Its own tooling | 28 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |

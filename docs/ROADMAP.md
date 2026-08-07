@@ -712,9 +712,15 @@ the single most important phase; everything after it is commerce and polish.
   learn which companies exist and is not one of them. Each survivor is named from **its own front
   page**, so what a reader chooses between is the company's words rather than an engine's.
   `landscape candidates "<description>"` runs the whole of it and prints the gate's verdict.
-  **Still open:** a prompt that names no domain fails with `no_subject`. Joining the gate's
-  verdict to an analysis needs somewhere to ask the *ambiguous* question, which is the
-  clarifying-question row; competitor-set derivation is the piece after that.
+  **A prompt that names no domain runs now** — [BENCHMARKS.md](BENCHMARKS.md) Run 29, the second
+  PR of that row and the one that makes this state's headline false. The description is searched
+  for, the gate decides, and one clear answer is analysed. The other two verdicts are refusals
+  that say different things, because *"we looked and found nobody"* and *"we have no way to
+  look"* are different facts and a reader acts on them differently. A report about a company
+  nobody named says so in its **first** note.
+  **Still open:** one description produces **one company, not a set** — competitor-set
+  derivation is the next row, and the ambiguous verdict is answered by typing a domain until the
+  clarifying-question row gives it chips.
   **SearXNG itself has not been run against this.** `docker compose --profile search up -d
   searxng` and a checked-in `settings.yml` are in the repository and unwalked, for the same
   reason D3 is — the first person through corrects it.

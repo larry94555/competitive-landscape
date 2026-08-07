@@ -4,6 +4,6 @@
     "n": 1,
     "title": "What a page claims",
     "blurb": "Two of six questions had no extractor, so a trust page was fetched and thrown away. A compliance standard is a closed vocabulary — the scanner finds the mention, and the model only reads whether the page claims to hold it or to be working towards it. Freezing a real security page found a duplicate on the first run, and measuring found the page the pipeline was reading instead.",
-    "seconds": 36.9
+    "seconds": 37.4
   }
 ]

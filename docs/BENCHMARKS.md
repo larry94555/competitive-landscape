@@ -33,6 +33,124 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 29 — typing an idea runs
+
+**Date:** 2026-08-07 · **Where:** this laptop · **Model:** none for the resolution; the analysis
+that follows uses one exactly as it always has.
+
+`PROJECT_STATUS.md` has said *"a business idea does not run at all"* in the S2 row since the row
+existed. **It no longer does.** A prompt naming no domain is searched for, grouped into
+companies, scored, named, and put through the disambiguation gate — and when the gate returns one
+company, the run proceeds against it.
+
+### Three verdicts, three different things to tell a reader
+
+The gate has always had three answers. Until now the worker had one:
+
+```text
+this prompt does not name a website, and finding one from a description needs the
+search channel that is not built yet
+```
+
+That sentence had also gone stale — the channel is built. What replaces it is one refusal per
+verdict, because a reader can act on all three and the actions differ:
+
+| | What a reader is told |
+|---|---|
+| **Resolved** | Nothing. The report runs, and its **first note** says which company was chosen and that they did not name it |
+| **Ambiguous** | The companies, by name and domain: *"that description matches more than one company and we will not guess between them"* |
+| **Nothing found** | That we looked and found nobody, which is not the same as having no way to look |
+| **No engine** | That finding a company from a description needs one, which is the only case where the answer is *install something* |
+
+**The first and the last used to be the same sentence.** *"We have no way to look"* and *"we
+looked and found nothing"* are different facts about the world, and the honest-negative
+discipline this project applies to a section applies to a subject.
+
+### The note is first, and that is not styling
+
+A reader who typed a description **never said this company's name**. Every other note on a report
+is about what the run did — which pages the budget skipped, which questions were searched. This
+one is about *who the report is about*, and it is the single thing a reader cannot check by
+reading further down the page. It is inserted at position zero and there is a test that it is,
+not merely that it exists.
+
+### One engine, read once
+
+The worker asked the environment for `SEARX_URL` twice: once to resolve a description, once to
+fill a company's gaps. Two answers that can disagree, for one question — the second source of
+truth this codebase keeps deleting. It is read once and passed to both.
+
+### And clippy found the shape before a reader did
+
+`analyse_many` reached **eight positional arguments**, four of them `Option`s or timestamps.
+The lint was right, and the codebase already had the answer: `Reading` exists because *"threading
+seven arguments through each of those is how a caller ends up passing the right value in the
+wrong position"*. The new `Asked` is that, for the same reason, rather than an `#[allow]`.
+
+### Two lost line continuations, one of them shipped
+
+Writing the new note produced a string with a run of eighteen spaces in the middle of a sentence
+— a `\` continuation eaten on the way into the file. The test caught it. **The note beside it
+had the same defect and had been shipping it**: *"Each company is its own              discovery"*
+is what a reader saw whenever a fourth company was dropped. Both fixed.
+
+The same slip is in three of the model prompts and is **not** fixed here: changing a prompt
+changes what the model reads, so it needs a `PROMPT_VERSION` bump and a golden-set run rather
+than a quiet edit. Flagged rather than folded in.
+
+### Review: an outage reported as an empty market
+
+The first version returned a count of failures and did nothing with it. With all three provider
+calls returning `Err`, `suggest` produced no candidates, `resolve` returned `NothingFound`, and a
+reader was told:
+
+```text
+we searched for companies matching that description and found none
+```
+
+That is a conclusion about a market drawn from a conclusion about nothing — and the `checked`
+list handed over as evidence of the looking held **all three queries**, including the two that
+never reached an engine. `FACT_CHECKING.md` §5.4 says a negative nobody can check is not a
+finding; a query that never ran is not a check.
+
+`Queried { completed, failed }` replaces the count, and it exists because **two rules here pull
+in opposite directions and both are right**:
+
+| | Divides / lists by | Why |
+|---|---|---|
+| The confidence score | queries **sent** | An engine that answered once of three has produced no agreement. Dividing by what answered lets an outage manufacture unanimity. |
+| The audit trail | queries **completed** | It is shown to a reader as *"we checked these"*, and a query that never ran checked nothing. |
+
+The refusal splits in two as well. `search_incomplete` is about **us**, is retryable, and names
+the counts — *"we could not complete 3 of the 3 searches"* — where `NOTHING_RESOLVED` remains a
+statement about the market, reachable only when the searching finished.
+
+Ambiguity deliberately outranks the outage: several real candidates are still asked about even
+when a query failed, because telling somebody to try again would throw away an answer we already
+have. There is a test for that branch specifically.
+
+**The match moved out of the binary.** It lived in `main.rs`, where a mutation aimed at the
+outage arm reported `NOT APPLIED` and no test could reach it. `landscape_analyze::subject::decide`
+is the same three-into-four decision somewhere it can be asserted — five unit tests, three
+mutations, all caught. That is the same lesson as `worth_searching` and `ToRead` before it: a
+decision inside a worker is a decision nobody can test.
+
+### What still does not happen
+
+**A description produces one company, not a set.** Competitor-set derivation is its own row, and
+until it lands a description gets you one company's report rather than a comparison —
+`landscape candidates` remains the way to see the whole list.
+
+**And no engine has been asked**, still: Docker's daemon does not start where this was built, so
+every test is a canned provider over the real code path.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 28 | 725 | 51 |
+| now | **738** | **51** |
+
+---
+
 ## Run 28 — a description becomes companies, and the gate finally has something to gate
 
 **Date:** 2026-08-07 · **Where:** this laptop · **Model:** none, and that is the finding as much

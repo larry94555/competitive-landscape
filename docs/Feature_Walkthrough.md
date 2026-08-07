@@ -36,6 +36,7 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | **Where a company is investing, read off its careers page for no model calls** | **Yes** — Part 2F |
 | **Searching the web for the questions a company's own pages left empty** | **Yes** — Part 8F |
 | **Turning a description into the companies it might be about** | **Yes** — Part 8G |
+| **Typing a description and getting a report about the company it resolves to** | **Yes** — Part 8G |
 | **The questions probes could not answer, and the queries that follow from them** | **Yes** — Part 8F |
 | Reading real web pages *as part of a report* | No — the fetcher exists, nothing calls it yet |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
@@ -1454,10 +1455,38 @@ finally one of three verdicts: `resolved`, `ambiguous` with the question to ask,
 > no engine has answered these queries. The first person through corrects these instructions —
 > the same note Part 8F carries, for the same reason.
 
-**What this does not do.** No analysis calls it. Typing a description into the box still fails
-with `no_subject`, because joining the gate's verdict to a run needs somewhere to ask the
-*ambiguous* question — that is the clarifying-question piece, and it is next.
-See [BENCHMARKS.md](BENCHMARKS.md) Run 28.
+### And an analysis does the same thing when you give it a description
+
+**Do this**, with `SEARX_URL` set, in the box or over the API:
+
+```bash
+curl -sX POST http://127.0.0.1:8787/api/analyses -H 'content-type: application/json' -d '{"prompt":"privacy-friendly website analytics"}'
+```
+
+**You should see** a report about one company, whose **first note** says the company was chosen
+rather than named:
+
+```text
+> You described a product rather than naming a company, so we searched for one. This report
+> is about Fathom Analytics (usefathom.com) - Simple, privacy-first website analytics. If
+> that is not who you meant, name a domain and we will read that instead.
+```
+
+**And when the description matches more than one company**, the run refuses and names them, so a
+reader can pick by typing one:
+
+```text
+that description matches more than one company and we will not guess between them:
+Alpha (alpha.example), Beta (beta.example). Name the one you mean - a domain works.
+```
+
+Three refusals rather than one, because they are three different situations: *we found nobody*,
+*we found several*, and *no engine is configured so we could not look*. Only the last is fixed by
+installing something, and the old single sentence said that about all three.
+
+**What this still does not do.** A description produces **one company, not a set**.
+Competitor-set derivation is the next row; until then `landscape candidates` is how you see the
+whole list. See [BENCHMARKS.md](BENCHMARKS.md) Run 29.
 
 ---
 

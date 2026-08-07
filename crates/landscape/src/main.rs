@@ -420,7 +420,7 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
         return Ok(());
     };
 
-    let (found, failures) = landscape_search::candidates::suggest(&engine, description).await;
+    let (found, queried) = landscape_search::candidates::suggest(&engine, description).await;
     println!(
         "\n{:<34} {:>7} {:>8}  shallowest",
         "company", "agreed", "score"
@@ -439,11 +439,16 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
     if found.is_empty() {
         println!("(nothing that looked like a company)");
     }
-    if failures > 0 {
+    if !queried.failed.is_empty() {
         println!(
-            "\n{failures} of {} queries did not complete, so this list is thinner than it would be.",
-            queries.len()
+            "\n{} of {} queries did not complete, so this list is thinner than it would be - and \
+             anything below saying nothing was found is about us, not about the market:",
+            queried.failed.len(),
+            queried.sent()
         );
+        for q in &queried.failed {
+            println!("  did not complete: {q}");
+        }
     }
 
     // The names come from each company's own front page. An engine's title is the engine's.
@@ -468,7 +473,9 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
         }
     }
 
-    let checked: Vec<String> = queries.iter().map(|q| q.text.clone()).collect();
+    // **What came back, not what was sent.** The list a reader is shown as evidence of the
+    // looking has to be the looking that happened.
+    let checked = queried.completed.clone();
     match landscape_core::subject::resolve(description, named, checked) {
         landscape_core::subject::Resolution::Resolved { entity } => {
             println!("\nresolved  {} ({})", entity.name, entity.canonical_domain);
@@ -1047,6 +1054,64 @@ async fn worker(store: Arc<dyn Store>) -> Result<()> {
 /// section is `not_found` with the pages it would have checked listed — which is the same
 /// treatment a real run gives a genuine gap, so the frontend renders the honest case from
 /// day one rather than a happy path that has to be unwritten later.
+/// Ask the search channel who a description is about, and let the gate decide.
+///
+/// **Every branch that is not one company is a refusal**, and each says a different thing: no
+/// engine configured, nothing found, several found, or a search that did not finish. A reader
+/// can act on all four, and they are four different actions —
+/// [`landscape_analyze::subject::decide`] is where that mapping lives and is tested.
+async fn resolve_from_description(
+    engine: Option<&dyn landscape_search::SourceProvider>,
+    prompt: &str,
+) -> landscape_analyze::subject::Decided {
+    let Some(engine) = engine else {
+        return landscape_analyze::subject::Decided::Refuse(
+            landscape_analyze::subject::NO_SUBJECT.to_owned(),
+        );
+    };
+    let fetcher = landscape_fetch::Fetcher::new();
+    let (verdict, queried) = landscape_search::candidates::for_description(engine, prompt, |url| {
+        let fetcher = &fetcher;
+        async move {
+            fetcher
+                .get(&url)
+                .await
+                .ok()
+                .map(|page| landscape_extract::markdown::from_body(&page.body))
+        }
+    })
+    .await;
+    if !queried.failed.is_empty() {
+        tracing::warn!(
+            failed = queried.failed.len(),
+            sent = queried.sent(),
+            "some candidate searches did not complete"
+        );
+    }
+    landscape_analyze::subject::decide(verdict, &queried)
+}
+
+/// Record a refusal a reader can act on, and say so if the claim was taken away first.
+async fn refuse(store: &Arc<dyn Store>, analysis: &landscape_core::Analysis, why: &str) {
+    match store
+        .fail(
+            analysis.id,
+            analysis.generation,
+            landscape_core::Failure::NoSubject,
+            why,
+        )
+        .await
+    {
+        Ok(landscape_core::Applied::ClaimRevoked) => {
+            tracing::warn!(id = %analysis.id, "claim revoked before the failure was recorded");
+        }
+        Ok(landscape_core::Applied::Yes) => {}
+        Err(e) => {
+            tracing::error!(id = %analysis.id, error = %e, "could not record the failure");
+        }
+    }
+}
+
 /// Run one claimed analysis, writing progress as it goes.
 ///
 /// **The queue finally carries something.** Until now this wrote a placeholder saying the
@@ -1057,11 +1122,47 @@ async fn worker(store: Arc<dyn Store>) -> Result<()> {
 /// continues: losing an intermediate write costs a reader a few seconds of staleness, and
 /// abandoning the analysis over it would cost them the report.
 async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysis) {
-    let origins = landscape_analyze::subject::origins_in(&analysis.prompt);
+    // **Read once, for both callers.** Resolving a description and filling a company's gaps
+    // are two questions for the same engine, and asking the environment twice is two answers
+    // that can disagree — the second source of truth this codebase keeps deleting.
+    //
+    // A misconfigured `SEARX_URL` is a configuration error, not a reason to fail an analysis
+    // somebody is waiting for: the run proceeds without an engine, and every surface says so.
+    let engine = landscape_search::Searx::from_env().unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "SEARX_URL is set but unusable; this run will not search");
+        None
+    });
+    let searching = engine.as_ref().map(searching);
+
+    let named = landscape_analyze::subject::origins_in(&analysis.prompt);
+    // **A description is no longer the end of the road.** Until this, a prompt naming no domain
+    // was refused with *"finding one from a description needs the search channel"* — and the
+    // channel now exists, produces candidates, and hands them to the gate `FACT_CHECKING.md`
+    // §3.1 built before anything could feed it. What is still refused is a description we
+    // cannot pin to **one** company, because the alternative is a report that is correctly
+    // cited and about the wrong company.
+    let (origins, chosen) = if named.is_empty() {
+        match resolve_from_description(searching, &analysis.prompt).await {
+            landscape_analyze::subject::Decided::Analyse(entity) => {
+                let domain = format!("https://{}", entity.canonical_domain);
+                tracing::info!(id = %analysis.id, %domain, "a description resolved to one company");
+                (vec![domain], Some(*entity))
+            }
+            landscape_analyze::subject::Decided::Refuse(why) => {
+                tracing::info!(id = %analysis.id, "no subject in prompt");
+                refuse(store, analysis, &why).await;
+                return;
+            }
+        }
+    } else {
+        (named, None)
+    };
+
     let Some(first) = origins.first().cloned() else {
-        // Not an error — a capability we do not have. Guessing a domain from a description
-        // would produce a report that is correctly cited and about the wrong company.
-        tracing::info!(id = %analysis.id, "no subject in prompt");
+        // Unreachable: `Chosen::One` always yields a domain and a named prompt is non-empty.
+        // Kept as a refusal rather than an `expect`, because a panic in a worker takes the
+        // process down and a reader's run with it.
+        tracing::error!(id = %analysis.id, "an empty subject list reached the reading");
         match store
             .fail(
                 analysis.id,
@@ -1093,20 +1194,16 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
     let now = chrono::Utc::now();
 
     let progress = progress::Progress::new(Arc::clone(store), analysis.id, analysis.generation);
-    // A misconfigured `SEARX_URL` is a configuration error, not a reason to fail an analysis
-    // somebody is waiting for: the run proceeds on discovery alone and the report says that no
-    // engine was available for the gaps.
-    let engine = landscape_search::Searx::from_env().unwrap_or_else(|e| {
-        tracing::warn!(error = %e, "SEARX_URL is set but unusable; this run will not search");
-        None
-    });
     let outcome = landscape_analyze::analyse_many(
         &fetcher,
         &llm,
-        &origins,
-        now,
-        now.date_naive(),
-        engine.as_ref().map(searching),
+        &landscape_analyze::Asked {
+            origins: &origins,
+            now,
+            today: now.date_naive(),
+            search: searching,
+            chosen: chosen.as_ref(),
+        },
         &mut |so_far| progress.record(so_far),
     )
     .await;

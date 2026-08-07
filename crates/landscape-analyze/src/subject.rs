@@ -124,8 +124,220 @@ fn origin_of_word(word: &str) -> Option<String> {
 /// A failure reason a reader can act on. It says what is missing rather than what went wrong,
 /// because nothing went wrong: this is a capability the pipeline does not have yet.
 pub const NO_SUBJECT: &str = "this prompt does not name a website, and finding one from a \
-    description needs the search channel that is not built yet (FACT_CHECKING.md §3.3). Try a \
-    domain — for example: basecamp.com";
+    description needs a search engine, which is not configured here. Try a domain — for \
+    example: basecamp.com";
+
+/// What a reader is told when we searched and found nobody.
+///
+/// **Different from [`NO_SUBJECT`], and the difference is the whole honest-negative
+/// discipline.** *"We have no way to look"* and *"we looked and found nothing"* are different
+/// facts about the world, and a reader can act on the second by rewording rather than by
+/// installing something.
+pub const NOTHING_RESOLVED: &str = "we searched for companies matching that description and \
+    found none we could identify well enough to report on. Try naming a domain, or describing \
+    the product in the words a vendor would use — for example: basecamp.com";
+
+/// What to do with the gate's verdict.
+///
+/// **The decision, in a function a test can call.** It lived in the worker as a `match` inside a
+/// binary, where the only way to exercise it was to run one — so the arm that tells an outage
+/// apart from an empty market had no test, and the mutation that deleted it passed. Every branch
+/// here is reachable from a unit test, which matters because this is the code that decides
+/// whether a report is written about the wrong company or not written at all.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Decided {
+    /// One company, clearly. The run proceeds against it.
+    Analyse(Box<landscape_core::subject::Candidate>),
+    /// Not one company, and this is what a reader is told about why.
+    Refuse(String),
+}
+
+/// Turn a verdict and the evidence behind it into what happens next.
+#[must_use]
+pub fn decide(
+    verdict: landscape_core::subject::Resolution,
+    queried: &landscape_search::candidates::Queried,
+) -> Decided {
+    use landscape_core::subject::Resolution;
+    match verdict {
+        Resolution::Resolved { entity } => Decided::Analyse(Box::new(entity)),
+        // Several real candidates, whatever else failed. A reader can answer this, and telling
+        // them to try again instead would throw away an answer we already have.
+        Resolution::Ambiguous { candidates, .. } => Decided::Refuse(ambiguous(&candidates)),
+        // **"Nothing found" is a conclusion about a market, and it needs the searching to have
+        // happened.** With any query unanswered we have not established that nobody is out
+        // there — only that we did not finish looking, which is a different sentence and a
+        // retryable one. Review found these collapsed into each other.
+        Resolution::NothingFound { .. } if !queried.failed.is_empty() => {
+            Decided::Refuse(search_incomplete(queried.failed.len(), queried.sent()))
+        }
+        Resolution::NothingFound { .. } => Decided::Refuse(NOTHING_RESOLVED.to_owned()),
+    }
+}
+
+/// What a reader is told when the searching itself did not finish.
+///
+/// **Not the same as finding nobody, and review found the two collapsed.** With every query
+/// failing, the previous version said *"we searched and found none"* — a conclusion about a
+/// market, drawn from a conclusion about nothing. This one is about us, it is retryable, and it
+/// is the only refusal here that a reader fixes by waiting.
+#[must_use]
+pub fn search_incomplete(failed: usize, sent: usize) -> String {
+    format!(
+        "we could not complete {failed} of the {sent} searches needed to work out which company \
+         you mean, so we have not concluded anything about who is out there. This is usually \
+         temporary - try again, or name a domain to skip the search entirely."
+    )
+}
+
+/// What a reader is told when we found several and will not choose for them.
+///
+/// `PRODUCT_SPEC.md` §3: *one chip click prevents an entire wrong report*. There are no chips
+/// yet, so the companies are named in the sentence and the reader picks one by typing it —
+/// which is the same choice, made more slowly, and far better than a confident wrong report.
+#[must_use]
+pub fn ambiguous(candidates: &[landscape_core::subject::Candidate]) -> String {
+    let named: Vec<String> = candidates
+        .iter()
+        .map(|c| format!("{} ({})", c.name, c.canonical_domain))
+        .collect();
+    format!(
+        "that description matches more than one company and we will not guess between them: \
+         {}. Name the one you mean - a domain works.",
+        named.join(", ")
+    )
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod deciding {
+    //! What happens to each of the gate's verdicts, and why they are not the same refusal.
+
+    use super::*;
+    use landscape_core::subject::{Candidate, Resolution};
+    use landscape_search::candidates::Queried;
+
+    fn candidate(name: &str, domain: &str) -> Candidate {
+        Candidate {
+            name: name.to_owned(),
+            canonical_domain: domain.to_owned(),
+            what_it_is: "a company".to_owned(),
+            confidence: 0.9,
+        }
+    }
+
+    fn all_answered() -> Queried {
+        Queried {
+            completed: vec!["q1".to_owned(), "q2".to_owned(), "q3".to_owned()],
+            failed: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn one_company_is_analysed() {
+        let decided = decide(
+            Resolution::Resolved {
+                entity: candidate("Fathom", "usefathom.com"),
+            },
+            &all_answered(),
+        );
+        match decided {
+            Decided::Analyse(entity) => assert_eq!(entity.canonical_domain, "usefathom.com"),
+            Decided::Refuse(why) => panic!("a clear answer was refused: {why}"),
+        }
+    }
+
+    #[test]
+    fn several_companies_are_named_so_a_reader_can_pick() {
+        let decided = decide(
+            Resolution::Ambiguous {
+                question: "which one?".to_owned(),
+                candidates: vec![
+                    candidate("Alpha", "alpha.example"),
+                    candidate("Beta", "beta.example"),
+                ],
+            },
+            &all_answered(),
+        );
+        let Decided::Refuse(why) = decided else {
+            panic!("two companies were chosen between")
+        };
+        assert!(why.contains("Alpha (alpha.example)"), "{why}");
+        assert!(why.contains("Beta (beta.example)"), "{why}");
+    }
+
+    #[test]
+    fn several_companies_are_still_asked_about_when_a_search_failed() {
+        // A real answer we already have beats telling somebody to try again for it.
+        let decided = decide(
+            Resolution::Ambiguous {
+                question: "which one?".to_owned(),
+                candidates: vec![
+                    candidate("Alpha", "alpha.example"),
+                    candidate("Beta", "beta.example"),
+                ],
+            },
+            &Queried {
+                completed: vec!["q1".to_owned()],
+                failed: vec!["q2".to_owned(), "q3".to_owned()],
+            },
+        );
+        let Decided::Refuse(why) = decided else {
+            panic!("two companies were chosen between")
+        };
+        assert!(why.contains("Alpha"), "{why}");
+        assert!(
+            !why.contains("try again"),
+            "a real answer was thrown away: {why}"
+        );
+    }
+
+    #[test]
+    fn a_market_we_searched_and_found_empty_says_so() {
+        let decided = decide(
+            Resolution::NothingFound {
+                checked: vec!["q1".to_owned()],
+            },
+            &all_answered(),
+        );
+        let Decided::Refuse(why) = decided else {
+            panic!("nothing found was not a refusal")
+        };
+        assert_eq!(why, NOTHING_RESOLVED);
+        assert!(!why.contains("try again"), "{why}");
+    }
+
+    #[test]
+    fn a_search_that_did_not_finish_is_never_reported_as_an_empty_market() {
+        // **Review found these collapsed.** With every query failing, the reader was told *"we
+        // searched and found none"* - a conclusion about a market drawn from a conclusion about
+        // nothing. It is retryable and it is about us.
+        for failed in [
+            vec!["q1".to_owned(), "q2".to_owned(), "q3".to_owned()],
+            vec!["q3".to_owned()],
+        ] {
+            let queried = Queried {
+                completed: vec!["q1".to_owned(); 3 - failed.len()],
+                failed: failed.clone(),
+            };
+            let decided = decide(
+                Resolution::NothingFound {
+                    checked: queried.completed.clone(),
+                },
+                &queried,
+            );
+            let Decided::Refuse(why) = decided else {
+                panic!("nothing found was not a refusal")
+            };
+            assert_ne!(why, NOTHING_RESOLVED, "{failed:?}");
+            assert!(why.contains("try again"), "{why}");
+            assert!(
+                why.contains(&format!("{} of the 3", failed.len())),
+                "the count a reader needs is missing: {why}"
+            );
+        }
+    }
+}
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
