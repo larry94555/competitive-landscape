@@ -401,10 +401,20 @@ fn naming(host: &str, markdown: &str) -> (String, String) {
 /// sample cannot be completed by adding entries, because the failure is *not knowing what is
 /// missing* — and that is precisely what a maintained list is for.
 ///
-/// A host the list cannot place at all — a bare label, an IP address — is returned lowercased
-/// and unchanged rather than guessed at.
+/// **An IP literal is not a domain, and the list will happily pretend otherwise.**
+/// `psl::domain_str("127.0.0.1")` is `Some("0.1")` — and so is `psl::domain_str("10.0.0.1")`, so
+/// two unrelated addresses forge the same agreement the private suffixes did. Review found it;
+/// the previous version of this comment claimed an IP address was "returned unchanged", which
+/// was true of IPv6 and false of the case that matters. Addresses are recognised before the list
+/// is consulted now, and [`is_not_a_company`] keeps them off a reader's list entirely.
+///
+/// A host the list cannot place at all — `localhost`, a bare label — is returned lowercased and
+/// unchanged rather than guessed at.
 fn registrable(host: &str) -> String {
     let lowered = host.trim().trim_end_matches('.').to_lowercase();
+    if lowered.parse::<std::net::IpAddr>().is_ok() {
+        return lowered;
+    }
     let Some(domain) = psl::domain_str(&lowered) else {
         return lowered;
     };
@@ -416,6 +426,13 @@ fn registrable(host: &str) -> String {
 /// Suffix-matched on a label boundary, so `blog.medium.com` is excluded and `mediumroast.com` is
 /// not — the same whole-token rule the trust scanner needed, for the same reason.
 fn is_not_a_company(host: &str) -> bool {
+    // **A raw address is not a company.** Nobody publishes a company at `93.184.216.34`, and
+    // offering one as a choice a reader makes between five names is offering nonsense. Keeping
+    // them out here rather than in `registrable` also means [`home_page`] never has to decide
+    // whether an IPv6 literal needs brackets: the case cannot arrive.
+    if host.parse::<std::net::IpAddr>().is_ok() {
+        return true;
+    }
     NOT_A_COMPANY
         .iter()
         .any(|known| host == *known || host.ends_with(&format!(".{known}")))
@@ -788,6 +805,45 @@ It does a thing for other companies."
     fn a_host_the_list_cannot_place_is_returned_rather_than_guessed_at() {
         assert_eq!(registrable("localhost"), "localhost");
         assert_eq!(registrable(""), "");
+    }
+
+    #[test]
+    fn an_address_is_not_carved_into_a_domain() {
+        // **The list will happily pretend an address is one.** `psl::domain_str("127.0.0.1")`
+        // is `Some("0.1")`, and so is `psl::domain_str("10.0.0.1")`. The previous version of
+        // this test covered `localhost` and the empty string — the branch where `domain_str`
+        // returns `None` and the claim happened to hold — and missed the one that does not.
+        assert_eq!(registrable("127.0.0.1"), "127.0.0.1");
+        assert_eq!(registrable("10.0.0.1"), "10.0.0.1");
+        assert_eq!(registrable("93.184.216.34"), "93.184.216.34");
+        assert_ne!(registrable("127.0.0.1"), registrable("10.0.0.1"));
+        assert_eq!(registrable("::1"), "::1");
+        assert_eq!(registrable("2001:db8::1"), "2001:db8::1");
+    }
+
+    #[test]
+    fn two_addresses_sharing_their_last_octets_do_not_manufacture_corroboration() {
+        // The end of it, asserted where it matters. Both used to become `0.1` with
+        // `agreed == 2` — a "company" nobody searched for, corroborated by nothing.
+        let results = vec![
+            vec![hit("https://127.0.0.1/")],
+            vec![hit("https://10.0.0.1/")],
+        ];
+        let found = from_results(&results, 2);
+        assert!(
+            found.is_empty(),
+            "an address reached a reader's list: {found:#?}"
+        );
+    }
+
+    #[test]
+    fn an_address_is_never_offered_as_a_company() {
+        // And it never reaches `home_page`, which is why that function has no IPv6 bracket
+        // case to get wrong.
+        assert!(is_not_a_company("127.0.0.1"));
+        assert!(is_not_a_company("93.184.216.34"));
+        assert!(is_not_a_company("::1"));
+        assert!(!is_not_a_company("usefathom.com"));
     }
 
     #[tokio::test]

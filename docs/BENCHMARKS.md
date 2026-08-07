@@ -136,6 +136,20 @@ for. `psl` embeds the Public Suffix List **including its private section**, whic
 that `github.io` is a suffix and `github.com` is a company. It is offline, needs no data file at
 runtime, and clears `cargo deny` on advisories, licences and sources.
 
+**And the list will pretend an address is a domain.** `psl::domain_str("127.0.0.1")` is
+`Some("0.1")` — and so is `psl::domain_str("10.0.0.1")`, so two unrelated addresses forged the
+same agreement the private suffixes did. Addresses are recognised before the list is consulted
+now, and never reach a reader's list at all: nobody publishes a company at `93.184.216.34`, and
+offering one as a choice between five names is offering nonsense. Keeping them out at that step
+rather than at the grouping step also means the home-page URL never has to decide whether an IPv6
+literal needs brackets — the case cannot arrive.
+
+**The doc comment for that fallback said an IP address was "returned unchanged".** True of IPv6,
+false of IPv4, and the test I wrote for it covered `localhost` and the empty string — the branch
+where the claim happened to hold. Three times in this pull request a test has covered a different
+branch from the one it was named for, and this is the one where the claim was in a doc comment
+rather than only in a test name.
+
 I had written the argument against my own fix into its own doc comment: *"the worst outcome is
 two candidates where there should be one"* and *"an unlisted suffix groups one label too short,
 which merges"* are both in there, and only the second one was true.
@@ -179,7 +193,7 @@ clarifying-question row of S2 — one piece of work away, and named rather than 
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 27 | 687 | 51 |
-| now | **722** | **51** |
+| now | **725** | **51** |
 
 ---
 

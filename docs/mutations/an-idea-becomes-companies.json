@@ -245,5 +245,31 @@
       "-p",
       "landscape-search"
     ]
+  },
+  {
+    "name": "an address is carved into a domain, so two of them agree with each other",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    if lowered.parse::<std::net::IpAddr>().is_ok() {\n        return lowered;\n    }\n    let Some(domain) = psl::domain_str(&lowered) else {",
+    "new": "    let Some(domain) = psl::domain_str(&lowered) else {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a raw address is offered to a reader as one of the companies",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    if host.parse::<std::net::IpAddr>().is_ok() {\n        return true;\n    }",
+    "new": "    if false {\n        return true;\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
   }
 ]
