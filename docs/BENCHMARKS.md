@@ -116,10 +116,29 @@ report about the wrong company is internally consistent, fully cited, and wrong 
 **One company was three.** `registrable()` lowercased and stripped `www.` and stopped there, so
 `example.com`, `app.example.com` and `docs.example.com` were three candidates. That divides the
 cross-query agreement the whole score rests on, and spends three of the five slots a reader
-chooses from on one vendor — turning a clear subject into an ambiguous one. It computes a
-registrable domain now, with a **closed list of multi-label public suffixes** so `bbc.co.uk` is a
-company and `co.uk` is not. The list is a deliberate subset of the PSL, and the limit is stated:
-an unlisted multi-label suffix groups one label too short, which merges rather than splits.
+chooses from on one vendor — turning a clear subject into an ambiguous one.
+
+**And the first fix for it was worse in the direction that matters.** A hand-written list of
+thirty multi-label suffixes covered `co.uk` and missed `github.io`:
+
+```text
+alpha.github.io  ->  github.io
+beta.github.io   ->  github.io      one "company", agreed = 2
+```
+
+Two unrelated tenants, seen by two different queries, **manufacturing the corroboration** the
+rule above was added to require — one round after it went in. A missing suffix does not merely
+merge two companies; it forges the evidence that lets the merged thing auto-resolve.
+
+That is why this is a dependency. **A thirty-entry sample cannot be completed by adding entries,
+because the failure is not knowing what is missing** — which is exactly what a maintained list is
+for. `psl` embeds the Public Suffix List **including its private section**, which is what knows
+that `github.io` is a suffix and `github.com` is a company. It is offline, needs no data file at
+runtime, and clears `cargo deny` on advisories, licences and sources.
+
+I had written the argument against my own fix into its own doc comment: *"the worst outcome is
+two candidates where there should be one"* and *"an unlisted suffix groups one label too short,
+which merges"* are both in there, and only the second one was true.
 
 **The page that named a company was not its front page.** `describe` fetched the shallowest
 *search result*, which for a real company is often `/pricing` — whose first heading is `Pricing`.
@@ -160,7 +179,7 @@ clarifying-question row of S2 — one piece of work away, and named rather than 
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 27 | 687 | 51 |
-| now | **719** | **51** |
+| now | **722** | **51** |
 
 ---
 

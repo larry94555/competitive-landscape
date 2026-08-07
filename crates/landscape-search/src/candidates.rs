@@ -379,48 +379,36 @@ fn naming(host: &str, markdown: &str) -> (String, String) {
     (name, what)
 }
 
-/// Public suffixes with more than one label, so `bbc.co.uk` is a company and `co.uk` is not.
-///
-/// **A closed list, and a deliberate subset of the Public Suffix List.** The full list is ten
-/// thousand entries that go stale, shipped for a step whose worst outcome is *two candidates
-/// where there should be one* — which the gate then asks a reader about. These are the suffixes
-/// a description in English is likely to turn up, and the limit is stated rather than implied:
-/// a registrable domain under a multi-label suffix **not** on this list is grouped one label too
-/// short, which merges two companies rather than splitting one. That is the worse direction, so
-/// the list errs towards being long.
-const MULTI_LABEL_SUFFIXES: [&str; 30] = [
-    "co.uk", "org.uk", "me.uk", "ltd.uk", "plc.uk", "net.uk", "sch.uk", "ac.uk", "gov.uk",
-    "com.au", "net.au", "org.au", "edu.au", "gov.au", "co.nz", "net.nz", "org.nz", "govt.nz",
-    "co.jp", "or.jp", "ne.jp", "ac.jp", "go.jp", "com.br", "com.mx", "com.ar", "co.za", "co.in",
-    "com.sg", "com.tr",
-];
-
 /// The registrable domain: lowercased, and one host per company.
 ///
-/// **Review found the first version splitting one company into three.** It lowercased and
-/// stripped `www.`, so `example.com`, `app.example.com` and `docs.example.com` were three
-/// candidates — which divides the cross-query agreement the whole score is built on, and can
-/// spend most of the five slots on one vendor. A clear subject becomes an ambiguous one.
+/// **Two rounds of review, and the second one is the reason this is a dependency.** The first
+/// version lowercased and stripped `www.`, so `example.com`, `app.example.com` and
+/// `docs.example.com` were three candidates — which divides the cross-query agreement the whole
+/// score rests on. The fix for that was a hand-written list of thirty multi-label suffixes, and
+/// it was worse in the direction that matters:
 ///
-/// So the last two labels are the company, unless the last two are a public suffix, in which
-/// case it is the last three. See [`MULTI_LABEL_SUFFIXES`] for what that list does and does not
-/// cover.
+/// ```text
+/// alpha.github.io  ->  github.io
+/// beta.github.io   ->  github.io      one "company", agreed = 2
+/// ```
+///
+/// Two unrelated tenants, seen by two different queries, **manufacturing the corroboration**
+/// that [`CORROBORATION`] was added to require one round earlier. A missing suffix does not
+/// merely merge two companies: it forges the evidence that lets the merged thing auto-resolve.
+///
+/// So the boundary comes from the Public Suffix List, **including its private section**, which
+/// is what knows that `github.io` is a suffix and `github.com` is a company. A thirty-entry
+/// sample cannot be completed by adding entries, because the failure is *not knowing what is
+/// missing* — and that is precisely what a maintained list is for.
+///
+/// A host the list cannot place at all — a bare label, an IP address — is returned lowercased
+/// and unchanged rather than guessed at.
 fn registrable(host: &str) -> String {
     let lowered = host.trim().trim_end_matches('.').to_lowercase();
-    let labels: Vec<&str> = lowered.split('.').filter(|l| !l.is_empty()).collect();
-    if labels.len() <= 2 {
-        return labels.join(".");
-    }
-    let last_two = labels[labels.len() - 2..].join(".");
-    let keep = if MULTI_LABEL_SUFFIXES.contains(&last_two.as_str()) {
-        3
-    } else {
-        2
+    let Some(domain) = psl::domain_str(&lowered) else {
+        return lowered;
     };
-    if labels.len() <= keep {
-        return labels.join(".");
-    }
-    labels[labels.len() - keep..].join(".")
+    domain.to_owned()
 }
 
 /// Whether this host is a place people talk about companies rather than a company.
@@ -752,6 +740,54 @@ It does a thing for other companies."
         assert_eq!(registrable("deep.sub.example.com"), "example.com");
         assert_eq!(registrable("EXAMPLE.COM."), "example.com");
         assert_eq!(registrable("example.com"), "example.com");
+    }
+
+    #[test]
+    fn two_tenants_on_a_private_suffix_are_two_companies() {
+        // **The reason the hand-written list became a dependency.** `github.io` is a suffix and
+        // `github.com` is a company, and only the Public Suffix List's private section knows
+        // the difference. A thirty-entry sample said both tenants were one company called
+        // `github.io`.
+        assert_eq!(registrable("alpha.github.io"), "alpha.github.io");
+        assert_ne!(
+            registrable("alpha.github.io"),
+            registrable("beta.github.io")
+        );
+        assert_eq!(registrable("github.com"), "github.com");
+        assert_eq!(registrable("www.github.com"), "github.com");
+
+        // The same shape on a suffix the sample also missed.
+        assert_ne!(registrable("alpha.com.cn"), registrable("beta.com.cn"));
+    }
+
+    #[test]
+    fn two_tenants_on_a_private_suffix_do_not_manufacture_corroboration() {
+        // Worse than merging two companies: two unrelated tenants seen by two different queries
+        // forged the agreement that `CORROBORATION` exists to require, so a "company" nobody
+        // searched for could auto-resolve. Review found it one round after the corroboration
+        // rule went in.
+        let results = vec![
+            vec![hit("https://alpha.github.io/")],
+            vec![hit("https://beta.github.io/")],
+        ];
+        let found = from_results(&results, 2);
+        assert_eq!(found.len(), 2, "{found:#?}");
+        assert!(
+            found.iter().all(|f| f.agreed == 1),
+            "corroboration was manufactured: {found:#?}"
+        );
+        assert!(
+            found
+                .iter()
+                .all(|f| f.confidence < landscape_core::subject::MINIMUM_CONFIDENCE),
+            "and it reached the gate: {found:#?}"
+        );
+    }
+
+    #[test]
+    fn a_host_the_list_cannot_place_is_returned_rather_than_guessed_at() {
+        assert_eq!(registrable("localhost"), "localhost");
+        assert_eq!(registrable(""), "");
     }
 
     #[tokio::test]

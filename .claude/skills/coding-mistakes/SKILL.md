@@ -984,6 +984,36 @@ on one side of somebody else's constant, derive it from that constant — a lite
 > **Ask this:** *what decision does this number drive, and am I asserting the decision or the
 > number?*
 
+### The sequel: a sample of a list is not a small version of the list
+
+The fix for the first half of that entry — one company arriving as three subdomains — was a
+**hand-written list of thirty multi-label public suffixes**. It covered `co.uk` and missed
+`github.io`, so two unrelated tenants became one company:
+
+```text
+alpha.github.io  ->  github.io
+beta.github.io   ->  github.io      one "company", agreed = 2
+```
+
+**Two different queries, each finding a different tenant, forging the corroboration the entry
+above had just made mandatory.** A missing suffix does not merely merge two companies; it
+manufactures the evidence that lets the merged thing auto-resolve, one round after the rule went
+in to prevent exactly that.
+
+**And I had written the counterargument into the list's own doc comment.** It said the worst
+outcome was *"two candidates where there should be one"* — the safe direction — and, four lines
+later, that an unlisted suffix *"groups one label too short, which merges rather than splits"* —
+the unsafe one. Both sentences, one comment, and I shipped the justification rather than the
+contradiction.
+
+**Rule:** a curated subset of a maintained list is not a smaller version of it — the entries you
+know to add are exactly the ones that were never the problem. Where the failure mode is *not
+knowing what is missing*, the list is the dependency, and the argument for hand-rolling it has to
+survive being written down beside its own exceptions.
+
+> **Ask this:** *does my comment justifying this contain the sentence that refutes it — and which
+> direction does being wrong fail in?*
+
 ---
 
 ## Before a PR: two commands and eight questions
