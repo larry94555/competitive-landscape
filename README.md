@@ -286,11 +286,12 @@ because a test that cannot fail is a finding rather than a footnote.
 
 The classes of defect these come from are in
 [`.claude/skills/coding-mistakes/SKILL.md`](.claude/skills/coding-mistakes/SKILL.md) —
-thirty-two entries, each with the symptom a reader would have seen and the question that would
+thirty-three entries, each with the symptom a reader would have seen and the question that would
 have caught it — one recording four rounds of review on a single feature, one about the harness
 above reporting a clean miss when nothing had run at all, one about the time I told a reviewer
-something could not be tested without checking, and one where a surviving mutation meant the
-rule should be **deleted** rather than tested.
+something could not be tested without checking, one where a surviving mutation meant the rule
+should be **deleted** rather than tested, and one where a fallback ran the safe path's rules over
+input the safe path had never been given.
 
 ### The documentation is tested
 

@@ -92,11 +92,18 @@ fn direction(markdown: &str) -> Outcome {
     };
 
     if page.is_empty() {
-        // Not the same sentence as "we could not read this". A company in a hiring freeze
-        // publishes a careers page with nothing on it, and that is a finding.
+        // **Two silences, and they are different facts.** A company in a hiring freeze
+        // publishes a careers page with nothing on it, which is news about the company. A page
+        // that never says which part of itself is the list is our gap, and saying "no open
+        // roles" about it would be this pipeline stating something it does not know.
         return Outcome {
             claims: Vec::new(),
-            summary: "no open roles listed on the page".to_owned(),
+            summary: if page.announced {
+                "no open roles listed on the page".to_owned()
+            } else {
+                "the page does not say where its open roles are listed, so none were read"
+                    .to_owned()
+            },
             details: Vec::new(),
             window_words: 0,
         };
@@ -118,14 +125,6 @@ fn direction(markdown: &str) -> Outcome {
             page.considered
         ));
     }
-    if !page.announced {
-        details.push(
-            "the page named no list, so the whole page was read - a job title in a testimonial \
-             is the risk this carries"
-                .to_owned(),
-        );
-    }
-
     Outcome {
         claims: crate::claims_from_hiring(&page),
         summary: format!(
@@ -1332,28 +1331,30 @@ mod tests {
     }
 
     #[test]
-    fn a_page_that_named_no_list_says_the_whole_page_was_read() {
-        // The weaker reading, and a reader is owed the difference. Without this line a scoped
-        // count of four and an unscoped count of four look identical.
-        let unscoped = direction("Senior Software Engineer\nRemote");
-        assert!(
-            unscoped
-                .details
-                .iter()
-                .any(|d| d.contains("the page named no list")),
-            "{:?}",
-            unscoped.details
-        );
+    fn the_two_silences_do_not_read_alike() {
+        // **The distinction the report needs, and the one this stage used to bury in a run
+        // log.** A careers page advertising nothing is news about the company; a page whose
+        // list we could not locate is our gap, and calling that one "no open roles" would
+        // state something this pipeline does not know.
+        let freeze = direction("## Open roles\nWe have no open roles right now.");
+        assert_eq!(freeze.summary, "no open roles listed on the page");
 
-        let scoped = direction("## Open roles\nSenior Software Engineer");
-        assert!(
-            !scoped
-                .details
-                .iter()
-                .any(|d| d.contains("the page named no list")),
-            "{:?}",
-            scoped.details
+        let unreadable = direction("Why we love working here\nKelsey Weber , Engineering Manager");
+        assert!(unreadable.claims.is_empty());
+        assert_eq!(
+            unreadable.summary,
+            "the page does not say where its open roles are listed, so none were read"
         );
+    }
+
+    #[test]
+    fn a_testimonial_on_an_unannounced_page_never_becomes_a_claim() {
+        // Review's reproduction, held at the surface that publishes rather than at the scanner:
+        // the run log saying the page was unscoped never reached a report, so the only thing
+        // between a named employee and `lists an open role: ...` was a line nobody reads.
+        let outcome = direction("Kelsey Weber , Engineering Manager\nStaff Data Engineer");
+        let texts: Vec<&str> = outcome.claims.iter().map(|c| c.text.as_str()).collect();
+        assert!(texts.is_empty(), "a person became a vacancy: {texts:?}");
     }
 
     #[test]

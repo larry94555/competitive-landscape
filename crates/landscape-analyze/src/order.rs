@@ -447,8 +447,21 @@ Submit your resume and we will keep in touch when something opens up.";
         // too: `analyse_with` never opens a page below `MIN_WORDS`, so a prediction that
         // counted what a parser *would* have found on it is a prediction of a different
         // program.
-        let too_thin = "Careers\nProduct Engineer";
+        //
+        // **Announced, deliberately.** A page with no `Open roles` heading now yields nothing
+        // whatever its length, so an unannounced fixture here would pass without the quality
+        // gate doing anything — a test named after one guard and held up by another, which is
+        // entry 32 of the register and was found in this very file.
+        let too_thin = "## Open roles\nProduct Engineer";
         assert!(!may_yield_content(Answers::Direction, too_thin));
+
+        // The same page, long enough to be worth opening, does promise content — so the
+        // assertion above is about the gate and not about the fixture being unreadable twice.
+        let long_enough = format!(
+            "## Open roles\nProduct Engineer\n{}",
+            "Linear is a purpose-built tool for planning and building products. ".repeat(12)
+        );
+        assert!(may_yield_content(Answers::Direction, &long_enough));
     }
 
     #[test]

@@ -104,6 +104,31 @@ the shape rules stand between a navigation label and a job. The first run over i
 left the word list; no title on any of the three pages needs them, because a real title carrying
 one carries another word too: *Lead/Principal Product Manager*.
 
+### And a page that never says where its list is, is not read at all
+
+Review found what the unscoped path published. When no recognised heading is present the scan
+used to fall back to the whole page and let the shape rules decide — and every shape rule says
+yes to `Kelsey Weber , Engineering Manager`: five words, no full stop, a job word on a word
+boundary. Off front.com's *Open positions* heading that line is scoped away. Off a page with no
+such heading it reached the report as **`lists an open role: Kelsey Weber , Engineering
+Manager`**, at high confidence, about a person who already works there.
+
+**The run log said the page was unscoped, and nothing carried that into the report.** That is the
+same mistake as Run 24's: a line nobody reads standing in where a check belongs.
+
+So the fallback is a refusal. The shape rules clean up *inside* a list somebody has pointed at;
+they were never strong enough to find one, and using them as the only defence was reading a
+diagnostic as a safeguard. **The cost is stated rather than hidden**: a careers page whose
+heading this list does not recognise now yields nothing, and real vacancies on it are lost. A
+missed vacancy is a thin section; an invented one is a false sentence about a named person.
+
+The two silences no longer read alike, which is what `Coverage` exists for:
+
+```text
+no open roles listed on the page                                    news about the company
+the page does not say where its open roles are listed, so none were read     our gap
+```
+
 ### And the harness deleted a rule for free
 
 Twenty-five mutations, and one of them could not be caught: putting back a defect in the
@@ -127,7 +152,7 @@ is a build error rather than a string nobody reads.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 24 | 586 | 51 |
-| now | **621** | **51** |
+| now | **624** | **51** |
 
 ---
 

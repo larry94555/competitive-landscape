@@ -1,9 +1,9 @@
 [
   {
-    "name": "a job title in a testimonial above the list is an open role",
+    "name": "a page that never says where its list is gets read anyway",
     "file": "crates/landscape-extract/src/hiring.rs",
-    "old": "        return (0, lines.len(), false);",
-    "new": "        return (0, lines.len(), true);",
+    "old": "    let Some((from, to)) = listing(&lines) else {",
+    "new": "    let (from, to) = listing(&lines).unwrap_or((0, lines.len()));\n    if false {",
     "run": [
       "cargo",
       "nextest",
@@ -15,10 +15,23 @@
     ]
   },
   {
+    "name": "an unannounced page is reported as one that advertises nothing",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "            summary: if page.announced {",
+    "new": "            summary: if true {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
     "name": "the whole page is read even when it says where its list is",
     "file": "crates/landscape-extract/src/hiring.rs",
-    "old": "    (at + 1, end, true)",
-    "new": "    (0, lines.len(), true)",
+    "old": "    Some((at + 1, end))",
+    "new": "    Some((0, lines.len()))",
     "run": [
       "cargo",
       "nextest",
@@ -269,8 +282,8 @@
   {
     "name": "a hiring freeze is reported the same way as a page nobody read",
     "file": "crates/landscape-analyze/src/stages.rs",
-    "old": "            summary: \"no open roles listed on the page\".to_owned(),",
-    "new": "            summary: \"skipped - nothing to read\".to_owned(),",
+    "old": "                \"no open roles listed on the page\".to_owned()",
+    "new": "                \"skipped - nothing to read\".to_owned()",
     "run": [
       "cargo",
       "nextest",
@@ -293,16 +306,18 @@
     ]
   },
   {
-    "name": "a page-wide read is reported as if the page had named its list",
-    "file": "crates/landscape-analyze/src/stages.rs",
-    "old": "    if !page.announced {",
-    "new": "    if false {",
+    "name": "the scanner reports a page-wide read as an announced one",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "        announced: true,\n    }\n}",
+    "new": "        announced: false,\n    }\n}",
     "run": [
       "cargo",
       "nextest",
       "run",
       "-p",
-      "landscape-analyze"
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
     ]
   },
   {

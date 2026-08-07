@@ -43,8 +43,12 @@
 //! next heading at the same level or higher, which is what stops Help Scout's list at
 //! *"Our Hiring Process"*.
 //!
-//! A page that announces nothing is read whole, and [`Roles::announced`] says which happened —
-//! because a page-wide scan is the weaker reading and a reader is owed that.
+//! **A page that announces nothing yields nothing.** That is a refusal rather than a fallback,
+//! and review is the reason: the first version read such a page whole and let the shape rules
+//! below decide, which published *"lists an open role: Kelsey Weber , Engineering Manager"* —
+//! a person who already works there. The shape rules clean up *inside* a list somebody has
+//! pointed at; they were never strong enough to find one. [`Roles::announced`] carries which
+//! silence it was, so a report can say *our gap* rather than *they are hiring nobody*.
 //!
 //! # What still reaches the scan, and what stops it
 //!
@@ -167,10 +171,18 @@ pub struct Roles {
     pub roles: Vec<Role>,
     /// How many distinct roles the page listed before [`MAX_ROLES`] was applied.
     pub considered: usize,
-    /// Whether the page announced where its list starts.
+    /// Whether the page said where its list of roles starts.
     ///
-    /// `false` means the whole page was read, which is the weaker reading — nothing was
-    /// scoped away, so a job title in a testimonial had only the shape rules to stop it.
+    /// **`false` means nothing was read, and it is the only reason [`roles`] can be empty
+    /// without the page being empty.** It used to mean *"the whole page was read instead"*,
+    /// which is what review found publishing a testimonial byline as a vacancy.
+    ///
+    /// Kept, rather than folded into an empty list, because the two silences are different
+    /// facts about a company and `Coverage` exists to tell them apart: *this careers page
+    /// advertises nothing* is news, and *we could not tell which part of this page is the
+    /// list* is our gap.
+    ///
+    /// [`roles`]: Self::roles
     pub announced: bool,
 }
 
@@ -179,10 +191,25 @@ pub struct Roles {
 /// One entry per title, not per listing: Front advertises *Security Operations Engineer
 /// (Contractor)* three times, once per location, and a report that said so three times would be
 /// describing a job board rather than a company.
+///
+/// **A page that never says where its list is yields nothing at all.** See [`Roles::announced`].
 #[must_use]
 pub fn every_role(markdown: &str) -> Roles {
     let lines: Vec<&str> = markdown.lines().collect();
-    let (from, to, announced) = listing(&lines);
+    let Some((from, to)) = listing(&lines) else {
+        // **Not a cautious version of reading the page — a refusal to read it.** Review found
+        // what the page-wide scan published: `Kelsey Weber , Engineering Manager` is a
+        // testimonial byline on front.com, and it is five words, has no full stop, and carries
+        // a job word, so every shape rule below says yes. Off a page that announces its list,
+        // that line is scoped away. Off a page that does not, nothing stands between a current
+        // employee and a sentence saying the company is hiring them.
+        //
+        // The shape rules were never strong enough to work unscoped. They were built to clean
+        // up *inside* a list somebody had already pointed at, and using them as the only
+        // defence was reading a run-log line — *"the page named no list"* — as if it were a
+        // safeguard. It is not: nothing carried it into the report.
+        return Roles::default();
+    };
 
     let mut roles: Vec<Role> = Vec::new();
     let mut seen: Vec<String> = Vec::new();
@@ -207,18 +234,16 @@ pub fn every_role(markdown: &str) -> Roles {
     Roles {
         roles,
         considered,
-        announced,
+        announced: true,
     }
 }
 
-/// The half-open line range holding the list, and whether the page pointed at it.
-fn listing(lines: &[&str]) -> (usize, usize, bool) {
-    let Some((at, level)) = lines.iter().enumerate().find_map(|(i, line)| {
+/// The half-open line range holding the list, or `None` when the page never says.
+fn listing(lines: &[&str]) -> Option<(usize, usize)> {
+    let (at, level) = lines.iter().enumerate().find_map(|(i, line)| {
         let level = doc::heading_level(line)?;
         announces(doc::heading_text(line)).then_some((i, level))
-    }) else {
-        return (0, lines.len(), false);
-    };
+    })?;
 
     // To the next heading that is not *inside* this section. Help Scout's list ends at
     // `## Our Hiring Process`, whose next paragraphs describe what a hiring manager does.
@@ -228,7 +253,7 @@ fn listing(lines: &[&str]) -> (usize, usize, bool) {
         .skip(at + 1)
         .find(|(_, line)| doc::heading_level(line).is_some_and(|found| found <= level))
         .map_or(lines.len(), |(i, _)| i);
-    (at + 1, end, true)
+    Some((at + 1, end))
 }
 
 /// Whether a heading is the page saying *the list starts here*.
@@ -481,12 +506,34 @@ mod tests {
     }
 
     #[test]
-    fn a_page_that_announces_nothing_is_read_whole_and_says_so() {
-        let found = every_role("Senior Software Engineer\nRemote");
-        assert_eq!(found.roles.len(), 1);
-        assert!(!found.announced);
+    fn a_page_that_announces_nothing_is_not_read_at_all() {
+        // **Review's reproduction, and it is the whole reason this is a refusal.** Every shape
+        // rule says yes to a testimonial byline: five words, no full stop, a job word on a
+        // boundary. Off an announced list it is scoped away; off an unannounced page it used to
+        // reach the report as `lists an open role: Kelsey Weber , Engineering Manager` at high
+        // confidence — a person who already works there, advertised as a vacancy.
+        let found = every_role(
+            "Why we love working here\nKelsey Weber , Engineering Manager\nWe hire thoughtfully.",
+        );
+        assert!(found.roles.is_empty(), "{:?}", found.roles);
+        assert_eq!(found.considered, 0);
+        assert!(!found.announced, "and the report has to know which silence");
+    }
 
+    #[test]
+    fn a_real_vacancy_on_an_unannounced_page_is_lost_too_and_that_is_the_trade() {
+        // Stated rather than hidden: the refusal costs real roles on a page whose heading this
+        // list does not recognise. A missed vacancy is a thin section; an invented one is a
+        // sentence about a named person that is not true.
+        let found = every_role("# Careers\nSenior Software Engineer\nRemote");
+        assert!(found.roles.is_empty());
+        assert!(!found.announced);
+    }
+
+    #[test]
+    fn an_announced_page_is_read_and_says_so() {
         let scoped = every_role("## Open roles\nSenior Software Engineer");
+        assert_eq!(scoped.roles.len(), 1);
         assert!(scoped.announced);
     }
 

@@ -550,6 +550,32 @@ The page is admitted, read, costs nothing, and yields no roles — which is a fa
 rather than a gap in the report, and the run log says `no open roles listed on the page` instead
 of falling silent.
 
+### A page that never says where its list is, is not read
+
+The shape rules — a title is short, has no full stop, and carries a job word — clean up *inside*
+a list somebody has pointed at. They are not strong enough to find one. Review proved it with a
+line from `front.com`:
+
+```text
+Kelsey Weber , Engineering Manager
+```
+
+Five words, no full stop, a job word on a word boundary. Every rule says yes, and it is a
+testimonial byline. Under the page's own *Open positions* heading it is scoped away; on a page
+with no recognised heading it used to become **`lists an open role: Kelsey Weber , Engineering
+Manager`** — a person who already works there, published as a vacancy at high confidence.
+
+So there is no page-wide fallback. **The cost is real and is stated:** a careers page whose
+heading this list does not recognise yields nothing, and genuine vacancies on it are lost. A
+missed vacancy is a thin section; an invented one is a false sentence about a named person.
+
+The run log tells the two silences apart, because they are different facts:
+
+```text
+no open roles listed on the page                                          the company
+the page does not say where its open roles are listed, so none were read   us
+```
+
 ### Where these frozen pages came from
 
 ```bash
