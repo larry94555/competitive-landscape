@@ -262,7 +262,9 @@ crates/
   landscape-core/      domain types, report schema (schemars), errors
   landscape-db/        sqlx queries, migrations, job queue
   landscape-fetch/     robots, politeness, cache, extraction, normalization
-  landscape-search/    SearXNG + Brave adapters, source discovery & ranking
+  landscape-search/    SearXNG adapter behind a SourceProvider seam, versioned query
+                       set, host-based admission (Brave is the documented fallback,
+                       deliberately not built until the primary has run)
   landscape-signals/   discussion venues: HN + GitHub adapters, venue-fit gate,
                        absence panel, cross-post independence grouping
   landscape-llm/       llama-server client, grammars, prompts, slot pool, budgets

@@ -1,6 +1,6 @@
 # Project Status
 
-**As of 2026-08-07** · `main` at `0699e86`, plus the branch this page is on.
+**As of 2026-08-07** · `main` at `46e675c`, plus the branch this page is on.
 
 This page answers one question: **what can somebody actually do with this today, and what
 stands between here and each of the six states that matter.** It is deliberately separate from
@@ -21,7 +21,7 @@ The six states, in the order they must be reached. **S1 is met.** The rest are n
 | # | State | Met? | Percentage Left | The single thing standing in the way |
 |---|---|---|---|---|
 | **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **Yes.** Pick an example idea, watch sections arrive, read a cited report about real companies, reload and it is still there. On a laptop. *This row once said the opposite twice* — see [§1.5](#15-the-correction-that-produced-phase-d). | [**0%**](docs/Full_Feature_List.md#s1--ready-for-a-guided-demo) | Nothing. Serve the app, a run has a URL, several companies in one report, example ideas that really run, and reads ordered so first content costs no model call — 23s on `linear.app`, measured. |
-| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**89%**](docs/Full_Feature_List.md#s2--ready-for-demonstration) | **A business idea does not run at all.** A prompt must name a domain; a description fails with `no_subject`. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). **11% done, and every remaining row sits behind the search channel or the caches** — the two extractor rows were the last work here that did not. |
+| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**83%**](docs/Full_Feature_List.md#s2--ready-for-demonstration) | **A business idea does not run at all.** A prompt must name a domain; a description fails with `no_subject`. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). **17% done.** The search channel — the thing every remaining row waits on — is a quarter built: `landscape-search` asks templated queries for the questions probes could not answer, and **nothing calls it from an analysis yet.** |
 | **S3** | **Ready for use** — friendly users should find no issue | **No.** | [**96%**](docs/Full_Feature_List.md#s3--ready-for-use) | 6 of 9 report sections, no verification layer, no comparison matrix, no accounts. |
 | **S4** | **Ready for general use** — promotable, word-of-mouth quality | **No.** | [**100%**](docs/Full_Feature_List.md#s4--ready-for-general-use) | Everything in S3, plus no quality gates have ever been run against a deployed system. |
 | **S5** | **General use, free mode** — stable, email signup, community channels | **No.** | [**100%**](docs/Full_Feature_List.md#s5--general-use-free-mode) | No authentication code exists anywhere in the repository. No knowledge base. |
@@ -34,7 +34,7 @@ finished when it is demonstrable end to end on a development machine — Rust, N
 defect rather than a step in the plan.
 
 **Percentage Left is software only**, counted in pull requests and linked to the feature it comes
-from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **42 of 130 PRs done, 32% of the whole
+from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **43 of 130 PRs done, 33% of the whole
 deliverable.** Getting it onto a host is a
 [separate three-PR track](docs/Full_Feature_List.md#getting-it-onto-a-host) that gates *who can see*
 the software rather than what it can do, and the concierge interviews and source-terms audit are
@@ -70,12 +70,13 @@ consecutive pieces of correct work left the readiness table untouched.
 
 ### The three facts behind that table
 
-**1. Nothing searches the public web.** The word "search" in the product description is not yet
-implemented. What runs today is *discovery on one named company's own domain* — `/pricing`,
-`/changelog`, `sitemap.xml`, `llms.txt` — capped at eight pages
-(`crates/landscape-discover/`). There is no search channel, no SearXNG, no off-site adapter.
-Every rung of every "Searching the Public Web" milestone sits behind that one unbuilt
-component.
+**1. No analysis searches the public web.** What an analysis runs today is *discovery on one
+named company's own domain* — `/pricing`, `/changelog`, `sitemap.xml`, `llms.txt` — capped at
+eight pages (`crates/landscape-discover/`). **A search channel now exists and no analysis calls
+it**: `crates/landscape-search/` turns unanswered questions into templated queries, asks a
+SearXNG behind a provider seam, and decides what each result may be used for — reachable from
+`landscape search <origin>` and from nowhere else. Every rung of every "Searching the Public Web"
+milestone still sits behind that join, plus candidate generation and competitor-set derivation.
 
 **2. It analyses the companies you name, and cannot find any you do not.** Every site in the
 prompt is now a subject — `basecamp.com vs linear.app` reports on both, capped at three for the
@@ -118,7 +119,7 @@ substitution is deliberate and is noted on each one.
 
 | Feature | Rung | One-line status |
 |---|---|---|
-| [F1 Searching for competitive information on a product idea](#f1--searching-for-competitive-information-on-a-product-idea) | **R1 partial** | Works for a prompt naming a domain, and the first screen now offers three ideas that do — real analyses over six curated companies. An idea nobody curated still returns nothing. |
+| [F1 Searching for competitive information on a product idea](#f1--searching-for-competitive-information-on-a-product-idea) | **R1 partial** | Works for a prompt naming a domain, and the first screen now offers three ideas that do — real analyses over six curated companies. An idea nobody curated still returns nothing: the search channel exists as a crate and no analysis calls it. |
 | [F2 Editing the product idea to get better results](#f2--editing-the-product-idea) | **R0** | A run has a URL now, so there is something to return to — and still no control that edits it. |
 | [F3 Asking follow-up questions](#f3--asking-follow-up-questions) | **R0** | Not started. Report is terminal — read it or run another. |
 | [F4 Sign up / registration](#f4--sign-up--registration) | **R0** | No authentication code exists in the repository. |
@@ -150,9 +151,11 @@ substitution is deliberate and is noted on each one.
 
 **What exists.** `crates/landscape-discover` (on-domain probes, sitemap, `llms.txt`, ranked and
 capped at 8), `crates/landscape-fetch` (SSRF guard at 100% coverage, robots.txt, per-host
-politeness), `crates/landscape-extract` (Markdown conversion, span pre-selection, four
-extractors), `crates/landscape-llm` (grammar-constrained decoding), `crates/landscape-analyze`
-(the orchestrator), SSE streaming, and a React page that renders sections as they land.
+politeness), `crates/landscape-extract` (Markdown conversion, span pre-selection, **all six**
+extractors), `crates/landscape-search` (templated versioned queries, a `SourceProvider` seam, a
+SearXNG adapter, and host-based admission — **not called by any analysis**),
+`crates/landscape-llm` (grammar-constrained decoding), `crates/landscape-analyze` (the
+orchestrator), SSE streaming, and a React page that renders sections as they land.
 
 **What the example ideas are and are not.** Three ideas on the first screen, each naming two
 real companies, each producing a real fetched and cited report. Only the *choice of companies*
@@ -163,20 +166,30 @@ description into companies — it hands over three descriptions whose companies 
 
 **What is missing, in the order it blocks things:**
 
-1. **The search channel.** `landscape-search` does not exist as a crate. Without it there is no
-   path from a description to a company, and no source that is not the subject's own website.
+1. **The search channel — a quarter built, and not yet called by anything.**
+   `landscape-search` now exists: a versioned templated query set derived from the questions
+   discovery came back empty on, a `SourceProvider` seam with a SearXNG adapter behind it, and
+   an admission step where a result's standing comes from its host rather than from its rank —
+   the company's own domain is Primary, everything else is Unverified and may never set a value
+   in a comparison table. `landscape search <origin>` runs it by hand.
+   **No analysis calls it**, so a description still fails with `no_subject`. That join is the
+   next PR. [BENCHMARKS.md](docs/BENCHMARKS.md) Run 26.
 2. **Candidate generation for entity resolution.** The *gate* is built and unit-tested
    (`landscape-core::subject`) — given scored candidates it resolves, asks, or reports nothing
-   found. Nothing generates candidates, because that needs the fetching the gate exists to
-   authorise. Built in this order on purpose.
+   found. Nothing generates candidates. The search channel is what will feed them, which is why
+   it was the piece that had to exist first.
 3. **Competitor set derivation.** Nothing turns one subject into several.
-4. **One of six extractors** — investment direction. The pipeline names the kind and declines
-   rather than running the wrong extractor. **Trust posture is built**: a closed vocabulary of
-   compliance standards found by a scanner, and a model asked only whether the page claims to
-   hold each one or to be working towards it.
+4. **Gaps are measured from admission, not from coverage.** `landscape search` asks about a
+   question when discovery admitted *no page* for it. A page that was found and yielded nothing —
+   Help Scout's `/blog` for *changes* — therefore triggers no search, even though the section
+   comes back empty. `Coverage` already tells those silences apart; wiring the trigger to it
+   needs the orchestrator.
 5. **No caching.** The fetch cache and per-source extraction cache — called the
    highest-leverage cache in the system, and scheduled for Phase 1 — are not built. Two users
    analysing the same competitor share no work.
+
+**All six extractors are built.** Trust posture reads a closed vocabulary of compliance
+standards; investment direction reads a careers page and asks no model at all.
 
 **Blockers:** [B1](#4-blockers) (no measurement), [B2](#4-blockers) (search channel),
 [B5](#4-blockers) (not deployed).
@@ -441,7 +454,7 @@ than reading one.
 
 | Missing | Consequence |
 |---|---|
-| `landscape-search` / SearXNG | An idea cannot become a company. **The phase's defining gap.** |
+| `landscape-search` wired into an analysis | **The crate is built** — templated versioned queries for the questions probes left unanswered, a `SourceProvider` seam, a SearXNG adapter, host-based admission, 34 tests. **Nothing calls it**, so an idea still cannot become a company. **The phase's defining gap**, now a join rather than an invention. |
 | Candidate generation for entity resolution | The disambiguation gate has nothing to disambiguate. |
 | Competitor *discovery* | Several companies can be analysed, but only ones the reader names. |
 | ~~One of six extractors (direction)~~ | **Built.** All six questions extract, and two of them need no model. The `no extractor yet` branch is deleted rather than left unreachable, so a seventh question is a build error. |
@@ -485,7 +498,7 @@ Ordered by what they hold up.
 | # | Blocker | Holds up | Owner | Note |
 |---|---|---|---|---|
 | **B1** | **No measurement of "relevant information returned."** The golden set scores extractors against frozen pages; nothing scores a *report about an idea* against a known-correct answer. | Every R2–R5 rung of [F1](#f1--searching-for-competitive-information-on-a-product-idea). Reporting the ladder at all. | Founder defines correct; agent builds | Needs sample ideas with hand-written competitor sets and a recall metric. Not on any phase's task list — **this is a gap in the plan, not just in the code.** |
-| **B2** | **The search channel does not exist.** No `landscape-search`, no SearXNG. | F1 R6/R7/R8, F2, F3, F8's matrix, S2 and everything after it. | Agent | The single largest piece of unbuilt software on the critical path. |
+| **B2** | **The search channel reaches nothing yet.** `landscape-search` exists — queries, the provider seam, a SearXNG adapter, admission — and **no analysis calls it**, so a prompt that names no domain still fails. | F1 R6/R7/R8, F2, F3, F8's matrix, S2 and everything after it. | Agent | Was *"does not exist"*; one of its four PRs is in. Still the largest piece of unbuilt software on the critical path, and still open until an analysis can start from a description. |
 | ~~**B3**~~ | ~~**No permalink.**~~ **Closed.** `/a/{id}` opens a run, and the address bar carries it from the moment it exists. | ~~F2, F3, F11~~ | Agent | Small. Disproportionate. Done in Phase D. |
 | **B4** | **Source terms unaudited.** Reddit, X, YouTube, Stack Exchange, GitHub search limits, review-platform robots.txt. | F12, the discovery channel ranking, part of Phase 0's exit. | Founder — must be read in a browser from the primary source | Two of these can invalidate a planned feature. Half a day. |
 | **B5** | **Nothing is deployed.** No address, no SSH user, no key reachable from here; instance shape and Pay-As-You-Go status unconfirmed. **The procedure now exists** — [DEPLOY.md](docs/DEPLOY.md), with units and a build script — and has never been run. | Phase 0's latency exit criterion, and every number that can only be taken from a client's side. **No longer any readiness state**: those are defined by what the software does, verified locally. | Founder | Claude stops at the PR. The first person through DEPLOY.md is the one who finds out where it is wrong. |
@@ -500,7 +513,7 @@ Ordered by what they hold up.
 | # | Risk | Likelihood · Impact | Where it shows | Mitigation, and whether it is in place |
 |---|---|---|---|---|
 | **K1** | **We are 20 weeks from a user and have not met one.** The report format, the buyer and the price are all assumptions. | High · Severe | Everything built since Phase 0 | The concierge track exists precisely for this and is [B8](#4-blockers), unstarted. **Not mitigated.** |
-| **K2** | **The headline input does not run.** "Type a business idea" is the product's promise; typing one fails. | Certain today · Severe | [F1](#f1--searching-for-competitive-information-on-a-product-idea) | Blocked on [B2](#4-blockers). The failure is at least *honest* — it names what is missing and suggests a domain — rather than guessing a company, which would be the most expensive wrong answer available. |
+| **K2** | **The headline input does not run.** "Type a business idea" is the product's promise; typing one fails. | Certain today · Severe | [F1](#f1--searching-for-competitive-information-on-a-product-idea) | Blocked on [B2](#4-blockers), which is now a quarter built and still blocking — the channel exists and nothing calls it. The failure is at least *honest* — it names what is missing and suggests a domain — rather than guessing a company, which would be the most expensive wrong answer available. |
 | **K3** | **Shape is not truth.** Constrained decoding guarantees a valid type and nothing about the values. A defective quantisation once passed every check we had. | Medium · Severe | [F9](#f9--claims-you-can-check) | Golden set with abstain-required subjects: in place. `landscape-verify` re-checking quotes against sources: **not built.** |
 | **K4** | **Free-tier latency.** Four ARM cores cannot serve the 15–25s promise; prefill dominates. Users abandon mid-stream. | Certain at Rung 0 · High | [F14](#f14--the-wait) | Deterministic-first extraction and span pre-selection are built and working. Caching, section-parallel generation and read-ordering are not. Never measured on the target host ([B5](#4-blockers)). |
 | **K5** | **Distribution, not features, is the likely cause of death.** The plan's only answer is one launch window in Phase 6, and the weekly distribution workstream was meant to start at Phase 1. | High · Severe | Not visible in the repository at all | The workstream is written as a standing weekly commitment. **No evidence it has started.** |
@@ -520,11 +533,12 @@ report covers every company named, three ideas over six real companies are on th
 and re-checkable against the live web, and the reads are ordered so the first thing on screen
 costs no model call. Deploying it ([B5](#4-blockers)) changes who can see it, not what it does.
 
-**To S2 — any business idea handled correctly.** Build the search channel ([B2](#4-blockers));
-generate entity candidates so the existing disambiguation gate has something to work on; derive
-a competitor set rather than one origin; add the remaining two extractors so no section is
-permanently empty; and hold on to the honest-gap treatment, since S2's own definition requires
-that "no public information" be reported gracefully rather than as a failure.
+**To S2 — any business idea handled correctly.** Finish the search channel ([B2](#4-blockers)) —
+the crate exists and the orchestrator does not call it, so that join is the next step; generate
+entity candidates so the existing disambiguation gate has something to work on; derive a
+competitor set rather than one origin; and hold on to the honest-gap treatment, since S2's own
+definition requires that "no public information" be reported gracefully rather than as a failure.
+**All six extractors are done**, so no section is permanently empty any more.
 
 **To S3 — friendly users find no issue.** `landscape-verify` and the quality gates; caching so a
 second user on the same subject is fast; the report at nine sections with the matrix; PDF; and

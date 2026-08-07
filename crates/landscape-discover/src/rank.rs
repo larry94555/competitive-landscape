@@ -48,6 +48,12 @@ pub struct Candidate {
 /// told us only that the path exists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Via {
+    /// A search engine returned it. **Ordered lowest deliberately**: every other variant is
+    /// something the site itself did — answered a request, listed a path, nominated a page —
+    /// and this one is a third party's opinion that a page exists and is relevant. Neither
+    /// half of that has been checked when the candidate is made, which is why a page reached
+    /// both ways keeps the probe.
+    Search,
     /// A path we guessed that answered.
     Probe,
     /// Listed in the site's own `sitemap.xml`.
@@ -60,6 +66,7 @@ impl Via {
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
+            Self::Search => "search",
             Self::Probe => "probe",
             Self::Sitemap => "sitemap",
             Self::LlmsTxt => "llms.txt",
@@ -144,7 +151,13 @@ pub fn admit(candidates: Vec<Candidate>, cap: usize) -> Vec<Candidate> {
 /// Not a full canonicalisation — query strings and fragments are left alone, because on
 /// some sites they genuinely select a different plan. This handles the duplicates the
 /// probe list itself creates: `/pricing` and `/pricing/` are both in it.
-fn normalise(url: &str) -> String {
+///
+/// **Public because a second channel needs the same answer.** `landscape-search` has to ask
+/// *"is this URL one discovery already has?"*, and a second implementation of "same page"
+/// would drift from this one the first time either learned something — which is the shape of
+/// entry 4 in the mistakes register, one fact derived two ways.
+#[must_use]
+pub fn normalise(url: &str) -> String {
     let lowered = url.trim().to_lowercase();
     let without_www = lowered.replacen("://www.", "://", 1);
     // `/cs/pricing`, `/da/pricing` and `/pricing` are one page in three languages. Keying

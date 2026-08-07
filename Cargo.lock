@@ -911,6 +911,7 @@ dependencies = [
  "landscape-extract",
  "landscape-fetch",
  "landscape-llm",
+ "landscape-search",
  "serde_json",
  "tokio",
  "tower-http",
@@ -1034,6 +1035,22 @@ version = "0.1.0"
 dependencies = [
  "reqwest",
  "schemars",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "landscape-search"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "landscape-core",
+ "landscape-discover",
+ "landscape-fetch",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror",

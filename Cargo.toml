@@ -11,6 +11,7 @@ members = [
     "crates/landscape-extract",
     "crates/landscape-fetch",
     "crates/landscape-golden",
+    "crates/landscape-search",
     "crates/landscape",
 ]
 
@@ -32,6 +33,7 @@ landscape-discover = { path = "crates/landscape-discover" }
 landscape-extract = { path = "crates/landscape-extract" }
 landscape-fetch = { path = "crates/landscape-fetch" }
 landscape-golden = { path = "crates/landscape-golden" }
+landscape-search = { path = "crates/landscape-search" }
 
 anyhow = "1"
 async-trait = "0.1"
