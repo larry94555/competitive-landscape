@@ -931,6 +931,26 @@ name whose it is, because deduplication cannot ask.
 > **Ask this:** *is this number counted from what happened, or from what I asked for — and if I
 > add a second source of these, does everything that summarises them know?*
 
+### The sequel, and it is the older rule failing
+
+The fix for the coverage half of that entry extended `Coverage.sources` — and **I asserted on
+`Coverage.sources`**, which is the field, not the surface. Review ran the same state through
+`Coverage::note()` and got:
+
+```text
+read 1 page(s), none stated anything. Checked: nothing
+```
+
+`sources` is a count; `attempts` is the list a reader is shown, and only discovery wrote to it.
+So the report said a page had been opened and offered nothing to go and look at — for a page on
+somebody else's host, where the host is the only thing that identifies it.
+
+**Entry 25 is the rule I already had**: *assert on the value the surface reads, not the structure
+behind it.* I had it, and I still reached for the field, because the field was the thing I had
+just changed. The tests assert on `note()`, on `to_section().checked`, and on `render()` now.
+
+> **Ask this:** *is my assertion on the thing a person sees, or on the thing I just edited?*
+
 ---
 
 ## Before a PR: two commands and eight questions

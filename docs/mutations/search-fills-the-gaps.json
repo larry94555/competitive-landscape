@@ -184,8 +184,8 @@
   {
     "name": "a question search read a page for is reported as unchecked",
     "file": "crates/landscape-analyze/src/lib.rs",
-    "old": "            coverage.sources.extend(\n                searched\n                    .iter()\n                    .filter(|(q, _)| q == question)\n                    .map(|(_, url)| url.clone()),\n            );",
-    "new": "            let _ = searched;",
+    "old": "                coverage.sources.push(page.url.clone());",
+    "new": "                let _ = &page.url;",
     "run": [
       "cargo",
       "nextest",
@@ -225,6 +225,60 @@
     "file": "crates/landscape-analyze/src/lib.rs",
     "old": "        so_far.searched.extend(searched_pages(&admitted));",
     "new": "        let _ = &admitted;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a searched page is counted in coverage but never shown to a reader",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "                coverage.attempts.push(landscape_core::Attempt {",
+    "new": "                let _unused = (|| landscape_core::Attempt {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a searched page read and one never opened look alike in the evidence",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "                    outcome: if page.read { \"read\" } else { \"not read\" }.to_owned(),",
+    "new": "                    outcome: \"read\".to_owned(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a page found and not read is counted without being named",
+    "file": "crates/landscape-core/src/coverage.rs",
+    "old": "                \"{} page(s) found and not read - our gap, not theirs. Checked: {}\",\n                self.sources.len(),\n                self.render_attempts()",
+    "new": "                \"{} page(s) found and not read - our gap, not theirs.{}\",\n                self.sources.len(),\n                \"\"",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the whole URL of a stranger's page is trimmed to a path",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "                    path: page.url.clone(),",
+    "new": "                    path: \"/searched\".to_owned(),",
     "run": [
       "cargo",
       "nextest",

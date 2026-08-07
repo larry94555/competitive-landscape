@@ -464,7 +464,7 @@ pub async fn analyse_with(
         &so_far.claims,
         &so_far.sources,
         &so_far.opened,
-        &so_far.searched,
+        &so_far.searched_evidence(),
     );
     Analysis {
         report,
@@ -572,6 +572,18 @@ async fn search_for_gaps(
         PAGES_FROM_SEARCH,
     );
     (admitted, Failures::Asked(failures))
+}
+
+/// A page search found, and what became of it.
+///
+/// **Both halves, because the checked evidence needs both.** A URL alone cannot say whether we
+/// opened it, and `Coverage` renders *"found and not read"* and *"read, none stated anything"*
+/// as different findings.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Searched {
+    question: Answers,
+    url: String,
+    read: bool,
 }
 
 /// Every admitted page paired with the question it was admitted for.
@@ -746,6 +758,22 @@ impl SoFar {
             .any(|p| p.url == url && p.window_words.is_some())
     }
 
+    /// What search found, and what became of each one.
+    ///
+    /// **Derived here rather than recorded as it happens.** The outcome of a page changes when
+    /// it is read, and a field updated in two places is the second source of truth this crate
+    /// keeps deleting. `pages` is the record; this reads it.
+    fn searched_evidence(&self) -> Vec<Searched> {
+        self.searched
+            .iter()
+            .map(|(question, url)| Searched {
+                question: *question,
+                url: url.clone(),
+                read: self.was_read(url),
+            })
+            .collect()
+    }
+
     /// Every URL this run has already touched, so search does not re-admit one.
     fn urls(&self) -> Vec<String> {
         self.pages.iter().map(|p| p.url.clone()).collect()
@@ -852,7 +880,7 @@ async fn read_one(
     // an empty screen reads as nothing happening.
     let outcome = {
         let (claims, sources, opened) = (&so_far.claims, &so_far.sources, &so_far.opened);
-        let searched = &so_far.searched;
+        let searched = so_far.searched_evidence();
         let label = label.clone();
         let cite = &cite;
         let mut emit = |partial: &[Finding]| {
@@ -876,7 +904,7 @@ async fn read_one(
             if !partial.is_empty() && !with_source.iter().any(|s| s.label == label) {
                 with_source.push(cite(page_title(&markdown, &url)));
             }
-            let (report, _) = assemble(reading, &with_partial, &with_source, opened, searched);
+            let (report, _) = assemble(reading, &with_partial, &with_source, opened, &searched);
             on_progress(&report)
         };
         stages::extract(llm, question, &url, &markdown, today, &mut emit).await
@@ -916,7 +944,7 @@ async fn read_one(
         &so_far.claims,
         &so_far.sources,
         &so_far.opened,
-        &so_far.searched,
+        &so_far.searched_evidence(),
     );
     on_progress(&report)
 }
@@ -957,7 +985,7 @@ fn assemble(
     claims: &[(Answers, Claim)],
     sources: &[Source],
     opened: &[(Answers, usize)],
-    searched: &[(Answers, String)],
+    searched: &[Searched],
 ) -> (Report, Vec<Coverage>) {
     let Reading {
         found,
@@ -974,12 +1002,23 @@ fn assemble(
             let mut coverage = found.coverage(*question, read, facts);
             // Discovery's pages, then search's. Both were admitted for this question, and a
             // note that counted only the first would describe a run that did not happen.
-            coverage.sources.extend(
-                searched
-                    .iter()
-                    .filter(|(q, _)| q == question)
-                    .map(|(_, url)| url.clone()),
-            );
+            let found_by_search = searched.iter().filter(|s| s.question == *question);
+            for page in found_by_search {
+                coverage.sources.push(page.url.clone());
+                // **And into the checked evidence, which is the half a reader sees.** Review
+                // found the first fix stopping at `sources`: the note read *"read 1 page(s),
+                // none stated anything. Checked: nothing"*, so the one page that was opened
+                // appeared nowhere a reader could go and look. `sources` is a count; `attempts`
+                // is the list.
+                coverage.attempts.push(landscape_core::Attempt {
+                    // **The whole URL, not a path.** A probe's path is retypeable because the
+                    // heading says whose site it is; a page on somebody else's host is not the
+                    // subject's, and the host is the part that matters about it.
+                    path: page.url.clone(),
+                    outcome: if page.read { "read" } else { "not read" }.to_owned(),
+                    subject: origin.to_owned(),
+                });
+            }
             coverage
         })
         .collect();
@@ -2361,21 +2400,92 @@ mod filling_gaps {
             now: chrono::Utc::now(),
             notes: &notes,
         };
-        let searched = vec![(Answers::Trust, "https://elsewhere.example/e".to_owned())];
+        let searched = vec![Searched {
+            question: Answers::Trust,
+            url: "https://elsewhere.example/e".to_owned(),
+            read: true,
+        }];
 
-        let (_, coverage) = assemble(&reading, &[], &[], &[(Answers::Trust, 1)], &searched);
+        let (report, coverage) = assemble(&reading, &[], &[], &[(Answers::Trust, 1)], &searched);
         let trust = coverage
             .iter()
             .find(|c| c.question == "trust")
             .expect("a coverage row per question");
-        assert_eq!(
-            trust.sources,
-            vec!["https://elsewhere.example/e".to_owned()]
-        );
+
+        // **Asserted on what a reader is shown**, not on the field behind it. The first fix
+        // extended `sources` and stopped there, and `sources` is a count: the note still read
+        // *"Checked: nothing"* about a page that had just been opened, and review found it
+        // because I had asserted on the struct.
+        let note = trust.note();
+        assert!(note.contains("read 1 page"), "{note}");
         assert!(
-            trust.note().contains("read 1 page"),
-            "a page we read is reported as unchecked: {}",
-            trust.note()
+            note.contains("https://elsewhere.example/e"),
+            "a reader cannot see which page was read: {note}"
+        );
+        assert!(note.contains("(read)"), "{note}");
+
+        let section = trust.to_section("Trust & security posture");
+        assert!(
+            section
+                .checked
+                .iter()
+                .any(|c| c.contains("elsewhere.example")),
+            "{:?}",
+            section.checked
+        );
+
+        // And through the whole renderer, which is what a person actually reads.
+        let rendered = Analysis {
+            report,
+            coverage: coverage.clone(),
+            pages: Vec::new(),
+            stopped_early: false,
+        }
+        .render();
+        assert!(
+            rendered.contains("https://elsewhere.example/e"),
+            "the page is in no surface a reader sees:
+{rendered}"
+        );
+    }
+
+    #[test]
+    fn a_searched_page_nobody_opened_says_so_in_the_evidence() {
+        // The other outcome, and they must not read alike: "we found it and did not open it"
+        // is a different finding from "we read it and it said nothing".
+        let found = landscape_discover::Discovered {
+            sources: Vec::new(),
+            checked: Vec::new(),
+            stopped_early: false,
+        };
+        let notes: Vec<String> = Vec::new();
+        let reading = Reading {
+            found: &found,
+            origin: "https://e.com",
+            llm: &landscape_llm::LlamaClient::new("http://127.0.0.1:1".to_owned()),
+            now: chrono::Utc::now(),
+            notes: &notes,
+        };
+        let searched = vec![Searched {
+            question: Answers::Trust,
+            url: "https://elsewhere.example/e".to_owned(),
+            read: false,
+        }];
+        let (_, coverage) = assemble(&reading, &[], &[], &[], &searched);
+        let note = coverage
+            .iter()
+            .find(|c| c.question == "trust")
+            .expect("a row")
+            .note();
+        assert!(note.contains("found and not read"), "{note}");
+        assert!(note.contains("https://elsewhere.example/e"), "{note}");
+        // **The outcome on the line, not only the count above it.** The mutation harness made
+        // this one: `found and not read` comes from `pages_read`, and asserting only that left
+        // every attempt free to say `(read)` regardless. The two outcomes are what the evidence
+        // is for.
+        assert!(
+            note.contains("(not read)"),
+            "a page nobody opened is listed as read: {note}"
         );
     }
 

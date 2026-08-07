@@ -118,6 +118,18 @@ nothing was checked - our gap, not theirs
 — the report telling a reader we did not look, immediately after looking. Admitted search pages
 now join the coverage for their question, so the four silences stay four.
 
+**And a count is not evidence.** The first fix for the paragraph above extended
+`Coverage.sources` and stopped there — but `sources` is a number, and the *"Checked:"* line a
+reader actually sees is rendered from `attempts`, which discovery still owned alone. So the note
+became `read 1 page(s), none stated anything. Checked: nothing`: a page opened, and nowhere for a
+reader to go and look at it. Searched pages join the attempts now, carrying **the whole URL**
+rather than a path, because a page on somebody else's host is not the subject's and the host is
+the part that matters about it.
+
+That surfaced one more, a branch over and older than this change: *"N page(s) found and not read"*
+named a count and no pages. Every other silence in that function says what was checked. It does
+too now.
+
 **And a note that says "this company" cannot survive a merge.** `analyse_many` joins each
 subject's notes and drops duplicates, so two companies with the same gaps collapsed into one
 ambiguous sentence and the other was silently discarded. Every search note names its company.
@@ -132,7 +144,7 @@ drawn, applied to a new kind of silence.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 26 | 669 | 51 |
-| now | **686** | **51** |
+| now | **687** | **51** |
 
 ---
 
