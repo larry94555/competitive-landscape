@@ -10,6 +10,7 @@ python3 scripts/mutate.py docs/mutations/read-order.json
 python3 scripts/mutate.py docs/mutations/anonymous-cap.json
 python3 scripts/mutate.py docs/mutations/trust-posture.json
 python3 scripts/mutate.py docs/mutations/where-they-invest.json
+python3 scripts/mutate.py docs/mutations/the-search-channel.json
 ```
 
 **Why these are committed when the register says to keep them in a scratchpad.** Most are
@@ -40,6 +41,34 @@ Removing the `Array.isArray` guard stopped changing anything once every entry wa
 the mutation could no longer fail — which is the thing this harness exists to find, pointed at
 itself. It was re-aimed at a rule that was real and unenforced. **Retiring a mutation is a normal
 outcome; keeping one to preserve a green line is not.**
+
+`the-search-channel.json` is the first set written *before* the code rather than after a review,
+and one of its ten never got to run as written. The guard it aimed at — an explicit refusal of an
+empty subject host — turned out to change nothing when removed: `host == ""` is false for every
+host `Target::parse` admits, and no host survives `strip_www` ending in a dot. So the guard was
+deleted and **the mutation inverted**, putting the wrong rule *in* (`subject.is_empty() || …`,
+which makes every page on the web the subject's own domain) where it now fails a test. That is
+the same disposition as entry 32 and the paragraph above it: reaching for a new assertion by
+reflex is how a rule nothing needs acquires a test that keeps it for ever.
+
+`the-search-channel.json` grew from ten to sixteen after review found seven defects the first
+ten could not see, and losing one of them is the more interesting half.
+
+**A mutation was dropped because the property is structural.** Review found that
+`Searx::new` ended `.build().unwrap_or_default()`, so the one failure path silently replaced a
+client carrying an eight-second timeout with one carrying none. The fix made the constructor
+fallible — and the mutation that puts `unwrap_or_default()` back reports `MISSED`, because
+`reqwest`'s builder only fails on a TLS backend that will not initialise and no test can make
+that happen. The guarantee now is the **signature**: there is no path that produces a `Searx`
+without a timeout, which is a property of the type rather than a branch. Same disposition as
+*"a prompt that was refused costs nothing"* above — the fix stays, the mutation goes, and this
+paragraph is why it is absent.
+
+**And one anchor was refused for being non-unique, which found a test restating a rule.** The
+grammar that decides what a subject name may contain appeared twice: once in `quote`, once in a
+test that recomputed it to decide what should survive. A test that restates the production rule
+passes whatever the rule becomes. It was rewritten as exact expected output — `AT&T` in,
+`"AT&T" pricing plans` out — and the anchor became unique as a side effect.
 
 **Not every property can be mutated.** *"A prompt that was refused costs nothing"* holds because
 the prompt is parsed before anything is counted — a structural fact, not a branch. Every

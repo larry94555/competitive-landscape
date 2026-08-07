@@ -1,0 +1,26 @@
+[package]
+name = "landscape-search"
+description = "Asking a search engine for the pages probes could not reach, and trusting none of the answer."
+publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+async-trait.workspace = true
+landscape-core.workspace = true
+landscape-discover.workspace = true
+landscape-fetch.workspace = true
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+
+[lints]
+workspace = true

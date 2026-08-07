@@ -33,6 +33,205 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 26 — the first road off the subject's own domain
+
+**Date:** 2026-08-07 · **Where:** this laptop · **Model:** none. Nothing here asks one, and
+nothing here needs one — this is retrieval, and the model does not run until a page has been
+read.
+
+Every page this pipeline has ever read was on the subject's own website. `landscape-discover`
+guesses paths, reads `sitemap.xml` and `llms.txt`, and stops at the edge of one domain. That is
+the whole of [B2](../PROJECT_STATUS.md#4-blockers) and the first row of S2: **there is no path
+from a description to a company, and no source that is not the company itself.**
+
+`landscape-search` is the first piece of that. It is one of four, and the three it does not do
+are named at the bottom.
+
+### What it costs: nothing on four of the six demo companies
+
+The rule is `FACT_CHECKING.md` §3.3's — *search fills gaps; it does not lead* — and it is
+structural here rather than a comment: `queries::for_questions` takes the questions **discovery
+came back empty on**, so a company whose probes answered everything asks nothing. Run against the
+six curated domains with `landscape search`, no engine configured, so the only thing measured is
+how many questions are left over:
+
+| | questions discovery found a page for | queries a search would ask |
+|---|---|---|
+| linear.app | 6 of 6 | **0** |
+| usefathom.com | 6 of 6 | **0** |
+| front.com | 6 of 6 | **0** |
+| helpscout.com | 6 of 6 | **0** |
+| basecamp.com | 5 of 6 | **1** — *changes* |
+| simpleanalytics.com | 5 of 6 | **1** — *direction* |
+
+**Two queries across six companies.** That number is the argument for building the deterministic
+half first, made after the fact: a design that searched first and probed second would have made
+thirty-six round trips to learn what fifteen seconds of politeness already knew.
+
+Basecamp is the same gap Run 11 found and named. Its coverage note reads *"no page found.
+Checked: /changelog (404), /releases (404), /blog (404)"*, and the query that follows from it is
+`"basecamp.com" changelog OR "release notes"` — the first time this codebase has asked anybody
+outside a company about that company.
+
+### The column heading is the finding
+
+It says *"questions discovery found a page for"*, and the first draft of this table said
+*"answered"*. They are not the same thing, and running the six is what showed it.
+
+**Help Scout is the case.** It shows 6 of 6 here and asks nothing — because `/blog` is admitted
+for *changes*. Run 25 recorded that Help Scout *"publishes no changelog this pipeline finds"*,
+and both statements are true: a page was found, and the extractor got nothing dated out of it.
+So a section that will come back empty produces **no search**, because search is currently
+triggered by an unadmitted question rather than by an unfilled section.
+
+That is the honest limit of this slice, and it is the right limit for it: `Coverage` already
+distinguishes four silences — our gap, the company's gap, a page found and never opened, and a
+page read that stated nothing — and only the first two are gaps a search can close. Wiring the
+trigger to coverage instead of to admission needs the orchestrator, which is the next PR. **What
+would be wrong is claiming the sharper number now**, so the column says what was actually
+counted.
+
+### What a result is allowed to become
+
+A hit is three strings from a machine we did not write, about a page nobody has read. Three
+things stop it being treated as more than that, and they fail differently, so they are three
+separate checks rather than one.
+
+**Its standing comes from its host, never from its rank.** The subject's own domain — including
+subdomains, because `docs.linear.app` is Linear speaking — is `Primary`. Everything else is
+`Unverified`. Since only a primary source may set a value in a comparison table, **search buys
+pages to report beside the table and cannot buy a cell inside it.** A price on an aggregator
+stays a price on an aggregator.
+
+The dot in that rule is load-bearing, and the mutation that proves it is the sharpest one in the
+set: `host.ends_with(subject)` without it makes `linear.app.attacker.test` the subject's own
+domain, and hands the strongest standing this codebase grants to whoever registers the name.
+
+**The engine's prose does not travel.** `Hit` carries a title and a snippet so a person running
+the diagnostic can see what came back; `Found` has no field for either. This is Run 8's finding
+with a shorter supply chain — a worked example in a prompt became a fact in a report — and the
+same answer: cut the path rather than remember to avoid it. A snippet is not a quote; it is
+assembled from the page, from an older copy of it, or from somebody else's description of it.
+
+**A URL from a stranger is checked before it is held.** Every hit goes through
+`landscape_fetch::Target::parse` at admission, so `file:///etc/passwd` and `javascript:` results
+are refused before anything carries them. The SSRF guard would already refuse to *fetch* them;
+this refuses to put them in a list a later change might loop over.
+
+### Two things reused rather than written again
+
+Discovery already answers *"are these two URLs one page"* and already spends a cap round-robin
+across questions. Both are reused: hits become `Candidate`s with a new `Via::Search`, ordered
+**below** every existing variant, and `rank::admit` does the rest. So a page reached by both
+channels keeps the probe, `/changelog` and `/changelog/` are one page here for the same reason
+they are one page there, and four hits about pricing cannot starve the one about changes.
+
+That was entry 4 of the mistakes register applied deliberately — one fact derived two ways is
+how the two implementations drift the first time either learns something.
+
+### The guard that was deleted rather than tested
+
+The first draft refused an empty subject explicitly. Mutating that guard away changed no test and
+no behaviour: `host == ""` is false for every host `Target::parse` admits, and no host survives
+`strip_www` ending in a dot. Per `docs/mutations/README.md`, **a guard nothing needs is deleted
+rather than given a test that keeps it for ever** — so it was, and the mutation was inverted. It
+now puts the *wrong* rule in (`subject.is_empty() ||` …, making every page on the web primary)
+and a test fails on it. Entry 32 of the register is the precedent.
+
+### What was run, and what was not
+
+```bash
+cargo run -p landscape -- search https://basecamp.com
+cargo run -p landscape -- search https://simpleanalytics.com
+python3 scripts/mutate.py docs/mutations/the-search-channel.json   # 16 of 16 caught
+```
+
+### Seven defects review found, and what each of them was
+
+The first version of this passed all eleven gates, 658 tests and ten mutations. **Review found
+seven things none of them could see**, which is the register's own thesis arriving on schedule.
+Recorded here because six of the seven are classes rather than typos.
+
+**A trust boundary reading its host from a query string.** `Target::parse` ended the authority
+at the first `/`, so `https://evil.test?@linear.app` kept the query inside the authority and the
+credential strip then read `linear.app` out of it. `disposition_for` would have called a page on
+evil.test **Primary** — the one disposition permitted to set a value in a comparison table. The
+inverse was wrong too: `https://linear.app?x=1` gave a host of `linear.app?x=1`, matching
+nothing. Fixed in `landscape-fetch`, where every other caller benefits, and no test there had a
+URL with a query and no path.
+
+**Phrase quotes are not an escape.** Wrapping the subject in `"` and stripping its own quotes
+was the wrong model of the thing being defended against: SearXNG splits `q` on whitespace and
+reads its own control language off the tokens **before** searching. A name containing `!!`
+leaves a bare `!!` token, which means *redirect to the first result* — and the client followed
+redirects, so a hostile name could have this process fetch an arbitrary page before `admit` or
+the SSRF guard saw a URL. `!google`, `:fr` and `<99` select an engine, a language and a timeout.
+Replaced with a deliberate grammar — letters, digits and `-._&'+`, everything else becomes a
+space — and the transport now refuses redirects as well, because one guard and no second is how
+a bypass goes quiet.
+
+**A value separated from its evidence, in the function that was written to keep them together.**
+The same URL returned for two questions overwrote its `Found` while the ranked `Candidate` kept
+the first question, so a page came out labelled with a question it was not found for, quoting a
+query that did not find it. The test named for this used two different URLs and could never
+collide. Entry 7 of the register.
+
+**A cap that capped the wrong thing.** `HITS_PER_QUERY` truncates *after* the body is read and
+`serde` has materialised every row, so the comment claiming it stopped a hostile engine deciding
+this process's workload was the opposite of true. `MAX_RESPONSE_BYTES` now refuses while the
+bytes arrive, and the test drives a server that will not stop sending.
+
+**A configuration file that did not do what it said.** `use_default_settings: true` merges the
+`engines:` list by name and leaves every other default engine enabled, so *"only the engines a
+competitive analysis has a use for"* was three configured and the rest still running. Now
+`use_default_settings.engines.keep_only`.
+
+**A normaliser that lowercased paths.** Pre-existing in discovery and harmless while it had one
+caller; making it the shared answer for two channels made it a page silently dropped as
+*"discovery already has it"* when `/Docs` and `/docs` are different resources. Only the scheme
+and host are case-insensitive.
+
+**An error swallowed into a weaker object.** `.build().unwrap_or_default()` replaced a client
+carrying the eight-second timeout with one carrying none. Now fallible.
+
+**41 tests — 34 unit and seven over a socket.** `tests/against_a_server.rs` stands up a listener,
+points a real client at it, and asserts on **what arrived** as well as what came back — the
+percent-encoding of a template full of quotes, the endpoint the query is appended to, a 403
+carrying its number, a dead port becoming `Unreachable` rather than a hang, a redirect that is
+reported rather than chased to `169.254.169.254`, and a body that will not stop being abandoned
+part-way rather than after. Every other test in the crate exercises one side of that join, and
+the register's recurring finding is that the joins are where the defects live.
+
+**No SearXNG has been run against this, and the compose service is written rather than walked.**
+Docker is not available in the workspace this was built in. The service, its checked-in
+`settings.yml` and the healthcheck that asks for `format=json` are in the repository; the first
+person to run `docker compose --profile search up -d searxng` is the one who finds out where they
+are wrong. That is D3's posture, for the same reason: an instruction nobody has followed is a
+draft.
+
+The one failure mode most likely to be met first is already named in the code: SearXNG answers
+**403** to `format=json` until the instance opts in, so `SearchError::Status` carries the number
+rather than flattening it into *"search failed"*.
+
+### Still open — the other three quarters of B2
+
+- **Candidate generation.** `landscape-core::subject` holds a disambiguation gate that has
+  never been given a candidate. Turning hits into scored candidates is what feeds it.
+- **Competitor set derivation.** One idea to several companies, with why each was chosen.
+- **Vocabulary resolution.** A reader's words to a category the pipeline can search.
+
+Until those exist, *"an app that helps small farms sell to local restaurants"* still fails with
+`no_subject` and a remedy line. **This PR does not move that**, and the honest summary is that
+the road now exists and nothing drives on it yet: search is wired to a command, not to the
+orchestrator.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 25 | 624 | 51 |
+| now | **669** | **51** |
+
+---
+
 ## Run 25 — the sixth question, for nothing
 
 **Date:** 2026-08-07 · **Where:** this laptop · **Model:** none — every number below is counted
@@ -152,7 +351,7 @@ is a build error rather than a string nobody reads.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 24 | 586 | 51 |
-| now | **624** | **51** |
+| Run 25 | 624 | 51 |
 
 ---
 

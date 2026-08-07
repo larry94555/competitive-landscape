@@ -1,0 +1,68 @@
+# SearXNG, configured for one job: answering `landscape search` in JSON.
+#
+# Checked in rather than left to a first-run default, because the default is the one that
+# does not work here — SearXNG serves HTML and answers **403** to `format=json` until the
+# `formats` list below names it. An instance that 403s reads as a broken search rather than
+# an unfinished setup, which is a bad half-hour for whoever hits it first.
+#
+# Everything not named here keeps SearXNG's own default, which is deliberate: this file
+# should stay short enough to read, and a fork of upstream's settings goes stale silently.
+
+# `keep_only` rather than `true`. With a plain `use_default_settings: true`, SearXNG loads
+# **every** default engine and merges the `engines:` list below it *by name* — so naming five
+# engines configures five and leaves the rest enabled. The block below claimed to be the only
+# engines used and was not; review caught it. `keep_only` is the documented way to say what it
+# meant:
+# https://docs.searxng.org/admin/settings/settings.html#use-default-settings
+use_default_settings:
+  engines:
+    keep_only:
+      - google
+      - duckduckgo
+      - bing
+
+general:
+  instance_name: "landscape"
+  # Nothing here is a public instance. The metrics page and the donation link are for
+  # operators of public ones.
+  enable_metrics: false
+  donation_url: false
+
+search:
+  # The reason this file exists.
+  formats:
+    - html
+    - json
+  # `landscape-search` sends `language=en`; this is what an unset one falls back to.
+  default_lang: "en"
+  # A competitive analysis reads pages a safe-search filter has no opinion about, and the
+  # filter costs upstream compatibility. 0 is SearXNG's own default and is restated here so
+  # a future upstream change to it is a visible edit rather than a silent one.
+  safe_search: 0
+
+server:
+  # Overridden by `SEARXNG_SECRET` when one is set. The value here is not a secret and is
+  # not treated as one: this instance signs nothing that leaves the compose network, and a
+  # placeholder that is obviously a placeholder is better than one that looks generated.
+  secret_key: "landscape-local-development-only"
+  # No rate limiter in front of a service only this application can reach. On a host where
+  # that stops being true, this is the line to change.
+  limiter: false
+  image_proxy: false
+
+ui:
+  static_use_hash: true
+
+# Per-engine overrides for the three `keep_only` above. The set is kept small because every
+# entry is an upstream that can be slow, rate-limit us, or start requiring a key — and one
+# slow engine delays the whole response, inside an 8-second client timeout.
+#
+# Listing an engine here does **not** enable it; `keep_only` decides that. This block only
+# says how the surviving three behave.
+engines:
+  - name: google
+    disabled: false
+  - name: duckduckgo
+    disabled: false
+  - name: bing
+    disabled: false

@@ -34,6 +34,7 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | **A cap on how much of the box one stranger may spend** | **Yes** — Part 2D |
 | **What a security page claims, and what it only mentions** | **Yes** — Part 2E |
 | **Where a company is investing, read off its careers page for no model calls** | **Yes** — Part 2F |
+| **The questions probes could not answer, and the queries that follow from them** | **Yes** — Part 8F |
 | Reading real web pages *as part of a report* | No — the fetcher exists, nothing calls it yet |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
 | Accounts, quotas, payment | No |
@@ -1280,6 +1281,92 @@ sections follow.
 **Exact results will drift.** Sites reorganise. What should hold is that the sources are
 absolute URLs on that domain, none is listed twice, and the `answers` column shows more than
 one kind of thing.
+
+---
+
+## Part 8F — Ask about the questions the probes could not answer
+
+The first step that leaves the company's own website. Needs nothing running — and **asks nothing
+of anybody** unless you configure an engine.
+
+```bash
+cargo run -p landscape -- search https://basecamp.com
+```
+
+**You should see:**
+
+```
+subject   basecamp.com
+host      basecamp.com
+answered  pricing, features, identity, trust, direction
+gaps      changes
+query set 2026-08-07.2
+  changes    "basecamp.com" changelog OR "release notes"
+
+no engine configured - set SEARX_URL to ask these. Nothing was sent anywhere.
+```
+
+**Discovery runs first, every time, and that is the whole design.** `FACT_CHECKING.md` §3.3 says
+*search fills gaps; it does not lead*, and the `gaps` line is that rule made structural: the
+queries are built from the questions discovery came back **empty** on, so a question the probes
+answered costs no round trip. Basecamp publishes no changelog this pipeline can find — `/changelog`,
+`/releases` and `/blog` all 404, which Part 8D showed — so *changes* is the one question left, and
+one query follows from it.
+
+**Try one where the gap is somewhere else:**
+
+```bash
+cargo run -p landscape -- search https://simpleanalytics.com
+```
+
+```
+answered  pricing, features, changes, identity, trust
+gaps      direction
+query set 2026-08-07.2
+  direction  "simpleanalytics.com" careers OR hiring OR funding
+```
+
+**Four of the six demo companies produce no query at all.** That is the argument for having built
+the deterministic half first, and you can check it: `linear.app`, `usefathom.com`, `front.com` and
+`helpscout.com` all print *"none - probes answered every question, so nothing is searched for"*.
+
+**The `query set` line is not decoration.** The templates are versioned, and the version is meant
+to be stamped on a run, so that when a section which used to fill starts coming back empty the
+question *"did the queries change?"* has an answer rather than an argument. A model never writes a
+query here — retrieval that a model improvises cannot be reproduced tomorrow.
+
+**Name the company properly if the domain is not its name:**
+
+```bash
+cargo run -p landscape -- search https://helpscout.com --name "Help Scout"
+```
+
+The name is wrapped in quotes before it goes anywhere, so it stays one phrase — and it is stripped
+of its own quotes first, because a subject called `Acme" site:evil.test` would otherwise close the
+phrase and hand the rest of itself to the engine as operators.
+
+### Now actually ask, if you want to
+
+```bash
+docker compose --profile search up -d searxng
+SEARX_URL=http://localhost:8888 cargo run -p landscape -- search https://basecamp.com
+```
+
+Each returned page is printed with **whether it may set a value in a comparison table**. Only the
+company's own domain may; everything else is `U` for Unverified and can be reported beside a table
+but never inside it. A page discovery already found is not listed again, and a result that is not
+an `http`/`https` URL never appears at all.
+
+> **Nobody has run this half yet.** The compose service and its `settings.yml` are in the
+> repository and have never been started — Docker was not available where this was built. If
+> SearXNG answers **403**, the `formats: [html, json]` block in `deploy/searxng/settings.yml` is
+> not being read; the error carries the number rather than flattening it for exactly that reason.
+> The first person through corrects these instructions.
+
+**What this does not do.** No analysis calls any of it. Typing *"an app that helps small farms sell
+to local restaurants"* into the box still fails with `no_subject`, because turning a description
+into a company needs candidate generation and competitor-set derivation, which are the next two
+pieces. See [BENCHMARKS.md](BENCHMARKS.md) Run 26.
 
 ---
 

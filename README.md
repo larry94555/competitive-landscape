@@ -96,6 +96,7 @@ applies with the system package manager, or Postgres.app.
 | `cargo run -p landscape -- fetch <url> [--markdown]` | Fetches one URL through every policy and says what happened. `--markdown` prints the converted page, which is what a golden page is made of. Needs no database |
 | `cargo run -p landscape -- gap <file>` | Measures where prices live across a list of pricing pages |
 | `cargo run -p landscape -- discover <origin>` | Finds the pages worth reading about one company |
+| `cargo run -p landscape -- search <origin> [--name "Help Scout"]` | The questions discovery left unanswered, the queries they produce, and — with `SEARX_URL` set — the pages that come back and what each may be used for. Prints the queries either way, and asks nothing without an engine |
 | `cargo run -p landscape -- read <origin>` | The whole path: discover, fetch, convert, extract |
 | `cargo run -p landscape -- examples` | Re-checks the demo's six curated companies against the live web. Non-zero if one has lost its pricing page |
 | `cargo run -p landscape -- cost <origin>` | How many model calls one company is worth, counted with no model running |
@@ -108,6 +109,7 @@ Add `--store memory` to any of them to skip Postgres entirely.
 | `BIND_ADDR` | `127.0.0.1:8787` | Change if the port is taken |
 | `RUST_LOG` | `landscape=info` | `landscape=debug` for query-level detail |
 | `ANONYMOUS_DAILY_LIMIT` | `2` | Analyses one address may start in a day. Only counts requests that arrived through a reverse proxy |
+| `SEARX_URL` | *(none)* | The SearXNG that `landscape search` asks. **No default, deliberately** — a fallback to a public instance would send what strangers type to a third party. Start one with `docker compose --profile search up -d searxng` and set `http://localhost:8888` |
 
 ### Ports
 
@@ -116,6 +118,7 @@ Add `--store memory` to any of them to skip Postgres entirely.
 | **8787** | This API |
 | 5173 | Vite dev server |
 | 5432 | Postgres |
+| 8888 | SearXNG, behind the `search` compose profile |
 | 8080+ | `llama-server` — llama.cpp's default, and this project runs several |
 
 **The API deliberately avoids 8080.** It is llama.cpp's default, and the architecture runs

@@ -1,0 +1,214 @@
+[
+  {
+    "name": "a host that merely ends with the subject's name is the subject's own domain",
+    "file": "crates/landscape-search/src/admit.rs",
+    "old": "    host == subject || host.ends_with(&format!(\".{subject}\"))",
+    "new": "    host == subject || host.ends_with(&subject)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "an empty subject makes every page on the web primary",
+    "file": "crates/landscape-search/src/admit.rs",
+    "old": "    host == subject || host.ends_with(&format!(\".{subject}\"))",
+    "new": "    subject.is_empty() || host == subject || host.ends_with(&format!(\".{subject}\"))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a search result that is not a URL we fetch is carried anyway",
+    "file": "crates/landscape-search/src/admit.rs",
+    "old": "            if Target::parse(&hit.url).is_err() {",
+    "new": "            if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a page discovery already found takes a second slot through search",
+    "file": "crates/landscape-search/src/admit.rs",
+    "old": "            if known.contains(&rank::normalise(&hit.url)) {",
+    "new": "            if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a blank subject name searches the whole web for `pricing plans`",
+    "file": "crates/landscape-search/src/queries.rs",
+    "old": "    if quoted.is_empty() {",
+    "new": "    if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a subject's name can smuggle a SearXNG control token into the query",
+    "file": "crates/landscape-search/src/queries.rs",
+    "old": "            if c.is_alphanumeric() || matches!(c, '-' | '.' | '_' | '&' | '\\'' | '+') {",
+    "new": "            if c != '\"' && !c.is_control() {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "one query decides how much reading the whole run does",
+    "file": "crates/landscape-search/src/searx.rs",
+    "old": "        .take(HITS_PER_QUERY)",
+    "new": "        .take(usize::MAX)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a blank URL in a results document becomes a page nothing can fetch",
+    "file": "crates/landscape-search/src/searx.rs",
+    "old": "        .filter(|r| !r.url.trim().is_empty())",
+    "new": "        .filter(|r| !r.url.is_empty())",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a search engine's rank decides what a page may be used for",
+    "file": "crates/landscape-search/src/admit.rs",
+    "old": "    if is_the_subject(subject_host, &target.host) {",
+    "new": "    if true {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a non-200 from the engine is read as a search that found nothing",
+    "file": "crates/landscape-search/src/searx.rs",
+    "old": "        if !status.is_success() {",
+    "new": "        if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the authority runs past a query string, so a host is read out of it",
+    "file": "crates/landscape-fetch/src/lib.rs",
+    "old": "        let authority_ends = rest.find(['/', '?', '#']).unwrap_or(rest.len());",
+    "new": "        let authority_ends = rest.find(['/']).unwrap_or(rest.len());",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the same URL found for two questions is labelled with the wrong one",
+    "file": "crates/landscape-search/src/admit.rs",
+    "old": "            if let std::collections::hash_map::Entry::Vacant(slot) = by_url.entry(hit.url.clone()) {\n                slot.insert(found.clone());",
+    "new": "            if by_url.insert(hit.url.clone(), found.clone()).is_none() {\n                let _ = &found;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "an endless response body is read to the end",
+    "file": "crates/landscape-search/src/searx.rs",
+    "old": "        if body.len() + chunk.len() > MAX_RESPONSE_BYTES {",
+    "new": "        if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a declared length over the cap is read anyway",
+    "file": "crates/landscape-search/src/searx.rs",
+    "old": "        .is_some_and(|len| len > MAX_RESPONSE_BYTES as u64)",
+    "new": "        .is_some_and(|len| len > u64::MAX)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the engine's redirect is followed to wherever it points",
+    "file": "crates/landscape-search/src/searx.rs",
+    "old": "                .redirect(reqwest::redirect::Policy::none())",
+    "new": "                .redirect(reqwest::redirect::Policy::limited(10))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a case-distinct path is merged with a different page",
+    "file": "crates/landscape-discover/src/rank.rs",
+    "old": "            let (authority, remainder) = rest.split_at(end);",
+    "new": "            let (authority, remainder) = (rest, \"\");",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover",
+      "-p",
+      "landscape-search"
+    ]
+  }
+]

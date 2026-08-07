@@ -62,6 +62,17 @@ enum Role {
     ///
     /// FACT_CHECKING §3.3's structured probes, sitemap and llms.txt, ranked and capped at 8.
     Discover,
+    /// Ask a search engine for the pages probes could not reach.
+    ///
+    /// FACT_CHECKING §3.3 puts search *after* probes and says why: probes are deterministic,
+    /// free and hit primary sources, so search fills gaps rather than leading. This command
+    /// runs discovery first for exactly that reason — the queries it asks are the questions
+    /// discovery came back empty on, and a company whose probes found everything asks none.
+    ///
+    /// **It prints the queries whether or not an engine is configured.** The query set is the
+    /// auditable half of retrieval, and a laptop with no `SEARX_URL` should still be able to
+    /// see what would be asked.
+    Search,
     /// Check that the demo's curated ideas still have pages worth reading.
     ///
     /// The catalogue in `landscape-core` promises one thing about each domain: that discovery
@@ -133,11 +144,12 @@ async fn main() -> Result<()> {
         Some("fetch") => Role::Fetch,
         Some("gap") => Role::Gap,
         Some("discover") => Role::Discover,
+        Some("search") => Role::Search,
         Some("examples") => Role::Examples,
         Some("cost") => Role::Cost,
         Some("read") => Role::Read,
         Some(other) => anyhow::bail!(
-            "unknown command {other:?}.              Try: dev, serve, worker, migrate, fetch, gap, discover, read, examples, cost"
+            "unknown command {other:?}.              Try: dev, serve, worker, migrate, fetch, gap, discover, search, read, examples, cost"
         ),
     };
 
@@ -151,6 +163,9 @@ async fn main() -> Result<()> {
     }
     if role == Role::Discover {
         return discover_sources(&args).await;
+    }
+    if role == Role::Search {
+        return search_for_gaps(&args).await;
     }
     if role == Role::Examples {
         return check_examples().await;
@@ -317,6 +332,144 @@ Example:
         "discovery finished"
     );
     println!("{}", found.render());
+    Ok(())
+}
+
+/// `landscape search <origin> [--name "Help Scout"]` — the gaps, the queries, and the pages.
+///
+/// Three things in order, because the third is the only one that needs infrastructure:
+///
+/// 1. **Which questions discovery left unanswered.** Discovery runs first every time. Search
+///    that leads rather than fills is the failure FACT_CHECKING §3.3 is written to prevent,
+///    and computing the gaps from a real run is what makes that structural here rather than
+///    a comment.
+/// 2. **The queries those gaps produce.** Printed whether or not an engine is configured, so
+///    the auditable half of retrieval is visible on a laptop with nothing installed.
+/// 3. **The pages, if `SEARX_URL` is set.** With their disposition, which says what each one
+///    is allowed to be used for.
+///
+/// The name searched for defaults to the host, and `--name` overrides it. **That default is a
+/// placeholder and is labelled as one**: turning *"an app that helps small farms sell to local
+/// restaurants"* into a company's name is entity resolution, which is the next piece of work
+/// and not this one. `landscape-core::subject` already holds the gate it will feed.
+async fn search_for_gaps(args: &[String]) -> Result<()> {
+    use landscape_discover::probes::Answers;
+
+    let origin = args.get(1).filter(|a| !a.starts_with("--")).context(
+        "usage: landscape search <origin> [--name \"Help Scout\"]
+
+Examples:
+  landscape search https://linear.app
+  landscape search https://helpscout.com --name \"Help Scout\"
+
+Set SEARX_URL to run the queries; without it the queries are printed and nothing is asked.",
+    )?;
+
+    let target = landscape_fetch::Target::parse(origin)
+        .map_err(|e| anyhow::anyhow!("{origin} is not a URL we fetch: {e}"))?;
+    let name = args
+        .windows(2)
+        .find(|w| w[0] == "--name")
+        .map_or_else(|| target.host.clone(), |w| w[1].clone());
+
+    let fetcher = landscape_fetch::Fetcher::new();
+    let found = landscape_discover::discover(&fetcher, origin).await;
+
+    const EVERY_QUESTION: [Answers; 6] = [
+        Answers::Pricing,
+        Answers::Features,
+        Answers::Changes,
+        Answers::Identity,
+        Answers::Trust,
+        Answers::Direction,
+    ];
+    let unanswered: Vec<Answers> = EVERY_QUESTION
+        .into_iter()
+        .filter(|q| !found.sources.iter().any(|s| s.answers == *q))
+        .collect();
+
+    println!("subject   {name}");
+    println!("host      {}", target.host);
+    println!(
+        "answered  {}",
+        EVERY_QUESTION
+            .into_iter()
+            .filter(|q| !unanswered.contains(q))
+            .map(Answers::name)
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    println!(
+        "gaps      {}",
+        if unanswered.is_empty() {
+            "none - probes answered every question, so nothing is searched for".to_owned()
+        } else {
+            unanswered
+                .iter()
+                .map(|q| q.name())
+                .collect::<Vec<_>>()
+                .join(", ")
+        }
+    );
+
+    let queries = landscape_search::queries::for_questions(&name, &unanswered);
+    println!("query set {}", landscape_search::QUERY_SET);
+    for q in &queries {
+        println!("  {:<10} {}", q.answers.name(), q.text);
+    }
+    if queries.is_empty() {
+        return Ok(());
+    }
+
+    // `Ok(None)` is "no engine configured", which is the ordinary state on a laptop. An
+    // `Err` is "you set the variable and it did not work", and flattening the two would send
+    // somebody to the wrong file.
+    let Some(engine) = landscape_search::Searx::from_env()? else {
+        println!(
+            "\nno engine configured - set {} to ask these. Nothing was sent anywhere.",
+            landscape_search::searx::URL_VAR
+        );
+        return Ok(());
+    };
+
+    use landscape_search::SourceProvider as _;
+    let mut results = Vec::new();
+    for query in queries {
+        match engine.search(&query).await {
+            Ok(hits) => results.push((query, hits)),
+            // A search that fails is not an analysis that fails. The section keeps the
+            // coverage note it already had, which is what the report says today anyway.
+            Err(e) => tracing::warn!(question = query.answers.name(), error = %e, "search failed"),
+        }
+    }
+
+    let already: Vec<String> = found.sources.iter().map(|s| s.url.clone()).collect();
+    let admitted = landscape_search::admit::admit(
+        &target.host,
+        &already,
+        &results,
+        engine.name(),
+        landscape_discover::rank::CAP_RUNG_0,
+    );
+
+    println!("\n{:<58} answers      may set a table value", "page");
+    println!("{}", "-".repeat(96));
+    for f in &admitted {
+        println!(
+            "{:<58} {:<12} {} ({})",
+            f.url,
+            f.answers.name(),
+            if f.disposition.may_set_a_table_value() {
+                "yes"
+            } else {
+                "no"
+            },
+            f.disposition.code()
+        );
+    }
+    if admitted.is_empty() {
+        println!("(nothing new - every result was already found by discovery, or was not a page)");
+    }
     Ok(())
 }
 
@@ -595,9 +748,13 @@ async fn run(role: Role, store: Arc<dyn Store>) -> Result<()> {
     match role {
         Role::Migrate => Ok(()),
         // Handled before any store exists; see `main`.
-        Role::Fetch | Role::Gap | Role::Discover | Role::Read | Role::Examples | Role::Cost => {
-            Ok(())
-        }
+        Role::Fetch
+        | Role::Gap
+        | Role::Discover
+        | Role::Search
+        | Role::Read
+        | Role::Examples
+        | Role::Cost => Ok(()),
         Role::Serve => serve(store).await,
         Role::Worker => worker(store).await,
         Role::Dev => {

@@ -684,8 +684,28 @@ the single most important phase; everything after it is commerce and polish.
   residual pages publish no price at all, which no browser fixes. They were in the sample as
   a control group, and that control group caught a defect in the instrument on its first run.
   **Provisional** — Phase 2's exit re-measures, as §5.5 requires.
-- `landscape-search`: `SourceProvider` trait; SearXNG adapter; trust tiering; source ranking
-  and capping at 8–14.
+- ~~`landscape-search`: `SourceProvider` trait; SearXNG adapter; trust tiering; source ranking
+  and capping at 8–14.~~ **The crate is built** — [BENCHMARKS.md](BENCHMARKS.md) Run 26. The
+  trait, the SearXNG adapter behind it, and a **versioned templated query set** built from the
+  questions discovery came back empty on, so §3.3's *"search fills gaps; it does not lead"* is
+  structural rather than a comment: four of the six demo companies produce no query at all.
+  Trust tiering is decided **from the host and never from the rank** — the subject's own domain
+  is Primary, everything else Unverified, so a search result can be reported beside a comparison
+  table and can never set a cell inside it. Ranking and capping are `landscape-discover`'s,
+  reused rather than reimplemented, with a new `Via::Search` ordered below every other
+  provenance.
+  **Still open, and this is the whole of what it means:** **no analysis calls it.** It is
+  reachable from `landscape search <origin>` and from nowhere else, so a prompt that names no
+  domain still fails with `no_subject`. That join, candidate generation, and competitor-set
+  derivation are the other three PRs of this row.
+  One limit worth naming rather than discovering later: a question counts as unanswered when
+  discovery admitted **no page** for it, not when the section came back **empty**. Help Scout's
+  `/blog` is admitted for *changes* and yields nothing dated, so no search is triggered for a
+  section that will be blank. `Coverage` already tells those silences apart; wiring the trigger
+  to it needs the orchestrator.
+  **SearXNG itself has not been run against this.** `docker compose --profile search up -d
+  searxng` and a checked-in `settings.yml` are in the repository and unwalked, for the same
+  reason D3 is — the first person through corrects it.
 - ~~Extraction → Markdown, preserving tables and headings; `extraction_quality` scoring.~~
   **Done** — `landscape-extract::markdown` and `::quality`. Tables and headings survive,
   which matters because a flattened table puts `$49` next to two plan names and a model then
