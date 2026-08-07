@@ -33,6 +33,99 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 28 — a description becomes companies, and the gate finally has something to gate
+
+**Date:** 2026-08-07 · **Where:** this laptop · **Model:** none, and that is the finding as much
+as the feature: **nothing in this step asks a model anything.**
+
+`landscape-core::subject::resolve` — the disambiguation gate — was built in Phase 1 *before*
+anything could feed it, deliberately: written afterwards it would have been a check bolted onto a
+pipeline that already ran without it. It has had nothing to gate for six phases. This is
+`FACT_CHECKING.md` §3.1 step 2, and it is what the gate was waiting for.
+
+### The score is arithmetic over URLs, and that is a decision
+
+The gate compares two scores against `AMBIGUITY_MARGIN` and decides whether to interrupt a
+reader. **A score nobody can explain makes that decision unaccountable**, so every input to it is
+countable from a URL:
+
+| Signal | Weight | Why it is evidence |
+|---|---|---|
+| Queries that returned this host | 0.8 | Agreement between differently-worded questions is the closest thing to corroboration available before a page is read |
+| Depth of its shallowest URL | 0.2 max | A company's front page is `/`; a page *about* a company is four levels into somebody's blog |
+
+**Nothing reads a title or a snippet.** `Hit` carries both so a person running the diagnostic can
+see what came back, and `admit::Found` drops them so engine prose cannot reach a report. A score
+is the same problem with a shorter supply chain: letting an engine's summary move a company up a
+list a reader chooses from is laundering somebody else's opinion into our recommendation.
+
+Three consequences fall out of the arithmetic, and each has a test:
+
+* **Volume is not agreement.** One query returning a host five times has said one thing. Counted
+  per query, not per hit, or a listicle farm outranks a company two queries both found.
+* **An outage is not unanimity.** The divisor is the number of queries *sent*, not the number
+  that answered — otherwise two failed searches turn a single hit into a confident answer.
+* **Agreement can never be outweighed by a shallow URL.** A front page found once must not beat a
+  company every query agreed on.
+
+### The reader's own words, once, and the reason that is allowed here
+
+`FACT_CHECKING.md` P22 requires **"templated queries from resolved entities, not user phrasing"**.
+This module interpolates the reader's description, and that is not an exception to the rule: there
+is no resolved entity yet, and finding one is the job. The words go to an engine once, to produce a
+*set of companies* — never to produce a fact — and everything downstream is templated from the
+domain the gate resolves to.
+
+The asymmetry is what makes it safe. A biased query puts the wrong company on a list a reader then
+looks at and can reject. A biased query against a resolved company puts a biased **fact** in a
+report, where nobody can see it.
+
+That description is also **the freest text this system accepts**, arriving from a stranger's text
+box, and SearXNG reads `!!`, `:fr` and `<99` as its own control language before anything is
+searched for. The grammar that disarms a company name now disarms a description too — one
+function, two callers, because two copies would leave the riskier one to be forgotten.
+
+### A name a reader can choose between comes from the company, not the engine
+
+A disambiguation chip is the one place a reader is asked to decide, and choosing between three
+summaries an engine wrote is choosing between an engine's opinions. Each surviving host's front
+page is fetched — at most five, stated — and the heading becomes the name, the first line of prose
+the distinguisher.
+
+A host whose front page cannot be read **keeps its host as its name and says so**, rather than
+being dropped: a candidate silently missing from a list a reader is choosing from is the silent
+truncation this project keeps deleting.
+
+### And the harness caught a test passing by luck
+
+`candidates_that_tie_come_back_in_the_same_order_every_time` used **two** tying hosts, and the
+mutation that deletes the tie-break survived: with two entries a `HashMap` iterates in the sorted
+order often enough that the assertion held anyway. It uses eight now, which turns agreement by
+chance from a coin flip into a one-in-forty-thousand event, and asserts the whole order rather
+than the first element.
+
+The property matters because the gate compares the **first two** scores against
+`AMBIGUITY_MARGIN`. Which two those are cannot be luck.
+
+### What is not measured here
+
+**No engine has been asked.** Docker's daemon does not start where this was built, which is the
+same limit `landscape search` carries and the same one `DEPLOY.md` carries — recorded rather than
+worked around. Every number above is from a canned provider over the real code path; what a real
+SearXNG returns for a real description is the first thing the next person through should print,
+and `landscape candidates "<description>"` prints it.
+
+**And no analysis calls this.** Typing a description into the box still fails with `no_subject`.
+The join needs the gate's *ambiguous* branch to have somewhere to ask, which is the
+clarifying-question row of S2 — one piece of work away, and named rather than implied.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 27 | 687 | 51 |
+| now | **711** | **51** |
+
+---
+
 ## Run 27 — the join, and the sharper gap it made available
 
 **Date:** 2026-08-07 · **Where:** this laptop · **Model:** none. The join is arithmetic over

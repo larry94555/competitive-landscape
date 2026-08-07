@@ -153,7 +153,25 @@ pub fn for_questions(name: &str, unanswered: &[Answers]) -> Vec<Query> {
 /// [`admit`]: crate::admit::admit
 /// [`RawTextQuery`]: https://github.com/searxng/searxng/blob/master/searx/query.py
 fn quote(name: &str) -> String {
-    let cleaned: String = name
+    let collapsed = safe_words(name);
+    if collapsed.is_empty() {
+        String::new()
+    } else {
+        format!("\"{collapsed}\"")
+    }
+}
+
+/// The grammar above, without the phrase quotes.
+///
+/// **One grammar, two uses, one place.** [`quote`] wraps a company name in `"` because a name is
+/// a phrase an engine must keep together. A reader's description is not a phrase — quoting
+/// *"privacy-friendly website analytics"* asks for pages containing that exact string, which is
+/// almost none of them — but it arrives from the same text box and needs the same defence: the
+/// tokens SearXNG reads as its own control language before anything is searched for. Two copies
+/// of this would leave one to be forgotten, and it would be this one, because a description is
+/// the freest text this system accepts.
+pub(crate) fn safe_words(text: &str) -> String {
+    let cleaned: String = text
         .chars()
         .map(|c| {
             if c.is_alphanumeric() || matches!(c, '-' | '.' | '_' | '&' | '\'' | '+') {
@@ -165,12 +183,7 @@ fn quote(name: &str) -> String {
         .collect();
     // Collapse the runs the replacement creates, so `Acme  !!  Corp` is `Acme Corp` rather
     // than a phrase with a hole in it.
-    let collapsed = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
-    if collapsed.is_empty() {
-        String::new()
-    } else {
-        format!("\"{collapsed}\"")
-    }
+    cleaned.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 #[cfg(test)]

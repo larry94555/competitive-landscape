@@ -1,0 +1,197 @@
+[
+  {
+    "name": "a blank description sends bare boilerplate to an engine",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    if cleaned.is_empty() {\n        return Vec::new();\n    }",
+    "new": "    if false {\n        return Vec::new();\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a reader's description reaches the engine with its control tokens intact",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    let cleaned = crate::queries::safe_words(description);",
+    "new": "    let cleaned = description.trim().to_owned();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "one query returning a host five times counts as five agreements",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "            if !seen_this_query.contains(&host) {\n                seen_this_query.push(host);\n                entry.0 += 1;\n            }",
+    "new": "            seen_this_query.push(host);\n            entry.0 += 1;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the deepest URL is kept, so a blog post is fetched instead of a front page",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "            if depth(&hit.url) < depth(&entry.1) {",
+    "new": "            if depth(&hit.url) > depth(&entry.1) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a review site is offered as one of the companies",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "            if is_not_a_company(&host) {\n                continue;\n            }",
+    "new": "            if false {\n                continue;\n            }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a company whose name ends in a review site's is excluded with it",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        .any(|known| host == *known || host.ends_with(&format!(\".{known}\")))",
+    "new": "        .any(|known| host.ends_with(known))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "an engine outage reads as unanimous agreement",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    let agreement = agreed.min(asked) as f32 / asked as f32;",
+    "new": "    let agreement = asked as f32 / asked as f32;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a shallow URL outweighs every query agreeing",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    (agreement * 0.8 + shallow).clamp(0.0, 1.0)",
+    "new": "    (agreement * 0.1 + shallow * 5.0).clamp(0.0, 1.0)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a score outside the range the gate compares reaches the gate",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    (agreement * 0.8 + shallow).clamp(0.0, 1.0)",
+    "new": "    agreement * 0.8 + shallow + 1.0",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "two candidates that tie come back in whichever order the map iterated",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "            .then_with(|| a.host.cmp(&b.host))",
+    "new": "            .then(std::cmp::Ordering::Equal)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the list a reader chooses from is not capped",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    found.truncate(MAX_CANDIDATES);",
+    "new": "    found.truncate(usize::MAX);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "www and the bare host are two different companies",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    lowered.strip_prefix(\"www.\").unwrap_or(&lowered).to_owned()",
+    "new": "    lowered",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a candidate we could not read vanishes from the list instead of saying so",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        let (name, what_it_is) = page.map_or_else(",
+    "new": "        let Some(_present) = page.as_ref() else {\n            continue;\n        };\n        let (name, what_it_is) = page.map_or_else(",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a company whose front page has no heading is offered with no name",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        .unwrap_or_else(|| host.to_owned());",
+    "new": "        .unwrap_or_default();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "more front pages are fetched than the number that is stated",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    for one in found.iter().take(NAMED) {",
+    "new": "    for one in found.iter() {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  }
+]

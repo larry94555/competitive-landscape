@@ -703,9 +703,18 @@ the single most important phase; everything after it is commerce and polish.
   That closes the limit Run 26 named rather than leaving it: a question no longer counts as
   answered because discovery *admitted* a page for it. Help Scout's `/blog` is admitted for
   *changes* and yields nothing dated — that section is a gap now, and it is searched for.
-  **Still open:** a prompt that names no domain fails with `no_subject`. Candidate generation
-  and competitor-set derivation are the other two PRs of this row, and both are about finding a
-  company rather than reading one.
+  **Candidate generation has started** — [BENCHMARKS.md](BENCHMARKS.md) Run 28. A description
+  becomes three templated queries, what comes back is grouped by host, and each host is scored on
+  **agreement between differently-worded questions** plus how shallow its shallowest URL is —
+  arithmetic over URLs, never a title or a snippet, because the gate compares those scores against
+  `AMBIGUITY_MARGIN` and a score nobody can explain makes that decision unaccountable. Review
+  sites and forums are a closed list and are excluded: a G2 category page is an excellent way to
+  learn which companies exist and is not one of them. Each survivor is named from **its own front
+  page**, so what a reader chooses between is the company's words rather than an engine's.
+  `landscape candidates "<description>"` runs the whole of it and prints the gate's verdict.
+  **Still open:** a prompt that names no domain fails with `no_subject`. Joining the gate's
+  verdict to an analysis needs somewhere to ask the *ambiguous* question, which is the
+  clarifying-question row; competitor-set derivation is the piece after that.
   **SearXNG itself has not been run against this.** `docker compose --profile search up -d
   searxng` and a checked-in `settings.yml` are in the repository and unwalked, for the same
   reason D3 is — the first person through corrects it.

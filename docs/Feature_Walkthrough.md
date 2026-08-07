@@ -35,6 +35,7 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | **What a security page claims, and what it only mentions** | **Yes** — Part 2E |
 | **Where a company is investing, read off its careers page for no model calls** | **Yes** — Part 2F |
 | **Searching the web for the questions a company's own pages left empty** | **Yes** — Part 8F |
+| **Turning a description into the companies it might be about** | **Yes** — Part 8G |
 | **The questions probes could not answer, and the queries that follow from them** | **Yes** — Part 8F |
 | Reading real web pages *as part of a report* | No — the fetcher exists, nothing calls it yet |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
@@ -1395,6 +1396,68 @@ somebody looked into.
 restaurants"* into the box fails with `no_subject`. Search fills gaps about a company you named;
 turning a description into a company needs candidate generation and competitor-set derivation,
 which are the next two pieces. See [BENCHMARKS.md](BENCHMARKS.md) Run 27.
+
+---
+
+## Part 8G — Turn a description into the companies it might be about
+
+The step the disambiguation gate has been waiting for since Phase 1. Needs nothing running, and
+**asks nothing of anybody** unless you configure an engine.
+
+```bash
+cargo run -p landscape -- candidates "privacy-friendly website analytics"
+```
+
+**You should see** the queries, whether or not an engine is configured:
+
+```text
+idea      privacy-friendly website analytics
+query set 2026-08-07.1
+  best privacy-friendly website analytics software
+  privacy-friendly website analytics tools comparison
+  privacy-friendly website analytics vendors
+```
+
+**Three, differently worded, on purpose.** The score below is *agreement between them*, and one
+query cannot agree with anything.
+
+**Try it with something hostile.** The description is the freest text this system accepts:
+
+```bash
+cargo run -p landscape -- candidates "analytics !! :fr <99"
+```
+
+The `!!`, `:fr` and `<99` are gone from the queries. SearXNG reads those as its own control
+language — `!!` means *redirect to the first result* — before anything is searched for, so the
+grammar that disarms a company name disarms a description too.
+
+### With `SEARX_URL` set
+
+**You should see** the hosts, the arithmetic, and the gate's verdict:
+
+```text
+company                            agreed    score  shallowest
+usefathom.com                        3/3      0.95  https://usefathom.com/
+plausible.io                         2/3      0.73  https://plausible.io/
+```
+
+`agreed` is how many of the three queries returned that host at all — counted once per query, so
+a listicle farm returning five pages has said one thing. **No title and no snippet are read.** An
+engine's summary of a page is the engine's, and letting it move a company up a list a reader
+chooses from is the same laundering the trust extractor refuses.
+
+Then the names, each from that company's **own front page** rather than the engine's title, and
+finally one of three verdicts: `resolved`, `ambiguous` with the question to ask, or
+`nothing found` with what was asked.
+
+> **Nobody has run this half either.** Docker's daemon does not start where this was written, so
+> no engine has answered these queries. The first person through corrects these instructions —
+> the same note Part 8F carries, for the same reason.
+
+**What this does not do.** No analysis calls it. Typing a description into the box still fails
+with `no_subject`, because joining the gate's verdict to a run needs somewhere to ask the
+*ambiguous* question — that is the clarifying-question piece, and it is next.
+See [BENCHMARKS.md](BENCHMARKS.md) Run 28.
 
 ---
 

@@ -80,97 +80,100 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    built: {
-      name: "a search channel nothing called",
-      purpose: "Reachable from one command, and nowhere else.",
+    waiting: {
+      name: "a gate with nothing to gate",
+      purpose: "Built in Phase 1. Fed by nothing since.",
       lines: [
-        ['f', '  landscape search linear.app'],
+        ['t', '  subject::resolve(candidates)'],
         ['c', ''],
-        ['s', '  no analysis calls any of it'],
+        ['s', '  candidates: []'],
         ['c', ''],
-        ['c', '// The crate was right. It was also'],
-        ['f', '// a road that led nowhere.']
+        ['c', '// Built before the thing that feeds it,'],
+        ['f', '// on purpose. Six phases ago.']
       ]
     },
-    weaker: {
-      name: "and it measured the wrong gap",
-      purpose: "A page found is not a question answered.",
+    words: {
+      name: "and only a description to go on",
+      purpose: "The freest text this system accepts.",
       lines: [
-        ['s', '  helpscout.com/blog'],
-        ['s', '    admitted for changes'],
-        ['s', '    yields no dated entry'],
+        ['f', '  "privacy-friendly website analytics"'],
         ['c', ''],
-        ['f', '// Answered? A page was found.'],
-        ['t', '// Empty? Nothing filled it.']
+        ['s', '  P22: templated queries from'],
+        ['s', '       resolved entities, not user phrasing'],
+        ['c', ''],
+        ['t', '// There is no resolved entity yet.']
       ]
     },
-    sharper: {
-      name: "so ask what filled, not what was found",
-      purpose: "One line, and the reason this belongs here.",
+    once: {
+      name: "so the words go out once",
+      purpose: "To find companies. Never to find a fact.",
       lines: [
-        ['t', '  !self.claims.iter()'],
-        ['t', '      .any(|(q, _)| q == question)'],
+        ['t', '  best {} software'],
+        ['t', '  {} tools comparison'],
+        ['t', '  {} vendors'],
         ['c', ''],
-        ['c', '// An analysis knows what filled.'],
-        ['f', '// A command that reads nothing cannot.']
+        ['c', '// A biased query here puts a wrong'],
+        ['c', '// company on a list you can reject.']
       ]
     },
-    order: {
-      name: "search fills, it does not lead",
-      purpose: "Structural, not a comment.",
+    armed: {
+      name: "and a text box is a text box",
+      purpose: "SearXNG reads !! before it searches.",
       lines: [
-        ['f', '  probes first, always'],
-        ['t', '  then the gaps become queries'],
+        ['s', '  analytics !! :fr <99'],
         ['c', ''],
-        ['c', '// A company whose own pages answered'],
-        ['c', '// everything sends no query at all.']
+        ['f', '  analytics'],
+        ['c', ''],
+        ['c', '// One grammar, two callers. Two copies'],
+        ['t', '// would leave this one forgotten.']
       ]
     },
-    whose: {
-      name: "but whose page is it",
-      purpose: "The company, or a stranger.",
+    agree: {
+      name: "then count agreement, not volume",
+      purpose: "One query saying it five times said it once.",
       lines: [
-        ['f', '  e.com/pricing        Primary'],
-        ['s', '  someblog.example/e   Unverified'],
+        ['f', '  3/3 queries   usefathom.com'],
+        ['t', '  1/3 queries   someblog.example'],
         ['c', ''],
-        ['c', '// One is the company speaking.'],
-        ['t', '// The other is somebody else.']
+        ['c', '// And the divisor is queries SENT.'],
+        ['s', '// An outage is not unanimity.']
       ]
     },
-    marked: {
-      name: "so say so where it is read",
-      purpose: "Not two screens below, in a list.",
+    urls: {
+      name: "from URLs, and nothing else",
+      purpose: "The gate compares these scores.",
       lines: [
-        ['t', '  - (U) states unlimited seats [S4]'],
+        ['s', '  title:   the engine wrote it'],
+        ['s', '  snippet: the engine wrote it'],
         ['c', ''],
-        ['f', '  [S4] ... (U - a page we could read'],
-        ['f', '       but could not fully attribute)'],
+        ['f', '  host + depth: countable'],
         ['c', ''],
-        ['c', '// A code beside a URL is not a marking.']
+        ['t', '// A score nobody can explain makes'],
+        ['t', '// the gate unaccountable.']
       ]
     },
-    pair: {
-      name: "the harness found the real hole",
-      purpose: "A page, parted from its standing.",
+    theirs: {
+      name: "and let each one name itself",
+      purpose: "A chip is where a reader chooses.",
       lines: [
-        ['s', '  read_one(page, disposition)'],
+        ['f', '  # Fathom Analytics'],
+        ['f', '  Simple, privacy-first analytics'],
         ['c', ''],
-        ['s', '  every result -> Primary'],
-        ['f', '  680 tests pass'],
-        ['c', ''],
-        ['t', '// Two arguments. One value now.']
+        ['c', '// Its own front page. Choosing between'],
+        ['t', '// three engine summaries is choosing'],
+        ['t', '// between an engines opinions.']
       ]
     },
-    quiet: {
-      name: "and without an engine, nothing",
-      purpose: "The laptop default is unchanged.",
+    luck: {
+      name: "the harness found a coin flip",
+      purpose: "Two tying hosts is not a test.",
       lines: [
-        ['f', '  no SEARX_URL'],
-        ['t', '  the planned pages, exactly'],
+        ['s', '  a.com  b.com     ties'],
+        ['f', '  delete the tie-break -> passes'],
         ['c', ''],
-        ['c', '// And the report says which questions'],
-        ['c', '// went unsearched - so a gap nobody'],
-        ['c', '// looked into never reads as an answer.']
+        ['t', '  eight hosts -> fails'],
+        ['c', ''],
+        ['c', '// The gate compares the first two.']
       ]
     }
   };
@@ -214,19 +217,19 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:built",   c: "A search channel that no analysis called." },
-    { kind: "means",       a: "file:weaker",  c: "And it measured a gap by what was found." },
+    { kind: "recognition", a: "file:waiting", c: "A gate built in Phase 1, fed by nothing since." },
+    { kind: "means",       a: "file:words",   c: "And only a description to go on." },
 
-    { kind: "turn",        a: "file:sharper", c: "Ask what filled instead. One line." },
-    { kind: "result",      a: "file:order",   c: "Probes first, so search fills and never leads." },
+    { kind: "turn",        a: "file:once",    c: "So the words go out once, to find companies." },
+    { kind: "result",      a: "file:armed",   c: "Disarmed first: a text box is a text box." },
 
-    { kind: "turn",        a: "file:whose",   c: "But whose page came back — theirs, or a stranger's?" },
-    { kind: "result",      a: "file:marked",  c: "So mark it where the claim is read." },
+    { kind: "turn",        a: "file:agree",   c: "Count agreement between questions, not volume." },
+    { kind: "result",      a: "file:urls",    c: "From URLs only. The gate compares these scores." },
 
-    { kind: "result",      a: "file:pair",    c: "The harness found the hole: a page parted from its standing." },
-    { kind: "result",      a: "file:quiet",   c: "And with no engine, the run is exactly as it was." },
+    { kind: "result",      a: "file:theirs",  c: "And let each company name itself." },
+    { kind: "result",      a: "file:luck",    c: "The harness found a test passing by luck." },
 
-    { kind: "close",       a: "hold",         c: "The gaps a company's own pages leave, asked about." }
+    { kind: "close",       a: "hold",         c: "The gate has something to gate." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
