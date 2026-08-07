@@ -268,7 +268,7 @@ async fn trust(
 
     let mut extracted: Vec<landscape_core::TrustExtraction> = Vec::with_capacity(found.named.len());
     let mut details = Vec::new();
-    let mut unsupported = 0usize;
+    let (mut unsupported, mut mismatched) = (0usize, 0usize);
 
     for named in &found.named {
         match llm
@@ -283,10 +283,21 @@ async fn trust(
             // the other one, and a shortened spelling cannot undo the precise-spelling rule.
             // Review found both, and both stop being expressible rather than being checked.
             Ok(claim) => {
-                if judge_assurance(&claim, &named.span.prompt_text()) == Judged::QuoteNotVerbatim {
-                    unsupported += 1;
+                match judge_assurance(&claim, &named.span.prompt_text(), &named.standard) {
+                    Judged::Keep => extracted.push(claim.about(&named.standard)),
+                    Judged::QuoteNotVerbatim => {
+                        unsupported += 1;
+                        extracted.push(claim.about(&named.standard));
+                    }
+                    // The page does name this standard - the scanner found it - so the mention is
+                    // kept and the claim is not. Answering about a neighbour is the failure mode
+                    // of handing one window over twice.
+                    Judged::EvidenceIsAboutAnother => {
+                        mismatched += 1;
+                        extracted
+                            .push(landscape_core::AssuranceClaim::empty().about(&named.standard));
+                    }
                 }
-                extracted.push(claim.about(&named.standard));
             }
             Err(e) => details.push(format!("model error: {e}")),
         }
@@ -312,6 +323,11 @@ async fn trust(
             }
         })
         .collect();
+    if mismatched > 0 {
+        lines.push(format!(
+            "{mismatched} answer(s) quoted a different standard - the mention is kept, the claim is not"
+        ));
+    }
     if unsupported > 0 {
         lines.push(format!(
             "{unsupported} quote(s) not found in the section they came from"
@@ -342,20 +358,49 @@ async fn trust(
 /// **A pure function so the decision can be tested.** The rest of the stage cannot run without
 /// a `llama-server`, so a judgement made inline is a judgement nothing holds still.
 ///
-/// There is no *ungrounded standard* verdict any more, and that is the point. The standard is
-/// attached from the scanner after generation, so a name the section does not contain is not
-/// something the model can return — review showed the old containment check passing a response
-/// about a *different* standard in the same window. What is left to judge is the evidence.
+/// # The model cannot choose the name, and that was not enough
+///
+/// Taking the standard from the scanner stopped the model *labelling* an answer. It did not
+/// stop it *answering about the wrong thing*: a window is three lines, and two standards often
+/// sit within three lines of each other — or on one line — so the same window is handed over
+/// twice, once per standard. A model asked about ISO 27001 can reply `holds` while quoting the
+/// sentence about SOC 2, and every check passed: the quote is verbatim in the section, and the
+/// name is the scanner's.
+///
+/// That publishes *"states ISO 27001"* on evidence about a different certification. Review
+/// found it **in the regression I had just written to prove the class was closed**.
+///
+/// So the evidence is checked against the standard it is supposed to be about. A quote naming
+/// **no** standard is the ordinary honest case — *"We are certified and audited annually."*
+/// beside the name — and is kept.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Judged {
-    /// Quoted from the section.
+    /// Quoted from the section, and about the standard in question.
     Keep,
     /// The quote is not in the section. Kept and counted: the standard is real — the scanner
     /// found it written down — and the reader is told the evidence was not verbatim.
     QuoteNotVerbatim,
+    /// The quote names a different standard and not this one. **The claim is dropped and the
+    /// mention is kept**: that the page names this standard is true and worth reporting; that
+    /// they hold it is a fact this evidence does not support.
+    EvidenceIsAboutAnother,
 }
 
-pub(crate) fn judge_assurance(claim: &landscape_core::AssuranceClaim, section: &str) -> Judged {
+pub(crate) fn judge_assurance(
+    claim: &landscape_core::AssuranceClaim,
+    section: &str,
+    requested: &str,
+) -> Judged {
+    if let Some(quote) = &claim.evidence_quote {
+        let named = landscape_extract::assurance::standards_named(quote);
+        if !named.is_empty()
+            && !named
+                .iter()
+                .any(|n| landscape_extract::assurance::same_standard(n, requested))
+        {
+            return Judged::EvidenceIsAboutAnother;
+        }
+    }
     if claim.quote_is_verbatim(section) {
         Judged::Keep
     } else {
@@ -780,6 +825,57 @@ mod tests {
         );
         // Two standards named, two windows, two calls - one question each.
         assert_eq!(stub.calls(), 2, "one call per standard the scanner found");
+
+        // **Review's assertion, and the one the first version of this test was missing.** The
+        // stub answers every window with the same SOC 2 sentence. Checking only that both
+        // names appear accepted `states it holds ISO 27001` carrying evidence about SOC 2 -
+        // a fabricated certification claim that the test was written to rule out.
+        let iso = outcome
+            .claims
+            .iter()
+            .find(|c| c.text.contains("ISO 27001"))
+            .expect("the ISO finding");
+        assert!(
+            !iso.quote.contains("SOC 2"),
+            "the ISO claim was paired with evidence about another standard: {}",
+            iso.quote
+        );
+        assert!(
+            iso.text.contains("without saying"),
+            "an answer about a different standard became a claim about this one: {}",
+            iso.text
+        );
+    }
+
+    #[tokio::test]
+    async fn a_paraphrased_quote_is_kept_and_the_reader_is_told() {
+        // The standard is real - the scanner found it written down - so a paraphrase should
+        // not throw the finding away. It is counted, and the count is printed beside the page,
+        // which is the same treatment a paraphrased price gets.
+        const PARAPHRASED: &str =
+            r#"{"status":"holds","evidence_quote":"we are certified to the highest standard"}"#;
+        let stub = StubModel::start(PARAPHRASED).await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+
+        let outcome = trust(
+            &llm,
+            "https://linear.app/security",
+            "# Security
+
+Linear undergoes regular SOC 2 Type II audits.",
+            &mut |_| crate::Wanted::Yes,
+        )
+        .await;
+
+        assert_eq!(outcome.claims.len(), 1, "the finding was thrown away");
+        assert!(
+            outcome
+                .details
+                .iter()
+                .any(|d| d.contains("not found in the section")),
+            "the reader is not told the evidence was a paraphrase: {:?}",
+            outcome.details
+        );
     }
 
     #[tokio::test]
@@ -1144,8 +1240,50 @@ ISO 27001 is on our roadmap.";
     #[test]
     fn a_claim_quoted_from_the_section_is_kept() {
         assert_eq!(
-            judge_assurance(&claim("regular SOC 2 Type II audits"), SECTION),
+            judge_assurance(
+                &claim("regular SOC 2 Type II audits"),
+                SECTION,
+                "SOC 2 Type II"
+            ),
             Judged::Keep
+        );
+    }
+
+    #[test]
+    fn evidence_about_a_neighbouring_standard_is_not_a_claim_about_this_one() {
+        // **The failure review found in the regression written to prove the class was closed.**
+        // The window holds both standards, so the same three lines are handed over twice. An
+        // answer about SOC 2, relabelled ISO 27001, published a certification claim on evidence
+        // about a different certification - and the quote was verbatim, and the name was the
+        // scanner's, so every check passed.
+        assert_eq!(
+            judge_assurance(
+                &claim("undergoes regular SOC 2 Type II audits"),
+                SECTION,
+                "ISO 27001"
+            ),
+            Judged::EvidenceIsAboutAnother
+        );
+    }
+
+    #[test]
+    fn evidence_that_names_no_standard_is_the_ordinary_case_and_is_kept() {
+        // *"We are certified and audited annually."* beside the name. Refusing this would
+        // throw away most true claims to catch a rare wrong one.
+        const PLAIN: &str = "ISO 27001\nWe are certified and audited annually.";
+        assert_eq!(
+            judge_assurance(&claim("certified and audited annually"), PLAIN, "ISO 27001"),
+            Judged::Keep
+        );
+    }
+
+    #[test]
+    fn a_quote_naming_the_standard_asked_about_is_kept_at_either_precision() {
+        // `SOC 2` in the evidence for a scanned `SOC 2 Type II` is the same certification, not
+        // a different one - the check must not turn a precision difference into a rejection.
+        assert_eq!(
+            judge_assurance(&claim("our SOC 2 report"), SECTION, "SOC 2 Type II"),
+            Judged::QuoteNotVerbatim
         );
     }
 
@@ -1155,7 +1293,7 @@ ISO 27001 is on our roadmap.";
         // finding would lose a true fact over a paraphrased quote. It is counted instead, and
         // the count is printed beside the page.
         assert_eq!(
-            judge_assurance(&claim("we are fully certified"), SECTION),
+            judge_assurance(&claim("we are fully certified"), SECTION, "SOC 2 Type II"),
             Judged::QuoteNotVerbatim
         );
     }

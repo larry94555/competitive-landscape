@@ -28,6 +28,11 @@
 //! would then be the only thing between that and a report. Here the name comes from the page by
 //! construction: nothing can be reported that the scanner did not first find written down.
 //!
+//! **That settles the name and not the answer.** Two standards often sit within a window of each
+//! other, so the same three lines are handed over twice — and a model asked about one can reply
+//! about the other, verbatim. Pairing a claim to its standard is checked in
+//! `landscape-analyze`'s trust stage, using [`standards_named`] on the evidence itself.
+//!
 //! Adding a standard is one line, and it is a decision about what this product claims to know
 //! rather than a tuning parameter — which is why the list is here and named rather than a
 //! regular expression somewhere.
@@ -148,10 +153,25 @@ pub fn every_assurance(markdown: &str) -> Found {
     }
 }
 
+/// Every standard named anywhere in a piece of text, without windows or caps.
+///
+/// **For checking a quote against the standard it was supposed to be about.** A window three
+/// lines wide can hold two standards, so a model asked about one can answer with the other's
+/// sentence — and the caller needs to know that before it labels the answer.
+#[must_use]
+pub fn standards_named(text: &str) -> Vec<String> {
+    text.lines().flat_map(standards_in).collect()
+}
+
 /// Whether two spellings name the same standard.
 ///
 /// `SOC 2` and `SOC 2 Type II` do; `SOC 2` and `SOC 3` do not. Compared case-insensitively,
 /// because a page may write `GDPR` in a heading and `gdpr` in a link.
+#[must_use]
+pub fn same_standard(a: &str, b: &str) -> bool {
+    subsumes(a, b)
+}
+
 fn subsumes(a: &str, b: &str) -> bool {
     let (a, b) = (a.to_lowercase(), b.to_lowercase());
     a == b || a.starts_with(&format!("{b} ")) || b.starts_with(&format!("{a} "))
@@ -386,6 +406,25 @@ Our SOC 2 Type II report is available.";
             found.considered, 9,
             "a repeat past the cap was counted twice"
         );
+    }
+
+    #[test]
+    fn a_quote_can_be_asked_which_standards_it_names() {
+        // Used to check that a model's evidence is about the standard it was asked about. A
+        // sentence naming none is the ordinary honest case - "We are certified." beside the
+        // name - and must come back empty rather than guessing.
+        assert_eq!(
+            standards_named("undergoes regular SOC 2 Type II audits"),
+            ["SOC 2 Type II"]
+        );
+        assert!(standards_named("We are certified and audited annually.").is_empty());
+    }
+
+    #[test]
+    fn two_spellings_of_one_standard_are_recognised_as_the_same() {
+        assert!(same_standard("SOC 2", "SOC 2 Type II"));
+        assert!(same_standard("gdpr", "GDPR"));
+        assert!(!same_standard("SOC 2", "SOC 3"));
     }
 
     #[test]

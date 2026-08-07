@@ -108,7 +108,10 @@ The more precise spelling now wins wherever it appears. Four standards, one each
 
 | Reintroduced defect | Caught? |
 |---|---|
-| the model's answer is about a different standard in the same window | **unrepresentable** |
+| the model *names* a different standard in the same window | **unrepresentable** |
+| the model *answers about* a different standard in the same window | **yes** |
+| evidence naming no standard is refused along with the rest | **yes** |
+| a precision difference is treated as a different standard | **yes** |
 | a roadmap item is reported the same way as a certification | **yes** |
 | the report asserts the certification rather than the claim | **yes** |
 | a standard mentioned without a claim is reported as one | **yes** |
@@ -122,8 +125,8 @@ The more precise spelling now wins wherever it appears. Four standards, one each
 | a trust page is fetched and skipped as if it had no extractor | **yes** |
 | a trust page costs nothing in the prediction the cost command prints | **yes** |
 
-Sixteen, all caught — including the two that guard the wiring itself, added after review
-replaced `claim.about(&named.standard)` with a constant and watched every test pass.
+Twenty, all caught — including the ones that guard the wiring itself and the pairing of a claim
+to its standard, both added after review broke them and watched every test pass.
 
 ### What review found, and why two of those rows now say *unrepresentable*
 
@@ -134,10 +137,21 @@ sentence about SOC 2 passed both independent checks and would have published a c
 claim about the wrong standard. Returning `SOC 2` for a scanned `SOC 2 Type II` also passed, and
 quietly undid the precise-spelling rule.
 
-The model is no longer asked. `AssuranceClaim` carries a status and a quote and **has no name
-field**; the scanner's standard is attached afterwards. A whole class of wrong answer stopped
-being expressible rather than being checked for — which is why two mutations were deleted rather
-than re-aimed, and the register's rule about mutations whose defect becomes unreachable applies.
+The model is no longer asked for the name. `AssuranceClaim` carries a status and a quote and
+**has no name field**; the scanner's standard is attached afterwards.
+
+**And that was not enough, which review found in the regression written to prove it was.** Taking
+the name away stopped the model *labelling* an answer; it did not stop it *answering about the
+wrong thing*. A window is three lines and two standards often sit within three lines of each
+other — or on one line — so the same window is handed over twice, once per standard. A model
+asked about ISO 27001 can reply `holds` while quoting the sentence about SOC 2, and every check
+passed: the quote is verbatim in the section, and the name is the scanner's. The report then said
+*"states ISO 27001"* on evidence about a different certification.
+
+So the evidence is checked against the standard it is supposed to be about: a quote naming a
+recognised standard that is **not** this one keeps the mention and drops the claim, and the run
+log says how many. A quote naming no standard at all — *"We are certified and audited
+annually."* — is the ordinary honest case and is kept.
 
 **And two boundary defects the suite could not see.** `to_lowercase` is Unicode-aware and can
 change a string's length, so an offset found in the lowered copy pointed past the end of the
@@ -152,7 +166,7 @@ is uncapped now; only the windows that will be read are capped.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 23 | 509 | 51 |
-| now | **575** | **51** |
+| now | **581** | **51** |
 
 ---
 

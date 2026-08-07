@@ -793,6 +793,27 @@ think is untestable is very often already there, written by you, for the thing n
 > **Ask this:** *what does the test module of this file already stand up — and did I look before
 > saying I could not?*
 
+### The sequel, in the same pull request
+
+Removing the model's ability to *name* the standard was written up — by me, in a comment, in
+`BENCHMARKS.md`, and in a reply — as making the failure **unrepresentable**. Review then found
+the failure still live, *inside the regression I had written to prove it was closed*.
+
+Taking the name away stopped the model **labelling** an answer. It did not stop it **answering
+about the wrong thing**: a window is three lines, two standards often sit within three lines of
+each other, so the same window is handed over twice and an answer about the first can be
+relabelled as the second. Every check passed — the quote was verbatim, the name was the
+scanner's — and the report published a certification claim on evidence about a different
+certification.
+
+**Rule:** *"unrepresentable"* is the strongest claim available, so it needs the strongest
+evidence. Removing one route to a defect is not removing the defect. Before writing the word,
+name the property exactly — *the model cannot choose the label* — rather than the family it
+belongs to, because the gap between those two sentences is where the next finding lives.
+
+> **Ask this:** *have I closed the class, or one door into it — and can I say which in one
+> sentence?*
+
 ---
 
 ## Before a PR: two commands and eight questions
