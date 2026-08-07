@@ -130,11 +130,11 @@ pub struct Asked<'a> {
     pub today: NaiveDate,
     /// The engine, when one is configured. `None` is the laptop default and changes nothing.
     pub search: Option<&'a dyn landscape_search::SourceProvider>,
-    /// Set when a description was resolved to this company rather than named by the reader.
+    /// Set when a description was searched for rather than the companies being named.
     ///
-    /// The report says so, first, because it is the one thing a reader cannot check by reading
-    /// further down the page.
-    pub chosen: Option<&'a landscape_core::subject::Candidate>,
+    /// The report says so first, because it is the one thing a reader cannot check by reading
+    /// further down the page: they never typed any of these names.
+    pub set: Option<&'a landscape_search::competitors::Set>,
 }
 
 /// Written by hand because a `dyn SourceProvider` has no `Debug`, and the useful thing about an
@@ -149,7 +149,10 @@ impl std::fmt::Debug for Asked<'_> {
                 "search",
                 &self.search.map(landscape_search::SourceProvider::name),
             )
-            .field("chosen", &self.chosen.map(|c| &c.canonical_domain))
+            .field(
+                "set",
+                &self.set.map(landscape_search::competitors::Set::origins),
+            )
             .finish()
     }
 }
@@ -187,7 +190,7 @@ pub async fn analyse_many(
         now,
         today,
         search,
-        chosen,
+        set,
     } = asked;
     // The cap is applied here rather than in the parser, so what it costs can be said out
     // loud. Dropping the fourth company in silence would be the defect this feature exists to
@@ -206,26 +209,17 @@ pub async fn analyse_many(
             dropped.join(", ")
         )]
     };
-    // **A reader who described a product never named this company, and has to be told so.**
-    // Every other note here is about what a run did; this one is about *who the run is about*,
-    // which is the one thing a reader cannot check by reading further down the page. It goes
-    // first for that reason.
-    if let Some(entity) = chosen {
-        notes.insert(
-            0,
-            format!(
-                "You described a product rather than naming a company, so we searched for one. \
-                 This report is about {} ({}) - {}. If that is not who you meant, name a domain \
-                 and we will read that instead.",
-                entity.name,
-                entity.canonical_domain,
-                if entity.what_it_is.is_empty() {
-                    "its own front page said nothing we could quote".to_owned()
-                } else {
-                    entity.what_it_is.clone()
-                }
-            ),
-        );
+    // **A reader who described a market never named any of these companies, and has to be told
+    // so.** Every other note here is about what a run did; these are about *who the run is
+    // about*, which is the one thing a reader cannot check by reading further down the page.
+    // They go first for that reason, and in this order: who, then why, then who is missing.
+    if let Some(set) = set {
+        for note in subject::found_for_you(set, analysing.len())
+            .into_iter()
+            .rev()
+        {
+            notes.insert(0, note);
+        }
     }
 
     let origins = analysing;
@@ -1775,7 +1769,7 @@ mod joining {
             now: at(),
             today: at().date_naive(),
             search: None,
-            chosen: None,
+            set: None,
         }
     }
 
@@ -2095,19 +2089,44 @@ mod joining {
         );
     }
 
+    fn found(name: &str, domain: &str, agreed: usize) -> landscape_search::competitors::Member {
+        landscape_search::competitors::Member {
+            candidate: landscape_core::subject::Candidate {
+                name: name.to_owned(),
+                canonical_domain: domain.to_owned(),
+                what_it_is: "a company".to_owned(),
+                confidence: 0.9,
+            },
+            because: landscape_search::competitors::Because {
+                agreed,
+                asked: 3,
+                shares: vec!["analytics".to_owned()],
+            },
+        }
+    }
+
     #[tokio::test]
-    async fn a_report_about_a_company_nobody_named_says_so_first() {
+    async fn a_report_about_companies_nobody_named_says_so_first() {
         // **The one thing a reader cannot check by reading further down the page.** Every other
         // note is about what a run did; this is about *who it is about*, and a reader who typed
-        // a description never said this company's name.
-        let chosen = landscape_core::subject::Candidate {
-            name: "Fathom Analytics".to_owned(),
-            canonical_domain: "usefathom.com".to_owned(),
-            what_it_is: "Simple, privacy-first website analytics".to_owned(),
-            confidence: 0.9,
+        // a description never said any of these names.
+        let set = landscape_search::competitors::Set {
+            members: vec![
+                found("Fathom Analytics", "usefathom.com", 3),
+                found("Plausible", "plausible.io", 3),
+            ],
+            set_aside: vec![(
+                landscape_core::subject::Candidate {
+                    name: "Notion Press".to_owned(),
+                    canonical_domain: "notionpress.example".to_owned(),
+                    what_it_is: "a publisher".to_owned(),
+                    confidence: 0.9,
+                },
+                landscape_search::competitors::Aside::ElsewhereEntirely,
+            )],
         };
         // **Four companies, so another note exists to be first *of*.** With one company the
-        // list holds only this note, and `insert(0)` and `insert(len())` are the same place —
+        // list holds only this note, and `insert(0)` and `insert(len())` are the same place -
         // the mutation that moved it to the end survived, and the assertion below could not
         // have failed. The fourth origin is dropped by the subject cap, which writes the note
         // this one has to sit above.
@@ -2116,7 +2135,7 @@ mod joining {
             &landscape_fetch::Fetcher::new(),
             &llm(),
             &Asked {
-                chosen: Some(&chosen),
+                set: Some(&set),
                 ..named(&many)
             },
             &mut |_| Wanted::Yes,
@@ -2129,15 +2148,13 @@ mod joining {
         );
 
         let first = outcome.report.notes.first().expect("a note");
-        assert!(first.contains("You described a product"), "{first}");
-        assert!(first.contains("Fathom Analytics"), "{first}");
-        assert!(first.contains("usefathom.com"), "{first}");
+        assert!(first.contains("You described a market"), "{first}");
         assert!(
-            first.contains("Simple, privacy-first website analytics"),
+            first.contains("Fathom Analytics (usefathom.com) and Plausible (plausible.io)"),
             "{first}"
         );
         assert!(
-            first.contains("name a domain"),
+            first.contains("name the domains"),
             "a reader is not told how to correct us: {first}"
         );
         // **First, not merely present.** A sentence about who the report is about, printed
@@ -2147,10 +2164,60 @@ mod joining {
                 .report
                 .notes
                 .iter()
-                .position(|n| n.contains("You described a product")),
+                .position(|n| n.contains("You described a market")),
             Some(0),
             "{:#?}",
             outcome.report.notes
+        );
+
+        let why = &outcome.report.notes[1];
+        assert!(why.starts_with("Why each one is here"), "{why}");
+        assert!(
+            why.contains("Fathom Analytics - 3 of the 3 searches"),
+            "{why}"
+        );
+
+        let left_out = &outcome.report.notes[2];
+        assert!(
+            left_out.contains("Notion Press (notionpress.example)"),
+            "{left_out}"
+        );
+        assert!(
+            left_out.contains("none of the words you typed"),
+            "{left_out}"
+        );
+    }
+
+    #[tokio::test]
+    async fn no_company_is_named_in_a_note_that_the_report_does_not_compare() {
+        // **The cap and the note have to agree.** `MAX_SUBJECTS` drops the fourth company, and
+        // a note naming five while three are read is the silent-drop defect with better prose
+        // in front of it.
+        let set = landscape_search::competitors::Set {
+            members: vec![
+                found("One", "one.example", 3),
+                found("Two", "two.example", 3),
+                found("Three", "three.example", 3),
+                found("Four", "four.example", 3),
+            ],
+            set_aside: Vec::new(),
+        };
+        let many = unreachable(4);
+        let outcome = analyse_many(
+            &landscape_fetch::Fetcher::new(),
+            &llm(),
+            &Asked {
+                set: Some(&set),
+                ..named(&many)
+            },
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+        let first = outcome.report.notes.first().expect("a note");
+        assert!(first.contains("Three (three.example)"), "{first}");
+        assert!(
+            !first.contains("Four"),
+            "a company the report never read was named as compared: {first}"
         );
     }
 
@@ -2170,7 +2237,7 @@ mod joining {
                 .report
                 .notes
                 .iter()
-                .any(|n| n.contains("You described a product")),
+                .any(|n| n.contains("You described a market")),
             "{:#?}",
             outcome.report.notes
         );

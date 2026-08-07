@@ -33,6 +33,134 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 30 — one idea, several companies
+
+**Date:** 2026-08-07 · **Where:** this laptop · **Model:** none for the set; the analysis that
+follows uses one exactly as it always has.
+
+A description produced **one** company. This product is a competitive landscape tool, so that
+was the wrong number, and it was the wrong number for a reason worth writing down.
+
+### The gate's most common answer for a market was "which one did you mean?"
+
+Three companies that all three differently-worded searches returned score identically:
+
+```text
+0.8 x 3/3 + 0.2 = 1.0    Fathom
+0.8 x 3/3 + 0.2 = 1.0    Plausible
+0.8 x 3/3 + 0.2 = 1.0    Simple Analytics
+```
+
+`resolve` compares them against `AMBIGUITY_MARGIN`, finds them tied, and asks the reader to pick
+one. **That is correct for the question it was asked.** Three products sharing a name is exactly
+what `PRODUCT_SPEC.md` §3 wants a chip for, and one chip click really does prevent an entire
+wrong report.
+
+It is also, for a market description, the *usual* answer — so answering *"privacy-friendly
+website analytics"* meant answering a question about a landscape with a question about a company.
+
+### Telling a market from a name, with arithmetic
+
+| The reader typed | Content words | What a tie means |
+|---|---|---|
+| `Notion` | 1 | Several products share a name. Ask. |
+| `privacy-friendly website analytics` | 4 | Several companies share a market. Compare them. |
+
+`DESCRIBES_A_MARKET = 2` is that rule and it is deliberately crude. It is checkable, it is
+explainable to a reader in one line — `landscape candidates` prints *"reading a market"* or
+*"reading a name"* — and it needs no model. **What it cannot do** is tell *"Notion project
+management"* from a two-word brand, and nothing here pretends otherwise: that is a chip, and
+chips are the clarifying-question row.
+
+**No protection was traded for the feature.** The gate keeps its job for the name case, and it
+still stops a report when nothing was found or the searching did not finish. What changed is
+what happens *after* it has no objection.
+
+### Why each company is in the report, in countable terms
+
+```text
+Fathom (usefathom.com)
+    3 of the 3 searches returned it, and its own front page uses "privacy", "analytics"
+```
+
+Two numbers and a list of the reader's own words. Nothing here is a summary somebody would have
+to trust, for the same reason the score is arithmetic over URLs: a reader asking *why is this
+company in my report* deserves an answer rather than a shrug.
+
+The divisor is the searches **sent**, not the ones that answered — the rule Run 29's review
+established for the score, carried into the sentence. An engine that answered twice out of three
+must not produce *"2 of the 2 searches returned it"*.
+
+### Four ways to be left out, and two of them look identical from outside
+
+| Set aside | What it says |
+|---|---|
+| `Uncorroborated` | One search found it, so nothing corroborates it |
+| `Unconvincing` | Corroborated and still below the floor |
+| `ElsewhereEntirely` | Its front page was read and uses none of your words |
+| `Unread` | Its front page could not be read, so nothing could be checked |
+
+**The last two are the pair that matters.** Both produce an empty list of shared words, and only
+one of them is a statement about the company. `Described::shares` is `Option<Vec<String>>` for
+exactly that reason: `Some([])` says *we looked and it is about something else*, `None` says *we
+could not look*. A reader told the first about a page nobody read has been told something false,
+and the mutation that collapses them is in the catalogue.
+
+Every company left out is **named** in the report. A competitor dropped in silence is the defect
+this row exists to remove, one company further out than the one it removed first.
+
+### What the reader sees
+
+Three notes, in this order, above everything else:
+
+```text
+You described a market rather than naming companies, so we searched for them. This report
+compares Fathom (usefathom.com) and Plausible (plausible.io). ...
+
+Why each one is here: Fathom - 3 of the 3 searches returned it, ...
+
+Also found and not compared: Notion Press (notionpress.example) - its own front page uses
+none of the words you typed.
+```
+
+Three rather than one paragraph, because they are three facts and a reader who stops after the
+first still knows what they are looking at. The note names only the companies the run actually
+**read**: `MAX_SUBJECTS` is three, and naming five while comparing three would be the silent-drop
+defect with better prose in front of it. There is a test for that specifically.
+
+### The stop list that could not grow
+
+The tempting additions to the grammar-word list are `software`, `platform`, `tool` and `app` —
+they appear on every front page and carry almost nothing. Dropping them would turn `tax software`
+into **one** content word, which `DESCRIBES_A_MARKET` then reads as a brand name and answers with
+a question. A weak content word is still a content word, and the list stayed at grammar.
+
+The same restraint applies to `SHARED_WORDS = 1`. It is a floor, not a filter: the only claim it
+makes is that a company whose front page uses *none* of the words somebody typed is not obviously
+in the market they described. It cannot tell a good competitor from a mediocre one and does not
+try.
+
+### What still does not happen
+
+**A named company still produces a report about itself alone.** `basecamp.com` gets Basecamp, not
+Basecamp and its competitors — the set is derived from a *description*. That is the next PR of
+this row and the more useful half.
+
+**Nothing measures whether the set is right.** Three searches agreeing and a shared word is the
+whole of the evidence. There is no recall number, so nobody can say how many real competitors
+were missed. That is [B1](../PROJECT_STATUS.md#4-blockers), and with the search channel finished
+it is the only thing holding this feature back on its own merits.
+
+**And no engine has been asked**, still: Docker's daemon does not start where this was built, so
+every test is a canned provider over the real code path.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 29 | 738 | 51 |
+| now | **759** | **51** |
+
+---
+
 ## Run 29 — typing an idea runs
 
 **Date:** 2026-08-07 · **Where:** this laptop · **Model:** none for the resolution; the analysis

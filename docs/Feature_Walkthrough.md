@@ -35,8 +35,8 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | **What a security page claims, and what it only mentions** | **Yes** — Part 2E |
 | **Where a company is investing, read off its careers page for no model calls** | **Yes** — Part 2F |
 | **Searching the web for the questions a company's own pages left empty** | **Yes** — Part 8F |
-| **Turning a description into the companies it might be about** | **Yes** — Part 8G |
-| **Typing a description and getting a report about the company it resolves to** | **Yes** — Part 8G |
+| **Turning a description into the companies a report compares** | **Yes** — Part 8G |
+| **Typing a description and getting a report comparing the companies it found** | **Yes** — Part 8G |
 | **The questions probes could not answer, and the queries that follow from them** | **Yes** — Part 8F |
 | Reading real web pages *as part of a report* | No — the fetcher exists, nothing calls it yet |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
@@ -1400,7 +1400,7 @@ which are the next two pieces. See [BENCHMARKS.md](BENCHMARKS.md) Run 27.
 
 ---
 
-## Part 8G — Turn a description into the companies it might be about
+## Part 8G — Turn a description into the companies a report compares
 
 The step the disambiguation gate has been waiting for since Phase 1. Needs nothing running, and
 **asks nothing of anybody** unless you configure an engine.
@@ -1447,9 +1447,38 @@ a listicle farm returning five pages has said one thing. **No title and no snipp
 engine's summary of a page is the engine's, and letting it move a company up a list a reader
 chooses from is the same laundering the trust extractor refuses.
 
-Then the names, each from that company's **own front page** rather than the engine's title, and
-finally one of three verdicts: `resolved`, `ambiguous` with the question to ask, or
-`nothing found` with what was asked.
+Then the names, each from that company's **own front page** rather than the engine's title, how
+your description was read, and what the report would contain:
+
+```text
+words     privacy, friendly, website, analytics
+reading   a market - several companies matching it is the answer
+
+the report would compare
+  Fathom (usefathom.com)
+      3 of the 3 searches returned it, and its own front page uses "privacy", "analytics"
+  Plausible (plausible.io)
+      3 of the 3 searches returned it, and its own front page uses "privacy", "analytics"
+  not compared: Notion Press (notionpress.example)
+      its own front page uses none of the words you typed
+```
+
+**Try it with one word** and the same command answers a different question:
+
+```bash
+cargo run -p landscape -- candidates "Notion"
+```
+
+```text
+words     notion
+reading   a name - several products matching it is a question
+
+no report: that description matches more than one company and we will not guess between them...
+```
+
+One content word is a name and two or more is a description of a kind of thing. It is crude, it
+is checkable, and it needs no model — and it is what stops three products sharing a name from
+being compared against each other as if they were a market.
 
 > **Nobody has run this half either.** Docker's daemon does not start where this was written, so
 > no engine has answered these queries. The first person through corrects these instructions —
@@ -1463,30 +1492,42 @@ finally one of three verdicts: `resolved`, `ambiguous` with the question to ask,
 curl -sX POST http://127.0.0.1:8787/api/analyses -H 'content-type: application/json' -d '{"prompt":"privacy-friendly website analytics"}'
 ```
 
-**You should see** a report about one company, whose **first note** says the company was chosen
-rather than named:
+**You should see** a report comparing several companies, whose **first three notes** say who,
+why, and who was left out:
 
 ```text
-> You described a product rather than naming a company, so we searched for one. This report
-> is about Fathom Analytics (usefathom.com) - Simple, privacy-first website analytics. If
-> that is not who you meant, name a domain and we will read that instead.
+> You described a market rather than naming companies, so we searched for them. This report
+> compares Fathom (usefathom.com) and Plausible (plausible.io). If those are not the
+> companies you meant, name the domains and we will read those instead.
+>
+> Why each one is here: Fathom - 3 of the 3 searches returned it, and its own front page uses
+> "privacy", "analytics"; Plausible - 3 of the 3 searches returned it, and its own front page
+> uses "privacy", "analytics".
+>
+> Also found and not compared: Notion Press (notionpress.example) - its own front page uses
+> none of the words you typed.
 ```
 
-**And when the description matches more than one company**, the run refuses and names them, so a
-reader can pick by typing one:
+**The third note is the one worth arguing about.** A competitor found and dropped in silence is
+the defect this whole row exists to remove; naming it costs a sentence, and a reader who
+disagrees can name the domain themselves.
+
+**And when a one-word name matches more than one product**, the run still refuses and names
+them, so a reader can pick by typing one:
 
 ```text
 that description matches more than one company and we will not guess between them:
 Alpha (alpha.example), Beta (beta.example). Name the one you mean - a domain works.
 ```
 
-Three refusals rather than one, because they are three different situations: *we found nobody*,
-*we found several*, and *no engine is configured so we could not look*. Only the last is fixed by
-installing something, and the old single sentence said that about all three.
+**Four refusals rather than one**, because they are four different situations: no engine is
+configured so we could not look; the searching did not finish; we looked and found nobody; we
+found companies and none of them held up. Only the first is fixed by installing something, only
+the second by waiting, and the old single sentence said the same thing about all of them.
 
-**What this still does not do.** A description produces **one company, not a set**.
-Competitor-set derivation is the next row; until then `landscape candidates` is how you see the
-whole list. See [BENCHMARKS.md](BENCHMARKS.md) Run 29.
+**What this still does not do.** `basecamp.com` produces a report about Basecamp alone — the set
+comes from a *description*, not from a named company. That is the next PR of this row. See
+[BENCHMARKS.md](BENCHMARKS.md) Run 30.
 
 ---
 

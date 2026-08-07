@@ -1088,6 +1088,48 @@ over a number the moment two callers want to divide by different halves of it.
 
 ---
 
+## 38. A `MISSED` that meant "the wrong suite ran", not "nothing tested this"
+
+**Written:** by me, cataloguing the mutations for competitor-set derivation.
+
+```json
+{
+  "name": "a company found and left out is dropped in silence",
+  "file": "crates/landscape-search/src/competitors.rs",
+  "new": "            (Some(_), _) => {}",
+  "run": ["cargo", "nextest", "run", "-p", "landscape-analyze"]
+}
+```
+
+`MISSED`. The obvious reading is *there is no test for this*, and the obvious response is to
+write one — which would have added a second test for a property already covered, and left the
+catalogue entry still lying.
+
+**What had actually happened:** the mutated code is in `landscape-search`; the test that catches
+it is in `landscape-search`; the `run` said `landscape-analyze`. That suite compiles the mutated
+crate, passes, and reports nothing wrong — because nothing in it exercises the mutated line.
+
+**Why this is worse than `NOT APPLIED`.** A wrong `file` or a stale anchor is *loud*: the harness
+says the anchor is not there and you go and look. A wrong `run` is **silent and looks exactly
+like a real finding**, and the natural response to it — write another test — makes the suite
+bigger, makes the catalogue *stay* wrong, and produces a green run that proves less than it did
+before. This is entry 17's sibling: there the mutation had been applied to a different copy of
+the code; here it was applied to the right code and checked by the wrong suite.
+
+**The check is one question and it costs nothing:** for every `MISSED`, before writing a test,
+grep the crate the mutation lives in for a test that names the property. If one exists, the
+catalogue is wrong, not the code. Two of this catalogue's four `MISSED`/`NOT APPLIED` reports on
+the first run were catalogue errors rather than coverage gaps.
+
+**Rule:** a mutation's `run` is part of the mutation, not a convenience. Default it to the crate
+the `file` is in, and only widen it when the *caller* in another crate is what you are testing —
+in which case say so in the name, because a reader of the catalogue cannot see the difference
+either.
+
+> **Ask this:** *is this `MISSED` telling me about my code, or about my catalogue entry?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**
