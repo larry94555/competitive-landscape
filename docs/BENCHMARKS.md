@@ -97,6 +97,31 @@ Three things had to be impossible, and each is one place rather than a rule to r
   the whole suite passed. They travel as one value now — entry 7 of the register, found by
   tooling rather than by review.
 
+### And three things review found in the reporting
+
+The reading was right and the *account of it* was wrong in three places, each the same shape:
+a sentence written from what was intended rather than from what happened.
+
+**A page admitted is not a page read.** The note was written straight after admission and said
+every admitted hit *"was read"* — so a dead host, a page below the quality floor, and a run the
+reader walked away from all counted as reads. It is computed after the loop now, from the pages
+that reached an extractor, and what was admitted and never opened is counted separately:
+*"1 further page(s) were found and not read."*
+
+**Coverage is built from discovery, and search was the first thing ever to add a page discovery
+had not.** A question whose only page came from search reported:
+
+```text
+nothing was checked - our gap, not theirs
+```
+
+— the report telling a reader we did not look, immediately after looking. Admitted search pages
+now join the coverage for their question, so the four silences stay four.
+
+**And a note that says "this company" cannot survive a merge.** `analyse_many` joins each
+subject's notes and drops duplicates, so two companies with the same gaps collapsed into one
+ambiguous sentence and the other was silently discarded. Every search note names its company.
+
 ### What did not change
 
 **Nothing, without `SEARX_URL`.** The laptop default reads exactly the pages discovery planned,
@@ -107,7 +132,7 @@ drawn, applied to a new kind of silence.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 26 | 669 | 51 |
-| now | **680** | **51** |
+| now | **686** | **51** |
 
 ---
 

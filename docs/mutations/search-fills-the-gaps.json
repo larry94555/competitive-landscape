@@ -15,8 +15,8 @@
   {
     "name": "a gap nobody could search reads as a gap somebody looked into",
     "file": "crates/landscape-analyze/src/lib.rs",
-    "old": "    let Some(engine) = search else {",
-    "new": "    let Some(engine) = search.filter(|_| true) else {\n        return (Vec::new(), None);\n    };\n    #[allow(irrefutable_let_patterns)]\n    let Some(engine) = Some(engine) else {",
+    "old": "    if failures == Failures::NoEngine {",
+    "new": "    if false {",
     "run": [
       "cargo",
       "nextest",
@@ -147,6 +147,84 @@
     "file": "crates/landscape-analyze/src/lib.rs",
     "old": "        .filter(|f| f.disposition == Disposition::Primary)\n        .count();",
     "new": "        .count();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a page that never opened is reported as one that was read",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        .filter(|hit| so_far.was_read(&hit.url))",
+    "new": "        .filter(|hit| !hit.url.is_empty())",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a fetch that failed still counts as an extractor having run",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "            .any(|p| p.url == url && p.window_words.is_some())",
+    "new": "            .any(|p| p.url == url)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a question search read a page for is reported as unchecked",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "            coverage.sources.extend(\n                searched\n                    .iter()\n                    .filter(|(q, _)| q == question)\n                    .map(|(_, url)| url.clone()),\n            );",
+    "new": "            let _ = searched;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "one company's search note is credited to whichever company merges first",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "    let who = origin\n        .trim_start_matches(\"https://\")\n        .trim_start_matches(\"http://\");",
+    "new": "    let who = \"this company\";",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "an admitted page nobody opened is left out of the note entirely",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "    if unread > 0 {",
+    "new": "    if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a page search admitted is left out of the coverage it belongs to",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        so_far.searched.extend(searched_pages(&admitted));",
+    "new": "        let _ = &admitted;",
     "run": [
       "cargo",
       "nextest",

@@ -416,31 +416,40 @@ pub async fn analyse_with(
     // exist, so a company whose own pages answered everything costs no search at all.
     let gaps = so_far.unanswered();
     if worth_searching(stopped_early, &gaps) {
-        let (admitted, note) = search_for_gaps(search, origin, &gaps, &so_far.urls()).await;
-        notes.extend(note);
-        let reading = Reading {
-            found: &found,
-            origin,
-            llm,
-            now,
-            notes: &notes,
-        };
-        for hit in &admitted {
-            if read_one(
-                fetcher,
-                &reading,
-                today,
-                &ToRead::found(hit),
-                &mut so_far,
-                on_progress,
-            )
-            .await
-                == Wanted::No
-            {
-                stopped_early = true;
-                break;
+        let (admitted, failures) = search_for_gaps(search, origin, &gaps, &so_far.urls()).await;
+        so_far.searched.extend(searched_pages(&admitted));
+        {
+            let reading = Reading {
+                found: &found,
+                origin,
+                llm,
+                now,
+                notes: &notes,
+            };
+            for hit in &admitted {
+                if read_one(
+                    fetcher,
+                    &reading,
+                    today,
+                    &ToRead::found(hit),
+                    &mut so_far,
+                    on_progress,
+                )
+                .await
+                    == Wanted::No
+                {
+                    stopped_early = true;
+                    break;
+                }
             }
         }
+        // **After the reading, from what the reading did.** The first version wrote this note
+        // straight after admission and said every admitted page *"was read"* — so a page that
+        // failed to fetch, or was too thin to open, or was never reached because the reader
+        // walked away, was reported as read anyway. Review found it, and the fix is not more
+        // careful wording: it is computing the sentence from `so_far` rather than from a list
+        // of intentions.
+        notes.extend(note_for(origin, &gaps, &admitted, &so_far, failures));
     }
 
     let reading = Reading {
@@ -450,7 +459,13 @@ pub async fn analyse_with(
         now,
         notes: &notes,
     };
-    let (report, coverage) = assemble(&reading, &so_far.claims, &so_far.sources, &so_far.opened);
+    let (report, coverage) = assemble(
+        &reading,
+        &so_far.claims,
+        &so_far.sources,
+        &so_far.opened,
+        &so_far.searched,
+    );
     Analysis {
         report,
         coverage,
@@ -518,24 +533,16 @@ async fn search_for_gaps(
     origin: &str,
     gaps: &[Answers],
     already: &[String],
-) -> (Vec<landscape_search::Found>, Option<String>) {
+) -> (Vec<landscape_search::Found>, Failures) {
     let Some(engine) = search else {
         // Not an error and not silence. A laptop with no `SEARX_URL` is the common case, and
         // the honest thing to say is that these gaps were not searched for rather than
         // letting them read as gaps somebody looked into.
-        return (
-            Vec::new(),
-            Some(format!(
-                "{} question(s) were not answered by this company's own pages and no search \
-                 engine is configured, so nothing further was looked for: {}.",
-                gaps.len(),
-                named(gaps)
-            )),
-        );
+        return (Vec::new(), Failures::NoEngine);
     };
 
     let Ok(target) = landscape_fetch::Target::parse(origin) else {
-        return (Vec::new(), None);
+        return (Vec::new(), Failures::NoEngine);
     };
     // **The host, and it is a placeholder.** Turning a description into a company's name is
     // entity resolution, which is its own piece of work; `landscape search` uses the same
@@ -564,33 +571,82 @@ async fn search_for_gaps(
         engine.name(),
         PAGES_FROM_SEARCH,
     );
-    (admitted.clone(), note_for(gaps, &admitted, failures))
+    (admitted, Failures::Asked(failures))
+}
+
+/// Every admitted page paired with the question it was admitted for.
+///
+/// **Named rather than inlined, because the wiring is the part with no test otherwise.** The
+/// mutation that dropped this step left every coverage row built from discovery alone — the
+/// defect review found — and nothing failed, because the test for it handed `assemble` a list
+/// built by the test rather than by the run.
+fn searched_pages(admitted: &[landscape_search::Found]) -> Vec<(Answers, String)> {
+    admitted
+        .iter()
+        .map(|hit| (hit.answers, hit.url.clone()))
+        .collect()
+}
+
+/// Whether an engine was asked at all, and how many of the asks did not complete.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Failures {
+    /// Nothing was asked, because nothing could be. Different from *asked and got nothing*.
+    NoEngine,
+    Asked(usize),
 }
 
 /// What the report says about a search, in the words `FACT_CHECKING.md` §3.2.5 allows.
 ///
 /// The subject of every sentence is us: what we looked for, what we could read, and how far we
 /// got with it. Nothing here characterises a publisher.
+///
+/// **Every count comes from `so_far`**, which is the record of what happened, rather than from
+/// the list of pages somebody meant to read.
+///
+/// **And it names the company.** `analyse_many` merges each subject's notes into one report and
+/// drops duplicates, so two companies with the same gaps would have collapsed into a single
+/// sentence saying *"this company"* — ambiguous where it matters most, and silently dropping one
+/// of the two.
 fn note_for(
+    origin: &str,
     gaps: &[Answers],
     admitted: &[landscape_search::Found],
-    failures: usize,
+    so_far: &SoFar,
+    failures: Failures,
 ) -> Option<String> {
+    let who = origin
+        .trim_start_matches("https://")
+        .trim_start_matches("http://");
+    if failures == Failures::NoEngine {
+        return Some(format!(
+            "{who}: {} question(s) were not answered by this company's own pages and no search \
+             engine is configured, so nothing further was looked for: {}.",
+            gaps.len(),
+            named(gaps)
+        ));
+    }
+
     let mut said = format!(
-        "{} question(s) were not answered by this company's own pages, so a search engine was \
-         asked for them: {}.",
+        "{who}: {} question(s) were not answered by this company's own pages, so a search engine \
+         was asked for them: {}.",
         gaps.len(),
         named(gaps)
     );
-    let primary = admitted
+
+    let read: Vec<&landscape_search::Found> = admitted
+        .iter()
+        .filter(|hit| so_far.was_read(&hit.url))
+        .collect();
+    let primary = read
         .iter()
         .filter(|f| f.disposition == Disposition::Primary)
         .count();
-    let unverified = admitted.len() - primary;
-    if admitted.is_empty() {
+    let unverified = read.len() - primary;
+
+    if read.is_empty() {
         said.push_str(" It returned nothing we could read.");
     } else {
-        said.push_str(&format!(" {} page(s) were read:", admitted.len()));
+        said.push_str(&format!(" {} page(s) were read:", read.len()));
         if primary > 0 {
             said.push_str(&format!(" {primary} on this company's own site"));
         }
@@ -603,10 +659,22 @@ fn note_for(
         }
         said.push('.');
     }
-    if failures > 0 {
+
+    // Admitted and not read: a fetch that failed, a page too thin to open, or a run the reader
+    // walked away from before we reached it. Counted rather than folded into the number above,
+    // because "we read it and it said nothing" and "we never opened it" are different findings.
+    let unread = admitted.len() - read.len();
+    if unread > 0 {
         said.push_str(&format!(
-            " {failures} search(es) did not complete, so those questions were not searched for."
+            " {unread} further page(s) were found and not read."
         ));
+    }
+    if let Failures::Asked(n) = failures {
+        if n > 0 {
+            said.push_str(&format!(
+                " {n} search(es) did not complete, so those questions were not searched for."
+            ));
+        }
     }
     Some(said)
 }
@@ -639,6 +707,17 @@ struct SoFar {
     /// which is this feature's central guarantee failing in exactly the case it is for: the
     /// model being unhealthy. Review found it. `None` means nobody has needed to know yet.
     model_ready: Option<bool>,
+    /// Every page search admitted, and the question it was admitted for.
+    ///
+    /// **Coverage is built from discovery, and search is the first thing that ever added a
+    /// page discovery had not.** Without this a question search read a page for reported
+    /// *"nothing was checked - our gap, not theirs"* — the report telling a reader we did not
+    /// look, immediately after looking. Review found it.
+    ///
+    /// Admitted rather than read, deliberately, because that is what `Coverage::sources` means
+    /// everywhere else: `pages_read` is the other number, and the gap between them is what
+    /// *"found and not read"* is built from.
+    searched: Vec<(Answers, String)>,
 }
 
 impl SoFar {
@@ -654,6 +733,17 @@ impl SoFar {
             .map(|(question, _)| *question)
             .filter(|question| !self.claims.iter().any(|(q, _)| q == question))
             .collect()
+    }
+
+    /// Whether a page was actually opened and handed to an extractor.
+    ///
+    /// `window_words` is set on exactly that path and left `None` by all three refusals — a
+    /// fetch that failed, a page below the quality floor, and a model that was not ready. A
+    /// page the run never reached is not in `pages` at all.
+    fn was_read(&self, url: &str) -> bool {
+        self.pages
+            .iter()
+            .any(|p| p.url == url && p.window_words.is_some())
     }
 
     /// Every URL this run has already touched, so search does not re-admit one.
@@ -762,6 +852,7 @@ async fn read_one(
     // an empty screen reads as nothing happening.
     let outcome = {
         let (claims, sources, opened) = (&so_far.claims, &so_far.sources, &so_far.opened);
+        let searched = &so_far.searched;
         let label = label.clone();
         let cite = &cite;
         let mut emit = |partial: &[Finding]| {
@@ -785,7 +876,7 @@ async fn read_one(
             if !partial.is_empty() && !with_source.iter().any(|s| s.label == label) {
                 with_source.push(cite(page_title(&markdown, &url)));
             }
-            let (report, _) = assemble(reading, &with_partial, &with_source, opened);
+            let (report, _) = assemble(reading, &with_partial, &with_source, opened, searched);
             on_progress(&report)
         };
         stages::extract(llm, question, &url, &markdown, today, &mut emit).await
@@ -820,7 +911,13 @@ async fn read_one(
     }
 
     // One page done. Whoever is waiting can have what exists so far.
-    let (report, _) = assemble(reading, &so_far.claims, &so_far.sources, &so_far.opened);
+    let (report, _) = assemble(
+        reading,
+        &so_far.claims,
+        &so_far.sources,
+        &so_far.opened,
+        &so_far.searched,
+    );
     on_progress(&report)
 }
 
@@ -860,6 +957,7 @@ fn assemble(
     claims: &[(Answers, Claim)],
     sources: &[Source],
     opened: &[(Answers, usize)],
+    searched: &[(Answers, String)],
 ) -> (Report, Vec<Coverage>) {
     let Reading {
         found,
@@ -873,7 +971,16 @@ fn assemble(
         .map(|(question, _)| {
             let read = opened.iter().filter(|(q, _)| q == question).count();
             let facts = claims.iter().filter(|(q, _)| q == question).count();
-            found.coverage(*question, read, facts)
+            let mut coverage = found.coverage(*question, read, facts);
+            // Discovery's pages, then search's. Both were admitted for this question, and a
+            // note that counted only the first would describe a run that did not happen.
+            coverage.sources.extend(
+                searched
+                    .iter()
+                    .filter(|(q, _)| q == question)
+                    .map(|(_, url)| url.clone()),
+            );
+            coverage
         })
         .collect();
 
@@ -1937,6 +2044,29 @@ mod filling_gaps {
         }
     }
 
+    /// A run that opened exactly these URLs, so a note can be asserted against what happened
+    /// rather than against what was admitted.
+    fn page(url: &str, window_words: Option<usize>, summary: &str) -> PageResult {
+        PageResult {
+            url: url.to_owned(),
+            question: Answers::Pricing,
+            words: window_words.map(|_| 500),
+            quality: window_words.map(|_| "good"),
+            // The one field set on the extract path and left `None` by every refusal.
+            window_words,
+            summary: summary.to_owned(),
+            details: Vec::new(),
+        }
+    }
+
+    /// A run that opened exactly these URLs, so a note can be asserted against what happened.
+    fn having_read(urls: &[&str]) -> SoFar {
+        SoFar {
+            pages: urls.iter().map(|u| page(u, Some(120), "read")).collect(),
+            ..SoFar::default()
+        }
+    }
+
     /// A provider that always fails, which is the common real one: an engine that is down.
     struct Down;
     #[async_trait::async_trait]
@@ -1988,11 +2118,21 @@ mod filling_gaps {
     async fn a_gap_nobody_could_search_is_said_out_loud() {
         // The laptop default. A reader cannot otherwise tell a company with nothing published
         // from a run that never asked, and those are different facts about the world.
-        let (admitted, note) = search_for_gaps(None, "https://e.com", &[Answers::Trust], &[]).await;
+        let (admitted, failures) =
+            search_for_gaps(None, "https://e.com", &[Answers::Trust], &[]).await;
         assert!(admitted.is_empty());
-        let note = note.expect("a gap nobody searched has to be reported");
+        assert_eq!(failures, Failures::NoEngine);
+        let note = note_for(
+            "https://e.com",
+            &[Answers::Trust],
+            &admitted,
+            &SoFar::default(),
+            failures,
+        )
+        .expect("a gap nobody searched has to be reported");
         assert!(note.contains("no search engine is configured"), "{note}");
         assert!(note.contains("trust"), "{note}");
+        assert!(note.starts_with("e.com:"), "the note names nobody: {note}");
     }
 
     #[tokio::test]
@@ -2017,7 +2157,7 @@ mod filling_gaps {
             "https://e.com/pricing-details",
             "https://someblog.example/e-review",
         ]);
-        let (admitted, note) =
+        let (admitted, failures) =
             search_for_gaps(Some(&engine), "https://e.com", &[Answers::Pricing], &[]).await;
 
         let own = admitted
@@ -2031,7 +2171,20 @@ mod filling_gaps {
             .expect("the other page");
         assert_eq!(other.disposition, Disposition::Unverified);
 
-        let note = note.expect("a search that read pages has to say so");
+        let read = having_read(&[
+            "https://e.com/pricing-details",
+            "https://someblog.example/e-review",
+        ]);
+        let note = note_for(
+            "https://e.com",
+            &[Answers::Pricing],
+            &admitted,
+            &read,
+            failures,
+        )
+        .expect("a search that read pages has to say so");
+        assert!(note.starts_with("e.com:"), "{note}");
+        assert!(note.contains("2 page(s) were read"), "{note}");
         assert!(note.contains("1 on this company's own site"), "{note}");
         assert!(note.contains("labelled unverified"), "{note}");
 
@@ -2047,10 +2200,18 @@ mod filling_gaps {
         // A search failure is not an analysis failure — and it is also not nothing. Without
         // this line the section keeps a coverage note that reads as "we looked and there was
         // nothing", which is the one thing we did not establish.
-        let (admitted, note) =
+        let (admitted, failures) =
             search_for_gaps(Some(&Down), "https://e.com", &[Answers::Changes], &[]).await;
         assert!(admitted.is_empty());
-        let note = note.expect("a failed search has to be reported");
+        assert_eq!(failures, Failures::Asked(1));
+        let note = note_for(
+            "https://e.com",
+            &[Answers::Changes],
+            &admitted,
+            &SoFar::default(),
+            failures,
+        )
+        .expect("a failed search has to be reported");
         assert!(note.contains("did not complete"), "{note}");
     }
 
@@ -2124,6 +2285,188 @@ mod filling_gaps {
             via: landscape_discover::rank::Via::Probe,
         });
         assert_eq!(probed.disposition, Disposition::Primary);
+    }
+
+    #[tokio::test]
+    async fn a_page_that_failed_to_fetch_is_not_reported_as_read() {
+        // Review's first finding. The note used to be written straight after admission, so a
+        // page that never came back — a dead host, a page too thin to open, a run the reader
+        // walked away from — was counted as read anyway.
+        let engine = Canned::holding(&["https://e.com/one", "https://elsewhere.example/two"]);
+        let (admitted, failures) =
+            search_for_gaps(Some(&engine), "https://e.com", &[Answers::Pricing], &[]).await;
+        assert_eq!(admitted.len(), 2);
+
+        // **The second is in `pages` with no window**, which is what a failed fetch actually
+        // leaves behind — an earlier version of this test left it out of `pages` entirely, so
+        // deleting the `window_words` check broke nothing and the mutation survived. Entry 32:
+        // a test named for one guard, held up by another.
+        let mut read = having_read(&["https://e.com/one"]);
+        read.pages.push(page(
+            "https://elsewhere.example/two",
+            None,
+            "could not fetch",
+        ));
+        let note = note_for(
+            "https://e.com",
+            &[Answers::Pricing],
+            &admitted,
+            &read,
+            failures,
+        )
+        .expect("a note");
+        assert!(note.contains("1 page(s) were read"), "{note}");
+        assert!(
+            note.contains("1 further page(s) were found and not read"),
+            "a page nobody opened is missing from the note: {note}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_run_that_opened_none_of_them_says_exactly_that() {
+        let engine = Canned::holding(&["https://e.com/one"]);
+        let (admitted, failures) =
+            search_for_gaps(Some(&engine), "https://e.com", &[Answers::Pricing], &[]).await;
+        let note = note_for(
+            "https://e.com",
+            &[Answers::Pricing],
+            &admitted,
+            &SoFar::default(),
+            failures,
+        )
+        .expect("a note");
+        assert!(note.contains("nothing we could read"), "{note}");
+        assert!(
+            note.contains("1 further page(s) were found and not read"),
+            "{note}"
+        );
+    }
+
+    #[test]
+    fn a_question_search_read_a_page_for_is_not_reported_as_unchecked() {
+        // Review's second finding, and the sharpest of the three: `Coverage` is built from
+        // discovery, and search was the first thing ever to add a page discovery had not. A
+        // question whose only page came from search reported *"nothing was checked - our gap,
+        // not theirs"* — the report saying we did not look, immediately after looking.
+        let found = landscape_discover::Discovered {
+            sources: Vec::new(),
+            checked: Vec::new(),
+            stopped_early: false,
+        };
+        let notes: Vec<String> = Vec::new();
+        let reading = Reading {
+            found: &found,
+            origin: "https://e.com",
+            llm: &landscape_llm::LlamaClient::new("http://127.0.0.1:1".to_owned()),
+            now: chrono::Utc::now(),
+            notes: &notes,
+        };
+        let searched = vec![(Answers::Trust, "https://elsewhere.example/e".to_owned())];
+
+        let (_, coverage) = assemble(&reading, &[], &[], &[(Answers::Trust, 1)], &searched);
+        let trust = coverage
+            .iter()
+            .find(|c| c.question == "trust")
+            .expect("a coverage row per question");
+        assert_eq!(
+            trust.sources,
+            vec!["https://elsewhere.example/e".to_owned()]
+        );
+        assert!(
+            trust.note().contains("read 1 page"),
+            "a page we read is reported as unchecked: {}",
+            trust.note()
+        );
+    }
+
+    #[tokio::test]
+    async fn every_page_search_admitted_reaches_the_coverage_it_belongs_to() {
+        // The wiring, asserted. Dropping this step rebuilt every coverage row from discovery
+        // alone — the defect review found — and the test for that defect passed anyway,
+        // because it handed `assemble` a list the test had built rather than the run.
+        let engine = Canned::holding(&["https://e.com/a", "https://elsewhere.example/b"]);
+        let (admitted, _) =
+            search_for_gaps(Some(&engine), "https://e.com", &[Answers::Trust], &[]).await;
+        assert_eq!(admitted.len(), 2);
+
+        let pairs = searched_pages(&admitted);
+        assert_eq!(pairs.len(), admitted.len());
+        for hit in &admitted {
+            assert!(
+                pairs.contains(&(hit.answers, hit.url.clone())),
+                "{} never reached the coverage for {:?}",
+                hit.url,
+                hit.answers
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn an_admitted_page_reaches_its_coverage_through_the_real_run() {
+        // **The call site, not the helper.** `searched_pages` had a test and the statement that
+        // calls it did not, so deleting the call left every coverage row built from discovery
+        // alone with a green suite. Nothing here resolves — `.invalid` is reserved and never
+        // does — so discovery finds nothing, every question is a gap, and the one page search
+        // admits fails to fetch. That is enough: coverage has to know the page existed.
+        let engine = Canned::holding(&["https://found.invalid/trust"]);
+        let analysis = analyse_with(
+            &landscape_fetch::Fetcher::new(),
+            &landscape_llm::LlamaClient::new("http://127.0.0.1:1".to_owned()),
+            "https://subject.invalid",
+            chrono::Utc::now(),
+            chrono::Utc::now().date_naive(),
+            Some(&engine),
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+
+        assert!(
+            analysis
+                .coverage
+                .iter()
+                .any(|c| c.sources.iter().any(|u| u == "https://found.invalid/trust")),
+            "a page search admitted is missing from every coverage row: {:#?}",
+            analysis.coverage
+        );
+        // And it is reported as found and not read, because the fetch failed.
+        assert!(
+            analysis
+                .report
+                .notes
+                .iter()
+                .any(|n| n.contains("found and not read")),
+            "{:#?}",
+            analysis.report.notes
+        );
+    }
+
+    #[test]
+    fn each_company_s_search_note_says_which_company() {
+        // Review's third finding. `analyse_many` merges notes and drops duplicates, so two
+        // companies with the same gaps collapsed into one sentence saying "this company".
+        let gaps = [Answers::Trust];
+        let first = note_for(
+            "https://a.com",
+            &gaps,
+            &[],
+            &SoFar::default(),
+            Failures::NoEngine,
+        )
+        .expect("a note");
+        let second = note_for(
+            "https://b.com",
+            &gaps,
+            &[],
+            &SoFar::default(),
+            Failures::NoEngine,
+        )
+        .expect("a note");
+        assert!(first.starts_with("a.com:"), "{first}");
+        assert!(second.starts_with("b.com:"), "{second}");
+        assert_ne!(
+            first, second,
+            "two companies with the same gaps produce one note, and the merge drops one"
+        );
     }
 
     #[test]
