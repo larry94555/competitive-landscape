@@ -23,8 +23,8 @@ pub use coverage::{attributed, Attempt, Coverage};
 pub use examples::{examples, Example, CURATION_NOTE};
 pub use extract::{
     Assurance, AssuranceClaim, BillingPeriod, Change, FeatureExtraction, IdentityExtraction,
-    PageChanges, PageFeatures, PageIdentity, PagePricing, PageTrust, PricingExtraction, Stated,
-    TrustExtraction,
+    PageChanges, PageFeatures, PageHiring, PageIdentity, PagePricing, PageTrust, PricingExtraction,
+    Role, Stated, TrustExtraction,
 };
 pub use report::{Claim, Confidence, Report, Section, SectionStatus};
 pub use source::{Disposition, Source};

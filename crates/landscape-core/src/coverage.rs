@@ -71,9 +71,11 @@ pub struct Coverage {
     /// How many of those pages were actually read.
     ///
     /// Separate from `sources.len()` because they come apart, and the gap between them is a
-    /// finding of its own: four of the six questions have no extractor yet, so their pages are
-    /// admitted and never opened. A note saying *"read one page, it stated nothing"* about a
-    /// page nobody opened would be **this feature committing the error it exists to prevent**.
+    /// finding of its own. **Every question has an extractor now**, so a page is no longer
+    /// admitted and skipped for want of one — but the gap did not close with it: a page can
+    /// fail to fetch, or be too thin to be worth reading, or belong to a run the plan stopped
+    /// short of. A note saying *"read one page, it stated nothing"* about a page nobody opened
+    /// would be **this feature committing the error it exists to prevent**.
     pub pages_read: usize,
     /// Facts extracted from them — plans, capabilities, dated changes.
     pub facts: usize,
@@ -266,9 +268,11 @@ mod tests {
 
     #[test]
     fn a_page_found_and_never_opened_is_our_gap_too() {
-        // Four of the six questions have no extractor yet. Saying "we read it and it said
+        // A page can be admitted and never opened — the fetch failed, the page was too thin to
+        // be worth reading, or the plan stopped short of it. Saying "we read it and it said
         // nothing" about a page nobody opened would be this feature committing the exact
-        // error it exists to prevent.
+        // error it exists to prevent. The commonest cause used to be a question with no
+        // extractor; that one is gone and this is not.
         let coverage = Coverage {
             question: "trust".to_owned(),
             sources: vec!["https://e.com/security".to_owned()],

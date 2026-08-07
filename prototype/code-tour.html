@@ -80,97 +80,112 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    empty: {
-      name: "a section that could never fill",
-      purpose: "Two of six questions had no extractor.",
+    last: {
+      name: "the last section that could never fill",
+      purpose: "One of six questions had no extractor.",
       lines: [
-        ['t', '  Trust & security posture'],
+        ['t', '  Where they are investing'],
         ['c', ''],
-        ['s', '  no extractor yet for trust pages'],
+        ['s', '  no extractor yet for direction pages'],
         ['c', ''],
-        ['c', '// The page was found. It was fetched.'],
-        ['f', '// Then it was thrown away.']
+        ['c', '// Discovery admitted the careers page.'],
+        ['f', '// Nothing ever opened it.']
       ]
     },
-    closed: {
-      name: "but this vocabulary is closed",
-      purpose: "A company does not invent a standard.",
+    written: {
+      name: "but somebody wrote these on purpose",
+      purpose: "A job title is a line, not a judgement.",
       lines: [
-        ['f', '  SOC 2 Type II   ISO 27001'],
-        ['f', '  HIPAA           GDPR'],
+        ['f', '  Senior / Staff Product Engineer'],
+        ['f', '  Senior Counsel'],
         ['c', ''],
-        ['c', '// A capability can be called anything.'],
-        ['t', '// A certification cannot.']
+        ['c', '// A date is parsed, not generated.'],
+        ['t', '// So is this. No model runs here.']
       ]
     },
-    split: {
-      name: "so the work splits in two",
-      purpose: "Arithmetic, then reading.",
+    sorted: {
+      name: "so do not sort them",
+      purpose: "The page is right about its own company.",
       lines: [
-        ['f', '  scanner  finds the mention'],
-        ['t', '  model    reads the claim'],
+        ['s', '  Product Marketing Manager'],
+        ['s', '    filed under Product Management'],
+        ['s', '  Developer Relations'],
+        ['s', '    filed under Marketing'],
         ['c', ''],
-        ['c', '// Nothing can be reported that the'],
-        ['c', '// scanner did not find written down.']
+        ['f', '// A keyword gets both wrong.']
       ]
     },
-    same: {
-      name: "and the claim is the whole thing",
-      purpose: "Same words. Different fact.",
+    magic: {
+      name: "and one group is called Magic",
+      purpose: "No table of functions contains it.",
       lines: [
-        ['f', '  SOC 2 Type II report available'],
-        ['s', '  SOC 2 is on our roadmap for 2027'],
+        ['t', '  Magic'],
+        ['t', '    Production Designer'],
         ['c', ''],
-        ['c', '// A buyer choosing between two'],
-        ['t', '// vendors is choosing on exactly this.']
+        ['c', '// Report the titles as written.'],
+        ['f', '// The reader does the sorting.']
       ]
     },
-    words: {
-      name: "so the report says states",
-      purpose: "Not is certified.",
+    above: {
+      name: "everything dangerous is above the list",
+      purpose: "Three real pages. Three near misses.",
       lines: [
-        ['f', '  states SOC 2 Type II'],
-        ['t', '  says it is working towards HIPAA'],
-        ['t', '  names CCPA without saying'],
+        ['s', '  The Pragmatic Engineer'],
+        ['s', '  Staff Java Engineer in Brno, 2015'],
+        ['s', '  Kelsey Weber , Engineering Manager'],
         ['c', ''],
-        ['c', '// A fact about the page, not a fact'],
-        ['c', '// about the world. We read pages.']
+        ['f', '// A podcast. An employee. A quote.']
       ]
     },
-    frozen: {
-      name: "then freeze a real page",
-      purpose: "And it found something at once.",
+    scope: {
+      name: "so start where the page says",
+      purpose: "Its own heading, and the next one stops it.",
       lines: [
-        ['s', '  SOC 2          from the banner'],
-        ['s', '  SOC 2 Type II  from the section'],
+        ['t', '  ## Open roles'],
+        ['f', '  Senior / Staff Product Engineer'],
+        ['f', '  Senior Counsel'],
+        ['s', '  ## Our Hiring Process'],
         ['c', ''],
-        ['c', '// One certification, told twice, at'],
-        ['f', '// two precisions, for two calls.']
+        ['c', '// Below that, a hiring manager is'],
+        ['c', '// a job somebody already has.']
       ]
     },
-    reading: {
-      name: "and one it was reading instead",
-      purpose: "Measuring found it, not a test.",
+    deleted: {
+      name: "the harness deleted a rule",
+      purpose: "Nothing failed. So nothing needed it.",
       lines: [
-        ['s', '  basecamp.com/status    read'],
-        ['s', '  basecamp.com/security  skipped'],
+        ['s', '  match plurals too'],
         ['c', ''],
-        ['c', '// One page a question. It ranked the'],
-        ['f', '// status page first, so the extractor'],
-        ['f', '// could never fire.']
+        ['f', '  Developers   Partners   Managers'],
+        ['c', ''],
+        ['c', '// Every line it reached was a'],
+        ['t', '// navigation label. It is gone.']
       ]
     },
     cost: {
       name: "what it costs",
       purpose: "Counted, with no model running.",
       lines: [
-        ['t', '  88 calls  ->  103'],
+        ['t', '  16 calls  ->  16'],
         ['c', ''],
-        ['f', '  five of six companies now fill'],
-        ['s', '  basecamp names none - and says so'],
+        ['f', '  a whole section, for a fetch'],
+        ['t', '  helpscout first content: 1 -> 0'],
         ['c', ''],
-        ['c', '// A page of reassurance with nothing'],
-        ['c', '// named costs zero.']
+        ['c', '// Five of six companies now start'],
+        ['c', '// with no model call at all.']
+      ]
+    },
+    gone: {
+      name: "and the string that said so",
+      purpose: "A predicate nobody can make false.",
+      lines: [
+        ['s', '  fn has_extractor(q) -> bool'],
+        ['s', '      true   // for all six'],
+        ['c', ''],
+        ['f', '  match q { .. }   // no wildcard'],
+        ['c', ''],
+        ['t', '// A seventh question is now a'],
+        ['t', '// build error, not a log line.']
       ]
     }
   };
@@ -214,21 +229,21 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:empty",   c: "A section that could never fill." },
-    { kind: "means",       a: "spot:#code",   c: "The page was fetched, then thrown away." },
+    { kind: "recognition", a: "file:last",    c: "The last section that could never fill." },
+    { kind: "means",       a: "spot:#code",   c: "Discovery found the page. Nothing opened it." },
 
-    { kind: "turn",        a: "file:closed",  c: "But a company does not invent a standard." },
-    { kind: "result",      a: "file:split",   c: "So the scanner finds it and the model reads it." },
+    { kind: "turn",        a: "file:written", c: "But somebody wrote these down on purpose." },
+    { kind: "result",      a: "file:sorted",  c: "So do not sort them. A keyword gets it wrong." },
+    { kind: "result",      a: "file:magic",   c: "One group is called Magic. Report what is written." },
 
-    { kind: "turn",        a: "file:same",    c: "Have it, or working towards it. Same words." },
-    { kind: "result",      a: "file:words",   c: "So the report says states, never is certified." },
+    { kind: "turn",        a: "file:above",   c: "A podcast. An employee. A testimonial." },
+    { kind: "result",      a: "file:scope",   c: "So start where the page says its list starts." },
 
-    { kind: "result",      a: "file:frozen",  c: "Freezing a real page found a duplicate at once." },
-    { kind: "result",      a: "file:reading", c: "And measuring found the page it read instead." },
+    { kind: "result",      a: "file:deleted", c: "Then the harness deleted a rule nothing needed." },
+    { kind: "result",      a: "file:cost",    c: "16 calls stay 16. A whole section, for a fetch." },
+    { kind: "result",      a: "file:gone",    c: "And a seventh question is now a build error." },
 
-    { kind: "result",      a: "file:cost",    c: "88 calls become 103. Five of six now fill." },
-
-    { kind: "close",       a: "hold",         c: "One fewer section that can never fill." }
+    { kind: "close",       a: "hold",         c: "No section left that can never fill." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the

@@ -33,6 +33,104 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 25 — the sixth question, for nothing
+
+**Date:** 2026-08-07 · **Where:** this laptop · **Model:** none — every number below is counted
+without one, which is the point of this one twice over.
+
+*Where they are investing* was the last of the six questions with no extractor. A careers page
+was admitted by discovery, and then `has_extractor` returned false, the page was never fetched,
+and the section carried a coverage note for ever. This reads it, and **asks no model anything**:
+a job title is a line somebody wrote down on purpose, so `ARCHITECTURE.md` §5.4 puts it on the
+same side of the line as a date.
+
+### What it costs: nothing, on all six demo companies
+
+`landscape cost` counts the calls a run would make, with no model running. Both columns are the
+same command on the same six domains, before and after.
+
+| | model calls, before | after | first chance of content |
+|---|---|---|---|
+| basecamp.com | 14 | 14 | 1 call, unchanged |
+| linear.app | 16 | 16 | 0 calls, and now from two pages rather than one |
+| usefathom.com | 17 | 17 | 0 calls |
+| simpleanalytics.com | 17 | 17 | 0 calls |
+| **helpscout.com** | **19** | **19** | **1 call → 0** |
+| front.com | 17 | 17 | 0 calls |
+
+**A whole section, at no cost in calls, on every one of them.** And Help Scout moved: it
+publishes no changelog this pipeline finds, so its first content used to wait on the model being
+up and answering. Its careers page is deterministic, so it now goes first and the wait for
+something on screen is a fetch. **Five of the six demo companies now get their first content
+with no model call**, up from four.
+
+Basecamp is the honest exception. `basecamp.com/jobs` is admitted and yields no roles, so it is
+read, costs nothing, and says so — which is a fact about Basecamp rather than a gap in the
+report.
+
+### The design decision, and the three pages that made it
+
+The obvious version of this extractor sorts titles into functions and reports *engineering: 7,
+sales: 3*. Three real careers pages, frozen into the golden set, say not to:
+
+* Linear files **Product Marketing Manager** under *Product Management* and **Developer
+  Relations** under *Marketing*. A keyword table puts both in the other bucket.
+* Front's **AI Engineer - GTM / Operations** is filed under *G&A*.
+* Linear's own group labels include **Magic**.
+
+So the titles are reported as the page writes them and the reader does the sorting. On
+linear.app that reads as *five titles carrying "Engineer", four carrying "Designer", and one
+"Senior Counsel"* — an investment signal made of twenty lines, each of which can be found on the
+page it came from.
+
+### Everything dangerous was outside the list
+
+Each of the three pages carries a short line, with a job word in it and no full stop, that is
+not a vacancy:
+
+```text
+The Pragmatic Engineer                                 linear.app/careers - a podcast
+Staff Java Engineer in Brno, Czechia, started in 2015  helpscout.com - an employee
+Kelsey Weber , Engineering Manager                     front.com - a testimonial byline
+```
+
+All three sit *above* the page's own `## Open roles` heading, which is why the scan is scoped to
+it and stops at the next heading of the same level — Help Scout's list is followed by *"Our
+Hiring Process"*, which explains what a hiring manager does.
+
+**Front's list is the last heading on its page**, so there the scan reaches the footer and only
+the shape rules stand between a navigation label and a job. The first run over it reported
+*"Become a Partner"* — a reseller programme — as an open role. `partner`, `associate` and `lead`
+left the word list; no title on any of the three pages needs them, because a real title carrying
+one carries another word too: *Lead/Principal Product Manager*.
+
+### And the harness deleted a rule for free
+
+Twenty-five mutations, and one of them could not be caught: putting back a defect in the
+plural-matching rule broke no test. Looking for the test to write showed there was none to
+write. **No title on any of the three pages is plural** — a job advertisement names one job —
+and every line the rule did reach was a navigation label: `Developers`, `Partners`, `Managers`.
+It widened the false-positive surface and bought nothing, so it is gone, and the mutation now
+puts it *back* and a test fails.
+
+That is the second time this harness has removed code rather than adding a test for it, and it
+is the more useful of the two outcomes.
+
+### The string that said "no extractor yet" is gone too
+
+With all six covered, `has_extractor` would have returned `true` for every question — a
+predicate no caller can make false, which is the register's commonest defect shape. It is
+deleted, and so is the branch behind it that fetched nothing and wrote a line to a run log.
+`stages::extract` now matches all six questions **with no wildcard arm**, so a seventh question
+is a build error rather than a string nobody reads.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 24 | 586 | 51 |
+| now | **621** | **51** |
+
+---
+
 ## Run 24 — the fifth question, and the page it was reading instead
 
 **Date:** 2026-08-06 · **Where:** this laptop · **Model:** none — every number below is counted

@@ -1,0 +1,92 @@
+{
+  "page": "front-jobs.md",
+  "from": "https://front.com/jobs fetched 2026-08-07",
+  "why": "The volume page, and the only one of the three whose list is its last heading - so the scan runs through the footer and the shape rules are all that stand between a navigation label and a vacancy. It advertises Security Operations Engineer (Contractor) three times, once per city, which is why one entry per title is a rule rather than a preference; it is also the page that exceeds the cap, so considered and the number kept differ here and nowhere else. Its footer link Become a Partner was read as an open role until partner left the word list.",
+  "answers": "direction",
+  "openings": {
+    "roles": [
+      {
+        "title": "AI Engineer - GTM / Operations (Contract)",
+        "quote": "AI Engineer - GTM / Operations (Contract)"
+      },
+      {
+        "title": "Senior Corporate FP&A Manager",
+        "quote": "Senior Corporate FP&A Manager"
+      },
+      {
+        "title": "Staff Data Engineer",
+        "quote": "Staff Data Engineer"
+      },
+      {
+        "title": "Senior Software Engineer - Front End Architecture / React Native",
+        "quote": "Senior Software Engineer - Front End Architecture / React Native"
+      },
+      {
+        "title": "AI Engineering Manager (Core AI Platform)",
+        "quote": "AI Engineering Manager (Core AI Platform)"
+      },
+      {
+        "title": "Senior Software Engineer (Backend), Deliverability",
+        "quote": "Senior Software Engineer (Backend), Deliverability"
+      },
+      {
+        "title": "Senior Design Engineer",
+        "quote": "Senior Design Engineer"
+      },
+      {
+        "title": "Senior Product Manager - AI",
+        "quote": "Senior Product Manager - AI"
+      },
+      {
+        "title": "Senior Software Engineer, Workflows",
+        "quote": "Senior Software Engineer, Workflows"
+      },
+      {
+        "title": "Senior Software Engineer, Mobile Platform (React Native)",
+        "quote": "Senior Software Engineer, Mobile Platform (React Native)"
+      },
+      {
+        "title": "Head of Product Design",
+        "quote": "Head of Product Design"
+      },
+      {
+        "title": "Senior Product Manager (Developer Platform)",
+        "quote": "Senior Product Manager (Developer Platform)"
+      },
+      {
+        "title": "Senior Software Engineer, Core Product",
+        "quote": "Senior Software Engineer, Core Product"
+      },
+      {
+        "title": "Security Operations Engineer (Contractor)",
+        "quote": "Security Operations Engineer (Contractor)"
+      },
+      {
+        "title": "Account Executive, SMB",
+        "quote": "Account Executive, SMB"
+      },
+      {
+        "title": "Customer Success Manager - Tech Touch",
+        "quote": "Customer Success Manager - Tech Touch"
+      },
+      {
+        "title": "Account Manager",
+        "quote": "Account Manager"
+      },
+      {
+        "title": "Senior Manager, Account Management",
+        "quote": "Senior Manager, Account Management"
+      },
+      {
+        "title": "Sales Development Representative, EMEA",
+        "quote": "Sales Development Representative, EMEA"
+      },
+      {
+        "title": "Customer Support Specialist",
+        "quote": "Customer Support Specialist"
+      }
+    ],
+    "considered": 21,
+    "announced": true
+  }
+}

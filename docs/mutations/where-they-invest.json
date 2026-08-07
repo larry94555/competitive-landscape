@@ -1,0 +1,347 @@
+[
+  {
+    "name": "a job title in a testimonial above the list is an open role",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "        return (0, lines.len(), false);",
+    "new": "        return (0, lines.len(), true);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the whole page is read even when it says where its list is",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "    (at + 1, end, true)",
+    "new": "    (0, lines.len(), true)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "the list runs on into the section after it",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "        .find(|(_, line)| doc::heading_level(line).is_some_and(|found| found <= level))",
+    "new": "        .find(|(_, line)| doc::heading_level(line).is_some_and(|found| found < level))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a heading inside the list ends it, so only the first group is read",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "        .find(|(_, line)| doc::heading_level(line).is_some_and(|found| found <= level))",
+    "new": "        .find(|(_, line)| doc::heading_level(line).is_some())",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a button anywhere on the page is taken for the announcement",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "    ANNOUNCEMENTS.iter().any(|phrase| text == *phrase)",
+    "new": "    ANNOUNCEMENTS.iter().any(|phrase| text.contains(phrase))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract"
+    ]
+  },
+  {
+    "name": "a sentence about the list is read as a role in it",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "    if text.ends_with(['.', '?', '!', ',', ';']) {\n        return None;\n    }",
+    "new": "    if false {\n        return None;\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a one-word navigation label is a vacancy",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "    if !(MIN_TITLE_WORDS..=MAX_TITLE_WORDS).contains(&words) {",
+    "new": "    if !(1..=MAX_TITLE_WORDS).contains(&words) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a paragraph long enough to be prose is a job title",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "    if !(MIN_TITLE_WORDS..=MAX_TITLE_WORDS).contains(&words) {",
+    "new": "    if !(MIN_TITLE_WORDS..=usize::MAX).contains(&words) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract"
+    ]
+  },
+  {
+    "name": "a group label is read as a role because the match is a substring",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "            if bounded(&lower, start, end) {\n                return true;\n            }",
+    "new": "            if true {\n                return true;\n            }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a plural job word matches, so a footer label becomes a vacancy",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "            let end = start + word.len();\n            from = end;",
+    "new": "            let mut end = start + word.len();\n            from = end;\n            if lower[end..].starts_with('s') {\n                end += 1;\n            }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract"
+    ]
+  },
+  {
+    "name": "the same role listed once per city is reported once per city",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "        if seen.contains(&key) {\n            continue;\n        }",
+    "new": "        if false {\n            continue;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "the same role in two letter cases is two roles",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "        let key = title.to_lowercase();",
+    "new": "        let key = title.clone();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract"
+    ]
+  },
+  {
+    "name": "the count reported is what fit under the cap",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "    let considered = roles.len();\n    roles.truncate(MAX_ROLES);",
+    "new": "    roles.truncate(MAX_ROLES);\n    let considered = roles.len();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "the cap never applies, so a job board is pasted into a report",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "    roles.truncate(MAX_ROLES);",
+    "new": "    roles.truncate(usize::MAX);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "the evidence is the title rather than the line it was read from",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "            title,\n            quote: (*line).trim().to_owned(),",
+    "new": "            title: title.clone(),\n            quote: title,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract"
+    ]
+  },
+  {
+    "name": "a careers page costs a model call for every role on it",
+    "file": "crates/landscape-analyze/src/order.rs",
+    "old": "        Answers::Changes | Answers::Direction => 0,",
+    "new": "        Answers::Changes => 0,\n        Answers::Direction => landscape_extract::hiring::every_role(markdown).roles.len(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a careers page waits behind the model like a page that needs one",
+    "file": "crates/landscape-analyze/src/order.rs",
+    "old": "    matches!(question, Answers::Changes | Answers::Direction)",
+    "new": "    matches!(question, Answers::Changes)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a careers page counts as a chance of content whatever is on it",
+    "file": "crates/landscape-analyze/src/order.rs",
+    "old": "            _ => !landscape_extract::hiring::every_role(markdown)\n                .roles\n                .is_empty(),",
+    "new": "            _ => true,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "an unreadable page still promises content because the gate moved",
+    "file": "crates/landscape-analyze/src/order.rs",
+    "old": "    if is_deterministic(question) {\n        if !landscape_extract::quality::assess(markdown)\n            .quality\n            .worth_extracting()\n        {\n            return false;\n        }",
+    "new": "    if is_deterministic(question) {\n        if false {\n            return false;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a hiring freeze is reported the same way as a page nobody read",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "            summary: \"no open roles listed on the page\".to_owned(),",
+    "new": "            summary: \"skipped - nothing to read\".to_owned(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "what the cap left out is not said on the run log",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "    if page.passed_over() > 0 {",
+    "new": "    if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a page-wide read is reported as if the page had named its list",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "    if !page.announced {",
+    "new": "    if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the report concludes about the company instead of quoting the page",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "            text: format!(\"lists an open role: {}\", role.title),",
+    "new": "            text: format!(\"is investing in {}\", role.title),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a role reaches the report without the line it was read from",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "                evidence_quote: Some(role.quote.clone()),",
+    "new": "                evidence_quote: None,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "what the cap left out is counted as a negative number",
+    "file": "crates/landscape-core/src/extract.rs",
+    "old": "        self.considered.saturating_sub(self.roles.len())",
+    "new": "        self.considered - self.roles.len()",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  }
+]

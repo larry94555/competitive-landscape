@@ -56,13 +56,13 @@ fn every_frozen_page_still_reads_the_way_it_did() {
 
 #[test]
 fn the_set_covers_every_question_that_has_an_extractor() {
-    // Five of the six questions extract. A question with an extractor and no frozen page is a
-    // rule nothing holds still — which is how span selection went five runs before anyone
-    // noticed it had been picking the FAQ.
+    // **All six extract now**, so this list is every question there is. A question with an
+    // extractor and no frozen page is a rule nothing holds still — which is how span selection
+    // went five runs before anyone noticed it had been picking the FAQ.
     //
-    // **Trust joined the list with its extractor**, and freezing a real security page paid for
-    // itself immediately: linear.app says `SOC 2` in a banner and `SOC 2 Type II` in the
-    // section below, and the first version reported both.
+    // Each new one has paid for its page on the first run. Trust: linear.app says `SOC 2` in a
+    // banner and `SOC 2 Type II` in the section below, and the first version reported both.
+    // Direction: front.com's footer link *"Become a Partner"* arrived as an open vacancy.
     let expectations = pages::load().expect("the page set loads");
     for question in [
         pages::Answers::Pricing,
@@ -70,6 +70,7 @@ fn the_set_covers_every_question_that_has_an_extractor() {
         pages::Answers::Changes,
         pages::Answers::Identity,
         pages::Answers::Trust,
+        pages::Answers::Direction,
     ] {
         assert!(
             expectations.iter().any(|e| e.answers == question),
@@ -92,6 +93,7 @@ fn the_set_holds_a_page_that_answers_nothing() {
                 || e.changes.as_ref().is_some_and(|c| c.considered == 0)
                 || e.facts.as_ref().is_some_and(Vec::is_empty)
                 || e.assurances.as_ref().is_some_and(|a| a.named.is_empty())
+                || e.openings.as_ref().is_some_and(|o| o.roles.is_empty())
         })
         .count();
     assert!(
@@ -136,13 +138,25 @@ fn every_expectation_freezes_a_body_and_not_just_a_heading() {
             // it — the same hole review found in the heading-only expectations.
             lines += assurances.named.iter().map(|n| n.text.len()).sum::<usize>();
         }
+        if let Some(openings) = &e.openings {
+            // The line, not the title. On all three frozen careers pages the two are the same
+            // string, because a role is written on a line of its own — so this counts the
+            // quote deliberately, to fail the day a page lists roles as `- Title` and the
+            // marker starts leaking into the evidence a reader is shown.
+            lines += openings
+                .roles
+                .iter()
+                .filter(|r| !r.quote.trim().is_empty())
+                .count();
+        }
 
         // The two pages that legitimately yield nothing are the controls, and they are
         // asserted by `the_set_holds_a_page_that_answers_nothing` instead.
         let yields_nothing = e.plan_windows.as_ref().is_some_and(Vec::is_empty)
             || e.changes.as_ref().is_some_and(|c| c.considered == 0)
             || e.facts.as_ref().is_some_and(Vec::is_empty)
-            || e.assurances.as_ref().is_some_and(|a| a.named.is_empty());
+            || e.assurances.as_ref().is_some_and(|a| a.named.is_empty())
+            || e.openings.as_ref().is_some_and(|o| o.roles.is_empty());
         assert!(
             yields_nothing || lines > 0,
             "{} freezes headings but no content, so a change inside a window would pass",

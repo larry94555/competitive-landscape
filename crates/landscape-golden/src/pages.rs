@@ -48,6 +48,7 @@ pub enum Answers {
     Changes,
     Identity,
     Trust,
+    Direction,
 }
 
 /// What the deterministic passes must produce for one frozen page.
@@ -82,6 +83,9 @@ pub struct PageExpectation {
     /// Each standard the page names, and how many it named. `Answers::Trust`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub assurances: Option<Assurances>,
+    /// Every open role the page lists, and how many it listed. `Answers::Direction`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub openings: Option<Openings>,
 }
 
 /// One window, heading and body.
@@ -171,6 +175,40 @@ impl From<landscape_extract::assurance::Named> for NamedStandard {
         Self {
             standard: found.standard,
             text: found.span.text.lines().map(str::to_owned).collect(),
+        }
+    }
+}
+
+/// What a careers page yields.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Openings {
+    /// Each role, in page order, after the cap.
+    pub roles: Vec<Opening>,
+    /// Distinct roles the page listed, before the cap.
+    pub considered: usize,
+    /// Whether the page announced where its list starts.
+    ///
+    /// Frozen because it decides how much of the page was read, and a change from `true` to
+    /// `false` would quietly widen the scan to a footer without changing a single role — the
+    /// half of this extractor that a list of titles cannot show.
+    pub announced: bool,
+}
+
+/// One open role.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Opening {
+    /// The title, as the page writes it.
+    pub title: String,
+    /// The line it was read from. Frozen for the same reason a change's quote is: a title can
+    /// stay right while the evidence under it drifts to another line.
+    pub quote: String,
+}
+
+impl From<&landscape_extract::hiring::Role> for Opening {
+    fn from(role: &landscape_extract::hiring::Role) -> Self {
+        Self {
+            title: role.title.clone(),
+            quote: role.quote.clone(),
         }
     }
 }
@@ -313,6 +351,38 @@ impl PageExpectation {
                 out.push(format!(
                     "standards considered: expected {}, got {}",
                     expected.considered, found.considered
+                ));
+            }
+        }
+
+        if let Some(expected) = &self.openings {
+            let found = landscape_extract::hiring::every_role(&markdown);
+            let got: Vec<Opening> = found.roles.iter().map(Opening::from).collect();
+            if got.len() != expected.roles.len() {
+                out.push(format!(
+                    "roles read: expected {}, got {}",
+                    expected.roles.len(),
+                    got.len()
+                ));
+            }
+            for (i, (want, have)) in expected.roles.iter().zip(&got).enumerate() {
+                if want != have {
+                    out.push(format!(
+                        "role {i}\n  expected {} | {}\n  got      {} | {}",
+                        want.title, want.quote, have.title, have.quote
+                    ));
+                }
+            }
+            if found.considered != expected.considered {
+                out.push(format!(
+                    "roles considered: expected {}, got {}",
+                    expected.considered, found.considered
+                ));
+            }
+            if found.announced != expected.announced {
+                out.push(format!(
+                    "the page announcing its list: expected {}, got {}",
+                    expected.announced, found.announced
                 ));
             }
         }
@@ -472,6 +542,7 @@ mod tests {
                 Answers::Changes => e.changes.is_some(),
                 Answers::Identity => e.facts.is_some(),
                 Answers::Trust => e.assurances.is_some(),
+                Answers::Direction => e.openings.is_some(),
             };
             assert!(asserted, "{} asserts nothing about {:?}", e.page, e.answers);
         }

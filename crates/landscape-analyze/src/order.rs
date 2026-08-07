@@ -48,11 +48,13 @@ pub const PAGES_PER_QUESTION: usize = 1;
 
 /// Whether a question is answered without a model.
 ///
-/// Only [`Answers::Changes`]. It is a `match` rather than a list so that adding a question kind
-/// has to decide this, rather than defaulting to "needs a model" by omission.
+/// Two of the six: [`Answers::Changes`] and [`Answers::Direction`]. A dated entry and a job
+/// title are both things somebody wrote on a page on purpose, and reading either is
+/// transcription. It is a `match` rather than a list so that adding a question kind has to
+/// decide this, rather than defaulting to "needs a model" by omission.
 #[must_use]
 pub const fn is_deterministic(question: Answers) -> bool {
-    matches!(question, Answers::Changes)
+    matches!(question, Answers::Changes | Answers::Direction)
 }
 
 /// What one run will read, and what it will not.
@@ -169,10 +171,8 @@ pub fn model_calls_for(question: Answers, markdown: &str) -> usize {
         Answers::Trust => landscape_extract::assurance::every_assurance(markdown)
             .named
             .len(),
-        // Parsed, not generated. The reason it is read first.
-        Answers::Changes => 0,
-        // No extractor yet, so the page is not opened and nothing is spent.
-        _ => 0,
+        // Parsed, not generated. The reason both are read first.
+        Answers::Changes | Answers::Direction => 0,
     }
 }
 
@@ -187,20 +187,25 @@ pub fn model_calls_for(question: Answers, markdown: &str) -> usize {
 /// `landscape read` prints after a real run.
 #[must_use]
 pub fn may_yield_content(question: Answers, markdown: &str) -> bool {
-    match question {
-        Answers::Changes => {
-            if !landscape_extract::quality::assess(markdown)
-                .quality
-                .worth_extracting()
-            {
-                return false;
-            }
-            !landscape_extract::changes::every_change(markdown)
-                .entries
-                .is_empty()
+    // Both deterministic questions are exact here, and both need the quality gate first: an
+    // unreadable page yields nothing whatever its parser would have found in the wreckage.
+    if is_deterministic(question) {
+        if !landscape_extract::quality::assess(markdown)
+            .quality
+            .worth_extracting()
+        {
+            return false;
         }
-        _ => model_calls_for(question, markdown) > 0,
+        return match question {
+            Answers::Changes => !landscape_extract::changes::every_change(markdown)
+                .entries
+                .is_empty(),
+            _ => !landscape_extract::hiring::every_role(markdown)
+                .roles
+                .is_empty(),
+        };
     }
+    model_calls_for(question, markdown) > 0
 }
 
 /// Calls in total, and calls before the **first chance** of something on screen.
@@ -399,6 +404,51 @@ We are ISO 27001 certified too.";
 We take security seriously and encrypt everything in transit.";
         assert_eq!(model_calls_for(Answers::Trust, page), 0);
         assert!(!may_yield_content(Answers::Trust, page));
+    }
+
+    #[test]
+    fn a_careers_page_costs_nothing_however_many_roles_it_lists() {
+        // The second deterministic question, and the whole reason it is one. A page listing
+        // twenty vacancies is twenty facts for the price of a fetch — so a prediction that
+        // charged a call per role would report a run this pipeline does not perform.
+        let page = "# Careers
+
+## Open roles
+
+Senior / Staff Product Engineer
+
+Senior Counsel
+
+Product Marketing Manager
+
+We are remote-first and hire across Europe and North America.";
+        assert!(is_deterministic(Answers::Direction));
+        assert_eq!(model_calls_for(Answers::Direction, page), 0);
+        assert!(may_yield_content(Answers::Direction, page));
+    }
+
+    #[test]
+    fn a_careers_page_with_nothing_open_promises_nothing() {
+        // Exact, because it is parsed rather than asked: either the roles are on the page or
+        // they are not. A hiring freeze is a finding, and it is not a chance of content.
+        let page = "# Careers
+
+## Open roles
+
+We have no open roles right now, but we are always glad to hear from people.
+
+Submit your resume and we will keep in touch when something opens up.";
+        assert!(!may_yield_content(Answers::Direction, page));
+    }
+
+    #[test]
+    fn an_unreadable_careers_page_promises_nothing_either() {
+        // The gate the other questions get, and review is the reason it is stated for this one
+        // too: `analyse_with` never opens a page below `MIN_WORDS`, so a prediction that
+        // counted what a parser *would* have found on it is a prediction of a different
+        // program.
+        let too_thin = "Careers\nProduct Engineer";
+        assert!(!may_yield_content(Answers::Direction, too_thin));
     }
 
     #[test]

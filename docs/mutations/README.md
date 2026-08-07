@@ -9,6 +9,7 @@ python3 scripts/mutate.py docs/mutations/example-ideas.json
 python3 scripts/mutate.py docs/mutations/read-order.json
 python3 scripts/mutate.py docs/mutations/anonymous-cap.json
 python3 scripts/mutate.py docs/mutations/trust-posture.json
+python3 scripts/mutate.py docs/mutations/where-they-invest.json
 ```
 
 **Why these are committed when the register says to keep them in a scratchpad.** Most are
@@ -48,6 +49,20 @@ nothing, and this paragraph is the reason it is absent.
 
 Every entry must be a defect a person can picture. `"labels are not reassigned when reports
 merge"` is one; `"change line 214"` is not, and will mean nothing to whoever reads it next.
+
+**A surviving mutation has two answers, and the second one is easy to miss.**
+`where-they-invest.json` produced three, and only two of them wanted a test. The third put back
+a plural-matching rule in the careers scanner and nothing failed — because nothing needed the
+rule: no title on any of the three frozen pages is plural, and every line it reached was a
+navigation label. **The rule was deleted and the mutation inverted**, so it now puts the rule
+*back* and a test fails. Entry 32 of the register is the account. Reaching for a new assertion
+by reflex is how a rule nothing needs acquires a test that keeps it for ever.
+
+The other two are the reason the harness is worth running on code that already passes: both
+tests were green, both assertions were right, and **each named a guard while exercising a
+different one**. A sentence was being rejected by the word list rather than by the full stop, and
+a navigation label by the plural rule rather than by the length floor. Either guard could have
+been removed in silence.
 
 **These files are also read backwards.** `scripts/no_live_mutations.py` takes every `new`
 payload as the shape of a defect this repository can recognise, and refuses a working tree that

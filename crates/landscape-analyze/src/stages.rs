@@ -1,9 +1,9 @@
 //! Running one page's extractor, and the prompts that go with it.
 //!
 //! Moved here from the `read` command whole. The prompts are worth reading beside each other:
-//! three of them ask a model for a small thing about a small window, and the fourth asks
-//! nothing of a model at all, because [`ARCHITECTURE.md`] §5.4 puts dates on the deterministic
-//! side and dates are what models most often invent.
+//! four of the six ask a model for a small thing about a small window, and **two ask nothing of
+//! a model at all**, because [`ARCHITECTURE.md`] §5.4 puts what a parser can read on the
+//! deterministic side — and dates are what models most often invent.
 //!
 //! Every answer is checked before it becomes a claim. The checks differ because the facts do:
 //!
@@ -13,6 +13,8 @@
 //! | a capability name | every word of it is in the section — it is a paraphrase by design |
 //! | a date | nothing. It was parsed, not generated |
 //! | a founding year | the digits are in the section, as a whole number |
+//! | a compliance standard | the scanner found the name; the model only says whether it is held |
+//! | a job title | nothing. It is the line |
 //!
 //! [`ARCHITECTURE.md`]: ../../../docs/ARCHITECTURE.md
 
@@ -65,12 +67,74 @@ pub(crate) async fn extract(
         Answers::Changes => changes(markdown, today),
         Answers::Identity => identity(llm, url, markdown, so_far).await,
         Answers::Trust => trust(llm, url, markdown, so_far).await,
-        _ => Outcome {
+        Answers::Direction => direction(markdown),
+    }
+}
+
+/// Open roles, read off the page. **No model runs here either.**
+///
+/// The second deterministic question, and the last extractor of the six. A job title is a line
+/// somebody wrote down on purpose; reading it is transcription, and the rule
+/// `ARCHITECTURE.md` §5.4 applies to a changelog applies here for the same reason.
+fn direction(markdown: &str) -> Outcome {
+    let found = landscape_extract::hiring::every_role(markdown);
+    let page = landscape_core::PageHiring {
+        roles: found
+            .roles
+            .iter()
+            .map(|role| landscape_core::Role {
+                title: role.title.clone(),
+                evidence_quote: Some(role.quote.clone()),
+            })
+            .collect(),
+        considered: found.considered,
+        announced: found.announced,
+    };
+
+    if page.is_empty() {
+        // Not the same sentence as "we could not read this". A company in a hiring freeze
+        // publishes a careers page with nothing on it, and that is a finding.
+        return Outcome {
             claims: Vec::new(),
-            summary: format!("no extractor yet for {} pages", question.name()),
+            summary: "no open roles listed on the page".to_owned(),
             details: Vec::new(),
             window_words: 0,
-        },
+        };
+    }
+
+    let mut details: Vec<String> = page
+        .roles
+        .iter()
+        .take(6)
+        .map(|role| role.title.clone())
+        .collect();
+    if page.roles.len() > 6 {
+        details.push(format!("... and {} more", page.roles.len() - 6));
+    }
+    if page.passed_over() > 0 {
+        details.push(format!(
+            "read {} of {} roles the page lists",
+            page.roles.len(),
+            page.considered
+        ));
+    }
+    if !page.announced {
+        details.push(
+            "the page named no list, so the whole page was read - a job title in a testimonial \
+             is the risk this carries"
+                .to_owned(),
+        );
+    }
+
+    Outcome {
+        claims: crate::claims_from_hiring(&page),
+        summary: format!(
+            "{} open role{} listed",
+            page.roles.len(),
+            plural(page.roles.len())
+        ),
+        details,
+        window_words: page.roles.len(),
     }
 }
 
@@ -1219,6 +1283,77 @@ mod tests {
         let page = "2026-07-14 - Recent\n2024-01-01 - Ancient";
         let outcome = changes(page, today);
         assert!(outcome.summary.contains("1 older"), "{}", outcome.summary);
+    }
+
+    #[test]
+    fn a_careers_page_is_read_with_no_model() {
+        // The second stage that takes no client, and the reason `is_deterministic` is now a
+        // two-armed match rather than a single question.
+        let page =
+            "## Open roles\nSenior / Staff Product Engineer\nEurope\nSenior Counsel\nNorth America";
+        let outcome = direction(page);
+        assert_eq!(outcome.claims.len(), 2);
+        assert_eq!(outcome.summary, "2 open roles listed");
+        assert_eq!(
+            outcome.claims[0].text,
+            "lists an open role: Senior / Staff Product Engineer"
+        );
+        // The evidence is the line, so a reader can find it on the page.
+        assert_eq!(outcome.claims[0].quote, "Senior / Staff Product Engineer");
+    }
+
+    #[test]
+    fn a_hiring_freeze_says_so_rather_than_nothing() {
+        // A careers page with nothing on it is a finding about the company, and it has to be
+        // distinguishable from a page we could not read - which is the rule the coverage note
+        // exists for and the one an empty section quietly breaks.
+        let outcome = direction("## Open roles\nWe have no open roles right now.");
+        assert!(outcome.claims.is_empty());
+        assert_eq!(outcome.summary, "no open roles listed on the page");
+    }
+
+    #[test]
+    fn what_the_cap_left_out_is_said_on_the_run_log() {
+        let mut page = String::from("## Open positions\n");
+        for i in 0..landscape_extract::hiring::MAX_ROLES + 3 {
+            page.push_str(&format!("Senior Software Engineer, Team {i}\n"));
+        }
+        let outcome = direction(&page);
+        assert_eq!(
+            outcome.claims.len(),
+            landscape_extract::hiring::MAX_ROLES,
+            "the cap applies"
+        );
+        assert!(
+            outcome.details.iter().any(|d| d.contains("read 20 of 23")),
+            "a short list with nothing beside it is a wrong list: {:?}",
+            outcome.details
+        );
+    }
+
+    #[test]
+    fn a_page_that_named_no_list_says_the_whole_page_was_read() {
+        // The weaker reading, and a reader is owed the difference. Without this line a scoped
+        // count of four and an unscoped count of four look identical.
+        let unscoped = direction("Senior Software Engineer\nRemote");
+        assert!(
+            unscoped
+                .details
+                .iter()
+                .any(|d| d.contains("the page named no list")),
+            "{:?}",
+            unscoped.details
+        );
+
+        let scoped = direction("## Open roles\nSenior Software Engineer");
+        assert!(
+            !scoped
+                .details
+                .iter()
+                .any(|d| d.contains("the page named no list")),
+            "{:?}",
+            scoped.details
+        );
     }
 
     #[test]

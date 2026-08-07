@@ -1,0 +1,40 @@
+{
+  "page": "helpscout-careers.md",
+  "from": "https://www.helpscout.com/company/careers/ fetched 2026-08-07",
+  "why": "The page whose dangerous lines are all above and below its list. Above: employee profiles written in job-title form - Staff Java Engineer in Brno, Czechia, started in 2015 - and a View open roles button that is not the heading. Below: a hiring-process section explaining what a hiring manager does. It is the page that pays for stopping the scan at the next heading of the same level, and its list ends with Future Openings, which is two words, has no full stop, and is not a job.",
+  "answers": "direction",
+  "openings": {
+    "roles": [
+      {
+        "title": "Lead/Principal Product Manager, Intelligence",
+        "quote": "Lead/Principal Product Manager, Intelligence"
+      },
+      {
+        "title": "Lead/Principal Product Manager, Resolve",
+        "quote": "Lead/Principal Product Manager, Resolve"
+      },
+      {
+        "title": "Lead/Principal Product Manager, Growth",
+        "quote": "Lead/Principal Product Manager, Growth"
+      },
+      {
+        "title": "Staff Product Engineer, Agents",
+        "quote": "Staff Product Engineer, Agents"
+      },
+      {
+        "title": "Sr. Product Engineer, Agents",
+        "quote": "Sr. Product Engineer, Agents"
+      },
+      {
+        "title": "Mid/Sr. Product Engineer, Intelligence",
+        "quote": "Mid/Sr. Product Engineer, Intelligence"
+      },
+      {
+        "title": "Sr. Software Engineer, Platform",
+        "quote": "Sr. Software Engineer, Platform"
+      }
+    ],
+    "considered": 7,
+    "announced": true
+  }
+}

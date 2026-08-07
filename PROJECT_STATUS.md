@@ -1,6 +1,6 @@
 # Project Status
 
-**As of 2026-08-06** · `main` at `e4b1fe6`, plus the branch this page is on.
+**As of 2026-08-07** · `main` at `0699e86`, plus the branch this page is on.
 
 This page answers one question: **what can somebody actually do with this today, and what
 stands between here and each of the six states that matter.** It is deliberately separate from
@@ -119,13 +119,13 @@ substitution is deliberate and is noted on each one.
 | Feature | Rung | One-line status |
 |---|---|---|
 | [F1 Searching for competitive information on a product idea](#f1--searching-for-competitive-information-on-a-product-idea) | **R1 partial** | Works for a prompt naming a domain, and the first screen now offers three ideas that do — real analyses over six curated companies. An idea nobody curated still returns nothing. |
-| [F2 Editing the product idea to get better results](#f2--editing-the-product-idea) | **R0** | No run has a URL; there is nothing to return to and edit. |
+| [F2 Editing the product idea to get better results](#f2--editing-the-product-idea) | **R0** | A run has a URL now, so there is something to return to — and still no control that edits it. |
 | [F3 Asking follow-up questions](#f3--asking-follow-up-questions) | **R0** | Not started. Report is terminal — read it or run another. |
 | [F4 Sign up / registration](#f4--sign-up--registration) | **R0** | No authentication code exists in the repository. |
 | [F5 Subscription setup and cancellation](#f5--subscription-setup-and-cancellation) | **R0** | Not started, and blocked on an unmade commercial decision. |
 | [F6 Slack-like discussion and troubleshooting](#f6--slack-like-discussion-and-troubleshooting) | **R0** | Not started. |
 | [F7 Notifications for changes in public information](#f7--notifications-for-changes-in-public-information) | **R0** | Not started. The *detection* half has a deterministic parser already. |
-| [F8 The report itself](#f8--the-report-itself) | **R3–R4** | 6 of 9 sections, 4 of 6 extractors, several companies in one report, no matrix, no charts. |
+| [F8 The report itself](#f8--the-report-itself) | **R3–R4** | 6 of 9 sections, **all 6 extractors**, several companies in one report, no matrix, no charts. |
 | [F9 Claims you can check](#f9--claims-you-can-check) | **R4** | Structurally enforced at the type level; the verification pass is not built. |
 | [F10 PDF export](#f10--pdf-export) | **R0** | Not started. |
 | [F11 Share / permalink](#f11--share--permalink) | **R1** | **A run has a URL.** `/a/{id}` opens it, the address bar carries it from the moment it exists, and Back returns to the box. Sharing beyond a raw link — a copy button, an OG card, an expiry story — is not built. |
@@ -186,15 +186,16 @@ description into companies — it hands over three descriptions whose companies 
 
 ### F2 — Editing the product idea
 
-**Rung: R0.** Nothing to edit, because there is nothing to return to.
+**Rung: R0.** There is something to return to, and nothing that edits it.
 
-A finished analysis has no URL. Reloading the page loses it. The interpretation header from
-`COMPETITIVE_DISCOVERY.md` §4–§6 — "we read your idea as *this*; correct it" — is specified and
-unbuilt. The `searched_as` line in the UI is the read-only ancestor of that control: it tells a
-reader what was searched for and gives them no way to change it.
+**The dependency this waited on is met**: D2 gave a finished analysis a URL, so a reload no
+longer loses it. What is still unbuilt is the control — the interpretation header from
+`COMPETITIVE_DISCOVERY.md` §4–§6, *"we read your idea as this; correct it"*. The `searched_as`
+line in the UI is its read-only ancestor: it tells a reader what was searched for and gives
+them no way to change it.
 
-**Depends on:** [F11](#f11--share--permalink) first, then the interpretation header, then
-re-run-with-edits.
+**Depends on:** ~~[F11](#f11--share--permalink) first~~ — done — then the interpretation
+header, then re-run-with-edits.
 **Blockers:** [B3](#4-blockers).
 
 ---
@@ -284,7 +285,7 @@ subscription's primary justification is wrong, and that is not knowable until it
 | Specified | Built |
 |---|---|
 | Nine sections | **Six.** Pricing, what it does, recent changes, company facts, trust, direction. |
-| Six question kinds with extractors | **Five.** Direction has none. |
+| Six question kinds with extractors | **All six.** Two of them — recent changes and where they are investing — run no model at all. |
 | Feature comparison matrix, five-state cells | **None.** Needs a competitor set, which does not exist. |
 | SVG charts (feature matrix, cost-at-scale) | **None.** |
 | Coverage notes — "nothing found, here is what was checked" | **Built, and it is the strongest thing here.** Distinguishes four different silences. |
@@ -383,7 +384,7 @@ said rather than hidden in a number.
 | Phase | Begun | 25% | 50% | 80% | Complete | Software |
 |---|---|---|---|---|---|---|
 | **0** Foundations & model bake-off | ☑ | ☑ | ☑ | ☑ | ☐ | **~90%** |
-| **1** Vertical slice: anonymous analysis | ☑ | ☑ | ☑ | ☑ | ☐ | **~60%** |
+| **1** Vertical slice: anonymous analysis | ☑ | ☑ | ☑ | ☑ | ☐ | **~65%** |
 | **2** Grounding verification, PDF & quality | ☑ | ☐ | ☐ | ☐ | ☐ | **~10%** |
 | **3** Accounts, limits, knowledge base | ☐ | ☐ | ☐ | ☐ | ☐ | **0%** |
 | **4** Monetization | ☐ | ☐ | ☐ | ☐ | ☐ | **0%** |
@@ -431,14 +432,19 @@ wanted, and a worker the sweep has replaced abandons the pages it has not read r
 spending prefill on a report nothing will accept. Twelve model calls become one on the page that
 made a reader wait four minutes ([BENCHMARKS.md](docs/BENCHMARKS.md) Run 20).
 
-**Not built — the 45%:**
+**The report side is complete.** All six questions a report has a section for now have an
+extractor behind them, and the three frozen careers pages brought the deterministic golden set
+to fourteen. What is left in this phase is almost entirely about *getting to* a company rather
+than reading one.
+
+**Not built — the 35%:**
 
 | Missing | Consequence |
 |---|---|
 | `landscape-search` / SearXNG | An idea cannot become a company. **The phase's defining gap.** |
 | Candidate generation for entity resolution | The disambiguation gate has nothing to disambiguate. |
 | Competitor *discovery* | Several companies can be analysed, but only ones the reader names. |
-| One of six extractors (direction) | One section can never fill. Trust fills for five of the six demo companies. |
+| ~~One of six extractors (direction)~~ | **Built.** All six questions extract, and two of them need no model. The `no extractor yet` branch is deleted rather than left unreachable, so a seventh question is a build error. |
 | Fetch cache + per-source extraction cache | The highest-leverage cache in the system, scheduled for this phase, absent. |
 | ~~Anonymous rate limit (2/day)~~ | **Built.** Two a day per address, hashed, reset daily. |
 | Stage rail, source cards, citation hover cards | The UI is functional and unfinished. **Example chips are built** — three ideas over six companies, with what is curated said beside them. |
