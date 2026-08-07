@@ -1,6 +1,6 @@
 # Full Feature List
 
-**As of 2026-08-06** · `main` at `e4b1fe6` · **42 of 130 PRs · 32% of the software deliverable**
+**As of 2026-08-07** · `main` at `0699e86` · **42 of 130 PRs · 32% of the software deliverable**
 
 Every feature the roadmap describes, sorted by the readiness state that first requires it, with
 what it is estimated to cost in pull requests and how much of that is spent.
@@ -31,8 +31,15 @@ why. This page says how much is left.
 
 ## How to read the numbers
 
-**Done** counts a PR that is written, green and either merged or in review. **41 are merged**
-and one is open — this one — 42, and the Done column sums to exactly that.
+**Done** counts a PR that is written, green and either merged or in review, **and the Done column
+is the source of truth for every percentage on this page** — the totals below are that column
+summed, not a count taken from GitHub.
+
+**Those two numbers are not the same, and this line is where the difference is stated.** The
+repository has **43 merged pull requests and one open** — this one — while the Done column sums
+to **42**. The rows are themes: a pull request that only answered review findings, or hardened a
+gate, adds no feature and therefore no row. Counting it would inflate a table that is supposed to
+measure how much of the product exists.
 
 **The rows are themes, not individual PRs.** Which one belongs to which row is approximate,
 because several did two things at once; the totals are not.
@@ -62,7 +69,7 @@ only you can do; they are listed at the bottom and are not counted anywhere.
 | State | What it means | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
 | [**S1**](#s1--ready-for-a-guided-demo) | Ready for a guided demo | 39 | 39 | **0** | **100%** |
-| [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 18 | 1 | **17** | **6%** |
+| [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 18 | 2 | **16** | **11%** |
 | [**S3**](#s3--ready-for-use) | Friendly users find no issue | 26 | 1 | **25** | **4%** |
 | [**S4**](#s4--ready-for-general-use) | Promotable, word-of-mouth quality | 11 | 0 | **11** | **0%** |
 | [**S5**](#s5--general-use-free-mode) | Stable, email signup, community | 15 | 0 | **15** | **0%** |
@@ -128,8 +135,9 @@ code change — the software does not become different.
 ## S2 — Ready for demonstration
 
 *Any business idea handled correctly, limited functionality, friendly users only.* **This is the
-cliff.** Nothing here is started, and the first row is the largest single piece of unbuilt
-software in the project.
+cliff.** Two of eighteen rows are done and neither is the one that matters: the first row is
+still the largest single piece of unbuilt software in the project, and nothing above it can
+start until it exists.
 
 | Feature | State | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
@@ -139,17 +147,22 @@ software in the project.
 | Vocabulary resolution — a reader's words to a category the pipeline can search | S2 | 2 | 0 | **2** | 0% |
 | Clarifying questions — ≤3, chip-answerable, skippable, only when discovery diverges | S2 | 2 | 0 | **2** | 0% |
 | Trust posture extractor — the fifth question kind | S2 | 1 | 1 | 0 | 100% |
-| Investment direction extractor — the sixth question kind | S2 | 1 | 0 | **1** | 0% |
+| Investment direction extractor — the sixth question kind | S2 | 1 | 1 | 0 | 100% |
 | Honest "no public information" at the level of a whole competitor set | S2 | 1 | 0 | **1** | 0% |
 | Fetch cache and per-source extraction cache — two readers of one competitor share work | S2 | 2 | 0 | **2** | 0% |
 | Conditional GET and a per-analysis fetch cap | S2 | 1 | 0 | **1** | 0% |
-| | | **18** | **1** | **17** | **6%** |
+| | | **18** | **2** | **16** | **11%** |
 
-**The first row of S2 to move is not on the critical path, and that is deliberate.** The trust
-posture extractor needs no search channel: discovery already admits `/security`, the pipeline
-already fetched it, and the section was permanently empty because nothing read it. It is the
-cheapest honest improvement available while [B2](../PROJECT_STATUS.md#4-blockers) is unbuilt —
-one fewer section that can never fill.
+**Neither row that has moved is on the critical path, and that is deliberate.** The trust posture
+and investment direction extractors need no search channel: discovery already admits `/security`
+and `/careers`, the pipeline already reached them, and both sections were permanently empty
+because nothing read them. They are the cheapest honest improvements available while
+[B2](../PROJECT_STATUS.md#4-blockers) is unbuilt.
+
+**With the sixth extractor, that seam is closed.** All six questions a report has a section for
+now have an extractor behind them, so there is no longer a *"one fewer section that can never
+fill"* improvement to reach for — **every remaining row of S2 sits behind the search channel or
+the caches**. The next piece of work here is the cliff itself.
 
 **D4 is the reason S1 does not wait for this, and it is now built.** Three curated ideas run a
 *real* analysis over *real* competitor domains; only the choice of companies is curated, the

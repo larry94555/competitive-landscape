@@ -842,6 +842,64 @@ re-run something every time the number moves.
 > **Ask this:** *did I copy this number from the tool that produces it, on this commit — or did I
 > compute it?*
 
+## 32. A passing test that holds a different property than its name
+
+**Written:** by me, in `landscape-extract::hiring`, twice in one file.
+
+**What the harness saw:** two mutations survived. `a_sentence_about_the_list_is_not_in_it`
+deleted the full-stop rule and still passed; `a_one_word_navigation_label_is_not_a_role` deleted
+the two-word minimum and still passed.
+
+**Both tests were green, both assertions were right, and neither was testing what it said.** The
+sentence — front.com's *"Browse our open positions and find your dream job."* — was rejected by
+the **word list**, because `positions` and `job` are not job words; the full stop never got a
+turn. The navigation label — Linear's `Developers` — was rejected by the **plural rule**, not by
+the length floor. Each test named a guard and exercised a different one, so either guard could
+have been deleted in silence.
+
+**And one of them should have been.** Looking for the missing test on a third mutation showed
+there was none to write: no title on any of the three frozen pages is plural, and every line the
+plural rule reached was a navigation label. The rule widened the false-positive surface and
+bought nothing, so it went. **The harness removed code rather than gaining a test**, which is
+the more useful of its two outcomes and the one that never happens if a survived mutation is
+answered by reflex with a new assertion.
+
+**Rule:** a test named after a guard has to fail when *that* guard is removed, and only the
+mutation harness can tell you whether it does. When a mutation survives, ask which of the two
+things is true before writing anything: *the guard is untested*, or **the guard is unnecessary**.
+Reaching for a test first is how a rule nothing needs acquires a test that keeps it for ever.
+
+> **Ask this:** *if I delete the guard this test is named after, does this test fail — or is
+> something else rejecting my fixture?*
+
+## 33. A fallback that runs the safe path's rules on unsafe input
+
+**Written:** by me, in `landscape-extract::hiring`, in the same file, in the same pull request.
+
+**What a reviewer saw:** a careers page with no recognised *Open roles* heading published
+`lists an open role: Kelsey Weber , Engineering Manager` — a testimonial byline — as a
+**high-confidence** claim about a company hiring a person who already works there.
+
+**The scoped path was correct and the fallback reused its rules.** A title is short, has no
+terminal full stop, and carries a job word: that is enough to clean up *inside* a list somebody
+has pointed at, and nowhere near enough to *find* one. When no heading matched, the scan fell
+back to the whole page and those same three rules were the only thing left. **I had written the
+counterexample into the module's own documentation** — that exact line, named as the danger — and
+then let the fallback run past it.
+
+**And the honesty was in the wrong place.** The stage emitted a run-log line saying the page had
+been read unscoped. Nothing carried it into the report, so the reader saw a confident claim and
+the caveat lived in a diagnostic. That is Run 24's mistake exactly, one question later.
+
+**Rule:** when the happy path is *"somebody told us where to look"*, the fallback is not the same
+code over a wider range — it is a **different problem**, and usually a refusal. Before writing
+one, ask what the narrow path's rules were relied upon to do, and whether they can carry the
+weight alone. And a caveat that lives only in a log is not a caveat: if the output cannot state
+it, the output should not exist.
+
+> **Ask this:** *what is my fallback assuming that my main path was given? If the answer is
+> "where to look", why is reading everything the right answer instead of reading nothing?*
+
 ---
 
 ## Before a PR: two commands and eight questions
@@ -889,7 +947,8 @@ Grouped by what has actually gone wrong, commonest first.
    behind it, and on the whole line rather than the halves. Is my malformed fixture broken in
    the shape the guard *already* handles, or in the shape it does not? *(26)* Does the fixture already contain the
    thing I am asserting? If I deleted the call to the function I just tested, would anything
-   fail? Is there a case that *should* fail and does? *(5, 20, 21, 24, 25)*
+   fail? Is there a case that *should* fail and does? **And when a mutation survives, is the
+   guard untested or unnecessary?** *(5, 20, 21, 24, 25, 32)*
 
 5. **What is the scope of each guard, and of each wrapper?** A condition about *the connection*
    is wrong at every reconnect; a counter inside an effect does not survive a remount; a layer
@@ -907,13 +966,16 @@ Grouped by what has actually gone wrong, commonest first.
 8. **Is the output honest about what it does not know?** Are caps, drops, truncation and "found
    nothing" distinguishable from completeness? Does a merged view say which subject each part
    belongs to — **including when one subject produced nothing**? Am I counting the thing or the
-   evidence for it? Does any prompt name a real company? *(2, 6, 8, 9, 10, 11, 23)*
+   evidence for it? Does any prompt name a real company? **And is any caveat I have written
+   living only in a log, where the reader of the claim will never meet it?** *(2, 6, 8, 9, 10,
+   11, 23, 33)*
 
 ## How these were found, and what that says
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31 |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33 |
+| The mutation harness | 32 | The only one it found before review did, and it deleted a rule rather than adding a test |
 | Its own tooling | 28 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |

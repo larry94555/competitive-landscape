@@ -889,6 +889,8 @@ place at every rung.
 | Tier names and per-tier limits | **Code** — table row/column structure | Structure is already in the markup; re-deriving it through a model discards information. |
 | Changelog entries, release dates, version numbers | **Code** — heading + `<time>` + date regex | Dates are the most common LLM fabrication in "recent changes" and are trivially verifiable. |
 | Feature lists on structured pages | **Code first**, model for normalization only | Bullet lists parse cleanly; the model only harmonizes wording across competitors. |
+| Compliance standards a page names | **Code** — a closed list of standard names, longest spelling first | A company does not invent a standard, so the name can come from the page by construction. The model is asked one thing about each: held, or being worked towards. |
+| Open roles on a careers page | **Code** — the page's own *Open roles* heading, then title-shaped lines | A job title is a line somebody wrote down on purpose. The titles are reported as written and **not sorted into functions**: three real pages file roles under labels a keyword gets wrong. **A page that does not announce its list is not read** — the shape rules clean up inside a list, they do not find one, and a testimonial byline satisfies every one of them. |
 | Positioning, category language, differentiators | **Model** | Genuinely requires language understanding. |
 | Review/sentiment themes | **Model** | Genuinely requires language understanding. |
 | SWOT interpretation | **Model** | The one place inference is permitted. |

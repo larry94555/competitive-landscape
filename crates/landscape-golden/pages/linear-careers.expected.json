@@ -1,0 +1,92 @@
+{
+  "page": "linear-careers.md",
+  "from": "https://linear.app/careers fetched 2026-08-07",
+  "why": "The first frozen careers page, and the one that decided this extractor reports titles rather than sorting them into functions: Linear files Product Marketing Manager under Product Management, Developer Relations under Marketing, and Production Designer under a group it calls Magic. Forty lines above the list sits The Pragmatic Engineer, a podcast, which is the false positive the announcement heading exists to scope away - and the footer's one-word Developers link is the one the two-word minimum exists for.",
+  "answers": "direction",
+  "openings": {
+    "roles": [
+      {
+        "title": "Account Executive, Enterprise",
+        "quote": "Account Executive, Enterprise"
+      },
+      {
+        "title": "Account Executive, Growth",
+        "quote": "Account Executive, Growth"
+      },
+      {
+        "title": "Account Executive, Startups",
+        "quote": "Account Executive, Startups"
+      },
+      {
+        "title": "Customer Success Manager",
+        "quote": "Customer Success Manager"
+      },
+      {
+        "title": "Implementation Manager",
+        "quote": "Implementation Manager"
+      },
+      {
+        "title": "Solutions Engineer, Europe",
+        "quote": "Solutions Engineer, Europe"
+      },
+      {
+        "title": "Developer Relations",
+        "quote": "Developer Relations"
+      },
+      {
+        "title": "Mobile Product Designer",
+        "quote": "Mobile Product Designer"
+      },
+      {
+        "title": "Principal Product Designer",
+        "quote": "Principal Product Designer"
+      },
+      {
+        "title": "Senior / Staff Product Designer",
+        "quote": "Senior / Staff Product Designer"
+      },
+      {
+        "title": "Product Engineer",
+        "quote": "Product Engineer"
+      },
+      {
+        "title": "Senior / Staff Fullstack Engineer",
+        "quote": "Senior / Staff Fullstack Engineer"
+      },
+      {
+        "title": "Senior / Staff Product Engineer",
+        "quote": "Senior / Staff Product Engineer"
+      },
+      {
+        "title": "Senior / Staff Product Engineer, AI",
+        "quote": "Senior / Staff Product Engineer, AI"
+      },
+      {
+        "title": "Product Manager",
+        "quote": "Product Manager"
+      },
+      {
+        "title": "Product Marketing Manager",
+        "quote": "Product Marketing Manager"
+      },
+      {
+        "title": "Product Support Specialist, Pacific/Mountain Time",
+        "quote": "Product Support Specialist, Pacific/Mountain Time"
+      },
+      {
+        "title": "Production Designer",
+        "quote": "Production Designer"
+      },
+      {
+        "title": "Recruiting & HR Operations Specialist",
+        "quote": "Recruiting & HR Operations Specialist"
+      },
+      {
+        "title": "Senior Counsel",
+        "quote": "Senior Counsel"
+      }
+    ],
+    "considered": 20,
+    "announced": true
+  }
+}

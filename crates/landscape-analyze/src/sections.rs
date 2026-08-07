@@ -30,22 +30,6 @@ pub fn title_for(question: Answers) -> &'static str {
         .map_or("Other", |(_, title)| *title)
 }
 
-/// Whether anything can read a page admitted for this question yet.
-///
-/// **One of the six has no extractor.** It still gets a section, and it carries the coverage
-/// note saying the pages were found and not opened — our gap, stated as ours.
-#[must_use]
-pub(crate) const fn has_extractor(question: Answers) -> bool {
-    matches!(
-        question,
-        Answers::Pricing
-            | Answers::Features
-            | Answers::Changes
-            | Answers::Identity
-            | Answers::Trust
-    )
-}
-
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {
@@ -76,22 +60,20 @@ mod tests {
     }
 
     #[test]
-    fn a_section_without_an_extractor_still_exists() {
-        // It carries the coverage note instead of claims. Dropping the section would hide
-        // the gap; keeping it states it.
+    fn the_last_question_without_an_extractor_has_one() {
+        // **This test used to assert the opposite**, and moved twice: trust was the question
+        // with no extractor, then direction was, and now neither is. What it held each time was
+        // that a section survives the absence of its extractor — a page found and not opened
+        // still gets a titled section carrying the coverage note, because dropping the section
+        // would hide the gap and keeping it states it.
         //
-        // **Direction is the last one.** Trust used to be here too, and gained an extractor;
-        // this test moved with it rather than being deleted, because the property it holds is
-        // about the section surviving the absence, not about which question is absent.
-        assert!(!has_extractor(Answers::Direction));
+        // With every question covered, `has_extractor` was deleted rather than left returning
+        // `true` for all six: a predicate no caller can make false is a check that cannot fail,
+        // and the branch behind it was unreachable code that still looked like a safety net.
+        // What replaced it is the compiler — `stages::extract` matches every variant with no
+        // wildcard, so a seventh question is a build error rather than a string in a run log
+        // nobody reads.
         assert_eq!(title_for(Answers::Direction), "Where they are investing");
-    }
-
-    #[test]
-    fn a_question_with_an_extractor_is_read_rather_than_reported_as_a_gap() {
-        // The other half, and the one this change moves: a page admitted for trust used to be
-        // fetched and skipped with "no extractor yet", which spent the fetch and produced a
-        // permanently empty section.
-        assert!(has_extractor(Answers::Trust));
+        assert_eq!(SECTIONS.len(), 6);
     }
 }

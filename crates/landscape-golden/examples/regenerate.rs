@@ -14,7 +14,8 @@
 // rather than write nine files and leave the tenth as it was.
 
 use landscape_golden::pages::{
-    self, Assurances, Capabilities, Changes, Dated, FactWindow, NamedStandard, Window,
+    self, Assurances, Capabilities, Changes, Dated, FactWindow, NamedStandard, Opening, Openings,
+    Window,
 };
 
 fn main() {
@@ -51,6 +52,15 @@ fn main() {
                     .map(FactWindow::from)
                     .collect(),
             );
+        }
+
+        if let Some(openings) = &mut expectation.openings {
+            let found = landscape_extract::hiring::every_role(&markdown);
+            *openings = Openings {
+                roles: found.roles.iter().map(Opening::from).collect(),
+                considered: found.considered,
+                announced: found.announced,
+            };
         }
 
         if let Some(assurances) = &mut expectation.assurances {

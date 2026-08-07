@@ -33,6 +33,7 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | **What a run will cost a model, counted without one** | **Yes** — Part 2C |
 | **A cap on how much of the box one stranger may spend** | **Yes** — Part 2D |
 | **What a security page claims, and what it only mentions** | **Yes** — Part 2E |
+| **Where a company is investing, read off its careers page for no model calls** | **Yes** — Part 2F |
 | Reading real web pages *as part of a report* | No — the fetcher exists, nothing calls it yet |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
 | Accounts, quotas, payment | No |
@@ -426,9 +427,10 @@ read back to anybody.
 
 ## Part 2E — What a security page says, and what it only mentions
 
-Two of the six questions had no extractor. A page admitted for *Trust & security posture* was
-discovered, fetched, and then skipped — the fetch spent and the section permanently empty. This
-is the fifth question kind.
+Two of the six questions had no extractor when this was written. A page admitted for *Trust &
+security posture* was discovered, fetched, and then skipped — the fetch spent and the section
+permanently empty. This is the fifth question kind; [Part 2F](#part-2f--where-they-are-investing-for-no-model-calls-at-all)
+is the sixth and last.
 
 **Do this.**
 
@@ -483,6 +485,109 @@ frozen page is evidence about the pipeline rather than about a converter nobody 
 II` in the section that explains it, and the extractor reported both — the same certification
 told to a reader twice, at two precisions, for two model calls. The more precise spelling wins
 now, and the frozen expectation is what would notice if that stopped being true.
+
+---
+
+## Part 2F — Where they are investing, for no model calls at all
+
+The sixth question, and the last one that had no extractor. A careers page was admitted by
+discovery and then never fetched, so *Where they are investing* carried a coverage note for
+ever. **Reading it costs nothing**, because a job title is a line somebody wrote down on
+purpose — the same argument `ARCHITECTURE.md` §5.4 makes about dates.
+
+**Do this.**
+
+```bash
+cargo run -p landscape -- cost https://linear.app
+```
+
+**You should see** two pages at the top of the reading order, both free:
+
+```text
+linear.app/changelog                                 changes         0   <- content, no model
+linear.app/careers                                   direction       0   <- content, no model
+```
+
+**Deterministic pages go first**, so the first thing on somebody's screen no longer waits on the
+model being up. Linear had one such page; it now has two.
+
+### The company where that changes the wait
+
+**Do this.**
+
+```bash
+cargo run -p landscape -- cost https://www.helpscout.com
+```
+
+**You should see** `before a first chance` on the last line reading **0**, where it used to read
+1. Help Scout publishes no changelog this pipeline finds, so its first content used to wait on a
+model call. Its careers page is parsed, so now it does not.
+
+**Total calls do not move on any of the six demo companies.** The section is added for the price
+of a fetch — [BENCHMARKS.md](BENCHMARKS.md) Run 25 has the table.
+
+### What it reports, and what it refuses to
+
+The titles, as the page writes them. **Not sorted into functions**, and three real pages are the
+reason: Linear files *Product Marketing Manager* under *Product Management*, *Developer
+Relations* under *Marketing*, and *Production Designer* under a group it calls *Magic*. A
+keyword table gets all three wrong, and the page is right about its own company.
+
+So a claim reads *"lists an open role: Senior / Staff Product Engineer"* — a fact about the page
+— rather than *"is growing its engineering team"*, which is a conclusion about the company that
+nothing on the page supports.
+
+### A page with nothing open says so
+
+**Do this.**
+
+```bash
+cargo run -p landscape -- cost https://basecamp.com
+```
+
+**You should see** `basecamp.com/jobs direction 0` with no *content, no model* marker beside it.
+The page is admitted, read, costs nothing, and yields no roles — which is a fact about Basecamp
+rather than a gap in the report, and the run log says `no open roles listed on the page` instead
+of falling silent.
+
+### A page that never says where its list is, is not read
+
+The shape rules — a title is short, has no full stop, and carries a job word — clean up *inside*
+a list somebody has pointed at. They are not strong enough to find one. Review proved it with a
+line from `front.com`:
+
+```text
+Kelsey Weber , Engineering Manager
+```
+
+Five words, no full stop, a job word on a word boundary. Every rule says yes, and it is a
+testimonial byline. Under the page's own *Open positions* heading it is scoped away; on a page
+with no recognised heading it used to become **`lists an open role: Kelsey Weber , Engineering
+Manager`** — a person who already works there, published as a vacancy at high confidence.
+
+So there is no page-wide fallback. **The cost is real and is stated:** a careers page whose
+heading this list does not recognise yields nothing, and genuine vacancies on it are lost. A
+missed vacancy is a thin section; an invented one is a false sentence about a named person.
+
+The run log tells the two silences apart, because they are different facts:
+
+```text
+no open roles listed on the page                                          the company
+the page does not say where its open roles are listed, so none were read   us
+```
+
+### Where these frozen pages came from
+
+```bash
+cargo run -p landscape -- fetch https://linear.app/careers --markdown
+```
+
+Everything after the `---` is what `crates/landscape-golden/pages/linear-careers.md` holds.
+Three careers pages are frozen, and each one carries a line that looks exactly like a vacancy
+and is not: a podcast called *The Pragmatic Engineer*, an employee profile reading *Staff Java
+Engineer in Brno, Czechia, started in 2015*, and a testimonial signed *Kelsey Weber ,
+Engineering Manager*. All three sit above the page's own *Open roles* heading, which is why the
+scan starts there.
 
 ---
 
@@ -1229,10 +1334,12 @@ type, and that is what this drops.
 last step gives a wrong answer six possible causes. The `span` column is how you tell a bad
 window from a bad model, which §5.4 warns are otherwise indistinguishable.
 
-**Rows saying "not a pricing page — no extractor yet" are honest, not broken.** Discovery
-labels what each page answers, and only pricing has an extractor so far. Running the pricing
-extractor over a documentation page produced *"MCP server at $0"* — a plan that does not
-exist — which is why it no longer does.
+**The transcript above is from a run at Run 8**, when three of the six questions had an
+extractor and the rest printed *"no extractor yet"*. **All six extract now**, so that row no
+longer appears and `basecamp.com/about` is read rather than skipped. It is kept here because the
+rest of the transcript is still what the command prints, and because the row it shows is the
+reason discovery labels pages at all: running the *pricing* extractor over a documentation page
+once produced *"MCP server at $0"* — a plan that does not exist.
 
 **Try a second company**, where the first plan is free:
 
@@ -1574,7 +1681,7 @@ python prototype/build.py --preview
 | 8E — todoist says "no pricing content" instead of guessing | | |
 | 8E — basecamp `/features` names ten real capabilities | | |
 | 8E — the cap and the dropped names are printed, not hidden | | |
-| 8E — pages of the other four kinds say "no extractor yet" | | |
+| 8E — every page discovery admits is read; no row says "no extractor yet" | | |
 | 8E — `discover linear.app` lists `/features`, not a setup guide | | |
 | 8E — `discover todoist.com` lists three English pages, no duplicates | | |
 | 8E — notion `/releases` lists dated changes, with no model running | | |

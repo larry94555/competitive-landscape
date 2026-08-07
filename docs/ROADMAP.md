@@ -207,7 +207,8 @@ So D5 carried a hard constraint: **measure before promising.** That is now done,
 answer was the one predicted here — fewer pages and a read order that puts the deterministic
 changelog first, not a faster model. Each question is worth one page that needs a model and the
 skipped pages are named on the report; across the six demo companies that is **128 model calls
-down to 88**, and for four of the six the first chance of content now costs no model call at all
+down to 88**, and for four of the six companies the first chance of content costs no model call
+at all
 ([BENCHMARKS.md](BENCHMARKS.md) Run 23).
 
 **The larger part of that is a dependency rather than a count.** First content no longer waits on
@@ -559,7 +560,7 @@ the single most important phase; everything after it is commerce and polish.
   `landscape-extract::span`, [BENCHMARKS.md](BENCHMARKS.md) Runs 6 and 7. One window per plan,
   measured on six real pricing pages: basecamp 2, linear 3, plausible 3, notion 3 (plus an
   add-on it counts as a fourth), sentry 4 published twice each, todoist 0.
-  **Three of the six question kinds have extractors.** *What it does* —
+  **All six question kinds have extractors.** *What it does* —
   `landscape-extract::capability`, [BENCHMARKS.md](BENCHMARKS.md) Run 8 — follows §5.4's
   division: the parser finds the named sections, the model only shortens the name. *What
   shipped* — `landscape-extract::changes`, Run 10 — asks **no model at all**, because §5.4 puts
@@ -569,8 +570,20 @@ the single most important phase; everything after it is commerce and polish.
   facts a page states by accident rather than by design. Plausible states all three (founded
   2018, the EU, a team of 10); Basecamp states none, because *"23 years and running"* is an age
   and not a year.
-  **Two kinds remain**: trust and direction. `read` names the kind and says there is no
-  extractor rather than running the wrong one.
+  *What they claim to hold* — `landscape-extract::assurance`, Run 24 — is the fifth and the
+  first with a **closed vocabulary**: a company does not invent a compliance standard, so the
+  scanner finds every name deterministically and the model is asked one thing about each, *is
+  this held or being worked towards*. linear.app names four.
+  *Where they are investing* — `landscape-extract::hiring`, Run 25 — is the sixth and the
+  **second that asks no model at all**. A job title is a line somebody wrote on purpose;
+  reading it is transcription. Three real careers pages are frozen, and the extractor reports
+  the titles rather than sorting them into functions, because all three file roles under labels
+  a keyword would get wrong — Linear puts *Product Marketing Manager* under *Product
+  Management* and *Production Designer* under a group it calls *Magic*.
+  **No kind remains, and the string that used to say so is gone.** `has_extractor` and the
+  *"no extractor yet"* branch behind it were deleted rather than left returning `true` for all
+  six: `stages::extract` now matches every question with no wildcard, so a seventh is a build
+  error instead of a line in a run log.
   What Run 12 leaves open: **`headquarters` is free text.** *"the EU"*, *"Chicago, Illinois"*
   and *"remote"* are all valid and none of them compares to another company's, which is what a
   matrix cell needs.

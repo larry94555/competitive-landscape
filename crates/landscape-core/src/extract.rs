@@ -801,6 +801,86 @@ impl PageTrust {
     }
 }
 
+/// One open role, as a careers page advertises it.
+///
+/// **No model is involved**, which is why there is no confidence to weigh and no name to check
+/// against a source: the title *is* the line. It sits beside [`Change`] rather than beside the
+/// extraction types for that reason — both are read by a parser and neither can be invented.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Role {
+    /// The job title, exactly as the page writes it.
+    pub title: String,
+    /// The line it was read from, copied verbatim.
+    pub evidence_quote: Option<String>,
+}
+
+/// Everything one careers page lists, and what it does not.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PageHiring {
+    /// In the order the page lists them.
+    pub roles: Vec<Role>,
+    /// How many distinct roles the page listed before any cap was applied.
+    pub considered: usize,
+    /// Whether the page announced where its list starts.
+    ///
+    /// **Kept because it changes what the count means.** A scoped read counted the roles a
+    /// company published under its own heading; an unscoped one counted every line on the page
+    /// that looked like a job title. Reporting the same number for both would make the weaker
+    /// reading indistinguishable from the stronger one.
+    pub announced: bool,
+}
+
+impl PageHiring {
+    /// Whether the page listed no role at all.
+    ///
+    /// True of a real careers page during a hiring freeze, which is a finding rather than a
+    /// failure — and the reason the section says *"lists no open roles"* rather than nothing.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.roles.is_empty()
+    }
+
+    /// How many roles were listed and not reported.
+    #[must_use]
+    pub fn passed_over(&self) -> usize {
+        self.considered.saturating_sub(self.roles.len())
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod hiring_tests {
+    use super::*;
+
+    #[test]
+    fn a_page_that_lists_nothing_is_empty_and_passed_nothing_over() {
+        let page = PageHiring::default();
+        assert!(page.is_empty());
+        assert_eq!(page.passed_over(), 0);
+    }
+
+    #[test]
+    fn what_the_cap_left_out_is_the_difference_and_never_negative() {
+        let page = PageHiring {
+            roles: vec![Role {
+                title: "Staff Data Engineer".to_owned(),
+                evidence_quote: Some("Staff Data Engineer".to_owned()),
+            }],
+            considered: 21,
+            announced: true,
+        };
+        assert_eq!(page.passed_over(), 20);
+
+        // `considered` below the number kept is not reachable from the scanner, and a wrapping
+        // subtraction here would be a panic in a release build rather than a wrong number.
+        let confused = PageHiring {
+            considered: 0,
+            ..page
+        };
+        assert_eq!(confused.passed_over(), 0);
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod trust_tests {

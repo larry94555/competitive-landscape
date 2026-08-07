@@ -31,6 +31,7 @@ pub mod capability;
 pub mod changes;
 pub mod doc;
 pub mod embedded;
+pub mod hiring;
 pub mod identity;
 pub mod markdown;
 pub mod price;

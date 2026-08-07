@@ -388,19 +388,9 @@ pub async fn analyse_with(
 
     for source in &plan.read {
         let question = source.answers;
-        if !sections::has_extractor(question) {
-            pages.push(PageResult {
-                url: source.url.clone(),
-                question,
-                words: None,
-                quality: None,
-                window_words: None,
-                summary: format!("no extractor yet for {} pages", question.name()),
-                details: Vec::new(),
-            });
-            continue;
-        }
-
+        // **Every question has an extractor now**, so the branch that used to skip a page here
+        // is gone rather than left in as a wildcard nothing could reach. `stages::extract`
+        // matches all six with no `_` arm, which makes a seventh question a build error.
         let Ok(page) = fetcher.get(&source.url).await else {
             pages.push(PageResult {
                 url: source.url.clone(),
@@ -723,6 +713,27 @@ pub(crate) fn claims_from_trust(page: &landscape_core::PageTrust) -> Vec<Finding
         .collect()
 }
 
+/// What a careers page advertises, in words that stay about the page.
+///
+/// **The wording is the feature, again.** *"lists an open role"* is a fact about a page; *"is
+/// growing its engineering team"* is an interpretation, and this pipeline reads pages. The
+/// investment signal is the list itself — four titles ending in *Engineer* and one in *Counsel*
+/// — so the reader does the comparing and every line of it can be checked against the source.
+pub(crate) fn claims_from_hiring(page: &landscape_core::PageHiring) -> Vec<Finding> {
+    page.roles
+        .iter()
+        .map(|role| Finding {
+            text: format!("lists an open role: {}", role.title),
+            quote: role.evidence_quote.clone().unwrap_or_default(),
+            // No model touched this. The title is the line, the line is on the page, and the
+            // only way it could be wrong is if the parser read a heading as a vacancy - which
+            // is what the frozen careers pages are for.
+            confidence: Confidence::High,
+            as_of: None,
+        })
+        .collect()
+}
+
 pub(crate) fn claims_from_changes(page: &PageChanges, today: NaiveDate) -> Vec<Finding> {
     page.recent(today)
         .into_iter()
@@ -953,6 +964,43 @@ mod trust_wording {
         // The same rule as every other claim: an unsourced sentence is not representable.
         let claims = super::claims_from_trust(&one("ISO 27001", Some(Assurance::Holds)));
         assert!(!claims[0].quote.is_empty());
+    }
+
+    fn hiring(title: &str) -> landscape_core::PageHiring {
+        landscape_core::PageHiring {
+            roles: vec![landscape_core::Role {
+                title: title.to_owned(),
+                evidence_quote: Some(title.to_owned()),
+            }],
+            considered: 1,
+            announced: true,
+        }
+    }
+
+    #[test]
+    fn a_vacancy_is_reported_as_a_listing_and_not_as_a_plan() {
+        // *"lists an open role"* is a fact about a page. *"is growing its engineering team"* is
+        // an interpretation of one, and it is the sentence this section would be easiest to
+        // write and hardest to defend.
+        let claims = super::claims_from_hiring(&hiring("Senior / Staff Product Engineer"));
+        assert_eq!(
+            claims[0].text,
+            "lists an open role: Senior / Staff Product Engineer"
+        );
+        assert!(
+            !claims[0].text.contains("growing") && !claims[0].text.contains("investing"),
+            "the claim reads as a conclusion: {}",
+            claims[0].text
+        );
+    }
+
+    #[test]
+    fn a_vacancy_is_as_confident_as_a_price_because_no_model_saw_it() {
+        // Pricing is High because the number is quoted; a capability is Medium because the
+        // model paraphrased a heading. Nothing paraphrased this — the title *is* the line.
+        let claims = super::claims_from_hiring(&hiring("Senior Counsel"));
+        assert_eq!(claims[0].confidence, landscape_core::Confidence::High);
+        assert_eq!(claims[0].quote, "Senior Counsel");
     }
 }
 

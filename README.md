@@ -286,10 +286,12 @@ because a test that cannot fail is a finding rather than a footnote.
 
 The classes of defect these come from are in
 [`.claude/skills/coding-mistakes/SKILL.md`](.claude/skills/coding-mistakes/SKILL.md) —
-thirty-one entries, each with the symptom a reader would have seen and the question that would
+thirty-three entries, each with the symptom a reader would have seen and the question that would
 have caught it — one recording four rounds of review on a single feature, one about the harness
-above reporting a clean miss when nothing had run at all, and one about the time I told a
-reviewer something could not be tested without checking.
+above reporting a clean miss when nothing had run at all, one about the time I told a reviewer
+something could not be tested without checking, one where a surviving mutation meant the rule
+should be **deleted** rather than tested, and one where a fallback ran the safe path's rules over
+input the safe path had never been given.
 
 ### The documentation is tested
 
@@ -396,10 +398,11 @@ crates/
   landscape-discover/ which pages to read about a company, in which language,
                      and which eight
   landscape-extract/ a page into Markdown, the ~400 tokens per plan, capability or
-                     fact worth reading, and the dates a changelog states
+                     fact worth reading, and the two kinds a parser reads whole:
+                     the dates a changelog states and the roles a careers page lists
   landscape-fetch/  the outside world: SSRF guard, robots.txt, per-host politeness
   landscape-golden/ measures whether it is right. Fifteen subjects for the model,
-                     ten frozen real pages for the parsers
+                     fourteen frozen real pages for the parsers
   landscape/        the binary: dev | serve | worker | migrate
 migrations/         SQL, applied on boot
 web/                Vite + React + TypeScript (strict)
