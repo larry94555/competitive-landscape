@@ -80,102 +80,97 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    open: {
-      name: "a URL and no limit on it",
-      purpose: "One request, minutes of the only model.",
+    empty: {
+      name: "a section that could never fill",
+      purpose: "Two of six questions had no extractor.",
       lines: [
-        ['t', '  POST /api/analyses'],
+        ['t', '  Trust & security posture'],
         ['c', ''],
-        ['s', '  -> four cores, for minutes'],
+        ['s', '  no extractor yet for trust pages'],
         ['c', ''],
-        ['c', '// No accounts. No quota. Once the'],
-        ['f', '// link is public, that is an invitation.']
+        ['c', '// The page was found. It was fetched.'],
+        ['f', '// Then it was thrown away.']
       ]
     },
-    number: {
-      name: "two a day",
-      purpose: "The spec picked the number.",
+    closed: {
+      name: "but this vocabulary is closed",
+      purpose: "A company does not invent a standard.",
       lines: [
-        ['f', '  DEFAULT_DAILY_LIMIT = 2'],
+        ['f', '  SOC 2 Type II   ISO 27001'],
+        ['f', '  HIPAA           GDPR'],
         ['c', ''],
-        ['c', '// One analysis is a demo. A second is'],
-        ['c', '// somebody trying their own idea.'],
-        ['t', '// Generous enough to prove value.'],
-        ['t', '// Tight enough to survive.']
+        ['c', '// A capability can be called anything.'],
+        ['t', '// A certification cannot.']
       ]
     },
-    whose: {
-      name: "but whose two?",
-      purpose: "Behind a proxy the peer is the proxy.",
+    split: {
+      name: "so the work splits in two",
+      purpose: "Arithmetic, then reading.",
       lines: [
-        ['c', '// The client is in X-Forwarded-For.'],
-        ['c', '// And that header is appended to,'],
-        ['c', '// not replaced.'],
+        ['f', '  scanner  finds the mention'],
+        ['t', '  model    reads the claim'],
         ['c', ''],
-        ['s', '  1.2.3.4, 198.51.100.7'],
-        ['s', '  ^ a claim   ^ what we saw']
+        ['c', '// Nothing can be reported that the'],
+        ['c', '// scanner did not find written down.']
       ]
     },
-    rightmost: {
-      name: "so read it from the right",
-      purpose: "The observation, not the claim.",
+    same: {
+      name: "and the claim is the whole thing",
+      purpose: "Same words. Different fact.",
       lines: [
-        ['f', '  header.rsplit(\',\').next()'],
+        ['f', '  SOC 2 Type II report available'],
+        ['s', '  SOC 2 is on our roadmap for 2027'],
         ['c', ''],
-        ['c', '// Taking the first entry is how a cap'],
-        ['f', '// like this is walked past on the'],
-        ['f', '// first afternoon it is public.']
+        ['c', '// A buyer choosing between two'],
+        ['t', '// vendors is choosing on exactly this.']
       ]
     },
-    laptop: {
-      name: "and no header is a laptop",
-      purpose: "Not a stranger.",
+    words: {
+      name: "so the report says states",
+      purpose: "Not is certified.",
       lines: [
-        ['c', '// Nothing in front of it, so nobody'],
-        ['c', '// to be protected from.'],
+        ['f', '  states SOC 2 Type II'],
+        ['t', '  says it is working towards HIPAA'],
+        ['t', '  names CCPA without saying'],
         ['c', ''],
-        ['t', '  landscape dev -> uncapped'],
-        ['f', '// Two a day would make this unusable'],
-        ['f', '// to whoever is building it.']
+        ['c', '// A fact about the page, not a fact'],
+        ['c', '// about the world. We read pages.']
       ]
     },
-    where: {
-      name: "counted where a run starts",
-      purpose: "And nowhere else.",
+    frozen: {
+      name: "then freeze a real page",
+      purpose: "And it found something at once.",
       lines: [
-        ['f', '  POST /api/analyses    counted'],
-        ['t', '  GET  /api/analyses/id  free'],
-        ['t', '  GET  .../events        free'],
-        ['t', '  GET  /api/examples     free'],
+        ['s', '  SOC 2          from the banner'],
+        ['s', '  SOC 2 Type II  from the section'],
         ['c', ''],
-        ['c', '// A reader cut off mid-report would'],
-        ['c', '// do more damage than the abuse.']
+        ['c', '// One certification, told twice, at'],
+        ['f', '// two precisions, for two calls.']
       ]
     },
-    said: {
-      name: "and the refusal says what to do",
-      purpose: "Nothing they typed was wrong.",
+    reading: {
+      name: "and one it was reading instead",
+      purpose: "Measuring found it, not a test.",
       lines: [
-        ['f', '  429'],
-        ['f', '  You have started 2 analyses today'],
+        ['s', '  basecamp.com/status    read'],
+        ['s', '  basecamp.com/security  skipped'],
         ['c', ''],
-        ['t', '  Come back tomorrow, or run your'],
-        ['t', '  own copy - it is open source.'],
-        ['c', ''],
-        ['c', '// The spec offers "sign in" here.'],
-        ['s', '// There are no accounts yet.']
+        ['c', '// One page a question. It ranked the'],
+        ['f', '// status page first, so the extractor'],
+        ['f', '// could never fire.']
       ]
     },
-    kept: {
-      name: "what is kept",
-      purpose: "A keyed hash, for one day.",
+    cost: {
+      name: "what it costs",
+      purpose: "Counted, with no model running.",
       lines: [
-        ['c', '// The key is new in every process,'],
-        ['c', '// so the table cannot be read back'],
-        ['c', '// to anybody.'],
+        ['t', '  88 calls  ->  103'],
         ['c', ''],
-        ['s', '// A restart clears the counts. That'],
-        ['s', '// is the cost of not using a table.']
+        ['f', '  five of six companies now fill'],
+        ['s', '  basecamp names none - and says so'],
+        ['c', ''],
+        ['c', '// A page of reassurance with nothing'],
+        ['c', '// named costs zero.']
       ]
     }
   };
@@ -219,21 +214,21 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:open",      c: "A public URL, and no limit on it." },
-    { kind: "means",       a: "spot:#code",     c: "One request is minutes of the only model." },
+    { kind: "recognition", a: "file:empty",   c: "A section that could never fill." },
+    { kind: "means",       a: "spot:#code",   c: "The page was fetched, then thrown away." },
 
-    { kind: "result",      a: "file:number",    c: "Two a day. The spec picked the number." },
+    { kind: "turn",        a: "file:closed",  c: "But a company does not invent a standard." },
+    { kind: "result",      a: "file:split",   c: "So the scanner finds it and the model reads it." },
 
-    { kind: "turn",        a: "file:whose",     c: "But whose two? The header is appended to, not replaced." },
-    { kind: "result",      a: "file:rightmost", c: "So read it from the right: what we saw, not what they claim." },
+    { kind: "turn",        a: "file:same",    c: "Have it, or working towards it. Same words." },
+    { kind: "result",      a: "file:words",   c: "So the report says states, never is certified." },
 
-    { kind: "result",      a: "file:laptop",    c: "No header is a laptop, and a laptop is not a stranger." },
-    { kind: "result",      a: "file:where",     c: "Counted where a run starts. Reading is always free." },
+    { kind: "result",      a: "file:frozen",  c: "Freezing a real page found a duplicate at once." },
+    { kind: "result",      a: "file:reading", c: "And measuring found the page it read instead." },
 
-    { kind: "result",      a: "file:said",      c: "Nothing they typed was wrong, so the refusal says what to do." },
-    { kind: "result",      a: "file:kept",      c: "A keyed hash, for one day, in memory." },
+    { kind: "result",      a: "file:cost",    c: "88 calls become 103. Five of six now fill." },
 
-    { kind: "close",       a: "hold",           c: "Phase D is done." }
+    { kind: "close",       a: "hold",         c: "One fewer section that can never fill." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -276,8 +271,8 @@
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "Two a day",
-    blurb: "A public URL with no cap is an invitation to spend a machine that has one model and four cores. Two analyses a day per address, read from the entry the proxy observed rather than the one a client claims, counted where a run starts so a reader is never cut off — and a refusal that says what to do rather than only what went wrong.",
+    title: "What a page claims",
+    blurb: "Two of six questions had no extractor, so a trust page was fetched and thrown away. A compliance standard is a closed vocabulary — the scanner finds the mention, and the model only reads whether the page claims to hold it or to be working towards it. Freezing a real security page found a duplicate on the first run, and measuring found the page the pipeline was reading instead.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

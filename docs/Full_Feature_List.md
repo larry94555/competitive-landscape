@@ -1,6 +1,6 @@
 # Full Feature List
 
-**As of 2026-08-06** · `main` at `50d7d1d` · **40 of 131 PRs · 31% of the software deliverable**
+**As of 2026-08-06** · `main` at `e4b1fe6` · **42 of 130 PRs · 32% of the software deliverable**
 
 Every feature the roadmap describes, sorted by the readiness state that first requires it, with
 what it is estimated to cost in pull requests and how much of that is spent.
@@ -31,8 +31,8 @@ why. This page says how much is left.
 
 ## How to read the numbers
 
-**Done** counts a PR that is written, green and either merged or in review. **39 are merged**
-and one is open — this one — 40, and the Done column sums to exactly that.
+**Done** counts a PR that is written, green and either merged or in review. **41 are merged**
+and one is open — this one — 42, and the Done column sums to exactly that.
 
 **The rows are themes, not individual PRs.** Which one belongs to which row is approximate,
 because several did two things at once; the totals are not.
@@ -62,12 +62,12 @@ only you can do; they are listed at the bottom and are not counted anywhere.
 | State | What it means | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
 | [**S1**](#s1--ready-for-a-guided-demo) | Ready for a guided demo | 39 | 39 | **0** | **100%** |
-| [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 19 | 0 | **19** | **0%** |
+| [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 18 | 1 | **17** | **6%** |
 | [**S3**](#s3--ready-for-use) | Friendly users find no issue | 26 | 1 | **25** | **4%** |
 | [**S4**](#s4--ready-for-general-use) | Promotable, word-of-mouth quality | 11 | 0 | **11** | **0%** |
 | [**S5**](#s5--general-use-free-mode) | Stable, email signup, community | 15 | 0 | **15** | **0%** |
 | [**S6**](#s6--general-use-full-mode) | Notifications and paid subscriptions | 21 | 0 | **21** | **0%** |
-| | **Total** | **131** | **40** | **91** | **31%** |
+| | **Total** | **130** | **42** | **88** | **32%** |
 | | *Getting it onto a host (not a state)* | *3* | *0* | *3* | *0%* |
 
 **The shape of that table is the answer to "how far are we".** **S1 is complete** — the guided
@@ -138,12 +138,18 @@ software in the project.
 | Competitor set derivation — one idea to several companies, with why each was chosen | S2 | 3 | 0 | **3** | 0% |
 | Vocabulary resolution — a reader's words to a category the pipeline can search | S2 | 2 | 0 | **2** | 0% |
 | Clarifying questions — ≤3, chip-answerable, skippable, only when discovery diverges | S2 | 2 | 0 | **2** | 0% |
-| Trust posture extractor — the fifth question kind | S2 | 1 | 0 | **1** | 0% |
+| Trust posture extractor — the fifth question kind | S2 | 1 | 1 | 0 | 100% |
 | Investment direction extractor — the sixth question kind | S2 | 1 | 0 | **1** | 0% |
 | Honest "no public information" at the level of a whole competitor set | S2 | 1 | 0 | **1** | 0% |
 | Fetch cache and per-source extraction cache — two readers of one competitor share work | S2 | 2 | 0 | **2** | 0% |
 | Conditional GET and a per-analysis fetch cap | S2 | 1 | 0 | **1** | 0% |
-| | | **19** | **0** | **19** | **0%** |
+| | | **18** | **1** | **17** | **6%** |
+
+**The first row of S2 to move is not on the critical path, and that is deliberate.** The trust
+posture extractor needs no search channel: discovery already admits `/security`, the pipeline
+already fetched it, and the section was permanently empty because nothing read it. It is the
+cheapest honest improvement available while [B2](../PROJECT_STATUS.md#4-blockers) is unbuilt —
+one fewer section that can never fill.
 
 **D4 is the reason S1 does not wait for this, and it is now built.** Three curated ideas run a
 *real* analysis over *real* competitor domains; only the choice of companies is curated, the

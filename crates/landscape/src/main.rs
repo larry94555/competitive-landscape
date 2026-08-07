@@ -207,10 +207,11 @@ async fn main() -> Result<()> {
 /// screenshot.
 async fn fetch_one(args: &[String]) -> Result<()> {
     let url = args.get(1).filter(|a| !a.starts_with("--")).context(
-        "usage: landscape fetch <url>
+        "usage: landscape fetch <url> [--markdown]
 
-Example:
-  landscape fetch https://example.com/",
+Examples:
+  landscape fetch https://example.com/
+  landscape fetch https://example.com/security --markdown   # what a golden page is made of",
     )?;
 
     let fetcher = landscape_fetch::Fetcher::new();
@@ -227,6 +228,14 @@ Example:
                 println!("etag    {tag}");
             }
             println!("fetched {}", page.fetched_at.to_rfc3339());
+            // **How a golden page is made.** `landscape-golden/pages/` holds real pages frozen
+            // as Markdown, and until now the only account of where they came from was that
+            // somebody had produced them. This is the step, so a page added next year is
+            // converted by the same code that reads one in production.
+            if args.iter().any(|a| a == "--markdown") {
+                println!("---");
+                print!("{}", landscape_extract::markdown::from_body(&page.body));
+            }
             Ok(())
         }
         // Printed as an ordinary result rather than returned as an error: a refusal is this

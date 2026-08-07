@@ -1,0 +1,43 @@
+{
+  "page": "linear-security.md",
+  "from": "https://linear.app/security fetched 2026-08-06",
+  "why": "The first frozen trust page. A real security page names five standards in five different shapes - a heading, a sentence, a list item - and the extractor must find each one and hand the model the sentence that says whether they hold it. SOC 2 appears both alone and as SOC 2 Type II, which is the case the longest-spelling-first rule exists for.",
+  "answers": "trust",
+  "assurances": {
+    "named": [
+      {
+        "standard": "SOC 2 Type II",
+        "text": [
+          "#### SOC 2 compliance",
+          "Linear undergoes regular Service Organization Controls audits (SOC 2 Type II). Request SOC 2 →",
+          "#### GDPR compliance"
+        ]
+      },
+      {
+        "standard": "GDPR",
+        "text": [
+          "Linear undergoes regular Service Organization Controls audits (SOC 2 Type II). Request SOC 2 →",
+          "#### GDPR compliance",
+          "Committed to compliance with Europe’s General Data Protection Regulation (GDPR)."
+        ]
+      },
+      {
+        "standard": "HIPAA",
+        "text": [
+          "Committed to compliance with Europe’s General Data Protection Regulation (GDPR).",
+          "#### HIPAA compliance",
+          "Privacy and security measures to ensure that Protected Health Information (PHI) is appropriately safeguarded. Request BAA →"
+        ]
+      },
+      {
+        "standard": "ISO 27001",
+        "text": [
+          "Privacy and security measures to ensure that Protected Health Information (PHI) is appropriately safeguarded. Request BAA →",
+          "#### ISO 27001 certified",
+          "Linear has achieved ISO/IEC 27001:2022 certification for its information security management system. Request ISO →"
+        ]
+      }
+    ],
+    "considered": 4
+  }
+}

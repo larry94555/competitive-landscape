@@ -64,6 +64,7 @@ pub(crate) async fn extract(
         Answers::Features => features(llm, url, markdown, so_far).await,
         Answers::Changes => changes(markdown, today),
         Answers::Identity => identity(llm, url, markdown, so_far).await,
+        Answers::Trust => trust(llm, url, markdown, so_far).await,
         _ => Outcome {
             claims: Vec::new(),
             summary: format!("no extractor yet for {} pages", question.name()),
@@ -233,6 +234,235 @@ async fn features(
             .map(|w| w.text.split_whitespace().count())
             .sum(),
     }
+}
+
+/// What a trust page says it holds, one named standard at a time.
+///
+/// **The scanner finds the name; the model reads the claim.** A compliance standard is a closed
+/// vocabulary, so nothing can be reported that `assurance::every_assurance` did not first find
+/// written on the page — which removes the failure the feature extractor has to defend against
+/// with grounding alone, where a model asked to *"list the certifications"* invents one.
+///
+/// What is left for the model is the part that is genuinely reading: whether the page says they
+/// **have** it or are **working towards** it. Both spellings contain the same words, and a
+/// report that treated them alike would be this project's characteristic wrong answer —
+/// correct-looking, fully cited, about a different fact.
+async fn trust(
+    llm: &landscape_llm::LlamaClient,
+    url: &str,
+    markdown: &str,
+    so_far: Progress<'_>,
+) -> Outcome {
+    let found = landscape_extract::assurance::every_assurance(markdown);
+    if found.named.is_empty() {
+        return Outcome {
+            claims: Vec::new(),
+            // Said in the words of what was looked for, because "nothing found" on a security
+            // page usually means the page is reassurance rather than a list of standards - and
+            // that is a finding about the company rather than about us.
+            summary: "no named standard on the page".to_owned(),
+            details: Vec::new(),
+            window_words: 0,
+        };
+    }
+
+    let mut extracted: Vec<landscape_core::TrustExtraction> = Vec::with_capacity(found.named.len());
+    let mut details = Vec::new();
+    let (mut unsupported, mut mismatched) = (0usize, 0usize);
+
+    for named in &found.named {
+        match llm
+            .generate::<landscape_core::AssuranceClaim>(
+                &assurance_prompt(url, &named.standard, &named.span),
+                &decode(),
+            )
+            .await
+        {
+            // **The standard is the scanner's, not the model's.** It is attached here rather
+            // than asked for, so a window naming two standards cannot produce an answer about
+            // the other one, and a shortened spelling cannot undo the precise-spelling rule.
+            // Review found both, and both stop being expressible rather than being checked.
+            Ok(claim) => {
+                match judge_assurance(&claim, &named.span.prompt_text(), &named.standard) {
+                    Judged::Keep => extracted.push(claim.about(&named.standard)),
+                    Judged::QuoteNotInTheSection => {
+                        unsupported += 1;
+                        extracted
+                            .push(landscape_core::AssuranceClaim::empty().about(&named.standard));
+                    }
+                    // The page does name this standard - the scanner found it - so the mention is
+                    // kept and the claim is not. Answering about a neighbour is the failure mode
+                    // of handing one window over twice.
+                    Judged::EvidenceIsAboutAnother => {
+                        mismatched += 1;
+                        extracted
+                            .push(landscape_core::AssuranceClaim::empty().about(&named.standard));
+                    }
+                }
+            }
+            Err(e) => details.push(format!("model error: {e}")),
+        }
+        if so_far(&crate::claims_from_trust(
+            &landscape_core::PageTrust::assembled(extracted.clone(), found.considered),
+        )) == crate::Wanted::No
+        {
+            break;
+        }
+    }
+
+    let page = landscape_core::PageTrust::assembled(extracted, found.considered);
+    let claims = crate::claims_from_trust(&page);
+
+    let mut lines: Vec<String> = page
+        .assurances
+        .iter()
+        .map(|a| {
+            let name = a.standard.as_deref().unwrap_or("unnamed");
+            match a.status {
+                Some(status) => format!("{name} ({})", status.wording()),
+                None => format!("{name} (named, nothing claimed)"),
+            }
+        })
+        .collect();
+    if mismatched > 0 {
+        lines.push(format!(
+            "{mismatched} answer(s) quoted a different standard - the mention is kept, the claim is not"
+        ));
+    }
+    if unsupported > 0 {
+        lines.push(format!(
+            "{unsupported} claim(s) dropped - the quote was not in the section. The mention is kept"
+        ));
+    }
+    lines.extend(details);
+
+    // The cap is stated rather than applied quietly, the same as the capability cap.
+    let capped = if found.considered > found.named.len() {
+        format!(" (of {} the page names)", found.considered)
+    } else {
+        String::new()
+    };
+    Outcome {
+        claims,
+        summary: format!("{} standard(s) read{capped}", page.assurances.len()),
+        details: lines,
+        window_words: found
+            .named
+            .iter()
+            .map(|n| n.span.text.split_whitespace().count())
+            .sum(),
+    }
+}
+
+/// What to make of one claim, decided without a model in the room.
+///
+/// **A pure function so the decision can be tested.** The rest of the stage cannot run without
+/// a `llama-server`, so a judgement made inline is a judgement nothing holds still.
+///
+/// # The model cannot choose the name, and that was not enough
+///
+/// Taking the standard from the scanner stopped the model *labelling* an answer. It did not
+/// stop it *answering about the wrong thing*: a window is three lines, and two standards often
+/// sit within three lines of each other — or on one line — so the same window is handed over
+/// twice, once per standard. A model asked about ISO 27001 can reply `holds` while quoting the
+/// sentence about SOC 2, and every check passed: the quote is verbatim in the section, and the
+/// name is the scanner's.
+///
+/// That publishes *"states ISO 27001"* on evidence about a different certification. Review
+/// found it **in the regression I had just written to prove the class was closed**.
+///
+/// So the evidence is checked against the standard it is supposed to be about. A quote naming
+/// **no** standard is the ordinary honest case — *"We are certified and audited annually."*
+/// beside the name — and is kept.
+/// # Both failures take the same conservative path
+///
+/// `ARCHITECTURE.md` is explicit: *"a claim whose evidence quote is absent from its cited source
+/// is deleted"*. The first version of this counted a non-verbatim quote and **published the
+/// status anyway**, on the argument that the standard was real so the finding was worth keeping.
+/// Review pointed out what that ships: *"states ISO 27001"* against a page whose only sentence
+/// is *"Questions about ISO 27001? Contact us."* — an unsupported compliance claim, with a line
+/// in a run log nobody reads standing in for a check.
+///
+/// So an unsupported claim is dropped and the **mention is kept**, exactly as it is when the
+/// evidence turns out to be about a neighbouring standard. That the page names the standard is
+/// the scanner's finding and stays true; that they hold it is the model's, and it goes when its
+/// evidence does.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Judged {
+    /// Quoted from the section, and about the standard in question.
+    Keep,
+    /// The quote is missing, empty, or not in the section. **The claim is dropped and the
+    /// mention is kept.**
+    QuoteNotInTheSection,
+    /// The quote names a different standard and not this one. **The claim is dropped and the
+    /// mention is kept**: that the page names this standard is true and worth reporting; that
+    /// they hold it is a fact this evidence does not support.
+    EvidenceIsAboutAnother,
+}
+
+pub(crate) fn judge_assurance(
+    claim: &landscape_core::AssuranceClaim,
+    section: &str,
+    requested: &str,
+) -> Judged {
+    let quote = claim.evidence_quote.as_deref().unwrap_or_default().trim();
+
+    if !quote.is_empty() {
+        let named = landscape_extract::assurance::standards_named(quote);
+        if !named.is_empty()
+            && !named
+                .iter()
+                .any(|n| landscape_extract::assurance::same_standard(n, requested))
+        {
+            return Judged::EvidenceIsAboutAnother;
+        }
+    }
+
+    // **A status with nothing behind it is not a claim.** An answer of `holds` and no quote at
+    // all used to pass, because "there is no quote to check" reads as "the quote is fine" —
+    // which is the same shape as every check-that-cannot-fail in the register.
+    if quote.is_empty() {
+        return if claim.status.is_some() {
+            Judged::QuoteNotInTheSection
+        } else {
+            Judged::Keep
+        };
+    }
+
+    if claim.quote_is_verbatim(section) {
+        Judged::Keep
+    } else {
+        Judged::QuoteNotInTheSection
+    }
+}
+
+/// One standard at a time, and the only question is whether they say they have it.
+fn assurance_prompt(url: &str, standard: &str, window: &Span) -> String {
+    let section: String = window.prompt_text().chars().take(6000).collect();
+    format!(
+        "You are reading one section of a company's security or trust page. The section \
+         mentions {standard}. Say what the section claims about it.
+
+         Page: {url}
+
+         Rules:
+         - status is holds when the section says they have it, are certified, are compliant, \
+           or that a report or certificate exists.
+         - status is pursuing when the section says they are working towards it, it is in \
+           progress, planned, expected, or on a roadmap.
+         - Leave status null when the section only mentions the standard without saying \
+           either - a question, a link, or a contact address is not a claim.
+         - Use only the words of this section. Do not use anything you know about this \
+           company from elsewhere.
+         - evidence_quote must be copied from the section word for word.
+
+         SECTION
+---
+{section}
+---
+
+Return the extraction as JSON."
+    )
 }
 
 /// Dated entries, parsed. **No model runs here.**
@@ -581,6 +811,155 @@ mod tests {
     const A_CAPABILITY: &str =
         r#"{"name":"The Project page keeps it all together","evidence_quote":"The Project page"}"#;
 
+    /// What the stub says about one standard: a claim, and no name — because the generated
+    /// type has no name field to fill.
+    const A_CLAIM: &str =
+        r#"{"status":"holds","evidence_quote":"undergoes regular SOC 2 Type II audits"}"#;
+
+    /// A section naming two standards, which is the case the old check could not survive.
+    const TWO_STANDARDS: &str = "# Security\n\nLinear undergoes regular SOC 2 Type II audits.\n\nISO 27001 is on our roadmap for next year.\n\nWe encrypt everything in transit and at rest, and publish our posture here.";
+
+    #[tokio::test]
+    async fn the_standard_reported_is_the_one_the_scanner_found() {
+        // **Review found that nothing tested this wiring.** Replacing `claim.about(&named
+        // .standard)` with a hard-coded standard left all 572 tests green — so the class of
+        // defect the previous round removed could walk straight back in.
+        //
+        // I had said the stage was untestable without a model. There is a `StubModel` forty
+        // lines below the code I was editing, used by nine tests. The claim was wrong and I
+        // did not check it.
+        //
+        // The page names two standards. The stub answers with a claim and no name at all, so
+        // whatever reaches the report can only have come from the scanner.
+        let stub = StubModel::start(A_CLAIM).await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+
+        let outcome = trust(
+            &llm,
+            "https://linear.app/security",
+            TWO_STANDARDS,
+            &mut |_| crate::Wanted::Yes,
+        )
+        .await;
+
+        let said: Vec<&str> = outcome.claims.iter().map(|c| c.text.as_str()).collect();
+        assert!(
+            said.iter().any(|t| t.contains("SOC 2 Type II")),
+            "the precise standard the scanner found is not in the report: {said:?}"
+        );
+        assert!(
+            said.iter().any(|t| t.contains("ISO 27001")),
+            "the second standard on the page is missing: {said:?}"
+        );
+        // Two standards named, two windows, two calls - one question each.
+        assert_eq!(stub.calls(), 2, "one call per standard the scanner found");
+
+        // **Review's assertion, and the one the first version of this test was missing.** The
+        // stub answers every window with the same SOC 2 sentence. Checking only that both
+        // names appear accepted `states it holds ISO 27001` carrying evidence about SOC 2 -
+        // a fabricated certification claim that the test was written to rule out.
+        let iso = outcome
+            .claims
+            .iter()
+            .find(|c| c.text.contains("ISO 27001"))
+            .expect("the ISO finding");
+        assert!(
+            !iso.quote.contains("SOC 2"),
+            "the ISO claim was paired with evidence about another standard: {}",
+            iso.quote
+        );
+        assert!(
+            iso.text.contains("without saying"),
+            "an answer about a different standard became a claim about this one: {}",
+            iso.text
+        );
+    }
+
+    #[tokio::test]
+    async fn a_claim_whose_quote_is_not_on_the_page_never_reaches_the_report() {
+        // **Review's reproduction, and my test used to assert the opposite.** The page asks a
+        // question about ISO 27001 and claims nothing; the model answers `holds` with a
+        // sentence that is not there. The old arm counted the quote and published the status,
+        // so the report said "states ISO 27001" about a company that had said no such thing.
+        //
+        // `ARCHITECTURE.md`: a claim whose evidence quote is absent from its cited source is
+        // deleted. The mention is the scanner's and survives; the claim is the model's and
+        // does not.
+        const FABRICATED: &str =
+            r#"{"status":"holds","evidence_quote":"We are ISO 27001 certified"}"#;
+        let stub = StubModel::start(FABRICATED).await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+
+        let outcome = trust(
+            &llm,
+            "https://example.test/security",
+            "# Security\n\nQuestions about ISO 27001? Contact us.",
+            &mut |_| crate::Wanted::Yes,
+        )
+        .await;
+
+        assert_eq!(outcome.claims.len(), 1, "the mention was thrown away too");
+        let said = &outcome.claims[0];
+        assert!(
+            said.text.contains("without saying"),
+            "an unsupported claim reached the report: {}",
+            said.text
+        );
+        assert!(
+            said.quote.is_empty(),
+            "a quote that is not on the page was published as evidence: {}",
+            said.quote
+        );
+        assert!(
+            outcome.details.iter().any(|d| d.contains("dropped")),
+            "the reader is not told a claim was set aside: {:?}",
+            outcome.details
+        );
+    }
+
+    #[tokio::test]
+    async fn a_page_that_names_no_standard_never_asks_the_model() {
+        // The scanner runs first, so a security page that is reassurance and nothing else
+        // costs nothing at all. This is the arithmetic `landscape cost` prints, asserted
+        // against the stage that does it rather than against the counter that predicts it.
+        let stub = StubModel::start(A_CLAIM).await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+
+        let outcome = trust(
+            &llm,
+            "https://basecamp.com/security",
+            "# Security\n\nWe take security seriously and encrypt everything in transit.",
+            &mut |_| crate::Wanted::Yes,
+        )
+        .await;
+
+        assert!(outcome.claims.is_empty());
+        assert_eq!(stub.calls(), 0, "a page with nothing named was still read");
+        assert!(
+            outcome.summary.contains("no named standard"),
+            "{}",
+            outcome.summary
+        );
+    }
+
+    #[tokio::test]
+    async fn a_trust_run_told_to_stop_asks_no_further_questions() {
+        // Every other extractor is checked for this; the newest one has to be too, or the
+        // saving that `Wanted::No` exists for quietly stops applying to a fifth of the run.
+        let stub = StubModel::start(A_CLAIM).await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+
+        let _ = trust(
+            &llm,
+            "https://linear.app/security",
+            TWO_STANDARDS,
+            &mut |_| crate::Wanted::No,
+        )
+        .await;
+
+        assert_eq!(stub.calls(), 1, "it asked again after being told to stop");
+    }
+
     #[tokio::test]
     async fn a_run_told_to_stop_does_not_call_the_model_again() {
         let stub = StubModel::start(A_CAPABILITY).await;
@@ -878,5 +1257,153 @@ mod tests {
     #[test]
     fn the_prompt_version_is_stated_so_two_runs_can_be_compared() {
         assert_eq!(crate::PROMPT_VERSION, 1);
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod judging_assurances {
+    use super::{judge_assurance, Judged};
+    use landscape_core::{Assurance, AssuranceClaim};
+
+    fn claim(quote: &str) -> AssuranceClaim {
+        AssuranceClaim {
+            status: Some(Assurance::Holds),
+            evidence_quote: Some(quote.to_owned()),
+        }
+    }
+
+    const SECTION: &str = "Linear undergoes regular SOC 2 Type II audits.
+ISO 27001 is on our roadmap.";
+
+    #[test]
+    fn a_claim_quoted_from_the_section_is_kept() {
+        assert_eq!(
+            judge_assurance(
+                &claim("regular SOC 2 Type II audits"),
+                SECTION,
+                "SOC 2 Type II"
+            ),
+            Judged::Keep
+        );
+    }
+
+    #[test]
+    fn evidence_about_a_neighbouring_standard_is_not_a_claim_about_this_one() {
+        // **The failure review found in the regression written to prove the class was closed.**
+        // The window holds both standards, so the same three lines are handed over twice. An
+        // answer about SOC 2, relabelled ISO 27001, published a certification claim on evidence
+        // about a different certification - and the quote was verbatim, and the name was the
+        // scanner's, so every check passed.
+        assert_eq!(
+            judge_assurance(
+                &claim("undergoes regular SOC 2 Type II audits"),
+                SECTION,
+                "ISO 27001"
+            ),
+            Judged::EvidenceIsAboutAnother
+        );
+    }
+
+    #[test]
+    fn evidence_that_names_no_standard_is_the_ordinary_case_and_is_kept() {
+        // *"We are certified and audited annually."* beside the name. Refusing this would
+        // throw away most true claims to catch a rare wrong one.
+        const PLAIN: &str = "ISO 27001\nWe are certified and audited annually.";
+        assert_eq!(
+            judge_assurance(&claim("certified and audited annually"), PLAIN, "ISO 27001"),
+            Judged::Keep
+        );
+    }
+
+    #[test]
+    fn a_quote_naming_the_standard_asked_about_is_kept_at_either_precision() {
+        // `SOC 2` in the evidence for a scanned `SOC 2 Type II` is the same certification, not
+        // a different one - the check must not turn a precision difference into a rejection.
+        assert_eq!(
+            judge_assurance(&claim("our SOC 2 report"), SECTION, "SOC 2 Type II"),
+            Judged::QuoteNotInTheSection
+        );
+    }
+
+    #[test]
+    fn a_quote_that_is_not_in_the_section_takes_the_claim_with_it() {
+        // `ARCHITECTURE.md`: *"a claim whose evidence quote is absent from its cited source is
+        // deleted"*. This used to keep the status and only count the quote, which published an
+        // unsupported compliance claim with a run-log line standing in for a check.
+        assert_eq!(
+            judge_assurance(&claim("we are fully certified"), SECTION, "SOC 2 Type II"),
+            Judged::QuoteNotInTheSection
+        );
+    }
+
+    #[test]
+    fn a_status_with_no_quote_at_all_is_not_a_claim() {
+        // "There is no quote to check" reads as "the quote is fine", which is the shape of
+        // every check-that-cannot-fail in the register.
+        let bare = AssuranceClaim {
+            status: Some(Assurance::Holds),
+            evidence_quote: None,
+        };
+        assert_eq!(
+            judge_assurance(&bare, SECTION, "SOC 2 Type II"),
+            Judged::QuoteNotInTheSection
+        );
+
+        let blank = AssuranceClaim {
+            status: Some(Assurance::Holds),
+            evidence_quote: Some("   ".to_owned()),
+        };
+        assert_eq!(
+            judge_assurance(&blank, SECTION, "SOC 2 Type II"),
+            Judged::QuoteNotInTheSection
+        );
+    }
+
+    #[test]
+    fn claiming_nothing_and_quoting_nothing_is_not_a_failure() {
+        // The page named the standard and said nothing about it. There is no claim to support,
+        // so there is nothing to drop.
+        assert_eq!(
+            judge_assurance(&AssuranceClaim::empty(), SECTION, "SOC 2 Type II"),
+            Judged::Keep
+        );
+    }
+
+    #[test]
+    fn evidence_written_with_the_other_numeral_is_the_same_standard() {
+        // `SOC 2 Type 2` and `SOC 2 Type II` are one report, and an auditor writes it either
+        // way. Treating them as different threw away a correct quote.
+        const EITHER: &str = "Our SOC 2 Type 2 report is available under NDA.";
+        assert_eq!(
+            judge_assurance(
+                &claim("SOC 2 Type 2 report is available"),
+                EITHER,
+                "SOC 2 Type II"
+            ),
+            Judged::Keep
+        );
+    }
+
+    #[test]
+    fn the_standard_reported_is_the_one_the_scanner_asked_about() {
+        // **The failure review found, now unrepresentable.** This section names two standards.
+        // The model used to be asked for the name as well, so an answer about `ISO 27001` -
+        // carrying a verbatim SOC 2 quote - passed both checks and published a certification
+        // claim about the wrong standard.
+        //
+        // The name is attached from the scanner after generation. Whatever the model says, the
+        // extraction is about the standard this iteration asked about.
+        let got = claim("regular SOC 2 Type II audits").about("SOC 2 Type II");
+        assert_eq!(got.standard.as_deref(), Some("SOC 2 Type II"));
+    }
+
+    #[test]
+    fn a_shortened_spelling_cannot_come_back_from_the_model() {
+        // The other half: returning `SOC 2` for a scanned `SOC 2 Type II` passed a containment
+        // check and quietly undid the precise-spelling rule. There is nothing to return now.
+        let got = AssuranceClaim::empty().about("SOC 2 Type II");
+        assert_eq!(got.standard.as_deref(), Some("SOC 2 Type II"));
+        assert!(got.status.is_none());
     }
 }

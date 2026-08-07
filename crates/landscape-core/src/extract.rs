@@ -623,6 +623,263 @@ fn normalise(name: &str) -> String {
     squash(base)
 }
 
+/// Whether a page says it **holds** an assurance, or that it is **working towards** one.
+///
+/// **This distinction is the entire extractor.** A security page that says *"SOC 2 Type II
+/// report available on request"* and one that says *"SOC 2 is on our roadmap for 2027"* both
+/// contain the words *SOC 2*, and reporting them the same way would be the shape of wrong
+/// answer this project keeps finding: correct-looking, fully cited, and about a different
+/// fact. A buyer choosing between two vendors on compliance is choosing on exactly this.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Assurance {
+    /// The page states it as something they have.
+    Holds,
+    /// The page states it as something they are working towards — in progress, planned,
+    /// pursuing, "expected".
+    Pursuing,
+}
+
+impl Assurance {
+    /// How a report words it.
+    #[must_use]
+    pub const fn wording(self) -> &'static str {
+        match self {
+            Self::Holds => "states",
+            Self::Pursuing => "says it is working towards",
+        }
+    }
+}
+
+/// What the model is asked about one standard: only the claim, never the name.
+///
+/// **The name is not the model's to choose.** The scanner already found it written on the page,
+/// and asking for it back invited two failures review found: a window that mentions two
+/// standards let a response about the *other* one pass every check, and returning `SOC 2` for a
+/// scanned `SOC 2 Type II` passed a containment check while quietly undoing the precise-spelling
+/// rule.
+///
+/// So the question put to the model is the part it is actually for — *does this section say
+/// they have it, or that they are working towards it?* — and the standard is carried through
+/// from the scanner by construction. A whole class of wrong answer stops being expressible.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AssuranceClaim {
+    /// Whether they say they have it or are working towards it.
+    ///
+    /// `None` when the section names the standard without saying which — *"questions about SOC
+    /// 2? contact us"* names it and claims nothing.
+    pub status: Option<Assurance>,
+
+    /// The words the section used, copied verbatim.
+    pub evidence_quote: Option<String>,
+}
+
+impl AssuranceClaim {
+    /// A claim that said nothing.
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            status: None,
+            evidence_quote: None,
+        }
+    }
+
+    /// Whether the quote, if there is one, really appears in the source.
+    #[must_use]
+    pub fn quote_is_verbatim(&self, source: &str) -> bool {
+        let Some(quote) = &self.evidence_quote else {
+            return true;
+        };
+        let quote = squash(quote);
+        quote.is_empty() || squash(source).contains(&quote)
+    }
+
+    /// The standard the scanner found, with what the model made of it.
+    #[must_use]
+    pub fn about(self, standard: &str) -> TrustExtraction {
+        TrustExtraction {
+            standard: Some(standard.to_owned()),
+            status: self.status,
+            evidence_quote: self.evidence_quote,
+        }
+    }
+}
+
+/// One assurance a trust or security page names.
+///
+/// The fifth question kind. Deliberately shaped like [`FeatureExtraction`], because the job is
+/// the same: a name, the condition attached to it, and the words that support both.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct TrustExtraction {
+    /// The standard as the page names it — `SOC 2`, `ISO 27001`, `GDPR`. `None` when the
+    /// window turned out to be about something else.
+    pub standard: Option<String>,
+
+    /// Whether they say they have it or are working towards it.
+    ///
+    /// `None` when the page names the standard without saying which — *"questions about SOC 2?
+    /// contact us"* names it and claims nothing, and a report that turned that into a ✓ would
+    /// be inventing the fact a reader came for.
+    pub status: Option<Assurance>,
+
+    /// The words the page used, copied verbatim — checkable the same way a price's quote is.
+    pub evidence_quote: Option<String>,
+}
+
+impl TrustExtraction {
+    /// An extraction that found nothing.
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            standard: None,
+            status: None,
+            evidence_quote: None,
+        }
+    }
+
+    /// Whether the quote, if there is one, really appears in the source.
+    #[must_use]
+    pub fn quote_is_verbatim(&self, source: &str) -> bool {
+        let Some(quote) = &self.evidence_quote else {
+            return true;
+        };
+        let quote = squash(quote);
+        quote.is_empty() || squash(source).contains(&quote)
+    }
+}
+
+/// Every assurance one page names, assembled from its windows.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct PageTrust {
+    /// In the order the page presents them.
+    pub assurances: Vec<TrustExtraction>,
+    /// How many candidates the page offered before any cap was applied.
+    ///
+    /// The same discipline `PageFeatures` follows: a short list with no number beside it is a
+    /// wrong list.
+    pub considered: usize,
+}
+
+impl PageTrust {
+    /// Assemble per-window extractions into what the page says.
+    ///
+    /// Drops the ones that named nothing, and the same standard named twice — a page that
+    /// lists SOC 2 in a summary and again in a table states one fact, not two.
+    ///
+    /// **A standard with no status is kept**, and says so when it is rendered. Dropping it
+    /// would turn "the page mentions SOC 2 and does not say they have it" into silence, and
+    /// silence reads as "not mentioned" — which is a different, wrong answer.
+    #[must_use]
+    pub fn assembled(
+        extractions: impl IntoIterator<Item = TrustExtraction>,
+        considered: usize,
+    ) -> Self {
+        let mut assurances: Vec<TrustExtraction> = Vec::new();
+        for got in extractions {
+            let Some(name) = got.standard.as_deref().map(normalise) else {
+                continue;
+            };
+            if name.is_empty()
+                || assurances
+                    .iter()
+                    .any(|kept| kept.standard.as_deref().map(normalise).as_deref() == Some(&name))
+            {
+                continue;
+            }
+            assurances.push(got);
+        }
+        Self {
+            assurances,
+            considered,
+        }
+    }
+
+    /// Whether the page named nothing at all.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.assurances.is_empty()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod trust_tests {
+    use super::*;
+
+    fn holding(standard: &str, status: Option<Assurance>, quote: &str) -> TrustExtraction {
+        TrustExtraction {
+            standard: Some(standard.to_owned()),
+            status,
+            evidence_quote: Some(quote.to_owned()),
+        }
+    }
+
+    #[test]
+    fn a_claim_is_only_ever_about_the_standard_it_was_asked_about() {
+        // **The failure a security page invites**, and it is now unrepresentable rather than
+        // checked. A model that has read about a company knows which certifications it holds,
+        // and a window naming two standards used to let an answer about the other one through
+        // a containment check - a compliance claim invented about a real company, fully cited.
+        //
+        // The model is no longer asked for the name. `AssuranceClaim` cannot carry one, and
+        // `about` attaches the standard the scanner found written on the page.
+        let got = AssuranceClaim {
+            status: Some(Assurance::Holds),
+            evidence_quote: Some("regular audits".to_owned()),
+        }
+        .about("SOC 2 Type II");
+        assert_eq!(got.standard.as_deref(), Some("SOC 2 Type II"));
+    }
+
+    #[test]
+    fn a_quote_that_is_not_in_the_section_is_caught() {
+        let section = "Our SOC 2 Type II report is available under NDA.";
+        assert!(holding("SOC 2", None, "available under NDA").quote_is_verbatim(section));
+        assert!(!holding("SOC 2", None, "we are fully certified").quote_is_verbatim(section));
+    }
+
+    #[test]
+    fn a_standard_named_without_a_claim_survives_assembly() {
+        // Dropping it would turn "the page mentions SOC 2 and does not say they have it" into
+        // silence - and silence reads as "not mentioned", which is a different, wrong answer.
+        let page = PageTrust::assembled([holding("SOC 2", None, "questions about SOC 2?")], 1);
+        assert_eq!(page.assurances.len(), 1);
+        assert!(page.assurances[0].status.is_none());
+    }
+
+    #[test]
+    fn the_same_standard_twice_is_one_fact() {
+        let page = PageTrust::assembled(
+            [
+                holding("GDPR", Some(Assurance::Holds), "a"),
+                holding("gdpr", Some(Assurance::Holds), "b"),
+            ],
+            2,
+        );
+        assert_eq!(page.assurances.len(), 1);
+    }
+
+    #[test]
+    fn an_extraction_that_named_nothing_is_dropped() {
+        let page = PageTrust::assembled([TrustExtraction::empty()], 1);
+        assert!(page.is_empty());
+    }
+
+    #[test]
+    fn holding_and_pursuing_are_worded_differently() {
+        // The entire extractor. If these two ever read the same, a roadmap item becomes a
+        // certification and a buyer chooses on it.
+        assert_ne!(Assurance::Holds.wording(), Assurance::Pursuing.wording());
+        assert!(Assurance::Pursuing.wording().contains("working towards"));
+    }
+
+    #[test]
+    fn the_count_the_page_offered_is_kept() {
+        let page = PageTrust::assembled([holding("SOC 2", Some(Assurance::Holds), "q")], 9);
+        assert_eq!(page.considered, 9);
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod tests {

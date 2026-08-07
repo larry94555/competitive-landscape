@@ -56,15 +56,20 @@ fn every_frozen_page_still_reads_the_way_it_did() {
 
 #[test]
 fn the_set_covers_every_question_that_has_an_extractor() {
-    // Four of the six questions extract. A question with an extractor and no frozen page is a
+    // Five of the six questions extract. A question with an extractor and no frozen page is a
     // rule nothing holds still — which is how span selection went five runs before anyone
     // noticed it had been picking the FAQ.
+    //
+    // **Trust joined the list with its extractor**, and freezing a real security page paid for
+    // itself immediately: linear.app says `SOC 2` in a banner and `SOC 2 Type II` in the
+    // section below, and the first version reported both.
     let expectations = pages::load().expect("the page set loads");
     for question in [
         pages::Answers::Pricing,
         pages::Answers::Features,
         pages::Answers::Changes,
         pages::Answers::Identity,
+        pages::Answers::Trust,
     ] {
         assert!(
             expectations.iter().any(|e| e.answers == question),
@@ -86,6 +91,7 @@ fn the_set_holds_a_page_that_answers_nothing() {
             e.plan_windows.as_ref().is_some_and(Vec::is_empty)
                 || e.changes.as_ref().is_some_and(|c| c.considered == 0)
                 || e.facts.as_ref().is_some_and(Vec::is_empty)
+                || e.assurances.as_ref().is_some_and(|a| a.named.is_empty())
         })
         .count();
     assert!(
@@ -124,12 +130,19 @@ fn every_expectation_freezes_a_body_and_not_just_a_heading() {
         if let Some(facts) = &e.facts {
             lines += facts.iter().map(|f| f.text.len()).sum::<usize>();
         }
+        if let Some(assurances) = &e.assurances {
+            // The window, not the name. A standard read from the wrong paragraph is a
+            // confident answer about a different sentence, and the name alone would not show
+            // it — the same hole review found in the heading-only expectations.
+            lines += assurances.named.iter().map(|n| n.text.len()).sum::<usize>();
+        }
 
         // The two pages that legitimately yield nothing are the controls, and they are
         // asserted by `the_set_holds_a_page_that_answers_nothing` instead.
         let yields_nothing = e.plan_windows.as_ref().is_some_and(Vec::is_empty)
             || e.changes.as_ref().is_some_and(|c| c.considered == 0)
-            || e.facts.as_ref().is_some_and(Vec::is_empty);
+            || e.facts.as_ref().is_some_and(Vec::is_empty)
+            || e.assurances.as_ref().is_some_and(|a| a.named.is_empty());
         assert!(
             yields_nothing || lines > 0,
             "{} freezes headings but no content, so a change inside a window would pass",

@@ -256,7 +256,13 @@ pub fn guess(path: &str) -> Option<Answers> {
 /// more likely to be *the* page for a question.
 #[must_use]
 pub fn specificity(path: &str) -> u8 {
-    const BROAD: [&str; 5] = ["blog", "news", "docs", "documentation", "product"];
+    // `status` is here for a reason worth stating: a status page is not a broad page, it is a
+    // page about a *different question*. It reports whether the service is up now; a security
+    // page publishes the posture — the standards, the attestations, the encryption. Both are
+    // admitted for `Answers::Trust`, and when a company has both, reading the status page and
+    // skipping the security page is how the trust section came back empty for a company that
+    // publishes SOC 2. Measuring the new extractor on basecamp.com is what found it.
+    const BROAD: [&str; 6] = ["blog", "news", "docs", "documentation", "product", "status"];
 
     let lower = path.to_lowercase();
     u8::from(BROAD.iter().any(|word| lower.contains(word)))
@@ -484,5 +490,27 @@ mod tests {
             None,
             "not a segment we claim to recognise"
         );
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod trust_pages {
+    use super::specificity;
+
+    #[test]
+    fn a_security_page_outranks_a_status_page() {
+        // Both are admitted for the trust question and only the first is read, so this decides
+        // whether the trust section can fill at all. basecamp.com publishes SOC 2 on
+        // /security and uptime on /status; reading /status produced an empty section for a
+        // company that states the thing being asked about.
+        assert!(specificity("/security") < specificity("/status"));
+    }
+
+    #[test]
+    fn a_status_page_is_still_admitted() {
+        // Ranked later, not excluded. A company with only a status page should still have it
+        // read - the section then says what was checked, which is a finding.
+        assert_eq!(super::guess("/status"), Some(super::Answers::Trust));
     }
 }

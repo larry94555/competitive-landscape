@@ -23,7 +23,7 @@ the standard did not save us, with the specific question that would have.
 **Before writing** code that touches any of the classes below, read that class's rule and its
 "ask this" line.
 
-**Before opening a PR**, run [the two commands and seven questions](#before-a-pr-two-commands-and-seven-questions).
+**Before opening a PR**, run [the two commands and eight questions](#before-a-pr-two-commands-and-eight-questions).
 The commands are the part that does not depend on remembering; the questions take two minutes.
 
 **After a review finds something**, add an entry the same day. Format: what was written, what a
@@ -746,9 +746,105 @@ check the others. A second file had it too.
 
 > **Ask this:** *did this actually run — and is the tree still the tree I think it is?*
 
+## 29. Checking two sources instead of having one
+
+**Written:** three defects in one extractor, and review found all three.
+
+- The model was asked for a compliance standard's **name**, and the answer was checked for
+  *containment* in the window. A window naming two standards let an answer about the other one
+  through, with a verbatim quote about the first — a fabricated certification claim about a
+  real company, fully cited.
+- Match offsets were found in a `to_lowercase()` copy and applied to the **original** string.
+  `to_lowercase` is Unicode-aware and can change length, so slicing panicked.
+- A distinct-standard count was kept by comparing against a list the **cap had truncated**, so a
+  repeat past the cap counted twice.
+
+**What they have in common:** in each case there were two sources of truth and a check between
+them. The fix in each case was to delete the second source, not to compare more carefully — take
+the name from the scanner so the model cannot supply one, fold ASCII so offsets cannot move, keep
+an uncapped record so the comparison is against everything.
+
+**Rule:** entry 4 says *do not derive one fact in two places*. This is its sharper form: **when
+you find yourself writing a check between two sources, ask whether one of them can simply not
+exist.** A guarantee by construction cannot be forgotten, cannot drift, and does not need a test
+to keep it honest — a check needs all three.
+
+> **Ask this:** *am I comparing two sources of this, and can I delete one?*
+
+## 30. "This cannot be tested" is a claim like any other
+
+**Written:** by me, in a reply to a reviewer — that the extraction stage could not be tested
+without a running model, and that a mutation guarding its most dangerous line was therefore
+being dropped as untestable.
+
+**What a person saw:** the reviewer replaced `claim.about(&named.standard)` with a hard-coded
+standard, ran the suite, and watched all 572 tests pass. The class of defect the previous round
+had removed could walk straight back in.
+
+**There is a `StubModel` forty lines below the code I was editing**, used by nine existing tests
+in the same file. It serves canned JSON over a real socket, and the stage runs against it in
+milliseconds. I did not look.
+
+**Rule:** the words *"this cannot be tested"* are load-bearing — they are usually the reason a
+guard is missing — so they need the same evidence as any other claim in a pull request. Before
+writing them: read the test module of the file you are editing. The harness for the thing you
+think is untestable is very often already there, written by you, for the thing next to it.
+
+> **Ask this:** *what does the test module of this file already stand up — and did I look before
+> saying I could not?*
+
+### The sequel, in the same pull request
+
+Removing the model's ability to *name* the standard was written up — by me, in a comment, in
+`BENCHMARKS.md`, and in a reply — as making the failure **unrepresentable**. Review then found
+the failure still live, *inside the regression I had written to prove it was closed*.
+
+Taking the name away stopped the model **labelling** an answer. It did not stop it **answering
+about the wrong thing**: a window is three lines, two standards often sit within three lines of
+each other, so the same window is handed over twice and an answer about the first can be
+relabelled as the second. Every check passed — the quote was verbatim, the name was the
+scanner's — and the report published a certification claim on evidence about a different
+certification.
+
+**Rule:** *"unrepresentable"* is the strongest claim available, so it needs the strongest
+evidence. Removing one route to a defect is not removing the defect. Before writing the word,
+name the property exactly — *the model cannot choose the label* — rather than the family it
+belongs to, because the gap between those two sentences is where the next finding lives.
+
+> **Ask this:** *have I closed the class, or one door into it — and can I say which in one
+> sentence?*
+
+## 31. A number written down instead of read back
+
+**Written:** by me, in `docs/BENCHMARKS.md` and in three replies on one pull request — *583 Rust
+tests (up 2)*.
+
+**What a person saw:** the reviewer ran `python3 scripts/verify.py` at the same commit and it
+printed `586 tests run`. Everything else on the pull request was correct; the only wrong thing in
+it was a number I had produced by **adding two to the last one I remembered** rather than by
+reading the run that had just finished on my own screen.
+
+**It is entry 29 wearing different clothes.** The suite is the source of truth for how many tests
+there are; the table was a second copy, updated by arithmetic. The same shape as every other
+finding in that pull request — assert the property, do not establish it — except this time the
+tool that establishes it had already printed the answer and I did not look at the line.
+
+**The fix is not "be careful with numbers".** `verify.py` now reads the `| now |` row of
+`BENCHMARKS.md` back against the counts the gates just produced, and fails when they disagree.
+The table stays, because a benchmark file is a record of history and cannot be deduplicated away
+— so it is *checked* instead, by the run that produced it.
+
+**Rule:** any count that appears in a document is a claim about a command's output. Paste it from
+the command. If it is going to be repeated — a test count, a gate count, a mutation count — the
+cheapest honest version is a check that reads it back, because the alternative is remembering to
+re-run something every time the number moves.
+
+> **Ask this:** *did I copy this number from the tool that produces it, on this commit — or did I
+> compute it?*
+
 ---
 
-## Before a PR: two commands and seven questions
+## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**
 
@@ -770,7 +866,7 @@ one mutation per guard you added. This is the only mechanical check that has eve
 here — and a `MISSED` exits non-zero, because a test that cannot fail is a finding rather than a
 line in a table.
 
-### Then seven questions
+### Then eight questions
 
 Grouped by what has actually gone wrong, commonest first.
 
@@ -779,32 +875,36 @@ Grouped by what has actually gone wrong, commonest first.
    **what did it capture before it waited** — a clock, a version, a count — that may not be true
    any more? And if I have written *"at most one"* anywhere, what stops the second? *(27)*
 
-2. **What states exist between "started" and "finished"?** Which of them has a test — a worker
+2. **Am I checking two sources, or do I have one?** If a value is compared against where it
+   came from, ask whether the second copy can be deleted instead — and if it cannot be deleted,
+   as a record of history cannot, is it read back from the tool that produced it? *(4, 29, 31)*
+
+3. **What states exist between "started" and "finished"?** Which of them has a test — a worker
    replaced mid-run, a stream that drops, a request still in flight when the next one starts, a
    step whose dependency *errored* rather than succeeded? Ten of the entries above live here.
    *(1, 3, 4, 12, 13, 14, 15, 18, 19, 19b)*
 
-3. **Which of my checks cannot fail?** **Open the producer and copy its shape** — do not write
+4. **Which of my checks cannot fail?** **Open the producer and copy its shape** — do not write
    what the value obviously is. **Assert on the value the surface reads**, not the structure
    behind it, and on the whole line rather than the halves. Is my malformed fixture broken in
    the shape the guard *already* handles, or in the shape it does not? *(26)* Does the fixture already contain the
    thing I am asserting? If I deleted the call to the function I just tested, would anything
    fail? Is there a case that *should* fail and does? *(5, 20, 21, 24, 25)*
 
-4. **What is the scope of each guard, and of each wrapper?** A condition about *the connection*
+5. **What is the scope of each guard, and of each wrapper?** A condition about *the connection*
    is wrong at every reconnect; a counter inside an effect does not survive a remount; a layer
    wraps what existed when it was added. Does the guard outlive the thing it guards? *(14, 19b,
    22)*
 
-5. **What travels together, and what is joined by position?** Any parallel collection, index
+6. **What travels together, and what is joined by position?** Any parallel collection, index
    pairing, or value separated from its evidence — and does anything still line up when one of
    them changes length? *(7)*
 
-6. **Have I listed the surfaces?** One fact, rendered by the CLI, the merged report, the live
+7. **Have I listed the surfaces?** One fact, rendered by the CLI, the merged report, the live
    stream and the interface. Which of them still has the old shape — and does the one a reader
    looks at *longest*, the stream, have this before it needs it? *(25)*
 
-7. **Is the output honest about what it does not know?** Are caps, drops, truncation and "found
+8. **Is the output honest about what it does not know?** Are caps, drops, truncation and "found
    nothing" distinguishable from completeness? Does a merged view say which subject each part
    belongs to — **including when one subject produced nothing**? Am I counting the thing or the
    evidence for it? Does any prompt name a real company? *(2, 6, 8, 9, 10, 11, 23)*
@@ -813,7 +913,7 @@ Grouped by what has actually gone wrong, commonest first.
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27 |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31 |
 | Its own tooling | 28 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |

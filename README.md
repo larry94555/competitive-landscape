@@ -93,7 +93,7 @@ applies with the system package manager, or Postgres.app.
 | `cargo run -p landscape -- serve` | The HTTP API alone |
 | `cargo run -p landscape -- worker` | Claims queued analyses and runs them |
 | `cargo run -p landscape -- migrate` | Applies migrations and exits |
-| `cargo run -p landscape -- fetch <url>` | Fetches one URL through every policy and says what happened. Needs no database |
+| `cargo run -p landscape -- fetch <url> [--markdown]` | Fetches one URL through every policy and says what happened. `--markdown` prints the converted page, which is what a golden page is made of. Needs no database |
 | `cargo run -p landscape -- gap <file>` | Measures where prices live across a list of pricing pages |
 | `cargo run -p landscape -- discover <origin>` | Finds the pages worth reading about one company |
 | `cargo run -p landscape -- read <origin>` | The whole path: discover, fetch, convert, extract |
@@ -264,11 +264,16 @@ nothing says so rather than rendering an empty box.
 python3 scripts/verify.py
 ```
 
-Every gate — fmt, clippy, tests, doctests, the frontend, links, the instruction linter — each
-judged by its **own** exit code, with the file-reading checks run against a clean checkout of
-`HEAD` rather than the working tree. Both of those are lessons rather than preferences: a link
-once resolved locally only because of an untracked file, and a `| tail && echo OK` once printed
-success over a broken build.
+Every gate — fmt, clippy, tests, doctests, the frontend, links, the instruction linter, a refusal
+to run at all while a deliberate mutation is still in the tree — each judged by its **own** exit
+code, with the file-reading checks run against a clean checkout of `HEAD` rather than the working
+tree. Both of those are lessons rather than preferences: a link once resolved locally only
+because of an untracked file, and a `| tail && echo OK` once printed success over a broken build.
+
+The last gate reads the newest row of [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md) back against the
+counts the gates above just produced, **because a number in a document is a claim about a
+command's output** — that table once said 583 tests where the suite ran 586, arrived at by
+addition rather than by reading the line the run had already printed.
 
 ```bash
 python3 scripts/mutate.py docs/mutations/several-companies.json
@@ -281,9 +286,10 @@ because a test that cannot fail is a finding rather than a footnote.
 
 The classes of defect these come from are in
 [`.claude/skills/coding-mistakes/SKILL.md`](.claude/skills/coding-mistakes/SKILL.md) —
-twenty-eight entries, each with the symptom a reader would have seen and the question that
-would have caught it — one recording four rounds of review on a single feature, and one about
-the harness above reporting a clean miss when nothing had run at all.
+thirty-one entries, each with the symptom a reader would have seen and the question that would
+have caught it — one recording four rounds of review on a single feature, one about the harness
+above reporting a clean miss when nothing had run at all, and one about the time I told a
+reviewer something could not be tested without checking.
 
 ### The documentation is tested
 

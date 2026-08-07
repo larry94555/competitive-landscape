@@ -33,6 +33,177 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 24 — the fifth question, and the page it was reading instead
+
+**Date:** 2026-08-06 · **Where:** this laptop · **Model:** none — every number below is counted
+without one.
+
+Two of the six questions had no extractor. A page admitted for *Trust & security posture* was
+discovered, fetched, and then skipped with `no extractor yet for trust pages` — the fetch spent,
+the section permanently empty. This closes the first of the two.
+
+### The vocabulary is closed, which changes the design
+
+A capability can be called anything and a price can be any number, but **a company does not
+invent a compliance standard.** It names one of a few dozen that already exist, and spells them
+the way the auditors do.
+
+So the scanner finds the mention deterministically, from a named list, and the model is asked
+one small question about each: *do they say they have it, or that they are working towards it?*
+
+```text
+SOC 2 Type II                          found by the scanner, no model
+…report available under NDA            read by the model: holds, or pursuing?
+```
+
+**That split is the whole argument.** A model asked to *"list the certifications on this page"*
+will return SOC 2 for a page that never mentions it, and grounding would be the only thing
+between that and a published claim that a real company holds a certification it does not. Here
+the name comes from the page by construction — nothing can be reported that the scanner did not
+first find written down — and the model only judges a sentence it has in front of it.
+
+### What it costs
+
+Model calls per company, counted by `landscape cost` with no model running:
+
+| Company | Before | After | Standards named |
+|---|---:|---:|---|
+| basecamp.com | 14 | **14** | none |
+| linear.app | 12 | **17** | SOC 2 Type II, GDPR, HIPAA, ISO 27001 |
+| usefathom.com | 15 | **17** | 2 |
+| simpleanalytics.com | 15 | **18** | 3 |
+| helpscout.com | 18 | **19** | 1 |
+| front.com | 14 | **18** | 4 |
+| **total** | **88** | **103** | |
+
+**+17%, and the trade is stated rather than buried.** A section that could never fill now fills
+for five of the six, and the sixth is the honest case: basecamp.com's security page names no
+standard from the list, so the extractor reports nothing and the coverage note says the page was
+read and stated nothing. That is a fact about Basecamp, not a gap in the reader's report.
+
+A page of reassurance with nothing named costs **zero** calls — the scanner runs first, so the
+model is never asked about a page that has no answer on it.
+
+### The measurement found something the tests could not
+
+`basecamp.com` was reading `/status` and skipping `/security`.
+
+Both are admitted for the trust question, only the first is read
+([Run 23](#run-23--the-wait-and-the-two-decisions-that-are-ours)'s one-page-per-question budget),
+and discovery ranked them equally. So the extractor would have shipped unable to fire on a
+company that publishes a security page — **the feature working in tests and doing nothing in the
+product**, which is precisely what Phase D exists to stop happening again.
+
+A status page is not a broad page; it is a page about a *different question*. It reports whether
+the service is up now. `specificity` ranks it after `/security` now, and `usefathom.com` went
+from 0 standards to 2 on that change alone.
+
+### Freezing a real security page paid for itself immediately
+
+`linear-security.md` is the first frozen trust page, and the first regeneration showed the
+extractor reporting **both `SOC 2` and `SOC 2 Type II`** — a banner and the section that explains
+it, the same certification told to a reader twice, at two precisions, for two model calls.
+
+The more precise spelling now wins wherever it appears. Four standards, one each.
+
+| Reintroduced defect | Caught? |
+|---|---|
+| the model *names* a different standard in the same window | **unrepresentable** |
+| the model *answers about* a different standard in the same window | **yes** |
+| evidence naming no standard is refused along with the rest | **yes** |
+| an unsupported claim is published instead of dropped | **yes** |
+| a status with no quote at all is published as a claim | **yes** |
+| `SOC 2 Type 2` and `SOC 2 Type II` are treated as different standards | **yes** |
+| a precision difference is treated as a different standard | **yes** |
+| a roadmap item is reported the same way as a certification | **yes** |
+| the report asserts the certification rather than the claim | **yes** |
+| a standard mentioned without a claim is reported as one | **yes** |
+| a standard named without a claim is dropped instead of reported | **yes** |
+| the same standard at two precisions is reported twice | **yes** |
+| a shorter spelling wins over the precise one | **yes** |
+| a name that runs into another word is read as that name | **yes** |
+| the window is the line alone, without the sentence that carries the claim | **yes** |
+| the cap is applied and the number the page offered is lost | **yes** |
+| a status page outranks the security page for the trust question | **yes** |
+| a trust page is fetched and skipped as if it had no extractor | **yes** |
+| a trust page costs nothing in the prediction the cost command prints | **yes** |
+
+Twenty-two, all caught — including the ones that guard the wiring, the pairing of a claim to its
+standard, and the deletion of a claim whose quote is not on the page. Every one of those was
+added after review broke it and watched every test pass.
+
+### What review found, and why two of those rows now say *unrepresentable*
+
+**The model was still being asked for the standard's name.** The check was containment — does
+the answer appear somewhere in this three-line window — and a window that mentions two standards
+defeats it completely: a response naming `ISO 27001`, claiming `holds`, and quoting a verbatim
+sentence about SOC 2 passed both independent checks and would have published a certification
+claim about the wrong standard. Returning `SOC 2` for a scanned `SOC 2 Type II` also passed, and
+quietly undid the precise-spelling rule.
+
+The model is no longer asked for the name. `AssuranceClaim` carries a status and a quote and
+**has no name field**; the scanner's standard is attached afterwards.
+
+**And that was not enough, which review found in the regression written to prove it was.** Taking
+the name away stopped the model *labelling* an answer; it did not stop it *answering about the
+wrong thing*. A window is three lines and two standards often sit within three lines of each
+other — or on one line — so the same window is handed over twice, once per standard. A model
+asked about ISO 27001 can reply `holds` while quoting the sentence about SOC 2, and every check
+passed: the quote is verbatim in the section, and the name is the scanner's. The report then said
+*"states ISO 27001"* on evidence about a different certification.
+
+So the evidence is checked against the standard it is supposed to be about: a quote naming a
+recognised standard that is **not** this one keeps the mention and drops the claim, and the run
+log says how many. A quote naming no standard at all — *"We are certified and audited
+annually."* — is the ordinary honest case and is kept.
+
+### And a claim whose quote is not on the page is deleted, which is already the rule
+
+`ARCHITECTURE.md` says it plainly: *"a claim whose evidence quote is absent from its cited source
+is deleted"*. This counted such a quote and **published the status anyway**, on the argument that
+the standard was real so the finding was worth keeping. What that ships is *"states ISO 27001"*
+against a page whose only sentence is *"Questions about ISO 27001? Contact us."* — an unsupported
+compliance claim, with a line in a run log nobody reads standing in for a check. Review found it,
+and my test had locked the behaviour in.
+
+An unsupported claim now takes the same path as one whose evidence is about a neighbour: the
+mention survives, the claim does not. **A status with no quote at all takes it too** — "there is
+no quote to check" had been reading as "the quote is fine".
+
+**And two spellings of one report were two standards.** `SOC 2 Type 2` and `SOC 2 Type II` are
+what an auditor writes either way; prefix comparison called them different, which counted one
+certification twice on a page using both and let the evidence check discard a correct quote for
+choosing the other form. Compared canonically now — Roman numerals folded to digits — while the
+page's own spelling is still what a report shows.
+
+**And two boundary defects the suite could not see.** `to_lowercase` is Unicode-aware and can
+change a string's length, so an offset found in the lowered copy pointed past the end of the
+original and slicing it panicked — a line beginning with `İ` was a crash. Every standard is
+ASCII, so the fold is ASCII now and offsets are preserved by construction.
+
+The other: `considered` promises the number of distinct standards a page named, and the
+have-I-seen-this comparison was made against the **capped** list — so past eight, a repeat of the
+ninth counted again, and nine standards plus one repeat reported ten. The record of what was seen
+is uncapped now; only the windows that will be read are capped.
+
+### And the row below this paragraph was wrong
+
+It said 583 where the suite ran 586, and I had reached it by **adding two to the number I
+remembered** rather than by reading the line `verify.py` prints. Review caught it — the last
+finding on a change whose every other number was measured.
+
+So `verify.py` gained a gate that reads this row back against the counts the gates above just
+produced, and fails when they disagree. The table stays, because a benchmark file is a record of
+history and cannot be deduplicated away like the second copies elsewhere in this run — it is
+checked instead, by the run that produced it.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 23 | 509 | 51 |
+| now | **586** | **51** |
+
+---
+
 ## Run 23 — the wait, and the two decisions that are ours
 
 **Date:** 2026-08-06 · **Where:** this laptop · **Model:** none — every number below is counted

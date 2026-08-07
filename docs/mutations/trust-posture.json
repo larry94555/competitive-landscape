@@ -1,0 +1,298 @@
+[
+  {
+    "name": "a roadmap item is reported the same way as a certification",
+    "file": "crates/landscape-core/src/extract.rs",
+    "old": "            Self::Pursuing => \"says it is working towards\",",
+    "new": "            Self::Pursuing => \"states\",",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the report asserts the certification rather than the claim",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "                    Some(status) => format!(\"{} {name}\", status.wording()),",
+    "new": "                    Some(_) => format!(\"is {name} certified\"),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a standard mentioned without a claim is reported as one",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "                    None => format!(\"names {name} without saying whether they hold it\"),",
+    "new": "                    None => format!(\"states {name}\"),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a standard named without a claim is dropped instead of reported",
+    "file": "crates/landscape-core/src/extract.rs",
+    "old": "            let Some(name) = got.standard.as_deref().map(normalise) else {\n                continue;\n            };\n            if name.is_empty()\n                || assurances",
+    "new": "            let Some(name) = got.standard.as_deref().map(normalise) else {\n                continue;\n            };\n            if got.status.is_none()\n                || name.is_empty()\n                || assurances",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the same standard at two precisions is reported twice",
+    "file": "crates/landscape-extract/src/assurance.rs",
+    "old": "            if let Some(already) = seen.iter_mut().find(|kept| subsumes(kept, &found)) {",
+    "new": "            if let Some(already) = seen.iter_mut().find(|kept| *kept == &found) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a shorter spelling wins over the precise one",
+    "file": "crates/landscape-extract/src/assurance.rs",
+    "old": "                if found.len() > already.len() {",
+    "new": "                if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a name that runs into another word is read as that name",
+    "file": "crates/landscape-extract/src/assurance.rs",
+    "old": "            if !bounded(line, start, end) {\n                continue;\n            }",
+    "new": "            if false {\n                continue;\n            }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract"
+    ]
+  },
+  {
+    "name": "the window is the line alone, without the sentence that carries the claim",
+    "file": "crates/landscape-extract/src/assurance.rs",
+    "old": "    let end = (at + 1).min(lines.len().saturating_sub(1));",
+    "new": "    let end = at;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a status page outranks the security page for the trust question",
+    "file": "crates/landscape-discover/src/probes.rs",
+    "old": "    const BROAD: [&str; 6] = [\"blog\", \"news\", \"docs\", \"documentation\", \"product\", \"status\"];",
+    "new": "    const BROAD: [&str; 5] = [\"blog\", \"news\", \"docs\", \"documentation\", \"product\"];",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a trust page is fetched and skipped as if it had no extractor",
+    "file": "crates/landscape-analyze/src/sections.rs",
+    "old": "            | Answers::Identity\n            | Answers::Trust",
+    "new": "            | Answers::Identity",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a trust page costs nothing in the prediction the cost command prints",
+    "file": "crates/landscape-analyze/src/order.rs",
+    "old": "        Answers::Trust => landscape_extract::assurance::every_assurance(markdown)\n            .named\n            .len(),",
+    "new": "        Answers::Trust => 0,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a line whose lowercase is longer than itself panics",
+    "file": "crates/landscape-extract/src/assurance.rs",
+    "old": "    let lower = line.to_ascii_lowercase();",
+    "new": "    let lower = line.to_lowercase();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract"
+    ]
+  },
+  {
+    "name": "a repeat past the cap is counted as a new standard",
+    "file": "crates/landscape-extract/src/assurance.rs",
+    "old": "            seen.push(found.clone());",
+    "new": "            if named.len() < MAX_ASSURANCES {\n                seen.push(found.clone());\n            }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract"
+    ]
+  },
+  {
+    "name": "the count reported is what fit under the cap",
+    "file": "crates/landscape-extract/src/assurance.rs",
+    "old": "        considered: seen.len(),",
+    "new": "        considered: seen.len().min(MAX_ASSURANCES),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract"
+    ]
+  },
+  {
+    "name": "the standard attached is a constant rather than the one the scanner found",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "                    Judged::Keep => extracted.push(claim.about(&named.standard)),",
+    "new": "                    Judged::Keep => extracted.push(claim.about(\"ISO 27001\")),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the model is asked about a page that names no standard",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "    let found = landscape_extract::assurance::every_assurance(markdown);\n    if found.named.is_empty() {",
+    "new": "    let found = landscape_extract::assurance::every_assurance(markdown);\n    if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "an answer about a neighbouring standard is published as a claim about this one",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "            return Judged::EvidenceIsAboutAnother;",
+    "new": "            let _ = named;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "evidence naming no standard is refused along with the rest",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "        if !named.is_empty()\n            && !named",
+    "new": "        if true\n            && !named",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a precision difference is treated as a different standard",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "                .any(|n| landscape_extract::assurance::same_standard(n, requested))",
+    "new": "                .any(|n| n == requested)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "an unsupported claim is published instead of dropped",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "                    Judged::QuoteNotInTheSection => {\n                        unsupported += 1;\n                        extracted\n                            .push(landscape_core::AssuranceClaim::empty().about(&named.standard));\n                    }",
+    "new": "                    Judged::QuoteNotInTheSection => {\n                        unsupported += 1;\n                        extracted.push(claim.about(&named.standard));\n                    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a status with no quote at all is published as a claim",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "    if quote.is_empty() {\n        return if claim.status.is_some() {\n            Judged::QuoteNotInTheSection\n        } else {\n            Judged::Keep\n        };\n    }",
+    "new": "    if quote.is_empty() {\n        return Judged::Keep;\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "SOC 2 Type 2 and SOC 2 Type II are treated as different standards",
+    "file": "crates/landscape-extract/src/assurance.rs",
+    "old": "        .replace(\"type iii\", \"type 3\")\n        .replace(\"type ii\", \"type 2\")\n        .replace(\"type i\", \"type 1\")",
+    "new": "        .replace(\"type iii\", \"type iii\")",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-analyze"
+    ]
+  }
+]

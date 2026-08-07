@@ -1,6 +1,6 @@
 # Project Status
 
-**As of 2026-08-06** · `main` at `de1fa8d`, plus the branch this page is on.
+**As of 2026-08-06** · `main` at `e4b1fe6`, plus the branch this page is on.
 
 This page answers one question: **what can somebody actually do with this today, and what
 stands between here and each of the six states that matter.** It is deliberately separate from
@@ -34,7 +34,7 @@ finished when it is demonstrable end to end on a development machine — Rust, N
 defect rather than a step in the plan.
 
 **Percentage Left is software only**, counted in pull requests and linked to the feature it comes
-from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **40 of 131 PRs done, 31% of the whole
+from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **42 of 130 PRs done, 32% of the whole
 deliverable.** Getting it onto a host is a
 [separate three-PR track](docs/Full_Feature_List.md#getting-it-onto-a-host) that gates *who can see*
 the software rather than what it can do, and the concierge interviews and source-terms audit are
@@ -170,8 +170,10 @@ description into companies — it hands over three descriptions whose companies 
    found. Nothing generates candidates, because that needs the fetching the gate exists to
    authorise. Built in this order on purpose.
 3. **Competitor set derivation.** Nothing turns one subject into several.
-4. **Two of six extractors** — trust posture and investment direction. The pipeline names the
-   kind and declines rather than running the wrong extractor.
+4. **One of six extractors** — investment direction. The pipeline names the kind and declines
+   rather than running the wrong extractor. **Trust posture is built**: a closed vocabulary of
+   compliance standards found by a scanner, and a model asked only whether the page claims to
+   hold each one or to be working towards it.
 5. **No caching.** The fetch cache and per-source extraction cache — called the
    highest-leverage cache in the system, and scheduled for Phase 1 — are not built. Two users
    analysing the same competitor share no work.
@@ -282,7 +284,7 @@ subscription's primary justification is wrong, and that is not knowable until it
 | Specified | Built |
 |---|---|
 | Nine sections | **Six.** Pricing, what it does, recent changes, company facts, trust, direction. |
-| Six question kinds with extractors | **Four.** Trust and direction have none. |
+| Six question kinds with extractors | **Five.** Direction has none. |
 | Feature comparison matrix, five-state cells | **None.** Needs a competitor set, which does not exist. |
 | SVG charts (feature matrix, cost-at-scale) | **None.** |
 | Coverage notes — "nothing found, here is what was checked" | **Built, and it is the strongest thing here.** Distinguishes four different silences. |
@@ -436,7 +438,7 @@ made a reader wait four minutes ([BENCHMARKS.md](docs/BENCHMARKS.md) Run 20).
 | `landscape-search` / SearXNG | An idea cannot become a company. **The phase's defining gap.** |
 | Candidate generation for entity resolution | The disambiguation gate has nothing to disambiguate. |
 | Competitor *discovery* | Several companies can be analysed, but only ones the reader names. |
-| Two of six extractors (trust, direction) | Two sections can never fill. |
+| One of six extractors (direction) | One section can never fill. Trust fills for five of the six demo companies. |
 | Fetch cache + per-source extraction cache | The highest-leverage cache in the system, scheduled for this phase, absent. |
 | ~~Anonymous rate limit (2/day)~~ | **Built.** Two a day per address, hashed, reset daily. |
 | Stage rail, source cards, citation hover cards | The UI is functional and unfinished. **Example chips are built** — three ideas over six companies, with what is curated said beside them. |

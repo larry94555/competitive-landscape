@@ -13,7 +13,9 @@
 // A tool that rewrites the expectations should stop dead on the first thing it cannot read,
 // rather than write nine files and leave the tenth as it was.
 
-use landscape_golden::pages::{self, Capabilities, Changes, Dated, FactWindow, Window};
+use landscape_golden::pages::{
+    self, Assurances, Capabilities, Changes, Dated, FactWindow, NamedStandard, Window,
+};
 
 fn main() {
     let mut existing = pages::load().expect("the page set loads");
@@ -49,6 +51,14 @@ fn main() {
                     .map(FactWindow::from)
                     .collect(),
             );
+        }
+
+        if let Some(assurances) = &mut expectation.assurances {
+            let found = landscape_extract::assurance::every_assurance(&markdown);
+            *assurances = Assurances {
+                named: found.named.into_iter().map(NamedStandard::from).collect(),
+                considered: found.considered,
+            };
         }
 
         let path = pages::pages_dir().join(expectation.page.replace(".md", ".expected.json"));

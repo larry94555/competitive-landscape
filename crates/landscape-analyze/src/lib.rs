@@ -694,6 +694,35 @@ pub(crate) fn claims_from_features(page: &PageFeatures) -> Vec<Finding> {
         .collect()
 }
 
+/// What a trust page states, in words that do not overclaim.
+///
+/// **The wording is the feature.** *"states SOC 2 Type II"* is a fact about the page; *"is SOC 2
+/// certified"* is a fact about the world, and this pipeline reads pages. A standard the page
+/// names without claiming is reported as exactly that — dropping it would turn "mentioned, not
+/// claimed" into silence, and silence reads as "not mentioned".
+pub(crate) fn claims_from_trust(page: &landscape_core::PageTrust) -> Vec<Finding> {
+    page.assurances
+        .iter()
+        .map(|assurance| {
+            let name = assurance
+                .standard
+                .as_deref()
+                .unwrap_or("an unnamed standard");
+            Finding {
+                text: match assurance.status {
+                    Some(status) => format!("{} {name}", status.wording()),
+                    None => format!("names {name} without saying whether they hold it"),
+                },
+                quote: assurance.evidence_quote.clone().unwrap_or_default(),
+                // The name came from the page by construction - the scanner found it there -
+                // so the only judgement is the status, and that is a reading of a sentence.
+                confidence: Confidence::Medium,
+                as_of: None,
+            }
+        })
+        .collect()
+}
+
 pub(crate) fn claims_from_changes(page: &PageChanges, today: NaiveDate) -> Vec<Finding> {
     page.recent(today)
         .into_iter()
@@ -862,6 +891,68 @@ mod tests {
             page_title("no heading", "https://e.com/x"),
             "https://e.com/x"
         );
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod trust_wording {
+    //! What the report says about a compliance claim, which is the part that can overclaim.
+
+    use landscape_core::{Assurance, PageTrust, TrustExtraction};
+
+    fn one(standard: &str, status: Option<Assurance>) -> PageTrust {
+        PageTrust::assembled(
+            [TrustExtraction {
+                standard: Some(standard.to_owned()),
+                status,
+                evidence_quote: Some("as the page says".to_owned()),
+            }],
+            1,
+        )
+    }
+
+    #[test]
+    fn the_report_says_what_the_page_states_not_what_is_true() {
+        // *"states SOC 2 Type II"* is a fact about the page. *"is SOC 2 certified"* is a fact
+        // about the world, and this pipeline reads pages.
+        let claims = super::claims_from_trust(&one("SOC 2 Type II", Some(Assurance::Holds)));
+        assert_eq!(claims[0].text, "states SOC 2 Type II");
+        assert!(
+            !claims[0].text.contains("certified"),
+            "the report is asserting the certification rather than the claim: {}",
+            claims[0].text
+        );
+    }
+
+    #[test]
+    fn a_roadmap_item_never_reads_as_a_certification() {
+        // The defect this extractor exists to prevent. Both spellings contain "SOC 2".
+        let pursuing = super::claims_from_trust(&one("SOC 2", Some(Assurance::Pursuing)));
+        let holds = super::claims_from_trust(&one("SOC 2", Some(Assurance::Holds)));
+        assert!(
+            pursuing[0].text.contains("working towards"),
+            "{}",
+            pursuing[0].text
+        );
+        assert_ne!(pursuing[0].text, holds[0].text);
+    }
+
+    #[test]
+    fn a_standard_named_without_a_claim_says_so() {
+        let claims = super::claims_from_trust(&one("HIPAA", None));
+        assert!(
+            claims[0].text.contains("without saying"),
+            "a mention became a claim: {}",
+            claims[0].text
+        );
+    }
+
+    #[test]
+    fn every_trust_claim_carries_the_words_it_came_from() {
+        // The same rule as every other claim: an unsourced sentence is not representable.
+        let claims = super::claims_from_trust(&one("ISO 27001", Some(Assurance::Holds)));
+        assert!(!claims[0].quote.is_empty());
     }
 }
 
