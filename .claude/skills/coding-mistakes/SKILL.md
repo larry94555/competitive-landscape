@@ -814,6 +814,34 @@ belongs to, because the gap between those two sentences is where the next findin
 > **Ask this:** *have I closed the class, or one door into it — and can I say which in one
 > sentence?*
 
+## 31. A number written down instead of read back
+
+**Written:** by me, in `docs/BENCHMARKS.md` and in three replies on one pull request — *583 Rust
+tests (up 2)*.
+
+**What a person saw:** the reviewer ran `python3 scripts/verify.py` at the same commit and it
+printed `586 tests run`. Everything else on the pull request was correct; the only wrong thing in
+it was a number I had produced by **adding two to the last one I remembered** rather than by
+reading the run that had just finished on my own screen.
+
+**It is entry 29 wearing different clothes.** The suite is the source of truth for how many tests
+there are; the table was a second copy, updated by arithmetic. The same shape as every other
+finding in that pull request — assert the property, do not establish it — except this time the
+tool that establishes it had already printed the answer and I did not look at the line.
+
+**The fix is not "be careful with numbers".** `verify.py` now reads the `| now |` row of
+`BENCHMARKS.md` back against the counts the gates just produced, and fails when they disagree.
+The table stays, because a benchmark file is a record of history and cannot be deduplicated away
+— so it is *checked* instead, by the run that produced it.
+
+**Rule:** any count that appears in a document is a claim about a command's output. Paste it from
+the command. If it is going to be repeated — a test count, a gate count, a mutation count — the
+cheapest honest version is a check that reads it back, because the alternative is remembering to
+re-run something every time the number moves.
+
+> **Ask this:** *did I copy this number from the tool that produces it, on this commit — or did I
+> compute it?*
+
 ---
 
 ## Before a PR: two commands and eight questions
@@ -848,7 +876,8 @@ Grouped by what has actually gone wrong, commonest first.
    any more? And if I have written *"at most one"* anywhere, what stops the second? *(27)*
 
 2. **Am I checking two sources, or do I have one?** If a value is compared against where it
-   came from, ask whether the second copy can be deleted instead. *(4, 29)*
+   came from, ask whether the second copy can be deleted instead — and if it cannot be deleted,
+   as a record of history cannot, is it read back from the tool that produced it? *(4, 29, 31)*
 
 3. **What states exist between "started" and "finished"?** Which of them has a test — a worker
    replaced mid-run, a stream that drops, a request still in flight when the next one starts, a
@@ -884,7 +913,7 @@ Grouped by what has actually gone wrong, commonest first.
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30 |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31 |
 | Its own tooling | 28 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |

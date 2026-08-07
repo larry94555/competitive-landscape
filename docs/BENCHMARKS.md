@@ -186,10 +186,21 @@ have-I-seen-this comparison was made against the **capped** list — so past eig
 ninth counted again, and nine standards plus one repeat reported ten. The record of what was seen
 is uncapped now; only the windows that will be read are capped.
 
+### And the row below this paragraph was wrong
+
+It said 583 where the suite ran 586, and I had reached it by **adding two to the number I
+remembered** rather than by reading the line `verify.py` prints. Review caught it — the last
+finding on a change whose every other number was measured.
+
+So `verify.py` gained a gate that reads this row back against the counts the gates above just
+produced, and fails when they disagree. The table stays, because a benchmark file is a record of
+history and cannot be deduplicated away like the second copies elsewhere in this run — it is
+checked instead, by the run that produced it.
+
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 23 | 509 | 51 |
-| now | **583** | **51** |
+| now | **586** | **51** |
 
 ---
 
