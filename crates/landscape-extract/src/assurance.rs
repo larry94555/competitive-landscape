@@ -101,7 +101,12 @@ pub fn every_assurance(markdown: &str) -> Found {
     }
 
     let mut named: Vec<Named> = Vec::new();
-    let mut considered = 0usize;
+    // **Every distinct standard, uncapped.** `considered` promises a count of what the page
+    // named and a reader is shown it, so the comparison that decides *have I seen this one*
+    // cannot be made against a list the cap has truncated. Review found the arithmetic: past
+    // eight, a repeat of the ninth was counted again, and nine standards plus one repeat
+    // reported ten.
+    let mut seen: Vec<String> = Vec::new();
 
     for (at, line) in lines.iter().enumerate() {
         for found in standards_in(line) {
@@ -112,17 +117,22 @@ pub fn every_assurance(markdown: &str) -> Found {
             //
             // The more precise spelling wins wherever it appears, because `Type II` is the
             // part a buyer is comparing on. Order of appearance does not decide it.
-            if let Some(kept) = named
-                .iter_mut()
-                .find(|kept| subsumes(&kept.standard, &found))
-            {
-                if found.len() > kept.standard.len() {
-                    kept.standard = found;
-                    kept.span = window(&lines, at);
+            if let Some(already) = seen.iter_mut().find(|kept| subsumes(kept, &found)) {
+                if found.len() > already.len() {
+                    // The precise spelling wins wherever it appears, in both places: the
+                    // record of what the page named, and the window that will be read.
+                    if let Some(kept) = named
+                        .iter_mut()
+                        .find(|kept| subsumes(&kept.standard, &found))
+                    {
+                        kept.standard.clone_from(&found);
+                        kept.span = window(&lines, at);
+                    }
+                    *already = found;
                 }
                 continue;
             }
-            considered += 1;
+            seen.push(found.clone());
             if named.len() < MAX_ASSURANCES {
                 named.push(Named {
                     standard: found,
@@ -132,7 +142,10 @@ pub fn every_assurance(markdown: &str) -> Found {
         }
     }
 
-    Found { named, considered }
+    Found {
+        named,
+        considered: seen.len(),
+    }
 }
 
 /// Whether two spellings name the same standard.
@@ -149,12 +162,20 @@ fn subsumes(a: &str, b: &str) -> bool {
 /// Overlaps are removed: `SOC 2 Type II` and `SOC 2` both match the same words, and reporting
 /// both would double-count one claim and spend a model call proving it.
 fn standards_in(line: &str) -> Vec<String> {
-    let lower = line.to_lowercase();
+    // **`to_ascii_lowercase`, and byte lengths are why.** `to_lowercase` is Unicode-aware and
+    // can change a string's length - `I` with a dot above (U+0130) lowercases to two chars -
+    // so an offset found in the lowered copy no longer points at the same place in the
+    // original. Slicing `line` with it then panics, and review reproduced exactly that: a line
+    // beginning with that character was a crash rather than a result.
+    //
+    // Every standard in the list is ASCII, so an ASCII-only fold is enough, and it preserves
+    // byte positions by construction rather than by care.
+    let lower = line.to_ascii_lowercase();
     let mut found: Vec<String> = Vec::new();
     let mut claimed: Vec<(usize, usize)> = Vec::new();
 
     for standard in STANDARDS {
-        let needle = standard.to_lowercase();
+        let needle = standard.to_ascii_lowercase();
         let mut from = 0usize;
         while let Some(offset) = lower[from..].find(&needle) {
             let start = from + offset;
@@ -319,6 +340,52 @@ Our SOC 2 Type II report is available.";
     fn the_spelling_reported_is_the_page_s_own() {
         // Taken from the page rather than from the list, so a report quotes the company.
         assert_eq!(names("we are iso 27001 certified"), ["iso 27001"]);
+    }
+
+    #[test]
+    fn a_line_whose_lowercase_is_longer_than_itself_is_not_a_crash() {
+        // **Review's exact reproduction.** U+0130 lowercases to two characters, so an
+        // offset found in a Unicode-lowered copy pointed past the end of the original line
+        // and slicing it panicked: `start byte index 17 is out of bounds for string of
+        // length 16`.
+        let found = every_assurance("\u{130} SOC 2 Type II");
+        assert_eq!(
+            found
+                .named
+                .iter()
+                .map(|n| n.standard.as_str())
+                .collect::<Vec<_>>(),
+            ["SOC 2 Type II"]
+        );
+    }
+
+    #[test]
+    fn a_repeat_past_the_cap_is_not_counted_twice() {
+        // `considered` promises the number of distinct standards the page named, and a
+        // reader is shown it. Comparing against the capped list meant a standard past the
+        // cap was never recorded, so a later repeat of it counted again - nine distinct
+        // plus one repeat reported ten.
+        // Nine that do not fold into each other - the list's first nine include four SOC 2
+        // spellings, which are correctly one standard.
+        const DISTINCT: [&str; 9] = [
+            "SOC 2",
+            "SOC 3",
+            "ISO 27017",
+            "ISO 27018",
+            "ISO 27701",
+            "ISO 27001",
+            "PCI DSS",
+            "FedRAMP",
+            "HIPAA",
+        ];
+        let mut page: Vec<String> = DISTINCT.iter().map(|s| format!("We hold {s}.")).collect();
+        page.push(format!("And again: {}.", DISTINCT[8]));
+        let found = every_assurance(&page.join("\n\n"));
+        assert_eq!(found.named.len(), MAX_ASSURANCES);
+        assert_eq!(
+            found.considered, 9,
+            "a repeat past the cap was counted twice"
+        );
     }
 
     #[test]

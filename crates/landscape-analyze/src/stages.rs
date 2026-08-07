@@ -268,24 +268,26 @@ async fn trust(
 
     let mut extracted: Vec<landscape_core::TrustExtraction> = Vec::with_capacity(found.named.len());
     let mut details = Vec::new();
-    let (mut unsupported, mut ungrounded) = (0usize, 0usize);
+    let mut unsupported = 0usize;
 
     for named in &found.named {
         match llm
-            .generate::<landscape_core::TrustExtraction>(
+            .generate::<landscape_core::AssuranceClaim>(
                 &assurance_prompt(url, &named.standard, &named.span),
                 &decode(),
             )
             .await
         {
-            Ok(got) => match judge_assurance(&got, &named.span.prompt_text()) {
-                Judged::Keep => extracted.push(got),
-                Judged::QuoteNotVerbatim => {
+            // **The standard is the scanner's, not the model's.** It is attached here rather
+            // than asked for, so a window naming two standards cannot produce an answer about
+            // the other one, and a shortened spelling cannot undo the precise-spelling rule.
+            // Review found both, and both stop being expressible rather than being checked.
+            Ok(claim) => {
+                if judge_assurance(&claim, &named.span.prompt_text()) == Judged::QuoteNotVerbatim {
                     unsupported += 1;
-                    extracted.push(got);
                 }
-                Judged::NotInTheSection => ungrounded += 1,
-            },
+                extracted.push(claim.about(&named.standard));
+            }
             Err(e) => details.push(format!("model error: {e}")),
         }
         if so_far(&crate::claims_from_trust(
@@ -310,11 +312,6 @@ async fn trust(
             }
         })
         .collect();
-    if ungrounded > 0 {
-        lines.push(format!(
-            "{ungrounded} standard(s) dropped - not named in the section"
-        ));
-    }
     if unsupported > 0 {
         lines.push(format!(
             "{unsupported} quote(s) not found in the section they came from"
@@ -340,29 +337,26 @@ async fn trust(
     }
 }
 
-/// What to do with one extraction, decided without a model in the room.
+/// What to make of one claim, decided without a model in the room.
 ///
 /// **A pure function so the decision can be tested.** The rest of the stage cannot run without
-/// a `llama-server`, so a judgement made inline is a judgement nothing holds still — and this
-/// one is the difference between a report and a fabricated compliance claim.
+/// a `llama-server`, so a judgement made inline is a judgement nothing holds still.
+///
+/// There is no *ungrounded standard* verdict any more, and that is the point. The standard is
+/// attached from the scanner after generation, so a name the section does not contain is not
+/// something the model can return — review showed the old containment check passing a response
+/// about a *different* standard in the same window. What is left to judge is the evidence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Judged {
-    /// Grounded, and quoted from the section.
+    /// Quoted from the section.
     Keep,
-    /// Grounded, but the quote is not in the section. Kept and counted: the standard is real,
-    /// and the reader is told the evidence was not verbatim.
+    /// The quote is not in the section. Kept and counted: the standard is real — the scanner
+    /// found it written down — and the reader is told the evidence was not verbatim.
     QuoteNotVerbatim,
-    /// The section does not name this standard. **Dropped.** A model that has read about a
-    /// company knows which certifications it holds, and a security page is exactly the prompt
-    /// that invites it to answer from memory.
-    NotInTheSection,
 }
 
-pub(crate) fn judge_assurance(got: &landscape_core::TrustExtraction, section: &str) -> Judged {
-    if !got.standard_is_from(section) {
-        return Judged::NotInTheSection;
-    }
-    if got.quote_is_verbatim(section) {
+pub(crate) fn judge_assurance(claim: &landscape_core::AssuranceClaim, section: &str) -> Judged {
+    if claim.quote_is_verbatim(section) {
         Judged::Keep
     } else {
         Judged::QuoteNotVerbatim
@@ -379,8 +373,6 @@ fn assurance_prompt(url: &str, standard: &str, window: &Span) -> String {
          Page: {url}
 
          Rules:
-         - standard must be copied from the section exactly as the section spells it. It is \
-           {standard} or nothing.
          - status is holds when the section says they have it, are certified, are compliant, \
            or that a report or certificate exists.
          - status is pursuing when the section says they are working towards it, it is in \
@@ -1050,59 +1042,56 @@ mod tests {
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod judging_assurances {
     use super::{judge_assurance, Judged};
-    use landscape_core::{Assurance, TrustExtraction};
+    use landscape_core::{Assurance, AssuranceClaim};
 
-    fn got(standard: &str, quote: &str) -> TrustExtraction {
-        TrustExtraction {
-            standard: Some(standard.to_owned()),
+    fn claim(quote: &str) -> AssuranceClaim {
+        AssuranceClaim {
             status: Some(Assurance::Holds),
             evidence_quote: Some(quote.to_owned()),
         }
     }
 
-    const SECTION: &str = "Linear undergoes regular SOC 2 Type II audits.";
+    const SECTION: &str = "Linear undergoes regular SOC 2 Type II audits.
+ISO 27001 is on our roadmap.";
 
     #[test]
-    fn a_standard_the_section_names_is_kept() {
+    fn a_claim_quoted_from_the_section_is_kept() {
         assert_eq!(
-            judge_assurance(
-                &got("SOC 2 Type II", "regular SOC 2 Type II audits"),
-                SECTION
-            ),
+            judge_assurance(&claim("regular SOC 2 Type II audits"), SECTION),
             Judged::Keep
         );
     }
 
     #[test]
-    fn a_standard_the_section_never_names_is_dropped() {
-        // **The fabricated compliance claim.** A model that has read about this company knows
-        // it holds ISO 27001; the section in front of it says nothing of the sort, and a
-        // report that carried it would be a false certification claim about a real company,
-        // fully cited.
-        assert_eq!(
-            judge_assurance(&got("ISO 27001", "we hold ISO 27001"), SECTION),
-            Judged::NotInTheSection
-        );
-    }
-
-    #[test]
     fn a_quote_that_is_not_in_the_section_is_kept_and_counted() {
-        // The standard is real - the section names it - so dropping the whole finding would
-        // lose a true fact over a paraphrased quote. It is counted instead, and the count is
-        // printed beside the page.
+        // The standard is real - the scanner found it written down - so dropping the whole
+        // finding would lose a true fact over a paraphrased quote. It is counted instead, and
+        // the count is printed beside the page.
         assert_eq!(
-            judge_assurance(&got("SOC 2 Type II", "we are fully certified"), SECTION),
+            judge_assurance(&claim("we are fully certified"), SECTION),
             Judged::QuoteNotVerbatim
         );
     }
 
     #[test]
-    fn an_extraction_that_named_nothing_is_not_treated_as_grounded_evidence() {
-        // `standard_is_from` answers true for `None`, which is right - there is nothing to
-        // ground - and the assembler is what drops it. This test exists so that pairing is
-        // deliberate rather than a coincidence two files apart.
-        let empty = TrustExtraction::empty();
-        assert_eq!(judge_assurance(&empty, SECTION), Judged::Keep);
-        assert!(landscape_core::PageTrust::assembled([empty], 1).is_empty());
+    fn the_standard_reported_is_the_one_the_scanner_asked_about() {
+        // **The failure review found, now unrepresentable.** This section names two standards.
+        // The model used to be asked for the name as well, so an answer about `ISO 27001` -
+        // carrying a verbatim SOC 2 quote - passed both checks and published a certification
+        // claim about the wrong standard.
+        //
+        // The name is attached from the scanner after generation. Whatever the model says, the
+        // extraction is about the standard this iteration asked about.
+        let got = claim("regular SOC 2 Type II audits").about("SOC 2 Type II");
+        assert_eq!(got.standard.as_deref(), Some("SOC 2 Type II"));
+    }
+
+    #[test]
+    fn a_shortened_spelling_cannot_come_back_from_the_model() {
+        // The other half: returning `SOC 2` for a scanned `SOC 2 Type II` passed a containment
+        // check and quietly undid the precise-spelling rule. There is nothing to return now.
+        let got = AssuranceClaim::empty().about("SOC 2 Type II");
+        assert_eq!(got.standard.as_deref(), Some("SOC 2 Type II"));
+        assert!(got.status.is_none());
     }
 }

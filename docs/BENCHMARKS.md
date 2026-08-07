@@ -108,8 +108,7 @@ The more precise spelling now wins wherever it appears. Four standards, one each
 
 | Reintroduced defect | Caught? |
 |---|---|
-| a standard the section never named is reported anyway | **yes** |
-| the grounding check accepts a standard that is not in the section | **yes** |
+| the model's answer is about a different standard in the same window | **unrepresentable** |
 | a roadmap item is reported the same way as a certification | **yes** |
 | the report asserts the certification rather than the claim | **yes** |
 | a standard mentioned without a claim is reported as one | **yes** |
@@ -123,16 +122,36 @@ The more precise spelling now wins wherever it appears. Four standards, one each
 | a trust page is fetched and skipped as if it had no extractor | **yes** |
 | a trust page costs nothing in the prediction the cost command prints | **yes** |
 
-Fourteen, all caught. Two needed re-aiming after `cargo fmt` moved their anchors, and one was
-`MISSED` for a real reason: the stage's grounding decision was written inline in an `async fn`
-that cannot run without a model, so nothing held it still. It is a pure function now, with its
-own tests — **the check that decides whether a fabricated compliance claim reaches a reader was
-the one thing here no test could reach.**
+Fourteen, all caught.
+
+### What review found, and why two of those rows now say *unrepresentable*
+
+**The model was still being asked for the standard's name.** The check was containment — does
+the answer appear somewhere in this three-line window — and a window that mentions two standards
+defeats it completely: a response naming `ISO 27001`, claiming `holds`, and quoting a verbatim
+sentence about SOC 2 passed both independent checks and would have published a certification
+claim about the wrong standard. Returning `SOC 2` for a scanned `SOC 2 Type II` also passed, and
+quietly undid the precise-spelling rule.
+
+The model is no longer asked. `AssuranceClaim` carries a status and a quote and **has no name
+field**; the scanner's standard is attached afterwards. A whole class of wrong answer stopped
+being expressible rather than being checked for — which is why two mutations were deleted rather
+than re-aimed, and the register's rule about mutations whose defect becomes unreachable applies.
+
+**And two boundary defects the suite could not see.** `to_lowercase` is Unicode-aware and can
+change a string's length, so an offset found in the lowered copy pointed past the end of the
+original and slicing it panicked — a line beginning with `İ` was a crash. Every standard is
+ASCII, so the fold is ASCII now and offsets are preserved by construction.
+
+The other: `considered` promises the number of distinct standards a page named, and the
+have-I-seen-this comparison was made against the **capped** list — so past eight, a repeat of the
+ninth counted again, and nine standards plus one repeat reported ten. The record of what was seen
+is uncapped now; only the windows that will be read are capped.
 
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 23 | 509 | 51 |
-| now | **570** | **51** |
+| now | **572** | **51** |
 
 ---
 

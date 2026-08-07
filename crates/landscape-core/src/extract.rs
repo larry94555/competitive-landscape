@@ -651,6 +651,60 @@ impl Assurance {
     }
 }
 
+/// What the model is asked about one standard: only the claim, never the name.
+///
+/// **The name is not the model's to choose.** The scanner already found it written on the page,
+/// and asking for it back invited two failures review found: a window that mentions two
+/// standards let a response about the *other* one pass every check, and returning `SOC 2` for a
+/// scanned `SOC 2 Type II` passed a containment check while quietly undoing the precise-spelling
+/// rule.
+///
+/// So the question put to the model is the part it is actually for — *does this section say
+/// they have it, or that they are working towards it?* — and the standard is carried through
+/// from the scanner by construction. A whole class of wrong answer stops being expressible.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct AssuranceClaim {
+    /// Whether they say they have it or are working towards it.
+    ///
+    /// `None` when the section names the standard without saying which — *"questions about SOC
+    /// 2? contact us"* names it and claims nothing.
+    pub status: Option<Assurance>,
+
+    /// The words the section used, copied verbatim.
+    pub evidence_quote: Option<String>,
+}
+
+impl AssuranceClaim {
+    /// A claim that said nothing.
+    #[must_use]
+    pub const fn empty() -> Self {
+        Self {
+            status: None,
+            evidence_quote: None,
+        }
+    }
+
+    /// Whether the quote, if there is one, really appears in the source.
+    #[must_use]
+    pub fn quote_is_verbatim(&self, source: &str) -> bool {
+        let Some(quote) = &self.evidence_quote else {
+            return true;
+        };
+        let quote = squash(quote);
+        quote.is_empty() || squash(source).contains(&quote)
+    }
+
+    /// The standard the scanner found, with what the model made of it.
+    #[must_use]
+    pub fn about(self, standard: &str) -> TrustExtraction {
+        TrustExtraction {
+            standard: Some(standard.to_owned()),
+            status: self.status,
+            evidence_quote: self.evidence_quote,
+        }
+    }
+}
+
 /// One assurance a trust or security page names.
 ///
 /// The fifth question kind. Deliberately shaped like [`FeatureExtraction`], because the job is
@@ -691,21 +745,6 @@ impl TrustExtraction {
         };
         let quote = squash(quote);
         quote.is_empty() || squash(source).contains(&quote)
-    }
-
-    /// Whether the standard it names is written in the section it was read from.
-    ///
-    /// **A model that has read about a company knows which certifications that company holds**,
-    /// and a security page is exactly the prompt that invites it to say so from memory. The
-    /// same check `FeatureExtraction::name_is_from` makes, for the same reason.
-    #[must_use]
-    pub fn standard_is_from(&self, source: &str) -> bool {
-        let Some(standard) = &self.standard else {
-            return true;
-        };
-        let haystack = squash(&source.to_lowercase());
-        let needle = squash(&standard.to_lowercase());
-        !needle.is_empty() && haystack.contains(&needle)
     }
 }
 
@@ -776,14 +815,20 @@ mod trust_tests {
     }
 
     #[test]
-    fn a_standard_the_section_does_not_name_is_refused() {
-        // **The failure a security page invites.** A model that has read about a company knows
-        // which certifications it holds, and an ungrounded answer here is a compliance claim
-        // invented about a real company - the most expensive wrong answer this product can
-        // produce, and it would arrive fully cited.
-        let section = "We hold ISO 27001 and publish our report annually.";
-        assert!(!holding("SOC 2 Type II", Some(Assurance::Holds), "").standard_is_from(section));
-        assert!(holding("ISO 27001", Some(Assurance::Holds), "").standard_is_from(section));
+    fn a_claim_is_only_ever_about_the_standard_it_was_asked_about() {
+        // **The failure a security page invites**, and it is now unrepresentable rather than
+        // checked. A model that has read about a company knows which certifications it holds,
+        // and a window naming two standards used to let an answer about the other one through
+        // a containment check - a compliance claim invented about a real company, fully cited.
+        //
+        // The model is no longer asked for the name. `AssuranceClaim` cannot carry one, and
+        // `about` attaches the standard the scanner found written on the page.
+        let got = AssuranceClaim {
+            status: Some(Assurance::Holds),
+            evidence_quote: Some("regular audits".to_owned()),
+        }
+        .about("SOC 2 Type II");
+        assert_eq!(got.standard.as_deref(), Some("SOC 2 Type II"));
     }
 
     #[test]

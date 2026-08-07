@@ -1,33 +1,5 @@
 [
   {
-    "name": "a standard the section never named is reported anyway",
-    "file": "crates/landscape-analyze/src/stages.rs",
-    "old": "    if !got.standard_is_from(section) {\n        return Judged::NotInTheSection;\n    }",
-    "new": "    if false {\n        return Judged::NotInTheSection;\n    }",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-core",
-      "-p",
-      "landscape-analyze"
-    ]
-  },
-  {
-    "name": "the grounding check accepts a standard that is not in the section",
-    "file": "crates/landscape-core/src/extract.rs",
-    "old": "        !needle.is_empty() && haystack.contains(&needle)\n    }\n}\n\n/// Every assurance one page names, assembled from its windows.",
-    "new": "        !needle.is_empty()\n    }\n}\n\n/// Every assurance one page names, assembled from its windows.",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-core"
-    ]
-  },
-  {
     "name": "a roadmap item is reported the same way as a certification",
     "file": "crates/landscape-core/src/extract.rs",
     "old": "            Self::Pursuing => \"says it is working towards\",",
@@ -84,8 +56,8 @@
   {
     "name": "the same standard at two precisions is reported twice",
     "file": "crates/landscape-extract/src/assurance.rs",
-    "old": "                .find(|kept| subsumes(&kept.standard, &found))",
-    "new": "                .find(|kept| kept.standard == found)",
+    "old": "            if let Some(already) = seen.iter_mut().find(|kept| subsumes(kept, &found)) {",
+    "new": "            if let Some(already) = seen.iter_mut().find(|kept| *kept == &found) {",
     "run": [
       "cargo",
       "nextest",
@@ -99,7 +71,7 @@
   {
     "name": "a shorter spelling wins over the precise one",
     "file": "crates/landscape-extract/src/assurance.rs",
-    "old": "                if found.len() > kept.standard.len() {",
+    "old": "                if found.len() > already.len() {",
     "new": "                if false {",
     "run": [
       "cargo",
@@ -140,19 +112,6 @@
     ]
   },
   {
-    "name": "the cap is applied and the number the page offered is lost",
-    "file": "crates/landscape-extract/src/assurance.rs",
-    "old": "            considered += 1;\n            if named.len() < MAX_ASSURANCES {",
-    "new": "            if named.len() < MAX_ASSURANCES {\n                considered += 1;",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-extract"
-    ]
-  },
-  {
     "name": "a status page outranks the security page for the trust question",
     "file": "crates/landscape-discover/src/probes.rs",
     "old": "    const BROAD: [&str; 6] = [\"blog\", \"news\", \"docs\", \"documentation\", \"product\", \"status\"];",
@@ -189,6 +148,45 @@
       "run",
       "-p",
       "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a line whose lowercase is longer than itself panics",
+    "file": "crates/landscape-extract/src/assurance.rs",
+    "old": "    let lower = line.to_ascii_lowercase();",
+    "new": "    let lower = line.to_lowercase();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract"
+    ]
+  },
+  {
+    "name": "a repeat past the cap is counted as a new standard",
+    "file": "crates/landscape-extract/src/assurance.rs",
+    "old": "            seen.push(found.clone());",
+    "new": "            if named.len() < MAX_ASSURANCES {\n                seen.push(found.clone());\n            }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract"
+    ]
+  },
+  {
+    "name": "the count reported is what fit under the cap",
+    "file": "crates/landscape-extract/src/assurance.rs",
+    "old": "        considered: seen.len(),",
+    "new": "        considered: seen.len().min(MAX_ASSURANCES),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract"
     ]
   }
 ]
