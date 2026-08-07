@@ -285,9 +285,10 @@ async fn trust(
             Ok(claim) => {
                 match judge_assurance(&claim, &named.span.prompt_text(), &named.standard) {
                     Judged::Keep => extracted.push(claim.about(&named.standard)),
-                    Judged::QuoteNotVerbatim => {
+                    Judged::QuoteNotInTheSection => {
                         unsupported += 1;
-                        extracted.push(claim.about(&named.standard));
+                        extracted
+                            .push(landscape_core::AssuranceClaim::empty().about(&named.standard));
                     }
                     // The page does name this standard - the scanner found it - so the mention is
                     // kept and the claim is not. Answering about a neighbour is the failure mode
@@ -330,7 +331,7 @@ async fn trust(
     }
     if unsupported > 0 {
         lines.push(format!(
-            "{unsupported} quote(s) not found in the section they came from"
+            "{unsupported} claim(s) dropped - the quote was not in the section. The mention is kept"
         ));
     }
     lines.extend(details);
@@ -373,13 +374,26 @@ async fn trust(
 /// So the evidence is checked against the standard it is supposed to be about. A quote naming
 /// **no** standard is the ordinary honest case — *"We are certified and audited annually."*
 /// beside the name — and is kept.
+/// # Both failures take the same conservative path
+///
+/// `ARCHITECTURE.md` is explicit: *"a claim whose evidence quote is absent from its cited source
+/// is deleted"*. The first version of this counted a non-verbatim quote and **published the
+/// status anyway**, on the argument that the standard was real so the finding was worth keeping.
+/// Review pointed out what that ships: *"states ISO 27001"* against a page whose only sentence
+/// is *"Questions about ISO 27001? Contact us."* — an unsupported compliance claim, with a line
+/// in a run log nobody reads standing in for a check.
+///
+/// So an unsupported claim is dropped and the **mention is kept**, exactly as it is when the
+/// evidence turns out to be about a neighbouring standard. That the page names the standard is
+/// the scanner's finding and stays true; that they hold it is the model's, and it goes when its
+/// evidence does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Judged {
     /// Quoted from the section, and about the standard in question.
     Keep,
-    /// The quote is not in the section. Kept and counted: the standard is real — the scanner
-    /// found it written down — and the reader is told the evidence was not verbatim.
-    QuoteNotVerbatim,
+    /// The quote is missing, empty, or not in the section. **The claim is dropped and the
+    /// mention is kept.**
+    QuoteNotInTheSection,
     /// The quote names a different standard and not this one. **The claim is dropped and the
     /// mention is kept**: that the page names this standard is true and worth reporting; that
     /// they hold it is a fact this evidence does not support.
@@ -391,7 +405,9 @@ pub(crate) fn judge_assurance(
     section: &str,
     requested: &str,
 ) -> Judged {
-    if let Some(quote) = &claim.evidence_quote {
+    let quote = claim.evidence_quote.as_deref().unwrap_or_default().trim();
+
+    if !quote.is_empty() {
         let named = landscape_extract::assurance::standards_named(quote);
         if !named.is_empty()
             && !named
@@ -401,10 +417,22 @@ pub(crate) fn judge_assurance(
             return Judged::EvidenceIsAboutAnother;
         }
     }
+
+    // **A status with nothing behind it is not a claim.** An answer of `holds` and no quote at
+    // all used to pass, because "there is no quote to check" reads as "the quote is fine" —
+    // which is the same shape as every check-that-cannot-fail in the register.
+    if quote.is_empty() {
+        return if claim.status.is_some() {
+            Judged::QuoteNotInTheSection
+        } else {
+            Judged::Keep
+        };
+    }
+
     if claim.quote_is_verbatim(section) {
         Judged::Keep
     } else {
-        Judged::QuoteNotVerbatim
+        Judged::QuoteNotInTheSection
     }
 }
 
@@ -848,32 +876,43 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_paraphrased_quote_is_kept_and_the_reader_is_told() {
-        // The standard is real - the scanner found it written down - so a paraphrase should
-        // not throw the finding away. It is counted, and the count is printed beside the page,
-        // which is the same treatment a paraphrased price gets.
-        const PARAPHRASED: &str =
-            r#"{"status":"holds","evidence_quote":"we are certified to the highest standard"}"#;
-        let stub = StubModel::start(PARAPHRASED).await;
+    async fn a_claim_whose_quote_is_not_on_the_page_never_reaches_the_report() {
+        // **Review's reproduction, and my test used to assert the opposite.** The page asks a
+        // question about ISO 27001 and claims nothing; the model answers `holds` with a
+        // sentence that is not there. The old arm counted the quote and published the status,
+        // so the report said "states ISO 27001" about a company that had said no such thing.
+        //
+        // `ARCHITECTURE.md`: a claim whose evidence quote is absent from its cited source is
+        // deleted. The mention is the scanner's and survives; the claim is the model's and
+        // does not.
+        const FABRICATED: &str =
+            r#"{"status":"holds","evidence_quote":"We are ISO 27001 certified"}"#;
+        let stub = StubModel::start(FABRICATED).await;
         let llm = landscape_llm::LlamaClient::new(&stub.base);
 
         let outcome = trust(
             &llm,
-            "https://linear.app/security",
-            "# Security
-
-Linear undergoes regular SOC 2 Type II audits.",
+            "https://example.test/security",
+            "# Security\n\nQuestions about ISO 27001? Contact us.",
             &mut |_| crate::Wanted::Yes,
         )
         .await;
 
-        assert_eq!(outcome.claims.len(), 1, "the finding was thrown away");
+        assert_eq!(outcome.claims.len(), 1, "the mention was thrown away too");
+        let said = &outcome.claims[0];
         assert!(
-            outcome
-                .details
-                .iter()
-                .any(|d| d.contains("not found in the section")),
-            "the reader is not told the evidence was a paraphrase: {:?}",
+            said.text.contains("without saying"),
+            "an unsupported claim reached the report: {}",
+            said.text
+        );
+        assert!(
+            said.quote.is_empty(),
+            "a quote that is not on the page was published as evidence: {}",
+            said.quote
+        );
+        assert!(
+            outcome.details.iter().any(|d| d.contains("dropped")),
+            "the reader is not told a claim was set aside: {:?}",
             outcome.details
         );
     }
@@ -1283,18 +1322,66 @@ ISO 27001 is on our roadmap.";
         // a different one - the check must not turn a precision difference into a rejection.
         assert_eq!(
             judge_assurance(&claim("our SOC 2 report"), SECTION, "SOC 2 Type II"),
-            Judged::QuoteNotVerbatim
+            Judged::QuoteNotInTheSection
         );
     }
 
     #[test]
-    fn a_quote_that_is_not_in_the_section_is_kept_and_counted() {
-        // The standard is real - the scanner found it written down - so dropping the whole
-        // finding would lose a true fact over a paraphrased quote. It is counted instead, and
-        // the count is printed beside the page.
+    fn a_quote_that_is_not_in_the_section_takes_the_claim_with_it() {
+        // `ARCHITECTURE.md`: *"a claim whose evidence quote is absent from its cited source is
+        // deleted"*. This used to keep the status and only count the quote, which published an
+        // unsupported compliance claim with a run-log line standing in for a check.
         assert_eq!(
             judge_assurance(&claim("we are fully certified"), SECTION, "SOC 2 Type II"),
-            Judged::QuoteNotVerbatim
+            Judged::QuoteNotInTheSection
+        );
+    }
+
+    #[test]
+    fn a_status_with_no_quote_at_all_is_not_a_claim() {
+        // "There is no quote to check" reads as "the quote is fine", which is the shape of
+        // every check-that-cannot-fail in the register.
+        let bare = AssuranceClaim {
+            status: Some(Assurance::Holds),
+            evidence_quote: None,
+        };
+        assert_eq!(
+            judge_assurance(&bare, SECTION, "SOC 2 Type II"),
+            Judged::QuoteNotInTheSection
+        );
+
+        let blank = AssuranceClaim {
+            status: Some(Assurance::Holds),
+            evidence_quote: Some("   ".to_owned()),
+        };
+        assert_eq!(
+            judge_assurance(&blank, SECTION, "SOC 2 Type II"),
+            Judged::QuoteNotInTheSection
+        );
+    }
+
+    #[test]
+    fn claiming_nothing_and_quoting_nothing_is_not_a_failure() {
+        // The page named the standard and said nothing about it. There is no claim to support,
+        // so there is nothing to drop.
+        assert_eq!(
+            judge_assurance(&AssuranceClaim::empty(), SECTION, "SOC 2 Type II"),
+            Judged::Keep
+        );
+    }
+
+    #[test]
+    fn evidence_written_with_the_other_numeral_is_the_same_standard() {
+        // `SOC 2 Type 2` and `SOC 2 Type II` are one report, and an auditor writes it either
+        // way. Treating them as different threw away a correct quote.
+        const EITHER: &str = "Our SOC 2 Type 2 report is available under NDA.";
+        assert_eq!(
+            judge_assurance(
+                &claim("SOC 2 Type 2 report is available"),
+                EITHER,
+                "SOC 2 Type II"
+            ),
+            Judged::Keep
         );
     }
 

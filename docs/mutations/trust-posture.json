@@ -255,14 +255,42 @@
     ]
   },
   {
-    "name": "a paraphrased quote is not counted, so a reader is not told",
+    "name": "an unsupported claim is published instead of dropped",
     "file": "crates/landscape-analyze/src/stages.rs",
-    "old": "                    Judged::QuoteNotVerbatim => {\n                        unsupported += 1;",
-    "new": "                    Judged::QuoteNotVerbatim => {\n                        unsupported += 0;",
+    "old": "                    Judged::QuoteNotInTheSection => {\n                        unsupported += 1;\n                        extracted\n                            .push(landscape_core::AssuranceClaim::empty().about(&named.standard));\n                    }",
+    "new": "                    Judged::QuoteNotInTheSection => {\n                        unsupported += 1;\n                        extracted.push(claim.about(&named.standard));\n                    }",
     "run": [
       "cargo",
       "nextest",
       "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a status with no quote at all is published as a claim",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "    if quote.is_empty() {\n        return if claim.status.is_some() {\n            Judged::QuoteNotInTheSection\n        } else {\n            Judged::Keep\n        };\n    }",
+    "new": "    if quote.is_empty() {\n        return Judged::Keep;\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "SOC 2 Type 2 and SOC 2 Type II are treated as different standards",
+    "file": "crates/landscape-extract/src/assurance.rs",
+    "old": "        .replace(\"type iii\", \"type 3\")\n        .replace(\"type ii\", \"type 2\")\n        .replace(\"type i\", \"type 1\")",
+    "new": "        .replace(\"type iii\", \"type iii\")",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
       "-p",
       "landscape-analyze"
     ]

@@ -173,8 +173,25 @@ pub fn same_standard(a: &str, b: &str) -> bool {
 }
 
 fn subsumes(a: &str, b: &str) -> bool {
-    let (a, b) = (a.to_lowercase(), b.to_lowercase());
+    let (a, b) = (canonical(a), canonical(b));
     a == b || a.starts_with(&format!("{b} ")) || b.starts_with(&format!("{a} "))
+}
+
+/// One spelling per standard, for comparing only — never for display.
+///
+/// **`SOC 2 Type 2` and `SOC 2 Type II` are one certification**, and an auditor writes it either
+/// way. Prefix comparison alone called them different, which counted one standard twice on a
+/// page that used both forms and let the evidence check discard a correct quote for using the
+/// other. Review found it.
+///
+/// The page's own spelling is what a report shows; this exists so two of them can be recognised
+/// as the same thing. Roman first, or `ii` would be rewritten a numeral at a time.
+fn canonical(standard: &str) -> String {
+    standard
+        .to_lowercase()
+        .replace("type iii", "type 3")
+        .replace("type ii", "type 2")
+        .replace("type i", "type 1")
 }
 
 /// Every standard named on one line, longest spelling first.
@@ -425,6 +442,24 @@ Our SOC 2 Type II report is available.";
         assert!(same_standard("SOC 2", "SOC 2 Type II"));
         assert!(same_standard("gdpr", "GDPR"));
         assert!(!same_standard("SOC 2", "SOC 3"));
+    }
+
+    #[test]
+    fn a_roman_numeral_and_a_digit_name_the_same_report() {
+        // Both spellings are in the list and an auditor writes it either way. Treating them as
+        // different counted one certification twice on a page that used both, and let the
+        // evidence check throw away a correct quote for choosing the other form.
+        assert!(same_standard("SOC 2 Type 2", "SOC 2 Type II"));
+        assert!(same_standard("SOC 2 Type I", "SOC 2 Type 1"));
+        // And the distinction that has to survive it.
+        assert!(!same_standard("SOC 2 Type I", "SOC 2 Type II"));
+    }
+
+    #[test]
+    fn a_page_using_both_spellings_names_one_standard() {
+        let page = "We hold SOC 2 Type II.\n\nOur SOC 2 Type 2 report is available.";
+        assert_eq!(every_assurance(page).considered, 1);
+        assert_eq!(every_assurance(page).named.len(), 1);
     }
 
     #[test]

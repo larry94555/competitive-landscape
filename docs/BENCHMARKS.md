@@ -111,6 +111,9 @@ The more precise spelling now wins wherever it appears. Four standards, one each
 | the model *names* a different standard in the same window | **unrepresentable** |
 | the model *answers about* a different standard in the same window | **yes** |
 | evidence naming no standard is refused along with the rest | **yes** |
+| an unsupported claim is published instead of dropped | **yes** |
+| a status with no quote at all is published as a claim | **yes** |
+| `SOC 2 Type 2` and `SOC 2 Type II` are treated as different standards | **yes** |
 | a precision difference is treated as a different standard | **yes** |
 | a roadmap item is reported the same way as a certification | **yes** |
 | the report asserts the certification rather than the claim | **yes** |
@@ -125,8 +128,9 @@ The more precise spelling now wins wherever it appears. Four standards, one each
 | a trust page is fetched and skipped as if it had no extractor | **yes** |
 | a trust page costs nothing in the prediction the cost command prints | **yes** |
 
-Twenty, all caught — including the ones that guard the wiring itself and the pairing of a claim
-to its standard, both added after review broke them and watched every test pass.
+Twenty-two, all caught — including the ones that guard the wiring, the pairing of a claim to its
+standard, and the deletion of a claim whose quote is not on the page. Every one of those was
+added after review broke it and watched every test pass.
 
 ### What review found, and why two of those rows now say *unrepresentable*
 
@@ -153,6 +157,25 @@ recognised standard that is **not** this one keeps the mention and drops the cla
 log says how many. A quote naming no standard at all — *"We are certified and audited
 annually."* — is the ordinary honest case and is kept.
 
+### And a claim whose quote is not on the page is deleted, which is already the rule
+
+`ARCHITECTURE.md` says it plainly: *"a claim whose evidence quote is absent from its cited source
+is deleted"*. This counted such a quote and **published the status anyway**, on the argument that
+the standard was real so the finding was worth keeping. What that ships is *"states ISO 27001"*
+against a page whose only sentence is *"Questions about ISO 27001? Contact us."* — an unsupported
+compliance claim, with a line in a run log nobody reads standing in for a check. Review found it,
+and my test had locked the behaviour in.
+
+An unsupported claim now takes the same path as one whose evidence is about a neighbour: the
+mention survives, the claim does not. **A status with no quote at all takes it too** — "there is
+no quote to check" had been reading as "the quote is fine".
+
+**And two spellings of one report were two standards.** `SOC 2 Type 2` and `SOC 2 Type II` are
+what an auditor writes either way; prefix comparison called them different, which counted one
+certification twice on a page using both and let the evidence check discard a correct quote for
+choosing the other form. Compared canonically now — Roman numerals folded to digits — while the
+page's own spelling is still what a report shows.
+
 **And two boundary defects the suite could not see.** `to_lowercase` is Unicode-aware and can
 change a string's length, so an offset found in the lowered copy pointed past the end of the
 original and slicing it panicked — a line beginning with `İ` was a crash. Every standard is
@@ -166,7 +189,7 @@ is uncapped now; only the windows that will be read are capped.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 23 | 509 | 51 |
-| now | **581** | **51** |
+| now | **583** | **51** |
 
 ---
 
