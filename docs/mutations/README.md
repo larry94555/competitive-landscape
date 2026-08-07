@@ -93,6 +93,14 @@ different one**. A sentence was being rejected by the word list rather than by t
 a navigation label by the plural rule rather than by the length floor. Either guard could have
 been removed in silence.
 
+**And a third answer: change the code so the guard can be asserted at all.**
+`search-fills-the-gaps.json` labelled every page a search engine returned as the company's own
+and the whole suite passed — a stranger's page would have been rendered as the company speaking,
+unmarked. Nothing was testing it because the URL and its standing were two arguments to one
+function, and a test can only assert a pair that exists. They are one value now, and the mutation
+that survived fails. That is entry 7 of the register — a value parted from its evidence — found
+by tooling rather than by review.
+
 **These files are also read backwards.** `scripts/no_live_mutations.py` takes every `new`
 payload as the shape of a defect this repository can recognise, and refuses a working tree that
 contains one — because an interrupted run leaves the deliberate defect in place, and a

@@ -109,7 +109,7 @@ Add `--store memory` to any of them to skip Postgres entirely.
 | `BIND_ADDR` | `127.0.0.1:8787` | Change if the port is taken |
 | `RUST_LOG` | `landscape=info` | `landscape=debug` for query-level detail |
 | `ANONYMOUS_DAILY_LIMIT` | `2` | Analyses one address may start in a day. Only counts requests that arrived through a reverse proxy |
-| `SEARX_URL` | *(none)* | The SearXNG that `landscape search` asks. **No default, deliberately** — a fallback to a public instance would send what strangers type to a third party. Start one with `docker compose --profile search up -d searxng` and set `http://localhost:8888` |
+| `SEARX_URL` | *(none)* | The SearXNG that `landscape search` asks, **and that an analysis asks for the questions a company's own pages left empty**. Without it a run reads exactly the pages discovery planned and the report says which questions went unsearched. **No default, deliberately** — a fallback to a public instance would send what strangers type to a third party. Start one with `docker compose --profile search up -d searxng` and set `http://localhost:8888` |
 
 ### Ports
 

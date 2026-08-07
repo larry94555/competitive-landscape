@@ -352,6 +352,15 @@ Example:
 /// placeholder and is labelled as one**: turning *"an app that helps small farms sell to local
 /// restaurants"* into a company's name is entity resolution, which is the next piece of work
 /// and not this one. `landscape-core::subject` already holds the gate it will feed.
+/// A configured engine, as the thing an analysis takes.
+///
+/// One line, and it exists so the two call sites cannot disagree about it: `Option<&Searx>` to
+/// `Option<&dyn SourceProvider>` is a coercion that has to be spelled out, and spelling it out
+/// twice is how one of them ends up passing `None` for ever without anybody noticing.
+fn searching(engine: &landscape_search::Searx) -> &dyn landscape_search::SourceProvider {
+    engine
+}
+
 async fn search_for_gaps(args: &[String]) -> Result<()> {
     use landscape_discover::probes::Answers;
 
@@ -566,7 +575,13 @@ Example:
         "
 A chance of content, not a promise of one: whether a call answers is unknowable
 without running it. `landscape read` prints the measured figure. Multiply by what one
-call costs on your machine - that number belongs to the model, not to this pipeline."
+call costs on your machine - that number belongs to the model, not to this pipeline.
+
+This counts the pages discovery planned. With SEARX_URL set, a run reads up to {}
+more - the questions these pages leave empty are searched for, and which ones those
+are is not knowable before the reading. A prediction that quietly omitted them would
+be a prediction of a different program.",
+        landscape_analyze::PAGES_FROM_SEARCH
     );
     Ok(())
 }
@@ -678,12 +693,17 @@ Example:
     // one, and it is the measurement a person takes for themselves.
     let started = std::time::Instant::now();
     let mut first_content: Option<std::time::Duration> = None;
+    // **The same engine `landscape search` uses, or none.** Without `SEARX_URL` the run reads
+    // exactly the pages discovery planned and the report says so, which is the laptop default
+    // and the behaviour every test in this repository runs against.
+    let engine = landscape_search::Searx::from_env()?;
     let analysis = landscape_analyze::analyse_with(
         &fetcher,
         &llm,
         origin,
         now,
         now.date_naive(),
+        engine.as_ref().map(searching),
         &mut |report: &landscape_core::Report| {
             if first_content.is_none() && report.sections.iter().any(|s| !s.claims.is_empty()) {
                 first_content = Some(started.elapsed());
@@ -941,12 +961,20 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
     let now = chrono::Utc::now();
 
     let progress = progress::Progress::new(Arc::clone(store), analysis.id, analysis.generation);
+    // A misconfigured `SEARX_URL` is a configuration error, not a reason to fail an analysis
+    // somebody is waiting for: the run proceeds on discovery alone and the report says that no
+    // engine was available for the gaps.
+    let engine = landscape_search::Searx::from_env().unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "SEARX_URL is set but unusable; this run will not search");
+        None
+    });
     let outcome = landscape_analyze::analyse_many(
         &fetcher,
         &llm,
         &origins,
         now,
         now.date_naive(),
+        engine.as_ref().map(searching),
         &mut |so_far| progress.record(so_far),
     )
     .await;

@@ -15,9 +15,13 @@ landscape-discover.workspace = true
 landscape-extract.workspace = true
 landscape-fetch.workspace = true
 landscape-llm.workspace = true
+landscape-search.workspace = true
+tracing.workspace = true
 chrono.workspace = true
 
 [dev-dependencies]
+# For the canned `SourceProvider` the search-pass tests stand up.
+async-trait.workspace = true
 # A stub `llama-server`, so the one thing worth asserting about cancellation — that the model
 # stops being called — can be asserted without a GPU.
 axum.workspace = true

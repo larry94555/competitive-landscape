@@ -33,6 +33,84 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 27 — the join, and the sharper gap it made available
+
+**Date:** 2026-08-07 · **Where:** this laptop · **Model:** none. The join is arithmetic over
+what a run already produced, and every number below is counted without one.
+
+Run 26 built the search channel and said plainly what it was not: *"no analysis calls it."* This
+is the call. It also closes the limit that run named rather than leaving it for somebody to
+discover.
+
+### A question is unanswered when nothing filled it, not when nothing was admitted
+
+`landscape search <origin>` computes gaps from what **discovery admitted**. That is the only
+measure available to a command that never reads anything, and it is the weaker one:
+
+```text
+helpscout.com/blog   admitted for `changes`   yields no dated entry
+```
+
+Under the old measure that question is answered — a page was found — and no search happens for a
+section that will be blank. Under the new one it is a gap, because **no claim exists**, and it is
+searched for. The measure moved because the join made the sharper one available: an analysis
+knows what filled, and the CLI cannot.
+
+That is one line of code and the whole reason this belongs in the orchestrator:
+
+```rust
+.filter(|question| !self.claims.iter().any(|(q, _)| q == question))
+```
+
+### What a search may cost, and what it may never do
+
+| | |
+|---|---|
+| Queries | one per gap, templated and versioned. A company whose own pages answered everything sends none |
+| Pages added | at most **3**, spent round-robin across questions so one gap cannot starve another |
+| Model calls | whatever those pages cost, and they are *not* in `landscape cost`'s prediction — which now says so rather than quietly under-reporting a run |
+| A page on the subject's own domain | `Primary`. The company said it, however we came to find the page |
+| Any other page | `Unverified`, marked `(U)` **in the report body beside the claim**, with the reason on the source line |
+
+**The marking is the part review would have found.** `FACT_CHECKING.md` §3.2.4 puts an
+unverified source in the report body *"marked unverified, with why"*, and until this change every
+source in every report was the company's own page — so `Disposition` had never once rendered as
+anything but `P`, and a code beside a URL two screens below a claim was enough. It is not enough
+the moment a stranger's page can produce a claim:
+
+```text
+- (U) states it offers unlimited seats [S4·M]
+
+[S4] … — https://someblog.example/… (U — a page we could read but could not fully attribute)
+```
+
+### The refusals, and where each one lives
+
+Three things had to be impossible, and each is one place rather than a rule to remember:
+
+* **Search cannot lead.** The gaps are computed from claims that exist, so the ordering
+  `FACT_CHECKING.md` §3.3 requires is structural rather than commented.
+* **A run nobody is waiting for spends nothing more.** `worth_searching` refuses both a run the
+  reader abandoned and a run with no gaps, in one function, for two stated reasons.
+* **A page cannot be parted from its standing.** The URL and its disposition were two arguments
+  to the reading function until the mutation harness labelled every search result `Primary` and
+  the whole suite passed. They travel as one value now — entry 7 of the register, found by
+  tooling rather than by review.
+
+### What did not change
+
+**Nothing, without `SEARX_URL`.** The laptop default reads exactly the pages discovery planned,
+and the report says which questions were left unsearched rather than letting them read as
+questions somebody looked into. That distinction is the same one the coverage note has always
+drawn, applied to a new kind of silence.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 26 | 669 | 51 |
+| now | **680** | **51** |
+
+---
+
 ## Run 26 — the first road off the subject's own domain
 
 **Date:** 2026-08-07 · **Where:** this laptop · **Model:** none. Nothing here asks one, and
