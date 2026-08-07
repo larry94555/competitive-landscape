@@ -1,6 +1,6 @@
 # Full Feature List
 
-**As of 2026-08-07** · `main` at `0699e86` · **42 of 130 PRs · 32% of the software deliverable**
+**As of 2026-08-07** · `main` at `46e675c` · **43 of 130 PRs · 33% of the software deliverable**
 
 Every feature the roadmap describes, sorted by the readiness state that first requires it, with
 what it is estimated to cost in pull requests and how much of that is spent.
@@ -36,8 +36,8 @@ is the source of truth for every percentage on this page** — the totals below 
 summed, not a count taken from GitHub.
 
 **Those two numbers are not the same, and this line is where the difference is stated.** The
-repository has **43 merged pull requests and one open** — this one — while the Done column sums
-to **42**. The rows are themes: a pull request that only answered review findings, or hardened a
+repository has **44 merged pull requests and one open** — this one — while the Done column sums
+to **43**. The rows are themes: a pull request that only answered review findings, or hardened a
 gate, adds no feature and therefore no row. Counting it would inflate a table that is supposed to
 measure how much of the product exists.
 
@@ -168,8 +168,8 @@ the caches**. The next piece of work here was the cliff itself, and it started.
 templated query set built from the questions discovery came back empty on, a `SourceProvider`
 seam with a SearXNG adapter behind it, and an admission step that decides what a result may be
 used for — the company's own domain is Primary, everything else is Unverified and therefore may
-never set a value in a comparison table. It is exercised by `landscape search <origin>` and by 34
-tests, four of them over a real socket.
+never set a value in a comparison table. It is exercised by `landscape search <origin>` and by 45
+tests, seven of them over a real socket.
 
 **It is not wired into the orchestrator, and typing an idea still fails.** That is the next PR,
 and it is why this row moved to 25% rather than further. A search channel that no analysis calls

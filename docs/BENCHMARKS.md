@@ -143,15 +143,64 @@ and a test fails on it. Entry 32 of the register is the precedent.
 ```bash
 cargo run -p landscape -- search https://basecamp.com
 cargo run -p landscape -- search https://simpleanalytics.com
-python3 scripts/mutate.py docs/mutations/the-search-channel.json   # 10 of 10 caught
+python3 scripts/mutate.py docs/mutations/the-search-channel.json   # 16 of 16 caught
 ```
 
-**34 tests, and four of them use a socket.** `tests/against_a_server.rs` stands up a listener,
+### Seven defects review found, and what each of them was
+
+The first version of this passed all eleven gates, 658 tests and ten mutations. **Review found
+seven things none of them could see**, which is the register's own thesis arriving on schedule.
+Recorded here because six of the seven are classes rather than typos.
+
+**A trust boundary reading its host from a query string.** `Target::parse` ended the authority
+at the first `/`, so `https://evil.test?@linear.app` kept the query inside the authority and the
+credential strip then read `linear.app` out of it. `disposition_for` would have called a page on
+evil.test **Primary** — the one disposition permitted to set a value in a comparison table. The
+inverse was wrong too: `https://linear.app?x=1` gave a host of `linear.app?x=1`, matching
+nothing. Fixed in `landscape-fetch`, where every other caller benefits, and no test there had a
+URL with a query and no path.
+
+**Phrase quotes are not an escape.** Wrapping the subject in `"` and stripping its own quotes
+was the wrong model of the thing being defended against: SearXNG splits `q` on whitespace and
+reads its own control language off the tokens **before** searching. A name containing `!!`
+leaves a bare `!!` token, which means *redirect to the first result* — and the client followed
+redirects, so a hostile name could have this process fetch an arbitrary page before `admit` or
+the SSRF guard saw a URL. `!google`, `:fr` and `<99` select an engine, a language and a timeout.
+Replaced with a deliberate grammar — letters, digits and `-._&'+`, everything else becomes a
+space — and the transport now refuses redirects as well, because one guard and no second is how
+a bypass goes quiet.
+
+**A value separated from its evidence, in the function that was written to keep them together.**
+The same URL returned for two questions overwrote its `Found` while the ranked `Candidate` kept
+the first question, so a page came out labelled with a question it was not found for, quoting a
+query that did not find it. The test named for this used two different URLs and could never
+collide. Entry 7 of the register.
+
+**A cap that capped the wrong thing.** `HITS_PER_QUERY` truncates *after* the body is read and
+`serde` has materialised every row, so the comment claiming it stopped a hostile engine deciding
+this process's workload was the opposite of true. `MAX_RESPONSE_BYTES` now refuses while the
+bytes arrive, and the test drives a server that will not stop sending.
+
+**A configuration file that did not do what it said.** `use_default_settings: true` merges the
+`engines:` list by name and leaves every other default engine enabled, so *"only the engines a
+competitive analysis has a use for"* was three configured and the rest still running. Now
+`use_default_settings.engines.keep_only`.
+
+**A normaliser that lowercased paths.** Pre-existing in discovery and harmless while it had one
+caller; making it the shared answer for two channels made it a page silently dropped as
+*"discovery already has it"* when `/Docs` and `/docs` are different resources. Only the scheme
+and host are case-insensitive.
+
+**An error swallowed into a weaker object.** `.build().unwrap_or_default()` replaced a client
+carrying the eight-second timeout with one carrying none. Now fallible.
+
+**45 tests, and seven of them use a socket.** `tests/against_a_server.rs` stands up a listener,
 points a real client at it, and asserts on **what arrived** as well as what came back — the
 percent-encoding of a template full of quotes, the endpoint the query is appended to, a 403
-carrying its number, and a dead port becoming `Unreachable` rather than a hang. Every other test
-in the crate exercises one side of that join, and the register's recurring finding is that the
-joins are where the defects live.
+carrying its number, a dead port becoming `Unreachable` rather than a hang, a redirect that is
+reported rather than chased to `169.254.169.254`, and a body that will not stop being abandoned
+part-way rather than after. Every other test in the crate exercises one side of that join, and
+the register's recurring finding is that the joins are where the defects live.
 
 **No SearXNG has been run against this, and the compose service is written rather than walked.**
 Docker is not available in the workspace this was built in. The service, its checked-in
@@ -179,7 +228,7 @@ orchestrator.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 25 | 624 | 51 |
-| now | **658** | **51** |
+| now | **669** | **51** |
 
 ---
 

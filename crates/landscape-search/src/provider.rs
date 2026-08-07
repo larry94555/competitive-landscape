@@ -56,6 +56,14 @@ pub enum SearchError {
     /// It answered 200 with something that is not the shape we parse.
     #[error("search engine answered with an unreadable body: {0}")]
     Unreadable(String),
+    /// It answered 200 and kept answering. See [`crate::searx::MAX_RESPONSE_BYTES`].
+    #[error("search engine answered with more than {limit} bytes")]
+    TooLarge { limit: usize },
+    /// The engine is configured and could not be built. Distinct from [`Self::NotConfigured`]
+    /// on purpose: *"you set the variable and it did not work"* and *"you did not set the
+    /// variable"* send a reader to different places.
+    #[error("search engine could not be initialised: {0}")]
+    Unusable(String),
 }
 
 /// A place that turns a [`Query`] into URLs.

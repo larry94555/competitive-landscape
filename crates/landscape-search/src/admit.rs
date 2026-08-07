@@ -160,9 +160,19 @@ pub fn admit(
                 query: query.text.clone(),
                 engine: engine.to_owned(),
             };
-            // Keyed on the exact URL, which is what `rank::admit` hands back, so the
-            // attribution cannot be paired with the wrong page on the way out.
-            if by_url.insert(hit.url.clone(), found.clone()).is_none() {
+            // **First occurrence wins, and it wins in both maps or in neither.**
+            //
+            // This was `by_url.insert(...)`, which pushed a candidate only for the first
+            // occurrence and then let every later one *overwrite the entry it was paired
+            // with*. The same URL returned for pricing and then for trust left a candidate
+            // ranked as pricing and a `Found` claiming trust, so a page came out of here
+            // labelled with a question it was not found for, and quoting the wrong query.
+            //
+            // Review found it. The test that should have — the one named for exactly this —
+            // used two different URLs, so nothing in it could ever collide. Entry 7 of the
+            // register is the class: a value separated from its evidence.
+            if let std::collections::hash_map::Entry::Vacant(slot) = by_url.entry(hit.url.clone()) {
+                slot.insert(found.clone());
                 candidates.push(found.to_candidate());
             }
         }
@@ -358,6 +368,36 @@ mod tests {
             found.iter().any(|f| f.answers == Answers::Trust),
             "the question with one hit was starved: {found:#?}"
         );
+    }
+
+    #[test]
+    fn one_url_returned_for_two_questions_keeps_the_question_it_was_ranked_as() {
+        // Review's finding, and the case the test below could not reach because it used two
+        // different URLs. A search engine returns the same page for more than one query
+        // routinely — a company's `/security` answers both "what is their posture" and "who
+        // are they" — so this is the ordinary case rather than a contrived one.
+        //
+        // The defect it replaces: the candidate was built from the first occurrence and the
+        // `Found` from the last, so the page came out ranked as pricing and labelled trust,
+        // quoting a query that did not find it.
+        let url = "https://linear.app/security";
+        let mut all = results(Answers::Pricing, &[url]);
+        all.extend(results(Answers::Trust, &[url]));
+
+        let found = admit("linear.app", &[], &all, "searxng", 8);
+        assert_eq!(found.len(), 1, "one page, one slot: {found:#?}");
+
+        let only = &found[0];
+        let expected = queries::for_questions("Linear", &[only.answers])[0]
+            .text
+            .clone();
+        assert_eq!(
+            only.query, expected,
+            "the page is labelled {:?} and quotes a query for something else",
+            only.answers
+        );
+        // And it is the first occurrence that survived, which is what was ranked.
+        assert_eq!(only.answers, Answers::Pricing, "{only:#?}");
     }
 
     #[test]

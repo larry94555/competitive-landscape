@@ -24,18 +24,28 @@ use landscape_discover::probes::Answers;
 
 /// The version of the query set, stamped on a run.
 ///
-/// **Raise this whenever a template below changes**, including a change that only looks
-/// cosmetic — a dropped `OR` branch changes what comes back. It is a date plus a counter
-/// rather than a hash, because the thing a person asks is *"which set ran on the day that
-/// report was wrong"*.
-pub const QUERY_SET: &str = "2026-08-07.1";
+/// **Raise this whenever what reaches the engine changes**, including a change that only
+/// looks cosmetic — a dropped `OR` branch changes what comes back. It is a date plus a
+/// counter rather than a hash, because the thing a person asks is *"which set ran on the day
+/// that report was wrong"*.
+///
+/// `.2` is the first raise, and it is the reason the constant is worth having: no *template*
+/// changed, but [`quote`] did — the grammar review forced replaced `Notion Labs, Inc` with
+/// `Notion Labs Inc` and dropped SearXNG control tokens entirely. Different text goes to the
+/// engine, so different pages can come back, so the version moves. A rule that only counted
+/// template edits would have missed it.
+pub const QUERY_SET: &str = "2026-08-07.2";
 
 /// The most hits worth taking from one query.
 ///
 /// A search engine will happily return a hundred, and a hundred URLs is not more coverage —
-/// it is the same eight pages plus ninety-two aggregator pages about them. The cap is here
-/// rather than at the call site so a misconfigured or hostile engine cannot decide how much
-/// work this process does.
+/// it is the same eight pages plus ninety-two aggregator pages about them.
+///
+/// **This bounds what is used, not what it costs to get there**, and the first version of
+/// this comment claimed otherwise — that the cap stopped a hostile engine deciding how much
+/// work the process does. It does not: truncation happens after the body has been read and
+/// parsed. [`crate::searx::MAX_RESPONSE_BYTES`] is the limit that actually holds, and it is
+/// enforced while the bytes arrive.
 pub const HITS_PER_QUERY: usize = 5;
 
 /// One query, and what it was asked for.
@@ -108,19 +118,58 @@ pub fn for_questions(name: &str, unanswered: &[Answers]) -> Vec<Query> {
 /// the company. The quotes are the difference between a query about a company and a query
 /// about two English words.
 ///
-/// **The name is stripped of its own quotes first.** A subject called `The "Real" Co` would
-/// otherwise close the phrase early and hand the rest of itself to the engine as operators —
-/// the same shape as an injection, arriving through a field a stranger typed.
+/// # The quotes are not a defence, and this is the important part
+///
+/// The first version of this stripped `"` and control characters and called the job done.
+/// **Review found that reasoning backwards.** SearXNG does not parse `q` as a search engine
+/// parses a phrase — [`RawTextQuery`] splits it on whitespace and inspects each token for
+/// its own control language *before* anything is searched for:
+///
+/// | Token | What SearXNG does with it |
+/// |---|---|
+/// | `!!` | redirect straight to the first result |
+/// | `!google`, `!!g` | select an engine, or an external bang that leaves the instance |
+/// | `:fr` | change the search language |
+/// | `<99` | set a timeout |
+///
+/// Our phrase quotes do not group those away, because the splitting happens first. So a
+/// subject called `Acme !! Corp` leaves a bare `!!` token, and a redirect turns our
+/// metasearch request into a request for somebody else's page — reached **before** [`admit`]
+/// or the fetcher's SSRF guard has seen a URL at all. The name arrives from a text box a
+/// stranger types into, which makes this an injection with a very short supply chain.
+///
+/// So the answer is not a longer list of characters to remove. It is a **deliberate grammar**
+/// for what a company name may contain, with everything else replaced by a space:
+/// letters, digits, and `-` `.` `_` `&` `'` `+`. `AT&T`, `O'Reilly`, `37signals`,
+/// `linear.app` and `Help Scout` all survive; `!`, `:`, `<`, `>`, `?` and `"` cannot.
+///
+/// Replaced by a space rather than deleted, deliberately: deleting turns `Acme!!Corp` into
+/// the single word `AcmeCorp`, which is a different company. A space keeps it two words,
+/// which is what a reader meant.
+///
+/// The client also refuses to follow redirects ([`crate::searx`]), because one guard at the
+/// text boundary and none at the transport is the arrangement that fails quietly.
+///
+/// [`admit`]: crate::admit::admit
+/// [`RawTextQuery`]: https://github.com/searxng/searxng/blob/master/searx/query.py
 fn quote(name: &str) -> String {
     let cleaned: String = name
         .chars()
-        .filter(|c| *c != '"' && !c.is_control())
+        .map(|c| {
+            if c.is_alphanumeric() || matches!(c, '-' | '.' | '_' | '&' | '\'' | '+') {
+                c
+            } else {
+                ' '
+            }
+        })
         .collect();
-    let trimmed = cleaned.trim();
-    if trimmed.is_empty() {
+    // Collapse the runs the replacement creates, so `Acme  !!  Corp` is `Acme Corp` rather
+    // than a phrase with a hole in it.
+    let collapsed = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
+    if collapsed.is_empty() {
         String::new()
     } else {
-        format!("\"{trimmed}\"")
+        format!("\"{collapsed}\"")
     }
 }
 
@@ -194,10 +243,80 @@ mod tests {
             queries[0].text
         );
         assert!(
-            queries[0].text.starts_with("\"Acme site:evil.test\""),
+            queries[0].text.starts_with("\"Acme site evil.test\""),
             "{}",
             queries[0].text
         );
+    }
+
+    #[test]
+    fn no_searxng_control_token_survives_a_subject_name() {
+        // Review's finding, and the one the phrase quotes did **not** cover: SearXNG splits
+        // `q` on whitespace and reads its own control language off the tokens before
+        // anything is searched for. `!!` alone redirects to the first result, which would
+        // have this client fetching somebody else's page before `admit` or the SSRF guard
+        // ever saw a URL.
+        //
+        // One case per class rather than one case: each of these is a different feature of
+        // the query parser, and a guard that happens to catch `!` says nothing about `<`.
+        let hostile = [
+            (r"Acme !! Corp", "!!", "redirect to the first result"),
+            (r"Acme !google Corp", "!", "engine selection"),
+            (r"Acme !!g Corp", "!", "external bang, leaves the instance"),
+            (r"Acme :fr Corp", ":", "language selection"),
+            (r"Acme <99 Corp", "<", "timeout"),
+            (r"Acme ?bang Corp", "?", "the alternate bang prefix"),
+        ];
+        for (name, token, what) in hostile {
+            let text = for_questions(name, &[Answers::Pricing])[0].text.clone();
+            assert!(
+                !text.contains(token),
+                "{token:?} ({what}) survived in {text:?}"
+            );
+            // And the company is still asked about, rather than the name being destroyed.
+            assert!(text.starts_with("\"Acme"), "{text}");
+            assert!(text.contains("Corp"), "{text}");
+        }
+    }
+
+    #[test]
+    fn a_removed_character_leaves_two_words_rather_than_joining_them() {
+        // Deleting rather than replacing would turn this into `AcmeCorp`, which is a
+        // different company and a query that finds nothing.
+        let text = for_questions("Acme!!Corp", &[Answers::Pricing])[0]
+            .text
+            .clone();
+        assert!(text.starts_with("\"Acme Corp\""), "{text}");
+    }
+
+    #[test]
+    fn a_real_company_name_survives_the_grammar() {
+        // The grammar has to be checkable in both directions, or it is a deny-list with
+        // better prose. Every name here is a real company or product.
+        //
+        // **Written as exact expected output rather than as a rule.** The first version of
+        // this test recomputed the grammar to decide what should survive, which restates the
+        // production rule in the test — so a change to the rule would change both, and the
+        // test would keep passing while asserting the new behaviour is the new behaviour.
+        // (It also made the production line a non-unique mutation anchor, which is how it
+        // was noticed.)
+        for (name, expected) in [
+            ("Help Scout", "\"Help Scout\" pricing plans"),
+            ("AT&T", "\"AT&T\" pricing plans"),
+            ("O'Reilly", "\"O'Reilly\" pricing plans"),
+            ("37signals", "\"37signals\" pricing plans"),
+            ("linear.app", "\"linear.app\" pricing plans"),
+            ("C++ Builder", "\"C++ Builder\" pricing plans"),
+            // The comma is not in the grammar, so it becomes a space and the words stay
+            // apart. A reader would still recognise the company.
+            ("Notion Labs, Inc", "\"Notion Labs Inc\" pricing plans"),
+        ] {
+            assert_eq!(
+                for_questions(name, &[Answers::Pricing])[0].text,
+                expected,
+                "{name:?}"
+            );
+        }
     }
 
     #[test]

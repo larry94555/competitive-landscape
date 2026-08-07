@@ -1300,7 +1300,7 @@ subject   basecamp.com
 host      basecamp.com
 answered  pricing, features, identity, trust, direction
 gaps      changes
-query set 2026-08-07.1
+query set 2026-08-07.2
   changes    "basecamp.com" changelog OR "release notes"
 
 no engine configured - set SEARX_URL to ask these. Nothing was sent anywhere.
@@ -1322,7 +1322,7 @@ cargo run -p landscape -- search https://simpleanalytics.com
 ```
 answered  pricing, features, changes, identity, trust
 gaps      direction
-query set 2026-08-07.1
+query set 2026-08-07.2
   direction  "simpleanalytics.com" careers OR hiring OR funding
 ```
 

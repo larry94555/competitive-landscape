@@ -421,7 +421,10 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
         return Ok(());
     }
 
-    let Some(engine) = landscape_search::Searx::from_env() else {
+    // `Ok(None)` is "no engine configured", which is the ordinary state on a laptop. An
+    // `Err` is "you set the variable and it did not work", and flattening the two would send
+    // somebody to the wrong file.
+    let Some(engine) = landscape_search::Searx::from_env()? else {
         println!(
             "\nno engine configured - set {} to ask these. Nothing was sent anywhere.",
             landscape_search::searx::URL_VAR

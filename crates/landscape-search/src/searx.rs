@@ -63,28 +63,49 @@ impl Searx {
     ///
     /// The trailing slash is normalised here rather than being a rule people have to
     /// remember when they set the variable.
-    #[must_use]
-    pub fn new(base: &str) -> Self {
-        Self {
+    ///
+    /// # Errors
+    /// [`SearchError::Unusable`] if the HTTP client cannot be built.
+    ///
+    /// **This used to be infallible, and the way it was infallible was the defect.** It
+    /// ended `.build().unwrap_or_default()`, on the reasoning that the default client has
+    /// the same TLS backend — but the default client has **no timeout**, so the one failure
+    /// path silently discarded the eight-second deadline this constructor exists to set.
+    /// A search that then hung would hang inside a 90–180 second report. Review found it;
+    /// the repository's rule against swallowed errors already covered it.
+    pub fn new(base: &str) -> Result<Self, SearchError> {
+        Ok(Self {
             base: base.trim().trim_end_matches('/').to_owned(),
             http: reqwest::Client::builder()
                 .timeout(TIMEOUT)
+                // **Never follow a redirect from here.** SearXNG's own query language can
+                // turn a search into a redirect — `!!` sends the client to the first result,
+                // an external bang sends it off the instance entirely — and following one
+                // would have this client fetch an arbitrary page before `crate::admit` or
+                // the SSRF guard in `landscape-fetch` has seen a URL. `crate::queries`
+                // refuses those tokens at the text boundary; this is the transport saying
+                // no as well, because one guard and no second is how a bypass goes quiet.
+                //
+                // Nothing legitimate is lost: `SEARX_URL` names an instance we run, and its
+                // `/search` answers directly.
+                .redirect(reqwest::redirect::Policy::none())
                 .build()
-                // `Client::new()` is what `build()` falls back to; the builder only fails on
-                // a TLS backend that could not be initialised, and the default client has
-                // the same backend. This keeps the crate free of `unwrap`.
-                .unwrap_or_default(),
-        }
+                .map_err(|e| SearchError::Unusable(e.to_string()))?,
+        })
     }
 
     /// The instance named by `SEARX_URL`, if there is one.
     ///
-    /// Returns [`None`] rather than a default. A hard-coded fallback to a public instance
-    /// would send every subject a stranger types into the box to a third party we do not
-    /// run, which is the one thing the local-inference posture in `ROADMAP.md` §1 promises
-    /// does not happen.
-    #[must_use]
-    pub fn from_env() -> Option<Self> {
+    /// `Ok(None)` means **no engine is configured**, which is the ordinary state on a laptop
+    /// and not a failure. A hard-coded fallback to a public instance would send every
+    /// subject a stranger types into the box to a third party we do not run, which is the
+    /// one thing the local-inference posture in `ROADMAP.md` §1 promises does not happen.
+    ///
+    /// # Errors
+    /// [`SearchError::Unusable`] if one is configured and could not be built. That is
+    /// deliberately **not** flattened into `None`: *"you set the variable and it did not
+    /// work"* and *"you did not set the variable"* send a reader to different places.
+    pub fn from_env() -> Result<Option<Self>, SearchError> {
         Self::configured(std::env::var(URL_VAR).ok().as_deref())
     }
 
@@ -93,13 +114,17 @@ impl Searx {
     /// Split out so the rule can be tested without a test mutating the process's
     /// environment — a global that every other test in the binary shares, and one whose
     /// safety would rest on the runner happening to give each test its own process.
-    #[must_use]
-    pub fn configured(raw: Option<&str>) -> Option<Self> {
-        let trimmed = raw?.trim();
+    ///
+    /// # Errors
+    /// As [`Self::from_env`].
+    pub fn configured(raw: Option<&str>) -> Result<Option<Self>, SearchError> {
+        let Some(trimmed) = raw.map(str::trim) else {
+            return Ok(None);
+        };
         if trimmed.is_empty() {
-            return None;
+            return Ok(None);
         }
-        Some(Self::new(trimmed))
+        Self::new(trimmed).map(Some)
     }
 
     /// Where a query is sent. Separate so the test can read it without a server.
@@ -127,6 +152,55 @@ struct Row {
     title: String,
     #[serde(default)]
     content: String,
+}
+
+/// The most body this will hold before giving up on it.
+///
+/// **[`crate::queries::HITS_PER_QUERY`] does not bound anything on its own**, which review
+/// found and the doc comment beside it had claimed the opposite of: `.take(5)` runs *after*
+/// the whole body has been read into a `String` and *after* `serde` has materialised every
+/// row in it. A misconfigured or compromised instance answering with a gigabyte would have
+/// been read into memory and parsed in full, and the test asserting the cap used a
+/// hundred-row body — small enough that it proved the truncation and nothing about the cost
+/// of getting there.
+///
+/// 1 MiB against five results is generous by two orders of magnitude, which is the point: it
+/// is a ceiling on damage, not a tuning parameter. `landscape-fetch` caps a stranger's page
+/// at 2 MiB for the same reason.
+pub const MAX_RESPONSE_BYTES: usize = 1024 * 1024;
+
+/// Read a response, refusing one that will not stop.
+///
+/// Chunk by chunk, so an oversized body is abandoned **while it arrives** rather than after
+/// it has all been accumulated — which is the whole difference between a limit and a
+/// measurement.
+async fn read_capped(mut response: reqwest::Response) -> Result<String, SearchError> {
+    // A `Content-Length` that already exceeds the cap is refused before a byte of body is
+    // read. It is a hint rather than a guarantee — a hostile server can understate or omit
+    // it — so the loop below is the real check and this only saves the transfer.
+    if response
+        .content_length()
+        .is_some_and(|len| len > MAX_RESPONSE_BYTES as u64)
+    {
+        return Err(SearchError::TooLarge {
+            limit: MAX_RESPONSE_BYTES,
+        });
+    }
+
+    let mut body: Vec<u8> = Vec::new();
+    while let Some(chunk) = response
+        .chunk()
+        .await
+        .map_err(|e| SearchError::Unreadable(e.to_string()))?
+    {
+        if body.len() + chunk.len() > MAX_RESPONSE_BYTES {
+            return Err(SearchError::TooLarge {
+                limit: MAX_RESPONSE_BYTES,
+            });
+        }
+        body.extend_from_slice(&chunk);
+    }
+    String::from_utf8(body).map_err(|e| SearchError::Unreadable(e.to_string()))
 }
 
 /// Turn a response body into hits.
@@ -183,10 +257,7 @@ impl SourceProvider for Searx {
             });
         }
 
-        let body = response
-            .text()
-            .await
-            .map_err(|e| SearchError::Unreadable(e.to_string()))?;
+        let body = read_capped(response).await?;
         let hits = hits_from_json(&body)?;
         tracing::debug!(
             engine = self.name(),
@@ -248,9 +319,11 @@ mod tests {
     }
 
     #[test]
-    fn an_engine_returning_a_hundred_results_still_costs_one_query() {
-        // The cap is enforced where the results arrive, not where they are used, so a
-        // misconfigured instance cannot decide how much work this process does.
+    fn an_engine_returning_a_hundred_results_yields_five_pages() {
+        // What this actually proves: the *output* is bounded. It says nothing about the cost
+        // of getting there — the body is fully read and fully parsed before this truncates —
+        // and the comment here used to claim otherwise. `MAX_RESPONSE_BYTES` and
+        // `read_capped` are the limit that holds; see `tests/against_a_server.rs`.
         let rows: Vec<String> = (0..100)
             .map(|i| format!(r#"{{"url":"https://e.test/{i}","title":"{i}"}}"#))
             .collect();
@@ -288,11 +361,11 @@ mod tests {
     #[test]
     fn a_trailing_slash_on_the_configured_url_is_not_a_rule_to_remember() {
         assert_eq!(
-            Searx::new("http://127.0.0.1:8888/").endpoint(),
-            Searx::new("http://127.0.0.1:8888").endpoint()
+            Searx::new("http://127.0.0.1:8888/").unwrap().endpoint(),
+            Searx::new("http://127.0.0.1:8888").unwrap().endpoint()
         );
         assert_eq!(
-            Searx::new("http://127.0.0.1:8888").endpoint(),
+            Searx::new("http://127.0.0.1:8888").unwrap().endpoint(),
             "http://127.0.0.1:8888/search"
         );
     }
@@ -302,13 +375,16 @@ mod tests {
         // A default public instance would send every subject a stranger types to a third
         // party, which is the one thing the privacy posture promises does not happen. So an
         // unset variable must yield nothing rather than something.
-        assert!(Searx::configured(None).is_none());
+        assert!(Searx::configured(None).expect("not an error").is_none());
         assert!(
-            Searx::configured(Some("   ")).is_none(),
+            Searx::configured(Some("   "))
+                .expect("not an error")
+                .is_none(),
             "a blank value is not a configured instance"
         );
         assert_eq!(
             Searx::configured(Some("http://127.0.0.1:8888"))
+                .expect("builds")
                 .map(|s| s.endpoint())
                 .as_deref(),
             Some("http://127.0.0.1:8888/search")

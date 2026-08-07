@@ -128,9 +128,25 @@ impl Target {
             }
         };
 
-        let (authority, path) = rest
-            .split_once('/')
-            .map_or((rest, "/".to_owned()), |(a, p)| (a, format!("/{p}")));
+        // **The authority ends at the first `/`, `?` or `#`, and all three matter.**
+        // Splitting on `/` alone left the query string inside the authority, and the `@`
+        // strip below then read a host out of it: `https://evil.test?@linear.app` parsed to
+        // host `linear.app`. That is a page on one company's server presenting as another
+        // company's own domain — and `landscape-search` grants the subject's own domain the
+        // only disposition permitted to set a value in a comparison table. The inverse was
+        // wrong too: `https://linear.app?x=1` gave the host `linear.app?x=1`, which matches
+        // nothing.
+        //
+        // Review found this; no test here had a URL with a query string and no path.
+        let authority_ends = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+        let (authority, rest_of_url) = rest.split_at(authority_ends);
+        let path = if rest_of_url.is_empty() || rest_of_url.starts_with(['?', '#']) {
+            // A URL with a query and no path is a request for `/`, and the query travels
+            // with it.
+            format!("/{rest_of_url}")
+        } else {
+            rest_of_url.to_owned()
+        };
         // Credentials in a URL are a redirect trick as often as a convenience, and nothing
         // we fetch needs them.
         let authority = authority.rsplit('@').next().unwrap_or(authority);
@@ -241,6 +257,40 @@ mod tests {
         // example.com. Taking the part after the last @ is what a browser does.
         let t = Target::parse("https://example.com@evil.test/x").expect("parses");
         assert_eq!(t.host, "evil.test");
+    }
+
+    #[test]
+    fn the_authority_ends_at_a_query_or_a_fragment() {
+        // Review found this, and it is the sharpest case in this file. The authority used to
+        // run to the first `/`, so a query string stayed inside it and the `@` strip read a
+        // host out of the query: `https://evil.test?@linear.app` gave host `linear.app`.
+        //
+        // What that costs is not cosmetic. `landscape-search` decides a page's disposition
+        // from this host, and the subject's own domain is the only one permitted to set a
+        // value in a comparison table — so a page served by evil.test would have been
+        // allowed to state Linear's prices as fact.
+        let sneaky = Target::parse("https://evil.test?@linear.app").expect("parses");
+        assert_eq!(sneaky.host, "evil.test");
+        assert_eq!(sneaky.path, "/?@linear.app");
+
+        let fragment = Target::parse("https://evil.test#@linear.app").expect("parses");
+        assert_eq!(fragment.host, "evil.test");
+
+        // And the inverse, which was wrong in the quieter direction: an ordinary URL with a
+        // query and no path used to produce the host `linear.app?x=1`, matching nothing.
+        let ordinary = Target::parse("https://linear.app?x=1").expect("parses");
+        assert_eq!(ordinary.host, "linear.app");
+        assert_eq!(ordinary.path, "/?x=1");
+
+        // A port still parses when a query follows it, rather than the query joining the
+        // port number.
+        let ported = Target::parse("http://example.com:8080?a=b").expect("parses");
+        assert_eq!(ported.host, "example.com");
+        assert_eq!(ported.port, 8080);
+
+        // Real credentials before a real host are still dropped, with a query present.
+        let both = Target::parse("https://user@evil.test/x?y=@linear.app").expect("parses");
+        assert_eq!(both.host, "evil.test");
     }
 
     #[test]

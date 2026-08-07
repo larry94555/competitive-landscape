@@ -8,7 +8,18 @@
 # Everything not named here keeps SearXNG's own default, which is deliberate: this file
 # should stay short enough to read, and a fork of upstream's settings goes stale silently.
 
-use_default_settings: true
+# `keep_only` rather than `true`. With a plain `use_default_settings: true`, SearXNG loads
+# **every** default engine and merges the `engines:` list below it *by name* — so naming five
+# engines configures five and leaves the rest enabled. The block below claimed to be the only
+# engines used and was not; review caught it. `keep_only` is the documented way to say what it
+# meant:
+# https://docs.searxng.org/admin/settings/settings.html#use-default-settings
+use_default_settings:
+  engines:
+    keep_only:
+      - google
+      - duckduckgo
+      - bing
 
 general:
   instance_name: "landscape"
@@ -42,9 +53,12 @@ server:
 ui:
   static_use_hash: true
 
-# Only the engines a competitive analysis has a use for. The default set is large, and each
+# Per-engine overrides for the three `keep_only` above. The set is kept small because every
 # entry is an upstream that can be slow, rate-limit us, or start requiring a key — and one
 # slow engine delays the whole response, inside an 8-second client timeout.
+#
+# Listing an engine here does **not** enable it; `keep_only` decides that. This block only
+# says how the surviving three behave.
 engines:
   - name: google
     disabled: false
@@ -52,7 +66,3 @@ engines:
     disabled: false
   - name: bing
     disabled: false
-  - name: startpage
-    disabled: true
-  - name: wikipedia
-    disabled: true

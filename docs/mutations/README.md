@@ -51,6 +51,25 @@ which makes every page on the web the subject's own domain) where it now fails a
 the same disposition as entry 32 and the paragraph above it: reaching for a new assertion by
 reflex is how a rule nothing needs acquires a test that keeps it for ever.
 
+`the-search-channel.json` grew from ten to sixteen after review found seven defects the first
+ten could not see, and losing one of them is the more interesting half.
+
+**A mutation was dropped because the property is structural.** Review found that
+`Searx::new` ended `.build().unwrap_or_default()`, so the one failure path silently replaced a
+client carrying an eight-second timeout with one carrying none. The fix made the constructor
+fallible — and the mutation that puts `unwrap_or_default()` back reports `MISSED`, because
+`reqwest`'s builder only fails on a TLS backend that will not initialise and no test can make
+that happen. The guarantee now is the **signature**: there is no path that produces a `Searx`
+without a timeout, which is a property of the type rather than a branch. Same disposition as
+*"a prompt that was refused costs nothing"* above — the fix stays, the mutation goes, and this
+paragraph is why it is absent.
+
+**And one anchor was refused for being non-unique, which found a test restating a rule.** The
+grammar that decides what a subject name may contain appeared twice: once in `quote`, once in a
+test that recomputed it to decide what should survive. A test that restates the production rule
+passes whatever the rule becomes. It was rewritten as exact expected output — `AT&T` in,
+`"AT&T" pricing plans` out — and the anchor became unique as a side effect.
+
 **Not every property can be mutated.** *"A prompt that was refused costs nothing"* holds because
 the prompt is parsed before anything is counted — a structural fact, not a branch. Every
 single-line edit that removes it stops compiling, which `mutate.py` reports as `BROKEN` rather

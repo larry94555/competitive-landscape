@@ -156,10 +156,31 @@ pub fn admit(candidates: Vec<Candidate>, cap: usize) -> Vec<Candidate> {
 /// *"is this URL one discovery already has?"*, and a second implementation of "same page"
 /// would drift from this one the first time either learned something — which is the shape of
 /// entry 4 in the mistakes register, one fact derived two ways.
+/// **Only the scheme and host are lowercased.** They are case-insensitive by specification;
+/// a path and a query are not, and plenty of servers serve `/Docs` and `/docs` as different
+/// resources. Lowercasing the whole URL — which this did — merged them, and review caught it
+/// when the function became the shared answer for two channels: search would have dropped a
+/// page as *"discovery already has it"* when discovery had a different page.
 #[must_use]
 pub fn normalise(url: &str) -> String {
-    let lowered = url.trim().to_lowercase();
-    let without_www = lowered.replacen("://www.", "://", 1);
+    let trimmed_input = url.trim();
+    // Split at the end of the authority: the first `/`, `?` or `#` after `://`. Everything
+    // before it is case-insensitive, everything after it is not.
+    let (head, tail) = match trimmed_input.split_once("://") {
+        Some((scheme, rest)) => {
+            let end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+            let (authority, remainder) = rest.split_at(end);
+            (
+                format!("{}://{}", scheme.to_lowercase(), authority.to_lowercase()),
+                remainder.to_owned(),
+            )
+        }
+        // Not shaped like a URL. Lowercasing nothing is the safe answer: this is a key for
+        // comparing two strings, and two strings that are not URLs are equal when they match.
+        None => (trimmed_input.to_owned(), String::new()),
+    };
+
+    let without_www = head.replacen("://www.", "://", 1) + &tail;
     // `/cs/pricing`, `/da/pricing` and `/pricing` are one page in three languages. Keying
     // them apart is what let one page take two of eight slots.
     let without_locale = crate::locale::stripped(&without_www);
@@ -317,6 +338,54 @@ mod tests {
         ];
         let admitted = admit(candidates, 1);
         assert_eq!(admitted[0].url, "https://e.com/releases");
+    }
+
+    #[test]
+    fn a_case_distinct_path_is_a_different_page() {
+        // Review's finding. The whole URL was lowercased, so `/Docs` and `/docs` keyed the
+        // same — and once `landscape-search` started asking this function *"does discovery
+        // already have this?"*, that merge became a page silently dropped as a duplicate of
+        // a page it is not. Paths and queries are case-sensitive on plenty of servers.
+        assert_ne!(
+            normalise("https://e.com/Docs"),
+            normalise("https://e.com/docs")
+        );
+        assert_ne!(
+            normalise("https://e.com/p?Plan=Free"),
+            normalise("https://e.com/p?plan=free")
+        );
+        // Two pages, not one, through the whole admission path.
+        let candidates = vec![
+            c("https://e.com/Docs", Answers::Features, Via::Probe),
+            c("https://e.com/docs", Answers::Features, Via::Probe),
+        ];
+        assert_eq!(admit(candidates, 8).len(), 2);
+    }
+
+    #[test]
+    fn the_scheme_and_host_are_still_case_insensitive() {
+        // The half that must not regress while fixing the half above: a host is
+        // case-insensitive by specification, so these are one page and always were.
+        assert_eq!(
+            normalise("HTTPS://WWW.Example.com/Pricing"),
+            normalise("https://example.com/Pricing")
+        );
+        // And the path's case survived that, rather than being lowercased on the way.
+        assert!(
+            normalise("HTTPS://WWW.Example.com/Pricing").ends_with("/Pricing"),
+            "{}",
+            normalise("HTTPS://WWW.Example.com/Pricing")
+        );
+    }
+
+    #[test]
+    fn a_locale_is_still_stripped_from_a_mixed_case_path() {
+        // `locale::is_locale` lowercases its own segment, so this keeps working — asserted
+        // rather than assumed, because the normaliser no longer hands it lowercase input.
+        assert_eq!(
+            normalise("https://e.com/DE/Preise"),
+            normalise("https://e.com/Preise")
+        );
     }
 
     #[test]
