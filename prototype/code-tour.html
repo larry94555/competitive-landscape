@@ -80,100 +80,100 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    waiting: {
-      name: "a gate with nothing to gate",
-      purpose: "Built in Phase 1. Fed by nothing since.",
+    said: {
+      name: "what the status page said",
+      purpose: "For six phases, in the same row.",
       lines: [
-        ['t', '  subject::resolve(candidates)'],
+        ['s', '  S2  a business idea does'],
+        ['s', '      not run at all'],
         ['c', ''],
-        ['s', '  candidates: []'],
-        ['c', ''],
-        ['c', '// Built before the thing that feeds it,'],
-        ['f', '// on purpose. Six phases ago.']
+        ['c', '// The gate was built in Phase 1.'],
+        ['f', '// It had nothing to gate.']
       ]
     },
-    words: {
-      name: "and only a description to go on",
-      purpose: "The freest text this system accepts.",
+    stale: {
+      name: "and what the refusal said",
+      purpose: "It had gone out of date too.",
       lines: [
-        ['f', '  "privacy-friendly website analytics"'],
+        ['s', '  finding one from a description'],
+        ['s', '  needs the search channel that'],
+        ['s', '  is not built yet'],
         ['c', ''],
-        ['s', '  P22: templated queries from'],
-        ['s', '       resolved entities, not user phrasing'],
-        ['c', ''],
-        ['t', '// There is no resolved entity yet.']
+        ['t', '// It is built. Two PRs ago.']
       ]
     },
-    once: {
-      name: "so the words go out once",
-      purpose: "To find companies. Never to find a fact.",
+    three: {
+      name: "the gate has three answers",
+      purpose: "The worker had one sentence.",
       lines: [
-        ['t', '  best {} software'],
-        ['t', '  {} tools comparison'],
-        ['t', '  {} vendors'],
+        ['f', '  Resolved     run it'],
+        ['t', '  Ambiguous    name them, ask'],
+        ['t', '  NothingFound we looked'],
+        ['s', '  no engine    we could not look'],
         ['c', ''],
-        ['c', '// A biased query here puts a wrong'],
-        ['c', '// company on a list you can reject.']
+        ['c', '// Only the last one is fixed by'],
+        ['c', '// installing something.']
       ]
     },
-    armed: {
-      name: "and a text box is a text box",
-      purpose: "SearXNG reads !! before it searches.",
+    first: {
+      name: "and the report says who it is about",
+      purpose: "First. Not merely present.",
       lines: [
-        ['s', '  analytics !! :fr <99'],
+        ['f', '  You described a product rather'],
+        ['f', '  than naming a company, so we'],
+        ['f', '  searched for one...'],
         ['c', ''],
-        ['f', '  analytics'],
-        ['c', ''],
-        ['c', '// One grammar, two callers. Two copies'],
-        ['t', '// would leave this one forgotten.']
+        ['c', '// The one thing a reader cannot'],
+        ['t', '// check by reading further down.']
       ]
     },
-    agree: {
-      name: "then count agreement, not volume",
-      purpose: "One query saying it five times said it once.",
+    twice: {
+      name: "one question, asked twice",
+      purpose: "SEARX_URL, in two places.",
       lines: [
-        ['f', '  3/3 queries   usefathom.com'],
-        ['t', '  1/3 queries   someblog.example'],
+        ['s', '  resolve a description  -> env'],
+        ['s', '  fill a company gap     -> env'],
         ['c', ''],
-        ['c', '// And the divisor is queries SENT.'],
-        ['s', '// An outage is not unanimity.']
+        ['t', '  read once, passed to both'],
+        ['c', ''],
+        ['c', '// Two answers that can disagree.']
       ]
     },
-    urls: {
-      name: "from URLs, and nothing else",
-      purpose: "The gate compares these scores.",
+    eight: {
+      name: "clippy saw the shape first",
+      purpose: "Eight positional arguments.",
       lines: [
-        ['s', '  title:   the engine wrote it'],
-        ['s', '  snippet: the engine wrote it'],
+        ['s', '  analyse_many(a,b,c,d,e,f,g,h)'],
         ['c', ''],
-        ['f', '  host + depth: countable'],
+        ['t', '  &Asked { .. }'],
         ['c', ''],
-        ['t', '// A score nobody can explain makes'],
-        ['t', '// the gate unaccountable.']
+        ['c', '// The codebase already had the'],
+        ['f', '// answer, and it was not #[allow].']
       ]
     },
-    theirs: {
-      name: "and let each one name itself",
-      purpose: "A chip is where a reader chooses.",
+    spaces: {
+      name: "and a note was shipping this",
+      purpose: "A lost line continuation.",
       lines: [
-        ['f', '  # Fathom Analytics'],
-        ['f', '  Simple, privacy-first analytics'],
+        ['s', '  its own              discovery'],
         ['c', ''],
-        ['c', '// Its own front page. Choosing between'],
-        ['t', '// three engine summaries is choosing'],
-        ['t', '// between an engines opinions.']
+        ['f', '  its own discovery'],
+        ['c', ''],
+        ['c', '// Found while making the same'],
+        ['t', '// mistake one note below it.']
       ]
     },
-    luck: {
-      name: "the harness found a coin flip",
-      purpose: "Two tying hosts is not a test.",
+    order: {
+      name: "one element cannot be first",
+      purpose: "The harness found the test.",
       lines: [
-        ['s', '  a.com  b.com     ties'],
-        ['f', '  delete the tie-break -> passes'],
+        ['s', '  notes = [one]'],
+        ['s', '  insert(0) == insert(len())'],
         ['c', ''],
-        ['t', '  eight hosts -> fails'],
+        ['t', '  four companies, two notes'],
         ['c', ''],
-        ['c', '// The gate compares the first two.']
+        ['c', '// A position needs something'],
+        ['c', '// to be positioned against.']
       ]
     }
   };
@@ -217,19 +217,19 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:waiting", c: "A gate built in Phase 1, fed by nothing since." },
-    { kind: "means",       a: "file:words",   c: "And only a description to go on." },
+    { kind: "recognition", a: "file:said",   c: "The status page said this for six phases." },
+    { kind: "means",       a: "file:stale",  c: "And the refusal had gone stale with it." },
 
-    { kind: "turn",        a: "file:once",    c: "So the words go out once, to find companies." },
-    { kind: "result",      a: "file:armed",   c: "Disarmed first: a text box is a text box." },
+    { kind: "turn",        a: "file:three",  c: "The gate has three answers. The worker had one." },
+    { kind: "result",      a: "file:first",  c: "And the report says who it is about, first." },
 
-    { kind: "turn",        a: "file:agree",   c: "Count agreement between questions, not volume." },
-    { kind: "result",      a: "file:urls",    c: "From URLs only. The gate compares these scores." },
+    { kind: "turn",        a: "file:twice",  c: "One question was being asked of the environment twice." },
+    { kind: "result",      a: "file:eight",  c: "Clippy saw the shape before a reader did." },
 
-    { kind: "result",      a: "file:theirs",  c: "And let each company name itself." },
-    { kind: "result",      a: "file:luck",    c: "The harness found a test passing by luck." },
+    { kind: "result",      a: "file:spaces", c: "A note had been shipping a lost continuation." },
+    { kind: "result",      a: "file:order",  c: "And one element cannot test an ordering." },
 
-    { kind: "close",       a: "hold",         c: "The gate has something to gate." }
+    { kind: "close",       a: "hold",        c: "Typing an idea runs." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the

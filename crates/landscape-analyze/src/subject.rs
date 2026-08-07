@@ -124,8 +124,36 @@ fn origin_of_word(word: &str) -> Option<String> {
 /// A failure reason a reader can act on. It says what is missing rather than what went wrong,
 /// because nothing went wrong: this is a capability the pipeline does not have yet.
 pub const NO_SUBJECT: &str = "this prompt does not name a website, and finding one from a \
-    description needs the search channel that is not built yet (FACT_CHECKING.md §3.3). Try a \
-    domain — for example: basecamp.com";
+    description needs a search engine, which is not configured here. Try a domain — for \
+    example: basecamp.com";
+
+/// What a reader is told when we searched and found nobody.
+///
+/// **Different from [`NO_SUBJECT`], and the difference is the whole honest-negative
+/// discipline.** *"We have no way to look"* and *"we looked and found nothing"* are different
+/// facts about the world, and a reader can act on the second by rewording rather than by
+/// installing something.
+pub const NOTHING_RESOLVED: &str = "we searched for companies matching that description and \
+    found none we could identify well enough to report on. Try naming a domain, or describing \
+    the product in the words a vendor would use — for example: basecamp.com";
+
+/// What a reader is told when we found several and will not choose for them.
+///
+/// `PRODUCT_SPEC.md` §3: *one chip click prevents an entire wrong report*. There are no chips
+/// yet, so the companies are named in the sentence and the reader picks one by typing it —
+/// which is the same choice, made more slowly, and far better than a confident wrong report.
+#[must_use]
+pub fn ambiguous(candidates: &[landscape_core::subject::Candidate]) -> String {
+    let named: Vec<String> = candidates
+        .iter()
+        .map(|c| format!("{} ({})", c.name, c.canonical_domain))
+        .collect();
+    format!(
+        "that description matches more than one company and we will not guess between them: \
+         {}. Name the one you mean - a domain works.",
+        named.join(", ")
+    )
+}
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]

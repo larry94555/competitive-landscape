@@ -1014,6 +1014,31 @@ survive being written down beside its own exceptions.
 > **Ask this:** *does my comment justifying this contain the sentence that refutes it — and which
 > direction does being wrong fail in?*
 
+## 36. A fixture with one element cannot test an ordering
+
+**Written:** by me, testing that a report says *who it is about* before it says anything else.
+
+```rust
+assert_eq!(notes.iter().position(|n| n.contains("You described")), Some(0));
+```
+
+**Why it could not fail:** the fixture analysed **one** company, so `notes` held exactly one
+note. `insert(0, ..)` and `insert(len(), ..)` put it in the same place, and the mutation that
+moved the sentence to the bottom of the report passed the whole suite. The assertion named a
+position and the fixture had no positions.
+
+**This is the fourth time in three pull requests** that a test covered something other than what
+its name claimed — a sentence rejected by the wrong rule, a page absent from `pages` rather than
+present-and-unread, a helper tested while its call site was not, and now an ordering with nothing
+to order. Each one was found by the mutation harness and none by reading the test.
+
+**Rule:** a property about *position*, *precedence*, *first*, *worst* or *nearest* needs a
+fixture with at least two candidates for the position to be about — and ideally one where the
+wrong answer is the one a naive implementation would give. Before asserting an index, ask what
+else is in the collection; if the answer is "nothing", the assertion is about a constant.
+
+> **Ask this:** *if my fixture had one element, would this assertion mean anything?*
+
 ---
 
 ## Before a PR: two commands and eight questions
@@ -1090,7 +1115,7 @@ Grouped by what has actually gone wrong, commonest first.
 | Found by | Entries | |
 |---|---|---|
 | Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35 |
-| The mutation harness | 32 | The only one it found before review did, and it deleted a rule rather than adding a test |
+| The mutation harness | 32, 36 | The only one it found before review did, and it deleted a rule rather than adding a test |
 | Its own tooling | 28 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |

@@ -1,6 +1,6 @@
 # Full Feature List
 
-**As of 2026-08-07** · `main` at `fbace22` · **45 of 130 PRs · 35% of the software deliverable**
+**As of 2026-08-07** · `main` at `c8a8318` · **46 of 130 PRs · 35% of the software deliverable**
 
 Every feature the roadmap describes, sorted by the readiness state that first requires it, with
 what it is estimated to cost in pull requests and how much of that is spent.
@@ -36,8 +36,8 @@ is the source of truth for every percentage on this page** — the totals below 
 summed, not a count taken from GitHub.
 
 **Those two numbers are not the same, and this line is where the difference is stated.** The
-repository has **46 merged pull requests and one open** — this one — while the Done column sums
-to **45**. The rows are themes: a pull request that only answered review findings, or hardened a
+repository has **47 merged pull requests and one open** — this one — while the Done column sums
+to **46**. The rows are themes: a pull request that only answered review findings, or hardened a
 gate, adds no feature and therefore no row. Counting it would inflate a table that is supposed to
 measure how much of the product exists.
 
@@ -69,12 +69,12 @@ only you can do; they are listed at the bottom and are not counted anywhere.
 | State | What it means | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
 | [**S1**](#s1--ready-for-a-guided-demo) | Ready for a guided demo | 39 | 39 | **0** | **100%** |
-| [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 18 | 5 | **13** | **28%** |
+| [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 18 | 6 | **12** | **33%** |
 | [**S3**](#s3--ready-for-use) | Friendly users find no issue | 26 | 1 | **25** | **4%** |
 | [**S4**](#s4--ready-for-general-use) | Promotable, word-of-mouth quality | 11 | 0 | **11** | **0%** |
 | [**S5**](#s5--general-use-free-mode) | Stable, email signup, community | 15 | 0 | **15** | **0%** |
 | [**S6**](#s6--general-use-full-mode) | Notifications and paid subscriptions | 21 | 0 | **21** | **0%** |
-| | **Total** | **130** | **45** | **85** | **35%** |
+| | **Total** | **130** | **46** | **84** | **35%** |
 | | *Getting it onto a host (not a state)* | *3* | *0* | *3* | *0%* |
 
 **The shape of that table is the answer to "how far are we".** **S1 is complete** — the guided
@@ -134,15 +134,15 @@ code change — the software does not become different.
 
 ## S2 — Ready for demonstration
 
-*Any business idea handled correctly, limited functionality, friendly users only.* **This is the
-cliff, and the first road up it is cut.** Five of eighteen rows are done: the search channel's
-first two PRs — the crate, and the join that makes an analysis use it — and now the first half of
-candidate generation, which is what turns a description into companies rather than pages.
+*Any business idea handled correctly, limited functionality, friendly users only.* **A business
+idea runs now.** Six of eighteen rows are done, and the headline of this state — *"a business
+idea does not run at all"* — stopped being true with the last of them: a prompt naming no domain
+is searched for, resolved to one company by the gate, and analysed.
 
 | Feature | State | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
 | **The search channel** — `landscape-search`, SearXNG or equivalent, off-site sources | S2 | 4 | 2 | **2** | 50% |
-| Candidate generation — turn a search result set into scored candidates for the gate | S2 | 2 | 1 | **1** | 50% |
+| Candidate generation — turn a search result set into scored candidates for the gate | S2 | 2 | 2 | 0 | 100% |
 | Competitor set derivation — one idea to several companies, with why each was chosen | S2 | 3 | 0 | **3** | 0% |
 | Vocabulary resolution — a reader's words to a category the pipeline can search | S2 | 2 | 0 | **2** | 0% |
 | Clarifying questions — ≤3, chip-answerable, skippable, only when discovery diverges | S2 | 2 | 0 | **2** | 0% |
@@ -151,7 +151,7 @@ candidate generation, which is what turns a description into companies rather th
 | Honest "no public information" at the level of a whole competitor set | S2 | 1 | 0 | **1** | 0% |
 | Fetch cache and per-source extraction cache — two readers of one competitor share work | S2 | 2 | 0 | **2** | 0% |
 | Conditional GET and a per-analysis fetch cap | S2 | 1 | 0 | **1** | 0% |
-| | | **18** | **5** | **13** | **28%** |
+| | | **18** | **6** | **12** | **33%** |
 
 **Neither row that has moved is on the critical path, and that is deliberate.** The trust posture
 and investment direction extractors need no search channel: discovery already admits `/security`

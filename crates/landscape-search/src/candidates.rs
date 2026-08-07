@@ -55,7 +55,7 @@
 
 use std::collections::HashMap;
 
-use landscape_core::subject::Candidate;
+use landscape_core::subject::{Candidate, Resolution};
 use landscape_fetch::Target;
 
 use crate::provider::{Hit, SourceProvider};
@@ -339,6 +339,37 @@ where
         });
     }
     out
+}
+
+/// A description in, the gate's verdict out — the whole of `FACT_CHECKING.md` §3.1 steps 2 to 4.
+///
+/// **One path, three callers.** `landscape candidates` prints what this returns, the worker acts
+/// on it, and the tests assert on it. The sequence was written out by hand in the first two of
+/// those and the third is the one that decides whether a report gets written, so a diagnostic
+/// that agreed with the worker only by coincidence was a matter of time.
+///
+/// `fetch` names each candidate from its own front page; see [`describe`]. The count returned
+/// beside the verdict is how many searches did not complete, because a thin list and a quiet
+/// market are different findings and only that number tells them apart.
+pub async fn for_description<F, Fut>(
+    engine: &dyn SourceProvider,
+    description: &str,
+    fetch: F,
+) -> (Resolution, usize)
+where
+    F: Fn(String) -> Fut,
+    Fut: std::future::Future<Output = Option<String>>,
+{
+    let (found, failures) = suggest(engine, description).await;
+    let named = describe(&found, fetch).await;
+    let checked = for_idea(description)
+        .into_iter()
+        .map(|q| q.text)
+        .collect::<Vec<_>>();
+    (
+        landscape_core::subject::resolve(description, named, checked),
+        failures,
+    )
 }
 
 /// The company's front page.
@@ -981,6 +1012,104 @@ A company two searches both returned."
             "{alone} would reach the gate"
         );
         assert!(score(2, 3, 0) > landscape_core::subject::MINIMUM_CONFIDENCE);
+    }
+
+    #[tokio::test]
+    async fn a_description_that_pins_one_company_resolves_it() {
+        // The whole sequence in one call, because three places used to run it by hand and the
+        // one that decides whether a report gets written is not the one anybody watches.
+        let engine = Canned {
+            per_query: vec![
+                Ok(vec![hit("https://agreed.example/")]),
+                Ok(vec![hit("https://agreed.example/pricing")]),
+                Ok(vec![hit("https://agreed.example/about")]),
+            ],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (verdict, failures) =
+            for_description(&engine, "a market with one answer", |_url| async {
+                Some(
+                    "# Agreed
+A company every search returned."
+                        .to_owned(),
+                )
+            })
+            .await;
+        assert_eq!(failures, 0);
+        match verdict {
+            Resolution::Resolved { entity } => {
+                assert_eq!(entity.canonical_domain, "agreed.example");
+                assert_eq!(entity.name, "Agreed");
+            }
+            other => panic!("a unanimous description did not resolve: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_description_matching_two_companies_asks_rather_than_guessing() {
+        // `PRODUCT_SPEC.md` §3: one chip click prevents an entire wrong report. The gate has to
+        // *reach* this verdict for that to be true, and the candidates have to arrive named,
+        // because "choose between two domains" is a worse question than "choose between two
+        // companies".
+        let engine = Canned {
+            per_query: vec![
+                Ok(vec![
+                    hit("https://alpha.example/"),
+                    hit("https://beta.example/"),
+                ]),
+                Ok(vec![
+                    hit("https://alpha.example/x"),
+                    hit("https://beta.example/y"),
+                ]),
+                Ok(vec![
+                    hit("https://alpha.example/z"),
+                    hit("https://beta.example/w"),
+                ]),
+            ],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (verdict, _) = for_description(&engine, "a crowded market", |url| async move {
+            Some(if url.contains("alpha") {
+                "# Alpha
+The first of two."
+                    .to_owned()
+            } else {
+                "# Beta
+The second of two."
+                    .to_owned()
+            })
+        })
+        .await;
+        match verdict {
+            Resolution::Ambiguous { candidates, .. } => {
+                assert_eq!(candidates.len(), 2, "{candidates:#?}");
+                let names: Vec<&str> = candidates.iter().map(|c| c.name.as_str()).collect();
+                assert!(
+                    names.contains(&"Alpha") && names.contains(&"Beta"),
+                    "{names:?}"
+                );
+            }
+            other => panic!("two equal companies did not ask: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_description_matching_nobody_says_so_rather_than_picking() {
+        let engine = Canned {
+            per_query: vec![Ok(Vec::new()), Ok(Vec::new()), Ok(Vec::new())],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (verdict, _) =
+            for_description(&engine, "something nobody sells", |_url| async { None }).await;
+        match verdict {
+            Resolution::NothingFound { checked } => {
+                // The queries are the auditable half of a negative — §5.4's rule that a
+                // negative nobody can check is not a finding.
+                assert_eq!(checked.len(), 3, "{checked:?}");
+                assert!(checked.iter().all(|q| q.contains("something nobody sells")));
+            }
+            other => panic!("an empty market did not say so: {other:?}"),
+        }
     }
 
     #[test]

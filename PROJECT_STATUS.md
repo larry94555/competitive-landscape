@@ -1,6 +1,6 @@
 # Project Status
 
-**As of 2026-08-07** · `main` at `fbace22`, plus the branch this page is on.
+**As of 2026-08-07** · `main` at `c8a8318`, plus the branch this page is on.
 
 This page answers one question: **what can somebody actually do with this today, and what
 stands between here and each of the six states that matter.** It is deliberately separate from
@@ -21,7 +21,7 @@ The six states, in the order they must be reached. **S1 is met.** The rest are n
 | # | State | Met? | Percentage Left | The single thing standing in the way |
 |---|---|---|---|---|
 | **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **Yes.** Pick an example idea, watch sections arrive, read a cited report about real companies, reload and it is still there. On a laptop. *This row once said the opposite twice* — see [§1.5](#15-the-correction-that-produced-phase-d). | [**0%**](docs/Full_Feature_List.md#s1--ready-for-a-guided-demo) | Nothing. Serve the app, a run has a URL, several companies in one report, example ideas that really run, and reads ordered so first content costs no model call — 23s on `linear.app`, measured. |
-| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**72%**](docs/Full_Feature_List.md#s2--ready-for-demonstration) | **A business idea still does not run**, but it is no longer true that nothing turns one into companies. `landscape candidates "<description>"` asks three templated queries, groups what comes back by host, scores each on agreement and URL depth, names it from its own front page, and hands the list to the disambiguation gate built in Phase 1. **28% done.** What remains before typing an idea works is joining that verdict to an analysis, and the ambiguous branch needs the clarifying-question flow to answer it. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
+| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**67%**](docs/Full_Feature_List.md#s2--ready-for-demonstration) | **A business idea runs.** *This row said "a business idea does not run at all" for six phases; it no longer does.* A prompt naming no domain is searched for, grouped into companies, scored on cross-query agreement, named from each company's own front page, and put through the disambiguation gate — one clear answer is analysed, and anything else is a refusal that names what was found. **33% done.** What is left: a *set* of competitors rather than one company, chips to answer the ambiguous question with, and the caches. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
 | **S3** | **Ready for use** — friendly users should find no issue | **No.** | [**96%**](docs/Full_Feature_List.md#s3--ready-for-use) | 6 of 9 report sections, no verification layer, no comparison matrix, no accounts. |
 | **S4** | **Ready for general use** — promotable, word-of-mouth quality | **No.** | [**100%**](docs/Full_Feature_List.md#s4--ready-for-general-use) | Everything in S3, plus no quality gates have ever been run against a deployed system. |
 | **S5** | **General use, free mode** — stable, email signup, community channels | **No.** | [**100%**](docs/Full_Feature_List.md#s5--general-use-free-mode) | No authentication code exists anywhere in the repository. No knowledge base. |
@@ -34,7 +34,7 @@ finished when it is demonstrable end to end on a development machine — Rust, N
 defect rather than a step in the plan.
 
 **Percentage Left is software only**, counted in pull requests and linked to the feature it comes
-from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **45 of 130 PRs done, 35% of the whole
+from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **46 of 130 PRs done, 35% of the whole
 deliverable.** Getting it onto a host is a
 [separate three-PR track](docs/Full_Feature_List.md#getting-it-onto-a-host) that gates *who can see*
 the software rather than what it can do, and the concierge interviews and source-terms audit are
@@ -79,10 +79,12 @@ laptop default. What is still missing for the "Searching the Public Web" milesto
 half: nothing turns a *description* into a company, so search fills gaps about a company you
 named rather than finding you one.
 
-**2. It analyses the companies you name, and can now suggest some you did not.** A description
-becomes candidate companies — `landscape candidates` runs `FACT_CHECKING.md` §3.1 step 2 and
-hands the result to the gate — and **no analysis calls that yet**, so the box still refuses a
-prompt naming no domain. Every site in the
+**2. It analyses a company you name, or the one a description resolves to — and it still finds
+no *set*.** A description now becomes candidate companies, the gate picks one when the evidence
+is clear, and the run proceeds against it; the report says on its first line that the company was
+chosen rather than named. What is still missing is **competitor-set derivation**: one idea
+producing several companies to compare. So a description gets you one company's report, not a
+comparison, and `landscape candidates` remains the way to see the whole list. Every site in the
 prompt is now a subject — `basecamp.com vs linear.app` reports on both, capped at three for the
 wait, with one section holding every company's prices
 ([`landscape-analyze/src/subject.rs`](crates/landscape-analyze/src/subject.rs)). What is still

@@ -116,6 +116,44 @@ pub async fn analyse(
     .await
 }
 
+/// What one run was asked to do, and with what.
+///
+/// **Grouped for the reason [`Reading`] is**, and clippy noticed before a reader did: this had
+/// grown to eight positional arguments, four of which are `Option`s or timestamps, and *"the
+/// right value in the wrong position"* is the failure that shape produces. It is a struct rather
+/// than an `#[allow]` because the lint was correct.
+pub struct Asked<'a> {
+    pub origins: &'a [String],
+    /// The clock, passed in. A report states when it was generated and what fell inside a
+    /// 90-day window, and neither can be tested against a function that asks the machine.
+    pub now: DateTime<Utc>,
+    pub today: NaiveDate,
+    /// The engine, when one is configured. `None` is the laptop default and changes nothing.
+    pub search: Option<&'a dyn landscape_search::SourceProvider>,
+    /// Set when a description was resolved to this company rather than named by the reader.
+    ///
+    /// The report says so, first, because it is the one thing a reader cannot check by reading
+    /// further down the page.
+    pub chosen: Option<&'a landscape_core::subject::Candidate>,
+}
+
+/// Written by hand because a `dyn SourceProvider` has no `Debug`, and the useful thing about an
+/// engine in a log line is **which one** rather than its innards.
+impl std::fmt::Debug for Asked<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Asked")
+            .field("origins", &self.origins)
+            .field("now", &self.now)
+            .field("today", &self.today)
+            .field(
+                "search",
+                &self.search.map(landscape_search::SourceProvider::name),
+            )
+            .field("chosen", &self.chosen.map(|c| &c.canonical_domain))
+            .finish()
+    }
+}
+
 /// Several companies, one report.
 ///
 /// **A profile of one company is not a competitive analysis.** Until this existed the pipeline
@@ -141,25 +179,55 @@ pub async fn analyse(
 pub async fn analyse_many(
     fetcher: &landscape_fetch::Fetcher,
     llm: &landscape_llm::LlamaClient,
-    origins: &[String],
-    now: DateTime<Utc>,
-    today: NaiveDate,
-    search: Option<&dyn landscape_search::SourceProvider>,
+    asked: &Asked<'_>,
     on_progress: &mut dyn FnMut(&Report) -> Wanted,
 ) -> Analysis {
+    let &Asked {
+        origins,
+        now,
+        today,
+        search,
+        chosen,
+    } = asked;
     // The cap is applied here rather than in the parser, so what it costs can be said out
     // loud. Dropping the fourth company in silence would be the defect this feature exists to
     // remove, at a higher count.
     let (analysing, dropped) = origins.split_at(origins.len().min(subject::MAX_SUBJECTS));
-    let notes = if dropped.is_empty() {
+    let mut notes = if dropped.is_empty() {
         Vec::new()
     } else {
         vec![format!(
-            "Comparing the first {} sites named. Not analysed: {}. Each company is its own              discovery, fetches and model calls, so more of them is a longer wait rather than              a bigger report - run them separately if you need all of these.",
+            // The runs of spaces this line used to carry were a lost `\` continuation, and a
+            // reader saw them. Found while fixing the same slip one note below.
+            "Comparing the first {} sites named. Not analysed: {}. Each company is its own \
+             discovery, fetches and model calls, so more of them is a longer wait rather than a \
+             bigger report - run them separately if you need all of these.",
             analysing.len(),
             dropped.join(", ")
         )]
     };
+    // **A reader who described a product never named this company, and has to be told so.**
+    // Every other note here is about what a run did; this one is about *who the run is about*,
+    // which is the one thing a reader cannot check by reading further down the page. It goes
+    // first for that reason.
+    if let Some(entity) = chosen {
+        notes.insert(
+            0,
+            format!(
+                "You described a product rather than naming a company, so we searched for one. \
+                 This report is about {} ({}) - {}. If that is not who you meant, name a domain \
+                 and we will read that instead.",
+                entity.name,
+                entity.canonical_domain,
+                if entity.what_it_is.is_empty() {
+                    "its own front page said nothing we could quote".to_owned()
+                } else {
+                    entity.what_it_is.clone()
+                }
+            ),
+        );
+    }
+
     let origins = analysing;
 
     let mut finished: Vec<Analysis> = Vec::with_capacity(origins.len());
@@ -1697,6 +1765,20 @@ mod joining {
     /// Enough to drive `analyse_many` end to end without a model or a reachable page: every
     /// fetch fails fast, every subject produces an empty report, and what is being asserted is
     /// the *joining* — which is the part that has no other way of being reached.
+    /// A run over companies the prompt named, with no engine.
+    ///
+    /// No engine because these assert the join between companies, and a search pass would put a
+    /// network round trip inside a test about merging two reports.
+    fn named<'a>(origins: &'a [String]) -> Asked<'a> {
+        Asked {
+            origins,
+            now: at(),
+            today: at().date_naive(),
+            search: None,
+            chosen: None,
+        }
+    }
+
     fn unreachable(n: usize) -> Vec<String> {
         (0..n).map(|i| format!("https://s{i}.invalid")).collect()
     }
@@ -1710,12 +1792,7 @@ mod joining {
         let outcome = analyse_many(
             &landscape_fetch::Fetcher::new(),
             &llm(),
-            &origins,
-            at(),
-            at().date_naive(),
-            // No engine. These assert the join between companies, and a search pass would put
-            // a network round trip inside a test about merging two reports.
-            None,
+            &named(&origins),
             &mut |_| Wanted::Yes,
         )
         .await;
@@ -1769,12 +1846,7 @@ mod joining {
         let outcome = analyse_many(
             &landscape_fetch::Fetcher::new(),
             &stalling,
-            &unreachable(1),
-            at(),
-            at().date_naive(),
-            // No engine. These assert the join between companies, and a search pass would put
-            // a network round trip inside a test about merging two reports.
-            None,
+            &named(&unreachable(1)),
             &mut |_| Wanted::Yes,
         )
         .await;
@@ -1800,12 +1872,7 @@ mod joining {
         let outcome = analyse_many(
             &landscape_fetch::Fetcher::new(),
             &llm(),
-            &origins,
-            at(),
-            at().date_naive(),
-            // No engine. These assert the join between companies, and a search pass would put
-            // a network round trip inside a test about merging two reports.
-            None,
+            &named(&origins),
             &mut |_| Wanted::Yes,
         )
         .await;
@@ -2025,6 +2092,87 @@ mod joining {
                 && section.checked.iter().any(|c| c.contains("b.com")),
             "a reader cannot tell which company found nothing: {:?}",
             section.checked
+        );
+    }
+
+    #[tokio::test]
+    async fn a_report_about_a_company_nobody_named_says_so_first() {
+        // **The one thing a reader cannot check by reading further down the page.** Every other
+        // note is about what a run did; this is about *who it is about*, and a reader who typed
+        // a description never said this company's name.
+        let chosen = landscape_core::subject::Candidate {
+            name: "Fathom Analytics".to_owned(),
+            canonical_domain: "usefathom.com".to_owned(),
+            what_it_is: "Simple, privacy-first website analytics".to_owned(),
+            confidence: 0.9,
+        };
+        // **Four companies, so another note exists to be first *of*.** With one company the
+        // list holds only this note, and `insert(0)` and `insert(len())` are the same place —
+        // the mutation that moved it to the end survived, and the assertion below could not
+        // have failed. The fourth origin is dropped by the subject cap, which writes the note
+        // this one has to sit above.
+        let many = unreachable(4);
+        let outcome = analyse_many(
+            &landscape_fetch::Fetcher::new(),
+            &llm(),
+            &Asked {
+                chosen: Some(&chosen),
+                ..named(&many)
+            },
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+        assert!(
+            outcome.report.notes.len() >= 2,
+            "the fixture needs a second note for `first` to mean anything: {:#?}",
+            outcome.report.notes
+        );
+
+        let first = outcome.report.notes.first().expect("a note");
+        assert!(first.contains("You described a product"), "{first}");
+        assert!(first.contains("Fathom Analytics"), "{first}");
+        assert!(first.contains("usefathom.com"), "{first}");
+        assert!(
+            first.contains("Simple, privacy-first website analytics"),
+            "{first}"
+        );
+        assert!(
+            first.contains("name a domain"),
+            "a reader is not told how to correct us: {first}"
+        );
+        // **First, not merely present.** A sentence about who the report is about, printed
+        // under the note about which pages the budget skipped, is a sentence nobody reads.
+        assert_eq!(
+            outcome
+                .report
+                .notes
+                .iter()
+                .position(|n| n.contains("You described a product")),
+            Some(0),
+            "{:#?}",
+            outcome.report.notes
+        );
+    }
+
+    #[tokio::test]
+    async fn a_report_about_a_company_somebody_named_says_nothing_extra() {
+        // The other half: a prompt that named a domain must not grow a sentence explaining a
+        // choice nobody made.
+        let outcome = analyse_many(
+            &landscape_fetch::Fetcher::new(),
+            &llm(),
+            &named(&unreachable(1)),
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+        assert!(
+            !outcome
+                .report
+                .notes
+                .iter()
+                .any(|n| n.contains("You described a product")),
+            "{:#?}",
+            outcome.report.notes
         );
     }
 
