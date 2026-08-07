@@ -132,6 +132,37 @@ const NOT_A_COMPANY: [&str; 24] = [
     "wikipedia.org",
 ];
 
+/// Which queries reached an engine and came back, and which did not.
+///
+/// **Two rules pull in opposite directions here and both are right.** The score divides by the
+/// queries *sent*, because an engine that answered once out of three has not produced unanimity.
+/// The audit trail lists the queries that *completed*, because `FACT_CHECKING.md` §5.4 says a
+/// negative nobody can check is not a finding — and a query that never ran is not a check.
+///
+/// Review found what happened when only the first rule existed: three failed searches produced
+/// *"we searched and found none"*, with all three queries listed as evidence of the looking.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Queried {
+    /// Asked and answered. This is the checkable half of a negative.
+    pub completed: Vec<String>,
+    /// Asked and did not come back. Not evidence of anything except an engine.
+    pub failed: Vec<String>,
+}
+
+impl Queried {
+    /// How many were sent — the divisor the score uses.
+    #[must_use]
+    pub fn sent(&self) -> usize {
+        self.completed.len() + self.failed.len()
+    }
+
+    /// Whether anything at all came back.
+    #[must_use]
+    pub fn nothing_completed(&self) -> bool {
+        self.completed.is_empty() && !self.failed.is_empty()
+    }
+}
+
 /// One company a description might be about, before anybody has read its pages.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Found {
@@ -188,21 +219,26 @@ pub fn for_idea(description: &str) -> Vec<Query> {
 /// Never. A query that fails is counted and the rest carry on — a search that did not complete
 /// is a thinner candidate list, and returning nothing because one engine call timed out would
 /// turn a degraded answer into no answer.
-pub async fn suggest(engine: &dyn SourceProvider, description: &str) -> (Vec<Found>, usize) {
+pub async fn suggest(engine: &dyn SourceProvider, description: &str) -> (Vec<Found>, Queried) {
     let queries = for_idea(description);
-    let asked = queries.len();
-    let mut results: Vec<Vec<Hit>> = Vec::with_capacity(asked);
-    let mut failures = 0usize;
+    let mut results: Vec<Vec<Hit>> = Vec::with_capacity(queries.len());
+    let mut queried = Queried::default();
     for query in &queries {
         match engine.search(query).await {
-            Ok(hits) => results.push(hits),
+            Ok(hits) => {
+                results.push(hits);
+                queried.completed.push(query.text.clone());
+            }
             Err(e) => {
                 tracing::warn!(query = %query.text, error = %e, "a candidate search did not complete");
-                failures += 1;
+                queried.failed.push(query.text.clone());
             }
         }
     }
-    (from_results(&results, asked), failures)
+    // **Sent, not answered.** A host found by the one query that came back has agreed with
+    // nothing, and dividing by the number that answered would call an outage unanimity.
+    let found = from_results(&results, queried.sent());
+    (found, queried)
 }
 
 /// The pure half: hits in, scored companies out.
@@ -355,20 +391,20 @@ pub async fn for_description<F, Fut>(
     engine: &dyn SourceProvider,
     description: &str,
     fetch: F,
-) -> (Resolution, usize)
+) -> (Resolution, Queried)
 where
     F: Fn(String) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
 {
-    let (found, failures) = suggest(engine, description).await;
+    let (found, queried) = suggest(engine, description).await;
     let named = describe(&found, fetch).await;
-    let checked = for_idea(description)
-        .into_iter()
-        .map(|q| q.text)
-        .collect::<Vec<_>>();
+    // **Only what came back.** This list is what a reader is shown as *"we checked these"*, and
+    // a query that never reached an engine checked nothing. Review found the previous version
+    // listing all three after all three had failed.
+    let checked = queried.completed.clone();
     (
         landscape_core::subject::resolve(description, named, checked),
-        failures,
+        queried,
     )
 }
 
@@ -925,8 +961,8 @@ Simple, privacy-first website analytics."
             per_query: vec![Ok(vec![hit("https://lonely.example/")]), Err(()), Err(())],
             asked: std::sync::Mutex::new(Vec::new()),
         };
-        let (found, failures) = suggest(&engine, "a market nobody agrees about").await;
-        assert_eq!(failures, 2);
+        let (found, queried) = suggest(&engine, "a market nobody agrees about").await;
+        assert_eq!(queried.failed.len(), 2);
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].agreed, 1);
 
@@ -1026,7 +1062,7 @@ A company two searches both returned."
             ],
             asked: std::sync::Mutex::new(Vec::new()),
         };
-        let (verdict, failures) =
+        let (verdict, queried) =
             for_description(&engine, "a market with one answer", |_url| async {
                 Some(
                     "# Agreed
@@ -1035,7 +1071,7 @@ A company every search returned."
                 )
             })
             .await;
-        assert_eq!(failures, 0);
+        assert!(queried.failed.is_empty());
         match verdict {
             Resolution::Resolved { entity } => {
                 assert_eq!(entity.canonical_domain, "agreed.example");
@@ -1090,6 +1126,89 @@ The second of two."
                 );
             }
             other => panic!("two equal companies did not ask: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn an_engine_that_answered_nothing_checked_nothing() {
+        // **Review found a total outage reported as an empty market**, with all three queries
+        // listed as evidence of the looking. `FACT_CHECKING.md` §5.4: a negative nobody can
+        // check is not a finding, and a query that never reached an engine checked nothing.
+        let engine = Canned {
+            per_query: vec![Err(()), Err(()), Err(())],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (verdict, queried) =
+            for_description(&engine, "privacy-friendly analytics", |_url| async { None }).await;
+
+        assert_eq!(queried.failed.len(), 3);
+        assert!(queried.completed.is_empty());
+        assert!(queried.nothing_completed());
+        assert_eq!(queried.sent(), 3, "the divisor is still what was sent");
+
+        match verdict {
+            Resolution::NothingFound { checked } => assert!(
+                checked.is_empty(),
+                "queries that never completed are listed as checked: {checked:?}"
+            ),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn a_query_that_never_ran_does_not_agree_with_the_ones_that_did() {
+        // **The divisor is what was sent.** Two queries came back naming the same host and the
+        // third never reached the engine; that is agreement between two of three, not unanimity.
+        // Dividing by the queries that *answered* would let an outage manufacture certainty.
+        let engine = Canned {
+            per_query: vec![
+                Ok(vec![hit("https://twoagree.example/")]),
+                Ok(vec![hit("https://twoagree.example/")]),
+                Err(()),
+            ],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (found, queried) = suggest(&engine, "a market with an outage").await;
+
+        assert_eq!(queried.completed.len(), 2);
+        assert_eq!(queried.failed.len(), 1);
+        assert_eq!(found.len(), 1, "{found:#?}");
+        assert_eq!(found[0].agreed, 2);
+        assert!(
+            (found[0].confidence - score(2, 3, 1)).abs() < f32::EPSILON,
+            "scored against the queries that answered, not those sent: {}",
+            found[0].confidence
+        );
+        assert!(
+            found[0].confidence < score(2, 2, 1),
+            "an outage manufactured unanimity: {}",
+            found[0].confidence
+        );
+    }
+
+    #[tokio::test]
+    async fn a_partial_outage_reports_only_the_queries_that_came_back() {
+        // The harder half: something answered, so this is not a total outage — but the audit
+        // trail must still name only what ran, and the score must still divide by what was sent.
+        let engine = Canned {
+            per_query: vec![Ok(vec![hit("https://alone.example/")]), Err(()), Err(())],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (verdict, queried) =
+            for_description(&engine, "a thin market", |_url| async { None }).await;
+
+        assert_eq!(queried.completed.len(), 1);
+        assert_eq!(queried.failed.len(), 2);
+        assert!(!queried.nothing_completed(), "something did come back");
+
+        // One query found one host, so it is uncorroborated and the gate refuses it - and the
+        // one checked query is what a reader is shown, not three.
+        match verdict {
+            Resolution::NothingFound { checked } => {
+                assert_eq!(checked, queried.completed, "{checked:?}");
+                assert_eq!(checked.len(), 1);
+            }
+            other => panic!("an uncorroborated candidate resolved: {other:?}"),
         }
     }
 
@@ -1160,8 +1279,8 @@ The second of two."
             ],
             asked: std::sync::Mutex::new(Vec::new()),
         };
-        let (found, failures) = suggest(&engine, "privacy-friendly website analytics").await;
-        assert_eq!(failures, 0);
+        let (found, queried) = suggest(&engine, "privacy-friendly website analytics").await;
+        assert!(queried.failed.is_empty());
         assert_eq!(engine.asked.lock().unwrap().len(), 3, "one round trip each");
         assert_eq!(found[0].host, "usefathom.com");
         assert_eq!(found[0].agreed, 2, "{found:#?}");
@@ -1179,8 +1298,8 @@ The second of two."
             per_query: vec![Ok(vec![hit("https://a.com/")]), Err(()), Err(())],
             asked: std::sync::Mutex::new(Vec::new()),
         };
-        let (found, failures) = suggest(&engine, "anything at all").await;
-        assert_eq!(failures, 2);
+        let (found, queried) = suggest(&engine, "anything at all").await;
+        assert_eq!(queried.failed.len(), 2);
         assert_eq!(found.len(), 1);
         // Scored against three asked, not one answered. An outage is not unanimity.
         assert!(found[0].confidence < 0.5, "{found:#?}");
@@ -1192,9 +1311,9 @@ The second of two."
             per_query: Vec::new(),
             asked: std::sync::Mutex::new(Vec::new()),
         };
-        let (found, failures) = suggest(&engine, "   ").await;
+        let (found, queried) = suggest(&engine, "   ").await;
         assert!(found.is_empty());
-        assert_eq!(failures, 0);
+        assert!(queried.failed.is_empty());
         assert!(engine.asked.lock().unwrap().is_empty());
     }
 

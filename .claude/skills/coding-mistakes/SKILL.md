@@ -1041,6 +1041,53 @@ else is in the collection; if the answer is "nothing", the assertion is about a 
 
 ---
 
+## 37. A failure counted and then dropped, and the silence that followed reported as a fact
+
+**Written:** by me, resolving a description into a company through three search queries.
+
+```rust
+let (found, failures) = suggest(engine, description).await;
+if failures > 0 {
+    tracing::warn!(failures, "some candidate searches did not complete");
+}
+match verdict {
+    Resolution::NothingFound { .. } => Chosen::None(NOTHING_RESOLVED.to_owned()),
+    ...
+}
+```
+
+**What a reader got when all three queries failed:** *"we searched for companies matching that
+description and found none"* — and, as the evidence of the looking, a `checked` list holding all
+three queries, none of which had reached an engine.
+
+**Why it is not a logging bug.** The count was correct, was carried out of the function, and was
+even written down. It just never reached the sentence. **A failure that is observed and then not
+allowed to change any decision is the same as a failure that was swallowed** — the log line makes
+it worse, because it reads like handling.
+
+Two rules had been collapsed into one number, and they pull in opposite directions:
+
+| | Counts | Because |
+|---|---|---|
+| The score | queries **sent** | One answer out of three is not agreement. Divide by what answered and an outage manufactures unanimity. |
+| The audit trail | queries **completed** | It is shown as *"we checked these"*, and a query that never ran checked nothing. |
+
+A single `usize` cannot serve both, and whichever rule you write first, the other silently gets
+the wrong answer. `Queried { completed, failed }` is the smallest type that can.
+
+**And the refusals split too.** *"We looked and found nobody"* and *"we could not finish
+looking"* are different facts about different subjects — one about a market, one about us — and
+only the second is fixed by waiting. This is the third time this project has found two sentences
+sharing one branch; each time the fix was a sentence, not a flag.
+
+**Rule:** when a failure produces a count, find the sentence that count must change before
+writing the log line. If no sentence changes, the count is decoration. And prefer a small struct
+over a number the moment two callers want to divide by different halves of it.
+
+> **Ask this:** *if every one of these calls failed, what would a reader be told — and is it true?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

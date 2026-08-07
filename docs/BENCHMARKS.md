@@ -98,6 +98,43 @@ The same slip is in three of the model prompts and is **not** fixed here: changi
 changes what the model reads, so it needs a `PROMPT_VERSION` bump and a golden-set run rather
 than a quiet edit. Flagged rather than folded in.
 
+### Review: an outage reported as an empty market
+
+The first version returned a count of failures and did nothing with it. With all three provider
+calls returning `Err`, `suggest` produced no candidates, `resolve` returned `NothingFound`, and a
+reader was told:
+
+```text
+we searched for companies matching that description and found none
+```
+
+That is a conclusion about a market drawn from a conclusion about nothing — and the `checked`
+list handed over as evidence of the looking held **all three queries**, including the two that
+never reached an engine. `FACT_CHECKING.md` §5.4 says a negative nobody can check is not a
+finding; a query that never ran is not a check.
+
+`Queried { completed, failed }` replaces the count, and it exists because **two rules here pull
+in opposite directions and both are right**:
+
+| | Divides / lists by | Why |
+|---|---|---|
+| The confidence score | queries **sent** | An engine that answered once of three has produced no agreement. Dividing by what answered lets an outage manufacture unanimity. |
+| The audit trail | queries **completed** | It is shown to a reader as *"we checked these"*, and a query that never ran checked nothing. |
+
+The refusal splits in two as well. `search_incomplete` is about **us**, is retryable, and names
+the counts — *"we could not complete 3 of the 3 searches"* — where `NOTHING_RESOLVED` remains a
+statement about the market, reachable only when the searching finished.
+
+Ambiguity deliberately outranks the outage: several real candidates are still asked about even
+when a query failed, because telling somebody to try again would throw away an answer we already
+have. There is a test for that branch specifically.
+
+**The match moved out of the binary.** It lived in `main.rs`, where a mutation aimed at the
+outage arm reported `NOT APPLIED` and no test could reach it. `landscape_analyze::subject::decide`
+is the same three-into-four decision somewhere it can be asserted — five unit tests, three
+mutations, all caught. That is the same lesson as `worth_searching` and `ToRead` before it: a
+decision inside a worker is a decision nobody can test.
+
 ### What still does not happen
 
 **A description produces one company, not a set.** Competitor-set derivation is its own row, and
@@ -110,7 +147,7 @@ every test is a canned provider over the real code path.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 28 | 725 | 51 |
-| now | **730** | **51** |
+| now | **738** | **51** |
 
 ---
 

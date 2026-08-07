@@ -288,8 +288,8 @@
   {
     "name": "a negative nobody can check is reported as a finding",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "    let checked = for_idea(description)\n        .into_iter()\n        .map(|q| q.text)\n        .collect::<Vec<_>>();",
-    "new": "    let checked: Vec<String> = Vec::new();",
+    "old": "    let checked = queried.completed.clone();",
+    "new": "    let checked = for_idea(description)\n        .into_iter()\n        .map(|q| q.text)\n        .collect::<Vec<_>>();",
     "run": [
       "cargo",
       "nextest",
@@ -316,6 +316,84 @@
     "file": "crates/landscape-analyze/src/lib.rs",
     "old": "        notes.insert(\n            0,",
     "new": "        notes.insert(\n            notes.len(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a query that never completed is listed as one that was checked",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    let checked = queried.completed.clone();",
+    "new": "    let checked: Vec<String> = for_idea(description).into_iter().map(|q| q.text).collect();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a failed query is recorded as one that answered",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "                queried.failed.push(query.text.clone());",
+    "new": "                queried.completed.push(query.text.clone());",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the score divides by the queries that answered rather than those sent",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    let found = from_results(&results, queried.sent());",
+    "new": "    let found = from_results(&results, queried.completed.len());",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "an outage is reported to a reader as an empty market",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "        Resolution::NothingFound { .. } if !queried.failed.is_empty() => {",
+    "new": "        Resolution::NothingFound { .. } if queried.failed.is_empty() && false => {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a company we found is chosen between rather than asked about",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "        Resolution::Ambiguous { candidates, .. } => Decided::Refuse(ambiguous(&candidates)),",
+    "new": "        Resolution::Ambiguous { mut candidates, .. } => {\n            Decided::Analyse(Box::new(candidates.remove(0)))\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a search that did not finish is told to try again about the wrong count",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "            Decided::Refuse(search_incomplete(queried.failed.len(), queried.sent()))",
+    "new": "            Decided::Refuse(search_incomplete(queried.sent(), queried.sent()))",
     "run": [
       "cargo",
       "nextest",

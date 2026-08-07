@@ -420,7 +420,7 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
         return Ok(());
     };
 
-    let (found, failures) = landscape_search::candidates::suggest(&engine, description).await;
+    let (found, queried) = landscape_search::candidates::suggest(&engine, description).await;
     println!(
         "\n{:<34} {:>7} {:>8}  shallowest",
         "company", "agreed", "score"
@@ -439,11 +439,16 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
     if found.is_empty() {
         println!("(nothing that looked like a company)");
     }
-    if failures > 0 {
+    if !queried.failed.is_empty() {
         println!(
-            "\n{failures} of {} queries did not complete, so this list is thinner than it would be.",
-            queries.len()
+            "\n{} of {} queries did not complete, so this list is thinner than it would be - and \
+             anything below saying nothing was found is about us, not about the market:",
+            queried.failed.len(),
+            queried.sent()
         );
+        for q in &queried.failed {
+            println!("  did not complete: {q}");
+        }
     }
 
     // The names come from each company's own front page. An engine's title is the engine's.
@@ -468,7 +473,9 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
         }
     }
 
-    let checked: Vec<String> = queries.iter().map(|q| q.text.clone()).collect();
+    // **What came back, not what was sent.** The list a reader is shown as evidence of the
+    // looking has to be the looking that happened.
+    let checked = queried.completed.clone();
     match landscape_core::subject::resolve(description, named, checked) {
         landscape_core::subject::Resolution::Resolved { entity } => {
             println!("\nresolved  {} ({})", entity.name, entity.canonical_domain);
@@ -1047,51 +1054,41 @@ async fn worker(store: Arc<dyn Store>) -> Result<()> {
 /// section is `not_found` with the pages it would have checked listed — which is the same
 /// treatment a real run gives a genuine gap, so the frontend renders the honest case from
 /// day one rather than a happy path that has to be unwritten later.
-/// What became of a description that named no domain.
-enum Chosen {
-    /// The gate pinned it to one company. That company is analysed.
-    One(landscape_core::subject::Candidate),
-    /// It did not, and this is what a reader is told about why.
-    None(String),
-}
-
 /// Ask the search channel who a description is about, and let the gate decide.
 ///
-/// **Every branch that is not one company is a refusal**, and each says a different thing:
-/// no engine configured, nothing found, or several found. A reader can act on all three, and
-/// they are three different actions.
+/// **Every branch that is not one company is a refusal**, and each says a different thing: no
+/// engine configured, nothing found, several found, or a search that did not finish. A reader
+/// can act on all four, and they are four different actions —
+/// [`landscape_analyze::subject::decide`] is where that mapping lives and is tested.
 async fn resolve_from_description(
     engine: Option<&dyn landscape_search::SourceProvider>,
     prompt: &str,
-) -> Chosen {
+) -> landscape_analyze::subject::Decided {
     let Some(engine) = engine else {
-        return Chosen::None(landscape_analyze::subject::NO_SUBJECT.to_owned());
+        return landscape_analyze::subject::Decided::Refuse(
+            landscape_analyze::subject::NO_SUBJECT.to_owned(),
+        );
     };
     let fetcher = landscape_fetch::Fetcher::new();
-    let (verdict, failures) =
-        landscape_search::candidates::for_description(engine, prompt, |url| {
-            let fetcher = &fetcher;
-            async move {
-                fetcher
-                    .get(&url)
-                    .await
-                    .ok()
-                    .map(|page| landscape_extract::markdown::from_body(&page.body))
-            }
-        })
-        .await;
-    if failures > 0 {
-        tracing::warn!(failures, "some candidate searches did not complete");
-    }
-    match verdict {
-        landscape_core::subject::Resolution::Resolved { entity } => Chosen::One(entity),
-        landscape_core::subject::Resolution::Ambiguous { candidates, .. } => {
-            Chosen::None(landscape_analyze::subject::ambiguous(&candidates))
+    let (verdict, queried) = landscape_search::candidates::for_description(engine, prompt, |url| {
+        let fetcher = &fetcher;
+        async move {
+            fetcher
+                .get(&url)
+                .await
+                .ok()
+                .map(|page| landscape_extract::markdown::from_body(&page.body))
         }
-        landscape_core::subject::Resolution::NothingFound { .. } => {
-            Chosen::None(landscape_analyze::subject::NOTHING_RESOLVED.to_owned())
-        }
+    })
+    .await;
+    if !queried.failed.is_empty() {
+        tracing::warn!(
+            failed = queried.failed.len(),
+            sent = queried.sent(),
+            "some candidate searches did not complete"
+        );
     }
+    landscape_analyze::subject::decide(verdict, &queried)
 }
 
 /// Record a refusal a reader can act on, and say so if the claim was taken away first.
@@ -1146,12 +1143,12 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
     // cited and about the wrong company.
     let (origins, chosen) = if named.is_empty() {
         match resolve_from_description(searching, &analysis.prompt).await {
-            Chosen::One(entity) => {
+            landscape_analyze::subject::Decided::Analyse(entity) => {
                 let domain = format!("https://{}", entity.canonical_domain);
                 tracing::info!(id = %analysis.id, %domain, "a description resolved to one company");
-                (vec![domain], Some(entity))
+                (vec![domain], Some(*entity))
             }
-            Chosen::None(why) => {
+            landscape_analyze::subject::Decided::Refuse(why) => {
                 tracing::info!(id = %analysis.id, "no subject in prompt");
                 refuse(store, analysis, &why).await;
                 return;
