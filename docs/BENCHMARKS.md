@@ -260,10 +260,38 @@ its own front page uses none of the words this comparison is built on: "project"
 True on both paths, and a reader can judge the exclusion rather than take it — the same reason
 `Because::Found` names its count and its shared words.
 
+### Review, a third time: the diagnostic asked a different question
+
+```text
+the worker asks:      seed.vocabulary().is_empty() = true
+the diagnostic asks:  !seed.read                   = false
+
+worker      -> 0 queries sent
+diagnostic  -> prints 3 queries, and says nothing about it
+```
+
+`of_company` was fixed and `landscape candidates <domain>` was not. **Two predicates for one
+decision**, disagreeing exactly on the case the fix had just added — and this command exists to
+be the auditable view of what the worker really does, so a version that agrees by coincidence is
+worse than none, because it is believed.
+
+`Seed::vocabulary() -> Vec<String>` became `Seed::words() -> Result<Vec<String>, NoVocabulary>`.
+Both callers match on it, and the return type is a **reason** rather than a `bool` so the two
+cannot describe the same outcome differently. The two silences are told apart at last: a page
+nobody could read is about the company's server, a page with no prose is about what the company
+chose to put on it, and only the first is worth trying again.
+
+The diagnostic's query section is `what_would_be_asked(&seed) -> Vec<String>` — lines rather than
+a run of `println!`s, so it can be asserted against the decision it describes. The regression is
+the **equality**: for each of the three seed shapes, *"nothing is asked"* appears exactly when
+`words()` fails, and a query is shown exactly when one would be sent. A test that pins today's
+wording would not have closed this; one that pins the equality makes a future change move both
+sides.
+
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 30 | 767 | 51 |
-| now | **787** | **51** |
+| now | **790** | **51** |
 
 ---
 

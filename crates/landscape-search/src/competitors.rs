@@ -329,8 +329,7 @@ where
     // and the reason it is not invented here is that one sentence covering *no engine*, *the
     // search did not finish* and *we could not read your company's page* is the collapse this
     // project has un-made three times.
-    let words = seed.vocabulary();
-    if words.is_empty() {
+    let Ok(words) = seed.words() else {
         return (
             Set {
                 members: vec![Member {
@@ -341,7 +340,7 @@ where
             },
             Queried::default(),
         );
-    }
+    };
 
     let queries = for_company(&seed.candidate.name);
     let mut results: Vec<Vec<crate::provider::Hit>> = Vec::with_capacity(queries.len());
@@ -843,10 +842,10 @@ mod tests {
         })
         .await;
         assert!(seed.read, "the page was reachable");
-        assert!(
-            seed.vocabulary().is_empty(),
-            "a page with no prose gave us words: {:?}",
-            seed.vocabulary()
+        assert_eq!(
+            seed.words(),
+            Err(crate::candidates::NoVocabulary::NothingQuotable),
+            "a page with no prose gave us words"
         );
 
         let all = vec![hit("https://linear.app/")];

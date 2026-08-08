@@ -1611,8 +1611,18 @@ whose page has nothing in common with the seed's is not obviously in the same ma
 exclusion **names those words**, so you can disagree with it rather than take it.
 
 **If that front page cannot be read, or reads as a bare heading with no prose, nothing is
-searched for at all.** There would be no vocabulary to judge a rival against, and searching
-anyway would mean excluding real companies on evidence we never had.
+searched for at all** — and the command says so instead of listing queries it will not send:
+
+```text
+company   basecamp.com (basecamp.com)
+it says
+asking    nothing - its front page has no sentence describing what it does
+```
+
+There would be no vocabulary to judge a rival against, and searching anyway would mean excluding
+real companies on evidence we never had. The two silences are different sentences: *"we could not
+read its front page"* is about their server and is worth retrying; *"no sentence describing what
+it does"* is about what they put on it.
 
 ### And an analysis does the same thing
 

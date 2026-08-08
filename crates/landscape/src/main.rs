@@ -537,6 +537,55 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
 /// whether or not an engine is configured, because the queries are the part worth reviewing:
 /// `FACT_CHECKING.md` P22 wants them templated from a **resolved entity**, and this is the
 /// path that can actually comply.
+/// What this command prints about the queries — including when there will not be any.
+///
+/// **A function returning lines, so it can be asserted against the decision it describes.** The
+/// worker skips every query when [`landscape_search::candidates::Seed::words`] returns an error;
+/// this printed the queries regardless, gated on a *different* condition (`!seed.read`). For a
+/// reachable page with no prose the two disagreed: three queries listed, none sent, and nothing
+/// on screen saying so. A diagnostic that agrees with the worker by coincidence is worse than no
+/// diagnostic, because it is believed.
+///
+/// Both now read `words()`, and the test below asserts this section reports "nothing asked"
+/// exactly when that call fails.
+fn what_would_be_asked(seed: &landscape_search::candidates::Seed) -> Vec<String> {
+    let words = match seed.words() {
+        Ok(words) => words,
+        Err(why) => {
+            return vec![
+                format!("asking    nothing - {}", why.sentence()),
+                String::new(),
+                "A rival is admitted by sharing a word with this company's own description of"
+                    .to_owned(),
+                "itself. There is none, so no query goes out and no other company's front page"
+                    .to_owned(),
+                "is fetched: excluding real companies on evidence we never had would be worse"
+                    .to_owned(),
+                "than saying nothing.".to_owned(),
+            ];
+        }
+    };
+
+    let mut said = vec![
+        format!("matching  {}", words.join(", ")),
+        format!(
+            "query set {}",
+            landscape_search::competitors::RIVAL_QUERY_SET
+        ),
+    ];
+    said.extend(
+        landscape_search::competitors::for_company(&seed.candidate.name)
+            .into_iter()
+            .map(|q| format!("  {}", q.text)),
+    );
+    said.push(String::new());
+    said.push(
+        "Those are templated from the company's own name for itself, which is what".to_owned(),
+    );
+    said.push("FACT_CHECKING P22 asks for. Nothing you typed reaches the engine.".to_owned());
+    said
+}
+
 async fn rivals_of_a_named_company(origin: &str) -> Result<()> {
     let target = landscape_fetch::Target::parse(origin)
         .map_err(|e| anyhow::anyhow!("{origin} is not a URL we fetch: {e}"))?;
@@ -558,25 +607,9 @@ async fn rivals_of_a_named_company(origin: &str) -> Result<()> {
         seed.candidate.name, seed.candidate.canonical_domain
     );
     println!("it says   {}", seed.candidate.what_it_is);
-    if !seed.read {
-        println!(
-            "
-          ^ that is our sentence, not theirs. With the front page unread there is
-\n             no vocabulary to judge a rival against, so nothing is searched for."
-        );
+    for line in what_would_be_asked(&seed) {
+        println!("{line}");
     }
-    println!(
-        "query set {}",
-        landscape_search::competitors::RIVAL_QUERY_SET
-    );
-    let queries = landscape_search::competitors::for_company(&seed.candidate.name);
-    for q in &queries {
-        println!("  {}", q.text);
-    }
-    println!(
-        "\nThose are templated from the company's own name for itself, which is what\n\
-         FACT_CHECKING P22 asks for. Nothing you typed reaches the engine."
-    );
 
     let Some(engine) = landscape_search::Searx::from_env()? else {
         println!(
@@ -1426,6 +1459,77 @@ async fn shutdown_signal() {
 #[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 // Panicking IS how a test reports failure. The lints stay denied everywhere else.
 mod tests {
+
+    /// A seed built by hand, so the three shapes can be compared without a network.
+    fn seed(read: bool, what_it_is: &str) -> landscape_search::candidates::Seed {
+        landscape_search::candidates::Seed {
+            candidate: landscape_core::subject::Candidate {
+                name: "Basecamp".to_owned(),
+                canonical_domain: "basecamp.com".to_owned(),
+                what_it_is: what_it_is.to_owned(),
+                confidence: 1.0,
+            },
+            read,
+        }
+    }
+
+    #[test]
+    fn the_diagnostic_says_nothing_is_asked_exactly_when_nothing_is_asked() {
+        // **Review found these two disagreeing.** `of_company` skips every query when
+        // `Seed::words()` fails; this section was gated on `!seed.read` instead, so a reachable
+        // page with no prose printed all three queries while the worker sent none. A diagnostic
+        // that agrees with the worker by coincidence is worse than none, because it is believed.
+        //
+        // The assertion is the equality itself, not a wording: whatever `words()` decides, this
+        // section has to report the same thing.
+        for (read, what_it_is) in [
+            (true, "Project management and team communication"),
+            (true, ""),
+            (false, "we were unable to read its front page"),
+        ] {
+            let seed = seed(read, what_it_is);
+            let said = what_would_be_asked(&seed).join("\n");
+            let nothing_asked = said.contains("asking    nothing");
+            assert_eq!(
+                nothing_asked,
+                seed.words().is_err(),
+                "the diagnostic and the worker disagree for read={read}, what_it_is={what_it_is:?}:\n{said}"
+            );
+            assert_eq!(
+                nothing_asked,
+                !said.contains("Basecamp alternatives"),
+                "a query was shown for a run that would send none, or hidden from one that would:\n{said}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_page_with_no_prose_is_told_apart_from_one_nobody_could_read() {
+        // Two ways to have no vocabulary, and only one of them is worth trying again.
+        let unquotable = what_would_be_asked(&seed(true, "")).join("\n");
+        assert!(
+            unquotable.contains("no sentence describing what it does"),
+            "{unquotable}"
+        );
+
+        let unread =
+            what_would_be_asked(&seed(false, "we were unable to read its front page")).join("\n");
+        assert!(unread.contains("could not read its front page"), "{unread}");
+        assert_ne!(unquotable, unread, "two different silences, one sentence");
+    }
+
+    #[test]
+    fn a_readable_seed_shows_the_words_its_rivals_are_matched_against() {
+        let said = what_would_be_asked(&seed(true, "Project management and team communication"))
+            .join("\n");
+        assert!(said.contains("matching  project, management"), "{said}");
+        assert!(said.contains("Basecamp alternatives"), "{said}");
+        assert!(
+            said.contains("Nothing you typed reaches the engine"),
+            "{said}"
+        );
+    }
+
     use super::*;
 
     #[tokio::test]

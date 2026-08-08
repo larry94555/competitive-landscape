@@ -508,27 +508,61 @@ pub struct Seed {
     pub read: bool,
 }
 
-impl Seed {
-    /// The words a rival's front page has to have one of, or nothing when there are none.
-    ///
-    /// **One predicate, folding two ways of having no evidence.** The first version gated on
-    /// [`Self::read`] alone, and review found the hole: a reachable page reading only
-    /// `# Basecamp` is `read == true` with an **empty** `what_it_is`, because
-    /// [`naming`] wants a line of at least four words before it will quote one. Three queries
-    /// went out, front pages were fetched, and every corroborated rival was set aside as being
-    /// *elsewhere entirely* — a negative claim about those companies, manufactured out of
-    /// missing evidence about the seed.
-    ///
-    /// Returning the words rather than a `bool` is deliberate: the caller needs them anyway, so
-    /// there is no second place to get the answer slightly differently.
+/// Why a named company's own page gives nothing to compare a rival against.
+///
+/// **Two ways to have nothing, and a reader is owed which.** One is about the company's server
+/// and one is about what the company chose to put on its page; only the first is worth trying
+/// again. Same distinction [`crate::competitors::Aside`] draws between `Unread` and
+/// `ElsewhereEntirely`, one level up.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NoVocabulary {
+    /// The front page could not be read at all.
+    Unreadable,
+    /// It was read, and had no line of prose long enough to quote.
+    NothingQuotable,
+}
+
+impl NoVocabulary {
+    /// The clause a reader is shown after *"nothing was searched for, because…"*.
     #[must_use]
-    pub fn vocabulary(&self) -> Vec<String> {
+    pub const fn sentence(self) -> &'static str {
+        match self {
+            Self::Unreadable => "we could not read its front page",
+            Self::NothingQuotable => "its front page has no sentence describing what it does",
+        }
+    }
+}
+
+impl Seed {
+    /// The words a rival's front page has to have one of — or why there are none.
+    ///
+    /// **One predicate, and everything that decides on it calls this.** The first version gated
+    /// on [`Self::read`] alone, and review found the hole: a reachable page reading only
+    /// `# Basecamp` is `read == true` with an **empty** `what_it_is`, because [`naming`] wants a
+    /// line of at least four words before it will quote one. Three queries went out, front pages
+    /// were fetched, and every corroborated rival was set aside as *elsewhere entirely* — a
+    /// negative claim about those companies, made out of missing evidence about the seed.
+    ///
+    /// **Then the same question got two answers.** `of_company` was fixed and
+    /// `landscape candidates <domain>` was not, so the diagnostic printed three queries for a
+    /// page the worker would send none for — a diagnostic that agrees with the worker by
+    /// coincidence, which is the failure this codebase keeps deleting. There is one function
+    /// now, and it returns a *reason* rather than a `bool` so the two callers cannot even
+    /// describe the outcome differently.
+    ///
+    /// # Errors
+    /// [`NoVocabulary`] when the page could not be read, or was read and said nothing quotable.
+    pub fn words(&self) -> Result<Vec<String>, NoVocabulary> {
         if !self.read {
             // `what_it_is` is our sentence about the failure here, and mining it produced
             // `unable`, `read`, `front`, `page` as the market's vocabulary.
-            return Vec::new();
+            return Err(NoVocabulary::Unreadable);
         }
-        crate::competitors::content_words(&self.candidate.what_it_is)
+        let words = crate::competitors::content_words(&self.candidate.what_it_is);
+        if words.is_empty() {
+            return Err(NoVocabulary::NothingQuotable);
+        }
+        Ok(words)
     }
 }
 
