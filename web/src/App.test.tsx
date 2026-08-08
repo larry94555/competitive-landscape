@@ -16,6 +16,7 @@ function queued(): Analysis {
     created_at: "2026-08-03T00:00:00Z",
     report: null,
     failure: null,
+    choices: [],
     generation: 1,
   };
 }
@@ -1139,7 +1140,10 @@ describe("when it does not finish", () => {
   });
 
   /** Run to a failure of one kind, and hand back what the reader is shown. */
-  async function shownFor(failure: Failure): Promise<void> {
+  async function shownFor(
+    failure: Failure,
+    choices: Analysis["choices"] = [],
+  ): Promise<void> {
     stubEventSource();
     vi.stubGlobal(
       "fetch",
@@ -1151,7 +1155,7 @@ describe("when it does not finish", () => {
             Promise.resolve(
               init?.method === "POST"
                 ? queued()
-                : { ...queued(), status: "failed", failure },
+                : { ...queued(), status: "failed", failure, choices },
             ),
         } as Response),
       ),
@@ -1172,11 +1176,169 @@ describe("when it does not finish", () => {
   // the part that sends somebody the wrong way, and it is the half a wording test forgets.
 
   it("offers the choice back when a name matches more than one company", async () => {
+    // With nothing to pick between, the sentence has to carry the whole instruction.
     await shownFor("ambiguous");
     expect(
       await screen.findByText(/matches more than one company/i),
     ).toBeInTheDocument();
+    expect(screen.getByText(/name the one you mean/i)).toBeInTheDocument();
     expect(screen.queryByText(/try again/i)).toBeNull();
+  });
+
+  const NOTION = {
+    name: "Notion",
+    domain: "notion.so",
+    what_it_is: "one workspace for notes, docs and projects",
+    prompt: "notion.so",
+  };
+  const NOTION_ENERGY = {
+    name: "Notion Energy",
+    domain: "notionenergy.com",
+    what_it_is: "battery storage for commercial sites",
+    prompt: "notionenergy.com",
+  };
+
+  it("puts the companies on screen rather than asking a reader to name one", async () => {
+    // The question we refused to answer, handed back in the form that answers it. A page that
+    // says "we found several" without saying *which* leaves the reader guessing at precisely
+    // what the gate declined to guess at.
+    await shownFor("ambiguous", [NOTION, NOTION_ENERGY]);
+
+    expect(
+      await screen.findByRole("button", { name: /notion energy/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("notion.so")).toBeInTheDocument();
+    expect(screen.getByText(/battery storage/i)).toBeInTheDocument();
+    // And the instruction changes with the affordance. Telling somebody to type a website
+    // while the websites are buttons under the sentence asks them to do the work twice.
+    expect(screen.getByText(/pick the one you meant/i)).toBeInTheDocument();
+    expect(screen.queryByText(/a website works/i)).toBeNull();
+  });
+
+  it("spends one click on the answer, not a retyped idea", async () => {
+    // `PRODUCT_SPEC.md` §3 prices a clarification at one click. That is either true here or
+    // it is a sentence in a document: what the chip sends has to be a whole prompt, sent
+    // verbatim, with nothing assembled in the browser.
+    stubEventSource();
+    const sent: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) => {
+        if (init?.method === "POST") {
+          sent.push((JSON.parse(String(init.body)) as { prompt: string }).prompt);
+        }
+        return Promise.resolve({
+          ok: true,
+          status: init?.method === "POST" ? 201 : 200,
+          json: () =>
+            Promise.resolve(
+              init?.method === "POST"
+                ? queued()
+                : {
+                    ...queued(),
+                    status: "failed",
+                    failure: "ambiguous",
+                    choices: [NOTION, NOTION_ENERGY],
+                  },
+            ),
+        } as Response);
+      }),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+    act(() => FakeEventSource.last!.send("done", ""));
+
+    await user.click(
+      await screen.findByRole("button", { name: /notion energy/i }),
+    );
+
+    await waitFor(() => expect(sent).toHaveLength(2));
+    expect(sent[1]).toBe("notionenergy.com");
+    // The run it started is the one the URL now names, so a reader who reloads keeps it.
+    expect(window.location.pathname).toBe("/a/abc");
+  });
+
+  it("does not let a second click spend a second analysis", async () => {
+    // One question, one answer. The run starts on the first click and the chips stay on
+    // screen until it replaces them, which is exactly long enough for an impatient second
+    // click to start a whole second analysis on the same question.
+    stubEventSource();
+    let posts = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) => {
+        if (init?.method === "POST") {
+          posts += 1;
+          // The second POST never settles, so the button's state is the only thing
+          // standing between one question and two runs.
+          if (posts > 1) return new Promise<Response>(() => {});
+        }
+        return Promise.resolve({
+          ok: true,
+          status: init?.method === "POST" ? 201 : 200,
+          json: () =>
+            Promise.resolve(
+              init?.method === "POST"
+                ? queued()
+                : {
+                    ...queued(),
+                    status: "failed",
+                    failure: "ambiguous",
+                    choices: [NOTION, NOTION_ENERGY],
+                  },
+            ),
+        } as Response);
+      }),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+    act(() => FakeEventSource.last!.send("done", ""));
+
+    const chip = await screen.findByRole("button", { name: /notion energy/i });
+    await user.click(chip);
+    await waitFor(() => expect(chip).toBeDisabled());
+    await user.click(chip);
+    expect(posts).toBe(2);
+  });
+
+  it("does not offer a question the report on screen has already answered", async () => {
+    // A row can carry the choices an earlier attempt left behind. Offering them under a
+    // finished report invites somebody to re-run something they can already read.
+    stubEventSource();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) =>
+        Promise.resolve({
+          ok: true,
+          status: init?.method === "POST" ? 201 : 200,
+          json: () =>
+            Promise.resolve(
+              init?.method === "POST"
+                ? queued()
+                : {
+                    ...queued(),
+                    status: "complete",
+                    choices: [NOTION, NOTION_ENERGY],
+                  },
+            ),
+        } as Response),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+    act(() => FakeEventSource.last!.send("done", ""));
+
+    expect(await screen.findByText("Done.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /notion energy/i })).toBeNull();
   });
 
   it("says the market was empty rather than blaming the prompt", async () => {

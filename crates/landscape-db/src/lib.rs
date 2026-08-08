@@ -33,6 +33,27 @@ pub enum StoreError {
 
 pub type Result<T> = std::result::Result<T, StoreError>;
 
+/// Everything recorded when a run refuses.
+///
+/// **One argument rather than three.** `fail(id, generation, kind, reason)` was already four
+/// positional arguments, two of them describing the same refusal, and the choices make five —
+/// which is how a caller ends up passing the right value in the wrong position. The same reason
+/// `landscape_analyze::Asked` and `landscape_extract::Reading` exist.
+///
+/// The mirror of `landscape_analyze::subject::Refusal`, which is where a refusal is decided.
+/// Two types rather than one because they are owned by different layers: that one holds its
+/// strings, this one borrows them for the length of a write.
+#[derive(Debug, Clone, Copy)]
+pub struct Refused<'a> {
+    /// Which situation, in the only terms a reader can act on.
+    pub kind: Failure,
+    /// For operators. Recorded and never shown verbatim — `migrations/0001_init.sql`.
+    pub reason: &'a str,
+    /// Companies a reader can pick between. Empty unless [`Self::kind`] is
+    /// [`Failure::Ambiguous`].
+    pub choices: &'a [landscape_core::Choice],
+}
+
 /// Everything the application needs from storage.
 ///
 /// Deliberately narrow. A wide trait is expensive to implement twice, and the second
@@ -92,13 +113,7 @@ pub trait Store: Send + Sync + std::fmt::Debug {
     /// shown verbatim — `migrations/0001_init.sql` says so. `kind` is the *situation*, from a
     /// closed set, so the interface can write a sentence a reader can act on without
     /// anything internal leaking into it.
-    async fn fail(
-        &self,
-        id: AnalysisId,
-        generation: u32,
-        kind: Failure,
-        reason: &str,
-    ) -> Result<Applied>;
+    async fn fail(&self, id: AnalysisId, generation: u32, refused: Refused<'_>) -> Result<Applied>;
 
     /// Return analyses that have been `running` longer than `max_age` to the queue.
     ///

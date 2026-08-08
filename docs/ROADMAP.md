@@ -765,8 +765,28 @@ the single most important phase; everything after it is commerce and polish.
   still closed and still small — a situation earns a value when a reader would **do something
   different** — and `failure_reason` beside it is still for operators and still never shown
   verbatim, which is the rule `migrations/0001_init.sql` wrote and this keeps.
-  **Still open:** the chips themselves, which need the candidates carried to the client, and
-  vocabulary resolution.
+  **And the candidates reach a reader as buttons** — [BENCHMARKS.md](BENCHMARKS.md) Run 34, the
+  second and last PR of the clarifying-question row. The gate had already resolved them: a name
+  read off each company's own front page, a canonical domain, and a line telling it apart from
+  the others. `decide` kept the `Failure` and dropped all of it, so a reader was asked to work
+  out — and retype — exactly what we had in hand and declined to choose between.
+  A chip carries a **whole prompt**, built on the server, for the same reason `Example.prompt`
+  is: which words join an idea to a company is one decision, and the parser that reads them back
+  lives on that side. The prompt is the **canonical domain** rather than the name, because a name
+  goes back through the search that produced the tie and can return the same question.
+  The choices needed a column and not the one that was there: `failure_reason` is the operator's
+  and never shown verbatim (`migrations/0001_init.sql`), and these are shown verbatim, so
+  `0005_clarification_choices.sql` adds `clarification jsonb` beside it. `fail`'s four positional
+  arguments became `Refused { kind, reason, choices }` on the way — two of them already described
+  one refusal and the choices would have made five.
+  **The sentence changes with the affordance.** *"Name the one you mean — a website works"* asks
+  somebody to type what is already a button, so with chips on screen the page says *"pick the one
+  you meant"* instead, and the frontend test asserts the negative as well as the positive.
+  **This one deviates from `PRODUCT_SPEC.md` §3 on purpose:** there is no *"skip, just analyse"*
+  here, because skipping means guessing between two companies that share a name — precisely what
+  the gate refuses — and a report about the wrong Notion is indistinguishable from a right one.
+  **Still open:** vocabulary resolution, and the other two triggers in §3 (buyer and intent),
+  which need a router model rather than candidates we already have.
   **SearXNG itself has not been run against this.** `docker compose --profile search up -d
   searxng` and a checked-in `settings.yml` are in the repository and unwalked, for the same
   reason D3 is — the first person through corrects it.
@@ -836,8 +856,14 @@ right to charge money.
   into direct / adjacent / substitute, and the editable interpretation header
   ([COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) §4–§6). This is what lets someone
   describe an idea rather than name competitors.
-- Clarifying questions (≤3, chip-answerable, skippable), fired **only when discovery fails to
-  converge** — not when the prompt looks incomplete.
+- ~~Clarifying questions (≤3, chip-answerable, skippable), fired **only when discovery fails to
+  converge** — not when the prompt looks incomplete.~~ **The ambiguous-name trigger is done** —
+  see the S2 row above and [BENCHMARKS.md](BENCHMARKS.md) Runs 33 and 34. The other three
+  triggers in [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §3 stay here: *"who should I compare against?"*
+  waits on vocabulary resolution, and *"who is the buyer?"* and *"what matters most?"* need the
+  grammar-constrained router model that classifies an input, which is Phase 2 work.
+  **And one of them is not skippable, deliberately** — skipping an ambiguous name means guessing
+  between two companies that share one, which is exactly what the gate refuses to do.
 - **"What folks are talking about" — Hacker News and GitHub only**
   ([DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) §3.1–3.3). Both are unambiguously open:
   HN's official API documents no rate limit and needs no key; GitHub allows 5,000 requests
@@ -1387,6 +1413,11 @@ would hide a local regression behind someone else's GPU.
    makes this the hardest UX measure in the product.
 2. **Zero required fields** beyond the one textarea.
 3. **≤1 clarifying question** in ≥80% of analyses; 100% skippable to a complete report.
+   **One exception, taken knowingly:** an ambiguous brand name has no skip. Every other trigger
+   in [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §3 has a defensible default to fall back on — a buyer,
+   an intent, a set of competitors we chose. This one's default is *guess which company*, and a
+   report about the wrong one reads exactly like a report about the right one. See
+   [BENCHMARKS.md](BENCHMARKS.md) Run 34.
 4. **Zero documentation reads** required for the core flow — measured as `/help` visits
    *before* a first completed analysis (target < 5%).
 5. **Mid-stream abandonment** — the free tier's defining risk. Target ≤ 20% on Rung 0,

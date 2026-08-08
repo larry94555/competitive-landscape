@@ -18,7 +18,7 @@ pub mod report;
 pub mod source;
 pub mod subject;
 
-pub use analysis::{Analysis, AnalysisId, AnalysisStatus, Applied, Failure, NewAnalysis};
+pub use analysis::{Analysis, AnalysisId, AnalysisStatus, Applied, Choice, Failure, NewAnalysis};
 pub use coverage::{attributed, Attempt, Coverage};
 pub use examples::{examples, Example, CURATION_NOTE};
 pub use extract::{

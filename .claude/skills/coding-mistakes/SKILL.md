@@ -1481,6 +1481,44 @@ artefact. If the only available check is textual, say in the docstring what it c
 
 ---
 
+## 46. A `MISSED` at a seam no test can reach, closed by deleting the seam
+
+**Found:** by the mutation harness, on the change that added clarification chips.
+
+The worker handed a refusal to the store in pieces:
+
+```rust
+refuse(store, analysis, kind, &why, &choices).await;
+```
+
+A mutation replaced `&choices` with `&[]` — the question decided and then dropped on the way to
+the database — and **nothing failed**. Five arguments, three of them describing one refusal, and
+the third silently discardable.
+
+**The obvious fix was to write a test, and it would have been a bad test.** That arm needs a live
+search engine to reach with a non-empty list; `Searx::from_env()` is read inside `run_analysis`
+and is not injectable. Anything I wrote to make that mutation fail would have had to reach around
+the code under test — which is a test of the mutation, not of the behaviour, and it leaves the
+same defect available at the next call site somebody adds.
+
+**So the seam went away instead.** `Decided::Refuse(Refusal { why, kind, choices })`, and
+`refuse(store, analysis, &refusal)`. There is no third argument to drop, so there is nothing for
+a mutation to remove and nothing for a future caller to forget. The same argument one layer down
+turned `fail(id, generation, kind, reason)` into `fail(id, generation, Refused { .. })`.
+
+**The retargeted mutation is the honest one.** It now removes `choices` inside `refuse` itself,
+where the value is still in scope and a direct test does reach — and it is caught.
+
+**Rule:** a `MISSED` is a question about the shape of the code, not only about the tests. Before
+writing a test to catch it, ask whether the mutation describes a mistake a caller could actually
+make. If it does and the call site is unreachable from a test, **make the mistake unrepresentable
+rather than detectable** — several arguments that always travel together are one value.
+
+> **Ask this:** *is this `MISSED` telling me a test is missing, or that the signature lets a
+> caller drop something?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**
@@ -1555,7 +1593,7 @@ Grouped by what has actually gone wrong, commonest first.
 | Found by | Entries | |
 |---|---|---|
 | Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35 |
-| The mutation harness | 32, 36 | The only one it found before review did, and it deleted a rule rather than adding a test |
+| The mutation harness | 32, 36, 46 | The only ones it found before review did. 36 deleted a rule rather than adding a test; 46 deleted an argument |
 | Its own tooling | 28 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |

@@ -156,8 +156,11 @@ pub async fn run(store: &impl Store) {
             .fail(
                 a.id,
                 stale,
-                Failure::Internal,
-                "from a worker long replaced"
+                crate::Refused {
+                    kind: Failure::Internal,
+                    reason: "from a worker long replaced",
+                    choices: &[],
+                }
             )
             .await
             .expect("a revoked write is an outcome, not an error"),
@@ -229,8 +232,11 @@ pub async fn run(store: &impl Store) {
             .fail(
                 b.id,
                 second.generation,
-                Failure::Internal,
-                "network unreachable"
+                crate::Refused {
+                    kind: Failure::Internal,
+                    reason: "network unreachable",
+                    choices: &[],
+                }
             )
             .await
             .expect("fail"),
@@ -241,11 +247,79 @@ pub async fn run(store: &impl Store) {
     assert_eq!(
         failed.failure,
         Some(Failure::Internal),
-        "a failed analysis says which situation it is in, so an interface can write a          sentence a reader can act on"
+        "a failed analysis says which situation it is in, so an interface can write a sentence          a reader can act on"
     );
     assert!(
         failed.report.is_none(),
         "a failed analysis must not carry a partial report"
+    );
+    assert!(
+        failed.choices.is_empty(),
+        "a refusal with nothing to pick between must not invent a question"
+    );
+    assert!(
+        done.choices.is_empty(),
+        "a finished report must not offer a choice — see analysis_from_row"
+    );
+
+    // --- a refusal that asks a question carries the question ------------------
+    // Storing `Ambiguous` without the candidates leaves an interface able to say a name
+    // matched several companies and unable to say which, which is the reader guessing at
+    // exactly what the gate refused to guess at.
+    let c = store
+        .enqueue(&prompt("notion, and whoever competes with it"))
+        .await
+        .expect("enqueue for the ambiguous case");
+    let third = store
+        .claim_next()
+        .await
+        .expect("claim for the ambiguous case")
+        .expect("a queued analysis to claim");
+    assert_eq!(third.id, c.id, "the queue handed back a different analysis");
+    let offered = [
+        landscape_core::Choice {
+            name: "Notion".to_owned(),
+            domain: "notion.so".to_owned(),
+            what_it_is: "one workspace for notes, docs and projects".to_owned(),
+            prompt: "notion.so".to_owned(),
+        },
+        landscape_core::Choice {
+            name: "Notion Energy".to_owned(),
+            domain: "notionenergy.com".to_owned(),
+            // Empty on purpose: a front page that said nothing quotable must round-trip as
+            // an absent line and not as a missing choice.
+            what_it_is: String::new(),
+            prompt: "notionenergy.com".to_owned(),
+        },
+    ];
+    assert_eq!(
+        store
+            .fail(
+                third.id,
+                third.generation,
+                crate::Refused {
+                    kind: Failure::Ambiguous,
+                    reason: "two companies share that name",
+                    choices: &offered,
+                }
+            )
+            .await
+            .expect("fail with choices"),
+        Applied::Yes
+    );
+    let asked = store
+        .get(c.id)
+        .await
+        .expect("get after an ambiguous refusal");
+    assert_eq!(
+        asked.failure,
+        Some(Failure::Ambiguous),
+        "the situation survives storage"
+    );
+    assert_eq!(
+        asked.choices,
+        offered.to_vec(),
+        "every field of every choice survives storage, in the order it was offered"
     );
 
     // --- counting ---------------------------------------------------------------

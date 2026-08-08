@@ -1,6 +1,6 @@
 # Project Status
 
-**As of 2026-08-08** · `main` at `581b9ea`, plus the branch this page is on.
+**As of 2026-08-08** · `main` at `1f854c9`, plus the branch this page is on.
 
 This page answers one question: **what can somebody actually do with this today, and what
 stands between here and each of the six states that matter.** It is deliberately separate from
@@ -21,7 +21,7 @@ The six states, in the order they must be reached. **S1 is met.** The rest are n
 | # | State | Met? | Percentage Left | The single thing standing in the way |
 |---|---|---|---|---|
 | **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **Yes.** Pick an example idea, watch sections arrive, read a cited report about real companies, reload and it is still there. On a laptop. *This row once said the opposite twice* — see [§1.5](#15-the-correction-that-produced-phase-d). | [**0%**](docs/Full_Feature_List.md#s1--ready-for-a-guided-demo) | Nothing. Serve the app, a run has a URL, several companies in one report, example ideas that really run, and reads ordered so first content costs no model call — 23s on `linear.app`, measured. |
-| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**44%**](docs/Full_Feature_List.md#s2--ready-for-demonstration) | **Both inputs produce a comparison; a report that cannot says why, and so does a run that produces none.** *This row said "a business idea does not run at all" for six phases.* A description is searched for, grouped into companies, scored on cross-query agreement, named from each company's own front page, and the **set** comes out rather than the pick; a **named** company brings its rivals the same way. When a report covers **one** company it now says which of four things happened to the others — no engine, its own page gave nothing to judge one against, the searching did not finish, or nobody held up — because a reader acts on each of those differently — and a run that produces **no** report now says which of five situations it is in rather than answering all five with *"try naming its website"*. **56% done.** What is left: chips to answer an ambiguous name in one click, vocabulary resolution, and the caches. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
+| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**39%**](docs/Full_Feature_List.md#s2--ready-for-demonstration) | **Both inputs produce a comparison; a report that cannot says why, and so does a run that produces none.** *This row said "a business idea does not run at all" for six phases.* A description is searched for, grouped into companies, scored on cross-query agreement, named from each company's own front page, and the **set** comes out rather than the pick; a **named** company brings its rivals the same way. When a report covers **one** company it now says which of four things happened to the others — no engine, its own page gave nothing to judge one against, the searching did not finish, or nobody held up — because a reader acts on each of those differently — and a run that produces **no** report now says which of five situations it is in rather than answering all five with *"try naming its website"* — and when that situation is *a name several products share*, **the companies it would not choose between arrive as buttons**, each carrying a whole prompt so answering costs one click rather than a retyped idea. **61% done.** What is left: vocabulary resolution and the caches. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
 | **S3** | **Ready for use** — friendly users should find no issue | **No.** | [**96%**](docs/Full_Feature_List.md#s3--ready-for-use) | 6 of 9 report sections, no verification layer, no comparison matrix, no accounts. |
 | **S4** | **Ready for general use** — promotable, word-of-mouth quality | **No.** | [**100%**](docs/Full_Feature_List.md#s4--ready-for-general-use) | Everything in S3, plus no quality gates have ever been run against a deployed system. |
 | **S5** | **General use, free mode** — stable, email signup, community channels | **No.** | [**100%**](docs/Full_Feature_List.md#s5--general-use-free-mode) | No authentication code exists anywhere in the repository. No knowledge base. |
@@ -34,7 +34,7 @@ finished when it is demonstrable end to end on a development machine — Rust, N
 defect rather than a step in the plan.
 
 **Percentage Left is software only**, counted in pull requests and linked to the feature it comes
-from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **50 of 130 PRs done, 38% of the whole
+from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **51 of 130 PRs done, 39% of the whole
 deliverable.** Getting it onto a host is a
 [separate three-PR track](docs/Full_Feature_List.md#getting-it-onto-a-host) that gates *who can see*
 the software rather than what it can do, and the concierge interviews and source-terms audit are
@@ -154,7 +154,7 @@ refusal; what is unmeasured is whether it is the *right* comparison.
 | R3 25% · R4 50% · R5 80% | **Unknown — unmeasurable.** | Same. |
 | R6 relevant information returned | **No.** | Several companies, all 6 question kinds, off-domain pages when a company's own leave a question empty, and a set derived from **either** input. What is missing is any measurement that the set is right ([B1](#4-blockers)) — which is now the only thing missing here that is about this feature rather than about the product around it. |
 | R7 ready for demo | **No.** | Not deployed. |
-| R8 ready for use | **No.** | Not deployed, and unmeasured. A genuinely ambiguous one-word name is now *told apart* from every other refusal and answered in its own words; what it still lacks is the chips that would let a reader answer it in one click. |
+| R8 ready for use | **No.** | Not deployed, and unmeasured. A genuinely ambiguous one-word name is now told apart from every other refusal, answered in its own words, and **answerable in one click** — the candidates the gate would not choose between are offered as chips, each sending the company's canonical domain verbatim. What is still missing here is measurement ([B1](#4-blockers)), not a way to answer. |
 
 **What exists.** `crates/landscape-discover` (on-domain probes, sitemap, `llms.txt`, ranked and
 capped at 8), `crates/landscape-fetch` (SSRF guard at 100% coverage, robots.txt, per-host
@@ -178,20 +178,18 @@ description into companies — it hands over three descriptions whose companies 
    arithmetic a reader can check, and it is not a *recall* number — nothing says how many real
    competitors were missed. That is [B1](#4-blockers), and it is now the top item here because
    the software that needed building got built. [BENCHMARKS.md](docs/BENCHMARKS.md) Run 30.
-2. **Chips.** The interface now says *"that name matches more than one company"* in its own
-   words rather than the generic refusal — but it does not yet name them, because the candidates
-   are not carried to the client. `PRODUCT_SPEC.md` §3 wants three chips and one click; that is
-   the second half of the clarifying-question row, and it is the last thing between a reader and
-   an answer they can give in a second.
-3. **A one-word name is answered with a sentence, not a chip.** `Notion` correctly refuses to
-   guess and lists the candidates in prose. `PRODUCT_SPEC.md` §3 wants chips; that is the
-   clarifying-question row.
-4. **Gaps are measured from admission, not from coverage.** `landscape search` asks about a
+2. **Only one clarifying question exists.** An ambiguous brand name is asked about and
+   answered in one click. The other three triggers in `PRODUCT_SPEC.md` §3 are not built:
+   *"who should I compare against?"* waits on vocabulary resolution, and the buyer and intent
+   questions need the grammar-constrained router model, which is Phase 2. And this one has **no
+   skip**, deliberately — §3 promises every question is skippable, and skipping this one means
+   guessing which of two same-named companies a report is about.
+3. **Gaps are measured from admission, not from coverage.** `landscape search` asks about a
    question when discovery admitted *no page* for it. A page that was found and yielded nothing —
    Help Scout's `/blog` for *changes* — therefore triggers no search, even though the section
    comes back empty. `Coverage` already tells those silences apart; wiring the trigger to it
    needs the orchestrator.
-5. **No caching.** The fetch cache and per-source extraction cache — called the
+4. **No caching.** The fetch cache and per-source extraction cache — called the
    highest-leverage cache in the system, and scheduled for Phase 1 — are not built. Two users
    analysing the same competitor share no work. **A set makes this worse**: three companies per
    run is three times the fetching, and two readers describing the same market share none of it.
@@ -225,9 +223,12 @@ header, then re-run-with-edits.
 
 **Rung: R0.**
 
-Two different features are specified and neither is started: **clarifying questions** (≤3,
-chip-answerable, skippable, fired only when discovery fails to converge — Phase 2) and
-**conversational follow-up** on a finished report (`UI_FLOWS.md`). A report today is terminal.
+Two different features are specified. **Clarifying questions** (≤3, chip-answerable, fired only
+when discovery fails to converge) have started: an ambiguous brand name is asked about with one
+chip per candidate, and answering starts a new analysis. The other three triggers need a router
+model or vocabulary resolution. **Conversational follow-up** on a finished report (`UI_FLOWS.md`)
+is not started — a report today is terminal, and a chip answers the question *instead of* the
+run rather than continuing it.
 
 **Depends on:** F1 reaching R6, since a follow-up over a thin report inherits its thinness.
 
@@ -468,7 +469,7 @@ than reading one.
 | ~~One of six extractors (direction)~~ | **Built.** All six questions extract, and two of them need no model. The `no extractor yet` branch is deleted rather than left unreachable, so a seventh question is a build error. |
 | Fetch cache + per-source extraction cache | The highest-leverage cache in the system, scheduled for this phase, absent. |
 | ~~Anonymous rate limit (2/day)~~ | **Built.** Two a day per address, hashed, reset daily. |
-| Stage rail, source cards, citation hover cards | The UI is functional and unfinished. **Example chips are built** — three ideas over six companies, with what is curated said beside them. |
+| Stage rail, source cards, citation hover cards | The UI is functional and unfinished. **Example chips are built** — three ideas over six companies, with what is curated said beside them — **and so are clarification chips**: a name matching several companies comes back as one button per candidate. |
 | Conditional GET; per-analysis fetch cap | Every run re-fetches everything. |
 | SSE replay ring buffer (`Last-Event-ID`) | Reconnect re-reads from the row rather than resuming. Works; not what was specified. |
 | Golden set to 25 subjects | 15 of 25, five of them fetched. |
@@ -544,9 +545,10 @@ costs no model call. Deploying it ([B5](#4-blockers)) changes who can see it, no
 **To S2 — any business idea handled correctly. Past half.** The search channel is finished
 ([B2](#4-blockers)), both inputs produce a set, a report that covers one company says which of
 four things happened to the others, and a run that produces no report says which of five
-situations it is in. What is left is the chips that turn the ambiguous one into a click;
-vocabulary resolution, so a reader's words reach the category a vendor would use; and the two
-caches, which a three-company run makes three times more valuable. **All six extractors are
+situations it is in — and the ambiguous one comes back as buttons, so answering it costs a
+click rather than a retyped idea. What is left is vocabulary resolution, so a reader's words
+reach the category a vendor would use, and the two caches, which a three-company run makes three
+times more valuable. **All six extractors are
 done**, so no section is permanently empty any more.
 
 **To S3 — friendly users find no issue.** `landscape-verify` and the quality gates; caching so a

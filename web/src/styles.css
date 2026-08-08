@@ -101,5 +101,32 @@ button.example strong { display: block; }
 }
 .example .why { display: block; color: var(--muted); font-size: 0.9rem; margin-top: 0.3rem; }
 
+/* The companies to pick between when a name matched several. Styled as the examples are,
+   because they are the same offer — a whole prompt behind one click — and a reader who has
+   learned what one of these looks like should not have to learn it twice. */
+.choices { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: 0.6rem; }
+
+button.choice {
+  display: block;
+  width: 100%;
+  margin: 0;
+  text-align: left;
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  padding: 0.8rem 1rem;
+  font-weight: 400;
+}
+button.choice:hover:enabled { border-color: var(--accent); }
+button.choice:disabled { opacity: 0.6; }
+button.choice strong { display: block; }
+.choice .domain {
+  display: block;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+.choice .what { display: block; color: var(--muted); font-size: 0.9rem; margin-top: 0.3rem; }
+
 /* What is curated and what is not. Small, and never omitted. */
 .curation { color: var(--muted); font-size: 0.85rem; }

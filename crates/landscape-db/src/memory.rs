@@ -8,9 +8,9 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use async_trait::async_trait;
-use landscape_core::{Analysis, AnalysisId, AnalysisStatus, Applied, Failure, NewAnalysis, Report};
+use landscape_core::{Analysis, AnalysisId, AnalysisStatus, Applied, NewAnalysis, Report};
 
-use crate::{Result, Store, StoreError};
+use crate::{Refused, Result, Store, StoreError};
 
 #[derive(Debug, Default)]
 pub struct MemoryStore {
@@ -45,6 +45,7 @@ impl Store for MemoryStore {
             created_at: chrono::Utc::now(),
             report: None,
             failure: None,
+            choices: Vec::new(),
             generation: 0,
         };
         self.lock().insert(analysis.id, analysis.clone());
@@ -109,21 +110,22 @@ impl Store for MemoryStore {
         Ok(Applied::Yes)
     }
 
-    async fn fail(
-        &self,
-        id: AnalysisId,
-        generation: u32,
-        kind: Failure,
-        reason: &str,
-    ) -> Result<Applied> {
+    async fn fail(&self, id: AnalysisId, generation: u32, refused: Refused<'_>) -> Result<Applied> {
         let mut map = self.lock();
         let entry = map.get_mut(&id).ok_or(StoreError::NotFound(id))?;
         if entry.generation != generation {
             return Ok(Applied::ClaimRevoked);
         }
         entry.status = AnalysisStatus::Failed;
-        entry.failure = Some(kind);
-        tracing::warn!(%id, reason, kind = kind.as_db_str(), "analysis failed");
+        entry.failure = Some(refused.kind);
+        entry.choices = refused.choices.to_vec();
+        tracing::warn!(
+            %id,
+            reason = refused.reason,
+            kind = refused.kind.as_db_str(),
+            choices = refused.choices.len(),
+            "analysis failed"
+        );
         Ok(Applied::Yes)
     }
 

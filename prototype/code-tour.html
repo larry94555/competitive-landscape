@@ -80,93 +80,90 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    four: {
-      name: "four changes keeping them apart",
-      purpose: "Runs 29 to 32.",
+    asked: {
+      name: "a question with no answer attached",
+      purpose: "Run 33 left this.",
       lines: [
-        ['t', '  an outage is not an empty market'],
-        ['t', '  no engine is not "nobody there"'],
-        ['t', '  unread is not "somewhere else"'],
+        ['s', '  That name matches more than'],
+        ['s', '  one company.'],
         ['c', ''],
-        ['f', '// All tested. All mutated.']
+        ['f', '// ...and it cannot say which.']
       ]
     },
-    one: {
-      name: "and this is what a reader saw",
-      purpose: "Every one of them.",
+    had: {
+      name: "the gate already had them",
+      purpose: "Resolution::Ambiguous.",
       lines: [
-        ['s', '  We could not work out which'],
-        ['s', '  company you meant. Try naming'],
-        ['s', '  its website.'],
+        ['t', '  name, read off its own page'],
+        ['t', '  canonical domain'],
+        ['t', '  the line that tells them apart'],
         ['c', ''],
-        ['f', '// Failure had two values.']
+        ['f', '// decide kept the Failure.']
       ]
     },
-    wrong: {
-      name: "right for one of the four",
-      purpose: "And an instruction for the rest.",
+    column: {
+      name: "the choices needed a column",
+      purpose: "And not the one that was there.",
       lines: [
-        ['s', '  search timed out -> name a site'],
+        ['c', '// failure_reason: the operator\'s,'],
+        ['c', '// never shown verbatim.'],
         ['c', ''],
-        ['t', '  they go and fix a prompt'],
-        ['t', '  that was never wrong'],
-        ['c', ''],
-        ['f', '// The other three moved in behind it.']
+        ['f', '  0005: clarification jsonb'],
+        ['t', '  two audiences, two fields']
       ]
     },
-    closed: {
-      name: "the set stays closed",
-      purpose: "failure_reason is the operator's.",
+    domain: {
+      name: "a domain, not a name",
+      purpose: "One click is the whole answer.",
       lines: [
-        ['c', '// 0001_init.sql: recorded for'],
-        ['c', '// operators, never shown verbatim.'],
+        ['s', '  prompt: canonical_domain'],
         ['c', ''],
-        ['f', '  a value earns a place when a'],
-        ['f', '  reader would do something else']
+        ['t', '  a name goes back through the'],
+        ['t', '  search that made the tie'],
+        ['f', '// and can return the same question.']
       ]
     },
-    travel: {
-      name: "the situation travels with the words",
-      purpose: "Refuse { why, kind }.",
+    struct: {
+      name: "five arguments became one value",
+      purpose: "Refused, and Refusal.",
       lines: [
-        ['t', '  one decision, not two'],
+        ['s', '  fail(id, gen, kind, reason)'],
         ['c', ''],
-        ['c', '// The code that picks the sentence'],
-        ['c', '// is the code that knows which of'],
-        ['f', '// five things happened.']
+        ['f', '  Refused { kind, reason, choices }'],
+        ['c', ''],
+        ['t', '// There is nothing left to drop.']
       ]
     },
-    negative: {
-      name: "and one must not say try again",
-      purpose: "The half a wording test forgets.",
+    found: {
+      name: "the mutation that found it",
+      purpose: "choices dropped on the way.",
       lines: [
-        ['t', '  ambiguous  -> not "try again"'],
-        ['t', '  timed out  -> not "name a site"'],
+        ['s', '  refuse(.., &why, &[])'],
         ['c', ''],
-        ['f', '// The wrong instruction is what'],
-        ['f', '// sends somebody the wrong way.']
+        ['f', '  MISSED - nothing failed'],
+        ['c', ''],
+        ['t', '// So the seam went away instead.']
       ]
     },
-    pins: {
-      name: "eight pins moved with the type",
-      purpose: "Across three catalogues.",
+    sentence: {
+      name: "the sentence follows the buttons",
+      purpose: "Or it asks for the work twice.",
       lines: [
-        ['s', '  Refuse(String) -> Refuse { .. }'],
+        ['s', '  name the one you mean'],
+        ['t', '  -> pick the one you meant'],
         ['c', ''],
-        ['f', '  reported before the harness ran'],
-        ['c', ''],
-        ['c', '// In a second, not in an hour.']
+        ['f', '// The test asserts the negative.']
       ]
     },
-    chips: {
-      name: "what is still missing",
-      purpose: "The candidates.",
+    skip: {
+      name: "and this one has no skip",
+      purpose: "Deliberately. Spec section 3.",
       lines: [
-        ['f', '  "matches more than one company"'],
-        ['s', '  ...and cannot name them yet'],
+        ['t', '  skipping = guess which company'],
         ['c', ''],
-        ['c', '// failure_reason is the operator\'s,'],
-        ['t', '// so the choices need their own home.']
+        ['f', '// A report about the wrong Notion'],
+        ['f', '// reads like a report about the'],
+        ['f', '// right one.']
       ]
     }
   };
@@ -210,19 +207,19 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:four",     c: "Four changes keeping four silences apart." },
-    { kind: "means",       a: "file:one",      c: "And every one of them read like this." },
+    { kind: "recognition", a: "file:asked",    c: "Run 33 gave this refusal its own sentence." },
+    { kind: "means",       a: "file:had",      c: "The gate had already resolved them." },
 
-    { kind: "turn",        a: "file:wrong",    c: "That instruction is right for one of the four." },
-    { kind: "result",      a: "file:closed",   c: "The set stays closed, and small." },
+    { kind: "turn",        a: "file:column",   c: "The choices needed a column of their own." },
+    { kind: "result",      a: "file:domain",   c: "A chip sends a domain, not a name." },
 
-    { kind: "turn",        a: "file:travel",   c: "The situation travels with the sentence." },
-    { kind: "result",      a: "file:negative", c: "And one of them must not say try again." },
+    { kind: "turn",        a: "file:struct",   c: "Five arguments became one value." },
+    { kind: "result",      a: "file:found",    c: "A mutation found the seam that dropped it." },
 
-    { kind: "result",      a: "file:pins",     c: "Eight pins moved, and the gate said so first." },
-    { kind: "result",      a: "file:chips",    c: "The chips still need the candidates." },
+    { kind: "result",      a: "file:sentence", c: "The sentence changes with the buttons." },
+    { kind: "result",      a: "file:skip",     c: "And this question has no skip." },
 
-    { kind: "close",       a: "hold",          c: "Five situations, and the reader saw one." }
+    { kind: "close",       a: "hold",          c: "The question, handed back as buttons." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -245,7 +242,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("polling");
+    show("asked");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -258,15 +255,15 @@
     }, TOTAL * 1000));
   }
 
-  show("polling");
+  show("asked");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "Five situations, and the reader saw one",
-    blurb: "Four changes went into keeping the silences apart inside the analysis \u2014 an outage is not an empty market, a missing engine is not a market with nobody in it \u2014 and every one of them arrived at a reader as the same sentence, because the failure type had two values. That sentence tells somebody to name a website, which is right for exactly one of the four: for a search that timed out it sends them to fix something that was never wrong, and for a name several products share it throws away the question they could have answered in a word.",
+    title: "The question, handed back as buttons",
+    blurb: "A run that will not choose between two companies sharing a name now hands the choice back \u2014 one button per company, each carrying a whole prompt, so answering costs one click rather than a retyped idea. The gate had already resolved them: a name read off each company\u2019s own front page, a canonical domain, and the line that tells them apart. What was missing was somewhere to put them, because the operator\u2019s reason field is never shown verbatim and these are shown verbatim.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

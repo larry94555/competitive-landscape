@@ -407,10 +407,9 @@ mod tests {
             &self,
             id: AnalysisId,
             generation: u32,
-            failure: landscape_core::Failure,
-            reason: &str,
+            refused: landscape_db::Refused<'_>,
         ) -> landscape_db::Result<landscape_core::Applied> {
-            self.0.fail(id, generation, failure, reason).await
+            self.0.fail(id, generation, refused).await
         }
         async fn reclaim_stale(&self, max_age: chrono::Duration) -> landscape_db::Result<u64> {
             self.0.reclaim_stale(max_age).await
@@ -466,10 +465,9 @@ mod tests {
             &self,
             id: AnalysisId,
             generation: u32,
-            failure: landscape_core::Failure,
-            reason: &str,
+            refused: landscape_db::Refused<'_>,
         ) -> landscape_db::Result<landscape_core::Applied> {
-            self.inner.fail(id, generation, failure, reason).await
+            self.inner.fail(id, generation, refused).await
         }
         async fn reclaim_stale(&self, max_age: chrono::Duration) -> landscape_db::Result<u64> {
             self.inner.reclaim_stale(max_age).await
@@ -714,8 +712,11 @@ mod tests {
                 .fail(
                     claimed.id,
                     claimed.generation,
-                    landscape_core::Failure::NoSubject,
-                    "no company named",
+                    landscape_db::Refused {
+                        kind: landscape_core::Failure::NoSubject,
+                        reason: "no company named",
+                        choices: &[],
+                    },
                 )
                 .await
                 .expect("fail");
@@ -891,8 +892,11 @@ mod tests {
             .fail(
                 claimed.id,
                 claimed.generation,
-                landscape_core::Failure::NoSubject,
-                "no company named",
+                landscape_db::Refused {
+                    kind: landscape_core::Failure::NoSubject,
+                    reason: "no company named",
+                    choices: &[],
+                },
             )
             .await
             .expect("fail");

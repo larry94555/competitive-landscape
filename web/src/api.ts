@@ -11,12 +11,6 @@ export type AnalysisStatus = "queued" | "running" | "complete" | "failed";
 /**
  * Which situation a failed analysis is in.
  *
- * A closed set, on purpose. The server records an operator's reason too and never sends it:
- * what somebody is told about a failure is a decision made here, in words written for them.
- */
-/**
- * Which situation a failed analysis is in.
- *
  * **A value earns a place here when a reader would do something different.** It was
  * `no_subject | internal`, and five different endings arrived as `no_subject`: no engine
  * configured, several companies sharing a name, a search that did not finish, and a market we
@@ -32,6 +26,24 @@ export type Failure =
   | "nothing_found"
   | "search_incomplete"
   | "internal";
+
+/**
+ * One company a reader can pick when a name matched several.
+ *
+ * **The chip carries the whole prompt, not the name.** A reader who has to retype their idea
+ * with a company bolted onto it has been asked to do the work the question was supposed to
+ * save them — and the words that join an idea to a company are a server decision, for the
+ * same reason [`Example.prompt`] is: the parser that reads them back lives on that side.
+ */
+export interface Choice {
+  readonly name: string;
+  /** Its canonical domain. Shown, because it is what tells two same-named products apart. */
+  readonly domain: string;
+  /** The one line under the company's own heading. Empty when its page said nothing. */
+  readonly what_it_is: string;
+  /** What to run instead. Sent verbatim. */
+  readonly prompt: string;
+}
 
 export type SectionStatus = "populated" | "partial" | "not_found_in_public_sources";
 
@@ -82,6 +94,18 @@ export interface Analysis {
   readonly created_at: string;
   readonly report: Report | null;
   readonly failure: Failure | null;
+  /**
+   * The companies a reader can pick between, when the run stopped rather than guess.
+   *
+   * Empty unless `failure` is `"ambiguous"`. **This is the question**, not decoration on the
+   * refusal: without it the page can say a name matched several companies and cannot say
+   * which, which leaves the reader guessing at exactly what we declined to guess at.
+   *
+   * Always sent, empty rather than absent, so the page never has to tell "nothing to pick
+   * between" apart from "a server that does not know about picking". A row stored before the
+   * column existed reads back as an empty list on the server, not as a missing field.
+   */
+  readonly choices: readonly Choice[];
   /**
    * How many times this run has been started.
    *

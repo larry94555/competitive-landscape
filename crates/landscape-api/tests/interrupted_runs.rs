@@ -571,8 +571,11 @@ async fn a_run_that_fails_ends_the_stream_with_a_reason_rather_than_a_silence() 
                 .fail(
                     id,
                     generation,
-                    landscape_core::Failure::NoSubject,
-                    "no subject in the prompt",
+                    landscape_db::Refused {
+                        kind: landscape_core::Failure::NoSubject,
+                        reason: "no subject in the prompt",
+                        choices: &[],
+                    },
                 )
                 .await
                 .expect("fail");
