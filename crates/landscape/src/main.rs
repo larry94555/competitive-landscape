@@ -1695,6 +1695,52 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a_candidate_rejected_after_an_outage_reaches_the_client_as_retryable() {
+        // The whole chain for the case review found: `decide` concludes the searching did not
+        // finish, `refuse` records it, and the client reads back the one situation it fixes by
+        // waiting rather than *"we searched and found nobody"*.
+        let decided = landscape_analyze::subject::decide(
+            landscape_search::competitors::Derived {
+                verdict: landscape_core::subject::Resolution::Resolved {
+                    entity: landscape_core::subject::Candidate {
+                        name: "Alpha".to_owned(),
+                        canonical_domain: "alpha.example".to_owned(),
+                        what_it_is: "a company".to_owned(),
+                        confidence: 0.9,
+                    },
+                },
+                set: landscape_search::competitors::Set::default(),
+                about_a_market: true,
+            },
+            &landscape_search::candidates::Queried {
+                completed: vec!["q1".to_owned(), "q2".to_owned()],
+                failed: vec!["q3".to_owned()],
+            },
+        );
+        let landscape_analyze::subject::Decided::Refuse { kind, why } = decided else {
+            panic!("an empty set was analysed")
+        };
+
+        let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+        let queued = store
+            .enqueue(
+                &landscape_core::NewAnalysis::parse("a shared inbox for a small support team")
+                    .expect("valid"),
+            )
+            .await
+            .expect("a row");
+        let claimed = store.claim_next().await.expect("a claim").expect("a row");
+        refuse(&store, &claimed, kind, &why).await;
+
+        let read = store.get(queued.id).await.expect("it reads back");
+        assert_eq!(
+            read.failure,
+            Some(landscape_core::Failure::SearchIncomplete),
+            "the client is told a market is empty while a query was unanswered"
+        );
+    }
+
+    #[tokio::test]
     async fn the_situation_a_refusal_chose_is_the_one_the_store_records() {
         // **The last place the five could collapse back into one.** `refuse` used to pass
         // `Failure::NoSubject` whatever `decide` had concluded, which is how every ending came

@@ -90,6 +90,27 @@ four: the ambiguous case must **not** say *"try again"*, the timed-out case must
 *"naming its website"*. A wording test that only checks what a sentence says would pass with two
 situations sharing an instruction; the assertion that matters is the one nobody thinks to write.
 
+### Review: the guard was shaped like a verdict, not like the fact
+
+`decide` gave failed queries precedence **inside the `NothingFound` arm**, and there is a way
+round it: two queries corroborate a candidate, the third fails, the gate *resolves* it — and
+`assemble` then sets it aside because its front page could not be read.
+
+```text
+one query failed, the resolved candidate was set aside
+kind = NothingFound
+```
+
+`Resolved` with an empty set falls past a verdict-shaped check and lands on *"we searched and
+found no company we could stand behind"*: a conclusion about a market drawn while a query was
+still unanswered, and the one refusal worth retrying offered as one that is not. It contradicts
+the invariant written two arms above it.
+
+**The guard is now shaped like the fact it protects.** `set.is_empty() && !queried.failed
+.is_empty()` — no members surviving, whatever the gate concluded on the way. A **non-empty** set
+still beats an outage, because an answer we already have is worth more than telling somebody to
+come back for it, and that half has its own test so it stays a rule rather than a coincidence.
+
 ### What still does not happen
 
 **The candidates are not carried to the client.** *"That name matches more than one company"* is
@@ -103,7 +124,7 @@ operator's, deliberately, so the choices cannot ride in it.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 32 | 806 | 51 |
-| now | **813** | **54** |
+| now | **816** | **54** |
 
 ---
 

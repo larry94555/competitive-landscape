@@ -327,8 +327,8 @@
   {
     "name": "an outage is reported to a reader as an empty market",
     "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "        Resolution::NothingFound { .. } if !queried.failed.is_empty() => Decided::Refuse {",
-    "new": "        Resolution::NothingFound { .. } if queried.failed.is_empty() && false => Decided::Refuse {",
+    "old": "        _ if set.is_empty() && !queried.failed.is_empty() => Decided::Refuse {",
+    "new": "        _ if false => Decided::Refuse {",
     "run": [
       "cargo",
       "nextest",

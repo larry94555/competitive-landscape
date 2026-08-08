@@ -163,5 +163,18 @@
       "run"
     ],
     "cwd": "web"
+  },
+  {
+    "name": "an outage is reported as an empty market once a candidate is set aside",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "        _ if set.is_empty() && !queried.failed.is_empty() => Decided::Refuse {",
+    "new": "        Resolution::NothingFound { .. } if !queried.failed.is_empty() => Decided::Refuse {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
   }
 ]

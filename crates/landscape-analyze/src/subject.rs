@@ -236,7 +236,18 @@ pub fn decide(
         // happened.** With any query unanswered we have not established that nobody is out
         // there — only that we did not finish looking, which is a different sentence and a
         // retryable one. Review found these collapsed into each other.
-        Resolution::NothingFound { .. } if !queried.failed.is_empty() => Decided::Refuse {
+        //
+        // **This is checked against *no members surviving*, not against the gate's verdict.**
+        // It used to guard only the `NothingFound` arm, and review found the way round it: two
+        // queries corroborate a candidate, the third fails, the gate resolves it — and then
+        // `assemble` sets it aside because its page could not be read. `Resolved` with an empty
+        // set falls past a verdict-shaped guard and lands on *"we searched and found nobody"*,
+        // which is a conclusion about a market drawn while a query was still unanswered, and
+        // the one refusal it makes sense to retry offered as one it does not.
+        //
+        // A **non-empty** set still beats an outage: an answer we already have is worth more
+        // than telling somebody to come back for it.
+        _ if set.is_empty() && !queried.failed.is_empty() => Decided::Refuse {
             why: search_incomplete(queried.failed.len(), queried.sent()),
             kind: landscape_core::Failure::SearchIncomplete,
         },
@@ -740,6 +751,74 @@ mod deciding {
         };
         assert_eq!(why, NOTHING_RESOLVED);
         assert!(!why.contains("try again"), "{why}");
+    }
+
+    #[test]
+    fn a_candidate_rejected_after_an_outage_is_still_an_outage() {
+        // **Review found the way round the guard above.** Two queries corroborate a candidate,
+        // the third fails, the gate resolves it - and `assemble` then sets it aside because its
+        // page could not be read. `Resolved` with an empty set fell past a verdict-shaped check
+        // and landed on *"we searched and found nobody"*: a conclusion about a market drawn
+        // while a query was still unanswered, and the one refusal worth retrying offered as one
+        // that is not.
+        //
+        // Both shapes of empty set, because the arm below it is the one that used to catch them.
+        for set_aside in [
+            vec![(candidate("Alpha", "alpha.example"), Aside::Unread)],
+            Vec::new(),
+        ] {
+            let queried = Queried {
+                completed: vec!["q1".to_owned(), "q2".to_owned()],
+                failed: vec!["q3".to_owned()],
+            };
+            let decided = decide(
+                derived(
+                    Resolution::Resolved {
+                        entity: candidate("Alpha", "alpha.example"),
+                    },
+                    Set {
+                        members: Vec::new(),
+                        set_aside: set_aside.clone(),
+                        alone: None,
+                    },
+                    true,
+                ),
+                &queried,
+            );
+            let Decided::Refuse { kind, why } = decided else {
+                panic!("an empty set was analysed")
+            };
+            assert_eq!(
+                kind,
+                landscape_core::Failure::SearchIncomplete,
+                "a market was declared empty while a query was unanswered: {why}"
+            );
+            assert!(why.contains("1 of the 3"), "{why}");
+            assert!(why.contains("try again"), "{why}");
+        }
+    }
+
+    #[test]
+    fn an_answer_we_already_have_still_beats_an_outage() {
+        // The other side of the same rule, so it stays a rule: a set with somebody in it is a
+        // real answer, and telling a reader to come back for it would throw that away.
+        let decided = decide(
+            derived(
+                Resolution::Resolved {
+                    entity: candidate("Alpha", "alpha.example"),
+                },
+                two(),
+                true,
+            ),
+            &Queried {
+                completed: vec!["q1".to_owned()],
+                failed: vec!["q2".to_owned(), "q3".to_owned()],
+            },
+        );
+        assert!(
+            matches!(decided, Decided::Analyse(_)),
+            "an answer was thrown away over an outage: {decided:?}"
+        );
     }
 
     #[test]
