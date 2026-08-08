@@ -466,5 +466,44 @@
       "-p",
       "landscape-analyze"
     ]
+  },
+  {
+    "name": "a reader is asked to choose between companies nobody fetched",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    let choices: Vec<Candidate> = named\n        .into_iter()\n        .filter(Described::was_requested)\n        .map(|d| d.candidate)\n        .collect();",
+    "new": "    let choices: Vec<Candidate> = named.into_iter().map(|d| d.candidate).collect();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the set is bounded by the same list the gate is",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    let set = crate::competitors::assemble(named.clone(), queried.sent());",
+    "new": "    let set = crate::competitors::assemble(\n        named.iter().filter(|d| d.was_requested()).cloned().collect(),\n        queried.sent(),\n    );",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a candidate nobody fetched claims to have been requested",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        !matches!(self.shares, Vocabulary::NotRequested)",
+    "new": "        true",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
   }
 ]

@@ -1470,6 +1470,11 @@ the report would compare
 else a request, so only the first five are fetched — and the budget being spent is a line a
 reader can act on rather than a company that quietly stops existing.
 
+**The question a one-word name gets is bounded by the same five**, and that is a different list
+on purpose: a company nobody fetched has no name of its own, and *"which of these did you mean:
+sixth.example (sixth.example)?"* is not a question anybody can answer. The set sees everything
+found; the question sees only what was named.
+
 **Try it with one word** and the same command answers a different question:
 
 ```bash

@@ -1164,6 +1164,41 @@ because when it was written there was no difference.
 
 > **Ask this:** *this cap was right for the old caller. Is my new caller the same kind of caller?*
 
+### 39b. And then I deleted it, which broke the caller it was written for
+
+**One review round later.** The fix above removed `found.truncate(..)` so the set could see every
+company. The *same list* still fed the disambiguation gate, so the gate got all of them too:
+
+```text
+the reader is offered 6 choices:
+   Company at https://c0.example/ (c0.example)
+   ...
+   c5.example (c5.example)
+```
+
+Six choices where `PRODUCT_SPEC.md` §3 asks for three — bounded now by *how many results a
+provider felt like returning* — and the last one is a bare domain printed twice, because
+candidates past the fetch budget were never named from their own pages. **The same defect, from
+the opposite direction, introduced by the fix for it.**
+
+**Why I did not see it.** I checked what the removal gave the new consumer and never asked what
+it took from the old one. Deleting a constraint feels like a smaller act than adding one, and it
+is not: a shared limit is load-bearing for every caller downstream of it, and there is nothing at
+the deletion site that names them.
+
+**What was actually wrong both times: one number serving two questions.** *How many companies did
+we find* and *how many can a reader be asked to choose between* are different, and no value of
+one constant is right for both. The answer was two lists off one budget — the complete ranked
+list for the set, and the fetched-and-named subset for the gate, with the split expressed as
+`Described::was_requested()` rather than as a second comparison against `NAMED` somewhere else.
+
+**Rule:** removing a shared limit needs the same list of callers as adding one. Before deleting a
+`truncate`, `take` or `filter`, enumerate everything downstream that reads the result and say out
+loud what each one now receives. If two of them want different amounts, the fix is two lists, not
+a different number.
+
+> **Ask this:** *who else was relying on this being small?*
+
 ---
 
 ## 40. A justification in a doc comment that had never been tested against its alternative
@@ -1203,6 +1238,52 @@ preference wearing an argument's clothes — write *"chosen because"* rather tha
 other one would"*.
 
 > **Ask this:** *have I run the thing this comment says would not work?*
+
+---
+
+## 41. A killed mutation run leaves the defect in your tree, and the next run believes it
+
+**Found:** while answering the review round above, by noticing a `git diff` hunk I had not written.
+
+The catalogue takes longer than ten minutes, and I ran it in the foreground with a ten-minute
+timeout. It was killed mid-mutation. `mutate.py` restores the file in a `finally`, and a
+`SIGTERM` at the wrong moment does not run it — so the tree was left holding the mutated line:
+
+```rust
+// what I wrote
+let choices: Vec<Candidate> = named.into_iter().filter(Described::was_requested)...
+// what was in the file afterwards - the mutation's `new`
+let choices: Vec<Candidate> = named.into_iter().map(|d| d.candidate).collect();
+```
+
+**Then I re-ran the catalogue, and that is where it got dangerous.** Every mutation copies the
+current file as its backup and restores it afterwards, so the second run's baseline *was the
+mutated code*. Thirty-eight entries were measured against a tree with the defect in it. The
+thirty-ninth — the one whose anchor the kill had eaten — reported `NOT APPLIED`, which reads like
+a stale anchor rather than *"the code you are testing is not the code you wrote"*.
+
+**Nothing in the run says so.** `caught` still prints, the counts still add up, and the summary
+line still says how many are covered. A poisoned baseline produces a report that looks exactly
+like a clean one.
+
+**This is the second time, and the first time already has a script.**
+`scripts/no_live_mutations.py` opens by saying *"this exists because it happened"* — a cut-short
+run once left an inverted rule in the tree and `git add -A` would have committed it. That guard
+is `verify.py`'s **first** gate, it works, and it is what finally confirmed the tree was clean
+here. The gap is *when* it runs: at verify time, which is after every mutation result has already
+been read and believed. A `git diff` before re-running would also have shown a hunk I did not
+write, and that is what eventually found it — several steps later than it should have.
+
+**The mechanical fix, not the resolution to be careful:** `mutate.py` now refuses to start while
+any catalogued mutation is live in the tree, and says which one and how to restore it. A harness
+whose correctness depends on remembering to check something by hand is the same defect this file
+keeps recording, one level up.
+
+**Rule:** run the catalogue in the background or with a timeout longer than it takes — never with
+one that can kill it. And treat *any* interrupted run as having poisoned the tree: `git diff`
+before doing anything else, because the next thing that reads those files will believe them.
+
+> **Ask this:** *the last run of this died. Is the tree the tree I think it is?*
 
 ---
 

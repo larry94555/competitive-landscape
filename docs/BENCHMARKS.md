@@ -205,10 +205,60 @@ is corroboration: a company two searches agreed on **could** have been in the re
 with its reason; the rest are counted — *"3 further sites returned by only one search"* — which is
 a number rather than a silence, and `landscape candidates` still prints every one.
 
+### And then the fix broke the caller the cap was written for
+
+The next review round found the same defect pointing the other way. Removing the truncation so the
+*set* could see every company also handed every company to the *gate*:
+
+```text
+the reader is offered 6 choices:
+   Company at https://c0.example/ (c0.example)
+   ...
+   c5.example (c5.example)
+```
+
+Six choices where `PRODUCT_SPEC.md` §3 asks for three, bounded by how many results a provider felt
+like returning — and the last is a bare domain printed twice, because candidates past the fetch
+budget were never named from their own pages. *"Which of these did you mean: c5.example
+(c5.example)?"* is not a question anybody can answer.
+
+**One number was being asked two questions.** *How many companies did we find* and *how many can a
+reader be asked to choose between* are different, and no value of a single constant is right for
+both:
+
+| Consumer | Gets | Because |
+|---|---|---|
+| `competitors::assemble` | every company found | one it cannot see is one nothing can report as excluded |
+| `subject::resolve` | the fetched-and-named subset | a candidate with no name of its own is not a choice |
+
+The split is `Described::was_requested()` — a property of the candidate rather than a second
+comparison against `NAMED` somewhere else, because a caller redoing that arithmetic is how the
+two lists drift apart again. `NAMED`'s doc comment now names **both** jobs, which is the whole of
+what went wrong the first time.
+
+### And a harness result that was about code nobody wrote
+
+Confirming the fix nearly produced a worse mistake than the fix. The catalogue takes longer than
+ten minutes; a foreground run with a ten-minute timeout was killed mid-mutation, and
+`mutate.py`'s restore is a `finally` that a `SIGTERM` does not always reach. The mutated line was
+left in the tree.
+
+**The re-run then made that the baseline.** Every entry copies the current file and restores it
+afterwards, so thirty-eight mutations were measured against a tree with the defect in it — all
+reporting `caught`, counts adding up, output indistinguishable from a clean run. The only signal
+was the thirty-ninth reporting `NOT APPLIED`, which reads like a stale anchor.
+
+`scripts/no_live_mutations.py` exists for exactly this and opens by saying *"this exists because
+it happened"*. It is `verify.py`'s first gate — which runs long after every mutation result has
+been read and believed. So the same check now runs at the **start** of `mutate.py`, which refuses
+to measure anything while a recorded defect is live and says which one. A harness whose
+correctness depends on remembering to check something by hand is the defect this project keeps
+recording, one level up.
+
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 29 | 738 | 51 |
-| now | **763** | **51** |
+| now | **764** | **51** |
 
 ---
 

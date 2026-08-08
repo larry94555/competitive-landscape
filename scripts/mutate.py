@@ -174,10 +174,46 @@ def apply(mutation: dict) -> int:
     return 1
 
 
+def already_mutated() -> int:
+    """Refuse to measure anything while a recorded defect is already in the tree.
+
+    **Every mutation below backs up the file it is about to edit and restores that backup
+    afterwards — so a tree that starts out mutated makes the defect the baseline.** Thirty-eight
+    entries then report `caught` against code nobody wrote, the counts add up, and the run looks
+    exactly like a clean one.
+
+    That is not hypothetical twice over. `scripts/no_live_mutations.py` opens by saying *"this
+    exists because it happened"* — a cut-short run once left an inverted rule in the source. It
+    happened again, from a run killed by a timeout shorter than the catalogue takes, and the only
+    signal was one entry reporting `NOT APPLIED` because the kill had eaten its anchor.
+
+    That guard is `scripts/verify.py`'s first gate, which runs long after every result here has
+    been read and believed. The check is the same one; the point is *when*.
+    """
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import no_live_mutations  # noqa: PLC0415 — local, and only needed on this path
+
+    live = no_live_mutations.live_mutations()
+    if not live:
+        return 0
+    print("Refusing to run: a recorded mutation is already live in the working tree.\n")
+    for path, name, catalogue in live:
+        print(f"  {path}\n    {name}   [{catalogue}]")
+    print(
+        "\nA previous run was interrupted before it could put the original back. Restore it -\n"
+        "`git diff` shows the hunk - because every mutation below would otherwise be measured\n"
+        "against that defect, and would report `caught` while proving nothing."
+    )
+    return 2
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Reintroduce defects and report what notices.")
     parser.add_argument("file", help="JSON list of mutations")
     args = parser.parse_args()
+
+    if refused := already_mutated():
+        return refused
 
     mutations = json.loads(io.open(args.file, encoding="utf-8").read())
     print(f"{len(mutations)} mutation(s)\n")

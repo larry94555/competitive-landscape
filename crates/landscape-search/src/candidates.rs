@@ -87,19 +87,27 @@ pub const IDEA_QUERY_SET: &str = "2026-08-07.1";
 /// would have run against a company that appeared in one search.
 pub const CORROBORATION: usize = 2;
 
-/// How many candidates get their front page fetched.
+/// How many candidates get their front page fetched — **and therefore how many a reader can be
+/// asked to choose between.**
 ///
-/// Every one is a request against somebody's server before a reader has asked for anything, so
-/// the number is small and stated. [`describe`] fetches in score order, so the strongest
+/// Every fetch is a request against somebody's server before a reader has asked for anything, so
+/// the number is small and stated. [`describe`] works in score order, so the strongest
 /// candidates are the ones that get named.
 ///
-/// **This is a budget and it is no longer a truncation.** It used to be `MAX_CANDIDATES`, and
-/// [`from_results`] applied it to the whole list — so a sixth corroborated company vanished
-/// before anything could say it existed. Review found that: it was neither compared nor
-/// reported as excluded, which is the silent drop
-/// [`crate::competitors`] was written to remove. The list is now complete and the budget
-/// applies only to *fetching*; what it costs is a
-/// [`crate::competitors::Aside::BeyondTheFetchBudget`], which a reader can read.
+/// **Two jobs, and they are the same set rather than a coincidence.** A candidate whose front
+/// page we never read has no name of its own — only a domain — and *"which of these six did you
+/// mean: c5.example (c5.example)?"* is not a question anybody can answer. So the list the
+/// disambiguation gate sees is exactly the list that got fetched, and `PRODUCT_SPEC.md` §3's
+/// *at most three chips* stays bounded by something other than how many results a provider felt
+/// like returning.
+///
+/// **It is a budget and not a truncation.** It used to be `MAX_CANDIDATES` and [`from_results`]
+/// applied it to the whole list, so a sixth corroborated company vanished before anything could
+/// say it existed — the silent drop [`crate::competitors`] was written to remove. Removing it
+/// there then handed all six to the gate, which was the same mistake pointing the other way.
+/// The list is complete for [`crate::competitors::assemble`], bounded here for the gate, and
+/// what the bound costs is a [`crate::competitors::Aside::BeyondTheFetchBudget`] a reader can
+/// read.
 pub const NAMED: usize = 5;
 
 /// Hosts that are pages *about* a market rather than companies in it.
@@ -204,6 +212,21 @@ pub struct Described {
     pub agreed: usize,
     /// What its front page turned out to say, or why nobody knows.
     pub shares: Vocabulary,
+}
+
+impl Described {
+    /// Whether we asked for its front page.
+    ///
+    /// **The line between a candidate a reader can be offered and a bare domain.** One has a
+    /// name it gave itself and a sentence saying what it is; the other has a host. Review found
+    /// the second kind reaching a disambiguation question as *"c5.example (c5.example)"*.
+    ///
+    /// It is a property of the candidate rather than an index compared against [`NAMED`],
+    /// because the caller doing that arithmetic itself is how the two lists drift apart.
+    #[must_use]
+    pub fn was_requested(&self) -> bool {
+        !matches!(self.shares, Vocabulary::NotRequested)
+    }
 }
 
 /// What a company's front page turned out to say about the description — or why nobody knows.
@@ -479,16 +502,22 @@ where
     let (found, queried) = suggest(engine, description).await;
     let words = crate::competitors::content_words(description);
     let named = describe(&found, &words, fetch).await;
+    // **Two consumers, two lists, and the difference is deliberate.** The set gets everything
+    // that was found, because a company it cannot see is a company nothing can report as
+    // excluded. The gate gets only what was *fetched*, because it asks a reader to choose and a
+    // candidate with no name of its own is not a choice. Review found each of these in turn,
+    // from opposite directions.
     let set = crate::competitors::assemble(named.clone(), queried.sent());
+    let choices: Vec<Candidate> = named
+        .into_iter()
+        .filter(Described::was_requested)
+        .map(|d| d.candidate)
+        .collect();
     // **Only what came back.** This list is what a reader is shown as *"we checked these"*, and
     // a query that never reached an engine checked nothing. Review found the previous version
     // listing all three after all three had failed.
     let checked = queried.completed.clone();
-    let verdict = landscape_core::subject::resolve(
-        description,
-        named.into_iter().map(|d| d.candidate).collect(),
-        checked,
-    );
+    let verdict = landscape_core::subject::resolve(description, choices, checked);
     (
         crate::competitors::Derived {
             verdict,
@@ -1465,6 +1494,71 @@ The second of two."
         );
         assert_eq!(sixth.canonical_domain, "c5.example");
         assert_eq!(derived.set.members.len(), NAMED);
+    }
+
+    #[tokio::test]
+    async fn a_reader_is_never_asked_to_choose_between_bare_domains() {
+        // **Review found this arriving from the opposite direction to the last one.** Removing
+        // the truncation so the *set* could see every company also handed every company to the
+        // *gate* - including the ones nobody fetched, which have no name of their own:
+        //
+        // ```text
+        // the reader is offered 6 choices:
+        //    Company at https://c0.example/ (c0.example)
+        //    ...
+        //    c5.example (c5.example)
+        // ```
+        //
+        // A question bounded by how many results a provider felt like returning, whose last
+        // option is a domain repeated twice.
+        let all: Vec<Hit> = (0..6)
+            .map(|i| hit(&format!("https://c{i}.example/")))
+            .collect();
+        let engine = Canned {
+            per_query: vec![Ok(all.clone()), Ok(all.clone()), Ok(all)],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (derived, _) = for_description(&engine, "Notion", |url| async move {
+            Some(format!(
+                "# Company at {url}\n\nOne workspace for your notes."
+            ))
+        })
+        .await;
+
+        assert!(!derived.about_a_market, "one word read as a market");
+        let Resolution::Ambiguous { candidates, .. } = derived.verdict else {
+            panic!("six tied hosts did not ask")
+        };
+        assert_eq!(
+            candidates.len(),
+            NAMED,
+            "the question is bounded by the provider rather than by us: {candidates:#?}"
+        );
+        for c in &candidates {
+            assert_ne!(
+                c.name, c.canonical_domain,
+                "a candidate with no name of its own was offered as a choice: {c:?}"
+            );
+        }
+
+        // **And the set still accounts for all six.** The two lists differ on purpose, so a fix
+        // to either one that quietly re-joins them fails here.
+        let mut accounted: Vec<&str> = derived
+            .set
+            .members
+            .iter()
+            .map(|m| m.candidate.canonical_domain.as_str())
+            .chain(
+                derived
+                    .set
+                    .set_aside
+                    .iter()
+                    .map(|(c, _)| c.canonical_domain.as_str()),
+            )
+            .collect();
+        accounted.sort_unstable();
+        assert_eq!(accounted.len(), 6, "{:#?}", derived.set);
+        assert!(accounted.contains(&"c5.example"), "{accounted:?}");
     }
 
     #[tokio::test]
