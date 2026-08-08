@@ -56,7 +56,39 @@ def live_mutations() -> list[tuple[str, str, str]]:
     return found
 
 
+def abandoned_backups() -> list[str]:
+    """Every `*.mutate-backup` still on disk.
+
+    **An exact signal, where the comparison above has a hole.** `live_mutations` matches the
+    recorded `new` character for character, and a formatter run over an applied mutation defeats
+    that: a `cargo fmt --all` reflowed a mutated `const TEMPLATES` onto one line — dropping the
+    trailing comma as well as the newlines — so the swap was live and unrecognisable, and this
+    gate reported a clean tree.
+
+    A backup file is left behind by exactly two things, and both mean the tree is not to be
+    trusted: a run that died holding a file, and `mutate.py` refusing to restore over somebody
+    else's edit. Neither depends on what the mutated text looks like afterwards, which is why
+    this check is sound where a text comparison is only usually right.
+    """
+    return [
+        os.path.relpath(path, ROOT)
+        for path in glob.glob(str(ROOT / "**" / "*.mutate-backup"), recursive=True)
+    ]
+
+
 def main() -> int:
+    if left := abandoned_backups():
+        print("A mutation run left its backup behind, so the tree is not what it looks like:\n")
+        for path in left:
+            print(f"  {path}")
+        print(
+            "\nThat file is the original. Compare it against the source beside it and put the\n"
+            "right one back — `mutate.py` kept it rather than clobber an edit, or died holding\n"
+            "it. Until it is gone nothing here can say whether a defect is live: a formatter\n"
+            "run over an applied mutation makes the swap unrecognisable to the check below."
+        )
+        return 1
+
     found = live_mutations()
     if not found:
         print("no recorded mutation is live in the tree.")

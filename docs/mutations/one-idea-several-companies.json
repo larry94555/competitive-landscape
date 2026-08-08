@@ -158,8 +158,8 @@
   {
     "name": "a reason divides by the searches that answered rather than those sent",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "    let set = crate::competitors::assemble(named.clone(), queried.sent(), &words);",
-    "new": "    let set = crate::competitors::assemble(named.clone(), queried.completed.len(), &words);",
+    "old": "    let mut set = crate::competitors::assemble(named.clone(), queried.sent(), &words);",
+    "new": "    let mut set =\n        crate::competitors::assemble(named.clone(), queried.completed.len(), &words);",
     "run": [
       "cargo",
       "nextest",
@@ -483,8 +483,8 @@
   {
     "name": "the set is bounded by the same list the gate is",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "    let set = crate::competitors::assemble(named.clone(), queried.sent(), &words);",
-    "new": "    let set = crate::competitors::assemble(\n        named.iter().filter(|d| d.was_requested()).cloned().collect(),\n        queried.sent(),\n        &words,\n    );",
+    "old": "    let mut set = crate::competitors::assemble(named.clone(), queried.sent(), &words);",
+    "new": "    let mut set = crate::competitors::assemble(\n        named.iter().filter(|d| d.was_requested()).cloned().collect(),\n        queried.sent(),\n        &words,\n    );",
     "run": [
       "cargo",
       "nextest",

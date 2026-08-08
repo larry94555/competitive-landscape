@@ -80,99 +80,98 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    profile: {
-      name: "what one domain used to get you",
-      purpose: "A profile, in a landscape tool.",
+    claimed: {
+      name: "a comparison that did not happen",
+      purpose: "One company, and this sentence.",
       lines: [
-        ['s', '  basecamp.com'],
-        ['s', '     -> a report about Basecamp'],
+        ['s', '  we searched for the companies'],
+        ['s', '  it competes with. This report'],
+        ['s', '  compares Basecamp.'],
         ['c', ''],
-        ['c', '// A different question from the'],
-        ['f', '// one anybody typed.']
+        ['f', '// With no engine, nothing was asked.']
       ]
     },
-    p22: {
-      name: "the rule this path can finally keep",
-      purpose: "FACT_CHECKING P22.",
+    four: {
+      name: "four ways to have nobody",
+      purpose: "And a reader acts on each.",
       lines: [
-        ['t', '  templated queries from'],
-        ['t', '  resolved entities, not'],
-        ['t', '  user phrasing'],
+        ['t', '  NoEngine          configure one'],
+        ['t', '  NothingToCompare  name another'],
+        ['t', '  SearchIncomplete  try again'],
+        ['f', '  NobodyHeldUp      that is the answer'],
         ['c', ''],
-        ['c', '// A description has no resolved'],
-        ['f', '// entity. A domain is one.']
+        ['c', '// Only the last is about a market.']
       ]
     },
-    three: {
-      name: "one box, three readings",
-      purpose: "And the middle one is new.",
+    one: {
+      name: "one sentence would be worse",
+      purpose: "Than none at all.",
       lines: [
-        ['t', '  nothing   -> search for them'],
-        ['f', '  one       -> seed a landscape'],
-        ['t', '  several   -> exactly those'],
+        ['s', '  "we found no competitors"'],
         ['c', ''],
-        ['c', '// Naming two is an instruction,'],
-        ['f', '// not a starting point.']
+        ['t', '  you act on it, and get the'],
+        ['t', '  same silence back'],
+        ['c', ''],
+        ['f', '// Deferred three PRs to avoid this.']
       ]
     },
-    itself: {
-      name: "a company is not its own rival",
-      purpose: "Every query returns the seed.",
+    both: {
+      name: "one decision, both paths",
+      purpose: "alone_because.",
       lines: [
-        ['s', '  basecamp alternatives'],
-        ['s', '     -> basecamp.com, first'],
+        ['t', '  a description -> one company'],
+        ['t', '  a domain      -> one company'],
         ['c', ''],
-        ['t', '  filter(!same_company)'],
+        ['f', '  the same shape to a reader'],
         ['c', ''],
-        ['f', '// A reason that argues with itself.']
+        ['c', '// So the same function decides.']
       ]
     },
-    named: {
-      name: "two kinds of reason",
-      purpose: "Because became an enum.",
+    compares: {
+      name: "and the note stops claiming",
+      purpose: "\"compares\" needs two.",
       lines: [
-        ['f', '  Basecamp   you named it'],
-        ['t', '  Linear     3 of the 3 searches'],
+        ['s', '  This report compares Basecamp.'],
         ['c', ''],
-        ['c', '// A struct of three numbers can'],
-        ['f', '// only say the second one.']
+        ['t', '  This report is about it.'],
+        ['t', '  We did not look, because...'],
+        ['c', ''],
+        ['f', '// A claim, and then the reason.']
       ]
     },
-    invent: {
-      name: "and would have invented the first",
-      purpose: "In the evidence field.",
+    diag: {
+      name: "the diagnostic shows it too",
+      purpose: "One printer, both paths.",
       lines: [
-        ['s', '  agreed: 3, asked: 3'],
-        ['s', '  for a search nobody ran'],
+        ['c', '// It would have shown less than'],
+        ['c', '// the report - which is the drift'],
+        ['f', '// the last two rounds were about.'],
         ['c', ''],
-        ['t', '  Because::Named'],
-        ['c', ''],
-        ['f', '// Evidence is not a default value.']
+        ['t', '  set_as_printed(&set)']
       ]
     },
-    anchor: {
-      name: "the gate from last week",
-      purpose: "Its first working day.",
+    fmt: {
+      name: "and a formatter hid a defect",
+      purpose: "From the gate that looks for them.",
       lines: [
-        ['t', '  extract from_its_own_page'],
-        ['s', '  -> a pin no longer applies'],
+        ['s', '  cargo fmt reflowed the mutation'],
+        ['s', '  -> no longer the recorded text'],
         ['c', ''],
-        ['f', '  reported in one second'],
+        ['f', '  "no recorded mutation is live"'],
         ['c', ''],
-        ['c', '// Not in a 20-minute run that'],
-        ['c', '// would have said 26 of 27.']
+        ['c', '// The one gate written to stop this.']
       ]
     },
-    missed: {
-      name: "two MISSED, both real",
-      purpose: "The harness earning its keep.",
+    glob: {
+      name: "the fix needed no guess",
+      purpose: "A leftover file, not the code.",
       lines: [
-        ['s', '  named_seed had no test'],
-        ['s', '  the divisor held on one path'],
+        ['s', '  collapse whitespace? no -'],
+        ['s', '  rustfmt drops the comma too'],
         ['c', ''],
-        ['t', '  both covered now'],
+        ['t', '  *.mutate-backup on disk'],
         ['c', ''],
-        ['f', '// A rule has to hold everywhere.']
+        ['f', '// Sound, not usually right.']
       ]
     }
   };
@@ -216,19 +215,19 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:profile", c: "One domain got you a profile of one company." },
-    { kind: "means",       a: "file:p22",     c: "And a domain is the resolved entity P22 wants." },
+    { kind: "recognition", a: "file:claimed",  c: "A comparison claimed, and never made." },
+    { kind: "means",       a: "file:four",     c: "Four ways to have nobody, and four things to do." },
 
-    { kind: "turn",        a: "file:three",   c: "One box, three readings. The middle one is new." },
-    { kind: "result",      a: "file:itself",  c: "A company is dropped from its own results." },
+    { kind: "turn",        a: "file:one",      c: "One sentence for all four would be worse than none." },
+    { kind: "result",      a: "file:both",     c: "So one function decides it, for both paths." },
 
-    { kind: "turn",        a: "file:named",   c: "Two kinds of reason, so Because became an enum." },
-    { kind: "result",      a: "file:invent",  c: "A struct would have invented the evidence." },
+    { kind: "turn",        a: "file:compares", c: "And the note stops saying compares." },
+    { kind: "result",      a: "file:diag",     c: "The diagnostic shows the reason too." },
 
-    { kind: "result",      a: "file:anchor",  c: "Last week's gate caught a pin in one second." },
-    { kind: "result",      a: "file:missed",  c: "And two MISSED were both real gaps." },
+    { kind: "result",      a: "file:fmt",      c: "Then a formatter hid a defect from its own gate." },
+    { kind: "result",      a: "file:glob",     c: "The fix was a leftover file, not a cleverer match." },
 
-    { kind: "close",       a: "hold",         c: "A company brings its rivals." }
+    { kind: "close",       a: "hold",          c: "A report about one company says why." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -271,8 +270,8 @@
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "A company brings its rivals",
-    blurb: "A description became a set one change ago; a named company still got a profile of itself, which is a different question from the one a competitive landscape tool is asked. The queries that find the rest are templated from the company\'s own name for itself, read off its own front page \u2014 the case FACT_CHECKING P22 was written for rather than the exception the description path had to argue for. Reading one box now has three answers: nothing named is searched for, one named seeds a landscape, and several named are exactly those, because a reader who writes two domains has said what to compare.",
+    title: "A report about one company says why",
+    blurb: "Both inputs produce a comparison now; what was still dishonest was a comparison that did not happen. A lone company arrived with a sentence saying we had searched for the others, whether or not we had \u2014 with no engine configured, nothing was asked at all. There are four ways to end up with nobody and a reader acts on each of them differently, so they are four sentences: configure something, name a different company, wait and try again, or accept that this is the answer. Only the last is a statement about a market.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

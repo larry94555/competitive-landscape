@@ -746,9 +746,18 @@ the single most important phase; everything after it is commerce and polish.
   returns Basecamp and leaving it in would put one company in the report twice with two reasons,
   one of them circular. It is first, and its reason is *"you named it"* — a different kind of
   fact from *"3 of the 3 searches returned it"*, which is why `Because` became an enum.
-  **Still open:** chips for the one-word names the gate refuses in prose, vocabulary resolution,
-  and *"no public information"* at the level of a whole set — the honest empty a seeded report
-  does not yet have.
+  **A report that covers one company says why** — [BENCHMARKS.md](BENCHMARKS.md) Run 32, and
+  the row this one owed. Until it, a lone company arrived with a sentence saying we had searched
+  for the others, whether or not we had: with no `SEARX_URL` nothing was asked at all, and the
+  page said the same thing as a run that asked three times and found nobody. `NoRivals` is four
+  facts — no engine, this company's own page gave us nothing to judge a rival against, the
+  searching did not finish, and we looked and nobody held up — and only the last is a statement
+  about the market, only the third is fixed by waiting, and only the first is fixed by
+  configuring something. `alone_because` decides it once for both paths, so a description that
+  resolved to a single company and a named company nobody could be found for cannot come to
+  different conclusions about the same evidence.
+  **Still open:** chips for the one-word names the gate refuses in prose, and vocabulary
+  resolution.
   **SearXNG itself has not been run against this.** `docker compose --profile search up -d
   searxng` and a checked-in `settings.yml` are in the repository and unwalked, for the same
   reason D3 is — the first person through corrects it.

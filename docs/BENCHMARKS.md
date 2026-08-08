@@ -33,6 +33,113 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 32 — a report about one company says why
+
+**Date:** 2026-08-08 · **Where:** this laptop · **Model:** none for the set; the analysis that
+follows uses one exactly as it always has.
+
+Runs 30 and 31 made both inputs produce a comparison. **What neither made honest was a
+comparison that did not happen.** A lone company arrived with this note:
+
+```text
+You named basecamp.com, so we searched for the companies it competes with. This report
+compares Basecamp (basecamp.com).
+```
+
+A comparison claimed and not made — and in three of the four ways it happens, **a search claimed
+and not run**. With no `SEARX_URL` nothing was asked at all, and the page read exactly as it did
+for a run that asked three times and found nobody.
+
+### Four facts, and a reader acts on each differently
+
+| `NoRivals` | What it says | What a reader does |
+|---|---|---|
+| `NoEngine` | nothing is configured, so nothing off this company's own site can be reached | configure one |
+| `NothingToCompare(why)` | its own page gave us nothing to judge a rival against | name a different company |
+| `SearchIncomplete { failed, sent }` | some searches did not come back | wait, and try again |
+| `NobodyHeldUp` | we searched, and nothing that came back held up | nothing — this is the answer |
+
+**Only the last is a statement about the market.** The other three are about us or about one
+company's website, and a single sentence covering all four is worse than no sentence, because a
+reader acts on it and gets the same silence back. That refusal is why this row was left standing
+through three PRs rather than half-built inside them — Runs 29, 30 and 31 each name it as
+deliberately deferred. This is it paid off.
+
+`NothingToCompare` carries the `NoVocabulary` from Run 31's review, so *"we could not read its
+front page"* and *"its front page has no sentence describing what it does"* stay apart the whole
+way to the reader. And it says out loud what it is **not** claiming: *"This says nothing about
+who else is out there."* Nothing was asked, so nothing about the market has been established.
+
+### One decision for both paths
+
+`alone_because(members, queried, nothing_asked)` is a pure function, and both paths call it. A
+description that resolved to a single company and a named company nobody could be found for are
+the same shape from a reader's side — one company, in a tool that promises a comparison — and
+the two would otherwise each guess at the reason.
+
+`nothing_asked` is a parameter because [`Queried`] cannot tell *"we sent none"* from *"there were
+none to send"*: no engine and no vocabulary are both decided before a query exists. That is the
+same distinction the whole row keeps making, one level further in.
+
+**More than one company returns `None` whatever else went wrong.** A comparison is a comparison
+even if two of three searches failed on the way to it, and a reason for having nobody printed
+beside *"this report compares X and Y"* would contradict the line above it.
+
+### The note stops claiming what it did not do
+
+```text
+You named basecamp.com, so this report is about it.
+We did not look for companies it competes with: no search engine is configured here, so
+nothing off this company's own site can be reached.
+```
+
+The first note now branches on whether the set is alone, in both the seeded and described cases,
+so the word *"compares"* appears only when there is a comparison.
+
+### And the diagnostic shows it too
+
+`landscape candidates` prints the reason under the set, through one `set_as_printed` shared by
+both its paths. A diagnostic that showed the comparison but not the reason for its size would
+show **less than the report does** — which is exactly the drift Run 31's last two review rounds
+were about, so it was closed in the same change rather than found later.
+
+### A guard that compares text, and a formatter that rewrites it
+
+Running `cargo fmt --all` while a catalogue held a file open stopped that catalogue and kept its
+backup, exactly as Run 31's review intended. What it left behind was the mutated file **after
+`rustfmt` reflowed it** — and `scripts/no_live_mutations.py` reported a clean tree, because the
+swap was no longer the recorded string character for character.
+
+The obvious fix is wrong in an instructive way: collapsing runs of whitespace before comparing
+would **not** have caught this one, because `rustfmt` drops the trailing comma when it joins
+lines as well as removing the newlines. A normalisation is a claim about what the other tool
+does, and that one was a guess — its own self-check is what said so.
+
+What closes it needs no guess. A `*.mutate-backup` on disk means exactly two things, both of them
+*"this tree is not what it looks like"*: a run died holding a file, or the harness refused to
+restore over an edit. Neither depends on what the mutated text looks like afterwards. It is one
+`glob`, and it is the first thing that gate now checks.
+
+### What still does not happen
+
+**Chips.** A one-word name the gate cannot choose between is still refused in prose, naming the
+candidates. `PRODUCT_SPEC.md` §3 wants three chips and one click.
+
+**Nothing measures whether the set is right.** Unchanged, and now the only thing about this
+feature that is not honest about itself: `NoRivals::NobodyHeldUp` is a statement about a market
+made from three searches, and there is no recall number behind it.
+[B1](../PROJECT_STATUS.md#4-blockers).
+
+**And no engine has been asked**, still: Docker's daemon does not start where this was built, so
+every test is a canned provider over the real code path.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 31 | 792 | 51 |
+| now | **802** | **51** |
+
+---
+
 ## Run 31 — a company brings its rivals
 
 **Date:** 2026-08-08 · **Where:** this laptop · **Model:** none for the set; the analysis that
@@ -135,7 +242,7 @@ named company gets a report about itself and nothing on the page says we looked.
 public information at the level of a whole competitor set"* — its own row of S2, deliberately not
 half-built here: one sentence covering *no engine*, *the search did not finish* and *we looked and
 found nobody* is precisely the collapse this project has un-made three times, in Runs 29, 30 and
-30's review.
+30's review. **Built in Run 32**, as four sentences.
 
 **Nothing measures whether the set is right**, on either path. Three searches agreeing and a
 shared word is the whole of the evidence, and there is no recall number. That is

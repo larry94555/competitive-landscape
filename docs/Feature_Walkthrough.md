@@ -1647,12 +1647,30 @@ curl -sX POST http://127.0.0.1:8787/api/analyses -H 'content-type: application/j
 Nothing is searched for and no third company appears. A reader who names two has said what they
 want compared, and adding to it would be overruling them.
 
-**What this still does not do.** With no `SEARX_URL`, or with every query failing, a named
-company gets a report about itself and **nothing on the page says we looked**. That is *"no
-public information at the level of a whole competitor set"* — its own row of S2, deliberately
-not half-built here, because one sentence covering *no engine*, *the search did not finish* and
-*we looked and found nobody* is the collapse this project has now un-made three times. See
-[BENCHMARKS.md](BENCHMARKS.md) Run 31.
+### And a report about one company says why
+
+The four ways a comparison does not happen are four sentences, because a reader acts on each of
+them differently:
+
+```text
+You named basecamp.com, so this report is about it.
+We did not look for companies it competes with: no search engine is configured here, so
+nothing off this company's own site can be reached.
+```
+
+| Instead of that last line | When |
+|---|---|
+| *"...its front page has no sentence describing what it does, so there was nothing to judge one against. This says nothing about who else is out there."* | the company's own page gave us no vocabulary |
+| *"We could not complete 2 of the 3 searches... That is usually temporary - try again."* | the searching did not finish |
+| *"We searched for companies it competes with and none of what came back held up."* | we looked, and nobody did |
+
+**Only the last is a statement about the market.** One sentence covering all four would be worse
+than none, because you would act on it and get the same silence back — and the first note stops
+saying *"compares"* at all when there is nothing to compare. `landscape candidates <domain>`
+prints the same reason under the set, so the diagnostic never shows less than the report.
+
+**What this still does not do.** A one-word name the gate cannot choose between is refused in
+prose rather than with chips. See [BENCHMARKS.md](BENCHMARKS.md) Run 32.
 
 ---
 

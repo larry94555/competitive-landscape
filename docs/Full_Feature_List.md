@@ -1,6 +1,6 @@
 # Full Feature List
 
-**As of 2026-08-08** · `main` at `106606a` · **48 of 130 PRs · 37% of the software deliverable**
+**As of 2026-08-08** · `main` at `a23f86b` · **49 of 130 PRs · 38% of the software deliverable**
 
 Every feature the roadmap describes, sorted by the readiness state that first requires it, with
 what it is estimated to cost in pull requests and how much of that is spent.
@@ -69,12 +69,12 @@ only you can do; they are listed at the bottom and are not counted anywhere.
 | State | What it means | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
 | [**S1**](#s1--ready-for-a-guided-demo) | Ready for a guided demo | 39 | 39 | **0** | **100%** |
-| [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 18 | 8 | **10** | **44%** |
+| [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 18 | 9 | **9** | **50%** |
 | [**S3**](#s3--ready-for-use) | Friendly users find no issue | 26 | 1 | **25** | **4%** |
 | [**S4**](#s4--ready-for-general-use) | Promotable, word-of-mouth quality | 11 | 0 | **11** | **0%** |
 | [**S5**](#s5--general-use-free-mode) | Stable, email signup, community | 15 | 0 | **15** | **0%** |
 | [**S6**](#s6--general-use-full-mode) | Notifications and paid subscriptions | 21 | 0 | **21** | **0%** |
-| | **Total** | **130** | **48** | **82** | **37%** |
+| | **Total** | **130** | **49** | **81** | **38%** |
 | | *Getting it onto a host (not a state)* | *3* | *0* | *3* | *0%* |
 
 **The shape of that table is the answer to "how far are we".** **S1 is complete** — the guided
@@ -134,13 +134,13 @@ code change — the software does not become different.
 
 ## S2 — Ready for demonstration
 
-*Any business idea handled correctly, limited functionality, friendly users only.* **Both
-inputs produce a comparison now.** Eight of eighteen rows are done. A description became a set
-one row ago; a **named company** does too with this one — `basecamp.com` is a competitive
-landscape asked for rather than a profile, and its competitors are found by queries templated
-from the company's own name for itself, which is the case `FACT_CHECKING.md` P22 was written for
-rather than the exception to it. Naming **two** companies still gets exactly those two: that is
-a reader saying what to compare, and adding to it would be overruling them.
+*Any business idea handled correctly, limited functionality, friendly users only.* **Half of
+this state is built.** Nine of eighteen rows are done. Both inputs produce a comparison — a
+description and a named company alike — and with this row, a report that covers **one** company
+says which of four things happened to the others: no engine is configured, its own page gave us
+nothing to judge a competitor against, the searching did not finish, or we looked and nobody
+held up. A reader acts on each of those differently, which is the whole reason they are four
+sentences and not one.
 
 | Feature | State | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
@@ -151,10 +151,10 @@ a reader saying what to compare, and adding to it would be overruling them.
 | Clarifying questions — ≤3, chip-answerable, skippable, only when discovery diverges | S2 | 2 | 0 | **2** | 0% |
 | Trust posture extractor — the fifth question kind | S2 | 1 | 1 | 0 | 100% |
 | Investment direction extractor — the sixth question kind | S2 | 1 | 1 | 0 | 100% |
-| Honest "no public information" at the level of a whole competitor set | S2 | 1 | 0 | **1** | 0% |
+| Honest "no public information" at the level of a whole competitor set | S2 | 1 | 1 | 0 | 100% |
 | Fetch cache and per-source extraction cache — two readers of one competitor share work | S2 | 2 | 0 | **2** | 0% |
 | Conditional GET and a per-analysis fetch cap | S2 | 1 | 0 | **1** | 0% |
-| | | **18** | **8** | **10** | **44%** |
+| | | **18** | **9** | **9** | **50%** |
 
 **Neither row that has moved is on the critical path, and that is deliberate.** The trust posture
 and investment direction extractors need no search channel: discovery already admits `/security`

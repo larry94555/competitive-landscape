@@ -293,24 +293,42 @@ pub fn found_for_you(set: &landscape_search::competitors::Set, analysing: usize)
         compared.first().map(|m| &m.because),
         Some(landscape_search::competitors::Because::Named)
     );
-    let mut notes = vec![if seeded {
-        format!(
-            "You named {}, so we searched for the companies it competes with. This report \
-             compares {}. If those are not the companies you meant, name the domains and we \
-             will read those instead.",
-            compared
-                .first()
-                .map_or_else(String::new, |m| m.candidate.canonical_domain.clone()),
+    // **A report about one company must not claim we compared it with anybody.** When the
+    // set is alone, the sentence about searching would be false in three of the four cases
+    // and misleading in the fourth, so it is not said at all - `set.alone` says what
+    // happened instead, in the note below.
+    let seed_domain = compared
+        .first()
+        .map_or_else(String::new, |m| m.candidate.canonical_domain.clone());
+    let mut notes = vec![match (seeded, set.alone.is_some()) {
+        (true, true) => format!("You named {seed_domain}, so this report is about it."),
+        (true, false) => format!(
+            "You named {seed_domain}, so we searched for the companies it competes with. \
+             This report compares {}. If those are not the companies you meant, name the \
+             domains and we will read those instead.",
             joined_with_and(&named)
-        )
-    } else {
-        format!(
+        ),
+        (false, true) => format!(
+            "You described a market rather than naming companies, so we searched for them. \
+             This report is about {}.",
+            joined_with_and(&named)
+        ),
+        (false, false) => format!(
             "You described a market rather than naming companies, so we searched for them. \
              This report compares {}. If those are not the companies you meant, name the \
              domains and we will read those instead.",
             joined_with_and(&named)
-        )
+        ),
     }];
+
+    // **The honest empty, at the level of a whole set.** Four different reasons a report
+    // covers one company, and a reader acts on each differently: one is fixed by
+    // configuring something, one by waiting, one by naming a different company, and one is
+    // the only statement about the market. Collapsing them was refused three times while
+    // the rest of this row was built; this is that refusal paid off.
+    if let Some(why) = set.alone.as_ref() {
+        notes.push(why.sentence());
+    }
 
     notes.push(format!(
         "Why each one is here: {}.",
@@ -519,6 +537,7 @@ mod deciding {
                 member("Beta", "beta.example"),
             ],
             set_aside: Vec::new(),
+            alone: None,
         }
     }
 
@@ -659,6 +678,7 @@ mod deciding {
                         ),
                         (candidate("Beta", "beta.example"), Aside::Unread),
                     ],
+                    alone: None,
                 },
                 true,
             ),

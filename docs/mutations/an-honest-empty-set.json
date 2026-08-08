@@ -1,0 +1,210 @@
+[
+  {
+    "name": "a comparison is explained as an absence",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    if members > 1 {\n        return None;\n    }",
+    "new": "    if false {\n        return None;\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a report about one company carries no reason for being alone",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    if members > 1 {\n        return None;\n    }",
+    "new": "    if members > 0 {\n        return None;\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a search that never happened is reported as a market with nobody in it",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    if let Some(why) = nothing_asked {\n        return Some(why);\n    }",
+    "new": "    if let Some(_why) = nothing_asked {}",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "an outage is reported as a market with nobody in it",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    if !queried.failed.is_empty() {\n        return Some(NoRivals::SearchIncomplete {\n            failed: queried.failed.len(),\n            sent: queried.sent(),\n        });\n    }",
+    "new": "    if false {\n        return Some(NoRivals::SearchIncomplete {\n            failed: queried.failed.len(),\n            sent: queried.sent(),\n        });\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "an outage counts the queries that answered rather than those that did not",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "            failed: queried.failed.len(),\n            sent: queried.sent(),",
+    "new": "            failed: queried.completed.len(),\n            sent: queried.sent(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a market we looked at and found empty is offered as retryable",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "            Self::NobodyHeldUp => \"We searched for companies it competes with and none of what \\\n                 came back held up.\"\n                .to_owned(),",
+    "new": "            Self::NobodyHeldUp => \"We could not complete the searches for companies it \\\n                 competes with - try again.\"\n                .to_owned(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a seed we could not read is reported as a market with nobody in it",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "                    alone: Some(NoRivals::NothingToCompare(why)),",
+    "new": "                    alone: Some(NoRivals::NobodyHeldUp),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a seed we could not read claims something about who else is out there",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "                 judge one against. This says nothing about who else is out there.\",",
+    "new": "                 judge one against.\",",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a set with nobody in it says nothing about why",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    set.alone = alone_because(set.members.len(), &queried, None);",
+    "new": "    set.alone = None;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a description that found one company says nothing about why",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    set.alone = crate::competitors::alone_because(set.members.len(), &queried, None);",
+    "new": "    set.alone = None;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a report about one company claims to have compared it",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "    let mut notes = vec![match (seeded, set.alone.is_some()) {",
+    "new": "    let mut notes = vec![match (seeded, false) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a real comparison is described as a report about one company",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "    let mut notes = vec![match (seeded, set.alone.is_some()) {",
+    "new": "    let mut notes = vec![match (seeded, true) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the reason a report covers one company never reaches the reader",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "    if let Some(why) = set.alone.as_ref() {\n        notes.push(why.sentence());\n    }",
+    "new": "    if let Some(why) = set.alone.as_ref() {\n        let _unsaid = why.sentence();\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "no engine is reported to a reader as a market with nobody in it",
+    "file": "crates/landscape/src/main.rs",
+    "old": "            alone: Some(landscape_search::competitors::NoRivals::NoEngine),",
+    "new": "            alone: Some(landscape_search::competitors::NoRivals::NobodyHeldUp),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape"
+    ]
+  },
+  {
+    "name": "a run with no engine says nothing about why it found nobody",
+    "file": "crates/landscape/src/main.rs",
+    "old": "            alone: Some(landscape_search::competitors::NoRivals::NoEngine),",
+    "new": "            alone: None,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape"
+    ]
+  },
+  {
+    "name": "the diagnostic hides the reason a report covers one company",
+    "file": "crates/landscape/src/main.rs",
+    "old": "    if let Some(why) = set.alone.as_ref() {\n        said.push(String::new());\n        said.push(why.sentence());\n    }",
+    "new": "    if let Some(why) = set.alone.as_ref() {\n        let _unsaid = why.sentence();\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape"
+    ]
+  }
+]

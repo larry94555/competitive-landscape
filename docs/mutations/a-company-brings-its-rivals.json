@@ -184,8 +184,8 @@
   {
     "name": "a reader who named a company is told they described a market",
     "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "    let mut notes = vec![if seeded {",
-    "new": "    let mut notes = vec![if false {",
+    "old": "    let seeded = matches!(\n        compared.first().map(|m| &m.because),\n        Some(landscape_search::competitors::Because::Named)\n    );",
+    "new": "    let seeded = false;",
     "run": [
       "cargo",
       "nextest",
@@ -197,8 +197,8 @@
   {
     "name": "a reader who described a market is told they named a company",
     "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "    let mut notes = vec![if seeded {",
-    "new": "    let mut notes = vec![if true {",
+    "old": "    let seeded = matches!(\n        compared.first().map(|m| &m.because),\n        Some(landscape_search::competitors::Because::Named)\n    );",
+    "new": "    let seeded = true;",
     "run": [
       "cargo",
       "nextest",
@@ -223,8 +223,8 @@
   {
     "name": "our own error message becomes the vocabulary a rival is judged against",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "    let Ok(words) = seed.words() else {",
-    "new": "    let words = content_words(&seed.candidate.what_it_is);\n    let Ok(_unused) = Err::<Vec<String>, ()>(()) else {",
+    "old": "    let words = match seed.words() {",
+    "new": "    let words = match Ok::<Vec<String>, crate::candidates::NoVocabulary>(content_words(\n        &seed.candidate.what_it_is,\n    )) {",
     "run": [
       "cargo",
       "nextest",
@@ -236,8 +236,8 @@
   {
     "name": "a seed we could read is treated as one we could not",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "    let Ok(words) = seed.words() else {",
-    "new": "    let Err(words) = Err::<(), Vec<String>>(seed.words().unwrap_or_default()) else {",
+    "old": "    let words = match seed.words() {",
+    "new": "    let words = match Err::<Vec<String>, _>(crate::candidates::NoVocabulary::Unreadable) {",
     "run": [
       "cargo",
       "nextest",
