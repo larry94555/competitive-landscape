@@ -41,8 +41,8 @@
   {
     "name": "a company named and not analysed is dropped in silence",
     "file": "crates/landscape-analyze/src/lib.rs",
-    "old": "    let notes = if dropped.is_empty() {",
-    "new": "    let notes = if true {",
+    "old": "    let mut notes = if dropped.is_empty() {",
+    "new": "    let mut notes = if true {",
     "run": [
       "cargo",
       "nextest",

@@ -255,10 +255,50 @@ to measure anything while a recorded defect is live and says which one. A harnes
 correctness depends on remembering to check something by hand is the defect this project keeps
 recording, one level up.
 
+### Five regression pins that had come loose
+
+Review then found the other way a catalogue stops meaning anything: `cargo fmt` had collapsed a
+`subject::resolve(...)` call onto one line, so the mutation pinning the ambiguity behaviour could
+no longer be applied. The harness prints `NOT APPLIED` and carries on; the run ends *26 of 27*,
+which reads like a coverage gap rather than a pin that came loose.
+
+**Running every catalogue after every change is not the fix** — it takes tens of minutes, which
+is why `verify.py` never ran them at all. Checking that each `old` still appears in its file
+exactly once takes a moment. That is `scripts/mutation_anchors.py`, now the **second** gate, and
+what it found on its first clean run is the point — not one loose pin, **five**, across four
+catalogues:
+
+| Pin | Loosened by |
+|---|---|
+| the ambiguity call | `cargo fmt` reflowing it, two commits back |
+| a changelog needs no model | `Answers::Direction` joining the `matches!`, Run 24 |
+| the model's health | a local becoming a struct field, Run 27 |
+| a company dropped in silence | `let notes` becoming `let mut notes` |
+| a trust page reaching its extractor | the dispatch moving to another file entirely |
+
+Each of those catalogues reported *"all caught"* on the day it was written and had been proving
+less ever since. **A suite of regression pins decays exactly like a suite of tests, except that
+nothing fails when it does.**
+
+**Two of the five, once retargeted, came back `MISSED`** — the pins had been loose long enough
+that the properties underneath had lost their coverage:
+
+* **A changelog read while the model is down.** The gate sits inside `read_one`, reachable only
+  through a real fetch, and the fetcher refuses `127.0.0.1` — so no test in the crate got there.
+  It is `can_read(question, model_ready) -> Option<bool>` now: `Some(true)` for a deterministic
+  question whatever the model is doing, `None` when nobody has asked yet. The case that matters
+  is assertable at last — *the model is known to be down and the changelog is still read*.
+* **A trust page reaching its extractor.** `trust-posture.json` pinned what
+  `assurance::every_assurance` finds and what the judge accepts; nothing asserted that
+  `Answers::Trust` still *arrives* there. An empty outcome for a trust page passed the whole
+  suite — a page fetched, read and thrown away in silence.
+
+All five retargeted, both gaps closed, and 203 anchors now check in a second.
+
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 29 | 738 | 51 |
-| now | **764** | **51** |
+| now | **767** | **51** |
 
 ---
 

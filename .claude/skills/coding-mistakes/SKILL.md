@@ -1287,6 +1287,64 @@ before doing anything else, because the next thing that reads those files will b
 
 ---
 
+## 42. A regression pin that came loose, in a catalogue nobody had reason to re-run
+
+**Found:** by review, at `a084775`.
+
+```text
+1 of 27 not caught - each one is a test that cannot fail
+   NOT APPLIED  a description that matches two companies picks one of them
+```
+
+`cargo fmt` had collapsed a `subject::resolve(...)` call onto one line two commits earlier. The
+mutation pinning the ambiguity behaviour still expected the multi-line form, so the harness could
+not apply it — and printed `NOT APPLIED`, which reads like a stale anchor and is *also* the thing
+that stops a real property from being covered.
+
+**The process failure is the interesting part.** I re-ran the catalogue I was working on, saw all
+39 caught, and never ran the other five. There was no reason to think a change in
+`landscape-search` could loosen a pin in `read-order.json` — and it can, because `cargo fmt`
+reflows whatever it touches and a mutation's anchor is a *verbatim string*.
+
+**Running every catalogue is not the fix**, because it takes tens of minutes and that is exactly
+why `scripts/verify.py` never ran them at all. Reading each `old` out of the JSON and checking it
+appears in its file **exactly once** takes a moment and catches the whole class:
+`scripts/mutation_anchors.py`, now the second gate.
+
+**What it found on its first run is the point.** Not one loose pin — **five**, across four
+catalogues, rotting since earlier phases:
+
+| Pin | Loosened by |
+|---|---|
+| the ambiguity call | `cargo fmt` reflowing it, two commits back |
+| a changelog needs no model | `Answers::Direction` joining the `matches!`, PR #44 |
+| the model's health | a local becoming a struct field, PR #46 |
+| a company dropped in silence | `let notes` becoming `let mut notes` |
+| a trust page reaching its extractor | the dispatch moving to another file entirely |
+
+Every one of those catalogues had reported *"all caught"* on the day it was written and had been
+quietly proving less ever since. **A suite of regression pins decays exactly like a suite of
+tests, except that nothing fails when it does** — the harness prints a line and returns 1, and
+nobody runs it.
+
+**And two of the five, once retargeted, came back `MISSED`** — which is the more useful half of
+the finding. The pins had been loose long enough that the properties underneath had quietly lost
+their coverage: nothing asserted that a changelog is read while the model is down (the gate sits
+behind a fetch the test fetcher refuses), and nothing asserted that a trust page reaches its
+extractor at all (the catalogue pinned what the extractor *finds*, never that the dispatch still
+arrives there). Both are now tested. This is entry 38's question — *is this `MISSED` about my
+code or my catalogue?* — coming out the other way for once.
+
+**Rule:** any artefact that pins code by *quoting* it — mutation anchors, golden-file excerpts,
+documentation snippets, `expect_test` blocks — needs a cheap mechanical check that the quote is
+still there, and that check has to run every time, not when somebody suspects something. If
+verifying the artefact properly is slow, verify that it is still *applicable* quickly. And when
+a loose pin is retightened, **run it** — a pin nobody could apply is a pin nobody was covering.
+
+> **Ask this:** *this pin quotes code. What tells me it still quotes code that exists?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

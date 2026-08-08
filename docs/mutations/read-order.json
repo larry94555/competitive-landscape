@@ -15,8 +15,8 @@
   {
     "name": "a changelog is treated as needing a model, so it is capped and read late",
     "file": "crates/landscape-analyze/src/order.rs",
-    "old": "    matches!(question, Answers::Changes)",
-    "new": "    false",
+    "old": "    matches!(question, Answers::Changes | Answers::Direction)",
+    "new": "    matches!(question, Answers::Direction)",
     "run": [
       "cargo",
       "nextest",
@@ -91,10 +91,10 @@
     ]
   },
   {
-    "name": "the model's health is asked for before anything is read",
+    "name": "a page that needs no model waits for the model anyway",
     "file": "crates/landscape-analyze/src/lib.rs",
-    "old": "    let mut model_ready: Option<bool> = None;",
-    "new": "    let mut model_ready: Option<bool> = Some(llm.is_ready().await);",
+    "old": "    if order::is_deterministic(question) {\n        return Some(true);\n    }\n    model_ready",
+    "new": "    if false {\n        return Some(true);\n    }\n    model_ready",
     "run": [
       "cargo",
       "nextest",
@@ -121,6 +121,19 @@
     "file": "crates/landscape-analyze/src/order.rs",
     "old": "                before += usize::from(calls > 0);\n                seen = true;",
     "new": "                before += calls;\n                seen = true;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the model is asked about its health once per page instead of once per run",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "    model_ready\n}",
+    "new": "    let _ = model_ready;\n    None\n}",
     "run": [
       "cargo",
       "nextest",

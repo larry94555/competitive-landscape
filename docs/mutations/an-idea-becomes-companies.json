@@ -262,8 +262,8 @@
   {
     "name": "a description that matches two companies picks one of them",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "    let verdict = landscape_core::subject::resolve(\n        description,\n        named.into_iter().map(|d| d.candidate).collect(),\n        checked,\n    );",
-    "new": "    let verdict = named.first().cloned().map_or(\n        landscape_core::subject::Resolution::NothingFound {\n            checked: checked.clone(),\n        },\n        |entity| landscape_core::subject::Resolution::Resolved {\n            entity: entity.candidate,\n        },\n    );",
+    "old": "    let verdict = landscape_core::subject::resolve(description, choices, checked);",
+    "new": "    let verdict = choices.first().cloned().map_or(\n        landscape_core::subject::Resolution::NothingFound {\n            checked: checked.clone(),\n        },\n        |entity| landscape_core::subject::Resolution::Resolved { entity },\n    );",
     "run": [
       "cargo",
       "nextest",

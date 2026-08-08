@@ -848,6 +848,25 @@ impl SoFar {
 /// things — where the URL came from, and what a claim from it may be used for — and both are
 /// arguments. Everything else, including the labelling, the citing and the per-window progress,
 /// happens once.
+/// Whether this page can be read yet, given what the run already knows about the model.
+///
+/// `None` means *nobody has asked* — the caller asks, remembers the answer, and every later page
+/// gets it for free, so a run makes at most one health request and only once something needs it.
+///
+/// **Pulled out of the loop so the interesting case can be asserted.** Inside `read_one` the
+/// only way to reach this branch is a real fetch, and the fetcher refuses `127.0.0.1`, so no
+/// test in this crate gets here — the mutation that deletes the deterministic arm survived for
+/// exactly that reason. The case that matters is the second one below: **the model is known to
+/// be down and a changelog is still read**, which is the whole of why `ARCHITECTURE.md` §5.4
+/// separates parsing from generation.
+#[must_use]
+pub(crate) const fn can_read(question: Answers, model_ready: Option<bool>) -> Option<bool> {
+    if order::is_deterministic(question) {
+        return Some(true);
+    }
+    model_ready
+}
+
 async fn read_one(
     fetcher: &landscape_fetch::Fetcher,
     reading: &Reading<'_>,
@@ -898,16 +917,12 @@ async fn read_one(
     // A changelog is parsed, not generated, so it is read whether or not a model is running —
     // ARCHITECTURE §5.4. Everything else needs one, and this is the first place that is true, so
     // this is where the question is finally asked.
-    let ready = if order::is_deterministic(question) {
-        true
-    } else {
-        match so_far.model_ready {
-            Some(known) => known,
-            None => {
-                let asked = llm.is_ready().await;
-                so_far.model_ready = Some(asked);
-                asked
-            }
+    let ready = match can_read(question, so_far.model_ready) {
+        Some(known) => known,
+        None => {
+            let asked = llm.is_ready().await;
+            so_far.model_ready = Some(asked);
+            asked
         }
     };
     if !ready {
@@ -1567,6 +1582,31 @@ mod joining {
 
     fn llm() -> landscape_llm::LlamaClient {
         landscape_llm::LlamaClient::new("http://127.0.0.1:8080")
+    }
+
+    #[test]
+    fn a_page_that_needs_no_model_is_read_while_the_model_is_down() {
+        // **The property the whole read order exists for.** A changelog is parsed rather than
+        // generated, so a model outage costs a reader the sections that need one and nothing
+        // else. Both deterministic questions, both states of the model, and the important pair
+        // is the one where `Some(false)` still says yes.
+        for question in [Answers::Changes, Answers::Direction] {
+            assert_eq!(can_read(question, None), Some(true), "{question:?}");
+            assert_eq!(
+                can_read(question, Some(false)),
+                Some(true),
+                "{question:?} waited on a model it does not use"
+            );
+        }
+    }
+
+    #[test]
+    fn a_page_that_needs_a_model_asks_once_and_then_remembers() {
+        // `None` is the run saying nobody has asked yet, which is what makes the health check
+        // lazy - and what stops it happening at all when only changelogs are read.
+        assert_eq!(can_read(Answers::Pricing, None), None);
+        assert_eq!(can_read(Answers::Pricing, Some(true)), Some(true));
+        assert_eq!(can_read(Answers::Pricing, Some(false)), Some(false));
     }
 
     #[test]

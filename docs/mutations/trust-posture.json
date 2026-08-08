@@ -126,9 +126,9 @@
   },
   {
     "name": "a trust page is fetched and skipped as if it had no extractor",
-    "file": "crates/landscape-analyze/src/sections.rs",
-    "old": "            | Answers::Identity\n            | Answers::Trust",
-    "new": "            | Answers::Identity",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "        Answers::Trust => trust(llm, url, markdown, so_far).await,",
+    "new": "        Answers::Trust => Outcome {\n            claims: Vec::new(),\n            summary: String::new(),\n            details: Vec::new(),\n            window_words: 0,\n        },",
     "run": [
       "cargo",
       "nextest",
