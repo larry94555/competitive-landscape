@@ -465,6 +465,16 @@ pub fn search_incomplete(failed: usize, sent: usize) -> String {
 /// that is the one input `subjects_in` reads as *"this company, definitely"* — a name would go
 /// back through the search that produced the ambiguity and could return the same question.
 ///
+/// **As an origin, not a bare host, and that is a bug fix rather than a preference.** A chip
+/// sending `box.com` produced a `400`: seven characters, and [`landscape_core::MIN_PROMPT`] is
+/// eight. The chip looked like one click and was a dead end for every company with a short
+/// domain. `https://` is eight characters by itself, so an origin is long enough whatever the
+/// domain is — the prompt is now valid *by construction* rather than for most inputs.
+///
+/// It is also what [`landscape_search::competitors::Set::origins`] already produces from the
+/// same field, so a chip sends the pipeline the shape it uses internally rather than a second
+/// spelling of it.
+///
 /// One click is the whole answer: nothing here asks a reader to retype their idea with a company
 /// bolted onto it, which is the difference between answering a question and doing the work.
 #[must_use]
@@ -477,7 +487,7 @@ pub fn choices_from(
             name: c.name.clone(),
             domain: c.canonical_domain.clone(),
             what_it_is: c.what_it_is.clone(),
-            prompt: c.canonical_domain.clone(),
+            prompt: format!("https://{}", c.canonical_domain),
         })
         .collect()
 }
@@ -773,7 +783,7 @@ mod deciding {
                 .iter()
                 .map(|c| c.prompt.as_str())
                 .collect::<Vec<_>>(),
-            ["notion.so", "notionenergy.com"],
+            ["https://notion.so", "https://notionenergy.com"],
             "what a chip sends must be the domain that resolves without another search"
         );
         assert_eq!(offered[0].name, "Notion");
@@ -781,6 +791,37 @@ mod deciding {
             offered[0].what_it_is, "a company",
             "the line that tells two candidates apart is the one they were described by"
         );
+        assert_eq!(
+            offered[0].domain, "notion.so",
+            "what a reader reads is the bare domain; the scheme is for the parser"
+        );
+    }
+
+    #[test]
+    fn a_chip_a_short_domain_cannot_send_is_not_one_click() {
+        // **Review found this, and the shape is worth more than the case.** `Choice::prompt` was
+        // the bare `canonical_domain`, and `NewAnalysis::parse` rejects anything under
+        // `MIN_PROMPT`. `box.com` is seven characters: the chip rendered, the click posted, and
+        // the reader got *"a prompt must contain at least 8 characters"* for a company we had
+        // resolved ourselves and put in front of them.
+        //
+        // **Two properties, not one example.** Length alone would pass if the prompt were
+        // padded with anything; what a chip owes is a prompt the API accepts *and* one that
+        // resolves back to the company whose button it is.
+        for domain in ["box.com", "wix.com", "notion.so", "notionenergy.com"] {
+            let offered = choices_from(&[candidate("Whoever", domain)]);
+            let prompt = &offered[0].prompt;
+
+            landscape_core::NewAnalysis::parse(prompt).unwrap_or_else(|e| {
+                panic!("a chip for {domain} sends a prompt the API rejects: {e}")
+            });
+
+            assert_eq!(
+                subjects_in(prompt),
+                Subjects::Seed(format!("https://{domain}")),
+                "a chip for {domain} must resolve to that company and nothing else"
+            );
+        }
     }
 
     #[test]

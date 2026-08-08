@@ -15,7 +15,7 @@
   {
     "name": "the chip sends a name back through the search that produced the tie",
     "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "            what_it_is: c.what_it_is.clone(),\n            prompt: c.canonical_domain.clone(),",
+    "old": "            what_it_is: c.what_it_is.clone(),\n            prompt: format!(\"https://{}\", c.canonical_domain),",
     "new": "            what_it_is: c.what_it_is.clone(),\n            prompt: c.name.clone(),",
     "run": [
       "cargo",
@@ -28,8 +28,8 @@
   {
     "name": "the line that tells two candidates apart is dropped",
     "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "            what_it_is: c.what_it_is.clone(),\n            prompt: c.canonical_domain.clone(),",
-    "new": "            what_it_is: String::new(),\n            prompt: c.canonical_domain.clone(),",
+    "old": "            what_it_is: c.what_it_is.clone(),\n            prompt: format!(\"https://{}\", c.canonical_domain),",
+    "new": "            what_it_is: String::new(),\n            prompt: format!(\"https://{}\", c.canonical_domain),",
     "run": [
       "cargo",
       "nextest",
@@ -148,5 +148,20 @@
       "run"
     ],
     "cwd": "web"
+  },
+  {
+    "name": "a chip for a short domain sends a prompt the API refuses",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "            prompt: format!(\"https://{}\", c.canonical_domain),",
+    "new": "            prompt: c.canonical_domain.clone(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze",
+      "-p",
+      "landscape-api"
+    ]
   }
 ]

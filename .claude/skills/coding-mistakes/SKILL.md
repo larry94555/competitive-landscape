@@ -1519,6 +1519,48 @@ rather than detectable** — several arguments that always travel together are o
 
 ---
 
+## 47. A value that satisfied the other side's rule for the fixtures I happened to pick
+
+**Found:** by review, on the clarification chips.
+
+`Choice::prompt` was the company's bare canonical domain, and the endpoint it is posted to
+rejects anything shorter than `MIN_PROMPT`:
+
+```text
+POST /api/analyses  {"prompt":"box.com"}
+400  a prompt must contain at least 8 characters, got 7
+```
+
+`notion.so` is nine characters. `notionenergy.com` is sixteen. **Every fixture I wrote happened
+to clear a bar I had not noticed existed**, so nine tests and a mutation catalogue all passed
+over a button that rendered for `box.com`, `wix.com` and `hey.com` and answered the click with an
+error — about a company we had resolved ourselves and put in front of the reader.
+
+**The producer and the validator were on two sides of one wire and neither knew the other's
+rule.** Nothing was wrong with either half. What was missing was any test that ran the real
+output of the first through the real input of the second.
+
+**The fix is a construction, not a check.** `format!("https://{domain}")` — `https://` is eight
+characters by itself, so the prompt clears the minimum whatever the domain is. The alternative,
+relaxing the minimum for things that look like domains, puts the rule in two places, and the
+second copy is the one that goes stale (see 44, and 39's cap).
+
+**Two regressions, and both call the producer rather than quote it.** One asserts every chip's
+prompt parses *and* resolves back to its own company; one posts `choices_from`'s real output
+through the real route and expects `201`. A string retyped into a test to look like the
+producer's output is exactly what stops noticing when the producer changes.
+
+**Rule:** when one component builds a value another component validates, a fixture that passes
+proves the fixture, not the boundary. Run the real producer's output through the real validator,
+and choose inputs at the *edge* of what the producer can emit — the shortest name, the empty
+list, the one with a hyphen. Better still, build the value so the constraint cannot be violated
+rather than so it usually is not.
+
+> **Ask this:** *what is the smallest, longest or strangest thing this can produce, and does the
+> thing that receives it still accept that one?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**
@@ -1592,7 +1634,7 @@ Grouped by what has actually gone wrong, commonest first.
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35 |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35, 47 |
 | The mutation harness | 32, 36, 46 | The only ones it found before review did. 36 deleted a rule rather than adding a test; 46 deleted an argument |
 | Its own tooling | 28 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |

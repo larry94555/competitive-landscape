@@ -1540,8 +1540,8 @@ company, and each one is a whole prompt you can send as it stands:
 no report (ambiguous): that description matches more than one company and we will not guess
 between them: Notion (notion.so), Notion Energy (notionenergy.com). Name the one you mean - a
 domain works.
-  pick: Notion (notion.so) - send "notion.so"
-  pick: Notion Energy (notionenergy.com) - send "notionenergy.com"
+  pick: Notion (notion.so) - send "https://notion.so"
+  pick: Notion Energy (notionenergy.com) - send "https://notionenergy.com"
 ```
 
 **The same list is on the analysis over the API**, which is what the browser draws as buttons:
@@ -1555,9 +1555,9 @@ curl -s http://127.0.0.1:8787/api/analyses/$ID | python -m json.tool
   "failure": "ambiguous",
   "choices": [
     {"name": "Notion", "domain": "notion.so", "what_it_is": "one workspace for notes and docs",
-     "prompt": "notion.so"},
+     "prompt": "https://notion.so"},
     {"name": "Notion Energy", "domain": "notionenergy.com",
-     "what_it_is": "battery storage for commercial sites", "prompt": "notionenergy.com"}
+     "what_it_is": "battery storage for commercial sites", "prompt": "https://notionenergy.com"}
   ]
 }
 ```
@@ -1566,6 +1566,12 @@ curl -s http://127.0.0.1:8787/api/analyses/$ID | python -m json.tool
 and can come out the other side as the same question; the canonical domain is what resolves in
 one step. And the whole prompt is built here rather than in the browser, so what a click sends
 and what the parser reads are one decision.
+
+**And it is an origin, not the bare host, which is a bug fix.** `box.com` is seven characters and
+this endpoint rejects anything under eight — so a chip for a short domain rendered as a button
+and answered the click with a `400`, about a company we had resolved ourselves. `https://` is
+eight characters by itself, so an origin is long enough whatever the domain is. `domain` beside
+it stays bare, because that is the part a reader reads.
 
 **Four refusals rather than one**, because they are four different situations: no engine is
 configured so we could not look; the searching did not finish; we looked and found nobody; we

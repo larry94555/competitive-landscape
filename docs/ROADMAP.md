@@ -773,7 +773,11 @@ the single most important phase; everything after it is commerce and polish.
   A chip carries a **whole prompt**, built on the server, for the same reason `Example.prompt`
   is: which words join an idea to a company is one decision, and the parser that reads them back
   lives on that side. The prompt is the **canonical domain** rather than the name, because a name
-  goes back through the search that produced the tie and can return the same question.
+  goes back through the search that produced the tie and can return the same question — and it is
+  sent as an **origin**, `https://box.com` rather than `box.com`, because review found that a
+  seven-character domain rendered a button and then answered the click with a `400`. `https://`
+  is eight characters by itself, so the prompt is valid by construction rather than for most
+  inputs.
   The choices needed a column and not the one that was there: `failure_reason` is the operator's
   and never shown verbatim (`migrations/0001_init.sql`), and these are shown verbatim, so
   `0005_clarification_choices.sql` adds `clarification jsonb` beside it. `fail`'s four positional

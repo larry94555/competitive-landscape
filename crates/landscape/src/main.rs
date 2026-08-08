@@ -1823,9 +1823,16 @@ mod tests {
                 .iter()
                 .map(|c| c.prompt.as_str())
                 .collect::<Vec<_>>(),
-            ["notion.so", "notionenergy.com"],
+            ["https://notion.so", "https://notionenergy.com"],
             "the client must be able to send one of these back without rewriting it"
         );
+        // **The whole point of the round trip.** A prompt that survives storage and is then
+        // refused by the endpoint it is meant for is not one click — `box.com` was, until
+        // review found it.
+        for choice in &read.choices {
+            landscape_core::NewAnalysis::parse(&choice.prompt)
+                .unwrap_or_else(|e| panic!("a chip read back from the store is not a prompt: {e}"));
+        }
     }
 
     #[tokio::test]

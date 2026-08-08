@@ -947,6 +947,7 @@ dependencies = [
  "axum",
  "chrono",
  "futures-util",
+ "landscape-analyze",
  "landscape-core",
  "landscape-db",
  "serde",

@@ -78,7 +78,7 @@ cost a second write on the failure path.
 ### The chip carries a prompt, not a name
 
 ```rust
-prompt: c.canonical_domain.clone(),
+prompt: format!("https://{}", c.canonical_domain),
 ```
 
 A name goes back through the search that produced the tie and can return the same question. A
@@ -86,6 +86,38 @@ domain is the one input `subjects_in` reads as *"this company, definitely"*, so 
 in one step. And the whole prompt is built on the server for the same reason `Example.prompt` is:
 which words join an idea to a company is one decision, and the parser that reads them back lives
 on that side of the wire.
+
+### Review: a chip that rendered, and then refused the click
+
+It shipped as the bare domain, and **`box.com` is seven characters**:
+
+```text
+POST /api/analyses  {"prompt":"box.com"}
+400  a prompt must contain at least 8 characters, got 7
+```
+
+`MIN_PROMPT` is eight. So every company with a short domain got a button that looked like one
+click and was a dead end — about a company *we* had resolved and *we* had put in front of the
+reader. The chip and the validator are on two sides of one wire, and neither knew the other's
+rule.
+
+**`https://` is eight characters by itself**, so an origin is long enough whatever the domain is:
+the prompt is valid **by construction** rather than for most inputs. It is also exactly what
+`Set::origins` already builds from the same field, so a chip now hands the pipeline the shape it
+uses internally instead of a second spelling of it.
+
+**The alternative was to relax the minimum for things that look like domains**, and it is worse
+for a reason this repository keeps rediscovering: the rule would then live in two places, and
+the second copy is the one that goes stale.
+
+| | asserted where | what it pins |
+|---|---|---|
+| `a_chip_a_short_domain_cannot_send_is_not_one_click` | `landscape-analyze` | every chip parses **and** resolves back to its own company |
+| `every_chip_a_reader_can_click_is_a_prompt_this_endpoint_accepts` | `landscape-api` | the real `choices_from` output through the real `POST`, `201` |
+
+Both run `choices_from` rather than a string retyped to look like it — a hand-written copy is
+what stops noticing when the real one changes. A mutation restoring the bare domain is caught by
+both crates in one run.
 
 ### Four positional arguments became one struct
 
@@ -141,7 +173,7 @@ and wrong for somebody asking twice.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 33 | 816 | 54 |
-| now | **820** | **58** |
+| now | **822** | **58** |
 
 ---
 

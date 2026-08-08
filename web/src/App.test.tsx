@@ -1185,17 +1185,20 @@ describe("when it does not finish", () => {
     expect(screen.queryByText(/try again/i)).toBeNull();
   });
 
+  // `prompt` is an origin rather than the bare domain, and the server decides that — see
+  // `choices_from`. A bare `box.com` is seven characters and the API rejects anything under
+  // eight, so a chip for a short domain rendered and then answered a click with a 400.
   const NOTION = {
     name: "Notion",
     domain: "notion.so",
     what_it_is: "one workspace for notes, docs and projects",
-    prompt: "notion.so",
+    prompt: "https://notion.so",
   };
   const NOTION_ENERGY = {
     name: "Notion Energy",
     domain: "notionenergy.com",
     what_it_is: "battery storage for commercial sites",
-    prompt: "notionenergy.com",
+    prompt: "https://notionenergy.com",
   };
 
   it("puts the companies on screen rather than asking a reader to name one", async () => {
@@ -1256,7 +1259,7 @@ describe("when it does not finish", () => {
     );
 
     await waitFor(() => expect(sent).toHaveLength(2));
-    expect(sent[1]).toBe("notionenergy.com");
+    expect(sent[1]).toBe("https://notionenergy.com");
     // The run it started is the one the URL now names, so a reader who reloads keeps it.
     expect(window.location.pathname).toBe("/a/abc");
   });
