@@ -236,15 +236,71 @@ pub enum NoRivals {
     /// is out there.
     NothingToCompare(NoVocabulary),
     /// Some of the searches did not come back. Retryable, and about us.
-    SearchIncomplete { failed: usize, sent: usize },
-    /// Every search ran, and nothing that came back held up.
+    SearchIncomplete {
+        failed: usize,
+        sent: usize,
+        sought: Sought,
+    },
+    /// Every search ran, and nothing else that came back held up.
     ///
-    /// The only one of the four that is a statement about the market. Whatever was found and
-    /// rejected is in [`Set::set_aside`], named.
-    NobodyHeldUp,
+    /// The only one of the four that is a statement about the world rather than about us.
+    /// Whatever was found and rejected is in [`Set::set_aside`], named.
+    NobodyHeldUp { sought: Sought },
+}
+
+/// What the searches behind a set were looking for.
+///
+/// **The same silence needs different words on the two paths.** A description path searched for
+/// companies matching what somebody typed; a seeded path searched for the rivals of a company
+/// they named. Review found the seeded wording on a description's report:
+///
+/// ```text
+/// You described a market ... This report is about Plausible (plausible.io).
+/// We searched for companies it competes with and none of what came back held up.
+/// Why each one is here: Plausible - 3 of the 3 searches returned it, ...
+/// ```
+///
+/// Two adjacent notes, one saying nothing held up and the next naming the company that did —
+/// and neither search was for Plausible's competitors. It is carried on the variant rather than
+/// passed to `sentence()` so a caller cannot supply the wrong one: the two paths each state it
+/// once, where they know it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Sought {
+    /// Rivals of the company the reader named.
+    RivalsOfTheCompany,
+    /// Companies matching the description the reader typed.
+    CompaniesMatchingTheDescription,
+}
+
+impl Sought {
+    /// What a sentence calls the thing that was searched for.
+    #[must_use]
+    pub const fn phrase(self) -> &'static str {
+        match self {
+            Self::RivalsOfTheCompany => "companies it competes with",
+            Self::CompaniesMatchingTheDescription => "companies matching that description",
+        }
+    }
 }
 
 impl NoRivals {
+    /// Why a run with **no engine configured** found nobody — which is not always the engine.
+    ///
+    /// **Review found the report recommending a remedy that cannot work.** With the seed's own
+    /// page unreadable, `seed.words()` already fails; configuring `SEARX_URL` would change
+    /// nothing, because [`of_company`] would then send zero queries and say so. The report told
+    /// a reader to install something while `landscape candidates` told them it would not help —
+    /// two surfaces, two answers, and the wrong one on the surface that matters.
+    ///
+    /// No vocabulary takes precedence, because it is the fact that makes the engine irrelevant.
+    #[must_use]
+    pub fn when_no_engine_is_configured(seed: &Seed) -> Self {
+        match seed.words() {
+            Err(why) => Self::NothingToCompare(why),
+            Ok(_) => Self::NoEngine,
+        }
+    }
+
     /// The sentence a reader is shown after the company this report is about.
     #[must_use]
     pub fn sentence(&self) -> String {
@@ -257,14 +313,24 @@ impl NoRivals {
                  judge one against. This says nothing about who else is out there.",
                 why.sentence()
             ),
-            Self::SearchIncomplete { failed, sent } => format!(
-                "We could not complete {failed} of the {sent} searches for companies it competes \
-                 with, so this report is about one company. That is usually temporary - try \
-                 again."
+            Self::SearchIncomplete {
+                failed,
+                sent,
+                sought,
+            } => format!(
+                "We could not complete {failed} of the {sent} searches for {}, so this report is \
+                 about one company. That is usually temporary - try again.",
+                sought.phrase()
             ),
-            Self::NobodyHeldUp => "We searched for companies it competes with and none of what \
-                 came back held up."
+            // **Not "none of what came back held up" on the description path**, where the one
+            // company in the report is exactly what came back and did hold up.
+            Self::NobodyHeldUp {
+                sought: Sought::RivalsOfTheCompany,
+            } => "We searched for companies it competes with and none of what came back held up."
                 .to_owned(),
+            Self::NobodyHeldUp {
+                sought: Sought::CompaniesMatchingTheDescription,
+            } => "Only one company matched that description well enough to report on.".to_owned(),
         }
     }
 }
@@ -282,6 +348,7 @@ impl NoRivals {
 pub fn alone_because(
     members: usize,
     queried: &Queried,
+    sought: Sought,
     nothing_asked: Option<NoRivals>,
 ) -> Option<NoRivals> {
     // More than one company is a comparison, whatever else went wrong on the way to it.
@@ -295,9 +362,10 @@ pub fn alone_because(
         return Some(NoRivals::SearchIncomplete {
             failed: queried.failed.len(),
             sent: queried.sent(),
+            sought,
         });
     }
-    Some(NoRivals::NobodyHeldUp)
+    Some(NoRivals::NobodyHeldUp { sought })
 }
 
 impl Set {
@@ -472,7 +540,12 @@ where
             because: Because::Named,
         },
     );
-    set.alone = alone_because(set.members.len(), &queried, None);
+    set.alone = alone_because(
+        set.members.len(),
+        &queried,
+        Sought::RivalsOfTheCompany,
+        None,
+    );
     (set, queried)
 }
 
@@ -1023,6 +1096,7 @@ mod tests {
                     completed: vec!["q1".to_owned()],
                     failed: vec!["q2".to_owned(), "q3".to_owned()],
                 },
+                Sought::RivalsOfTheCompany,
                 None
             ),
             None
@@ -1042,13 +1116,19 @@ mod tests {
 
         // **Nothing was asked**, and the caller says which of the two ways that happened.
         assert_eq!(
-            alone_because(1, &Queried::default(), Some(NoRivals::NoEngine)),
+            alone_because(
+                1,
+                &Queried::default(),
+                Sought::RivalsOfTheCompany,
+                Some(NoRivals::NoEngine)
+            ),
             Some(NoRivals::NoEngine)
         );
         assert_eq!(
             alone_because(
                 1,
                 &Queried::default(),
+                Sought::RivalsOfTheCompany,
                 Some(NoRivals::NothingToCompare(
                     crate::candidates::NoVocabulary::NothingQuotable
                 ))
@@ -1059,13 +1139,19 @@ mod tests {
         );
         // Asked, and some did not come back. Retryable, and about us.
         assert_eq!(
-            alone_because(1, &outage, None),
-            Some(NoRivals::SearchIncomplete { failed: 2, sent: 3 })
+            alone_because(1, &outage, Sought::RivalsOfTheCompany, None),
+            Some(NoRivals::SearchIncomplete {
+                failed: 2,
+                sent: 3,
+                sought: Sought::RivalsOfTheCompany
+            })
         );
         // Asked, all answered, nothing held up. The only one about the market.
         assert_eq!(
-            alone_because(1, &all_answered, None),
-            Some(NoRivals::NobodyHeldUp)
+            alone_because(1, &all_answered, Sought::RivalsOfTheCompany, None),
+            Some(NoRivals::NobodyHeldUp {
+                sought: Sought::RivalsOfTheCompany
+            })
         );
 
         // And every one of them reads differently, because a reader acts on each differently.
@@ -1073,8 +1159,17 @@ mod tests {
             NoRivals::NoEngine,
             NoRivals::NothingToCompare(crate::candidates::NoVocabulary::Unreadable),
             NoRivals::NothingToCompare(crate::candidates::NoVocabulary::NothingQuotable),
-            NoRivals::SearchIncomplete { failed: 2, sent: 3 },
-            NoRivals::NobodyHeldUp,
+            NoRivals::SearchIncomplete {
+                failed: 2,
+                sent: 3,
+                sought: Sought::RivalsOfTheCompany,
+            },
+            NoRivals::NobodyHeldUp {
+                sought: Sought::RivalsOfTheCompany,
+            },
+            NoRivals::NobodyHeldUp {
+                sought: Sought::CompaniesMatchingTheDescription,
+            },
         ]
         .iter()
         .map(NoRivals::sentence)
@@ -1113,12 +1208,18 @@ mod tests {
         let found = vec![hit("https://bakery.example/")];
         assert_eq!(
             alone(vec![Ok(found.clone()), Ok(found.clone()), Ok(found)]).await,
-            Some(NoRivals::NobodyHeldUp)
+            Some(NoRivals::NobodyHeldUp {
+                sought: Sought::RivalsOfTheCompany
+            })
         );
         // Two searches never came back. That is about us, not about the market.
         assert_eq!(
             alone(vec![Ok(Vec::new()), Err(()), Err(())]).await,
-            Some(NoRivals::SearchIncomplete { failed: 2, sent: 3 })
+            Some(NoRivals::SearchIncomplete {
+                failed: 2,
+                sent: 3,
+                sought: Sought::RivalsOfTheCompany
+            })
         );
     }
 

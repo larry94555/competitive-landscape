@@ -1313,11 +1313,13 @@ async fn rivals_of(
         // of those is fixed by configuring something.
         return landscape_search::competitors::Set {
             members: vec![landscape_search::competitors::Member {
-                candidate: seed.candidate,
+                candidate: seed.candidate.clone(),
                 because: landscape_search::competitors::Because::Named,
             }],
             set_aside: Vec::new(),
-            alone: Some(landscape_search::competitors::NoRivals::NoEngine),
+            alone: Some(
+                landscape_search::competitors::NoRivals::when_no_engine_is_configured(&seed),
+            ),
         };
     };
     let (set, queried) = landscape_search::competitors::of_company(engine, &seed, read).await;
@@ -1558,30 +1560,90 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_run_with_no_engine_says_that_is_why_it_found_nobody() {
-        // **The laptop default, which is most runs.** Nothing is configured, so nothing off
-        // this company's own site can be reached - and a reader deserves that rather than a
-        // report that reads exactly like one where we searched and found nobody.
+    async fn no_engine_and_no_vocabulary_never_recommends_configuring_one() {
+        // **Review found the report sending a reader somewhere that could not help.** With the
+        // seed's own page unreadable, `seed.words()` already fails - so configuring `SEARX_URL`
+        // would change nothing: `of_company` would send zero queries and say so. The report
+        // said *"configure an engine"* while the diagnostic beside it said an engine would not
+        // have been asked either.
         //
         // `.invalid` is RFC 2606, so the seed's front page is never really fetched.
         let set = rivals_of(None, "https://basecamp.invalid").await;
 
         assert_eq!(set.members.len(), 1, "{:#?}", set.members);
         assert_eq!(
-            set.members[0].because,
-            landscape_search::competitors::Because::Named
-        );
-        assert_eq!(
             set.alone,
-            Some(landscape_search::competitors::NoRivals::NoEngine),
-            "a run that never looked was reported as one that looked and found nobody"
+            Some(landscape_search::competitors::NoRivals::NothingToCompare(
+                landscape_search::candidates::NoVocabulary::Unreadable
+            )),
+            "an engine was blamed for a page we could not read"
         );
         let said = set.alone.expect("a reason").sentence();
-        assert!(said.contains("no search engine is configured"), "{said}");
         assert!(
-            !said.contains("held up"),
-            "a claim about the market was made by a run that asked nothing: {said}"
+            !said.contains("no search engine is configured"),
+            "a remedy that cannot work was recommended: {said}"
         );
+        assert!(
+            said.contains("says nothing about who else is out there"),
+            "{said}"
+        );
+    }
+
+    #[test]
+    fn the_engine_is_only_blamed_when_the_engine_is_the_problem() {
+        // Both directions of the precedence, on the function both surfaces read.
+        let readable = seed(true, "Project management and team communication");
+        assert_eq!(
+            landscape_search::competitors::NoRivals::when_no_engine_is_configured(&readable),
+            landscape_search::competitors::NoRivals::NoEngine
+        );
+        for (read, what_it_is, why) in [
+            (
+                true,
+                "",
+                landscape_search::candidates::NoVocabulary::NothingQuotable,
+            ),
+            (
+                false,
+                "we were unable to read its front page",
+                landscape_search::candidates::NoVocabulary::Unreadable,
+            ),
+        ] {
+            assert_eq!(
+                landscape_search::competitors::NoRivals::when_no_engine_is_configured(&seed(
+                    read, what_it_is
+                )),
+                landscape_search::competitors::NoRivals::NothingToCompare(why),
+                "read={read}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_report_and_the_diagnostic_agree_about_whether_an_engine_would_help() {
+        // **The parity that was broken.** Two surfaces describing one run: the report's reason
+        // for having nobody, and the footer this command prints when nothing is configured.
+        // They read the same `seed.words()` now, and the assertion is that they cannot come to
+        // different conclusions about whether configuring something would change the outcome.
+        for (read, what_it_is) in [
+            (true, "Project management and team communication"),
+            (true, ""),
+            (false, "we were unable to read its front page"),
+        ] {
+            let seed = seed(read, what_it_is);
+            let reported =
+                landscape_search::competitors::NoRivals::when_no_engine_is_configured(&seed)
+                    .sentence();
+            let diagnosed = without_an_engine(&seed);
+
+            let report_blames_the_engine = reported.contains("no search engine is configured");
+            let diagnostic_says_it_would_help =
+                !diagnosed.contains("nothing would have been asked with it either");
+            assert_eq!(
+                report_blames_the_engine, diagnostic_says_it_would_help,
+                "read={read}, what_it_is={what_it_is:?}\n  report: {reported}\n  cli:    {diagnosed}"
+            );
+        }
     }
 
     #[test]
@@ -1605,8 +1667,14 @@ mod tests {
 
         for why in [
             landscape_search::competitors::NoRivals::NoEngine,
-            landscape_search::competitors::NoRivals::NobodyHeldUp,
-            landscape_search::competitors::NoRivals::SearchIncomplete { failed: 2, sent: 3 },
+            landscape_search::competitors::NoRivals::NobodyHeldUp {
+                sought: landscape_search::competitors::Sought::RivalsOfTheCompany,
+            },
+            landscape_search::competitors::NoRivals::SearchIncomplete {
+                failed: 2,
+                sent: 3,
+                sought: landscape_search::competitors::Sought::RivalsOfTheCompany,
+            },
         ] {
             let said = set_as_printed(&lone(Some(why.clone()))).join("\n");
             assert!(

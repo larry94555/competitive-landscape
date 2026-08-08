@@ -120,6 +120,44 @@ What closes it needs no guess. A `*.mutate-backup` on disk means exactly two thi
 restore over an edit. Neither depends on what the mutated text looks like afterwards. It is one
 `glob`, and it is the first thing that gate now checks.
 
+### Review: one silence, two searches, and a remedy that could not work
+
+**A reason written for one path, printed on the other.** `NoRivals::NobodyHeldUp` said *"we
+searched for companies it competes with and none of what came back held up"* — true on the
+seeded path, and on a description's report it produced two adjacent notes contradicting each
+other:
+
+```text
+You described a market ... This report is about Plausible (plausible.io).
+We searched for companies it competes with and none of what came back held up.
+Why each one is here: Plausible - 3 of the 3 searches returned it, ...
+```
+
+Plausible **is** what came back, and it held up; and neither search was for Plausible's rivals.
+`Sought` is carried on the two variants that describe a search, rather than passed to
+`sentence()`, so a caller cannot supply the wrong one — each path states it once, where it knows
+it. The description's version of that silence is *"only one company matched that description
+well enough to report on"*, which is the same fact without the contradiction.
+
+**And the no-engine branch blamed the engine for a page it had already failed to read.**
+
+```text
+seed.words()  = Err(Unreadable)
+the report says:     ... no search engine is configured here ...
+the diagnostic says: ... nothing would have been asked with it either ...
+```
+
+Configuring `SEARX_URL` would have changed nothing — `of_company` sends zero queries without
+vocabulary — so the report recommended a remedy that cannot work, while the diagnostic beside it
+said so correctly. **A reader who acts on a report and gets the same silence has been sent
+somewhere for nothing**, which is the failure this whole row exists to prevent, appearing inside
+the row that prevents it.
+
+`NoRivals::when_no_engine_is_configured` gives the missing vocabulary precedence, because it is
+the fact that makes the engine irrelevant. The regression asserts the **parity**: across the
+three seed shapes, the report blames the engine exactly when the diagnostic says an engine would
+help.
+
 ### What still does not happen
 
 **Chips.** A one-word name the gate cannot choose between is still refused in prose, naming the
@@ -136,7 +174,7 @@ every test is a canned provider over the real code path.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 31 | 792 | 51 |
-| now | **802** | **51** |
+| now | **806** | **51** |
 
 ---
 

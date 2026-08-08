@@ -2420,12 +2420,18 @@ mod joining {
                 "try again",
             ),
             (
-                landscape_search::competitors::NoRivals::SearchIncomplete { failed: 3, sent: 3 },
+                landscape_search::competitors::NoRivals::SearchIncomplete {
+                    failed: 3,
+                    sent: 3,
+                    sought: landscape_search::competitors::Sought::RivalsOfTheCompany,
+                },
                 "3 of the 3 searches",
                 "none of what came back held up",
             ),
             (
-                landscape_search::competitors::NoRivals::NobodyHeldUp,
+                landscape_search::competitors::NoRivals::NobodyHeldUp {
+                    sought: landscape_search::competitors::Sought::RivalsOfTheCompany,
+                },
                 "none of what came back held up",
                 "try again",
             ),
@@ -2470,6 +2476,87 @@ mod joining {
                 "{why:?} said something belonging to another silence: {notes}"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn a_description_report_never_says_its_own_company_failed_to_hold_up() {
+        // **Review found two adjacent notes contradicting each other.** The reason a set is
+        // alone was written for the seeded path, so a description that matched one company
+        // said *"none of what came back held up"* immediately before *"Plausible - 3 of the 3
+        // searches returned it"*. Plausible is what came back, and it held up.
+        let set = landscape_search::competitors::Set {
+            members: vec![found("Plausible", "plausible.io", 3)],
+            set_aside: Vec::new(),
+            alone: Some(landscape_search::competitors::NoRivals::NobodyHeldUp {
+                sought: landscape_search::competitors::Sought::CompaniesMatchingTheDescription,
+            }),
+        };
+        let many = unreachable(4);
+        let outcome = analyse_many(
+            &landscape_fetch::Fetcher::new(),
+            &llm(),
+            &Asked {
+                set: Some(&set),
+                ..named(&many)
+            },
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+        let notes = outcome.report.notes.join(
+            "
+",
+        );
+
+        assert!(
+            notes.contains("Plausible - 3 of the 3 searches returned it"),
+            "{notes}"
+        );
+        assert!(
+            !notes.contains("none of what came back held up"),
+            "the report says its own company failed to hold up: {notes}"
+        );
+        assert!(
+            !notes.contains("companies it competes with"),
+            "a description search was described as a search for one company's rivals: {notes}"
+        );
+        assert!(
+            notes.contains("Only one company matched that description"),
+            "{notes}"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_incomplete_description_search_is_described_as_one() {
+        let set = landscape_search::competitors::Set {
+            members: vec![found("Plausible", "plausible.io", 2)],
+            set_aside: Vec::new(),
+            alone: Some(landscape_search::competitors::NoRivals::SearchIncomplete {
+                failed: 2,
+                sent: 3,
+                sought: landscape_search::competitors::Sought::CompaniesMatchingTheDescription,
+            }),
+        };
+        let many = unreachable(4);
+        let outcome = analyse_many(
+            &landscape_fetch::Fetcher::new(),
+            &llm(),
+            &Asked {
+                set: Some(&set),
+                ..named(&many)
+            },
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+        let notes = outcome.report.notes.join(
+            "
+",
+        );
+        assert!(
+            notes.contains("searches for companies matching that description"),
+            "{notes}"
+        );
+        assert!(!notes.contains("companies it competes with"), "{notes}");
+        assert!(notes.contains("try again"), "{notes}");
     }
 
     #[tokio::test]

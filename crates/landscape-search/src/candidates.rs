@@ -626,7 +626,12 @@ where
     // named company nobody could be found for**: one company, in a tool that promises a
     // comparison. Same function, so the two paths cannot come to different conclusions about
     // the same evidence.
-    set.alone = crate::competitors::alone_because(set.members.len(), &queried, None);
+    set.alone = crate::competitors::alone_because(
+        set.members.len(),
+        &queried,
+        crate::competitors::Sought::CompaniesMatchingTheDescription,
+        None,
+    );
     let choices: Vec<Candidate> = named
         .into_iter()
         .filter(Described::was_requested)
@@ -1779,7 +1784,9 @@ The second of two."
         assert_eq!(derived.set.members.len(), 1, "{:#?}", derived.set);
         assert_eq!(
             derived.set.alone,
-            Some(crate::competitors::NoRivals::NobodyHeldUp),
+            Some(crate::competitors::NoRivals::NobodyHeldUp {
+                sought: crate::competitors::Sought::CompaniesMatchingTheDescription
+            }),
             "one company arrived with no reason for being alone"
         );
 
