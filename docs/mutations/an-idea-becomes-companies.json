@@ -327,8 +327,8 @@
   {
     "name": "an outage is reported to a reader as an empty market",
     "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "        Resolution::NothingFound { .. } if !queried.failed.is_empty() => {",
-    "new": "        Resolution::NothingFound { .. } if queried.failed.is_empty() && false => {",
+    "old": "        Resolution::NothingFound { .. } if !queried.failed.is_empty() => Decided::Refuse {",
+    "new": "        Resolution::NothingFound { .. } if queried.failed.is_empty() && false => Decided::Refuse {",
     "run": [
       "cargo",
       "nextest",
@@ -340,8 +340,8 @@
   {
     "name": "a search that did not finish is told to try again about the wrong count",
     "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "            Decided::Refuse(search_incomplete(queried.failed.len(), queried.sent()))",
-    "new": "            Decided::Refuse(search_incomplete(queried.sent(), queried.sent()))",
+    "old": "            why: search_incomplete(queried.failed.len(), queried.sent()),",
+    "new": "            why: search_incomplete(queried.sent(), queried.sent()),",
     "run": [
       "cargo",
       "nextest",

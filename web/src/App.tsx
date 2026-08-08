@@ -552,10 +552,23 @@ function describe(
     case "complete":
       return "Done.";
     case "failed":
-      // Two different failures, and telling somebody "nothing you did caused it" when they
-      // typed a description we could not resolve sends them away with no way forward.
-      return failure === "no_subject"
-        ? "We could not work out which company you meant. Try naming its website — for example, basecamp.com."
-        : "This one did not finish. Nothing you did caused it.";
+      // **One sentence per situation, because each asks for something different.** These were
+      // two: `no_subject` and everything else — so a search that timed out told a reader to
+      // name a website, which fixes something that was never wrong, and a name several
+      // products share threw away the question they could have answered in a word.
+      switch (failure) {
+        case "no_subject":
+          return "We could not work out which company you meant. Try naming its website — for example, basecamp.com.";
+        case "ambiguous":
+          return "That name matches more than one company, and we will not guess between them. Name the one you mean — a website works.";
+        case "nothing_found":
+          return "We searched and found no company we could stand behind. Try naming a website, or describing the product in the words a vendor would use.";
+        case "search_incomplete":
+          // The only one a reader fixes by doing nothing, so it is the only one that must not
+          // send them off to change their prompt.
+          return "The search did not finish, so we have not concluded anything. This is usually temporary — try again.";
+        default:
+          return "This one did not finish. Nothing you did caused it.";
+      }
   }
 }

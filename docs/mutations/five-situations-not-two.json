@@ -1,0 +1,167 @@
+[
+  {
+    "name": "a name several products share is reported as a prompt that named nothing",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "            why: ambiguous(&candidates),\n            kind: landscape_core::Failure::Ambiguous,",
+    "new": "            why: ambiguous(&candidates),\n            kind: landscape_core::Failure::NoSubject,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a search that did not finish is reported as an empty market",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "            why: search_incomplete(queried.failed.len(), queried.sent()),\n            kind: landscape_core::Failure::SearchIncomplete,",
+    "new": "            why: search_incomplete(queried.failed.len(), queried.sent()),\n            kind: landscape_core::Failure::NothingFound,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "an empty market is offered to a reader as retryable",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "        Resolution::NothingFound { .. } => Decided::Refuse {\n            why: NOTHING_RESOLVED.to_owned(),\n            kind: landscape_core::Failure::NothingFound,\n        },",
+    "new": "        Resolution::NothingFound { .. } => Decided::Refuse {\n            why: NOTHING_RESOLVED.to_owned(),\n            kind: landscape_core::Failure::SearchIncomplete,\n        },",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "companies found and all rejected is reported as a question to answer",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "                why: none_of_them(&set.set_aside),\n                kind: landscape_core::Failure::NothingFound,",
+    "new": "                why: none_of_them(&set.set_aside),\n                kind: landscape_core::Failure::Ambiguous,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a missing engine is reported as a market with nobody in it",
+    "file": "crates/landscape/src/main.rs",
+    "old": "            why: landscape_analyze::subject::NO_SUBJECT.to_owned(),\n            kind: landscape_core::Failure::NoSubject,",
+    "new": "            why: landscape_analyze::subject::NO_SUBJECT.to_owned(),\n            kind: landscape_core::Failure::NothingFound,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape"
+    ]
+  },
+  {
+    "name": "the situation is discarded and every refusal looks the same again",
+    "file": "crates/landscape/src/main.rs",
+    "old": "                    refuse(store, analysis, kind, &why).await;",
+    "new": "                    refuse(store, analysis, landscape_core::Failure::NoSubject, &why).await;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape"
+    ]
+  },
+  {
+    "name": "two situations share a stored value",
+    "file": "crates/landscape-core/src/analysis.rs",
+    "old": "            Self::Ambiguous => \"ambiguous\",",
+    "new": "            Self::Ambiguous => \"no_subject\",",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a situation written to the database reads back as an internal error",
+    "file": "crates/landscape-core/src/analysis.rs",
+    "old": "            \"search_incomplete\" => Self::SearchIncomplete,",
+    "new": "            \"search_incomplete\" if false => Self::SearchIncomplete,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a value from a newer version makes this one claim success",
+    "file": "crates/landscape-core/src/analysis.rs",
+    "old": "            \"nothing_found\" => Self::NothingFound,",
+    "new": "            \"nothing_found\" => Self::NothingFound,\n            \"something_later\" => Self::NothingFound,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a reader whose search timed out is told to name a website",
+    "file": "web/src/App.tsx",
+    "old": "        case \"search_incomplete\":",
+    "new": "        case \"search_incomplete_never\":",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a name several products share is answered with the generic sentence",
+    "file": "web/src/App.tsx",
+    "old": "        case \"ambiguous\":",
+    "new": "        case \"ambiguous_never\":",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "an empty market is told to try again",
+    "file": "web/src/App.tsx",
+    "old": "          return \"We searched and found no company we could stand behind. Try naming a website, or describing the product in the words a vendor would use.\";",
+    "new": "          return \"We searched and found no company we could stand behind. Try again.\";",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the one retryable situation stops saying so",
+    "file": "web/src/App.tsx",
+    "old": "          return \"The search did not finish, so we have not concluded anything. This is usually temporary — try again.\";",
+    "new": "          return \"The search did not finish, so we have not concluded anything.\";",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  }
+]

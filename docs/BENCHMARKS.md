@@ -33,6 +33,80 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 33 — five situations, and the reader saw one
+
+**Date:** 2026-08-08 · **Where:** this laptop · **Model:** none — this is the boundary, not the
+pipeline.
+
+Runs 29 to 32 spent four changes keeping four silences apart inside the analysis: an outage is
+not an empty market, a missing engine is not a market with nobody in it, a page we could not read
+is not a page about something else. Every one of those decisions is tested, mutated and
+documented.
+
+**And then all of them arrived at a reader as this:**
+
+```text
+We could not work out which company you meant. Try naming its website — for example,
+basecamp.com.
+```
+
+`Failure` had two values, `no_subject` and `internal`. Every refusal `decide` produces is a
+`no_subject`, and the interface has one sentence for it.
+
+### What that sentence does to each situation
+
+| The run | The reader is told | What that costs |
+|---|---|---|
+| several products share a name | *"try naming its website"* | the question they could have answered in **one word** is thrown away |
+| the search did not finish | *"try naming its website"* | they go and fix a prompt that was **never wrong** |
+| we searched and found nobody | *"try naming its website"* | roughly right, by accident |
+| no engine is configured | *"try naming its website"* | exactly right — this is the one it was written for |
+
+**The instruction is right for one of the four.** It was written when `no_subject` meant only the
+last row, and three situations moved in behind it as the search channel was built.
+
+### The set stays closed, and small
+
+`migrations/0001_init.sql` is explicit that `failure_reason` is for operators and **never shown
+verbatim**, because what somebody is told about a failure is a presentation decision rather than
+a database field. This change keeps that rule rather than working around it: nothing internal
+leaks, and the five sentences are still written in the interface.
+
+What moved is the *situation*. A value earns a place when a reader would **do something
+different** — that is the whole test, and it is why *"we found companies and rejected them"*
+shares `nothing_found` with *"we found nobody"*. Both are statements about a market and both are
+answered the same way; the difference between them is exactly what `failure_reason` is for.
+
+### The situation travels with the sentence
+
+`Decided::Refuse` carries both. They are one decision — the code that picks the words is the code
+that knows which of five things happened — and splitting them is how the boundary came to render
+all five the same way in the first place.
+
+### One of them must not say "try again"
+
+Only `search_incomplete` is fixed by waiting, and the frontend test asserts the negative on all
+four: the ambiguous case must **not** say *"try again"*, the timed-out case must **not** say
+*"naming its website"*. A wording test that only checks what a sentence says would pass with two
+situations sharing an instruction; the assertion that matters is the one nobody thinks to write.
+
+### What still does not happen
+
+**The candidates are not carried to the client.** *"That name matches more than one company"* is
+now its own sentence, and it cannot yet name them — `PRODUCT_SPEC.md` §3 wants three chips and
+one click. That is the second half of this row, and it needs a column: `failure_reason` is the
+operator's, deliberately, so the choices cannot ride in it.
+
+**Nothing measures whether the set is right**, unchanged.
+[B1](../PROJECT_STATUS.md#4-blockers).
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 32 | 806 | 51 |
+| now | **813** | **54** |
+
+---
+
 ## Run 32 — a report about one company says why
 
 **Date:** 2026-08-08 · **Where:** this laptop · **Model:** none for the set; the analysis that
