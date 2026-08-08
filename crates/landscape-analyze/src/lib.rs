@@ -2166,6 +2166,7 @@ mod joining {
                     looked_for: vec!["analytics".to_owned()],
                 },
             )],
+            alone: None,
         };
         // **Four companies, so another note exists to be first *of*.** With one company the
         // list holds only this note, and `insert(0)` and `insert(len())` are the same place -
@@ -2275,6 +2276,7 @@ mod joining {
                     },
                 ),
             ],
+            alone: None,
         };
         let many = unreachable(4);
         let outcome = analyse_many(
@@ -2323,6 +2325,7 @@ mod joining {
                 found("Linear", "linear.app", 3),
             ],
             set_aside: Vec::new(),
+            alone: None,
         };
         let many = unreachable(4);
         let outcome = analyse_many(
@@ -2374,6 +2377,7 @@ mod joining {
                     looked_for: vec!["project".to_owned(), "management".to_owned()],
                 },
             )],
+            alone: None,
         };
         let many = unreachable(4);
         let outcome = analyse_many(
@@ -2404,6 +2408,189 @@ mod joining {
     }
 
     #[tokio::test]
+    async fn a_report_about_one_company_never_claims_to_have_compared_it() {
+        // **The row this change is for.** A one-company report used to say *"we searched for
+        // the companies it competes with. This report compares Basecamp."* - which is a
+        // comparison claimed and not made, and in three of the four cases a search claimed and
+        // not run.
+        for (why, must_say, must_not_say) in [
+            (
+                landscape_search::competitors::NoRivals::NoEngine,
+                "no search engine is configured",
+                "try again",
+            ),
+            (
+                landscape_search::competitors::NoRivals::SearchIncomplete {
+                    failed: 3,
+                    sent: 3,
+                    sought: landscape_search::competitors::Sought::RivalsOfTheCompany,
+                },
+                "3 of the 3 searches",
+                "none of what came back held up",
+            ),
+            (
+                landscape_search::competitors::NoRivals::NobodyHeldUp {
+                    sought: landscape_search::competitors::Sought::RivalsOfTheCompany,
+                },
+                "none of what came back held up",
+                "try again",
+            ),
+        ] {
+            let set = landscape_search::competitors::Set {
+                members: vec![landscape_search::competitors::Member {
+                    candidate: landscape_core::subject::Candidate {
+                        name: "Basecamp".to_owned(),
+                        canonical_domain: "basecamp.com".to_owned(),
+                        what_it_is: "Project management".to_owned(),
+                        confidence: 1.0,
+                    },
+                    because: landscape_search::competitors::Because::Named,
+                }],
+                set_aside: Vec::new(),
+                alone: Some(why.clone()),
+            };
+            let many = unreachable(4);
+            let outcome = analyse_many(
+                &landscape_fetch::Fetcher::new(),
+                &llm(),
+                &Asked {
+                    set: Some(&set),
+                    ..named(&many)
+                },
+                &mut |_| Wanted::Yes,
+            )
+            .await;
+            let notes = outcome.report.notes.join("\n");
+
+            assert!(
+                notes.contains("You named basecamp.com, so this report is about it."),
+                "{notes}"
+            );
+            assert!(
+                !notes.contains("This report compares"),
+                "a comparison was claimed and not made: {notes}"
+            );
+            assert!(notes.contains(must_say), "{why:?} did not say it: {notes}");
+            assert!(
+                !notes.contains(must_not_say),
+                "{why:?} said something belonging to another silence: {notes}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn a_description_report_never_says_its_own_company_failed_to_hold_up() {
+        // **Review found two adjacent notes contradicting each other.** The reason a set is
+        // alone was written for the seeded path, so a description that matched one company
+        // said *"none of what came back held up"* immediately before *"Plausible - 3 of the 3
+        // searches returned it"*. Plausible is what came back, and it held up.
+        let set = landscape_search::competitors::Set {
+            members: vec![found("Plausible", "plausible.io", 3)],
+            set_aside: Vec::new(),
+            alone: Some(landscape_search::competitors::NoRivals::NobodyHeldUp {
+                sought: landscape_search::competitors::Sought::CompaniesMatchingTheDescription,
+            }),
+        };
+        let many = unreachable(4);
+        let outcome = analyse_many(
+            &landscape_fetch::Fetcher::new(),
+            &llm(),
+            &Asked {
+                set: Some(&set),
+                ..named(&many)
+            },
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+        let notes = outcome.report.notes.join(
+            "
+",
+        );
+
+        assert!(
+            notes.contains("Plausible - 3 of the 3 searches returned it"),
+            "{notes}"
+        );
+        assert!(
+            !notes.contains("none of what came back held up"),
+            "the report says its own company failed to hold up: {notes}"
+        );
+        assert!(
+            !notes.contains("companies it competes with"),
+            "a description search was described as a search for one company's rivals: {notes}"
+        );
+        assert!(
+            notes.contains("Only one company matched that description"),
+            "{notes}"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_incomplete_description_search_is_described_as_one() {
+        let set = landscape_search::competitors::Set {
+            members: vec![found("Plausible", "plausible.io", 2)],
+            set_aside: Vec::new(),
+            alone: Some(landscape_search::competitors::NoRivals::SearchIncomplete {
+                failed: 2,
+                sent: 3,
+                sought: landscape_search::competitors::Sought::CompaniesMatchingTheDescription,
+            }),
+        };
+        let many = unreachable(4);
+        let outcome = analyse_many(
+            &landscape_fetch::Fetcher::new(),
+            &llm(),
+            &Asked {
+                set: Some(&set),
+                ..named(&many)
+            },
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+        let notes = outcome.report.notes.join(
+            "
+",
+        );
+        assert!(
+            notes.contains("searches for companies matching that description"),
+            "{notes}"
+        );
+        assert!(!notes.contains("companies it competes with"), "{notes}");
+        assert!(notes.contains("try again"), "{notes}");
+    }
+
+    #[tokio::test]
+    async fn a_real_comparison_still_says_it_compared_them() {
+        // The other half, so the rule above is a rule rather than a refusal to claim anything.
+        let set = landscape_search::competitors::Set {
+            members: vec![
+                found("Fathom", "usefathom.com", 3),
+                found("Plausible", "plausible.io", 3),
+            ],
+            set_aside: Vec::new(),
+            alone: None,
+        };
+        let many = unreachable(4);
+        let outcome = analyse_many(
+            &landscape_fetch::Fetcher::new(),
+            &llm(),
+            &Asked {
+                set: Some(&set),
+                ..named(&many)
+            },
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+        let first = outcome.report.notes.first().expect("a note");
+        assert!(first.contains("This report compares"), "{first}");
+        assert!(
+            !outcome.report.notes.join("\n").contains("did not look"),
+            "{:#?}",
+            outcome.report.notes
+        );
+    }
+
+    #[tokio::test]
     async fn no_company_is_named_in_a_note_that_the_report_does_not_compare() {
         // **The cap and the note have to agree.** `MAX_SUBJECTS` drops the fourth company, and
         // a note naming five while three are read is the silent-drop defect with better prose
@@ -2416,6 +2603,7 @@ mod joining {
                 found("Four", "four.example", 3),
             ],
             set_aside: Vec::new(),
+            alone: None,
         };
         let many = unreachable(4);
         let outcome = analyse_many(

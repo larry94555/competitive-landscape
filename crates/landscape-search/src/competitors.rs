@@ -45,7 +45,7 @@ use landscape_core::subject::{Candidate, Resolution, MINIMUM_CONFIDENCE};
 use crate::provider::SourceProvider;
 use crate::queries::Query;
 
-use crate::candidates::{Described, Queried, Seed, Vocabulary, CORROBORATION, NAMED};
+use crate::candidates::{Described, NoVocabulary, Queried, Seed, Vocabulary, CORROBORATION, NAMED};
 
 /// How many content words a description needs before it is about a *kind* of thing.
 ///
@@ -206,6 +206,166 @@ pub struct Set {
     pub members: Vec<Member>,
     /// Found and not in the report, each with the reason.
     pub set_aside: Vec<(Candidate, Aside)>,
+    /// Why nobody else is here, when the report covers one company.
+    ///
+    /// `None` when there is a comparison to read. `Some` is the honest empty at the level of the
+    /// **whole set** — the thing [`Aside`] does for one company, done for the absence of all of
+    /// them.
+    pub alone: Option<NoRivals>,
+}
+
+/// Why a report covers one company and no others.
+///
+/// **Four, and a reader acts on each of them differently.** *"Nothing is configured"*, *"we
+/// could not read your company's page"*, *"the searching did not finish"* and *"we looked and
+/// nobody held up"* are four different facts; only the last is about the market, and only the
+/// third is fixed by waiting.
+///
+/// Collapsing them was refused three times while the rest of this row was built — see
+/// `BENCHMARKS.md` Runs 29 to 31 — on the grounds that one sentence covering all of them is
+/// worse than no sentence, because a reader acts on it and gets the same silence back. This is
+/// that refusal paid off rather than deferred again.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NoRivals {
+    /// No search engine is configured, so nothing off this company's own site can be reached.
+    NoEngine,
+    /// The company's own page gave nothing to judge a competitor against; see [`NoVocabulary`].
+    ///
+    /// **Nothing was asked at all in this case**, which is why it is a separate fact from
+    /// [`Self::NobodyHeldUp`]: no engine was consulted, so nothing is being claimed about who
+    /// is out there.
+    NothingToCompare(NoVocabulary),
+    /// Some of the searches did not come back. Retryable, and about us.
+    SearchIncomplete {
+        failed: usize,
+        sent: usize,
+        sought: Sought,
+    },
+    /// Every search ran, and nothing else that came back held up.
+    ///
+    /// The only one of the four that is a statement about the world rather than about us.
+    /// Whatever was found and rejected is in [`Set::set_aside`], named.
+    NobodyHeldUp { sought: Sought },
+}
+
+/// What the searches behind a set were looking for.
+///
+/// **The same silence needs different words on the two paths.** A description path searched for
+/// companies matching what somebody typed; a seeded path searched for the rivals of a company
+/// they named. Review found the seeded wording on a description's report:
+///
+/// ```text
+/// You described a market ... This report is about Plausible (plausible.io).
+/// We searched for companies it competes with and none of what came back held up.
+/// Why each one is here: Plausible - 3 of the 3 searches returned it, ...
+/// ```
+///
+/// Two adjacent notes, one saying nothing held up and the next naming the company that did —
+/// and neither search was for Plausible's competitors. It is carried on the variant rather than
+/// passed to `sentence()` so a caller cannot supply the wrong one: the two paths each state it
+/// once, where they know it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Sought {
+    /// Rivals of the company the reader named.
+    RivalsOfTheCompany,
+    /// Companies matching the description the reader typed.
+    CompaniesMatchingTheDescription,
+}
+
+impl Sought {
+    /// What a sentence calls the thing that was searched for.
+    #[must_use]
+    pub const fn phrase(self) -> &'static str {
+        match self {
+            Self::RivalsOfTheCompany => "companies it competes with",
+            Self::CompaniesMatchingTheDescription => "companies matching that description",
+        }
+    }
+}
+
+impl NoRivals {
+    /// Why a run with **no engine configured** found nobody — which is not always the engine.
+    ///
+    /// **Review found the report recommending a remedy that cannot work.** With the seed's own
+    /// page unreadable, `seed.words()` already fails; configuring `SEARX_URL` would change
+    /// nothing, because [`of_company`] would then send zero queries and say so. The report told
+    /// a reader to install something while `landscape candidates` told them it would not help —
+    /// two surfaces, two answers, and the wrong one on the surface that matters.
+    ///
+    /// No vocabulary takes precedence, because it is the fact that makes the engine irrelevant.
+    #[must_use]
+    pub fn when_no_engine_is_configured(seed: &Seed) -> Self {
+        match seed.words() {
+            Err(why) => Self::NothingToCompare(why),
+            Ok(_) => Self::NoEngine,
+        }
+    }
+
+    /// The sentence a reader is shown after the company this report is about.
+    #[must_use]
+    pub fn sentence(&self) -> String {
+        match *self {
+            Self::NoEngine => "We did not look for companies it competes with: no search engine \
+                 is configured here, so nothing off this company's own site can be reached."
+                .to_owned(),
+            Self::NothingToCompare(why) => format!(
+                "We did not look for companies it competes with: {}, so there was nothing to \
+                 judge one against. This says nothing about who else is out there.",
+                why.sentence()
+            ),
+            Self::SearchIncomplete {
+                failed,
+                sent,
+                sought,
+            } => format!(
+                "We could not complete {failed} of the {sent} searches for {}, so this report is \
+                 about one company. That is usually temporary - try again.",
+                sought.phrase()
+            ),
+            // **Not "none of what came back held up" on the description path**, where the one
+            // company in the report is exactly what came back and did hold up.
+            Self::NobodyHeldUp {
+                sought: Sought::RivalsOfTheCompany,
+            } => "We searched for companies it competes with and none of what came back held up."
+                .to_owned(),
+            Self::NobodyHeldUp {
+                sought: Sought::CompaniesMatchingTheDescription,
+            } => "Only one company matched that description well enough to report on.".to_owned(),
+        }
+    }
+}
+
+/// Why a set has nobody in it beside the first company — when that is true at all.
+///
+/// **One function, because both paths need the same answer and would otherwise each guess.** A
+/// description that resolved to a single company and a named company nobody could be found for
+/// are the same shape from a reader's side: one company in a tool that promises a comparison.
+///
+/// `nothing_asked` is for the cases decided before any query goes out — no engine, or a seed
+/// page with no vocabulary — because [`Queried`] cannot tell *"we sent none"* from *"there were
+/// none to send"*.
+#[must_use]
+pub fn alone_because(
+    members: usize,
+    queried: &Queried,
+    sought: Sought,
+    nothing_asked: Option<NoRivals>,
+) -> Option<NoRivals> {
+    // More than one company is a comparison, whatever else went wrong on the way to it.
+    if members > 1 {
+        return None;
+    }
+    if let Some(why) = nothing_asked {
+        return Some(why);
+    }
+    if !queried.failed.is_empty() {
+        return Some(NoRivals::SearchIncomplete {
+            failed: queried.failed.len(),
+            sent: queried.sent(),
+            sought,
+        });
+    }
+    Some(NoRivals::NobodyHeldUp { sought })
 }
 
 impl Set {
@@ -329,17 +489,21 @@ where
     // and the reason it is not invented here is that one sentence covering *no engine*, *the
     // search did not finish* and *we could not read your company's page* is the collapse this
     // project has un-made three times.
-    let Ok(words) = seed.words() else {
-        return (
-            Set {
-                members: vec![Member {
-                    candidate: seed.candidate.clone(),
-                    because: Because::Named,
-                }],
-                set_aside: Vec::new(),
-            },
-            Queried::default(),
-        );
+    let words = match seed.words() {
+        Ok(words) => words,
+        Err(why) => {
+            return (
+                Set {
+                    members: vec![Member {
+                        candidate: seed.candidate.clone(),
+                        because: Because::Named,
+                    }],
+                    set_aside: Vec::new(),
+                    alone: Some(NoRivals::NothingToCompare(why)),
+                },
+                Queried::default(),
+            )
+        }
     };
 
     let queries = for_company(&seed.candidate.name);
@@ -375,6 +539,12 @@ where
             candidate: seed.candidate.clone(),
             because: Because::Named,
         },
+    );
+    set.alone = alone_because(
+        set.members.len(),
+        &queried,
+        Sought::RivalsOfTheCompany,
+        None,
     );
     (set, queried)
 }
@@ -912,6 +1082,184 @@ mod tests {
             "{:#?}",
             set.members
         );
+    }
+
+    #[test]
+    fn a_comparison_is_never_explained_as_an_absence() {
+        // Two companies is a comparison, whatever else went wrong on the way to it. The note
+        // this drives sits beside "this report compares X and Y", and a reason for having
+        // nobody would contradict it.
+        assert_eq!(
+            alone_because(
+                2,
+                &Queried {
+                    completed: vec!["q1".to_owned()],
+                    failed: vec!["q2".to_owned(), "q3".to_owned()],
+                },
+                Sought::RivalsOfTheCompany,
+                None
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn four_reasons_for_one_company_and_no_two_are_the_same() {
+        let all_answered = Queried {
+            completed: vec!["q1".to_owned(), "q2".to_owned(), "q3".to_owned()],
+            failed: Vec::new(),
+        };
+        let outage = Queried {
+            completed: vec!["q1".to_owned()],
+            failed: vec!["q2".to_owned(), "q3".to_owned()],
+        };
+
+        // **Nothing was asked**, and the caller says which of the two ways that happened.
+        assert_eq!(
+            alone_because(
+                1,
+                &Queried::default(),
+                Sought::RivalsOfTheCompany,
+                Some(NoRivals::NoEngine)
+            ),
+            Some(NoRivals::NoEngine)
+        );
+        assert_eq!(
+            alone_because(
+                1,
+                &Queried::default(),
+                Sought::RivalsOfTheCompany,
+                Some(NoRivals::NothingToCompare(
+                    crate::candidates::NoVocabulary::NothingQuotable
+                ))
+            ),
+            Some(NoRivals::NothingToCompare(
+                crate::candidates::NoVocabulary::NothingQuotable
+            ))
+        );
+        // Asked, and some did not come back. Retryable, and about us.
+        assert_eq!(
+            alone_because(1, &outage, Sought::RivalsOfTheCompany, None),
+            Some(NoRivals::SearchIncomplete {
+                failed: 2,
+                sent: 3,
+                sought: Sought::RivalsOfTheCompany
+            })
+        );
+        // Asked, all answered, nothing held up. The only one about the market.
+        assert_eq!(
+            alone_because(1, &all_answered, Sought::RivalsOfTheCompany, None),
+            Some(NoRivals::NobodyHeldUp {
+                sought: Sought::RivalsOfTheCompany
+            })
+        );
+
+        // And every one of them reads differently, because a reader acts on each differently.
+        let said: Vec<String> = [
+            NoRivals::NoEngine,
+            NoRivals::NothingToCompare(crate::candidates::NoVocabulary::Unreadable),
+            NoRivals::NothingToCompare(crate::candidates::NoVocabulary::NothingQuotable),
+            NoRivals::SearchIncomplete {
+                failed: 2,
+                sent: 3,
+                sought: Sought::RivalsOfTheCompany,
+            },
+            NoRivals::NobodyHeldUp {
+                sought: Sought::RivalsOfTheCompany,
+            },
+            NoRivals::NobodyHeldUp {
+                sought: Sought::CompaniesMatchingTheDescription,
+            },
+        ]
+        .iter()
+        .map(NoRivals::sentence)
+        .collect();
+        for (i, one) in said.iter().enumerate() {
+            for other in said.iter().skip(i + 1) {
+                assert_ne!(one, other, "two silences collapsed into one sentence");
+            }
+        }
+        assert!(said[3].contains("2 of the 3"), "{}", said[3]);
+        assert!(said[3].contains("try again"), "{}", said[3]);
+        assert!(
+            !said[4].contains("try again"),
+            "a statement about the market was made retryable: {}",
+            said[4]
+        );
+    }
+
+    #[tokio::test]
+    async fn a_company_nobody_could_be_found_for_says_which_kind_of_nobody() {
+        // End to end, both shapes that end in one company, and the sentences differ.
+        let alone = |per_query: Vec<Result<Vec<crate::provider::Hit>, ()>>| async move {
+            let engine = Canned {
+                per_query,
+                asked: std::sync::Mutex::new(Vec::new()),
+            };
+            of_company(&engine, &seed(), |_url| async {
+                Some("# A bakery\n\nSourdough, baked fresh each morning.".to_owned())
+            })
+            .await
+            .0
+            .alone
+        };
+
+        // Every search ran; the one company that came back shares nothing with the seed.
+        let found = vec![hit("https://bakery.example/")];
+        assert_eq!(
+            alone(vec![Ok(found.clone()), Ok(found.clone()), Ok(found)]).await,
+            Some(NoRivals::NobodyHeldUp {
+                sought: Sought::RivalsOfTheCompany
+            })
+        );
+        // Two searches never came back. That is about us, not about the market.
+        assert_eq!(
+            alone(vec![Ok(Vec::new()), Err(()), Err(())]).await,
+            Some(NoRivals::SearchIncomplete {
+                failed: 2,
+                sent: 3,
+                sought: Sought::RivalsOfTheCompany
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn a_seed_whose_page_gave_nothing_says_so_rather_than_naming_a_market() {
+        let (set, _) = of_company(
+            &Canned {
+                per_query: Vec::new(),
+                asked: std::sync::Mutex::new(Vec::new()),
+            },
+            &seed_nobody_could_read(),
+            |_url| async { None },
+        )
+        .await;
+        assert_eq!(
+            set.alone,
+            Some(NoRivals::NothingToCompare(
+                crate::candidates::NoVocabulary::Unreadable
+            ))
+        );
+        let said = set.alone.expect("a reason").sentence();
+        assert!(
+            said.contains("says nothing about who else is out there"),
+            "{said}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_real_comparison_carries_no_reason_for_being_alone() {
+        let all = vec![hit("https://linear.app/")];
+        let engine = Canned {
+            per_query: vec![Ok(all.clone()), Ok(all.clone()), Ok(all)],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (set, _) = of_company(&engine, &seed(), |_url| async {
+            Some("# Linear\n\nProject management built for speed.".to_owned())
+        })
+        .await;
+        assert_eq!(set.members.len(), 2);
+        assert_eq!(set.alone, None, "a comparison was explained as an absence");
     }
 
     #[tokio::test]

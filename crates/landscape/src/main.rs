@@ -516,14 +516,8 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
         &queried,
     ) {
         landscape_analyze::subject::Decided::Analyse(set) => {
-            println!("\nthe report would compare");
-            for m in &set.members {
-                println!("  {} ({})", m.candidate.name, m.candidate.canonical_domain);
-                println!("      {}", m.because.sentence());
-            }
-            for (c, why) in &set.set_aside {
-                println!("  not compared: {} ({})", c.name, c.canonical_domain);
-                println!("      {}", why.sentence());
+            for line in set_as_printed(&set) {
+                println!("{line}");
             }
         }
         landscape_analyze::subject::Decided::Refuse(why) => {
@@ -585,6 +579,35 @@ fn what_would_be_asked(seed: &landscape_search::candidates::Seed) -> Vec<String>
         "Those are templated from the company's own name for itself, which is what".to_owned(),
     );
     said.push("FACT_CHECKING P22 asks for. Nothing you typed reaches the engine.".to_owned());
+    said
+}
+
+/// The set as this command prints it, **including why nobody else is in it**.
+///
+/// One function for both paths — a description's set and a named company's — because they are
+/// the same thing to a reader and the last two review rounds were about a diagnostic drifting
+/// from the code it describes. `set.alone` is the report's own honest empty; a diagnostic that
+/// showed the comparison but not the reason for its size would be showing less than the report.
+fn set_as_printed(set: &landscape_search::competitors::Set) -> Vec<String> {
+    let mut said = vec!["\nthe report would compare".to_owned()];
+    for m in &set.members {
+        said.push(format!(
+            "  {} ({})",
+            m.candidate.name, m.candidate.canonical_domain
+        ));
+        said.push(format!("      {}", m.because.sentence()));
+    }
+    for (c, why) in &set.set_aside {
+        said.push(format!(
+            "  not compared: {} ({})",
+            c.name, c.canonical_domain
+        ));
+        said.push(format!("      {}", why.sentence()));
+    }
+    if let Some(why) = set.alone.as_ref() {
+        said.push(String::new());
+        said.push(why.sentence());
+    }
     said
 }
 
@@ -653,14 +676,8 @@ async fn rivals_of_a_named_company(origin: &str) -> Result<()> {
         }
     }
 
-    println!("\nthe report would compare");
-    for m in &set.members {
-        println!("  {} ({})", m.candidate.name, m.candidate.canonical_domain);
-        println!("      {}", m.because.sentence());
-    }
-    for (c, why) in &set.set_aside {
-        println!("  not compared: {} ({})", c.name, c.canonical_domain);
-        println!("      {}", why.sentence());
+    for line in set_as_printed(&set) {
+        println!("{line}");
     }
     Ok(())
 }
@@ -1257,22 +1274,27 @@ async fn resolve_from_description(
     landscape_analyze::subject::decide(derived, &queried)
 }
 
-/// The companies a named one competes with, when there is an engine to ask.
+/// The companies a named one competes with, and why there are none when there are none.
 ///
-/// `None` means *we did not look*, which is not a refusal: the reader named a company and a
-/// report about exactly that company is a perfectly good answer to what they typed. It is
-/// what every run did before this, and it is what a laptop with no `SEARX_URL` still does.
-///
-/// **What it does not yet do is say so on the report.** *"No public information at the level
-/// of a whole competitor set"* is its own row of S2, and inventing half of it here would mean
-/// one sentence covering *no engine*, *the search did not finish* and *we looked and found
-/// nobody* - the collapse this project has now un-made three times.
+/// **Always a set, never `None`.** It used to return `None` when no engine was configured, and
+/// the caller quietly analysed the one company — a perfectly good answer to what a reader typed,
+/// with nothing on the page saying we had not looked. Saying so is
+/// [`landscape_search::competitors::NoRivals`], and it is the row this function was left
+/// half-done for: four different reasons a report covers one company, and a reader acts on each
+/// of them differently.
 async fn rivals_of(
     engine: Option<&dyn landscape_search::SourceProvider>,
     origin: &str,
-) -> Option<landscape_search::competitors::Set> {
-    let engine = engine?;
-    let host = landscape_fetch::Target::parse(origin).ok()?.host;
+) -> landscape_search::competitors::Set {
+    let host = match landscape_fetch::Target::parse(origin) {
+        Ok(target) => target.host,
+        // Unreachable: `Subjects::Seed` comes from `origins_in`, which only produces parseable
+        // origins. A refusal rather than an `expect`, because a panic here takes a worker down.
+        Err(e) => {
+            tracing::error!(%origin, error = %e, "a named origin did not parse");
+            return landscape_search::competitors::Set::default();
+        }
+    };
     let fetcher = landscape_fetch::Fetcher::new();
     let read = |url: String| {
         let fetcher = &fetcher;
@@ -1285,6 +1307,21 @@ async fn rivals_of(
         }
     };
     let seed = landscape_search::candidates::named_seed(&host, read).await;
+    let Some(engine) = engine else {
+        // **The laptop default, and now it says so.** A reader who gets a one-company report
+        // deserves to know whether we looked and found nobody or never looked at all; only one
+        // of those is fixed by configuring something.
+        return landscape_search::competitors::Set {
+            members: vec![landscape_search::competitors::Member {
+                candidate: seed.candidate.clone(),
+                because: landscape_search::competitors::Because::Named,
+            }],
+            set_aside: Vec::new(),
+            alone: Some(
+                landscape_search::competitors::NoRivals::when_no_engine_is_configured(&seed),
+            ),
+        };
+    };
     let (set, queried) = landscape_search::competitors::of_company(engine, &seed, read).await;
     if !queried.failed.is_empty() {
         tracing::warn!(
@@ -1293,7 +1330,7 @@ async fn rivals_of(
             "some competitor searches did not complete"
         );
     }
-    Some(set)
+    set
 }
 
 /// Record a refusal a reader can act on, and say so if the claim was taken away first.
@@ -1368,19 +1405,16 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
         // engine this is exactly what it always was - the laptop default, unchanged - and
         // saying so at the level of a whole set is its own roadmap row.
         landscape_analyze::subject::Subjects::Seed(origin) => {
-            match rivals_of(searching, &origin).await {
-                Some(set) => {
-                    let origins = set.origins();
-                    tracing::info!(
-                        id = %analysis.id,
-                        %origin,
-                        companies = origins.len(),
-                        "a named company brought its competitors"
-                    );
-                    (origins, Some(set))
-                }
-                None => (vec![origin], None),
-            }
+            let set = rivals_of(searching, &origin).await;
+            let origins = set.origins();
+            tracing::info!(
+                id = %analysis.id,
+                %origin,
+                companies = origins.len(),
+                alone = ?set.alone,
+                "a named company seeded a report"
+            );
+            (origins, Some(set))
         }
         // Several named: the reader has said what to compare, and adding to it would be
         // overruling them.
@@ -1523,6 +1557,136 @@ mod tests {
                 "a query was shown for a run that would send none, or hidden from one that would:\n{said}"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn no_engine_and_no_vocabulary_never_recommends_configuring_one() {
+        // **Review found the report sending a reader somewhere that could not help.** With the
+        // seed's own page unreadable, `seed.words()` already fails - so configuring `SEARX_URL`
+        // would change nothing: `of_company` would send zero queries and say so. The report
+        // said *"configure an engine"* while the diagnostic beside it said an engine would not
+        // have been asked either.
+        //
+        // `.invalid` is RFC 2606, so the seed's front page is never really fetched.
+        let set = rivals_of(None, "https://basecamp.invalid").await;
+
+        assert_eq!(set.members.len(), 1, "{:#?}", set.members);
+        assert_eq!(
+            set.alone,
+            Some(landscape_search::competitors::NoRivals::NothingToCompare(
+                landscape_search::candidates::NoVocabulary::Unreadable
+            )),
+            "an engine was blamed for a page we could not read"
+        );
+        let said = set.alone.expect("a reason").sentence();
+        assert!(
+            !said.contains("no search engine is configured"),
+            "a remedy that cannot work was recommended: {said}"
+        );
+        assert!(
+            said.contains("says nothing about who else is out there"),
+            "{said}"
+        );
+    }
+
+    #[test]
+    fn the_engine_is_only_blamed_when_the_engine_is_the_problem() {
+        // Both directions of the precedence, on the function both surfaces read.
+        let readable = seed(true, "Project management and team communication");
+        assert_eq!(
+            landscape_search::competitors::NoRivals::when_no_engine_is_configured(&readable),
+            landscape_search::competitors::NoRivals::NoEngine
+        );
+        for (read, what_it_is, why) in [
+            (
+                true,
+                "",
+                landscape_search::candidates::NoVocabulary::NothingQuotable,
+            ),
+            (
+                false,
+                "we were unable to read its front page",
+                landscape_search::candidates::NoVocabulary::Unreadable,
+            ),
+        ] {
+            assert_eq!(
+                landscape_search::competitors::NoRivals::when_no_engine_is_configured(&seed(
+                    read, what_it_is
+                )),
+                landscape_search::competitors::NoRivals::NothingToCompare(why),
+                "read={read}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_report_and_the_diagnostic_agree_about_whether_an_engine_would_help() {
+        // **The parity that was broken.** Two surfaces describing one run: the report's reason
+        // for having nobody, and the footer this command prints when nothing is configured.
+        // They read the same `seed.words()` now, and the assertion is that they cannot come to
+        // different conclusions about whether configuring something would change the outcome.
+        for (read, what_it_is) in [
+            (true, "Project management and team communication"),
+            (true, ""),
+            (false, "we were unable to read its front page"),
+        ] {
+            let seed = seed(read, what_it_is);
+            let reported =
+                landscape_search::competitors::NoRivals::when_no_engine_is_configured(&seed)
+                    .sentence();
+            let diagnosed = without_an_engine(&seed);
+
+            let report_blames_the_engine = reported.contains("no search engine is configured");
+            let diagnostic_says_it_would_help =
+                !diagnosed.contains("nothing would have been asked with it either");
+            assert_eq!(
+                report_blames_the_engine, diagnostic_says_it_would_help,
+                "read={read}, what_it_is={what_it_is:?}\n  report: {reported}\n  cli:    {diagnosed}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_diagnostic_shows_the_reason_a_report_covers_one_company() {
+        // A diagnostic that showed the comparison but not the reason for its size would show
+        // less than the report does - which is the drift the last two rounds were about,
+        // pointed at the other half of the same output.
+        let lone = |alone| landscape_search::competitors::Set {
+            members: vec![landscape_search::competitors::Member {
+                candidate: landscape_core::subject::Candidate {
+                    name: "Basecamp".to_owned(),
+                    canonical_domain: "basecamp.com".to_owned(),
+                    what_it_is: "Project management".to_owned(),
+                    confidence: 1.0,
+                },
+                because: landscape_search::competitors::Because::Named,
+            }],
+            set_aside: Vec::new(),
+            alone,
+        };
+
+        for why in [
+            landscape_search::competitors::NoRivals::NoEngine,
+            landscape_search::competitors::NoRivals::NobodyHeldUp {
+                sought: landscape_search::competitors::Sought::RivalsOfTheCompany,
+            },
+            landscape_search::competitors::NoRivals::SearchIncomplete {
+                failed: 2,
+                sent: 3,
+                sought: landscape_search::competitors::Sought::RivalsOfTheCompany,
+            },
+        ] {
+            let said = set_as_printed(&lone(Some(why.clone()))).join("\n");
+            assert!(
+                said.contains(&why.sentence()),
+                "the report would say why and this does not: {said}"
+            );
+        }
+
+        // And a comparison carries no explanation for an absence that is not there.
+        let said = set_as_printed(&lone(None)).join("\n");
+        assert!(!said.contains("We did not look"), "{said}");
+        assert!(!said.contains("none of what came back held up"), "{said}");
     }
 
     #[test]

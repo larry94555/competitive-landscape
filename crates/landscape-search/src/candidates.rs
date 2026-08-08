@@ -621,7 +621,17 @@ where
     // excluded. The gate gets only what was *fetched*, because it asks a reader to choose and a
     // candidate with no name of its own is not a choice. Review found each of these in turn,
     // from opposite directions.
-    let set = crate::competitors::assemble(named.clone(), queried.sent(), &words);
+    let mut set = crate::competitors::assemble(named.clone(), queried.sent(), &words);
+    // **A description that produced one company is the same shape from a reader's side as a
+    // named company nobody could be found for**: one company, in a tool that promises a
+    // comparison. Same function, so the two paths cannot come to different conclusions about
+    // the same evidence.
+    set.alone = crate::competitors::alone_because(
+        set.members.len(),
+        &queried,
+        crate::competitors::Sought::CompaniesMatchingTheDescription,
+        None,
+    );
     let choices: Vec<Candidate> = named
         .into_iter()
         .filter(Described::was_requested)
@@ -1753,6 +1763,47 @@ The second of two."
             "{}",
             because.sentence()
         );
+    }
+
+    #[tokio::test]
+    async fn a_description_that_produced_one_company_says_why_nobody_else_is_there() {
+        // The same honest empty the seeded path gets, on the path that came first. One company
+        // in a tool that promises a comparison is the same shape to a reader however it
+        // happened, so it is the same function deciding it.
+        let all = vec![hit("https://plausible.io/")];
+        let engine = Canned {
+            per_query: vec![Ok(all.clone()), Ok(all.clone()), Ok(all)],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (derived, _) = for_description(
+            &engine,
+            "privacy-friendly website analytics",
+            |_url| async { Some("# Plausible\nPrivacy-first website analytics.".to_owned()) },
+        )
+        .await;
+        assert_eq!(derived.set.members.len(), 1, "{:#?}", derived.set);
+        assert_eq!(
+            derived.set.alone,
+            Some(crate::competitors::NoRivals::NobodyHeldUp {
+                sought: crate::competitors::Sought::CompaniesMatchingTheDescription
+            }),
+            "one company arrived with no reason for being alone"
+        );
+
+        // Two companies is a comparison, and carries no explanation for an absence.
+        let both = vec![hit("https://plausible.io/"), hit("https://usefathom.com/")];
+        let engine = Canned {
+            per_query: vec![Ok(both.clone()), Ok(both.clone()), Ok(both)],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (derived, _) = for_description(
+            &engine,
+            "privacy-friendly website analytics",
+            |_url| async { Some("# A company\nPrivacy-first website analytics.".to_owned()) },
+        )
+        .await;
+        assert_eq!(derived.set.members.len(), 2);
+        assert_eq!(derived.set.alone, None);
     }
 
     #[tokio::test]

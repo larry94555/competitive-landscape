@@ -1439,6 +1439,48 @@ wrong, because it is the one wording nobody thinks of as data.
 
 ---
 
+## 45. A guard that compares text, and a formatter that rewrites it
+
+**Found:** by running `cargo fmt --all` while a mutation catalogue held a file open — the fourth
+finding about that same window, after 41, 42 and 43.
+
+The catalogue stopped and kept its backup, exactly as entry 43's fix intended. What it left in
+the tree was the mutated file **after `rustfmt` had reflowed it**:
+
+```rust
+// what mutate.py wrote                    // what was on disk afterwards
+const TEMPLATES: [&str; 3] = [             const TEMPLATES: [&str; 3] =
+    r#"{} alternatives"#,                      [r#"{} alternatives"#, r#"{} competitors"#,
+    r#"{} competitors"#,                        r#"{} rivals"#];
+    r#"{} rivals"#,
+];
+```
+
+**`scripts/no_live_mutations.py` then reported a clean tree.** It matches the recorded `new`
+character for character, and this was no longer that string — not just different whitespace, but
+a dropped trailing comma too. The one gate written to stop a deliberate defect reaching a commit
+could not see the defect sitting in front of it.
+
+**My first fix was wrong in an instructive way.** I collapsed runs of whitespace before
+comparing, which reads like the obvious answer and would not have caught this one: `rustfmt` also
+removes the trailing comma when it joins lines, so the two strings still differ after every space
+is normalised. I only found that out because the self-check I wrote alongside it failed. **A
+normalisation is a claim about what the other tool does**, and mine was a guess.
+
+**What actually closes it needs no guess.** A `*.mutate-backup` on disk means exactly two things,
+both of them *"this tree is not what it looks like"*: a run died holding a file, or the harness
+refused to restore over somebody's edit. Neither depends on what the mutated text looks like
+afterwards, so the check is sound rather than usually right, and it is one `glob`.
+
+**Rule:** a guard that recognises code by its exact text is defeated by anything allowed to
+rewrite that text — a formatter, a linter's autofix, an IDE on save. Before hardening the
+comparison, look for a signal that is not the code at all: a lock file, a marker, a leftover
+artefact. If the only available check is textual, say in the docstring what it cannot see.
+
+> **Ask this:** *what else is allowed to edit this file, and would my check still recognise it?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**
