@@ -486,7 +486,7 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
     // **What came back, not what was sent.** The list a reader is shown as evidence of the
     // looking has to be the looking that happened.
     let checked = queried.completed.clone();
-    let set = landscape_search::competitors::assemble(named.clone(), queried.sent());
+    let set = landscape_search::competitors::assemble(named.clone(), queried.sent(), &words);
     let verdict = landscape_core::subject::resolve(
         description,
         named.into_iter().map(|d| d.candidate).collect(),

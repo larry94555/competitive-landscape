@@ -501,7 +501,35 @@ pub struct Seed {
     pub candidate: Candidate,
     /// Whether its front page was read. `false` means [`Candidate::what_it_is`] is our sentence
     /// about the failure rather than the company's about itself.
+    ///
+    /// **Not the question a caller should ask.** See [`Self::vocabulary`]: a page that was read
+    /// and said nothing quotable leaves exactly as little to compare a rival against as a page
+    /// that could not be read at all, and review found the difference being treated as one.
     pub read: bool,
+}
+
+impl Seed {
+    /// The words a rival's front page has to have one of, or nothing when there are none.
+    ///
+    /// **One predicate, folding two ways of having no evidence.** The first version gated on
+    /// [`Self::read`] alone, and review found the hole: a reachable page reading only
+    /// `# Basecamp` is `read == true` with an **empty** `what_it_is`, because
+    /// [`naming`] wants a line of at least four words before it will quote one. Three queries
+    /// went out, front pages were fetched, and every corroborated rival was set aside as being
+    /// *elsewhere entirely* — a negative claim about those companies, manufactured out of
+    /// missing evidence about the seed.
+    ///
+    /// Returning the words rather than a `bool` is deliberate: the caller needs them anyway, so
+    /// there is no second place to get the answer slightly differently.
+    #[must_use]
+    pub fn vocabulary(&self) -> Vec<String> {
+        if !self.read {
+            // `what_it_is` is our sentence about the failure here, and mining it produced
+            // `unable`, `read`, `front`, `page` as the market's vocabulary.
+            return Vec::new();
+        }
+        crate::competitors::content_words(&self.candidate.what_it_is)
+    }
 }
 
 /// A candidate built from a host and whatever its front page turned out to be.
@@ -559,7 +587,7 @@ where
     // excluded. The gate gets only what was *fetched*, because it asks a reader to choose and a
     // candidate with no name of its own is not a choice. Review found each of these in turn,
     // from opposite directions.
-    let set = crate::competitors::assemble(named.clone(), queried.sent());
+    let set = crate::competitors::assemble(named.clone(), queried.sent(), &words);
     let choices: Vec<Candidate> = named
         .into_iter()
         .filter(Described::was_requested)
@@ -1771,9 +1799,15 @@ The second of two."
         assert_eq!(compared, vec!["plausible.io"], "{:#?}", derived.set);
         assert_eq!(derived.set.set_aside.len(), 1);
         assert_eq!(derived.set.set_aside[0].0.name, "Notion Press");
-        assert_eq!(
-            derived.set.set_aside[0].1,
-            crate::competitors::Aside::ElsewhereEntirely
+        let crate::competitors::Aside::ElsewhereEntirely { ref looked_for } =
+            derived.set.set_aside[0].1
+        else {
+            panic!("{:?}", derived.set.set_aside[0].1)
+        };
+        // **The words are named, so the exclusion can be judged rather than taken.**
+        assert!(
+            looked_for.contains(&"analytics".to_owned()),
+            "{looked_for:?}"
         );
     }
 

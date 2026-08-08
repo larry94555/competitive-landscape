@@ -119,8 +119,8 @@
   {
     "name": "a rival is matched against a reader's words rather than the seed's",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "    let words = content_words(&seed.candidate.what_it_is);",
-    "new": "    let words: Vec<String> = Vec::new();",
+    "old": "    let words = seed.vocabulary();",
+    "new": "    let words: Vec<String> = vec![\"the\".to_owned()];",
     "run": [
       "cargo",
       "nextest",
@@ -171,8 +171,8 @@
   {
     "name": "a rival search divides by the queries that answered rather than those sent",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "    let mut set = assemble(described, queried.sent());",
-    "new": "    let mut set = assemble(described, queried.completed.len());",
+    "old": "    let mut set = assemble(described, queried.sent(), &words);",
+    "new": "    let mut set = assemble(described, queried.completed.len(), &words);",
     "run": [
       "cargo",
       "nextest",
@@ -223,8 +223,8 @@
   {
     "name": "our own error message becomes the vocabulary a rival is judged against",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "    if !seed.read {",
-    "new": "    if false {",
+    "old": "    let words = seed.vocabulary();\n    if words.is_empty() {",
+    "new": "    let words = content_words(&seed.candidate.what_it_is);\n    if false {",
     "run": [
       "cargo",
       "nextest",
@@ -236,8 +236,8 @@
   {
     "name": "a seed we could read is treated as one we could not",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "    if !seed.read {",
-    "new": "    if true {",
+    "old": "    let words = seed.vocabulary();\n    if words.is_empty() {",
+    "new": "    let words = seed.vocabulary();\n    if true {",
     "run": [
       "cargo",
       "nextest",
@@ -251,6 +251,58 @@
     "file": "crates/landscape-search/src/candidates.rs",
     "old": "        read: page.is_some(),",
     "new": "        read: !from_its_own_page(host, page.as_deref(), 1.0)\n            .what_it_is\n            .is_empty(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a page that was read but said nothing is treated as having said something",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        crate::competitors::content_words(&self.candidate.what_it_is)",
+    "new": "        vec![\"analytics\".to_owned()]",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a seed nobody could read still yields vocabulary",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        if !self.read {\n            // `what_it_is` is our sentence about the failure here, and mining it produced\n            // `unable`, `read`, `front`, `page` as the market's vocabulary.\n            return Vec::new();\n        }",
+    "new": "        if false {\n            return Vec::new();\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "an exclusion blames the reader for words we chose ourselves",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "            Self::ElsewhereEntirely { ref looked_for } => format!(\n                \"its own front page uses none of the words this comparison is built on: {}\",\n                quoted(looked_for)\n            ),",
+    "new": "            Self::ElsewhereEntirely { .. } => {\n                \"its own front page uses none of the words you typed\".to_owned()\n            }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "an exclusion names words other than the ones it judged against",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "                    Some(Aside::ElsewhereEntirely {\n                        looked_for: looked_for.to_vec(),\n                    })",
+    "new": "                    Some(Aside::ElsewhereEntirely {\n                        looked_for: Vec::new(),\n                    })",
     "run": [
       "cargo",
       "nextest",

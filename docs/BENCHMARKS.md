@@ -222,10 +222,48 @@ above; a pre-existing `.mutate-backup` aborts at the top of `apply` for the same
 `restore()` is a function rather than a branch, with a `self_check()` exercising both directions
 on real files every invocation — the same discipline `verify.py` applies to its own comparison.
 
+### Review, again: the gate was on the wrong question, and the sentence named nobody
+
+One run reproduced both:
+
+```text
+read       = true
+what_it_is = ""
+words      = []
+queries sent = 3
+  set aside linear.app -> ElsewhereEntirely
+     says: its own front page uses none of the words you typed
+```
+
+**`read` describes what happened to the request; the gate is about what there is to compare
+against.** Those coincide until a page is reachable and says nothing quotable — `naming` wants a
+line of four words before it will quote one, so `# Basecamp` is `read == true` with an empty
+`what_it_is`. Three queries went out, a front page was fetched, and every corroborated rival came
+back `ElsewhereEntirely`: **a negative claim about those companies, made out of missing evidence
+about the seed.** The same shape as the two findings before it — evidence about A produced from
+an absence at B.
+
+One predicate now, `Seed::vocabulary()`, folding both ways of having nothing, and computed before
+the first query because that is the only place *"no queries either"* can be true. It returns the
+words rather than a `bool`: the caller needs them anyway, so there is no second place to derive
+the answer slightly differently.
+
+**And the exclusion sentence blamed the reader for words we chose.** *"None of the words you
+typed"* is true when a description was searched for and false on the seeded path, where the
+words come off the seed company's own front page. It named none of them, so nothing could check
+it. `Aside::ElsewhereEntirely` carries them now:
+
+```text
+its own front page uses none of the words this comparison is built on: "project", "management"
+```
+
+True on both paths, and a reader can judge the exclusion rather than take it — the same reason
+`Because::Found` names its count and its shared words.
+
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 30 | 767 | 51 |
-| now | **784** | **51** |
+| now | **787** | **51** |
 
 ---
 

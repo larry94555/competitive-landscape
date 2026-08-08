@@ -146,10 +146,17 @@ pub enum Aside {
     Uncorroborated { agreed: usize, asked: usize },
     /// Corroborated, and still below [`landscape_core::subject::MINIMUM_CONFIDENCE`].
     Unconvincing,
-    /// Its front page was read and uses none of the description's words.
+    /// Its front page was read and uses none of the words the comparison is built on.
     ///
     /// A statement about the page, and only reachable when the page was read.
-    ElsewhereEntirely,
+    ///
+    /// **It carries the words, because it used to guess at them.** The sentence said *"none of
+    /// the words you typed"* — true when a description was searched for, false on the seeded
+    /// path, where the words come from the seed company's own front page and the reader typed
+    /// only a domain. A reader was given a false account of the evidence used to exclude
+    /// somebody. Naming them is true on both paths, and lets a reader judge the exclusion
+    /// instead of taking it.
+    ElsewhereEntirely { looked_for: Vec<String> },
     /// Its front page was requested and could not be read, so nothing could be checked.
     ///
     /// **Not the same as [`Self::ElsewhereEntirely`].** One says the company is in another
@@ -175,9 +182,10 @@ impl Aside {
                 "only {agreed} of the {asked} searches returned it, so nothing corroborates it"
             ),
             Self::Unconvincing => "it scored below the level worth putting in a report".to_owned(),
-            Self::ElsewhereEntirely => {
-                "its own front page uses none of the words you typed".to_owned()
-            }
+            Self::ElsewhereEntirely { ref looked_for } => format!(
+                "its own front page uses none of the words this comparison is built on: {}",
+                quoted(looked_for)
+            ),
             Self::Unread => {
                 "we could not read its front page, so we could not check what it does - name the \
                  domain yourself and we will read it"
@@ -302,20 +310,27 @@ where
     F: Fn(String) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
 {
-    // **No vocabulary, no rivals, and no queries either.** A rival is admitted by sharing a word
-    // with the seed's own description of itself; with the front page unread there is no such
-    // description, only our sentence about the failure. Review found the first version deriving
-    // words from that sentence — `unable`, `read`, `front`, `page` — so a page saying *"read
-    // more on this page"* joined the report citing our error message as its evidence.
+    // **No vocabulary, no rivals, and no queries either** — decided here, before anything is
+    // asked of anybody, because that is the only place it can be true. A rival is admitted by
+    // sharing a word with the seed's own description of itself, and there are two ways to have
+    // none: a front page nobody could read, and one that was read and said nothing quotable.
     //
-    // Stopping here rather than searching-and-excluding is deliberate: three queries and five
+    // Review found both. The first version mined the unreadable-page fallback for words —
+    // `unable`, `read`, `front`, `page` — so a rival saying *"read more on this page"* joined
+    // the report citing our error message as its evidence. The second gated on `seed.read`
+    // alone, so a page reading only `# Basecamp` sent all three queries and then set every
+    // corroborated rival aside as *elsewhere entirely*: a negative claim about those companies
+    // built out of missing evidence about this one.
+    //
+    // Stopping rather than searching-and-excluding is deliberate: three queries and five
     // front-page fetches, on other people's servers, to conclude that nothing can be judged is
     // work nobody should pay for. **What a reader is not yet told is that this happened** — that
     // is *"no public information at the level of a whole competitor set"*, its own roadmap row,
     // and the reason it is not invented here is that one sentence covering *no engine*, *the
     // search did not finish* and *we could not read your company's page* is the collapse this
     // project has un-made three times.
-    if !seed.read {
+    let words = seed.vocabulary();
+    if words.is_empty() {
         return (
             Set {
                 members: vec![Member {
@@ -350,9 +365,8 @@ where
             .filter(|f| !same_company(&f.host, &seed.candidate.canonical_domain))
             .collect();
 
-    let words = content_words(&seed.candidate.what_it_is);
     let described = crate::candidates::describe(&found, &words, fetch).await;
-    let mut set = assemble(described, queried.sent());
+    let mut set = assemble(described, queried.sent(), &words);
 
     // **The seed goes first and is not scored.** It is in the report because somebody typed it,
     // which is a different fact from every other row and outranks all of them.
@@ -450,7 +464,7 @@ pub fn about_a_market(words: &[String]) -> bool {
 /// `asked` is how many searches were **sent**, for the same reason [`crate::candidates::score`]
 /// divides by it: a company returned by the one search that came back has agreed with nothing.
 #[must_use]
-pub fn assemble(described: Vec<Described>, asked: usize) -> Set {
+pub fn assemble(described: Vec<Described>, asked: usize, looked_for: &[String]) -> Set {
     let mut set = Set::default();
     for one in described {
         let Described {
@@ -469,7 +483,11 @@ pub fn assemble(described: Vec<Described>, asked: usize) -> Set {
             match shares {
                 Vocabulary::NotRequested => Some(Aside::BeyondTheFetchBudget { budget: NAMED }),
                 Vocabulary::Unreadable => Some(Aside::Unread),
-                Vocabulary::Read(ref s) if s.len() < SHARED_WORDS => Some(Aside::ElsewhereEntirely),
+                Vocabulary::Read(ref s) if s.len() < SHARED_WORDS => {
+                    Some(Aside::ElsewhereEntirely {
+                        looked_for: looked_for.to_vec(),
+                    })
+                }
                 Vocabulary::Read(_) => None,
             }
         };
@@ -532,6 +550,11 @@ mod tests {
             agreed,
             shares,
         }
+    }
+
+    /// The words a comparison is built on, for the tests that do not care which they are.
+    fn market() -> Vec<String> {
+        vec!["analytics".to_owned()]
     }
 
     fn read(words: &[&str]) -> Vocabulary {
@@ -726,7 +749,10 @@ mod tests {
         );
         assert_eq!(set.set_aside.len(), 1);
         assert_eq!(set.set_aside[0].0.canonical_domain, "bakery.example");
-        assert_eq!(set.set_aside[0].1, Aside::ElsewhereEntirely);
+        assert!(matches!(
+            set.set_aside[0].1,
+            Aside::ElsewhereEntirely { .. }
+        ));
     }
 
     #[tokio::test]
@@ -803,6 +829,62 @@ mod tests {
             "queries went out with nothing to judge against"
         );
         assert!(queried.completed.is_empty() && queried.failed.is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_seed_whose_page_says_nothing_quotable_asks_nothing_either() {
+        // **Review found `read` was the wrong question.** A reachable page reading only
+        // `# Basecamp` is `read == true` with an empty `what_it_is`, because `naming` wants a
+        // line of four words before it will quote one. Three queries went out, a front page was
+        // fetched, and a corroborated rival was set aside as *elsewhere entirely* - a negative
+        // claim about that company, built out of missing evidence about this one.
+        let seed = crate::candidates::named_seed("basecamp.com", |_url| async {
+            Some("# Basecamp".to_owned())
+        })
+        .await;
+        assert!(seed.read, "the page was reachable");
+        assert!(
+            seed.vocabulary().is_empty(),
+            "a page with no prose gave us words: {:?}",
+            seed.vocabulary()
+        );
+
+        let all = vec![hit("https://linear.app/")];
+        let engine = Canned {
+            per_query: vec![Ok(all.clone()), Ok(all.clone()), Ok(all)],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (set, queried) = of_company(&engine, &seed, |_url| async {
+            Some("# Linear\n\nProject management built for speed.".to_owned())
+        })
+        .await;
+
+        assert_eq!(
+            queried.sent(),
+            0,
+            "queries went out with nothing to judge against"
+        );
+        assert_eq!(set.members.len(), 1, "{:#?}", set.members);
+        assert_eq!(set.members[0].because, Because::Named);
+        assert!(
+            set.set_aside.is_empty(),
+            "a company was excluded on evidence we never had: {:#?}",
+            set.set_aside
+        );
+    }
+
+    #[test]
+    fn an_exclusion_names_the_words_it_was_judged_against() {
+        // **Review found the sentence saying *"none of the words you typed"*.** True when a
+        // description was searched for; false on the seeded path, where the words come from the
+        // seed company's own page and the reader typed only a domain - a false account of the
+        // evidence used to exclude somebody. Naming them is true on both paths.
+        let aside = Aside::ElsewhereEntirely {
+            looked_for: vec!["project".to_owned(), "management".to_owned()],
+        };
+        let said = aside.sentence();
+        assert!(!said.contains("you typed"), "{said}");
+        assert!(said.contains("\"project\", \"management\""), "{said}");
     }
 
     #[tokio::test]
@@ -945,6 +1027,7 @@ mod tests {
                 described("weak.example", 2, 0.30, read(&["analytics"])),
             ],
             3,
+            &market(),
         );
 
         assert_eq!(set.members.len(), 1, "{set:#?}");
@@ -966,7 +1049,12 @@ mod tests {
                         asked: 3
                     }
                 ),
-                ("notionpress.example", &Aside::ElsewhereEntirely),
+                (
+                    "notionpress.example",
+                    &Aside::ElsewhereEntirely {
+                        looked_for: vec!["analytics".to_owned()]
+                    }
+                ),
                 ("unreachable.example", &Aside::Unread),
                 ("weak.example", &Aside::Unconvincing),
             ]
@@ -981,6 +1069,7 @@ mod tests {
         let set = assemble(
             vec![described("sixth.example", 3, 1.0, Vocabulary::NotRequested)],
             3,
+            &market(),
         );
         assert!(set.members.is_empty());
         assert_eq!(
@@ -1005,10 +1094,14 @@ mod tests {
                 Vocabulary::Unreadable,
             )],
             3,
+            &market(),
         );
         assert_eq!(set.set_aside.len(), 1);
         assert_eq!(set.set_aside[0].1, Aside::Unread);
-        assert_ne!(set.set_aside[0].1, Aside::ElsewhereEntirely);
+        assert!(!matches!(
+            set.set_aside[0].1,
+            Aside::ElsewhereEntirely { .. }
+        ));
         assert!(set.set_aside[0].1.sentence().contains("name the domain"));
     }
 
@@ -1016,7 +1109,11 @@ mod tests {
     fn the_strongest_reason_is_the_one_a_reader_is_given() {
         // One search found it *and* its page is about something else. "Nothing corroborates it"
         // is the fact that decided; reporting the vocabulary would suggest the search agreed.
-        let set = assemble(vec![described("thin.example", 1, 0.175, read(&[]))], 3);
+        let set = assemble(
+            vec![described("thin.example", 1, 0.175, read(&[]))],
+            3,
+            &market(),
+        );
         assert_eq!(
             set.set_aside[0].1,
             Aside::Uncorroborated {
@@ -1035,6 +1132,7 @@ mod tests {
                 described("best.example", 3, 1.0, read(&["analytics"])),
             ],
             3,
+            &market(),
         );
         let order: Vec<&str> = set
             .members
@@ -1064,6 +1162,7 @@ mod tests {
         let set = assemble(
             vec![described("one.example", 2, 0.53, read(&["analytics"]))],
             3,
+            &market(),
         );
         assert!(set.members[0].because.sentence().contains("2 of the 3"));
     }

@@ -653,7 +653,9 @@ mod deciding {
                     set_aside: vec![
                         (
                             candidate("Alpha", "alpha.example"),
-                            Aside::ElsewhereEntirely,
+                            Aside::ElsewhereEntirely {
+                                looked_for: vec!["analytics".to_owned()],
+                            },
                         ),
                         (candidate("Beta", "beta.example"), Aside::Unread),
                     ],
@@ -667,7 +669,10 @@ mod deciding {
         };
         assert_ne!(why, NOTHING_RESOLVED);
         assert!(why.contains("Alpha (alpha.example)"), "{why}");
-        assert!(why.contains("none of the words you typed"), "{why}");
+        assert!(
+            why.contains("none of the words this comparison is built on"),
+            "{why}"
+        );
         assert!(why.contains("Beta (beta.example)"), "{why}");
         assert!(why.contains("could not read its front page"), "{why}");
     }

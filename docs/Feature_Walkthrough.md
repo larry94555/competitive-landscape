@@ -1461,7 +1461,8 @@ the report would compare
   Plausible (plausible.io)
       3 of the 3 searches returned it, and its own front page uses "privacy", "analytics"
   not compared: Notion Press (notionpress.example)
-      its own front page uses none of the words you typed
+      its own front page uses none of the words this comparison is built on:
+      "privacy", "analytics"
   not compared: sixth.example
       it ranked below the 5 companies whose front pages we read, so we never asked for
       its page - name the domain yourself and we will read it
@@ -1518,8 +1519,8 @@ why, and who was left out:
 > uses "privacy", "analytics".
 >
 > Also found and not compared: Notion Press (notionpress.example) - its own front page uses
-> none of the words you typed. 3 further sites returned by only one search, which is not
-> enough to corroborate anything.
+> none of the words this comparison is built on: "privacy", "analytics". 3 further sites
+> returned by only one search, which is not enough to corroborate anything.
 ```
 
 **The third note is the one worth arguing about.** A competitor found and dropped in silence is
@@ -1590,7 +1591,8 @@ the report would compare
   Linear (linear.app)
       3 of the 3 searches returned it, and its own front page uses "project", "management"
   not compared: a-bakery.example
-      its own front page uses none of the words you typed
+      its own front page uses none of the words this comparison is built on:
+      "project", "management"
 ```
 
 **Two kinds of reason, and they are not the same fact.** *"You named it"* is the reader having
@@ -1605,7 +1607,12 @@ which is a reason that argues with itself.
 
 **And the words a rival has to share come from the seed's own front page**, not from anything
 you typed, because on this path you did not type any. Same floor, same narrow claim: a company
-whose page has nothing in common with the seed's is not obviously in the same market.
+whose page has nothing in common with the seed's is not obviously in the same market — and the
+exclusion **names those words**, so you can disagree with it rather than take it.
+
+**If that front page cannot be read, or reads as a bare heading with no prose, nothing is
+searched for at all.** There would be no vocabulary to judge a rival against, and searching
+anyway would mean excluding real companies on evidence we never had.
 
 ### And an analysis does the same thing
 
