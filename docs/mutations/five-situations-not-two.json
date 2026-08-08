@@ -28,8 +28,8 @@
   {
     "name": "an empty market is offered to a reader as retryable",
     "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "        Resolution::NothingFound { .. } => Decided::Refuse {\n            why: NOTHING_RESOLVED.to_owned(),\n            kind: landscape_core::Failure::NothingFound,\n        },",
-    "new": "        Resolution::NothingFound { .. } => Decided::Refuse {\n            why: NOTHING_RESOLVED.to_owned(),\n            kind: landscape_core::Failure::SearchIncomplete,\n        },",
+    "old": "        Resolution::NothingFound { .. } => Decided::Refuse(Refusal {\n            why: NOTHING_RESOLVED.to_owned(),\n            kind: landscape_core::Failure::NothingFound,\n            choices: Vec::new(),\n        }),",
+    "new": "        Resolution::NothingFound { .. } => Decided::Refuse(Refusal {\n            why: NOTHING_RESOLVED.to_owned(),\n            kind: landscape_core::Failure::SearchIncomplete,\n            choices: Vec::new(),\n        }),",
     "run": [
       "cargo",
       "nextest",
@@ -67,8 +67,8 @@
   {
     "name": "the situation is discarded and every refusal looks the same again",
     "file": "crates/landscape/src/main.rs",
-    "old": "                    refuse(store, analysis, kind, &why).await;",
-    "new": "                    refuse(store, analysis, landscape_core::Failure::NoSubject, &why).await;",
+    "old": "                    refuse(store, analysis, &refusal).await;",
+    "new": "                    refuse(\n                        store,\n                        analysis,\n                        &landscape_analyze::subject::Refusal {\n                            why: refusal.why.clone(),\n                            kind: landscape_core::Failure::NoSubject,\n                            choices: refusal.choices.clone(),\n                        },\n                    )\n                    .await;",
     "run": [
       "cargo",
       "nextest",
@@ -167,8 +167,8 @@
   {
     "name": "an outage is reported as an empty market once a candidate is set aside",
     "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "        _ if set.is_empty() && !queried.failed.is_empty() => Decided::Refuse {",
-    "new": "        Resolution::NothingFound { .. } if !queried.failed.is_empty() => Decided::Refuse {",
+    "old": "        _ if set.is_empty() && !queried.failed.is_empty() => Decided::Refuse(Refusal {",
+    "new": "        Resolution::NothingFound { .. } if !queried.failed.is_empty() => Decided::Refuse(Refusal {",
     "run": [
       "cargo",
       "nextest",

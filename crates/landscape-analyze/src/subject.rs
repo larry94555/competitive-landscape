@@ -189,12 +189,28 @@ pub enum Decided {
     /// the words is the code that knows which of five things happened, and splitting them left
     /// the boundary rendering all five as *"try naming its website"* — wrong for a search that
     /// timed out, and throwing away a question a reader could answer in a word.
-    Refuse {
-        /// For operators. Recorded, and never shown verbatim; see [`landscape_core::Failure`].
-        why: String,
-        /// Which situation this is, in the only terms a reader can act on.
-        kind: landscape_core::Failure,
-    },
+    Refuse(Refusal),
+}
+
+/// Everything a refusal is: the situation, the sentence, and the question that goes with it.
+///
+/// **One value rather than three loose ones**, because every caller has to carry all of it to
+/// the same place. `refuse(store, analysis, kind, &why, &choices)` was five arguments, three of
+/// them describing one refusal, and dropping the third at that call site is a silent defect the
+/// type system cannot see. Mutation testing found exactly that: the choices removed on the way
+/// from `decide` to the store, and nothing failed. There is nothing to drop now.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Refusal {
+    /// For operators. Recorded, and never shown verbatim; see [`landscape_core::Failure`].
+    pub why: String,
+    /// Which situation this is, in the only terms a reader can act on.
+    pub kind: landscape_core::Failure,
+    /// The companies a reader can pick between. Empty except on the ambiguous branch.
+    ///
+    /// **The question travels with the situation for the same reason the situation travels
+    /// with the sentence.** Saying *"that name matches more than one company"* without saying
+    /// which leaves a reader to guess exactly what the gate refused to guess.
+    pub choices: Vec<landscape_core::Choice>,
 }
 
 /// Turn the gate's verdict, the set behind it, and the searching that produced both into what
@@ -228,10 +244,11 @@ pub fn decide(
         // report nobody asked for. A reader answers this in one word; see
         // [`landscape_search::competitors::DESCRIBES_A_MARKET`] for what "one word" means and
         // what it cannot see.
-        Resolution::Ambiguous { candidates, .. } if !about_a_market => Decided::Refuse {
+        Resolution::Ambiguous { candidates, .. } if !about_a_market => Decided::Refuse(Refusal {
             why: ambiguous(&candidates),
             kind: landscape_core::Failure::Ambiguous,
-        },
+            choices: choices_from(&candidates),
+        }),
         // **"Nothing found" is a conclusion about a market, and it needs the searching to have
         // happened.** With any query unanswered we have not established that nobody is out
         // there — only that we did not finish looking, which is a different sentence and a
@@ -247,29 +264,33 @@ pub fn decide(
         //
         // A **non-empty** set still beats an outage: an answer we already have is worth more
         // than telling somebody to come back for it.
-        _ if set.is_empty() && !queried.failed.is_empty() => Decided::Refuse {
+        _ if set.is_empty() && !queried.failed.is_empty() => Decided::Refuse(Refusal {
             why: search_incomplete(queried.failed.len(), queried.sent()),
             kind: landscape_core::Failure::SearchIncomplete,
-        },
-        Resolution::NothingFound { .. } => Decided::Refuse {
+            choices: Vec::new(),
+        }),
+        Resolution::NothingFound { .. } => Decided::Refuse(Refusal {
             why: NOTHING_RESOLVED.to_owned(),
             kind: landscape_core::Failure::NothingFound,
-        },
+            choices: Vec::new(),
+        }),
         // Companies were found and none of them survived. Naming them and saying what happened
         // to each is the difference between a refusal a reader can act on and a shrug.
         _ if set.is_empty() && !set.set_aside.is_empty() => {
             // Companies were found and rejected, which is a statement about a market
             // rather than about the searching — the same situation as finding nobody, arrived
             // at with more to show for it.
-            Decided::Refuse {
+            Decided::Refuse(Refusal {
                 why: none_of_them(&set.set_aside),
                 kind: landscape_core::Failure::NothingFound,
-            }
+                choices: Vec::new(),
+            })
         }
-        _ if set.is_empty() => Decided::Refuse {
+        _ if set.is_empty() => Decided::Refuse(Refusal {
             why: NOTHING_RESOLVED.to_owned(),
             kind: landscape_core::Failure::NothingFound,
-        },
+            choices: Vec::new(),
+        }),
         _ => Decided::Analyse(Box::new(set)),
     }
 }
@@ -436,6 +457,39 @@ pub fn search_incomplete(failed: usize, sent: usize) -> String {
          you mean, so we have not concluded anything about who is out there. This is usually \
          temporary - try again, or name a domain to skip the search entirely."
     )
+}
+
+/// The companies a reader picks between, and the words that pick each one.
+///
+/// **A domain, not a name.** The prompt a chip sends is the company's canonical domain, because
+/// that is the one input `subjects_in` reads as *"this company, definitely"* — a name would go
+/// back through the search that produced the ambiguity and could return the same question.
+///
+/// **As an origin, not a bare host, and that is a bug fix rather than a preference.** A chip
+/// sending `box.com` produced a `400`: seven characters, and [`landscape_core::MIN_PROMPT`] is
+/// eight. The chip looked like one click and was a dead end for every company with a short
+/// domain. `https://` is eight characters by itself, so an origin is long enough whatever the
+/// domain is — the prompt is now valid *by construction* rather than for most inputs.
+///
+/// It is also what [`landscape_search::competitors::Set::origins`] already produces from the
+/// same field, so a chip sends the pipeline the shape it uses internally rather than a second
+/// spelling of it.
+///
+/// One click is the whole answer: nothing here asks a reader to retype their idea with a company
+/// bolted onto it, which is the difference between answering a question and doing the work.
+#[must_use]
+pub fn choices_from(
+    candidates: &[landscape_core::subject::Candidate],
+) -> Vec<landscape_core::Choice> {
+    candidates
+        .iter()
+        .map(|c| landscape_core::Choice {
+            name: c.name.clone(),
+            domain: c.canonical_domain.clone(),
+            what_it_is: c.what_it_is.clone(),
+            prompt: format!("https://{}", c.canonical_domain),
+        })
+        .collect()
 }
 
 /// What a reader is told when we found several and will not choose for them.
@@ -643,10 +697,130 @@ mod deciding {
         ];
 
         for (what, decided, expected) in cases {
-            let Decided::Refuse { kind, why } = decided else {
+            let Decided::Refuse(Refusal { kind, why, .. }) = decided else {
                 panic!("{what} was not a refusal")
             };
             assert_eq!(kind, expected, "{what}: {why}");
+        }
+    }
+
+    #[test]
+    fn the_companies_we_would_not_choose_between_travel_with_the_question() {
+        // **A refusal that names the situation and not the candidates is half a question.**
+        // Telling somebody a name matched several companies, without saying which, leaves them
+        // guessing at exactly what the gate declined to guess at.
+        let Decided::Refuse(Refusal { kind, choices, .. }) =
+            decide(derived(tie(), two(), false), &all_answered())
+        else {
+            panic!("a tie about one company is a refusal")
+        };
+        assert_eq!(kind, landscape_core::Failure::Ambiguous);
+        assert_eq!(
+            choices
+                .iter()
+                .map(|c| c.domain.as_str())
+                .collect::<Vec<_>>(),
+            ["alpha.example", "beta.example"],
+            "the candidates the gate was tied between are the ones offered"
+        );
+    }
+
+    #[test]
+    fn only_the_question_a_reader_can_answer_comes_with_choices() {
+        // Every other refusal is about something a chip cannot fix: nobody to pick between, a
+        // search still running, a prompt with no company in it. Attaching candidates to those
+        // would offer a reader a button that changes nothing.
+        let outage = Queried {
+            completed: vec!["q1".to_owned()],
+            failed: vec!["q2".to_owned(), "q3".to_owned()],
+        };
+        let empty_market = decide(
+            derived(
+                Resolution::NothingFound {
+                    checked: vec!["q1".to_owned()],
+                },
+                Set::default(),
+                true,
+            ),
+            &all_answered(),
+        );
+        let interrupted = decide(
+            derived(
+                Resolution::NothingFound {
+                    checked: Vec::new(),
+                },
+                Set::default(),
+                true,
+            ),
+            &outage,
+        );
+        for (what, decided) in [
+            ("a market we looked at and found empty", empty_market),
+            ("a search that did not finish", interrupted),
+        ] {
+            let Decided::Refuse(Refusal { kind, choices, .. }) = decided else {
+                panic!("{what} was not a refusal")
+            };
+            assert!(
+                choices.is_empty(),
+                "{what} ({kind:?}) offered a choice that would not help"
+            );
+        }
+    }
+
+    #[test]
+    fn one_click_is_the_whole_answer() {
+        // `PRODUCT_SPEC.md` §3 prices a clarification at one click, which is only true if the
+        // chip carries a prompt rather than a name to be typed back into a sentence. **A
+        // domain, not a name**: a name goes back through the search that produced the tie and
+        // can return the same question.
+        let offered = choices_from(&[
+            candidate("Notion", "notion.so"),
+            candidate("Notion Energy", "notionenergy.com"),
+        ]);
+        assert_eq!(
+            offered
+                .iter()
+                .map(|c| c.prompt.as_str())
+                .collect::<Vec<_>>(),
+            ["https://notion.so", "https://notionenergy.com"],
+            "what a chip sends must be the domain that resolves without another search"
+        );
+        assert_eq!(offered[0].name, "Notion");
+        assert_eq!(
+            offered[0].what_it_is, "a company",
+            "the line that tells two candidates apart is the one they were described by"
+        );
+        assert_eq!(
+            offered[0].domain, "notion.so",
+            "what a reader reads is the bare domain; the scheme is for the parser"
+        );
+    }
+
+    #[test]
+    fn a_chip_a_short_domain_cannot_send_is_not_one_click() {
+        // **Review found this, and the shape is worth more than the case.** `Choice::prompt` was
+        // the bare `canonical_domain`, and `NewAnalysis::parse` rejects anything under
+        // `MIN_PROMPT`. `box.com` is seven characters: the chip rendered, the click posted, and
+        // the reader got *"a prompt must contain at least 8 characters"* for a company we had
+        // resolved ourselves and put in front of them.
+        //
+        // **Two properties, not one example.** Length alone would pass if the prompt were
+        // padded with anything; what a chip owes is a prompt the API accepts *and* one that
+        // resolves back to the company whose button it is.
+        for domain in ["box.com", "wix.com", "notion.so", "notionenergy.com"] {
+            let offered = choices_from(&[candidate("Whoever", domain)]);
+            let prompt = &offered[0].prompt;
+
+            landscape_core::NewAnalysis::parse(prompt).unwrap_or_else(|e| {
+                panic!("a chip for {domain} sends a prompt the API rejects: {e}")
+            });
+
+            assert_eq!(
+                subjects_in(prompt),
+                Subjects::Seed(format!("https://{domain}")),
+                "a chip for {domain} must resolve to that company and nothing else"
+            );
         }
     }
 
@@ -691,7 +865,7 @@ mod deciding {
         // several products matching it is ambiguity, not a market, and one chip click prevents
         // an entire wrong report.
         let decided = decide(derived(tie(), two(), false), &all_answered());
-        let Decided::Refuse { why, .. } = decided else {
+        let Decided::Refuse(Refusal { why, .. }) = decided else {
             panic!("a shared name was reported on instead of asked about")
         };
         assert!(why.contains("Alpha (alpha.example)"), "{why}");
@@ -746,7 +920,7 @@ mod deciding {
             ),
             &all_answered(),
         );
-        let Decided::Refuse { why, .. } = decided else {
+        let Decided::Refuse(Refusal { why, .. }) = decided else {
             panic!("nothing found was not a refusal")
         };
         assert_eq!(why, NOTHING_RESOLVED);
@@ -785,7 +959,7 @@ mod deciding {
                 ),
                 &queried,
             );
-            let Decided::Refuse { kind, why } = decided else {
+            let Decided::Refuse(Refusal { kind, why, .. }) = decided else {
                 panic!("an empty set was analysed")
             };
             assert_eq!(
@@ -844,7 +1018,7 @@ mod deciding {
                 ),
                 &queried,
             );
-            let Decided::Refuse { why, .. } = decided else {
+            let Decided::Refuse(Refusal { why, .. }) = decided else {
                 panic!("nothing found was not a refusal")
             };
             assert_ne!(why, NOTHING_RESOLVED, "{failed:?}");
@@ -882,7 +1056,7 @@ mod deciding {
             ),
             &all_answered(),
         );
-        let Decided::Refuse { why, .. } = decided else {
+        let Decided::Refuse(Refusal { why, .. }) = decided else {
             panic!("an empty set was reported on")
         };
         assert_ne!(why, NOTHING_RESOLVED);
@@ -909,10 +1083,11 @@ mod deciding {
         );
         assert_eq!(
             decided,
-            Decided::Refuse {
+            Decided::Refuse(Refusal {
                 why: NOTHING_RESOLVED.to_owned(),
                 kind: landscape_core::Failure::NothingFound,
-            }
+                choices: Vec::new(),
+            })
         );
     }
 }

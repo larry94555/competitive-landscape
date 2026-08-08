@@ -27,6 +27,12 @@ tracing.workspace = true
 uuid.workspace = true
 
 [dev-dependencies]
+# **The chips are built there and validated here, and that seam had a hole in it.** A chip's
+# prompt was the bare canonical domain, which `NewAnalysis::parse` rejects under eight
+# characters - so `box.com` rendered as a button and answered with a 400. The regression posts
+# the real output of `choices_from` rather than a string retyped to look like it, because a
+# hand-written copy is exactly what stops noticing when the real one changes.
+landscape-analyze.workspace = true
 tower = { version = "0.5", features = ["util"] }
 # The interrupted-run tests drive the SSE handler and mutate the store underneath it,
 # so they need a runtime as well as the router.

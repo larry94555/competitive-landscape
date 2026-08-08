@@ -1,0 +1,167 @@
+[
+  {
+    "name": "a name several products share is refused without saying which products",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "            kind: landscape_core::Failure::Ambiguous,\n            choices: choices_from(&candidates),",
+    "new": "            kind: landscape_core::Failure::Ambiguous,\n            choices: Vec::new(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the chip sends a name back through the search that produced the tie",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "            what_it_is: c.what_it_is.clone(),\n            prompt: format!(\"https://{}\", c.canonical_domain),",
+    "new": "            what_it_is: c.what_it_is.clone(),\n            prompt: c.name.clone(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the line that tells two candidates apart is dropped",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "            what_it_is: c.what_it_is.clone(),\n            prompt: format!(\"https://{}\", c.canonical_domain),",
+    "new": "            what_it_is: String::new(),\n            prompt: format!(\"https://{}\", c.canonical_domain),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the domain a reader picks by is dropped",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "            domain: c.canonical_domain.clone(),\n            what_it_is: c.what_it_is.clone(),",
+    "new": "            domain: String::new(),\n            what_it_is: c.what_it_is.clone(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the question is dropped between deciding it and recording it",
+    "file": "crates/landscape/src/main.rs",
+    "old": "                kind: refusal.kind,\n                reason: &refusal.why,\n                choices: &refusal.choices,",
+    "new": "                kind: refusal.kind,\n                reason: &refusal.why,\n                choices: &[],",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape"
+    ]
+  },
+  {
+    "name": "the store keeps the situation and forgets the question",
+    "file": "crates/landscape-db/src/memory.rs",
+    "old": "        entry.choices = refused.choices.to_vec();",
+    "new": "        entry.choices = Vec::new();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-db"
+    ]
+  },
+  {
+    "name": "a finished report offers a question an earlier attempt asked",
+    "file": "web/src/App.tsx",
+    "old": "  const choices =\n    analysis.status === \"failed\" && analysis.failure === \"ambiguous\"\n      ? analysis.choices\n      : [];",
+    "new": "  const choices = analysis.choices;",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the companies are never put on screen at all",
+    "file": "web/src/App.tsx",
+    "old": "      {choices.length > 0 && (\n        <ul className=\"choices\">",
+    "new": "      {false && (\n        <ul className=\"choices\">",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the chip sends a company name instead of the prompt behind it",
+    "file": "web/src/App.tsx",
+    "old": "                onClick={() => onPick(choice.prompt)}",
+    "new": "                onClick={() => onPick(choice.name)}",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a reader is told to type a website while the websites are buttons",
+    "file": "web/src/App.tsx",
+    "old": "          return offered > 0",
+    "new": "          return offered < 0",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the domain that tells two same-named products apart is not rendered",
+    "file": "web/src/App.tsx",
+    "old": "                <span className=\"domain\">{choice.domain}</span>",
+    "new": "                <span className=\"domain\" />",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a second click spends a second analysis on one question",
+    "file": "web/src/App.tsx",
+    "old": "                disabled={picking}",
+    "new": "                disabled={false}",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a chip for a short domain sends a prompt the API refuses",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "            prompt: format!(\"https://{}\", c.canonical_domain),",
+    "new": "            prompt: c.canonical_domain.clone(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze",
+      "-p",
+      "landscape-api"
+    ]
+  }
+]

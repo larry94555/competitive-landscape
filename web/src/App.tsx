@@ -100,11 +100,18 @@ export default function App(): React.JSX.Element {
     };
   }, []);
 
-  const submit = useCallback(async () => {
+  /**
+   * Run one analysis, whatever put the words there.
+   *
+   * **The box and a chip are the same act**, so they are the same function. When they were
+   * two, everything below — the URL, the cleared box, the error that survives — was written
+   * once and would have had to be remembered twice.
+   */
+  const start = useCallback(async (text: string) => {
     setError(null);
     setSubmitting(true);
     try {
-      const started = await createAnalysis(prompt);
+      const started = await createAnalysis(text);
       setAnalysis(started);
       // The URL names it from the moment it exists, so a reader who reloads — or sends the
       // link to somebody — gets the run rather than an empty box. `pushState` rather than a
@@ -124,7 +131,9 @@ export default function App(): React.JSX.Element {
     } finally {
       setSubmitting(false);
     }
-  }, [prompt]);
+  }, []);
+
+  const submit = useCallback(() => start(prompt), [start, prompt]);
 
   const { status, sections, subjects } = useReport(analysis, setAnalysis);
 
@@ -223,6 +232,8 @@ export default function App(): React.JSX.Element {
           status={status}
           sections={sections}
           subjects={subjects}
+          onPick={(text) => void start(text)}
+          picking={submitting}
         />
       )}
     </main>
@@ -386,11 +397,17 @@ function AnalysisView({
   status,
   sections,
   subjects,
+  onPick,
+  picking,
 }: {
   analysis: Analysis;
   status: AnalysisStatus | null;
   sections: readonly Section[];
   subjects: readonly string[];
+  /** Run this instead. The chip hands back a whole prompt, not a company name. */
+  onPick: (prompt: string) => void;
+  /** A run is already starting. Two clicks would spend two analyses on one question. */
+  picking: boolean;
 }): React.JSX.Element {
   const { report } = analysis;
   // **The stored status wins once it is terminal.** A dropped stream's last word was
@@ -418,6 +435,14 @@ function AnalysisView({
   // guessed from the claims is the same defect one surface later — it was, and review found it
   // there too.
   const analysed = (report?.subjects?.length ?? 0) > 0 ? (report?.subjects ?? []) : subjects;
+  // **Read from the failure, not only from the list.** A run that later succeeded can still be
+  // holding the question an earlier attempt asked; offering it under a finished report would
+  // invite a reader to re-run something they can already read. The server clears it for the
+  // same reason — `analysis_from_row` — and neither side relies on the other having done so.
+  const choices =
+    analysis.status === "failed" && analysis.failure === "ambiguous"
+      ? analysis.choices
+      : [];
   const several =
     analysed.length > 1 ||
     // Only for reports stored before `subjects` existed, which deserialise without it.
@@ -449,7 +474,44 @@ function AnalysisView({
         </p>
       )}
 
-      <p className="status">{describe(showing_status, analysis.failure)}</p>
+      <p className="status">
+        {describe(showing_status, analysis.failure, choices.length)}
+      </p>
+
+      {/*
+        The question itself, one button per company.
+        `PRODUCT_SPEC.md` §3 costs a clarification at one click, and this is where that is
+        either true or a sentence in a document. Each chip carries a whole prompt from the
+        server, so clicking one is the entire answer — nothing here asks a reader to retype
+        their idea with a company bolted onto it.
+
+        **Buttons, not links.** Picking starts a run; it does not navigate to something that
+        already exists. A link here would offer a middle-click that leads nowhere.
+      */}
+      {choices.length > 0 && (
+        <ul className="choices">
+          {choices.map((choice) => (
+            <li key={choice.domain}>
+              <button
+                type="button"
+                className="choice"
+                disabled={picking}
+                onClick={() => onPick(choice.prompt)}
+              >
+                <strong>{choice.name}</strong>
+                {/*
+                  The domain is not decoration: two products sharing a name is exactly the
+                  case this screen exists for, so it is the field that tells them apart.
+                */}
+                <span className="domain">{choice.domain}</span>
+                {choice.what_it_is !== "" && (
+                  <span className="what">{choice.what_it_is}</span>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {showing.map((section) => (
         <article key={section.key}>
@@ -543,6 +605,8 @@ function stillArriving(
 function describe(
   status: AnalysisStatus,
   failure: Analysis["failure"],
+  /** How many companies are on screen to pick between. */
+  offered: number,
 ): string {
   switch (status) {
     case "queued":
@@ -560,7 +624,12 @@ function describe(
         case "no_subject":
           return "We could not work out which company you meant. Try naming its website — for example, basecamp.com.";
         case "ambiguous":
-          return "That name matches more than one company, and we will not guess between them. Name the one you mean — a website works.";
+          // **Two sentences, because the reader's next move is different.** With chips under
+          // it, "name the one you mean" asks somebody to type what is already a button — the
+          // instruction and the affordance would be telling them to do the work twice.
+          return offered > 0
+            ? "That name matches more than one company, and we will not guess between them. Pick the one you meant:"
+            : "That name matches more than one company, and we will not guess between them. Name the one you mean — a website works.";
         case "nothing_found":
           return "We searched and found no company we could stand behind. Try naming a website, or describing the product in the words a vendor would use.";
         case "search_incomplete":

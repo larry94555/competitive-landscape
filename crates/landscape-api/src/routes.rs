@@ -348,6 +348,38 @@ mod tests {
     /// A prompt the API accepts, so a test about the cap is not also a test about parsing.
     const IDEA: &str = "an app that helps small farms sell to restaurants";
 
+    #[tokio::test]
+    async fn every_chip_a_reader_can_click_is_a_prompt_this_endpoint_accepts() {
+        // **Review found a chip that was a dead end.** `Choice::prompt` was the bare canonical
+        // domain, and this endpoint rejects anything under `MIN_PROMPT` characters. `box.com`
+        // is seven: the button rendered, the click posted, and the reader was told their prompt
+        // was too short - about a company we had resolved ourselves and offered them.
+        //
+        // **The prompt under test is the one `choices_from` really produces.** Asserting
+        // against a string typed here would pass forever after the two sides drifted apart,
+        // which is the failure this test exists to prevent rather than to imitate.
+        for domain in ["box.com", "wix.com", "notionenergy.com"] {
+            let offered =
+                landscape_analyze::subject::choices_from(&[landscape_core::subject::Candidate {
+                    name: "Whoever".to_owned(),
+                    canonical_domain: domain.to_owned(),
+                    what_it_is: "a company".to_owned(),
+                    confidence: 0.9,
+                }]);
+
+            let res = app()
+                .oneshot(post_analysis(&offered[0].prompt))
+                .await
+                .expect("the request is served");
+            assert_eq!(
+                res.status(),
+                StatusCode::CREATED,
+                "clicking the chip for {domain} sent {:?} and the API refused it",
+                offered[0].prompt
+            );
+        }
+    }
+
     /// A router whose cap allows `limit` a day, so the number under test is the number here
     /// rather than whatever the environment happens to hold.
     fn app_capped_at(limit: usize) -> axum::Router {
@@ -407,10 +439,9 @@ mod tests {
             &self,
             id: AnalysisId,
             generation: u32,
-            failure: landscape_core::Failure,
-            reason: &str,
+            refused: landscape_db::Refused<'_>,
         ) -> landscape_db::Result<landscape_core::Applied> {
-            self.0.fail(id, generation, failure, reason).await
+            self.0.fail(id, generation, refused).await
         }
         async fn reclaim_stale(&self, max_age: chrono::Duration) -> landscape_db::Result<u64> {
             self.0.reclaim_stale(max_age).await
@@ -466,10 +497,9 @@ mod tests {
             &self,
             id: AnalysisId,
             generation: u32,
-            failure: landscape_core::Failure,
-            reason: &str,
+            refused: landscape_db::Refused<'_>,
         ) -> landscape_db::Result<landscape_core::Applied> {
-            self.inner.fail(id, generation, failure, reason).await
+            self.inner.fail(id, generation, refused).await
         }
         async fn reclaim_stale(&self, max_age: chrono::Duration) -> landscape_db::Result<u64> {
             self.inner.reclaim_stale(max_age).await
@@ -714,8 +744,11 @@ mod tests {
                 .fail(
                     claimed.id,
                     claimed.generation,
-                    landscape_core::Failure::NoSubject,
-                    "no company named",
+                    landscape_db::Refused {
+                        kind: landscape_core::Failure::NoSubject,
+                        reason: "no company named",
+                        choices: &[],
+                    },
                 )
                 .await
                 .expect("fail");
@@ -891,8 +924,11 @@ mod tests {
             .fail(
                 claimed.id,
                 claimed.generation,
-                landscape_core::Failure::NoSubject,
-                "no company named",
+                landscape_db::Refused {
+                    kind: landscape_core::Failure::NoSubject,
+                    reason: "no company named",
+                    choices: &[],
+                },
             )
             .await
             .expect("fail");

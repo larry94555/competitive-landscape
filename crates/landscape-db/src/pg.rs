@@ -14,7 +14,7 @@ use async_trait::async_trait;
 use landscape_core::{Analysis, AnalysisId, AnalysisStatus, Applied, Failure, NewAnalysis, Report};
 use sqlx::{postgres::PgPoolOptions, PgPool, Row};
 
-use crate::{Result, Store, StoreError};
+use crate::{Refused, Result, Store, StoreError};
 
 #[derive(Debug, Clone)]
 pub struct PgStore {
@@ -105,6 +105,13 @@ fn analysis_from_row(row: &sqlx::postgres::PgRow) -> Result<Analysis> {
 
     let failure: Option<String> = row.try_get("failure_kind")?;
 
+    let choices_json: Option<serde_json::Value> = row.try_get("clarification")?;
+    let choices: Vec<landscape_core::Choice> = match choices_json {
+        None => Vec::new(),
+        Some(v) => serde_json::from_value(v)
+            .map_err(|e| StoreError::Corrupt(format!("choices do not match schema: {e}")))?,
+    };
+
     // The column is a signed integer because Postgres has no unsigned one. A negative value
     // would mean the CHECK constraint in `0003_generation.sql` had been dropped, which is a
     // corrupt row rather than a number to carry on with.
@@ -122,11 +129,19 @@ fn analysis_from_row(row: &sqlx::postgres::PgRow) -> Result<Analysis> {
         failure: (status == AnalysisStatus::Failed)
             .then(|| failure.as_deref().map(Failure::from_db_str))
             .flatten(),
+        // Same rule as `failure`, for the same reason: a question left by an attempt that later
+        // succeeded would offer a reader a choice about a report they can already read.
+        choices: if status == AnalysisStatus::Failed {
+            choices
+        } else {
+            Vec::new()
+        },
         generation,
     })
 }
 
-const COLUMNS: &str = "id, prompt, status, created_at, report, failure_kind, generation";
+const COLUMNS: &str =
+    "id, prompt, status, created_at, report, failure_kind, clarification, generation";
 
 #[async_trait]
 impl Store for PgStore {
@@ -227,21 +242,21 @@ impl Store for PgStore {
         Ok(Applied::Yes)
     }
 
-    async fn fail(
-        &self,
-        id: AnalysisId,
-        generation: u32,
-        kind: Failure,
-        reason: &str,
-    ) -> Result<Applied> {
+    async fn fail(&self, id: AnalysisId, generation: u32, refused: Refused<'_>) -> Result<Applied> {
+        // **Written even when empty**, so a retry that resolves cleanly clears the question the
+        // previous attempt asked. A stale list would offer a reader companies this run never
+        // considered.
+        let choices = serde_json::to_value(refused.choices)
+            .map_err(|e| StoreError::Corrupt(format!("choices do not serialise: {e}")))?;
         let done = sqlx::query(
             "UPDATE analyses SET status = $1, failure_reason = $2, failure_kind = $3,
-                    finished_at = now()
-             WHERE id = $4 AND generation = $5",
+                    clarification = $4, finished_at = now()
+             WHERE id = $5 AND generation = $6",
         )
         .bind(AnalysisStatus::Failed.as_db_str())
-        .bind(reason)
-        .bind(kind.as_db_str())
+        .bind(refused.reason)
+        .bind(refused.kind.as_db_str())
+        .bind(choices)
         .bind(id.0)
         .bind(as_column(generation)?)
         .execute(&self.pool)

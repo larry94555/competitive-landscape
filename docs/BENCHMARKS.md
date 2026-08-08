@@ -33,6 +33,150 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 34 — the question, handed back as three buttons
+
+**Date:** 2026-08-08 · **Where:** this laptop · **Model:** none — this is the boundary again,
+not the pipeline.
+
+Run 33 gave *"that name matches more than one company"* its own sentence. It could not say
+**which** companies, because nothing carried them past the gate:
+
+```text
+That name matches more than one company, and we will not guess between them.
+Name the one you mean — a website works.
+```
+
+The gate had already resolved them. `Resolution::Ambiguous` holds every candidate, with a name
+read off its own front page, a canonical domain and a line telling it apart from the others —
+and `decide` threw all of it away and kept a `Failure`. So a reader was asked to work out, and
+retype, exactly what we had in hand and declined to choose between.
+
+### What it costs to drop a question you already know the answer to
+
+| | before | after |
+|---|---|---|
+| what the reader is told | a name matched several companies | *which* several |
+| what it takes to answer | retype the idea with a company bolted onto it | **one click** |
+| what the click sends | — | the candidate's canonical domain, verbatim |
+| what an unanswered run leaves behind | nothing | nothing — the list is cleared on the next attempt |
+
+`PRODUCT_SPEC.md` §3 prices a clarification at *one click* and names this exact row —
+*"Which Notion do you mean?"*, chips being *"the candidates"*. That is either true in the code
+or it is a sentence in a document.
+
+### The choices needed a column, and not the one that was there
+
+`migrations/0001_init.sql` says `failure_reason` is for operators and **never shown verbatim**.
+The chips are shown, verbatim, to a reader — so they cannot ride in it, and
+`0005_clarification_choices.sql` adds `clarification jsonb` beside it. Two fields, because they
+have two audiences; a human-readable field is an output, not a source.
+
+**jsonb rather than a table.** These are read as a whole or not at all, never queried across
+analyses, and never joined — a `clarification_choices` table would buy indexing nobody needs and
+cost a second write on the failure path.
+
+### The chip carries a prompt, not a name
+
+```rust
+prompt: format!("https://{}", c.canonical_domain),
+```
+
+A name goes back through the search that produced the tie and can return the same question. A
+domain is the one input `subjects_in` reads as *"this company, definitely"*, so a click resolves
+in one step. And the whole prompt is built on the server for the same reason `Example.prompt` is:
+which words join an idea to a company is one decision, and the parser that reads them back lives
+on that side of the wire.
+
+### Review: a chip that rendered, and then refused the click
+
+It shipped as the bare domain, and **`box.com` is seven characters**:
+
+```text
+POST /api/analyses  {"prompt":"box.com"}
+400  a prompt must contain at least 8 characters, got 7
+```
+
+`MIN_PROMPT` is eight. So every company with a short domain got a button that looked like one
+click and was a dead end — about a company *we* had resolved and *we* had put in front of the
+reader. The chip and the validator are on two sides of one wire, and neither knew the other's
+rule.
+
+**`https://` is eight characters by itself**, so an origin is long enough whatever the domain is:
+the prompt is valid **by construction** rather than for most inputs. It is also exactly what
+`Set::origins` already builds from the same field, so a chip now hands the pipeline the shape it
+uses internally instead of a second spelling of it.
+
+**The alternative was to relax the minimum for things that look like domains**, and it is worse
+for a reason this repository keeps rediscovering: the rule would then live in two places, and
+the second copy is the one that goes stale.
+
+| | asserted where | what it pins |
+|---|---|---|
+| `a_chip_a_short_domain_cannot_send_is_not_one_click` | `landscape-analyze` | every chip parses **and** resolves back to its own company |
+| `every_chip_a_reader_can_click_is_a_prompt_this_endpoint_accepts` | `landscape-api` | the real `choices_from` output through the real `POST`, `201` |
+
+Both run `choices_from` rather than a string retyped to look like it — a hand-written copy is
+what stops noticing when the real one changes. A mutation restoring the bare domain is caught by
+both crates in one run.
+
+### Four positional arguments became one struct
+
+`fail(id, generation, kind, reason)` was already carrying two descriptions of one refusal, and
+the choices would have made five. `Refused { kind, reason, choices }` — a caller passing the
+right value in the wrong position is the defect that shape removes, and every `Store` decorator
+in the tree now forwards one value instead of three.
+
+### The sentence changes with the affordance
+
+With chips under it, *"name the one you mean — a website works"* asks somebody to type what is
+already a button. `describe` takes the count and picks:
+
+```text
+That name matches more than one company, and we will not guess between them.
+Pick the one you meant:
+```
+
+The frontend test asserts the negative as well as the positive — with chips on screen the page
+must **not** say *"a website works"* — because an instruction that survives its own affordance
+is how a page comes to tell a reader to do the work twice.
+
+### Two places clear the question, and neither trusts the other
+
+A row can hold the choices an earlier attempt left behind. `analysis_from_row` zeroes them unless
+the status is `Failed`, and the page reads them only for a failed, ambiguous analysis. Either one
+alone would be enough today; both, because offering a chip under a finished report invites
+somebody to re-run something they can already read, and the two sides settle it independently
+rather than one relying on the other having done so.
+
+### Where this deviates from the specification, deliberately
+
+§3 says *"Skip, just analyze" always produces a complete report*. **It cannot, here.** Skipping
+this question means guessing between two companies that share a name, which is precisely what
+the gate refuses to do — a report about the wrong Notion is worse than no report, and it would
+be indistinguishable from a right one. Every other trigger in that table has a defensible
+default; this one has none, so there is no skip on it. Recorded rather than quietly ignored.
+
+### What still does not happen
+
+**One question, not three.** §3 allows up to three, progressive, one at a time. Only the
+ambiguous-name trigger has candidates behind it today; the buyer and intent questions need a
+router model, and *"who should I compare against?"* needs vocabulary resolution — the last open
+row of this group.
+
+**No session memory.** §3 wants an answer remembered so a follow-up does not re-ask. A click
+starts a new analysis with nothing carried across, which is right for a URL somebody can share
+and wrong for somebody asking twice.
+
+**Nothing measures whether the set is right**, unchanged.
+[B1](../PROJECT_STATUS.md#4-blockers).
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 33 | 816 | 54 |
+| now | **822** | **58** |
+
+---
+
 ## Run 33 — five situations, and the reader saw one
 
 **Date:** 2026-08-08 · **Where:** this laptop · **Model:** none — this is the boundary, not the

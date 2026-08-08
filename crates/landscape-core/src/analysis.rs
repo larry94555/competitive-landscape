@@ -159,6 +159,28 @@ impl Failure {
     }
 }
 
+/// One company a reader can pick, and the words that pick it.
+///
+/// **A question is only worth asking if answering it is cheap.** `PRODUCT_SPEC.md` §3 puts the
+/// cost at *one chip click*, and the reason this carries a whole [`Self::prompt`] rather than a
+/// domain is that the click has to be the entire answer: a reader who has to retype their idea
+/// with a company name bolted on has been asked to do the work themselves.
+///
+/// **Named from the company's own front page**, like everything else a reader chooses between —
+/// see `landscape_search::candidates::describe`. Choosing between three summaries written by a
+/// search engine is choosing between an engine's opinions.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+pub struct Choice {
+    /// What the company calls itself.
+    pub name: String,
+    /// Its canonical domain, shown so a reader can tell two same-named products apart.
+    pub domain: String,
+    /// The one line under its own heading. Empty when its page said nothing quotable.
+    pub what_it_is: String,
+    /// What to run instead. Sent verbatim as a new analysis.
+    pub prompt: String,
+}
+
 /// A validated request to analyse something.
 ///
 /// The only way to build one is [`NewAnalysis::parse`], so an unvalidated prompt cannot
@@ -211,6 +233,13 @@ pub struct Analysis {
     /// Which *situation* a failed analysis is in, so the interface can say something useful.
     /// `None` unless the status is `Failed`.
     pub failure: Option<Failure>,
+    /// The companies a reader can pick between, when the run stopped because it would not guess.
+    ///
+    /// Empty unless [`Self::failure`] is [`Failure::Ambiguous`]. **This is the question itself**,
+    /// not decoration on a refusal: without it the interface can say *"that name matches more
+    /// than one company"* and cannot say which, so the reader is left to guess what we would not.
+    #[serde(default)]
+    pub choices: Vec<Choice>,
     /// How many times this run has been started.
     ///
     /// **A claim is a number, not a state.** `status` cannot tell two workers apart — a slow

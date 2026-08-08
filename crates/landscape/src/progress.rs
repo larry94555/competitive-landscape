@@ -143,7 +143,7 @@ mod tests {
     use std::sync::Mutex;
     use std::time::Duration;
 
-    use landscape_core::{Analysis, AnalysisStatus, Failure, NewAnalysis, Section};
+    use landscape_core::{Analysis, AnalysisStatus, NewAnalysis, Section};
     use landscape_db::{MemoryStore, Result};
 
     use super::*;
@@ -197,10 +197,9 @@ mod tests {
             &self,
             id: AnalysisId,
             generation: u32,
-            kind: Failure,
-            reason: &str,
+            refused: landscape_db::Refused<'_>,
         ) -> Result<Applied> {
-            self.inner.fail(id, generation, kind, reason).await
+            self.inner.fail(id, generation, refused).await
         }
         async fn reclaim_stale(&self, max_age: chrono::Duration) -> Result<u64> {
             self.inner.reclaim_stale(max_age).await

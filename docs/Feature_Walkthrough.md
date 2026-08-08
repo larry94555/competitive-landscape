@@ -1532,13 +1532,46 @@ on could have been in the report, so it is named with its reason. A host one sea
 could not have been, and there can be twenty — naming those turns a note into a search results
 page, which is its own way of not being read. `landscape candidates` still prints every one.
 
-**And when a one-word name matches more than one product**, the run still refuses and names
-them, so a reader can pick by typing one:
+**And when a one-word name matches more than one product**, the run refuses and hands the
+question back with the answer attached — `landscape candidates` prints one `pick:` line per
+company, and each one is a whole prompt you can send as it stands:
 
 ```text
-that description matches more than one company and we will not guess between them:
-Alpha (alpha.example), Beta (beta.example). Name the one you mean - a domain works.
+no report (ambiguous): that description matches more than one company and we will not guess
+between them: Notion (notion.so), Notion Energy (notionenergy.com). Name the one you mean - a
+domain works.
+  pick: Notion (notion.so) - send "https://notion.so"
+  pick: Notion Energy (notionenergy.com) - send "https://notionenergy.com"
 ```
+
+**The same list is on the analysis over the API**, which is what the browser draws as buttons:
+
+```bash
+curl -s http://127.0.0.1:8787/api/analyses/$ID | python -m json.tool
+```
+```json
+{
+  "status": "failed",
+  "failure": "ambiguous",
+  "choices": [
+    {"name": "Notion", "domain": "notion.so", "what_it_is": "one workspace for notes and docs",
+     "prompt": "https://notion.so"},
+    {"name": "Notion Energy", "domain": "notionenergy.com",
+     "what_it_is": "battery storage for commercial sites", "prompt": "https://notionenergy.com"}
+  ]
+}
+```
+
+**`prompt` is a domain, not the name.** A name goes back through the search that produced the tie
+and can come out the other side as the same question; the canonical domain is what resolves in
+one step. And the whole prompt is built here rather than in the browser, so what a click sends
+and what the parser reads are one decision.
+
+**And it is an origin, not the bare host, which is a bug fix.** `box.com` is seven characters and
+this endpoint rejects anything under eight — so a chip for a short domain rendered as a button
+and answered the click with a `400`, about a company we had resolved ourselves. `https://` is
+eight characters by itself, so an origin is long enough whatever the domain is. `domain` beside
+it stays bare, because that is the part a reader reads.
 
 **Four refusals rather than one**, because they are four different situations: no engine is
 configured so we could not look; the searching did not finish; we looked and found nobody; we
@@ -1669,8 +1702,16 @@ than none, because you would act on it and get the same silence back — and the
 saying *"compares"* at all when there is nothing to compare. `landscape candidates <domain>`
 prints the same reason under the set, so the diagnostic never shows less than the report.
 
-**What this still does not do.** A one-word name the gate cannot choose between is refused in
-prose rather than with chips. See [BENCHMARKS.md](BENCHMARKS.md) Run 32.
+**A one-word name the gate cannot choose between comes back as buttons.** In the browser, the
+refusal carries one chip per company — the name, its domain, and the line telling it apart — and
+clicking one starts the analysis it stands for. The sentence above them changes to match: with
+chips on screen it says *"pick the one you meant"* rather than *"name the one you mean — a
+website works"*, because telling somebody to type what is already a button asks them to do the
+work twice. See [BENCHMARKS.md](BENCHMARKS.md) Run 34.
+
+**There is no "skip, just analyse" on this one.** [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §3 promises
+every clarifying question is skippable; skipping this one means guessing which company, and a
+report about the wrong Notion looks exactly like a report about the right one.
 
 ---
 

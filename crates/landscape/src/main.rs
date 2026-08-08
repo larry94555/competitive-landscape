@@ -520,8 +520,18 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
                 println!("{line}");
             }
         }
-        landscape_analyze::subject::Decided::Refuse { why, kind } => {
-            println!("\nno report ({}): {why}", kind.as_db_str());
+        landscape_analyze::subject::Decided::Refuse(refusal) => {
+            println!(
+                "\nno report ({}): {}",
+                refusal.kind.as_db_str(),
+                refusal.why
+            );
+            for choice in &refusal.choices {
+                println!(
+                    "  pick: {} ({}) - send \"{}\"",
+                    choice.name, choice.domain, choice.prompt
+                );
+            }
         }
     }
     Ok(())
@@ -1248,10 +1258,11 @@ async fn resolve_from_description(
     prompt: &str,
 ) -> landscape_analyze::subject::Decided {
     let Some(engine) = engine else {
-        return landscape_analyze::subject::Decided::Refuse {
+        return landscape_analyze::subject::Decided::Refuse(landscape_analyze::subject::Refusal {
             why: landscape_analyze::subject::NO_SUBJECT.to_owned(),
             kind: landscape_core::Failure::NoSubject,
-        };
+            choices: Vec::new(),
+        });
     };
     let fetcher = landscape_fetch::Fetcher::new();
     let (derived, queried) = landscape_search::candidates::for_description(engine, prompt, |url| {
@@ -1338,11 +1349,18 @@ async fn rivals_of(
 async fn refuse(
     store: &Arc<dyn Store>,
     analysis: &landscape_core::Analysis,
-    kind: landscape_core::Failure,
-    why: &str,
+    refusal: &landscape_analyze::subject::Refusal,
 ) {
     match store
-        .fail(analysis.id, analysis.generation, kind, why)
+        .fail(
+            analysis.id,
+            analysis.generation,
+            landscape_db::Refused {
+                kind: refusal.kind,
+                reason: &refusal.why,
+                choices: &refusal.choices,
+            },
+        )
         .await
     {
         Ok(landscape_core::Applied::ClaimRevoked) => {
@@ -1395,9 +1413,14 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
                     );
                     (origins, Some(*set))
                 }
-                landscape_analyze::subject::Decided::Refuse { why, kind } => {
-                    tracing::info!(id = %analysis.id, kind = kind.as_db_str(), "no subject");
-                    refuse(store, analysis, kind, &why).await;
+                landscape_analyze::subject::Decided::Refuse(refusal) => {
+                    tracing::info!(
+                        id = %analysis.id,
+                        kind = refusal.kind.as_db_str(),
+                        choices = refusal.choices.len(),
+                        "no subject"
+                    );
+                    refuse(store, analysis, &refusal).await;
                     return;
                 }
             }
@@ -1432,8 +1455,11 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
             .fail(
                 analysis.id,
                 analysis.generation,
-                landscape_core::Failure::NoSubject,
-                landscape_analyze::subject::NO_SUBJECT,
+                landscape_db::Refused {
+                    kind: landscape_core::Failure::NoSubject,
+                    reason: landscape_analyze::subject::NO_SUBJECT,
+                    choices: &[],
+                },
             )
             .await
         {
@@ -1653,10 +1679,11 @@ mod tests {
         // configured there is no verdict to decide from, and this is the only refusal where
         // *"try naming its website"* is the right instruction rather than a habit.
         let decided = resolve_from_description(None, "a shared inbox for a small team").await;
-        let landscape_analyze::subject::Decided::Refuse { kind, why } = decided else {
+        let landscape_analyze::subject::Decided::Refuse(refusal) = decided else {
             panic!("a run with no engine analysed something")
         };
-        assert_eq!(kind, landscape_core::Failure::NoSubject);
+        assert_eq!(refusal.kind, landscape_core::Failure::NoSubject);
+        let why = &refusal.why;
         assert!(why.contains("not configured here"), "{why}");
     }
 
@@ -1717,7 +1744,7 @@ mod tests {
                 failed: vec!["q3".to_owned()],
             },
         );
-        let landscape_analyze::subject::Decided::Refuse { kind, why } = decided else {
+        let landscape_analyze::subject::Decided::Refuse(refusal) = decided else {
             panic!("an empty set was analysed")
         };
 
@@ -1730,7 +1757,7 @@ mod tests {
             .await
             .expect("a row");
         let claimed = store.claim_next().await.expect("a claim").expect("a row");
-        refuse(&store, &claimed, kind, &why).await;
+        refuse(&store, &claimed, &refusal).await;
 
         let read = store.get(queued.id).await.expect("it reads back");
         assert_eq!(
@@ -1738,6 +1765,74 @@ mod tests {
             Some(landscape_core::Failure::SearchIncomplete),
             "the client is told a market is empty while a query was unanswered"
         );
+    }
+
+    #[tokio::test]
+    async fn the_question_reaches_the_client_and_not_only_the_situation() {
+        // The whole chain for a chip: `decide` refuses to choose between two companies,
+        // `refuse` records both, and the client reads back the domains it can offer as
+        // buttons. **`kind` travelling without `choices` is the defect this pins** - a client
+        // told a name matched several companies, and not told which, has to ask the reader to
+        // work out what we would not.
+        let decided = landscape_analyze::subject::decide(
+            landscape_search::competitors::Derived {
+                verdict: landscape_core::subject::Resolution::Ambiguous {
+                    question: "which one?".to_owned(),
+                    candidates: vec![
+                        landscape_core::subject::Candidate {
+                            name: "Notion".to_owned(),
+                            canonical_domain: "notion.so".to_owned(),
+                            what_it_is: "one workspace for notes and docs".to_owned(),
+                            confidence: 0.9,
+                        },
+                        landscape_core::subject::Candidate {
+                            name: "Notion Energy".to_owned(),
+                            canonical_domain: "notionenergy.com".to_owned(),
+                            what_it_is: "battery storage for commercial sites".to_owned(),
+                            confidence: 0.88,
+                        },
+                    ],
+                },
+                set: landscape_search::competitors::Set::default(),
+                about_a_market: false,
+            },
+            &landscape_search::candidates::Queried {
+                completed: vec!["q1".to_owned(), "q2".to_owned(), "q3".to_owned()],
+                failed: Vec::new(),
+            },
+        );
+        let landscape_analyze::subject::Decided::Refuse(refusal) = decided else {
+            panic!("a tie about one company is a refusal")
+        };
+
+        let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+        let queued = store
+            .enqueue(
+                &landscape_core::NewAnalysis::parse("notion, and whoever competes with it")
+                    .expect("valid"),
+            )
+            .await
+            .expect("a row");
+        let claimed = store.claim_next().await.expect("a claim").expect("a row");
+        refuse(&store, &claimed, &refusal).await;
+
+        let read = store.get(queued.id).await.expect("it reads back");
+        assert_eq!(read.failure, Some(landscape_core::Failure::Ambiguous));
+        assert_eq!(
+            read.choices
+                .iter()
+                .map(|c| c.prompt.as_str())
+                .collect::<Vec<_>>(),
+            ["https://notion.so", "https://notionenergy.com"],
+            "the client must be able to send one of these back without rewriting it"
+        );
+        // **The whole point of the round trip.** A prompt that survives storage and is then
+        // refused by the endpoint it is meant for is not one click — `box.com` was, until
+        // review found it.
+        for choice in &read.choices {
+            landscape_core::NewAnalysis::parse(&choice.prompt)
+                .unwrap_or_else(|e| panic!("a chip read back from the store is not a prompt: {e}"));
+        }
     }
 
     #[tokio::test]
@@ -1761,7 +1856,16 @@ mod tests {
                 .expect("a row");
             let claimed = store.claim_next().await.expect("a claim").expect("a row");
 
-            refuse(&store, &claimed, kind, "why, for an operator").await;
+            refuse(
+                &store,
+                &claimed,
+                &landscape_analyze::subject::Refusal {
+                    why: "why, for an operator".to_owned(),
+                    kind,
+                    choices: Vec::new(),
+                },
+            )
+            .await;
 
             let read = store.get(queued.id).await.expect("it reads back");
             assert_eq!(read.status, landscape_core::AnalysisStatus::Failed);
