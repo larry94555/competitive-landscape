@@ -288,10 +288,34 @@ the **equality**: for each of the three seed shapes, *"nothing is asked"* appear
 wording would not have closed this; one that pins the equality makes a future change move both
 sides.
 
+### And the footer under it still disagreed
+
+```text
+asking    nothing - its front page has no sentence describing what it does
+...
+SEARX_URL is not set, so nothing was asked. The queries above are what would go.
+```
+
+There are no queries above — and the worse half is the implication, that installing an engine
+would change the outcome. It would not: this company's own page gave nothing to compare a rival
+against, so an engine would be asked nothing either. **A reader who acts on a diagnostic and gets
+the same silence has been sent somewhere for nothing**, which is the failure this command exists
+to prevent.
+
+The footer reads `seed.words()` too now, and the regression is the whole output rather than one
+section: for each of the three seed shapes, neither a query nor the phrase *"queries above"*
+appears unless `words()` succeeded. The previous round asserted that equality for the query
+section alone, and the hole was the surface next to it.
+
+**The description path has a byte-identical footer**, and the first edit replaced that one
+instead. It failed to compile, which is the only reason it was noticed. That one is correct
+without a condition — `queries` is non-empty there, guaranteed by an early return four lines
+above — and now says so, because the next person to grep that sentence will find two.
+
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 30 | 767 | 51 |
-| now | **790** | **51** |
+| now | **792** | **51** |
 
 ---
 

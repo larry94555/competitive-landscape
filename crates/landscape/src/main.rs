@@ -422,6 +422,8 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
     }
 
     let Some(engine) = landscape_search::Searx::from_env()? else {
+        // Correct here with no condition: `queries` is non-empty, guaranteed by the early
+        // return four lines above.
         println!(
             "\n{} is not set, so nothing was asked. The queries above are what would go.",
             landscape_search::searx::URL_VAR
@@ -586,6 +588,29 @@ fn what_would_be_asked(seed: &landscape_search::candidates::Seed) -> Vec<String>
     said
 }
 
+/// What this command says when no engine is configured.
+///
+/// **Two different facts, and the footer used to state only one.** With no vocabulary there are
+/// no queries, so *"the queries above are what would go"* pointed at nothing — and worse, it
+/// implied that setting `SEARX_URL` would change the outcome. It would not: this company's own
+/// page gave nothing to compare a rival against, so an engine would be asked nothing either.
+///
+/// A reader who acts on a diagnostic and gets the same silence has been sent somewhere for
+/// nothing, which is the failure this whole command exists to prevent.
+///
+/// It reads [`landscape_search::candidates::Seed::words`], like everything else that decides
+/// anything about a seed.
+fn without_an_engine(seed: &landscape_search::candidates::Seed) -> String {
+    let var = landscape_search::searx::URL_VAR;
+    if seed.words().is_err() {
+        return format!(
+            "{var} is not set, so nothing was asked - and nothing would have been asked with \
+             it either, for the reason above."
+        );
+    }
+    format!("{var} is not set, so nothing was asked. The queries above are what would go.")
+}
+
 async fn rivals_of_a_named_company(origin: &str) -> Result<()> {
     let target = landscape_fetch::Target::parse(origin)
         .map_err(|e| anyhow::anyhow!("{origin} is not a URL we fetch: {e}"))?;
@@ -612,10 +637,7 @@ async fn rivals_of_a_named_company(origin: &str) -> Result<()> {
     }
 
     let Some(engine) = landscape_search::Searx::from_env()? else {
-        println!(
-            "\n{} is not set, so nothing was asked. The queries above are what would go.",
-            landscape_search::searx::URL_VAR
-        );
+        println!("\n{}", without_an_engine(&seed));
         return Ok(());
     };
 
@@ -1500,6 +1522,59 @@ mod tests {
                 !said.contains("Basecamp alternatives"),
                 "a query was shown for a run that would send none, or hidden from one that would:\n{said}"
             );
+        }
+    }
+
+    #[test]
+    fn the_no_engine_footer_never_points_at_queries_that_are_not_there() {
+        // **Review found the footer contradicting the section above it.** With no vocabulary
+        // `what_would_be_asked` correctly says nothing will be asked, and then the footer said
+        // *"the queries above are what would go"* - pointing at nothing, and implying that
+        // setting `SEARX_URL` would change the outcome. It would not.
+        for (read, what_it_is) in [(true, ""), (false, "we were unable to read its front page")] {
+            let seed = seed(read, what_it_is);
+            let said = without_an_engine(&seed);
+            assert!(
+                !said.contains("queries above"),
+                "pointed at queries that were never printed: {said}"
+            );
+            assert!(
+                said.contains("nothing would have been asked with it either"),
+                "a reader is sent to install an engine that would change nothing: {said}"
+            );
+        }
+
+        // And the other half, so the rule is a rule: with real vocabulary the queries above are
+        // exactly what an engine would be sent.
+        let said = without_an_engine(&seed(true, "Project management and team communication"));
+        assert!(
+            said.contains("The queries above are what would go"),
+            "{said}"
+        );
+    }
+
+    #[test]
+    fn every_line_this_command_prints_agrees_that_nothing_will_be_asked() {
+        // The section and the footer are two outputs of one decision, and this is the assertion
+        // that they cannot disagree - whatever `words()` says, both have to follow it.
+        for (read, what_it_is) in [
+            (true, "Project management and team communication"),
+            (true, ""),
+            (false, "we were unable to read its front page"),
+        ] {
+            let seed = seed(read, what_it_is);
+            let nothing_asked = seed.words().is_err();
+            let whole = format!(
+                "{}\n{}",
+                what_would_be_asked(&seed).join("\n"),
+                without_an_engine(&seed)
+            );
+            assert_eq!(
+                nothing_asked,
+                !whole.contains("Basecamp alternatives"),
+                "{whole}"
+            );
+            assert_eq!(nothing_asked, !whole.contains("queries above"), "{whole}");
         }
     }
 

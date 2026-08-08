@@ -336,5 +336,31 @@
       "-p",
       "landscape"
     ]
+  },
+  {
+    "name": "the no-engine footer points at queries that were never printed",
+    "file": "crates/landscape/src/main.rs",
+    "old": "    if seed.words().is_err() {",
+    "new": "    if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape"
+    ]
+  },
+  {
+    "name": "a reader is sent to install an engine that would change nothing",
+    "file": "crates/landscape/src/main.rs",
+    "old": "            \"{var} is not set, so nothing was asked - and nothing would have been asked with \\\n             it either, for the reason above.\"\n",
+    "new": "            \"{var} is not set, so nothing was asked. The queries above are what would go.\"\n",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape"
+    ]
   }
 ]
