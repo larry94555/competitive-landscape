@@ -14,7 +14,24 @@ export type AnalysisStatus = "queued" | "running" | "complete" | "failed";
  * A closed set, on purpose. The server records an operator's reason too and never sends it:
  * what somebody is told about a failure is a decision made here, in words written for them.
  */
-export type Failure = "no_subject" | "internal";
+/**
+ * Which situation a failed analysis is in.
+ *
+ * **A value earns a place here when a reader would do something different.** It was
+ * `no_subject | internal`, and five different endings arrived as `no_subject`: no engine
+ * configured, several companies sharing a name, a search that did not finish, and a market we
+ * looked at and found empty. All four rendered as *"try naming its website"* — which is wrong
+ * for a search that timed out, and throws away a question a reader could answer in one word.
+ *
+ * The server's `failure_reason` is deliberately not here: it is for operators and never shown
+ * verbatim, so the sentence for each of these is written in `statusLine` below.
+ */
+export type Failure =
+  | "no_subject"
+  | "ambiguous"
+  | "nothing_found"
+  | "search_incomplete"
+  | "internal";
 
 export type SectionStatus = "populated" | "partial" | "not_found_in_public_sources";
 

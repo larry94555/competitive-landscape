@@ -184,7 +184,17 @@ pub enum Decided {
     /// The companies the report will compare, best first.
     Analyse(Box<landscape_search::competitors::Set>),
     /// No set worth writing a report about, and this is what a reader is told about why.
-    Refuse(String),
+    ///
+    /// **The situation travels with the sentence.** They are one decision: the code that picks
+    /// the words is the code that knows which of five things happened, and splitting them left
+    /// the boundary rendering all five as *"try naming its website"* — wrong for a search that
+    /// timed out, and throwing away a question a reader could answer in a word.
+    Refuse {
+        /// For operators. Recorded, and never shown verbatim; see [`landscape_core::Failure`].
+        why: String,
+        /// Which situation this is, in the only terms a reader can act on.
+        kind: landscape_core::Failure,
+    },
 }
 
 /// Turn the gate's verdict, the set behind it, and the searching that produced both into what
@@ -218,23 +228,48 @@ pub fn decide(
         // report nobody asked for. A reader answers this in one word; see
         // [`landscape_search::competitors::DESCRIBES_A_MARKET`] for what "one word" means and
         // what it cannot see.
-        Resolution::Ambiguous { candidates, .. } if !about_a_market => {
-            Decided::Refuse(ambiguous(&candidates))
-        }
+        Resolution::Ambiguous { candidates, .. } if !about_a_market => Decided::Refuse {
+            why: ambiguous(&candidates),
+            kind: landscape_core::Failure::Ambiguous,
+        },
         // **"Nothing found" is a conclusion about a market, and it needs the searching to have
         // happened.** With any query unanswered we have not established that nobody is out
         // there — only that we did not finish looking, which is a different sentence and a
         // retryable one. Review found these collapsed into each other.
-        Resolution::NothingFound { .. } if !queried.failed.is_empty() => {
-            Decided::Refuse(search_incomplete(queried.failed.len(), queried.sent()))
-        }
-        Resolution::NothingFound { .. } => Decided::Refuse(NOTHING_RESOLVED.to_owned()),
+        //
+        // **This is checked against *no members surviving*, not against the gate's verdict.**
+        // It used to guard only the `NothingFound` arm, and review found the way round it: two
+        // queries corroborate a candidate, the third fails, the gate resolves it — and then
+        // `assemble` sets it aside because its page could not be read. `Resolved` with an empty
+        // set falls past a verdict-shaped guard and lands on *"we searched and found nobody"*,
+        // which is a conclusion about a market drawn while a query was still unanswered, and
+        // the one refusal it makes sense to retry offered as one it does not.
+        //
+        // A **non-empty** set still beats an outage: an answer we already have is worth more
+        // than telling somebody to come back for it.
+        _ if set.is_empty() && !queried.failed.is_empty() => Decided::Refuse {
+            why: search_incomplete(queried.failed.len(), queried.sent()),
+            kind: landscape_core::Failure::SearchIncomplete,
+        },
+        Resolution::NothingFound { .. } => Decided::Refuse {
+            why: NOTHING_RESOLVED.to_owned(),
+            kind: landscape_core::Failure::NothingFound,
+        },
         // Companies were found and none of them survived. Naming them and saying what happened
         // to each is the difference between a refusal a reader can act on and a shrug.
         _ if set.is_empty() && !set.set_aside.is_empty() => {
-            Decided::Refuse(none_of_them(&set.set_aside))
+            // Companies were found and rejected, which is a statement about a market
+            // rather than about the searching — the same situation as finding nobody, arrived
+            // at with more to show for it.
+            Decided::Refuse {
+                why: none_of_them(&set.set_aside),
+                kind: landscape_core::Failure::NothingFound,
+            }
         }
-        _ if set.is_empty() => Decided::Refuse(NOTHING_RESOLVED.to_owned()),
+        _ if set.is_empty() => Decided::Refuse {
+            why: NOTHING_RESOLVED.to_owned(),
+            kind: landscape_core::Failure::NothingFound,
+        },
         _ => Decided::Analyse(Box::new(set)),
     }
 }
@@ -542,6 +577,101 @@ mod deciding {
     }
 
     #[test]
+    fn every_refusal_carries_the_situation_a_reader_would_act_on() {
+        // **These were one situation and five sentences.** `Failure` had two values, so every
+        // ending here arrived as `NoSubject` and the interface rendered *"try naming its
+        // website"* - which fixes nothing when a search timed out, and throws away the question
+        // a reader could have answered in a word.
+        use landscape_core::Failure;
+
+        let outage = Queried {
+            completed: vec!["q1".to_owned()],
+            failed: vec!["q2".to_owned(), "q3".to_owned()],
+        };
+        let cases: Vec<(&str, Decided, Failure)> = vec![
+            (
+                "a name several products share",
+                decide(derived(tie(), two(), false), &all_answered()),
+                Failure::Ambiguous,
+            ),
+            (
+                "a search that did not finish",
+                decide(
+                    derived(
+                        Resolution::NothingFound {
+                            checked: Vec::new(),
+                        },
+                        Set::default(),
+                        true,
+                    ),
+                    &outage,
+                ),
+                Failure::SearchIncomplete,
+            ),
+            (
+                "a market we looked at and found empty",
+                decide(
+                    derived(
+                        Resolution::NothingFound {
+                            checked: vec!["q1".to_owned()],
+                        },
+                        Set::default(),
+                        true,
+                    ),
+                    &all_answered(),
+                ),
+                Failure::NothingFound,
+            ),
+            (
+                "companies found and all set aside",
+                decide(
+                    derived(
+                        Resolution::Resolved {
+                            entity: candidate("Alpha", "alpha.example"),
+                        },
+                        Set {
+                            members: Vec::new(),
+                            set_aside: vec![(candidate("Beta", "beta.example"), Aside::Unread)],
+                            alone: None,
+                        },
+                        true,
+                    ),
+                    &all_answered(),
+                ),
+                Failure::NothingFound,
+            ),
+        ];
+
+        for (what, decided, expected) in cases {
+            let Decided::Refuse { kind, why } = decided else {
+                panic!("{what} was not a refusal")
+            };
+            assert_eq!(kind, expected, "{what}: {why}");
+        }
+    }
+
+    #[test]
+    fn the_only_retryable_refusal_is_the_one_about_us() {
+        // A reader fixes exactly one of these by doing nothing, so exactly one may say so.
+        use landscape_core::Failure;
+        for (kind, retryable) in [
+            (Failure::NoSubject, false),
+            (Failure::Ambiguous, false),
+            (Failure::NothingFound, false),
+            (Failure::SearchIncomplete, true),
+        ] {
+            assert_eq!(
+                kind == Failure::SearchIncomplete,
+                retryable,
+                "{kind:?} changed sides"
+            );
+        }
+        assert!(search_incomplete(2, 3).contains("try again"));
+        assert!(!NOTHING_RESOLVED.contains("try again"));
+        assert!(!NO_SUBJECT.contains("try again"));
+    }
+
+    #[test]
     fn a_market_becomes_the_set_rather_than_a_question() {
         // **The row this change is for.** Three companies every search returned score alike, so
         // the gate calls them tied - and for a description of a market, tied is the answer.
@@ -561,7 +691,7 @@ mod deciding {
         // several products matching it is ambiguity, not a market, and one chip click prevents
         // an entire wrong report.
         let decided = decide(derived(tie(), two(), false), &all_answered());
-        let Decided::Refuse(why) = decided else {
+        let Decided::Refuse { why, .. } = decided else {
             panic!("a shared name was reported on instead of asked about")
         };
         assert!(why.contains("Alpha (alpha.example)"), "{why}");
@@ -616,11 +746,79 @@ mod deciding {
             ),
             &all_answered(),
         );
-        let Decided::Refuse(why) = decided else {
+        let Decided::Refuse { why, .. } = decided else {
             panic!("nothing found was not a refusal")
         };
         assert_eq!(why, NOTHING_RESOLVED);
         assert!(!why.contains("try again"), "{why}");
+    }
+
+    #[test]
+    fn a_candidate_rejected_after_an_outage_is_still_an_outage() {
+        // **Review found the way round the guard above.** Two queries corroborate a candidate,
+        // the third fails, the gate resolves it - and `assemble` then sets it aside because its
+        // page could not be read. `Resolved` with an empty set fell past a verdict-shaped check
+        // and landed on *"we searched and found nobody"*: a conclusion about a market drawn
+        // while a query was still unanswered, and the one refusal worth retrying offered as one
+        // that is not.
+        //
+        // Both shapes of empty set, because the arm below it is the one that used to catch them.
+        for set_aside in [
+            vec![(candidate("Alpha", "alpha.example"), Aside::Unread)],
+            Vec::new(),
+        ] {
+            let queried = Queried {
+                completed: vec!["q1".to_owned(), "q2".to_owned()],
+                failed: vec!["q3".to_owned()],
+            };
+            let decided = decide(
+                derived(
+                    Resolution::Resolved {
+                        entity: candidate("Alpha", "alpha.example"),
+                    },
+                    Set {
+                        members: Vec::new(),
+                        set_aside: set_aside.clone(),
+                        alone: None,
+                    },
+                    true,
+                ),
+                &queried,
+            );
+            let Decided::Refuse { kind, why } = decided else {
+                panic!("an empty set was analysed")
+            };
+            assert_eq!(
+                kind,
+                landscape_core::Failure::SearchIncomplete,
+                "a market was declared empty while a query was unanswered: {why}"
+            );
+            assert!(why.contains("1 of the 3"), "{why}");
+            assert!(why.contains("try again"), "{why}");
+        }
+    }
+
+    #[test]
+    fn an_answer_we_already_have_still_beats_an_outage() {
+        // The other side of the same rule, so it stays a rule: a set with somebody in it is a
+        // real answer, and telling a reader to come back for it would throw that away.
+        let decided = decide(
+            derived(
+                Resolution::Resolved {
+                    entity: candidate("Alpha", "alpha.example"),
+                },
+                two(),
+                true,
+            ),
+            &Queried {
+                completed: vec!["q1".to_owned()],
+                failed: vec!["q2".to_owned(), "q3".to_owned()],
+            },
+        );
+        assert!(
+            matches!(decided, Decided::Analyse(_)),
+            "an answer was thrown away over an outage: {decided:?}"
+        );
     }
 
     #[test]
@@ -646,7 +844,7 @@ mod deciding {
                 ),
                 &queried,
             );
-            let Decided::Refuse(why) = decided else {
+            let Decided::Refuse { why, .. } = decided else {
                 panic!("nothing found was not a refusal")
             };
             assert_ne!(why, NOTHING_RESOLVED, "{failed:?}");
@@ -684,7 +882,7 @@ mod deciding {
             ),
             &all_answered(),
         );
-        let Decided::Refuse(why) = decided else {
+        let Decided::Refuse { why, .. } = decided else {
             panic!("an empty set was reported on")
         };
         assert_ne!(why, NOTHING_RESOLVED);
@@ -709,7 +907,13 @@ mod deciding {
             ),
             &all_answered(),
         );
-        assert_eq!(decided, Decided::Refuse(NOTHING_RESOLVED.to_owned()));
+        assert_eq!(
+            decided,
+            Decided::Refuse {
+                why: NOTHING_RESOLVED.to_owned(),
+                kind: landscape_core::Failure::NothingFound,
+            }
+        );
     }
 }
 

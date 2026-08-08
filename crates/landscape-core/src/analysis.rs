@@ -88,14 +88,44 @@ impl AnalysisStatus {
 /// the other half of that rule: a small, closed set of *situations*, so the interface can
 /// write a sentence for each and nothing internal leaks into it.
 ///
-/// The distinction it exists for: one of these is our fault and one is the reader's to fix,
-/// and telling somebody *"nothing you did caused it"* when they typed a description we cannot
+/// The distinction it exists for: some of these are ours and some are the reader's to fix, and
+/// telling somebody *"nothing you did caused it"* when they typed a description we cannot
 /// resolve sends them away with no way forward.
+///
+/// **It was two values, and the analysis had five answers.** Every refusal
+/// `landscape_analyze::subject::decide` produces arrived as `NoSubject` and rendered as one
+/// sentence — *"we could not work out which company you meant; try naming its website"*. For a
+/// search that timed out that is a wrong instruction, and for a name several products share it
+/// throws away the question a reader could have answered in a word. The analysis had spent four
+/// changes keeping those silences apart internally while the boundary collapsed them again.
+///
+/// **Closed on purpose, and small on purpose.** A situation earns a variant when the reader
+/// would *do something different*; anything finer belongs in `failure_reason`, which is for
+/// operators and is never shown verbatim.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Failure {
-    /// The prompt named no company we could identify. **The reader can fix this.**
+    /// Nothing in the prompt named a company, and nothing here can go looking.
+    ///
+    /// **The reader fixes this by naming a domain**, or an operator by configuring a search
+    /// engine. It is the only one of these that is about our configuration.
     NoSubject,
+    /// Several real companies match what was typed, and we will not choose between them.
+    ///
+    /// **A question, not a failure** — `PRODUCT_SPEC.md` §3's *"Which Notion do you mean?"*.
+    /// The reader answers it in one word, which is why it cannot share a sentence with the
+    /// three below: every one of those tells them to do something that would not help.
+    Ambiguous,
+    /// We searched, and found no company we could stand behind.
+    ///
+    /// About the world rather than about us. Rewording helps; naming a domain helps; waiting
+    /// does not.
+    NothingFound,
+    /// The searching did not finish, so nothing was concluded.
+    ///
+    /// **The only retryable one.** Telling somebody to name a domain because an engine timed
+    /// out sends them to fix something that was never wrong.
+    SearchIncomplete,
     /// Anything else. The reader can only try again.
     Internal,
 }
@@ -106,6 +136,9 @@ impl Failure {
     pub const fn as_db_str(self) -> &'static str {
         match self {
             Self::NoSubject => "no_subject",
+            Self::Ambiguous => "ambiguous",
+            Self::NothingFound => "nothing_found",
+            Self::SearchIncomplete => "search_incomplete",
             Self::Internal => "internal",
         }
     }
@@ -118,6 +151,9 @@ impl Failure {
     pub fn from_db_str(s: &str) -> Self {
         match s {
             "no_subject" => Self::NoSubject,
+            "ambiguous" => Self::Ambiguous,
+            "nothing_found" => Self::NothingFound,
+            "search_incomplete" => Self::SearchIncomplete,
             _ => Self::Internal,
         }
     }
@@ -216,6 +252,42 @@ impl Applied {
 #[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 // Panicking IS how a test reports failure. The lints stay denied everywhere else.
 mod tests {
+
+    #[test]
+    fn every_situation_survives_the_database_and_back() {
+        // **A row written by a newer version must not make an older one claim success**, which
+        // is why `from_db_str` falls back to `Internal` - and why that fallback must never
+        // swallow a value this version writes.
+        for kind in [
+            Failure::NoSubject,
+            Failure::Ambiguous,
+            Failure::NothingFound,
+            Failure::SearchIncomplete,
+            Failure::Internal,
+        ] {
+            assert_eq!(Failure::from_db_str(kind.as_db_str()), kind);
+        }
+        assert_eq!(Failure::from_db_str("something_later"), Failure::Internal);
+    }
+
+    #[test]
+    fn no_two_situations_share_a_stored_value() {
+        let stored: Vec<&str> = [
+            Failure::NoSubject,
+            Failure::Ambiguous,
+            Failure::NothingFound,
+            Failure::SearchIncomplete,
+            Failure::Internal,
+        ]
+        .iter()
+        .map(|k| k.as_db_str())
+        .collect();
+        let mut unique = stored.clone();
+        unique.sort_unstable();
+        unique.dedup();
+        assert_eq!(unique.len(), stored.len(), "{stored:?}");
+    }
+
     use super::*;
 
     #[test]

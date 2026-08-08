@@ -1,6 +1,6 @@
 # Full Feature List
 
-**As of 2026-08-08** · `main` at `a23f86b` · **49 of 130 PRs · 38% of the software deliverable**
+**As of 2026-08-08** · `main` at `581b9ea` · **50 of 130 PRs · 38% of the software deliverable**
 
 Every feature the roadmap describes, sorted by the readiness state that first requires it, with
 what it is estimated to cost in pull requests and how much of that is spent.
@@ -69,12 +69,12 @@ only you can do; they are listed at the bottom and are not counted anywhere.
 | State | What it means | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
 | [**S1**](#s1--ready-for-a-guided-demo) | Ready for a guided demo | 39 | 39 | **0** | **100%** |
-| [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 18 | 9 | **9** | **50%** |
+| [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 18 | 10 | **8** | **56%** |
 | [**S3**](#s3--ready-for-use) | Friendly users find no issue | 26 | 1 | **25** | **4%** |
 | [**S4**](#s4--ready-for-general-use) | Promotable, word-of-mouth quality | 11 | 0 | **11** | **0%** |
 | [**S5**](#s5--general-use-free-mode) | Stable, email signup, community | 15 | 0 | **15** | **0%** |
 | [**S6**](#s6--general-use-full-mode) | Notifications and paid subscriptions | 21 | 0 | **21** | **0%** |
-| | **Total** | **130** | **49** | **81** | **38%** |
+| | **Total** | **130** | **50** | **80** | **38%** |
 | | *Getting it onto a host (not a state)* | *3* | *0* | *3* | *0%* |
 
 **The shape of that table is the answer to "how far are we".** **S1 is complete** — the guided
@@ -134,13 +134,13 @@ code change — the software does not become different.
 
 ## S2 — Ready for demonstration
 
-*Any business idea handled correctly, limited functionality, friendly users only.* **Half of
-this state is built.** Nine of eighteen rows are done. Both inputs produce a comparison — a
-description and a named company alike — and with this row, a report that covers **one** company
-says which of four things happened to the others: no engine is configured, its own page gave us
-nothing to judge a competitor against, the searching did not finish, or we looked and nobody
-held up. A reader acts on each of those differently, which is the whole reason they are four
-sentences and not one.
+*Any business idea handled correctly, limited functionality, friendly users only.* **Past
+half.** Ten of eighteen rows are done. Both inputs produce a comparison — a description and a
+named company alike — a report that covers **one** company says which of four things happened to
+the others, and a run that produces **no** report now says which of five things happened rather
+than one. That last one is the same discipline reaching the surface a reader actually looks at:
+the analysis had spent four changes keeping those silences apart while the interface collapsed
+them back into a single sentence.
 
 | Feature | State | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
@@ -148,13 +148,13 @@ sentences and not one.
 | Candidate generation — turn a search result set into scored candidates for the gate | S2 | 2 | 2 | 0 | 100% |
 | Competitor set derivation — one idea to several companies, with why each was chosen | S2 | 3 | 2 | **1** | 67% |
 | Vocabulary resolution — a reader's words to a category the pipeline can search | S2 | 2 | 0 | **2** | 0% |
-| Clarifying questions — ≤3, chip-answerable, skippable, only when discovery diverges | S2 | 2 | 0 | **2** | 0% |
+| Clarifying questions — ≤3, chip-answerable, skippable, only when discovery diverges | S2 | 2 | 1 | **1** | 50% |
 | Trust posture extractor — the fifth question kind | S2 | 1 | 1 | 0 | 100% |
 | Investment direction extractor — the sixth question kind | S2 | 1 | 1 | 0 | 100% |
 | Honest "no public information" at the level of a whole competitor set | S2 | 1 | 1 | 0 | 100% |
 | Fetch cache and per-source extraction cache — two readers of one competitor share work | S2 | 2 | 0 | **2** | 0% |
 | Conditional GET and a per-analysis fetch cap | S2 | 1 | 0 | **1** | 0% |
-| | | **18** | **9** | **9** | **50%** |
+| | | **18** | **10** | **8** | **56%** |
 
 **Neither row that has moved is on the critical path, and that is deliberate.** The trust posture
 and investment direction extractors need no search channel: discovery already admits `/security`

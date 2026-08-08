@@ -4,7 +4,7 @@ import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
-import type { Analysis } from "./api";
+import type { Analysis, Failure } from "./api";
 
 const IDEA = "an app that helps small farms sell to local restaurants";
 
@@ -1136,6 +1136,66 @@ describe("when it does not finish", () => {
       await screen.findByText(/could not work out which company/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/basecamp\.com/)).toBeInTheDocument();
+  });
+
+  /** Run to a failure of one kind, and hand back what the reader is shown. */
+  async function shownFor(failure: Failure): Promise<void> {
+    stubEventSource();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) =>
+        Promise.resolve({
+          ok: true,
+          status: init?.method === "POST" ? 201 : 200,
+          json: () =>
+            Promise.resolve(
+              init?.method === "POST"
+                ? queued()
+                : { ...queued(), status: "failed", failure },
+            ),
+        } as Response),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+    act(() => FakeEventSource.last!.send("done", ""));
+  }
+
+  // **These four were one sentence.** `Failure` had two values, so every ending the analysis
+  // produced arrived as `no_subject` and read *"try naming its website"* — which fixes nothing
+  // when a search timed out, and throws away the question a reader could answer in a word.
+  //
+  // Each case asserts what it must *not* say as well as what it must: the wrong instruction is
+  // the part that sends somebody the wrong way, and it is the half a wording test forgets.
+
+  it("offers the choice back when a name matches more than one company", async () => {
+    await shownFor("ambiguous");
+    expect(
+      await screen.findByText(/matches more than one company/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/try again/i)).toBeNull();
+  });
+
+  it("says the market was empty rather than blaming the prompt", async () => {
+    await shownFor("nothing_found");
+    expect(
+      await screen.findByText(/found no company we could stand behind/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/try again/i)).toBeNull();
+  });
+
+  it("tells a reader to wait, and only when waiting is what would help", async () => {
+    // The one situation a reader fixes by doing nothing. It must not send them off to change
+    // a prompt that was never the problem — and no other case may say "try again", or the
+    // phrase stops meaning anything on the one where it is true.
+    await shownFor("search_incomplete");
+    expect(await screen.findByText(/search did not finish/i)).toBeInTheDocument();
+    expect(screen.getByText(/try again/i)).toBeInTheDocument();
+    expect(screen.queryByText(/naming its website/i)).toBeNull();
+    expect(screen.queryByText(/nothing you did caused it/i)).toBeNull();
   });
 
   it("takes the blame when the failure was ours", async () => {

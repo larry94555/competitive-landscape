@@ -2,8 +2,8 @@
   {
     "name": "a market description is answered with a question instead of a set",
     "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "        Resolution::Ambiguous { candidates, .. } if !about_a_market => {",
-    "new": "        Resolution::Ambiguous { candidates, .. } => {",
+    "old": "        Resolution::Ambiguous { candidates, .. } if !about_a_market => Decided::Refuse {",
+    "new": "        Resolution::Ambiguous { candidates, .. } => Decided::Refuse {",
     "run": [
       "cargo",
       "nextest",
@@ -15,8 +15,8 @@
   {
     "name": "a name several products share is reported on instead of asked about",
     "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "        Resolution::Ambiguous { candidates, .. } if !about_a_market => {",
-    "new": "        Resolution::Ambiguous { candidates, .. } if false => {",
+    "old": "        Resolution::Ambiguous { candidates, .. } if !about_a_market => Decided::Refuse {",
+    "new": "        Resolution::Ambiguous { candidates, .. } if false => Decided::Refuse {",
     "run": [
       "cargo",
       "nextest",
@@ -275,8 +275,8 @@
   {
     "name": "an empty set is reported as a market with nobody in it",
     "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "        _ if set.is_empty() && !set.set_aside.is_empty() => {\n            Decided::Refuse(none_of_them(&set.set_aside))\n        }",
-    "new": "        _ if set.is_empty() && !set.set_aside.is_empty() => {\n            Decided::Refuse(NOTHING_RESOLVED.to_owned())\n        }",
+    "old": "            Decided::Refuse {\n                why: none_of_them(&set.set_aside),\n                kind: landscape_core::Failure::NothingFound,\n            }",
+    "new": "            Decided::Refuse {\n                why: NOTHING_RESOLVED.to_owned(),\n                kind: landscape_core::Failure::NothingFound,\n            }",
     "run": [
       "cargo",
       "nextest",
@@ -288,8 +288,8 @@
   {
     "name": "an empty set is analysed anyway",
     "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "        _ if set.is_empty() => Decided::Refuse(NOTHING_RESOLVED.to_owned()),",
-    "new": "        _ if false => Decided::Refuse(NOTHING_RESOLVED.to_owned()),",
+    "old": "        _ if set.is_empty() => Decided::Refuse {\n            why: NOTHING_RESOLVED.to_owned(),\n            kind: landscape_core::Failure::NothingFound,\n        },",
+    "new": "        _ if false => Decided::Refuse {\n            why: NOTHING_RESOLVED.to_owned(),\n            kind: landscape_core::Failure::NothingFound,\n        },",
     "run": [
       "cargo",
       "nextest",
@@ -301,8 +301,8 @@
   {
     "name": "an outage is reported to a reader as an empty market",
     "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "        Resolution::NothingFound { .. } if !queried.failed.is_empty() => {",
-    "new": "        Resolution::NothingFound { .. } if queried.failed.is_empty() && false => {",
+    "old": "        _ if set.is_empty() && !queried.failed.is_empty() => Decided::Refuse {",
+    "new": "        _ if false => Decided::Refuse {",
     "run": [
       "cargo",
       "nextest",
@@ -314,8 +314,8 @@
   {
     "name": "a set is thrown away because one of the searches failed",
     "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "        Resolution::NothingFound { .. } if !queried.failed.is_empty() => {\n            Decided::Refuse(search_incomplete(queried.failed.len(), queried.sent()))\n        }",
-    "new": "        _ if !queried.failed.is_empty() => {\n            Decided::Refuse(search_incomplete(queried.failed.len(), queried.sent()))\n        }",
+    "old": "        _ if set.is_empty() && !queried.failed.is_empty() => Decided::Refuse {",
+    "new": "        _ if !queried.failed.is_empty() => Decided::Refuse {",
     "run": [
       "cargo",
       "nextest",

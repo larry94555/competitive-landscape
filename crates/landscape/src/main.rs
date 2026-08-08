@@ -520,8 +520,8 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
                 println!("{line}");
             }
         }
-        landscape_analyze::subject::Decided::Refuse(why) => {
-            println!("\nno report: {why}");
+        landscape_analyze::subject::Decided::Refuse { why, kind } => {
+            println!("\nno report ({}): {why}", kind.as_db_str());
         }
     }
     Ok(())
@@ -1248,9 +1248,10 @@ async fn resolve_from_description(
     prompt: &str,
 ) -> landscape_analyze::subject::Decided {
     let Some(engine) = engine else {
-        return landscape_analyze::subject::Decided::Refuse(
-            landscape_analyze::subject::NO_SUBJECT.to_owned(),
-        );
+        return landscape_analyze::subject::Decided::Refuse {
+            why: landscape_analyze::subject::NO_SUBJECT.to_owned(),
+            kind: landscape_core::Failure::NoSubject,
+        };
     };
     let fetcher = landscape_fetch::Fetcher::new();
     let (derived, queried) = landscape_search::candidates::for_description(engine, prompt, |url| {
@@ -1334,14 +1335,14 @@ async fn rivals_of(
 }
 
 /// Record a refusal a reader can act on, and say so if the claim was taken away first.
-async fn refuse(store: &Arc<dyn Store>, analysis: &landscape_core::Analysis, why: &str) {
+async fn refuse(
+    store: &Arc<dyn Store>,
+    analysis: &landscape_core::Analysis,
+    kind: landscape_core::Failure,
+    why: &str,
+) {
     match store
-        .fail(
-            analysis.id,
-            analysis.generation,
-            landscape_core::Failure::NoSubject,
-            why,
-        )
+        .fail(analysis.id, analysis.generation, kind, why)
         .await
     {
         Ok(landscape_core::Applied::ClaimRevoked) => {
@@ -1394,9 +1395,9 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
                     );
                     (origins, Some(*set))
                 }
-                landscape_analyze::subject::Decided::Refuse(why) => {
-                    tracing::info!(id = %analysis.id, "no subject in prompt");
-                    refuse(store, analysis, &why).await;
+                landscape_analyze::subject::Decided::Refuse { why, kind } => {
+                    tracing::info!(id = %analysis.id, kind = kind.as_db_str(), "no subject");
+                    refuse(store, analysis, kind, &why).await;
                     return;
                 }
             }
@@ -1642,6 +1643,132 @@ mod tests {
             assert_eq!(
                 report_blames_the_engine, diagnostic_says_it_would_help,
                 "read={read}, what_it_is={what_it_is:?}\n  report: {reported}\n  cli:    {diagnosed}"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn a_description_with_no_engine_is_the_one_situation_naming_a_domain_fixes() {
+        // **The worker's own choice of situation**, which `decide` never sees: with nothing
+        // configured there is no verdict to decide from, and this is the only refusal where
+        // *"try naming its website"* is the right instruction rather than a habit.
+        let decided = resolve_from_description(None, "a shared inbox for a small team").await;
+        let landscape_analyze::subject::Decided::Refuse { kind, why } = decided else {
+            panic!("a run with no engine analysed something")
+        };
+        assert_eq!(kind, landscape_core::Failure::NoSubject);
+        assert!(why.contains("not configured here"), "{why}");
+    }
+
+    #[tokio::test]
+    async fn a_run_records_the_situation_its_refusal_chose_rather_than_a_default() {
+        // **The wire between the two tests below**, and the only one either misses: `decide`
+        // picks the situation, `refuse` records what it is given, and the worker passes one to
+        // the other. A version that hardcoded `NoSubject` there passed both.
+        //
+        // Distinguishing it needs a refusal that is *not* `NoSubject`, so this configures an
+        // engine at a port nothing is listening on: every query fails fast, and a search that
+        // did not finish is the one situation a reader fixes by waiting.
+        //
+        // `SEARX_URL` is process-global; nextest runs each test in its own process.
+        std::env::set_var("SEARX_URL", "http://127.0.0.1:1");
+
+        let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+        let queued = store
+            .enqueue(
+                &landscape_core::NewAnalysis::parse("a shared inbox for a small support team")
+                    .expect("valid"),
+            )
+            .await
+            .expect("a row");
+        let claimed = store.claim_next().await.expect("a claim").expect("a row");
+
+        run_analysis(&store, &claimed).await;
+
+        let read = store.get(queued.id).await.expect("it reads back");
+        assert_eq!(read.status, landscape_core::AnalysisStatus::Failed);
+        assert_eq!(
+            read.failure,
+            Some(landscape_core::Failure::SearchIncomplete),
+            "the situation the run concluded was replaced with a default on the way out"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_candidate_rejected_after_an_outage_reaches_the_client_as_retryable() {
+        // The whole chain for the case review found: `decide` concludes the searching did not
+        // finish, `refuse` records it, and the client reads back the one situation it fixes by
+        // waiting rather than *"we searched and found nobody"*.
+        let decided = landscape_analyze::subject::decide(
+            landscape_search::competitors::Derived {
+                verdict: landscape_core::subject::Resolution::Resolved {
+                    entity: landscape_core::subject::Candidate {
+                        name: "Alpha".to_owned(),
+                        canonical_domain: "alpha.example".to_owned(),
+                        what_it_is: "a company".to_owned(),
+                        confidence: 0.9,
+                    },
+                },
+                set: landscape_search::competitors::Set::default(),
+                about_a_market: true,
+            },
+            &landscape_search::candidates::Queried {
+                completed: vec!["q1".to_owned(), "q2".to_owned()],
+                failed: vec!["q3".to_owned()],
+            },
+        );
+        let landscape_analyze::subject::Decided::Refuse { kind, why } = decided else {
+            panic!("an empty set was analysed")
+        };
+
+        let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+        let queued = store
+            .enqueue(
+                &landscape_core::NewAnalysis::parse("a shared inbox for a small support team")
+                    .expect("valid"),
+            )
+            .await
+            .expect("a row");
+        let claimed = store.claim_next().await.expect("a claim").expect("a row");
+        refuse(&store, &claimed, kind, &why).await;
+
+        let read = store.get(queued.id).await.expect("it reads back");
+        assert_eq!(
+            read.failure,
+            Some(landscape_core::Failure::SearchIncomplete),
+            "the client is told a market is empty while a query was unanswered"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_situation_a_refusal_chose_is_the_one_the_store_records() {
+        // **The last place the five could collapse back into one.** `refuse` used to pass
+        // `Failure::NoSubject` whatever `decide` had concluded, which is how every ending came
+        // to read the same to a reader in the first place - so the hand-off is asserted rather
+        // than assumed.
+        for kind in [
+            landscape_core::Failure::NoSubject,
+            landscape_core::Failure::Ambiguous,
+            landscape_core::Failure::NothingFound,
+            landscape_core::Failure::SearchIncomplete,
+        ] {
+            let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+            let queued = store
+                .enqueue(
+                    &landscape_core::NewAnalysis::parse("an idea worth checking").expect("valid"),
+                )
+                .await
+                .expect("a row");
+            let claimed = store.claim_next().await.expect("a claim").expect("a row");
+
+            refuse(&store, &claimed, kind, "why, for an operator").await;
+
+            let read = store.get(queued.id).await.expect("it reads back");
+            assert_eq!(read.status, landscape_core::AnalysisStatus::Failed);
+            assert_eq!(
+                read.failure,
+                Some(kind),
+                "the situation was replaced on the way"
             );
         }
     }

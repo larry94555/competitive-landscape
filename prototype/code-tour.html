@@ -80,98 +80,93 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    claimed: {
-      name: "a comparison that did not happen",
-      purpose: "One company, and this sentence.",
-      lines: [
-        ['s', '  we searched for the companies'],
-        ['s', '  it competes with. This report'],
-        ['s', '  compares Basecamp.'],
-        ['c', ''],
-        ['f', '// With no engine, nothing was asked.']
-      ]
-    },
     four: {
-      name: "four ways to have nobody",
-      purpose: "And a reader acts on each.",
+      name: "four changes keeping them apart",
+      purpose: "Runs 29 to 32.",
       lines: [
-        ['t', '  NoEngine          configure one'],
-        ['t', '  NothingToCompare  name another'],
-        ['t', '  SearchIncomplete  try again'],
-        ['f', '  NobodyHeldUp      that is the answer'],
+        ['t', '  an outage is not an empty market'],
+        ['t', '  no engine is not "nobody there"'],
+        ['t', '  unread is not "somewhere else"'],
         ['c', ''],
-        ['c', '// Only the last is about a market.']
+        ['f', '// All tested. All mutated.']
       ]
     },
     one: {
-      name: "one sentence would be worse",
-      purpose: "Than none at all.",
+      name: "and this is what a reader saw",
+      purpose: "Every one of them.",
       lines: [
-        ['s', '  "we found no competitors"'],
+        ['s', '  We could not work out which'],
+        ['s', '  company you meant. Try naming'],
+        ['s', '  its website.'],
         ['c', ''],
-        ['t', '  you act on it, and get the'],
-        ['t', '  same silence back'],
-        ['c', ''],
-        ['f', '// Deferred three PRs to avoid this.']
+        ['f', '// Failure had two values.']
       ]
     },
-    both: {
-      name: "one decision, both paths",
-      purpose: "alone_because.",
+    wrong: {
+      name: "right for one of the four",
+      purpose: "And an instruction for the rest.",
       lines: [
-        ['t', '  a description -> one company'],
-        ['t', '  a domain      -> one company'],
+        ['s', '  search timed out -> name a site'],
         ['c', ''],
-        ['f', '  the same shape to a reader'],
+        ['t', '  they go and fix a prompt'],
+        ['t', '  that was never wrong'],
         ['c', ''],
-        ['c', '// So the same function decides.']
+        ['f', '// The other three moved in behind it.']
       ]
     },
-    compares: {
-      name: "and the note stops claiming",
-      purpose: "\"compares\" needs two.",
+    closed: {
+      name: "the set stays closed",
+      purpose: "failure_reason is the operator's.",
       lines: [
-        ['s', '  This report compares Basecamp.'],
+        ['c', '// 0001_init.sql: recorded for'],
+        ['c', '// operators, never shown verbatim.'],
         ['c', ''],
-        ['t', '  This report is about it.'],
-        ['t', '  We did not look, because...'],
-        ['c', ''],
-        ['f', '// A claim, and then the reason.']
+        ['f', '  a value earns a place when a'],
+        ['f', '  reader would do something else']
       ]
     },
-    diag: {
-      name: "the diagnostic shows it too",
-      purpose: "One printer, both paths.",
+    travel: {
+      name: "the situation travels with the words",
+      purpose: "Refuse { why, kind }.",
       lines: [
-        ['c', '// It would have shown less than'],
-        ['c', '// the report - which is the drift'],
-        ['f', '// the last two rounds were about.'],
+        ['t', '  one decision, not two'],
         ['c', ''],
-        ['t', '  set_as_printed(&set)']
+        ['c', '// The code that picks the sentence'],
+        ['c', '// is the code that knows which of'],
+        ['f', '// five things happened.']
       ]
     },
-    fmt: {
-      name: "and a formatter hid a defect",
-      purpose: "From the gate that looks for them.",
+    negative: {
+      name: "and one must not say try again",
+      purpose: "The half a wording test forgets.",
       lines: [
-        ['s', '  cargo fmt reflowed the mutation'],
-        ['s', '  -> no longer the recorded text'],
+        ['t', '  ambiguous  -> not "try again"'],
+        ['t', '  timed out  -> not "name a site"'],
         ['c', ''],
-        ['f', '  "no recorded mutation is live"'],
-        ['c', ''],
-        ['c', '// The one gate written to stop this.']
+        ['f', '// The wrong instruction is what'],
+        ['f', '// sends somebody the wrong way.']
       ]
     },
-    glob: {
-      name: "the fix needed no guess",
-      purpose: "A leftover file, not the code.",
+    pins: {
+      name: "eight pins moved with the type",
+      purpose: "Across three catalogues.",
       lines: [
-        ['s', '  collapse whitespace? no -'],
-        ['s', '  rustfmt drops the comma too'],
+        ['s', '  Refuse(String) -> Refuse { .. }'],
         ['c', ''],
-        ['t', '  *.mutate-backup on disk'],
+        ['f', '  reported before the harness ran'],
         ['c', ''],
-        ['f', '// Sound, not usually right.']
+        ['c', '// In a second, not in an hour.']
+      ]
+    },
+    chips: {
+      name: "what is still missing",
+      purpose: "The candidates.",
+      lines: [
+        ['f', '  "matches more than one company"'],
+        ['s', '  ...and cannot name them yet'],
+        ['c', ''],
+        ['c', '// failure_reason is the operator\'s,'],
+        ['t', '// so the choices need their own home.']
       ]
     }
   };
@@ -215,19 +210,19 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:claimed",  c: "A comparison claimed, and never made." },
-    { kind: "means",       a: "file:four",     c: "Four ways to have nobody, and four things to do." },
+    { kind: "recognition", a: "file:four",     c: "Four changes keeping four silences apart." },
+    { kind: "means",       a: "file:one",      c: "And every one of them read like this." },
 
-    { kind: "turn",        a: "file:one",      c: "One sentence for all four would be worse than none." },
-    { kind: "result",      a: "file:both",     c: "So one function decides it, for both paths." },
+    { kind: "turn",        a: "file:wrong",    c: "That instruction is right for one of the four." },
+    { kind: "result",      a: "file:closed",   c: "The set stays closed, and small." },
 
-    { kind: "turn",        a: "file:compares", c: "And the note stops saying compares." },
-    { kind: "result",      a: "file:diag",     c: "The diagnostic shows the reason too." },
+    { kind: "turn",        a: "file:travel",   c: "The situation travels with the sentence." },
+    { kind: "result",      a: "file:negative", c: "And one of them must not say try again." },
 
-    { kind: "result",      a: "file:fmt",      c: "Then a formatter hid a defect from its own gate." },
-    { kind: "result",      a: "file:glob",     c: "The fix was a leftover file, not a cleverer match." },
+    { kind: "result",      a: "file:pins",     c: "Eight pins moved, and the gate said so first." },
+    { kind: "result",      a: "file:chips",    c: "The chips still need the candidates." },
 
-    { kind: "close",       a: "hold",          c: "A report about one company says why." }
+    { kind: "close",       a: "hold",          c: "Five situations, and the reader saw one." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -270,8 +265,8 @@
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "A report about one company says why",
-    blurb: "Both inputs produce a comparison now; what was still dishonest was a comparison that did not happen. A lone company arrived with a sentence saying we had searched for the others, whether or not we had \u2014 with no engine configured, nothing was asked at all. There are four ways to end up with nobody and a reader acts on each of them differently, so they are four sentences: configure something, name a different company, wait and try again, or accept that this is the answer. Only the last is a statement about a market.",
+    title: "Five situations, and the reader saw one",
+    blurb: "Four changes went into keeping the silences apart inside the analysis \u2014 an outage is not an empty market, a missing engine is not a market with nobody in it \u2014 and every one of them arrived at a reader as the same sentence, because the failure type had two values. That sentence tells somebody to name a website, which is right for exactly one of the four: for a search that timed out it sends them to fix something that was never wrong, and for a name several products share it throws away the question they could have answered in a word.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

@@ -756,8 +756,17 @@ the single most important phase; everything after it is commerce and polish.
   configuring something. `alone_because` decides it once for both paths, so a description that
   resolved to a single company and a named company nobody could be found for cannot come to
   different conclusions about the same evidence.
-  **Still open:** chips for the one-word names the gate refuses in prose, and vocabulary
-  resolution.
+  **And the refusals reach a reader as themselves** — [BENCHMARKS.md](BENCHMARKS.md) Run 33,
+  the first PR of the clarifying-question row. `Failure` had two values and the analysis had
+  five answers, so every refusal arrived as `no_subject` and the interface rendered one sentence:
+  *"we could not work out which company you meant; try naming its website."* For a search that
+  timed out that is an instruction to fix something that was never wrong, and for a name several
+  products share it throws away the question a reader could have answered in a word. The set is
+  still closed and still small — a situation earns a value when a reader would **do something
+  different** — and `failure_reason` beside it is still for operators and still never shown
+  verbatim, which is the rule `migrations/0001_init.sql` wrote and this keeps.
+  **Still open:** the chips themselves, which need the candidates carried to the client, and
+  vocabulary resolution.
   **SearXNG itself has not been run against this.** `docker compose --profile search up -d
   searxng` and a checked-in `settings.yml` are in the repository and unwalked, for the same
   reason D3 is — the first person through corrects it.
