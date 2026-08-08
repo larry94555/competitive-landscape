@@ -2137,7 +2137,7 @@ mod joining {
                 what_it_is: "a company".to_owned(),
                 confidence: 0.9,
             },
-            because: landscape_search::competitors::Because {
+            because: landscape_search::competitors::Because::Found {
                 agreed,
                 asked: 3,
                 shares: vec!["analytics".to_owned()],
@@ -2162,7 +2162,9 @@ mod joining {
                     what_it_is: "a publisher".to_owned(),
                     confidence: 0.9,
                 },
-                landscape_search::competitors::Aside::ElsewhereEntirely,
+                landscape_search::competitors::Aside::ElsewhereEntirely {
+                    looked_for: vec!["analytics".to_owned()],
+                },
             )],
         };
         // **Four companies, so another note exists to be first *of*.** With one company the
@@ -2222,9 +2224,15 @@ mod joining {
             left_out.contains("Notion Press (notionpress.example)"),
             "{left_out}"
         );
+        // **Named, not alluded to.** The sentence used to say *"none of the words you typed"*,
+        // which is false on the seeded path where the words come from the seed's own page.
         assert!(
-            left_out.contains("none of the words you typed"),
+            left_out.contains("none of the words this comparison is built on"),
             "{left_out}"
+        );
+        assert!(
+            left_out.contains("\"analytics\""),
+            "the words a reader would need to judge the exclusion are missing: {left_out}"
         );
     }
 
@@ -2293,6 +2301,105 @@ mod joining {
         assert!(
             !left_out.contains("one.example") && !left_out.contains("two.example"),
             "twenty one-hit hosts would be a search results page: {left_out}"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_report_seeded_by_a_named_company_does_not_claim_they_described_a_market() {
+        // A reader who typed a domain knows what they typed. Telling them they described a
+        // market is telling them something false about their own input - what they do not know
+        // is that we went looking for the others.
+        let set = landscape_search::competitors::Set {
+            members: vec![
+                landscape_search::competitors::Member {
+                    candidate: landscape_core::subject::Candidate {
+                        name: "Basecamp".to_owned(),
+                        canonical_domain: "basecamp.com".to_owned(),
+                        what_it_is: "Project management".to_owned(),
+                        confidence: 1.0,
+                    },
+                    because: landscape_search::competitors::Because::Named,
+                },
+                found("Linear", "linear.app", 3),
+            ],
+            set_aside: Vec::new(),
+        };
+        let many = unreachable(4);
+        let outcome = analyse_many(
+            &landscape_fetch::Fetcher::new(),
+            &llm(),
+            &Asked {
+                set: Some(&set),
+                ..named(&many)
+            },
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+
+        let first = outcome.report.notes.first().expect("a note");
+        assert!(first.starts_with("You named basecamp.com"), "{first}");
+        assert!(
+            !first.contains("You described"),
+            "a reader was told they described what they named: {first}"
+        );
+        assert!(first.contains("Linear (linear.app)"), "{first}");
+
+        let why = &outcome.report.notes[1];
+        assert!(why.contains("Basecamp - you named it"), "{why}");
+        assert!(why.contains("Linear - 3 of the 3 searches"), "{why}");
+    }
+
+    #[tokio::test]
+    async fn a_seeded_report_never_blames_the_reader_for_words_it_chose_itself() {
+        // The exclusions note on the path where nobody typed any words: they came off the seed
+        // company's own front page, and saying otherwise is a false account of the evidence.
+        let set = landscape_search::competitors::Set {
+            members: vec![landscape_search::competitors::Member {
+                candidate: landscape_core::subject::Candidate {
+                    name: "Basecamp".to_owned(),
+                    canonical_domain: "basecamp.com".to_owned(),
+                    what_it_is: "Project management".to_owned(),
+                    confidence: 1.0,
+                },
+                because: landscape_search::competitors::Because::Named,
+            }],
+            set_aside: vec![(
+                landscape_core::subject::Candidate {
+                    name: "A Bakery".to_owned(),
+                    canonical_domain: "bakery.example".to_owned(),
+                    what_it_is: "Sourdough".to_owned(),
+                    confidence: 0.9,
+                },
+                landscape_search::competitors::Aside::ElsewhereEntirely {
+                    looked_for: vec!["project".to_owned(), "management".to_owned()],
+                },
+            )],
+        };
+        let many = unreachable(4);
+        let outcome = analyse_many(
+            &landscape_fetch::Fetcher::new(),
+            &llm(),
+            &Asked {
+                set: Some(&set),
+                ..named(&many)
+            },
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+
+        let left_out = outcome
+            .report
+            .notes
+            .iter()
+            .find(|n| n.starts_with("Also found"))
+            .expect("the exclusions note");
+        assert!(
+            !left_out.contains("you typed"),
+            "the reader was blamed for words we chose ourselves: {left_out}"
+        );
+        assert!(
+            left_out.contains("\"project\", \"management\""),
+            "{left_out}"
         );
     }
 

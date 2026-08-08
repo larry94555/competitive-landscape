@@ -119,6 +119,41 @@ fn origin_of_word(word: &str) -> Option<String> {
     Some(format!("{scheme}://{}", host.to_lowercase()))
 }
 
+/// What the domains in a prompt mean for a run.
+///
+/// **Three readings of the same box, and the middle one is new.** A prompt naming nothing has to
+/// be searched for; a prompt naming several has already said what to compare. The interesting
+/// case is **one**: a reader who types `basecamp.com` wants a competitive landscape, and giving
+/// them a profile of Basecamp is answering a different question — the same mistake the
+/// description path made when it returned one company instead of a set.
+///
+/// **Naming two is an instruction, not a starting point.** `basecamp.com vs linear.app` is a
+/// reader saying which comparison they want, and adding a third company we found would be
+/// overruling them. This is why the rule is a function with a name rather than an `if` in the
+/// worker: it is a decision about what somebody meant, and it is worth being able to assert.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Subjects {
+    /// Nothing named. Find the companies from the description.
+    Describe,
+    /// One named. It seeds the report, and its competitors are worth finding.
+    Seed(String),
+    /// Several named. Exactly these, in the order written.
+    Exactly(Vec<String>),
+}
+
+/// Read a prompt's domains as one of [`Subjects`].
+#[must_use]
+pub fn subjects_in(prompt: &str) -> Subjects {
+    let mut named = origins_in(prompt);
+    match named.len() {
+        0 => Subjects::Describe,
+        // `swap_remove(0)` on a one-element vector is `remove(0)` without the shift, and says
+        // out loud that nothing else is left to preserve the order of.
+        1 => Subjects::Seed(named.swap_remove(0)),
+        _ => Subjects::Exactly(named),
+    }
+}
+
 /// What to tell somebody whose prompt named no site.
 ///
 /// A failure reason a reader can act on. It says what is missing rather than what went wrong,
@@ -250,12 +285,32 @@ pub fn found_for_you(set: &landscape_search::competitors::Set, analysing: usize)
         .iter()
         .map(|m| format!("{} ({})", m.candidate.name, m.candidate.canonical_domain))
         .collect();
-    let mut notes = vec![format!(
-        "You described a market rather than naming companies, so we searched for them. This \
-         report compares {}. If those are not the companies you meant, name the domains and we \
-         will read those instead.",
-        joined_with_and(&named)
-    )];
+    // **Who this report is about, and it is a different sentence depending on how they got
+    // here.** A reader who named a domain knows what they typed; telling them they described
+    // a market is telling them something false about their own input. What they do not know
+    // is that we went looking for the others.
+    let seeded = matches!(
+        compared.first().map(|m| &m.because),
+        Some(landscape_search::competitors::Because::Named)
+    );
+    let mut notes = vec![if seeded {
+        format!(
+            "You named {}, so we searched for the companies it competes with. This report \
+             compares {}. If those are not the companies you meant, name the domains and we \
+             will read those instead.",
+            compared
+                .first()
+                .map_or_else(String::new, |m| m.candidate.canonical_domain.clone()),
+            joined_with_and(&named)
+        )
+    } else {
+        format!(
+            "You described a market rather than naming companies, so we searched for them. \
+             This report compares {}. If those are not the companies you meant, name the \
+             domains and we will read those instead.",
+            joined_with_and(&named)
+        )
+    }];
 
     notes.push(format!(
         "Why each one is here: {}.",
@@ -350,6 +405,60 @@ pub fn ambiguous(candidates: &[landscape_core::subject::Candidate]) -> String {
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod reading_a_box {
+    //! What the domains in a prompt mean, and why one is not the same as two.
+
+    use super::*;
+
+    #[test]
+    fn nothing_named_is_a_description_to_search_for() {
+        assert_eq!(
+            subjects_in("a shared inbox for a small support team"),
+            Subjects::Describe
+        );
+    }
+
+    #[test]
+    fn one_named_company_seeds_a_landscape() {
+        // **The change this row is for.** A reader who types one domain into a competitive
+        // landscape tool is asking who else is out there, not for a profile.
+        assert_eq!(
+            subjects_in("basecamp.com"),
+            Subjects::Seed("https://basecamp.com".to_owned())
+        );
+        assert_eq!(
+            subjects_in("what is going on at https://linear.app these days"),
+            Subjects::Seed("https://linear.app".to_owned())
+        );
+    }
+
+    #[test]
+    fn two_named_companies_are_an_instruction_rather_than_a_starting_point() {
+        // Adding a third company we found would be overruling somebody who has already said
+        // what they want compared.
+        assert_eq!(
+            subjects_in("basecamp.com vs linear.app"),
+            Subjects::Exactly(vec![
+                "https://basecamp.com".to_owned(),
+                "https://linear.app".to_owned()
+            ])
+        );
+    }
+
+    #[test]
+    fn one_company_written_twice_is_still_one_company() {
+        // `origins_in` already drops the repeat; this pins that the *reading* follows it, so
+        // `basecamp.com and www.basecamp.com` seeds a landscape rather than asking for a
+        // comparison of a company with itself.
+        assert_eq!(
+            subjects_in("basecamp.com and www.basecamp.com"),
+            Subjects::Seed("https://basecamp.com".to_owned())
+        );
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod deciding {
     //! Every arm of the decision, and why no two of them are the same sentence.
 
@@ -370,7 +479,7 @@ mod deciding {
     fn member(name: &str, domain: &str) -> Member {
         Member {
             candidate: candidate(name, domain),
-            because: Because {
+            because: Because::Found {
                 agreed: 3,
                 asked: 3,
                 shares: vec!["analytics".to_owned()],
@@ -544,7 +653,9 @@ mod deciding {
                     set_aside: vec![
                         (
                             candidate("Alpha", "alpha.example"),
-                            Aside::ElsewhereEntirely,
+                            Aside::ElsewhereEntirely {
+                                looked_for: vec!["analytics".to_owned()],
+                            },
                         ),
                         (candidate("Beta", "beta.example"), Aside::Unread),
                     ],
@@ -558,7 +669,10 @@ mod deciding {
         };
         assert_ne!(why, NOTHING_RESOLVED);
         assert!(why.contains("Alpha (alpha.example)"), "{why}");
-        assert!(why.contains("none of the words you typed"), "{why}");
+        assert!(
+            why.contains("none of the words this comparison is built on"),
+            "{why}"
+        );
         assert!(why.contains("Beta (beta.example)"), "{why}");
         assert!(why.contains("could not read its front page"), "{why}");
     }

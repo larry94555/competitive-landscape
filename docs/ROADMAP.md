@@ -732,9 +732,23 @@ the single most important phase; everything after it is commerce and polish.
   a score we do not believe, a front page about another market, a front page nobody could read,
   or a front page we never asked for. The last three look identical from the outside and are
   not: only the first of them is about the company.
-  **Still open:** competitors of a **named company** rather than only of a description, chips
-  for the one-word names the gate still refuses in prose, and *"no public information"* reported
-  at the level of a whole set.
+  **A named company brings its competitors now** — [BENCHMARKS.md](BENCHMARKS.md) Run 31, the
+  second PR of this row. `basecamp.com` typed into a competitive landscape tool is a landscape
+  asked for rather than a profile, and the queries that find the rest are templated from the
+  company's **own name for itself**, read off its own front page. That is the case
+  `FACT_CHECKING.md` P22 was written for rather than the exception the description path had to
+  argue for: there is a resolved entity, and nothing a reader phrased reaches the engine.
+  Reading one box has three answers rather than two, and the middle one is the new work: nothing
+  named is searched for, **one** named seeds a landscape, and **several** named are exactly
+  those — a reader who writes `basecamp.com vs linear.app` has said what to compare, and adding
+  a third would be overruling them.
+  The seed is dropped from its own results, because a search for *"basecamp alternatives"*
+  returns Basecamp and leaving it in would put one company in the report twice with two reasons,
+  one of them circular. It is first, and its reason is *"you named it"* — a different kind of
+  fact from *"3 of the 3 searches returned it"*, which is why `Because` became an enum.
+  **Still open:** chips for the one-word names the gate refuses in prose, vocabulary resolution,
+  and *"no public information"* at the level of a whole set — the honest empty a seeded report
+  does not yet have.
   **SearXNG itself has not been run against this.** `docker compose --profile search up -d
   searxng` and a checked-in `settings.yml` are in the repository and unwalked, for the same
   reason D3 is — the first person through corrects it.

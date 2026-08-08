@@ -1,0 +1,366 @@
+[
+  {
+    "name": "one named company is read as an instruction rather than a starting point",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "        1 => Subjects::Seed(named.swap_remove(0)),",
+    "new": "        1 => Subjects::Exactly(named),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "two named companies are treated as a starting point to add to",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "        _ => Subjects::Exactly(named),",
+    "new": "        _ => Subjects::Seed(named.swap_remove(0)),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a prompt naming nothing is read as naming something",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "        0 => Subjects::Describe,",
+    "new": "        0 => Subjects::Exactly(Vec::new()),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a company is its own competitor",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "            .filter(|f| !same_company(&f.host, &seed.candidate.canonical_domain))",
+    "new": "            .filter(|f| !f.host.is_empty())",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a company written with www is not recognised as itself",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "            .trim_start_matches(\"www.\")",
+    "new": "            .trim_start_matches(\"never.\")",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a company written in capitals is not recognised as itself",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    bare(host).eq_ignore_ascii_case(bare(seed_domain))",
+    "new": "    bare(host) == bare(seed_domain)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the company a reader named is not first in its own report",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    set.members.insert(\n        0,\n        Member {\n            candidate: seed.candidate.clone(),\n            because: Because::Named,\n        },\n    );",
+    "new": "    set.members.push(Member {\n        candidate: seed.candidate.clone(),\n        because: Because::Named,\n    });",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the company a reader named is left out of its own report",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    set.members.insert(\n        0,\n        Member {\n            candidate: seed.candidate.clone(),\n            because: Because::Named,\n        },\n    );",
+    "new": "    let _ = &seed;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the company a reader named is scored as if we had found it",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "            because: Because::Named,\n        },\n    );",
+    "new": "            because: Because::Found {\n                agreed: queried.sent(),\n                asked: queried.sent(),\n                shares: Vec::new(),\n            },\n        },\n    );",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a rival is matched against a reader's words rather than the seed's",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    let described = crate::candidates::describe(&found, &words, fetch).await;",
+    "new": "    let described = crate::candidates::describe(&found, &[], fetch).await;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the queries a company produces carry a reader's phrasing",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    const TEMPLATES: [&str; 3] = [\n        r#\"{} alternatives\"#,\n        r#\"{} competitors\"#,\n        r#\"companies like {}\"#,\n    ];",
+    "new": "    const TEMPLATES: [&str; 3] = [\n        r#\"{} alternatives\"#,\n        r#\"{} competitors\"#,\n        r#\"{} rivals\"#,\n    ];",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "one query is sent where three have to agree",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    TEMPLATES\n        .into_iter()\n        .map(|template| Query {\n            text: template.replacen(\"{}\", &cleaned, 1),\n            answers: landscape_discover::probes::Answers::Identity,\n            template,\n        })\n        .collect()\n}",
+    "new": "    TEMPLATES\n        .into_iter()\n        .take(1)\n        .map(|template| Query {\n            text: template.replacen(\"{}\", &cleaned, 1),\n            answers: landscape_discover::probes::Answers::Identity,\n            template,\n        })\n        .collect()\n}",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a blank company name sends boilerplate to an engine",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    let cleaned = crate::queries::safe_words(name);\n    if cleaned.is_empty() {\n        return Vec::new();\n    }",
+    "new": "    let cleaned = crate::queries::safe_words(name);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a rival search divides by the queries that answered rather than those sent",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    let mut set = assemble(described, queried.sent(), &words);",
+    "new": "    let mut set = assemble(described, queried.completed.len(), &words);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a reader who named a company is told they described a market",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "    let mut notes = vec![if seeded {",
+    "new": "    let mut notes = vec![if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a reader who described a market is told they named a company",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "    let mut notes = vec![if seeded {",
+    "new": "    let mut notes = vec![if true {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the name a company gives itself is not the one the report shows",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        candidate: from_its_own_page(host, page.as_deref(), 1.0),",
+    "new": "        candidate: from_its_own_page(host, None, 1.0),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "our own error message becomes the vocabulary a rival is judged against",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    let Ok(words) = seed.words() else {",
+    "new": "    let words = content_words(&seed.candidate.what_it_is);\n    let Ok(_unused) = Err::<Vec<String>, ()>(()) else {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a seed we could read is treated as one we could not",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    let Ok(words) = seed.words() else {",
+    "new": "    let Err(words) = Err::<(), Vec<String>>(seed.words().unwrap_or_default()) else {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "whether a front page was read is taken from the sentence we wrote about it",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        read: page.is_some(),",
+    "new": "        read: !from_its_own_page(host, page.as_deref(), 1.0)\n            .what_it_is\n            .is_empty(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a page that was read but said nothing is treated as having said something",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        let words = crate::competitors::content_words(&self.candidate.what_it_is);\n        if words.is_empty() {\n            return Err(NoVocabulary::NothingQuotable);\n        }\n        Ok(words)",
+    "new": "        let words = crate::competitors::content_words(&self.candidate.what_it_is);\n        Ok(words)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a seed nobody could read still yields vocabulary",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        if !self.read {\n            // `what_it_is` is our sentence about the failure here, and mining it produced\n            // `unable`, `read`, `front`, `page` as the market's vocabulary.\n            return Err(NoVocabulary::Unreadable);\n        }",
+    "new": "        if false {\n            return Err(NoVocabulary::Unreadable);\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "an exclusion blames the reader for words we chose ourselves",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "            Self::ElsewhereEntirely { ref looked_for } => format!(\n                \"its own front page uses none of the words this comparison is built on: {}\",\n                quoted(looked_for)\n            ),",
+    "new": "            Self::ElsewhereEntirely { .. } => {\n                \"its own front page uses none of the words you typed\".to_owned()\n            }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "an exclusion names words other than the ones it judged against",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "                    Some(Aside::ElsewhereEntirely {\n                        looked_for: looked_for.to_vec(),\n                    })",
+    "new": "                    Some(Aside::ElsewhereEntirely {\n                        looked_for: Vec::new(),\n                    })",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the diagnostic decides for itself whether anything will be asked",
+    "file": "crates/landscape/src/main.rs",
+    "old": "    let words = match seed.words() {",
+    "new": "    let words = match if seed.read {\n        Ok(landscape_search::competitors::content_words(&seed.candidate.what_it_is))\n    } else {\n        Err(landscape_search::candidates::NoVocabulary::Unreadable)\n    } {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape"
+    ]
+  },
+  {
+    "name": "a page with no prose and one nobody could read are the same silence",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "            Self::NothingQuotable => \"its front page has no sentence describing what it does\",",
+    "new": "            Self::NothingQuotable => \"we could not read its front page\",",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape"
+    ]
+  },
+  {
+    "name": "the no-engine footer points at queries that were never printed",
+    "file": "crates/landscape/src/main.rs",
+    "old": "    if seed.words().is_err() {",
+    "new": "    if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape"
+    ]
+  },
+  {
+    "name": "a reader is sent to install an engine that would change nothing",
+    "file": "crates/landscape/src/main.rs",
+    "old": "            \"{var} is not set, so nothing was asked - and nothing would have been asked with \\\n             it either, for the reason above.\"\n",
+    "new": "            \"{var} is not set, so nothing was asked. The queries above are what would go.\"\n",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape"
+    ]
+  }
+]

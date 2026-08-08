@@ -452,27 +452,141 @@ where
         let shares = page.as_deref().map_or(Vocabulary::Unreadable, |markdown| {
             Vocabulary::Read(crate::competitors::shared(words, markdown))
         });
-        let (name, what_it_is) = page.map_or_else(
-            || {
-                (
-                    one.host.clone(),
-                    "we were unable to read its front page".to_owned(),
-                )
-            },
-            |markdown| naming(&one.host, &markdown),
-        );
         out.push(Described {
-            candidate: Candidate {
-                name,
-                canonical_domain: one.host.clone(),
-                what_it_is,
-                confidence: one.confidence,
-            },
+            candidate: from_its_own_page(&one.host, page.as_deref(), one.confidence),
             agreed: one.agreed,
             shares,
         });
     }
     out
+}
+
+/// The company a reader named, described by its own front page.
+///
+/// **The seed of a competitor set, and the one company in it that needed no searching.** It gets
+/// the same treatment every candidate gets — its name and its one-line self-description come
+/// from its own page rather than from anywhere else — because a report that names two companies
+/// differently depending on how they got there is a report that looks assembled.
+///
+/// `confidence` is 1.0 and it is not a measurement: the reader typed the domain, so there is
+/// nothing to be confident *about*. Nothing scores this candidate;
+/// [`crate::competitors::Because::Named`] is what a reader is shown instead.
+pub async fn named_seed<F, Fut>(host: &str, fetch: F) -> Seed
+where
+    F: Fn(String) -> Fut,
+    Fut: std::future::Future<Output = Option<String>>,
+{
+    let page = fetch(home_page(host)).await;
+    Seed {
+        candidate: from_its_own_page(host, page.as_deref(), 1.0),
+        read: page.is_some(),
+    }
+}
+
+/// A named company, and whether anybody actually read its page.
+///
+/// **`read` is a separate field because the alternative was a lie in prose.** The first version
+/// returned a bare [`Candidate`] and callers asked `what_it_is` for the company's vocabulary —
+/// which, when the front page could not be fetched, holds *"we were unable to read its front
+/// page"*. Review found what that meant for [`crate::competitors::of_company`]: the words
+/// `unable`, `read`, `front` and `page` became the market vocabulary a rival had to match, so a
+/// page saying *"read more on this page"* was admitted to the report with its reason citing
+/// words that came from **our own error message**.
+///
+/// A fact about whether a fetch succeeded belongs in a `bool`, not inside a sentence written for
+/// a reader. Anything derived from the sentence inherits the sentence's other job.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Seed {
+    /// Its name, domain and one-line self-description.
+    pub candidate: Candidate,
+    /// Whether its front page was read. `false` means [`Candidate::what_it_is`] is our sentence
+    /// about the failure rather than the company's about itself.
+    ///
+    /// **Not the question a caller should ask.** See [`Self::vocabulary`]: a page that was read
+    /// and said nothing quotable leaves exactly as little to compare a rival against as a page
+    /// that could not be read at all, and review found the difference being treated as one.
+    pub read: bool,
+}
+
+/// Why a named company's own page gives nothing to compare a rival against.
+///
+/// **Two ways to have nothing, and a reader is owed which.** One is about the company's server
+/// and one is about what the company chose to put on its page; only the first is worth trying
+/// again. Same distinction [`crate::competitors::Aside`] draws between `Unread` and
+/// `ElsewhereEntirely`, one level up.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NoVocabulary {
+    /// The front page could not be read at all.
+    Unreadable,
+    /// It was read, and had no line of prose long enough to quote.
+    NothingQuotable,
+}
+
+impl NoVocabulary {
+    /// The clause a reader is shown after *"nothing was searched for, because…"*.
+    #[must_use]
+    pub const fn sentence(self) -> &'static str {
+        match self {
+            Self::Unreadable => "we could not read its front page",
+            Self::NothingQuotable => "its front page has no sentence describing what it does",
+        }
+    }
+}
+
+impl Seed {
+    /// The words a rival's front page has to have one of — or why there are none.
+    ///
+    /// **One predicate, and everything that decides on it calls this.** The first version gated
+    /// on [`Self::read`] alone, and review found the hole: a reachable page reading only
+    /// `# Basecamp` is `read == true` with an **empty** `what_it_is`, because [`naming`] wants a
+    /// line of at least four words before it will quote one. Three queries went out, front pages
+    /// were fetched, and every corroborated rival was set aside as *elsewhere entirely* — a
+    /// negative claim about those companies, made out of missing evidence about the seed.
+    ///
+    /// **Then the same question got two answers.** `of_company` was fixed and
+    /// `landscape candidates <domain>` was not, so the diagnostic printed three queries for a
+    /// page the worker would send none for — a diagnostic that agrees with the worker by
+    /// coincidence, which is the failure this codebase keeps deleting. There is one function
+    /// now, and it returns a *reason* rather than a `bool` so the two callers cannot even
+    /// describe the outcome differently.
+    ///
+    /// # Errors
+    /// [`NoVocabulary`] when the page could not be read, or was read and said nothing quotable.
+    pub fn words(&self) -> Result<Vec<String>, NoVocabulary> {
+        if !self.read {
+            // `what_it_is` is our sentence about the failure here, and mining it produced
+            // `unable`, `read`, `front`, `page` as the market's vocabulary.
+            return Err(NoVocabulary::Unreadable);
+        }
+        let words = crate::competitors::content_words(&self.candidate.what_it_is);
+        if words.is_empty() {
+            return Err(NoVocabulary::NothingQuotable);
+        }
+        Ok(words)
+    }
+}
+
+/// A candidate built from a host and whatever its front page turned out to be.
+///
+/// **One copy of the fallback**, because [`describe`] and [`named_seed`] both need it and two
+/// copies would be two wordings of *"we could not read its front page"* that drift apart the
+/// first time one is edited.
+fn from_its_own_page(host: &str, page: Option<&str>, confidence: f32) -> Candidate {
+    let (name, what_it_is) = page.map_or_else(
+        || {
+            (
+                host.to_owned(),
+                "we were unable to read its front page".to_owned(),
+            )
+        },
+        |markdown| naming(host, markdown),
+    );
+    Candidate {
+        name,
+        canonical_domain: host.to_owned(),
+        what_it_is,
+        confidence,
+    }
 }
 
 /// A description in, the gate's verdict **and** the competitor set out.
@@ -507,7 +621,7 @@ where
     // excluded. The gate gets only what was *fetched*, because it asks a reader to choose and a
     // candidate with no name of its own is not a choice. Review found each of these in turn,
     // from opposite directions.
-    let set = crate::competitors::assemble(named.clone(), queried.sent());
+    let set = crate::competitors::assemble(named.clone(), queried.sent(), &words);
     let choices: Vec<Candidate> = named
         .into_iter()
         .filter(Described::was_requested)
@@ -865,6 +979,40 @@ mod tests {
             "Simple, privacy-first website analytics with no cookies."
         );
         assert_eq!(described[0].candidate.canonical_domain, "usefathom.com");
+    }
+
+    #[tokio::test]
+    async fn a_named_company_takes_its_name_from_its_own_front_page() {
+        // The seed of a competitor set gets the same treatment as every candidate beside it. A
+        // report that names one company from its own page and another from its domain is a
+        // report that looks assembled, and the difference would sit in the first note.
+        let seed = named_seed("basecamp.com", |url| async move {
+            assert_eq!(
+                url, "https://basecamp.com/",
+                "the front page was not the page read"
+            );
+            Some("# Basecamp\nProject management and team communication.".to_owned())
+        })
+        .await;
+        assert_eq!(seed.candidate.name, "Basecamp");
+        assert!(seed.read, "a page that was read is reported as unread");
+        assert_eq!(seed.candidate.canonical_domain, "basecamp.com");
+        assert_eq!(
+            seed.candidate.what_it_is,
+            "Project management and team communication."
+        );
+    }
+
+    #[tokio::test]
+    async fn a_named_company_we_could_not_read_still_seeds_its_own_report() {
+        // The reader named it. A front page that will not load is a reason to say less about
+        // it, never a reason to drop the one company somebody actually asked about.
+        let seed = named_seed("basecamp.com", |_url| async { None }).await;
+        assert_eq!(seed.candidate.name, "basecamp.com");
+        assert!(seed.candidate.what_it_is.contains("unable to read"));
+        // **The fact lives in a `bool`, not in the sentence.** Review found the sentence
+        // being mined for market vocabulary.
+        assert!(!seed.read);
     }
 
     #[tokio::test]
@@ -1429,9 +1577,20 @@ The second of two."
             derived.set.set_aside
         );
         for m in &derived.set.members {
-            assert_eq!(m.because.agreed, 3);
-            assert_eq!(m.because.asked, 3);
-            assert!(m.because.shares.contains(&"analytics".to_owned()));
+            let crate::competitors::Because::Found {
+                agreed,
+                asked,
+                shares,
+            } = &m.because
+            else {
+                panic!(
+                    "a company we searched for was reported as named: {:?}",
+                    m.because
+                )
+            };
+            assert_eq!(*agreed, 3);
+            assert_eq!(*asked, 3);
+            assert!(shares.contains(&"analytics".to_owned()));
         }
     }
 
@@ -1584,8 +1743,11 @@ The second of two."
         assert_eq!(queried.failed.len(), 1);
         assert_eq!(derived.set.members.len(), 1, "{:#?}", derived.set);
         let because = &derived.set.members[0].because;
-        assert_eq!(because.agreed, 2);
-        assert_eq!(because.asked, 3, "an outage was counted as unanimity");
+        let crate::competitors::Because::Found { agreed, asked, .. } = because else {
+            panic!("{because:?}")
+        };
+        assert_eq!(*agreed, 2);
+        assert_eq!(*asked, 3, "an outage was counted as unanimity");
         assert!(
             because.sentence().contains("2 of the 3"),
             "{}",
@@ -1671,9 +1833,15 @@ The second of two."
         assert_eq!(compared, vec!["plausible.io"], "{:#?}", derived.set);
         assert_eq!(derived.set.set_aside.len(), 1);
         assert_eq!(derived.set.set_aside[0].0.name, "Notion Press");
-        assert_eq!(
-            derived.set.set_aside[0].1,
-            crate::competitors::Aside::ElsewhereEntirely
+        let crate::competitors::Aside::ElsewhereEntirely { ref looked_for } =
+            derived.set.set_aside[0].1
+        else {
+            panic!("{:?}", derived.set.set_aside[0].1)
+        };
+        // **The words are named, so the exclusion can be judged rather than taken.**
+        assert!(
+            looked_for.contains(&"analytics".to_owned()),
+            "{looked_for:?}"
         );
     }
 

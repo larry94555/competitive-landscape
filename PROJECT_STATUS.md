@@ -1,6 +1,6 @@
 # Project Status
 
-**As of 2026-08-07** · `main` at `72ce045`, plus the branch this page is on.
+**As of 2026-08-08** · `main` at `106606a`, plus the branch this page is on.
 
 This page answers one question: **what can somebody actually do with this today, and what
 stands between here and each of the six states that matter.** It is deliberately separate from
@@ -21,7 +21,7 @@ The six states, in the order they must be reached. **S1 is met.** The rest are n
 | # | State | Met? | Percentage Left | The single thing standing in the way |
 |---|---|---|---|---|
 | **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **Yes.** Pick an example idea, watch sections arrive, read a cited report about real companies, reload and it is still there. On a laptop. *This row once said the opposite twice* — see [§1.5](#15-the-correction-that-produced-phase-d). | [**0%**](docs/Full_Feature_List.md#s1--ready-for-a-guided-demo) | Nothing. Serve the app, a run has a URL, several companies in one report, example ideas that really run, and reads ordered so first content costs no model call — 23s on `linear.app`, measured. |
-| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**61%**](docs/Full_Feature_List.md#s2--ready-for-demonstration) | **A business idea produces a comparison.** *This row said "a business idea does not run at all" for six phases.* A prompt naming no domain is searched for, grouped into companies, scored on cross-query agreement, named from each company's own front page — and what comes out is now the **set**, not the pick: every company that two searches agreed on and whose own front page uses the reader's words, each carrying why it is there, and every company found and left out carrying which of five things happened to it. **39% done.** What is left: competitors *of a named company* rather than only of a description, chips to answer a genuinely ambiguous name with, and the caches. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
+| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**56%**](docs/Full_Feature_List.md#s2--ready-for-demonstration) | **Both inputs produce a comparison.** *This row said "a business idea does not run at all" for six phases.* A description is searched for, grouped into companies, scored on cross-query agreement, named from each company's own front page, and the **set** comes out rather than the pick — each member carrying why it is there, each company left out carrying which of five things happened to it. A **named** company now does the same: `basecamp.com` is a competitive landscape asked for, not a profile, and its rivals come from queries templated off its own name. Naming *two* still gets exactly those two. **44% done.** What is left: chips for a genuinely ambiguous name, vocabulary resolution, *"no public information"* at the level of a whole set, and the caches. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
 | **S3** | **Ready for use** — friendly users should find no issue | **No.** | [**96%**](docs/Full_Feature_List.md#s3--ready-for-use) | 6 of 9 report sections, no verification layer, no comparison matrix, no accounts. |
 | **S4** | **Ready for general use** — promotable, word-of-mouth quality | **No.** | [**100%**](docs/Full_Feature_List.md#s4--ready-for-general-use) | Everything in S3, plus no quality gates have ever been run against a deployed system. |
 | **S5** | **General use, free mode** — stable, email signup, community channels | **No.** | [**100%**](docs/Full_Feature_List.md#s5--general-use-free-mode) | No authentication code exists anywhere in the repository. No knowledge base. |
@@ -34,7 +34,7 @@ finished when it is demonstrable end to end on a development machine — Rust, N
 defect rather than a step in the plan.
 
 **Percentage Left is software only**, counted in pull requests and linked to the feature it comes
-from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **47 of 130 PRs done, 36% of the whole
+from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **48 of 130 PRs done, 37% of the whole
 deliverable.** Getting it onto a host is a
 [separate three-PR track](docs/Full_Feature_List.md#getting-it-onto-a-host) that gates *who can see*
 the software rather than what it can do, and the concierge interviews and source-terms audit are
@@ -149,10 +149,10 @@ refusal; what is unmeasured is whether it is the *right* comparison.
 
 | Rung | State | Why |
 |---|---|---|
-| R1 happy path, minimal information | **Met for a domain and for a description.** | `basecamp.com` produces a six-section cited report. So does *"privacy-friendly website analytics"*: three searches, hosts grouped and scored, each named from its own front page, and the ones that survive compared against each other with the reason each is there printed at the top. What is **not** met is R2 and up — nothing measures whether that set is the right set. |
+| R1 happy path, minimal information | **Met for a domain and for a description, and both now produce a comparison.** | *"privacy-friendly website analytics"* and `basecamp.com` both end in several companies compared side by side, each carrying the reason it is there. The description is searched for; the named company has its rivals searched for, off queries templated from its own name. What is **not** met is R2 and up — nothing measures whether either set is the right set. |
 | R2 10% of relevant information | **Unknown — unmeasurable.** | No idea-level golden set exists. See [B1](#4-blockers). |
 | R3 25% · R4 50% · R5 80% | **Unknown — unmeasurable.** | Same. |
-| R6 relevant information returned | **No.** | Several companies, all 6 question kinds, off-domain pages when a company's own leave a question empty, and a set derived from a description. What is missing is any measurement that the set is right ([B1](#4-blockers)) and competitors *of a named company*. |
+| R6 relevant information returned | **No.** | Several companies, all 6 question kinds, off-domain pages when a company's own leave a question empty, and a set derived from **either** input. What is missing is any measurement that the set is right ([B1](#4-blockers)) — which is now the only thing missing here that is about this feature rather than about the product around it. |
 | R7 ready for demo | **No.** | Not deployed. |
 | R8 ready for use | **No.** | Not deployed, unmeasured, and a genuinely ambiguous one-word name is still answered with a sentence rather than a chip. |
 
@@ -178,9 +178,11 @@ description into companies — it hands over three descriptions whose companies 
    arithmetic a reader can check, and it is not a *recall* number — nothing says how many real
    competitors were missed. That is [B1](#4-blockers), and it is now the top item here because
    the software that needed building got built. [BENCHMARKS.md](docs/BENCHMARKS.md) Run 30.
-2. **Competitors of a named company.** `basecamp.com` still produces a report about Basecamp
-   alone; the set is derived from a *description*, not from a company. Two PRs of that row are
-   left, and this is the first of them.
+2. **The set has no honest empty.** A named company whose rivals could not be found — no
+   engine, an outage, or a market that really is one company — gets a report about itself with
+   nothing saying we looked. *"No public information at the level of a whole competitor set"* is
+   its own S2 row and is deliberately not half-built here: one sentence covering three different
+   silences is the collapse this project has un-made three times.
 3. **A one-word name is answered with a sentence, not a chip.** `Notion` correctly refuses to
    guess and lists the candidates in prose. `PRODUCT_SPEC.md` §3 wants chips; that is the
    clarifying-question row.
@@ -540,14 +542,12 @@ and re-checkable against the live web, and the reads are ordered so the first th
 costs no model call. Deploying it ([B5](#4-blockers)) changes who can see it, not what it does.
 
 **To S2 — any business idea handled correctly.** The search channel is finished
-([B2](#4-blockers)) and a description now produces a set. What is left is a competitor set
-derived from a **named company** rather than only from a description; chips for the one-word
-names the gate still refuses in prose; vocabulary resolution, so a reader's words reach the
-category a vendor would use; the two caches, which a three-company run makes three times more
-valuable; and holding on to the honest-gap treatment, since S2's own definition requires that
-"no public information" be reported gracefully rather than as a failure — at the level of a
-whole set, which is its own row. **All six extractors are done**, so no section is permanently
-empty any more.
+([B2](#4-blockers)) and **both** inputs now produce a set: a description, and a named company
+whose rivals are searched for. What is left is chips for the one-word names the gate still
+refuses in prose; vocabulary resolution, so a reader's words reach the category a vendor would
+use; *"no public information"* at the level of a whole set, which is the honest empty the
+seeded path currently lacks; and the two caches, which a three-company run makes three times
+more valuable. **All six extractors are done**, so no section is permanently empty any more.
 
 **To S3 — friendly users find no issue.** `landscape-verify` and the quality gates; caching so a
 second user on the same subject is fast; the report at nine sections with the matrix; PDF; and

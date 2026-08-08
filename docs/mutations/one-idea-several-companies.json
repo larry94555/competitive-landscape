@@ -55,7 +55,7 @@
     "name": "a page nobody could read is reported as a page about another market",
     "file": "crates/landscape-search/src/competitors.rs",
     "old": "                Vocabulary::Unreadable => Some(Aside::Unread),",
-    "new": "                Vocabulary::Unreadable => Some(Aside::ElsewhereEntirely),",
+    "new": "                Vocabulary::Unreadable => Some(Aside::ElsewhereEntirely {\n                    looked_for: looked_for.to_vec(),\n                }),",
     "run": [
       "cargo",
       "nextest",
@@ -80,8 +80,8 @@
   {
     "name": "a company whose page shares nothing joins the comparison anyway",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "                Vocabulary::Read(ref s) if s.len() < SHARED_WORDS => Some(Aside::ElsewhereEntirely),",
-    "new": "                Vocabulary::Read(ref s) if s.len() < 0 => Some(Aside::ElsewhereEntirely),",
+    "old": "                Vocabulary::Read(ref s) if s.len() < SHARED_WORDS => {",
+    "new": "                Vocabulary::Read(ref s) if s.len() < 0 => {",
     "run": [
       "cargo",
       "nextest",
@@ -158,8 +158,8 @@
   {
     "name": "a reason divides by the searches that answered rather than those sent",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "    let set = crate::competitors::assemble(named.clone(), queried.sent());",
-    "new": "    let set = crate::competitors::assemble(named.clone(), queried.completed.len());",
+    "old": "    let set = crate::competitors::assemble(named.clone(), queried.sent(), &words);",
+    "new": "    let set = crate::competitors::assemble(named.clone(), queried.completed.len(), &words);",
     "run": [
       "cargo",
       "nextest",
@@ -483,8 +483,8 @@
   {
     "name": "the set is bounded by the same list the gate is",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "    let set = crate::competitors::assemble(named.clone(), queried.sent());",
-    "new": "    let set = crate::competitors::assemble(\n        named.iter().filter(|d| d.was_requested()).cloned().collect(),\n        queried.sent(),\n    );",
+    "old": "    let set = crate::competitors::assemble(named.clone(), queried.sent(), &words);",
+    "new": "    let set = crate::competitors::assemble(\n        named.iter().filter(|d| d.was_requested()).cloned().collect(),\n        queried.sent(),\n        &words,\n    );",
     "run": [
       "cargo",
       "nextest",
