@@ -45,7 +45,7 @@ use landscape_core::subject::{Candidate, Resolution, MINIMUM_CONFIDENCE};
 use crate::provider::SourceProvider;
 use crate::queries::Query;
 
-use crate::candidates::{Described, Queried, Vocabulary, CORROBORATION, NAMED};
+use crate::candidates::{Described, Queried, Seed, Vocabulary, CORROBORATION, NAMED};
 
 /// How many content words a description needs before it is about a *kind* of thing.
 ///
@@ -295,14 +295,40 @@ pub fn for_company(name: &str) -> Vec<Query> {
 /// Never. A query that fails is counted and the rest carry on; see [`crate::candidates::suggest`].
 pub async fn of_company<F, Fut>(
     engine: &dyn SourceProvider,
-    seed: &Candidate,
+    seed: &Seed,
     fetch: F,
 ) -> (Set, Queried)
 where
     F: Fn(String) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
 {
-    let queries = for_company(&seed.name);
+    // **No vocabulary, no rivals, and no queries either.** A rival is admitted by sharing a word
+    // with the seed's own description of itself; with the front page unread there is no such
+    // description, only our sentence about the failure. Review found the first version deriving
+    // words from that sentence — `unable`, `read`, `front`, `page` — so a page saying *"read
+    // more on this page"* joined the report citing our error message as its evidence.
+    //
+    // Stopping here rather than searching-and-excluding is deliberate: three queries and five
+    // front-page fetches, on other people's servers, to conclude that nothing can be judged is
+    // work nobody should pay for. **What a reader is not yet told is that this happened** — that
+    // is *"no public information at the level of a whole competitor set"*, its own roadmap row,
+    // and the reason it is not invented here is that one sentence covering *no engine*, *the
+    // search did not finish* and *we could not read your company's page* is the collapse this
+    // project has un-made three times.
+    if !seed.read {
+        return (
+            Set {
+                members: vec![Member {
+                    candidate: seed.candidate.clone(),
+                    because: Because::Named,
+                }],
+                set_aside: Vec::new(),
+            },
+            Queried::default(),
+        );
+    }
+
+    let queries = for_company(&seed.candidate.name);
     let mut results: Vec<Vec<crate::provider::Hit>> = Vec::with_capacity(queries.len());
     let mut queried = Queried::default();
     for query in &queries {
@@ -321,10 +347,10 @@ where
     let found: Vec<crate::candidates::Found> =
         crate::candidates::from_results(&results, queried.sent())
             .into_iter()
-            .filter(|f| !same_company(&f.host, &seed.canonical_domain))
+            .filter(|f| !same_company(&f.host, &seed.candidate.canonical_domain))
             .collect();
 
-    let words = content_words(&seed.what_it_is);
+    let words = content_words(&seed.candidate.what_it_is);
     let described = crate::candidates::describe(&found, &words, fetch).await;
     let mut set = assemble(described, queried.sent());
 
@@ -333,7 +359,7 @@ where
     set.members.insert(
         0,
         Member {
-            candidate: seed.clone(),
+            candidate: seed.candidate.clone(),
             because: Because::Named,
         },
     );
@@ -546,12 +572,28 @@ mod tests {
         }
     }
 
-    fn seed() -> Candidate {
-        Candidate {
-            name: "Basecamp".to_owned(),
-            canonical_domain: "basecamp.com".to_owned(),
-            what_it_is: "Project management and team communication".to_owned(),
-            confidence: 1.0,
+    fn seed() -> Seed {
+        Seed {
+            candidate: Candidate {
+                name: "Basecamp".to_owned(),
+                canonical_domain: "basecamp.com".to_owned(),
+                what_it_is: "Project management and team communication".to_owned(),
+                confidence: 1.0,
+            },
+            read: true,
+        }
+    }
+
+    /// The same company, with its front page unreadable - so `what_it_is` is our sentence.
+    fn seed_nobody_could_read() -> Seed {
+        Seed {
+            candidate: Candidate {
+                name: "basecamp.com".to_owned(),
+                canonical_domain: "basecamp.com".to_owned(),
+                what_it_is: "we were unable to read its front page".to_owned(),
+                confidence: 1.0,
+            },
+            read: false,
         }
     }
 
@@ -717,6 +759,77 @@ mod tests {
             rival.because.sentence().contains("2 of the 3"),
             "{}",
             rival.because.sentence()
+        );
+    }
+
+    #[tokio::test]
+    async fn our_own_error_message_is_never_the_market_vocabulary() {
+        // **Review found a report citing our error message as a company's evidence.** With the
+        // seed's front page unread, `what_it_is` holds *"we were unable to read its front
+        // page"*; `content_words` of that yields `unable`, `read`, `front`, `page`, and a rival
+        // whose page says *"read more on this page"* then clears `SHARED_WORDS` and joins the
+        // comparison with `Because::Found` naming words that were ours, not theirs.
+        //
+        // Corroborated by all three searches, so nothing else would have kept it out.
+        let all = vec![hit("https://toolbox.example/")];
+        let engine = Canned {
+            per_query: vec![Ok(all.clone()), Ok(all.clone()), Ok(all)],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (set, queried) = of_company(&engine, &seed_nobody_could_read(), |_url| async {
+            Some("# Toolbox\n\nRead more on this page.".to_owned())
+        })
+        .await;
+
+        assert_eq!(
+            set.members.len(),
+            1,
+            "a rival was admitted: {:#?}",
+            set.members
+        );
+        assert_eq!(set.members[0].candidate.canonical_domain, "basecamp.com");
+        assert_eq!(set.members[0].because, Because::Named);
+        assert!(
+            set.set_aside.is_empty(),
+            "companies were fetched and judged against nothing: {:#?}",
+            set.set_aside
+        );
+        // **And nothing was asked.** Searching, then fetching five front pages on other
+        // people's servers, to conclude that none of them can be judged is work nobody should
+        // pay for.
+        assert_eq!(
+            queried.sent(),
+            0,
+            "queries went out with nothing to judge against"
+        );
+        assert!(queried.completed.is_empty() && queried.failed.is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_seed_we_could_read_still_admits_rivals_on_its_own_words() {
+        // The other half, so the rule above is a rule and not a refusal to do the work: the
+        // same rival, the same page, and a seed whose description is really its own.
+        let all = vec![hit("https://linear.app/")];
+        let engine = Canned {
+            per_query: vec![Ok(all.clone()), Ok(all.clone()), Ok(all)],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (set, queried) = of_company(&engine, &seed(), |_url| async {
+            Some("# Linear\n\nProject management built for speed.".to_owned())
+        })
+        .await;
+
+        assert_eq!(queried.sent(), 3);
+        let compared: Vec<&str> = set
+            .members
+            .iter()
+            .map(|m| m.candidate.canonical_domain.as_str())
+            .collect();
+        assert_eq!(
+            compared,
+            vec!["basecamp.com", "linear.app"],
+            "{:#?}",
+            set.members
         );
     }
 

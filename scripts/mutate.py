@@ -63,6 +63,73 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_RUN = ["cargo", "nextest", "run", "--all-features"]
 
 
+class SourceChanged(Exception):
+    """A file a mutation was applied to is no longer the file this run wrote.
+
+    **Raised rather than printed, because a warning here is not enough.** The first version of
+    this check printed `CHANGED` and carried on: the entry could still report `caught`, `main`
+    kept going, and a catalogue could end `all 17 caught` and exit 0 having announced that every
+    result after that point was about a file it did not control. A later mutation of the same
+    file would then copy over the preserved backup and the original would be gone for good.
+
+    Everything after a concurrent edit is uncontrolled, so there is nothing worth measuring and
+    the run stops.
+    """
+
+
+def restore(path, backup, mutated: str) -> bool:
+    """Put the original back, unless somebody else now owns the file.
+
+    Returns whether the original was restored. `False` means the backup is still on disk and the
+    caller must stop: what is at `path` was written by something other than this run, and moving
+    the backup over it would delete that work.
+
+    **The check is what is on disk**, not what should be there. A catalogue takes tens of
+    minutes, and anything writing to a source file in that window - an editor, a formatter,
+    somebody adding a test - is silently undone when the backup goes back. It happened: two
+    tests written during a run vanished, and the only signal was a mutation reporting `MISSED`
+    for a property that had just been covered.
+    """
+    if io.open(path, encoding="utf-8").read() != mutated:
+        return False
+    shutil.move(str(backup), path)
+    # Restoring preserves mtime, which leaves cargo holding the mutated artefact. Touch it,
+    # or the next run measures code nobody is looking at.
+    os.utime(path, None)
+    return True
+
+
+def self_check() -> None:
+    """Prove `restore` both ways before any of it is trusted.
+
+    The same discipline `scripts/verify.py` applies to its own comparison: a check nobody has
+    watched fail is a check that cannot fail. Both branches, on real files, every run.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as room:
+        for edited, should_restore in ((False, True), (True, False)):
+            path = Path(room) / f"subject-{edited}.rs"
+            backup = path.with_suffix(path.suffix + ".mutate-backup")
+            io.open(path, "w", encoding="utf-8", newline="\n").write("original\n")
+            shutil.copy(path, backup)
+            mutated = "mutated\n"
+            io.open(path, "w", encoding="utf-8", newline="\n").write(mutated)
+            if edited:
+                io.open(path, "w", encoding="utf-8", newline="\n").write("somebody else\n")
+
+            restored = restore(path, backup, mutated)
+            now = io.open(path, encoding="utf-8").read()
+            if restored != should_restore:
+                raise SystemExit(
+                    f"mutate.py self-check: restore() returned {restored} for edited={edited}"
+                )
+            if should_restore and (now != "original\n" or backup.exists()):
+                raise SystemExit("mutate.py self-check: the original was not put back")
+            if not should_restore and (now != "somebody else\n" or not backup.exists()):
+                raise SystemExit("mutate.py self-check: an edit was clobbered, or the backup lost")
+
+
 def failing_tests(output: str) -> list[str]:
     """Test names the runner reported as failures — nextest and vitest both."""
     names: list[str] = []
@@ -121,6 +188,13 @@ def apply(mutation: dict) -> int:
         return 1
 
     backup = path.with_suffix(path.suffix + ".mutate-backup")
+    if backup.exists():
+        # A previous run stopped holding this file. Copying over it would destroy the only
+        # remaining copy of the original.
+        raise SourceChanged(
+            f"{mutation['file']} already has a preserved {backup.name} from an earlier run. "
+            "Merge it by hand before running anything else."
+        )
     shutil.copy(path, backup)
     mutated = source.replace(old, new, 1)
     io.open(path, "w", encoding="utf-8", newline="\n").write(mutated)
@@ -138,27 +212,18 @@ def apply(mutation: dict) -> int:
         )
         output = (done.stdout or "") + (done.stderr or "")
     finally:
-        # **Restoring is only safe if the file is still the one this run mutated.** A catalogue
-        # takes tens of minutes, and anything that writes to a source file in that window - an
-        # editor, a formatter, somebody adding a test - is silently undone when the backup goes
-        # back. It happened: two tests written during a run vanished, and the only signal was a
-        # mutation reporting MISSED for a property that had just been covered.
-        #
-        # So the check is *what is on disk*, not what should be. If it is not the mutated text
-        # this run wrote, somebody else owns the file now and their work is worth more than a
-        # tidy restore.
-        if io.open(path, encoding="utf-8").read() == mutated:
-            shutil.move(str(backup), path)
-        else:
-            print(
-                f"  CHANGED      {mutation['file']} was edited while this ran.\n"
-                f"      The original is in {backup.name} and has NOT been put back, because\n"
-                "      restoring it would delete whatever was just written. Merge it by hand.\n"
-                "      Every result after this one is about a file this run does not control."
-            )
-        # Restoring preserves mtime, which leaves cargo holding the mutated artefact. Touch it,
-        # or the next run measures code nobody is looking at.
-        os.utime(path, None)
+        # Raised after the `finally` rather than inside it, so a failure in the run above is
+        # never masked by this one.
+        put_back = restore(path, backup, mutated)
+
+    if not put_back:
+        raise SourceChanged(
+            f"{mutation['file']} was edited while this ran.\n"
+            f"      The original is in {backup.name} and has NOT been put back, because\n"
+            "      restoring it would delete whatever was just written. Merge it by hand.\n"
+            f"      This run's verdict on \"{name}\" is about a file it does not control,\n"
+            "      and so is every result that would have followed it."
+        )
 
     if "error[" in output or "error TS" in output:
         print(f"  BROKEN       {name}\n      the mutation does not compile, so it proves nothing")
@@ -230,12 +295,19 @@ def main() -> int:
     parser.add_argument("file", help="JSON list of mutations")
     args = parser.parse_args()
 
+    self_check()
     if refused := already_mutated():
         return refused
 
     mutations = json.loads(io.open(args.file, encoding="utf-8").read())
     print(f"{len(mutations)} mutation(s)\n")
-    missed = sum(apply(m) for m in mutations)
+    try:
+        missed = sum(apply(m) for m in mutations)
+    except SourceChanged as stopped:
+        # **Not a miss, and not a pass.** A result measured against a file somebody else wrote
+        # is not a result, so there is no count to report and nothing to add it to.
+        print(f"\n  STOPPED      {stopped}")
+        return 3
 
     print()
     if missed:

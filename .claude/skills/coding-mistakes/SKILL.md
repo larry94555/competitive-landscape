@@ -1393,6 +1393,52 @@ it is running, that is the argument for the machine checking rather than for rem
 
 ---
 
+## 44. A sentence written for a reader, mined for data by something else
+
+**Written:** by me, giving a named company's competitors something to be judged against.
+
+```rust
+let words = content_words(&seed.what_it_is);   // the seed's own description of itself
+```
+
+Which is exactly right, until the seed's front page cannot be read — at which point
+`what_it_is` holds the fallback sentence *"we were unable to read its front page"*:
+
+```text
+content_words = ["were", "unable", "read", "front", "page"]
+a rival page saying "Read more on this page."
+shares        = ["read", "page"]
+```
+
+An unrelated company entered the report, and the reason shown to the reader — *"its own front
+page uses \"read\", \"page\""* — cited **our error message** as that company's evidence.
+
+**The field had two jobs and only one of them was declared.** `what_it_is` is prose written for a
+person, and it also carried a fact: *whether anybody read the page*. Nothing at the call site
+said so, because the fact was implicit in the wording. Every consumer that treated it as data
+inherited the second job without knowing it existed.
+
+The fix is not a better sentence or a check for that sentence — both leave the coupling in place
+and the next fallback wording breaks it again. The fact moved out:
+
+```rust
+pub struct Seed { pub candidate: Candidate, pub read: bool }
+```
+
+**This is the same class as the substring match one review round earlier**, and both produced the
+same symptom: *evidence, manufactured from something that was never a claim about the company*.
+That is the failure mode this project's whole quoting discipline exists to prevent, arrived at
+twice from directions nothing was watching.
+
+**Rule:** a human-readable field is an output, not a source. If code needs to know *why* a field
+says what it says, that reason is a separate field — and a fallback value is the place this goes
+wrong, because it is the one wording nobody thinks of as data.
+
+> **Ask this:** *what does this field say when the thing it describes did not happen — and is
+> anything downstream reading it?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

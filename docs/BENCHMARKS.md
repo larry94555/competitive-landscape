@@ -170,10 +170,62 @@ Register entry 43, and the third about the same window: 41 was a run that died h
 that edits source in place is a second author**, and every rule about two authors sharing a file
 applies to it.
 
+### Review: our own error message, used as evidence about a company
+
+The vocabulary a rival has to match comes from the seed's one-line description of itself. When
+the seed's front page cannot be read, that field holds *our sentence about the failure*:
+
+```text
+seed.what_it_is = "we were unable to read its front page"
+content_words   = ["were", "unable", "read", "front", "page"]
+a rival page saying "# Toolbox\n\nRead more on this page."
+shares          = ["read", "page"]
+```
+
+A corroborated but unrelated company joins the comparison, and `Because::sentence` tells the
+reader *"its own front page uses \"read\", \"page\""* — citing our error message as the
+company's evidence. Same shape as the substring finding in Run 30's review, from a direction
+nothing was watching.
+
+**The root cause is where the fact was kept.** `named_seed` returned a bare `Candidate` and put
+*"we could not read this"* into `what_it_is`, a field written for a reader — so anything deriving
+data from it inherited the sentence's second job. It is a `Seed { candidate, read: bool }` now.
+A fact about whether a fetch succeeded belongs in a `bool`, never in prose.
+
+**And with no vocabulary, no rivals — and no queries either.** Searching, then fetching five
+front pages on other people's servers, to conclude that none of them can be judged is work
+nobody should pay for. The regression asserts `queried.sent() == 0`, not merely that the members
+list is short.
+
+### Review: a warning is not an abort
+
+The concurrent-edit guard above printed `CHANGED` and carried on. Execution reached the normal
+result handling, `main` kept going, and a catalogue could finish `all 17 caught` and **exit 0**
+having announced that every result after that point was uncontrolled — and a later mutation of
+the same file would have copied over the preserved backup.
+
+Reproduced with two mutations on a scratch file, the first one's `run` editing the file while it
+"tests":
+
+```text
+  STOPPED      subject.rs was edited while this ran.
+      The original is in subject.rs.mutate-backup and has NOT been put back...
+
+exit code: 3
+backup kept:      True
+second entry ran: False
+```
+
+`SourceChanged` is raised rather than counted, because a result measured against a file somebody
+else wrote is not a result. Raised **after** the `finally` so it cannot mask a failure in the run
+above; a pre-existing `.mutate-backup` aborts at the top of `apply` for the same reason; and
+`restore()` is a function rather than a branch, with a `self_check()` exercising both directions
+on real files every invocation — the same discipline `verify.py` applies to its own comparison.
+
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 30 | 767 | 51 |
-| now | **782** | **51** |
+| now | **784** | **51** |
 
 ---
 

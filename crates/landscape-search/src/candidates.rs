@@ -471,13 +471,37 @@ where
 /// `confidence` is 1.0 and it is not a measurement: the reader typed the domain, so there is
 /// nothing to be confident *about*. Nothing scores this candidate;
 /// [`crate::competitors::Because::Named`] is what a reader is shown instead.
-pub async fn named_seed<F, Fut>(host: &str, fetch: F) -> Candidate
+pub async fn named_seed<F, Fut>(host: &str, fetch: F) -> Seed
 where
     F: Fn(String) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
 {
     let page = fetch(home_page(host)).await;
-    from_its_own_page(host, page.as_deref(), 1.0)
+    Seed {
+        candidate: from_its_own_page(host, page.as_deref(), 1.0),
+        read: page.is_some(),
+    }
+}
+
+/// A named company, and whether anybody actually read its page.
+///
+/// **`read` is a separate field because the alternative was a lie in prose.** The first version
+/// returned a bare [`Candidate`] and callers asked `what_it_is` for the company's vocabulary —
+/// which, when the front page could not be fetched, holds *"we were unable to read its front
+/// page"*. Review found what that meant for [`crate::competitors::of_company`]: the words
+/// `unable`, `read`, `front` and `page` became the market vocabulary a rival had to match, so a
+/// page saying *"read more on this page"* was admitted to the report with its reason citing
+/// words that came from **our own error message**.
+///
+/// A fact about whether a fetch succeeded belongs in a `bool`, not inside a sentence written for
+/// a reader. Anything derived from the sentence inherits the sentence's other job.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Seed {
+    /// Its name, domain and one-line self-description.
+    pub candidate: Candidate,
+    /// Whether its front page was read. `false` means [`Candidate::what_it_is`] is our sentence
+    /// about the failure rather than the company's about itself.
+    pub read: bool,
 }
 
 /// A candidate built from a host and whatever its front page turned out to be.
@@ -908,10 +932,11 @@ mod tests {
             Some("# Basecamp\nProject management and team communication.".to_owned())
         })
         .await;
-        assert_eq!(seed.name, "Basecamp");
-        assert_eq!(seed.canonical_domain, "basecamp.com");
+        assert_eq!(seed.candidate.name, "Basecamp");
+        assert!(seed.read, "a page that was read is reported as unread");
+        assert_eq!(seed.candidate.canonical_domain, "basecamp.com");
         assert_eq!(
-            seed.what_it_is,
+            seed.candidate.what_it_is,
             "Project management and team communication."
         );
     }
@@ -921,8 +946,11 @@ mod tests {
         // The reader named it. A front page that will not load is a reason to say less about
         // it, never a reason to drop the one company somebody actually asked about.
         let seed = named_seed("basecamp.com", |_url| async { None }).await;
-        assert_eq!(seed.name, "basecamp.com");
-        assert!(seed.what_it_is.contains("unable to read"));
+        assert_eq!(seed.candidate.name, "basecamp.com");
+        assert!(seed.candidate.what_it_is.contains("unable to read"));
+        // **The fact lives in a `bool`, not in the sentence.** Review found the sentence
+        // being mined for market vocabulary.
+        assert!(!seed.read);
     }
 
     #[tokio::test]

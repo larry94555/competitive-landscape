@@ -4,118 +4,259 @@
     "file": "crates/landscape-analyze/src/subject.rs",
     "old": "        1 => Subjects::Seed(named.swap_remove(0)),",
     "new": "        1 => Subjects::Exactly(named),",
-    "run": ["cargo", "nextest", "run", "-p", "landscape-analyze"]
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
   },
   {
     "name": "two named companies are treated as a starting point to add to",
     "file": "crates/landscape-analyze/src/subject.rs",
     "old": "        _ => Subjects::Exactly(named),",
     "new": "        _ => Subjects::Seed(named.swap_remove(0)),",
-    "run": ["cargo", "nextest", "run", "-p", "landscape-analyze"]
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
   },
   {
     "name": "a prompt naming nothing is read as naming something",
     "file": "crates/landscape-analyze/src/subject.rs",
     "old": "        0 => Subjects::Describe,",
     "new": "        0 => Subjects::Exactly(Vec::new()),",
-    "run": ["cargo", "nextest", "run", "-p", "landscape-analyze"]
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
   },
   {
     "name": "a company is its own competitor",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "            .filter(|f| !same_company(&f.host, &seed.canonical_domain))",
+    "old": "            .filter(|f| !same_company(&f.host, &seed.candidate.canonical_domain))",
     "new": "            .filter(|f| !f.host.is_empty())",
-    "run": ["cargo", "nextest", "run", "-p", "landscape-search"]
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
   },
   {
     "name": "a company written with www is not recognised as itself",
     "file": "crates/landscape-search/src/competitors.rs",
     "old": "            .trim_start_matches(\"www.\")",
     "new": "            .trim_start_matches(\"never.\")",
-    "run": ["cargo", "nextest", "run", "-p", "landscape-search"]
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
   },
   {
     "name": "a company written in capitals is not recognised as itself",
     "file": "crates/landscape-search/src/competitors.rs",
     "old": "    bare(host).eq_ignore_ascii_case(bare(seed_domain))",
     "new": "    bare(host) == bare(seed_domain)",
-    "run": ["cargo", "nextest", "run", "-p", "landscape-search"]
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
   },
   {
     "name": "the company a reader named is not first in its own report",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "    set.members.insert(\n        0,\n        Member {\n            candidate: seed.clone(),\n            because: Because::Named,\n        },\n    );",
-    "new": "    set.members.push(Member {\n        candidate: seed.clone(),\n        because: Because::Named,\n    });",
-    "run": ["cargo", "nextest", "run", "-p", "landscape-search"]
+    "old": "    set.members.insert(\n        0,\n        Member {\n            candidate: seed.candidate.clone(),\n            because: Because::Named,\n        },\n    );",
+    "new": "    set.members.push(Member {\n        candidate: seed.candidate.clone(),\n        because: Because::Named,\n    });",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
   },
   {
     "name": "the company a reader named is left out of its own report",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "    set.members.insert(\n        0,\n        Member {\n            candidate: seed.clone(),\n            because: Because::Named,\n        },\n    );",
+    "old": "    set.members.insert(\n        0,\n        Member {\n            candidate: seed.candidate.clone(),\n            because: Because::Named,\n        },\n    );",
     "new": "    let _ = &seed;",
-    "run": ["cargo", "nextest", "run", "-p", "landscape-search"]
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
   },
   {
     "name": "the company a reader named is scored as if we had found it",
     "file": "crates/landscape-search/src/competitors.rs",
     "old": "            because: Because::Named,\n        },\n    );",
     "new": "            because: Because::Found {\n                agreed: queried.sent(),\n                asked: queried.sent(),\n                shares: Vec::new(),\n            },\n        },\n    );",
-    "run": ["cargo", "nextest", "run", "-p", "landscape-search"]
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
   },
   {
     "name": "a rival is matched against a reader's words rather than the seed's",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "    let words = content_words(&seed.what_it_is);",
+    "old": "    let words = content_words(&seed.candidate.what_it_is);",
     "new": "    let words: Vec<String> = Vec::new();",
-    "run": ["cargo", "nextest", "run", "-p", "landscape-search"]
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
   },
   {
     "name": "the queries a company produces carry a reader's phrasing",
     "file": "crates/landscape-search/src/competitors.rs",
     "old": "    const TEMPLATES: [&str; 3] = [\n        r#\"{} alternatives\"#,\n        r#\"{} competitors\"#,\n        r#\"companies like {}\"#,\n    ];",
     "new": "    const TEMPLATES: [&str; 3] = [\n        r#\"{} alternatives\"#,\n        r#\"{} competitors\"#,\n        r#\"{} rivals\"#,\n    ];",
-    "run": ["cargo", "nextest", "run", "-p", "landscape-search"]
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
   },
   {
     "name": "one query is sent where three have to agree",
     "file": "crates/landscape-search/src/competitors.rs",
     "old": "    TEMPLATES\n        .into_iter()\n        .map(|template| Query {\n            text: template.replacen(\"{}\", &cleaned, 1),\n            answers: landscape_discover::probes::Answers::Identity,\n            template,\n        })\n        .collect()\n}",
     "new": "    TEMPLATES\n        .into_iter()\n        .take(1)\n        .map(|template| Query {\n            text: template.replacen(\"{}\", &cleaned, 1),\n            answers: landscape_discover::probes::Answers::Identity,\n            template,\n        })\n        .collect()\n}",
-    "run": ["cargo", "nextest", "run", "-p", "landscape-search"]
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
   },
   {
     "name": "a blank company name sends boilerplate to an engine",
     "file": "crates/landscape-search/src/competitors.rs",
     "old": "    let cleaned = crate::queries::safe_words(name);\n    if cleaned.is_empty() {\n        return Vec::new();\n    }",
     "new": "    let cleaned = crate::queries::safe_words(name);",
-    "run": ["cargo", "nextest", "run", "-p", "landscape-search"]
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
   },
   {
     "name": "a rival search divides by the queries that answered rather than those sent",
     "file": "crates/landscape-search/src/competitors.rs",
     "old": "    let mut set = assemble(described, queried.sent());",
     "new": "    let mut set = assemble(described, queried.completed.len());",
-    "run": ["cargo", "nextest", "run", "-p", "landscape-search"]
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
   },
   {
     "name": "a reader who named a company is told they described a market",
     "file": "crates/landscape-analyze/src/subject.rs",
     "old": "    let mut notes = vec![if seeded {",
     "new": "    let mut notes = vec![if false {",
-    "run": ["cargo", "nextest", "run", "-p", "landscape-analyze"]
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
   },
   {
     "name": "a reader who described a market is told they named a company",
     "file": "crates/landscape-analyze/src/subject.rs",
     "old": "    let mut notes = vec![if seeded {",
     "new": "    let mut notes = vec![if true {",
-    "run": ["cargo", "nextest", "run", "-p", "landscape-analyze"]
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
   },
   {
     "name": "the name a company gives itself is not the one the report shows",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "    let page = fetch(home_page(host)).await;\n    from_its_own_page(host, page.as_deref(), 1.0)",
-    "new": "    let _ = fetch(home_page(host)).await;\n    from_its_own_page(host, None, 1.0)",
-    "run": ["cargo", "nextest", "run", "-p", "landscape-search"]
+    "old": "        candidate: from_its_own_page(host, page.as_deref(), 1.0),",
+    "new": "        candidate: from_its_own_page(host, None, 1.0),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "our own error message becomes the vocabulary a rival is judged against",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    if !seed.read {",
+    "new": "    if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a seed we could read is treated as one we could not",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    if !seed.read {",
+    "new": "    if true {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "whether a front page was read is taken from the sentence we wrote about it",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        read: page.is_some(),",
+    "new": "        read: !from_its_own_page(host, page.as_deref(), 1.0)\n            .what_it_is\n            .is_empty(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
   }
 ]

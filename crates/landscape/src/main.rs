@@ -553,13 +553,23 @@ async fn rivals_of_a_named_company(origin: &str) -> Result<()> {
     };
     let seed = landscape_search::candidates::named_seed(&target.host, read).await;
 
-    println!("company   {} ({})", seed.name, seed.canonical_domain);
-    println!("it says   {}", seed.what_it_is);
+    println!(
+        "company   {} ({})",
+        seed.candidate.name, seed.candidate.canonical_domain
+    );
+    println!("it says   {}", seed.candidate.what_it_is);
+    if !seed.read {
+        println!(
+            "
+          ^ that is our sentence, not theirs. With the front page unread there is
+\n             no vocabulary to judge a rival against, so nothing is searched for."
+        );
+    }
     println!(
         "query set {}",
         landscape_search::competitors::RIVAL_QUERY_SET
     );
-    let queries = landscape_search::competitors::for_company(&seed.name);
+    let queries = landscape_search::competitors::for_company(&seed.candidate.name);
     for q in &queries {
         println!("  {}", q.text);
     }
