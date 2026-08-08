@@ -2137,7 +2137,7 @@ mod joining {
                 what_it_is: "a company".to_owned(),
                 confidence: 0.9,
             },
-            because: landscape_search::competitors::Because {
+            because: landscape_search::competitors::Because::Found {
                 agreed,
                 asked: 3,
                 shares: vec!["analytics".to_owned()],
@@ -2294,6 +2294,51 @@ mod joining {
             !left_out.contains("one.example") && !left_out.contains("two.example"),
             "twenty one-hit hosts would be a search results page: {left_out}"
         );
+    }
+
+    #[tokio::test]
+    async fn a_report_seeded_by_a_named_company_does_not_claim_they_described_a_market() {
+        // A reader who typed a domain knows what they typed. Telling them they described a
+        // market is telling them something false about their own input - what they do not know
+        // is that we went looking for the others.
+        let set = landscape_search::competitors::Set {
+            members: vec![
+                landscape_search::competitors::Member {
+                    candidate: landscape_core::subject::Candidate {
+                        name: "Basecamp".to_owned(),
+                        canonical_domain: "basecamp.com".to_owned(),
+                        what_it_is: "Project management".to_owned(),
+                        confidence: 1.0,
+                    },
+                    because: landscape_search::competitors::Because::Named,
+                },
+                found("Linear", "linear.app", 3),
+            ],
+            set_aside: Vec::new(),
+        };
+        let many = unreachable(4);
+        let outcome = analyse_many(
+            &landscape_fetch::Fetcher::new(),
+            &llm(),
+            &Asked {
+                set: Some(&set),
+                ..named(&many)
+            },
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+
+        let first = outcome.report.notes.first().expect("a note");
+        assert!(first.starts_with("You named basecamp.com"), "{first}");
+        assert!(
+            !first.contains("You described"),
+            "a reader was told they described what they named: {first}"
+        );
+        assert!(first.contains("Linear (linear.app)"), "{first}");
+
+        let why = &outcome.report.notes[1];
+        assert!(why.contains("Basecamp - you named it"), "{why}");
+        assert!(why.contains("Linear - 3 of the 3 searches"), "{why}");
     }
 
     #[tokio::test]

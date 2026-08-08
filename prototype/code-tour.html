@@ -80,99 +80,99 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    tie: {
-      name: "three companies, one score",
-      purpose: "Every search returned all three.",
+    profile: {
+      name: "what one domain used to get you",
+      purpose: "A profile, in a landscape tool.",
       lines: [
-        ['s', '  0.8 x 3/3 + 0.2 = 1.0'],
-        ['s', '  0.8 x 3/3 + 0.2 = 1.0'],
-        ['s', '  0.8 x 3/3 + 0.2 = 1.0'],
+        ['s', '  basecamp.com'],
+        ['s', '     -> a report about Basecamp'],
         ['c', ''],
-        ['c', '// AMBIGUITY_MARGIN says tied.'],
-        ['f', '// So the gate asked: which one?']
+        ['c', '// A different question from the'],
+        ['f', '// one anybody typed.']
       ]
     },
-    answer: {
-      name: "and for a market, tied is the answer",
-      purpose: "The question was the wrong one.",
+    p22: {
+      name: "the rule this path can finally keep",
+      purpose: "FACT_CHECKING P22.",
       lines: [
-        ['s', '  which of these did you mean?'],
+        ['t', '  templated queries from'],
+        ['t', '  resolved entities, not'],
+        ['t', '  user phrasing'],
         ['c', ''],
-        ['t', '  all three. that is the market.'],
-        ['c', ''],
-        ['c', '// A landscape tool answering a'],
-        ['f', '// landscape with one company.']
+        ['c', '// A description has no resolved'],
+        ['f', '// entity. A domain is one.']
       ]
     },
-    word: {
-      name: "a name, or a kind of thing",
-      purpose: "Arithmetic on the words typed.",
+    three: {
+      name: "one box, three readings",
+      purpose: "And the middle one is new.",
       lines: [
-        ['s', '  Notion                 1 word'],
-        ['t', '  privacy-friendly       4 words'],
-        ['t', '  website analytics'],
+        ['t', '  nothing   -> search for them'],
+        ['f', '  one       -> seed a landscape'],
+        ['t', '  several   -> exactly those'],
         ['c', ''],
-        ['c', '// One is a name. Two or more'],
-        ['f', '// is a description. Crude, checkable.']
+        ['c', '// Naming two is an instruction,'],
+        ['f', '// not a starting point.']
       ]
     },
-    because: {
-      name: "why each company is here",
-      purpose: "Two numbers and your own words.",
+    itself: {
+      name: "a company is not its own rival",
+      purpose: "Every query returns the seed.",
       lines: [
-        ['f', '  3 of the 3 searches returned it,'],
-        ['f', '  and its own front page uses'],
-        ['f', '  "privacy", "analytics"'],
+        ['s', '  basecamp alternatives'],
+        ['s', '     -> basecamp.com, first'],
         ['c', ''],
-        ['c', '// Nothing here is a summary'],
-        ['t', '// somebody has to trust.']
+        ['t', '  filter(!same_company)'],
+        ['c', ''],
+        ['f', '// A reason that argues with itself.']
       ]
     },
-    four: {
-      name: "four ways to be left out",
-      purpose: "And they are not interchangeable.",
+    named: {
+      name: "two kinds of reason",
+      purpose: "Because became an enum.",
       lines: [
-        ['t', '  Uncorroborated  one search'],
-        ['t', '  Unconvincing    below the floor'],
-        ['t', '  ElsewhereEntirely  other market'],
-        ['s', '  Unread          we could not look'],
+        ['f', '  Basecamp   you named it'],
+        ['t', '  Linear     3 of the 3 searches'],
         ['c', ''],
-        ['c', '// Only the last one is about us.']
+        ['c', '// A struct of three numbers can'],
+        ['f', '// only say the second one.']
       ]
     },
-    option: {
-      name: "two silences that look alike",
-      purpose: "An empty list, or no list.",
+    invent: {
+      name: "and would have invented the first",
+      purpose: "In the evidence field.",
       lines: [
-        ['t', '  Some([])  read, about something else'],
-        ['s', '  None      nobody could read it'],
+        ['s', '  agreed: 3, asked: 3'],
+        ['s', '  for a search nobody ran'],
         ['c', ''],
-        ['c', '// Collapsing them tells a reader'],
-        ['f', '// something false about a company.']
+        ['t', '  Because::Named'],
+        ['c', ''],
+        ['f', '// Evidence is not a default value.']
       ]
     },
-    stop: {
-      name: "the stop list that could not grow",
-      purpose: "software, platform, tool, app.",
+    anchor: {
+      name: "the gate from last week",
+      purpose: "Its first working day.",
       lines: [
-        ['s', '  tax software  -> [tax]'],
-        ['s', '  1 word -> read as a brand name'],
+        ['t', '  extract from_its_own_page'],
+        ['s', '  -> a pin no longer applies'],
         ['c', ''],
-        ['t', '  tax software  -> [tax, software]'],
+        ['f', '  reported in one second'],
         ['c', ''],
-        ['f', '// A weak content word is a word.']
+        ['c', '// Not in a 20-minute run that'],
+        ['c', '// would have said 26 of 27.']
       ]
     },
-    notes: {
-      name: "and only the ones it read",
-      purpose: "The cap and the note must agree.",
+    missed: {
+      name: "two MISSED, both real",
+      purpose: "The harness earning its keep.",
       lines: [
-        ['s', '  names five, compares three'],
+        ['s', '  named_seed had no test'],
+        ['s', '  the divisor held on one path'],
         ['c', ''],
-        ['t', '  members.iter().take(analysing)'],
+        ['t', '  both covered now'],
         ['c', ''],
-        ['c', '// The silent drop with better'],
-        ['f', '// prose in front of it.']
+        ['f', '// A rule has to hold everywhere.']
       ]
     }
   };
@@ -216,19 +216,19 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:tie",     c: "Three companies. One score each." },
-    { kind: "means",       a: "file:answer",  c: "The gate asked which one. For a market, all of them." },
+    { kind: "recognition", a: "file:profile", c: "One domain got you a profile of one company." },
+    { kind: "means",       a: "file:p22",     c: "And a domain is the resolved entity P22 wants." },
 
-    { kind: "turn",        a: "file:word",    c: "One word is a name. Two is a description." },
-    { kind: "result",      a: "file:because", c: "And every company carries why it is here." },
+    { kind: "turn",        a: "file:three",   c: "One box, three readings. The middle one is new." },
+    { kind: "result",      a: "file:itself",  c: "A company is dropped from its own results." },
 
-    { kind: "turn",        a: "file:four",    c: "Four ways to be left out, all of them named." },
-    { kind: "result",      a: "file:option",  c: "Two of them look identical from outside." },
+    { kind: "turn",        a: "file:named",   c: "Two kinds of reason, so Because became an enum." },
+    { kind: "result",      a: "file:invent",  c: "A struct would have invented the evidence." },
 
-    { kind: "result",      a: "file:stop",    c: "The stop list could not grow, and that is the rule." },
-    { kind: "result",      a: "file:notes",   c: "A note names only the companies actually read." },
+    { kind: "result",      a: "file:anchor",  c: "Last week's gate caught a pin in one second." },
+    { kind: "result",      a: "file:missed",  c: "And two MISSED were both real gaps." },
 
-    { kind: "close",       a: "hold",         c: "One idea, several companies." }
+    { kind: "close",       a: "hold",         c: "A company brings its rivals." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -271,8 +271,8 @@
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "One idea, several companies",
-    blurb: "A description produced one company, because the disambiguation gate answers \'which company did you mean\' and three companies every search returned score identically \u2014 a tie, and for a market a tie is the answer. What tells a market from a shared name is arithmetic on the reader\'s own words: one content word is a brand, two or more is a kind of thing. Every company in the report now carries the countable reason it is there, and every one left out carries which of four things happened to it \u2014 including the two that look identical from outside and are not.",
+    title: "A company brings its rivals",
+    blurb: "A description became a set one change ago; a named company still got a profile of itself, which is a different question from the one a competitive landscape tool is asked. The queries that find the rest are templated from the company\'s own name for itself, read off its own front page \u2014 the case FACT_CHECKING P22 was written for rather than the exception the description path had to argue for. Reading one box now has three answers: nothing named is searched for, one named seeds a landscape, and several named are exactly those, because a reader who writes two domains has said what to compare.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

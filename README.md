@@ -97,6 +97,7 @@ applies with the system package manager, or Postgres.app.
 | `cargo run -p landscape -- gap <file>` | Measures where prices live across a list of pricing pages |
 | `cargo run -p landscape -- discover <origin>` | Finds the pages worth reading about one company |
 | `cargo run -p landscape -- candidates "<description>"` | Turns a description into the companies a report would compare. Prints the queries with no engine configured; with `SEARX_URL`, the hosts, their scores, the name each takes from its own front page, whether your words read as a market or a name, and the set — with the reason each company is in it and each one that is not |
+| `cargo run -p landscape -- candidates <domain>` | The other half: who a **named** company competes with. Queries templated from the company's own name for itself, so nothing you typed reaches the engine |
 | `cargo run -p landscape -- search <origin> [--name "Help Scout"]` | The questions discovery left unanswered, the queries they produce, and — with `SEARX_URL` set — the pages that come back and what each may be used for. Prints the queries either way, and asks nothing without an engine |
 | `cargo run -p landscape -- read <origin>` | The whole path: discover, fetch, convert, extract |
 | `cargo run -p landscape -- examples` | Re-checks the demo's six curated companies against the live web. Non-zero if one has lost its pricing page |

@@ -37,6 +37,7 @@ of it yet**, and a walkthrough that implied otherwise would waste your afternoon
 | **Searching the web for the questions a company's own pages left empty** | **Yes** — Part 8F |
 | **Turning a description into the companies a report compares** | **Yes** — Part 8G |
 | **Typing a description and getting a report comparing the companies it found** | **Yes** — Part 8G |
+| **Typing one company and getting it compared against its competitors** | **Yes** — Part 8H |
 | **The questions probes could not answer, and the queries that follow from them** | **Yes** — Part 8F |
 | Reading real web pages *as part of a report* | No — the fetcher exists, nothing calls it yet |
 | Real competitors, prices, features | No — the report comes back empty on purpose |
@@ -1546,6 +1547,95 @@ the second by waiting, and the old single sentence said the same thing about all
 **What this still does not do.** `basecamp.com` produces a report about Basecamp alone — the set
 comes from a *description*, not from a named company. That is the next PR of this row. See
 [BENCHMARKS.md](BENCHMARKS.md) Run 30.
+
+---
+
+## Part 8H — Type one company, get it compared against its competitors
+
+The other half of competitor-set derivation. Needs nothing running, and **asks nothing of
+anybody** unless you configure an engine.
+
+```bash
+cargo run -p landscape -- candidates basecamp.com
+```
+
+The same command as Part 8G, reading the same box the worker reads: **a description is searched
+for; a domain has its competitors searched for instead.**
+
+**You should see** the company's own name for itself, and the queries:
+
+```text
+company   Basecamp (basecamp.com)
+it says   Project management and team communication
+query set 2026-08-08.1
+  Basecamp alternatives
+  Basecamp competitors
+  companies like Basecamp
+
+Those are templated from the company's own name for itself, which is what
+FACT_CHECKING P22 asks for. Nothing you typed reaches the engine.
+```
+
+**That last line is the whole difference from Part 8G.** P22 requires *"templated queries from
+resolved entities, not user phrasing"*, and the description path has to argue for an exception —
+there is no resolved entity when all anybody has typed is a description. Here there is one, and
+the name in the query comes off the company's own front page.
+
+### With `SEARX_URL` set
+
+```text
+the report would compare
+  Basecamp (basecamp.com)
+      you named it
+  Linear (linear.app)
+      3 of the 3 searches returned it, and its own front page uses "project", "management"
+  not compared: a-bakery.example
+      its own front page uses none of the words you typed
+```
+
+**Two kinds of reason, and they are not the same fact.** *"You named it"* is the reader having
+already answered the question; *"3 of the 3 searches returned it"* is a company having to justify
+itself. `Because` is an enum for that reason — a struct with three number fields could only say
+the second, and would have had to invent a search nobody ran.
+
+**The seed is dropped from its own results.** A search for *"Basecamp alternatives"* returns
+Basecamp, and it outscores everything else on the page. Leaving it in would put one company in
+the report twice, once because a reader named it and once because a search for it found it —
+which is a reason that argues with itself.
+
+**And the words a rival has to share come from the seed's own front page**, not from anything
+you typed, because on this path you did not type any. Same floor, same narrow claim: a company
+whose page has nothing in common with the seed's is not obviously in the same market.
+
+### And an analysis does the same thing
+
+**Do this**, with `SEARX_URL` set:
+
+```bash
+curl -sX POST http://127.0.0.1:8787/api/analyses -H 'content-type: application/json' -d '{"prompt":"basecamp.com"}'
+```
+
+```text
+> You named basecamp.com, so we searched for the companies it competes with. This report
+> compares Basecamp (basecamp.com) and Linear (linear.app). If those are not the companies
+> you meant, name the domains and we will read those instead.
+```
+
+**Name two and you get exactly two:**
+
+```bash
+curl -sX POST http://127.0.0.1:8787/api/analyses -H 'content-type: application/json' -d '{"prompt":"basecamp.com vs linear.app"}'
+```
+
+Nothing is searched for and no third company appears. A reader who names two has said what they
+want compared, and adding to it would be overruling them.
+
+**What this still does not do.** With no `SEARX_URL`, or with every query failing, a named
+company gets a report about itself and **nothing on the page says we looked**. That is *"no
+public information at the level of a whole competitor set"* — its own row of S2, deliberately
+not half-built here, because one sentence covering *no engine*, *the search did not finish* and
+*we looked and found nobody* is the collapse this project has now un-made three times. See
+[BENCHMARKS.md](BENCHMARKS.md) Run 31.
 
 ---
 

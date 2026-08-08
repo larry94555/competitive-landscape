@@ -391,14 +391,23 @@ fn searching(engine: &landscape_search::Searx) -> &dyn landscape_search::SourceP
 /// 4. **The gate's verdict**: resolved, ambiguous, or nothing found.
 async fn suggest_candidates(args: &[String]) -> Result<()> {
     let description = args.get(1).filter(|a| !a.starts_with("--")).context(
-        "usage: landscape candidates \"<description>\"
+        "usage: landscape candidates \"<description>\" | landscape candidates <domain>
 
 Examples:
   landscape candidates \"privacy-friendly website analytics\"
   landscape candidates \"a shared inbox for a small support team\"
+  landscape candidates basecamp.com
 
+A description is searched for; a domain has its competitors searched for instead.
 Set SEARX_URL to run the queries; without it the queries are printed and nothing is asked.",
     )?;
+
+    // **The same reading the worker does**, not a second one that agrees by coincidence.
+    if let landscape_analyze::subject::Subjects::Seed(origin) =
+        landscape_analyze::subject::subjects_in(description)
+    {
+        return rivals_of_a_named_company(&origin).await;
+    }
 
     println!("idea      {description}");
     println!("query set {}", landscape_search::candidates::IDEA_QUERY_SET);
@@ -518,6 +527,75 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
         landscape_analyze::subject::Decided::Refuse(why) => {
             println!("\nno report: {why}");
         }
+    }
+    Ok(())
+}
+
+/// `landscape candidates <domain>` — who a named company competes with.
+///
+/// The diagnostic for the other half of competitor-set derivation. It prints the queries
+/// whether or not an engine is configured, because the queries are the part worth reviewing:
+/// `FACT_CHECKING.md` P22 wants them templated from a **resolved entity**, and this is the
+/// path that can actually comply.
+async fn rivals_of_a_named_company(origin: &str) -> Result<()> {
+    let target = landscape_fetch::Target::parse(origin)
+        .map_err(|e| anyhow::anyhow!("{origin} is not a URL we fetch: {e}"))?;
+    let fetcher = landscape_fetch::Fetcher::new();
+    let read = |url: String| {
+        let fetcher = &fetcher;
+        async move {
+            fetcher
+                .get(&url)
+                .await
+                .ok()
+                .map(|page| landscape_extract::markdown::from_body(&page.body))
+        }
+    };
+    let seed = landscape_search::candidates::named_seed(&target.host, read).await;
+
+    println!("company   {} ({})", seed.name, seed.canonical_domain);
+    println!("it says   {}", seed.what_it_is);
+    println!(
+        "query set {}",
+        landscape_search::competitors::RIVAL_QUERY_SET
+    );
+    let queries = landscape_search::competitors::for_company(&seed.name);
+    for q in &queries {
+        println!("  {}", q.text);
+    }
+    println!(
+        "\nThose are templated from the company's own name for itself, which is what\n\
+         FACT_CHECKING P22 asks for. Nothing you typed reaches the engine."
+    );
+
+    let Some(engine) = landscape_search::Searx::from_env()? else {
+        println!(
+            "\n{} is not set, so nothing was asked. The queries above are what would go.",
+            landscape_search::searx::URL_VAR
+        );
+        return Ok(());
+    };
+
+    let (set, queried) = landscape_search::competitors::of_company(&engine, &seed, read).await;
+    if !queried.failed.is_empty() {
+        println!(
+            "\n{} of {} queries did not complete, so this list is thinner than it would be:",
+            queried.failed.len(),
+            queried.sent()
+        );
+        for q in &queried.failed {
+            println!("  did not complete: {q}");
+        }
+    }
+
+    println!("\nthe report would compare");
+    for m in &set.members {
+        println!("  {} ({})", m.candidate.name, m.candidate.canonical_domain);
+        println!("      {}", m.because.sentence());
+    }
+    for (c, why) in &set.set_aside {
+        println!("  not compared: {} ({})", c.name, c.canonical_domain);
+        println!("      {}", why.sentence());
     }
     Ok(())
 }
@@ -1114,6 +1192,45 @@ async fn resolve_from_description(
     landscape_analyze::subject::decide(derived, &queried)
 }
 
+/// The companies a named one competes with, when there is an engine to ask.
+///
+/// `None` means *we did not look*, which is not a refusal: the reader named a company and a
+/// report about exactly that company is a perfectly good answer to what they typed. It is
+/// what every run did before this, and it is what a laptop with no `SEARX_URL` still does.
+///
+/// **What it does not yet do is say so on the report.** *"No public information at the level
+/// of a whole competitor set"* is its own row of S2, and inventing half of it here would mean
+/// one sentence covering *no engine*, *the search did not finish* and *we looked and found
+/// nobody* - the collapse this project has now un-made three times.
+async fn rivals_of(
+    engine: Option<&dyn landscape_search::SourceProvider>,
+    origin: &str,
+) -> Option<landscape_search::competitors::Set> {
+    let engine = engine?;
+    let host = landscape_fetch::Target::parse(origin).ok()?.host;
+    let fetcher = landscape_fetch::Fetcher::new();
+    let read = |url: String| {
+        let fetcher = &fetcher;
+        async move {
+            fetcher
+                .get(&url)
+                .await
+                .ok()
+                .map(|page| landscape_extract::markdown::from_body(&page.body))
+        }
+    };
+    let seed = landscape_search::candidates::named_seed(&host, read).await;
+    let (set, queried) = landscape_search::competitors::of_company(engine, &seed, read).await;
+    if !queried.failed.is_empty() {
+        tracing::warn!(
+            failed = queried.failed.len(),
+            sent = queried.sent(),
+            "some competitor searches did not complete"
+        );
+    }
+    Some(set)
+}
+
 /// Record a refusal a reader can act on, and say so if the claim was taken away first.
 async fn refuse(store: &Arc<dyn Store>, analysis: &landscape_core::Analysis, why: &str) {
     match store
@@ -1157,32 +1274,52 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
     });
     let searching = engine.as_ref().map(searching);
 
-    let named = landscape_analyze::subject::origins_in(&analysis.prompt);
-    // **A description is no longer the end of the road.** Until this, a prompt naming no domain
-    // was refused with *"finding one from a description needs the search channel"* — and the
-    // channel now exists, produces candidates, and hands them to the gate `FACT_CHECKING.md`
-    // §3.1 built before anything could feed it. What is still refused is a description we
-    // cannot pin to **one** company, because the alternative is a report that is correctly
-    // cited and about the wrong company.
-    let (origins, set) = if named.is_empty() {
-        match resolve_from_description(searching, &analysis.prompt).await {
-            landscape_analyze::subject::Decided::Analyse(set) => {
-                let origins = set.origins();
-                tracing::info!(
-                    id = %analysis.id,
-                    companies = origins.len(),
-                    "a description became a competitor set"
-                );
-                (origins, Some(*set))
-            }
-            landscape_analyze::subject::Decided::Refuse(why) => {
-                tracing::info!(id = %analysis.id, "no subject in prompt");
-                refuse(store, analysis, &why).await;
-                return;
+    // **Three readings of one box**, and the rule lives in `subject::subjects_in` rather than
+    // here because it is a decision about what somebody meant. See [`Subjects`] for why
+    // naming two companies is an instruction and naming one is a starting point.
+    let (origins, set) = match landscape_analyze::subject::subjects_in(&analysis.prompt) {
+        // **A description is no longer the end of the road.** Until Run 29 a prompt naming no
+        // domain was refused; the channel now produces candidates and hands them to the gate
+        // `FACT_CHECKING.md` §3.1 built before anything could feed it.
+        landscape_analyze::subject::Subjects::Describe => {
+            match resolve_from_description(searching, &analysis.prompt).await {
+                landscape_analyze::subject::Decided::Analyse(set) => {
+                    let origins = set.origins();
+                    tracing::info!(
+                        id = %analysis.id,
+                        companies = origins.len(),
+                        "a description became a competitor set"
+                    );
+                    (origins, Some(*set))
+                }
+                landscape_analyze::subject::Decided::Refuse(why) => {
+                    tracing::info!(id = %analysis.id, "no subject in prompt");
+                    refuse(store, analysis, &why).await;
+                    return;
+                }
             }
         }
-    } else {
-        (named, None)
+        // **One company named is a competitive landscape asked for, not a profile.** With no
+        // engine this is exactly what it always was - the laptop default, unchanged - and
+        // saying so at the level of a whole set is its own roadmap row.
+        landscape_analyze::subject::Subjects::Seed(origin) => {
+            match rivals_of(searching, &origin).await {
+                Some(set) => {
+                    let origins = set.origins();
+                    tracing::info!(
+                        id = %analysis.id,
+                        %origin,
+                        companies = origins.len(),
+                        "a named company brought its competitors"
+                    );
+                    (origins, Some(set))
+                }
+                None => (vec![origin], None),
+            }
+        }
+        // Several named: the reader has said what to compare, and adding to it would be
+        // overruling them.
+        landscape_analyze::subject::Subjects::Exactly(named) => (named, None),
     };
 
     let Some(first) = origins.first().cloned() else {

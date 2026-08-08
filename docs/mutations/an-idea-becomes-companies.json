@@ -158,8 +158,8 @@
   {
     "name": "a candidate we could not read vanishes from the list instead of saying so",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "        let (name, what_it_is) = page.map_or_else(",
-    "new": "        let Some(_present) = page.as_ref() else {\n            continue;\n        };\n        let (name, what_it_is) = page.map_or_else(",
+    "old": "        let page = fetch(home_page(&one.host)).await;",
+    "new": "        let page = fetch(home_page(&one.host)).await;\n        if page.is_none() {\n            continue;\n        }",
     "run": [
       "cargo",
       "nextest",

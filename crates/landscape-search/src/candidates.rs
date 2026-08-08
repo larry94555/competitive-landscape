@@ -452,27 +452,55 @@ where
         let shares = page.as_deref().map_or(Vocabulary::Unreadable, |markdown| {
             Vocabulary::Read(crate::competitors::shared(words, markdown))
         });
-        let (name, what_it_is) = page.map_or_else(
-            || {
-                (
-                    one.host.clone(),
-                    "we were unable to read its front page".to_owned(),
-                )
-            },
-            |markdown| naming(&one.host, &markdown),
-        );
         out.push(Described {
-            candidate: Candidate {
-                name,
-                canonical_domain: one.host.clone(),
-                what_it_is,
-                confidence: one.confidence,
-            },
+            candidate: from_its_own_page(&one.host, page.as_deref(), one.confidence),
             agreed: one.agreed,
             shares,
         });
     }
     out
+}
+
+/// The company a reader named, described by its own front page.
+///
+/// **The seed of a competitor set, and the one company in it that needed no searching.** It gets
+/// the same treatment every candidate gets — its name and its one-line self-description come
+/// from its own page rather than from anywhere else — because a report that names two companies
+/// differently depending on how they got there is a report that looks assembled.
+///
+/// `confidence` is 1.0 and it is not a measurement: the reader typed the domain, so there is
+/// nothing to be confident *about*. Nothing scores this candidate;
+/// [`crate::competitors::Because::Named`] is what a reader is shown instead.
+pub async fn named_seed<F, Fut>(host: &str, fetch: F) -> Candidate
+where
+    F: Fn(String) -> Fut,
+    Fut: std::future::Future<Output = Option<String>>,
+{
+    let page = fetch(home_page(host)).await;
+    from_its_own_page(host, page.as_deref(), 1.0)
+}
+
+/// A candidate built from a host and whatever its front page turned out to be.
+///
+/// **One copy of the fallback**, because [`describe`] and [`named_seed`] both need it and two
+/// copies would be two wordings of *"we could not read its front page"* that drift apart the
+/// first time one is edited.
+fn from_its_own_page(host: &str, page: Option<&str>, confidence: f32) -> Candidate {
+    let (name, what_it_is) = page.map_or_else(
+        || {
+            (
+                host.to_owned(),
+                "we were unable to read its front page".to_owned(),
+            )
+        },
+        |markdown| naming(host, markdown),
+    );
+    Candidate {
+        name,
+        canonical_domain: host.to_owned(),
+        what_it_is,
+        confidence,
+    }
 }
 
 /// A description in, the gate's verdict **and** the competitor set out.
@@ -865,6 +893,36 @@ mod tests {
             "Simple, privacy-first website analytics with no cookies."
         );
         assert_eq!(described[0].candidate.canonical_domain, "usefathom.com");
+    }
+
+    #[tokio::test]
+    async fn a_named_company_takes_its_name_from_its_own_front_page() {
+        // The seed of a competitor set gets the same treatment as every candidate beside it. A
+        // report that names one company from its own page and another from its domain is a
+        // report that looks assembled, and the difference would sit in the first note.
+        let seed = named_seed("basecamp.com", |url| async move {
+            assert_eq!(
+                url, "https://basecamp.com/",
+                "the front page was not the page read"
+            );
+            Some("# Basecamp\nProject management and team communication.".to_owned())
+        })
+        .await;
+        assert_eq!(seed.name, "Basecamp");
+        assert_eq!(seed.canonical_domain, "basecamp.com");
+        assert_eq!(
+            seed.what_it_is,
+            "Project management and team communication."
+        );
+    }
+
+    #[tokio::test]
+    async fn a_named_company_we_could_not_read_still_seeds_its_own_report() {
+        // The reader named it. A front page that will not load is a reason to say less about
+        // it, never a reason to drop the one company somebody actually asked about.
+        let seed = named_seed("basecamp.com", |_url| async { None }).await;
+        assert_eq!(seed.name, "basecamp.com");
+        assert!(seed.what_it_is.contains("unable to read"));
     }
 
     #[tokio::test]
@@ -1429,9 +1487,20 @@ The second of two."
             derived.set.set_aside
         );
         for m in &derived.set.members {
-            assert_eq!(m.because.agreed, 3);
-            assert_eq!(m.because.asked, 3);
-            assert!(m.because.shares.contains(&"analytics".to_owned()));
+            let crate::competitors::Because::Found {
+                agreed,
+                asked,
+                shares,
+            } = &m.because
+            else {
+                panic!(
+                    "a company we searched for was reported as named: {:?}",
+                    m.because
+                )
+            };
+            assert_eq!(*agreed, 3);
+            assert_eq!(*asked, 3);
+            assert!(shares.contains(&"analytics".to_owned()));
         }
     }
 
@@ -1584,8 +1653,11 @@ The second of two."
         assert_eq!(queried.failed.len(), 1);
         assert_eq!(derived.set.members.len(), 1, "{:#?}", derived.set);
         let because = &derived.set.members[0].because;
-        assert_eq!(because.agreed, 2);
-        assert_eq!(because.asked, 3, "an outage was counted as unanimity");
+        let crate::competitors::Because::Found { agreed, asked, .. } = because else {
+            panic!("{because:?}")
+        };
+        assert_eq!(*agreed, 2);
+        assert_eq!(*asked, 3, "an outage was counted as unanimity");
         assert!(
             because.sentence().contains("2 of the 3"),
             "{}",

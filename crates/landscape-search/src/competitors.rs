@@ -42,7 +42,10 @@
 
 use landscape_core::subject::{Candidate, Resolution, MINIMUM_CONFIDENCE};
 
-use crate::candidates::{Described, Vocabulary, CORROBORATION, NAMED};
+use crate::provider::SourceProvider;
+use crate::queries::Query;
+
+use crate::candidates::{Described, Queried, Vocabulary, CORROBORATION, NAMED};
 
 /// How many content words a description needs before it is about a *kind* of thing.
 ///
@@ -87,30 +90,46 @@ pub struct Member {
     pub because: Because,
 }
 
-/// What put a company in the set, in countable terms.
+/// What put a company in the set.
 ///
-/// **Countable on purpose.** A reader asking *why is this company in my report* gets two numbers
-/// and a list of their own words back, not a summary somebody would have to trust.
+/// **Two reasons, and they are not the same kind of fact.** A reader who typed a domain has
+/// already answered the question; a company we searched for has to justify itself, and does so
+/// in countable terms — a reader asking *why is this company in my report* gets two numbers and
+/// a list of words back, not a summary somebody would have to trust.
+///
+/// It was a struct with three fields, which could only say the second thing. Then a named
+/// company needed a place in the same list, and *"3 of the 3 searches returned it"* would have
+/// been a sentence about a search nobody ran.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Because {
-    /// How many of the differently-worded searches returned it.
-    pub agreed: usize,
-    /// How many searches were sent. The divisor, not the number that answered.
-    pub asked: usize,
-    /// The description's own words that its front page uses.
-    pub shares: Vec<String>,
+pub enum Because {
+    /// The reader named it. There is nothing to justify.
+    Named,
+    /// We searched for it, and this is the evidence.
+    Found {
+        /// How many of the differently-worded searches returned it.
+        agreed: usize,
+        /// How many searches were sent. The divisor, not the number that answered.
+        asked: usize,
+        /// The words its front page shares with what was asked about.
+        shares: Vec<String>,
+    },
 }
 
 impl Because {
     /// The sentence a reader is shown.
     #[must_use]
     pub fn sentence(&self) -> String {
-        format!(
-            "{} of the {} searches returned it, and its own front page uses {}",
-            self.agreed,
-            self.asked,
-            quoted(&self.shares)
-        )
+        match self {
+            Self::Named => "you named it".to_owned(),
+            Self::Found {
+                agreed,
+                asked,
+                shares,
+            } => format!(
+                "{agreed} of the {asked} searches returned it, and its own front page uses {}",
+                quoted(shares)
+            ),
+        }
     }
 }
 
@@ -218,6 +237,125 @@ pub struct Derived {
     pub about_a_market: bool,
 }
 
+/// The version of the rival query set, stamped on a run.
+///
+/// Its own version, beside [`crate::candidates::IDEA_QUERY_SET`], for the reason that one is
+/// separate from [`crate::QUERY_SET`]: these ask *who else is in this company's market*, and a
+/// single number covering all three would move for edits that could not affect the others.
+pub const RIVAL_QUERY_SET: &str = "2026-08-08.1";
+
+/// The queries a named company produces.
+///
+/// **This is the case `FACT_CHECKING.md` P22 was written for, rather than the exception to it.**
+/// P22 requires *"templated queries from resolved entities, not user phrasing"*, and
+/// [`crate::candidates::for_idea`] documents at length why it cannot comply — there is no
+/// resolved entity when all anybody has typed is a description. Here there is one: the reader
+/// named a domain, and the company's own name comes off its own front page. Nothing a reader
+/// phrased reaches the engine.
+///
+/// Three, differently worded, because the score below is agreement between them and one query
+/// agrees with nothing. They deliberately ask the question three ways a *buyer* would, since
+/// that is the vocabulary the pages worth finding are written in.
+#[must_use]
+pub fn for_company(name: &str) -> Vec<Query> {
+    /// Interpolated with a resolved company's own name for itself.
+    const TEMPLATES: [&str; 3] = [
+        r#"{} alternatives"#,
+        r#"{} competitors"#,
+        r#"companies like {}"#,
+    ];
+
+    let cleaned = crate::queries::safe_words(name);
+    if cleaned.is_empty() {
+        return Vec::new();
+    }
+    TEMPLATES
+        .into_iter()
+        .map(|template| Query {
+            text: template.replacen("{}", &cleaned, 1),
+            answers: landscape_discover::probes::Answers::Identity,
+            template,
+        })
+        .collect()
+}
+
+/// The companies a named one competes with.
+///
+/// **The seed is dropped from its own results**, and it is the highest-scoring host in every one
+/// of them: a search for *"basecamp alternatives"* returns Basecamp. Leaving it in would put the
+/// company in the set twice, once as *"you named it"* and once as *"3 of the 3 searches returned
+/// it"* — two reasons for one company, one of which is circular.
+///
+/// The words a rival's front page has to share come from the **seed's own front page**, not from
+/// anything a reader typed. That is the same [`SHARED_WORDS`] floor the description path uses,
+/// pointed at the only vocabulary available here, and it does the same narrow job: a company
+/// whose page has nothing in common with the seed's is not obviously in the same market.
+///
+/// # Errors
+/// Never. A query that fails is counted and the rest carry on; see [`crate::candidates::suggest`].
+pub async fn of_company<F, Fut>(
+    engine: &dyn SourceProvider,
+    seed: &Candidate,
+    fetch: F,
+) -> (Set, Queried)
+where
+    F: Fn(String) -> Fut,
+    Fut: std::future::Future<Output = Option<String>>,
+{
+    let queries = for_company(&seed.name);
+    let mut results: Vec<Vec<crate::provider::Hit>> = Vec::with_capacity(queries.len());
+    let mut queried = Queried::default();
+    for query in &queries {
+        match engine.search(query).await {
+            Ok(hits) => {
+                results.push(hits);
+                queried.completed.push(query.text.clone());
+            }
+            Err(e) => {
+                tracing::warn!(query = %query.text, error = %e, "a rival search did not complete");
+                queried.failed.push(query.text.clone());
+            }
+        }
+    }
+
+    let found: Vec<crate::candidates::Found> =
+        crate::candidates::from_results(&results, queried.sent())
+            .into_iter()
+            .filter(|f| !same_company(&f.host, &seed.canonical_domain))
+            .collect();
+
+    let words = content_words(&seed.what_it_is);
+    let described = crate::candidates::describe(&found, &words, fetch).await;
+    let mut set = assemble(described, queried.sent());
+
+    // **The seed goes first and is not scored.** It is in the report because somebody typed it,
+    // which is a different fact from every other row and outranks all of them.
+    set.members.insert(
+        0,
+        Member {
+            candidate: seed.clone(),
+            because: Because::Named,
+        },
+    );
+    (set, queried)
+}
+
+/// Whether a host found by a search is the company the search was about.
+///
+/// Compared on the registrable domain and ignoring `www.`, because
+/// [`crate::candidates::from_results`] has already reduced a host to that — so this is a string
+/// comparison and not a second, quieter copy of the suffix rules.
+#[must_use]
+pub fn same_company(host: &str, seed_domain: &str) -> bool {
+    fn bare(d: &str) -> &str {
+        d.trim_start_matches("https://")
+            .trim_start_matches("http://")
+            .trim_start_matches("www.")
+            .trim_end_matches('/')
+    }
+    bare(host).eq_ignore_ascii_case(bare(seed_domain))
+}
+
 /// Split a description into the words that carry its meaning.
 ///
 /// Lowercased, non-letters treated as separators, short words and grammar dropped, order kept
@@ -313,7 +451,7 @@ pub fn assemble(described: Vec<Described>, asked: usize) -> Set {
             (Some(why), _) => set.set_aside.push((candidate, why)),
             (None, Vocabulary::Read(shares)) => set.members.push(Member {
                 candidate,
-                because: Because {
+                because: Because::Found {
                     agreed,
                     asked,
                     shares,
@@ -372,6 +510,229 @@ mod tests {
 
     fn read(words: &[&str]) -> Vocabulary {
         Vocabulary::Read(words.iter().map(|w| (*w).to_owned()).collect())
+    }
+
+    struct Canned {
+        per_query: Vec<Result<Vec<crate::provider::Hit>, ()>>,
+        asked: std::sync::Mutex<Vec<String>>,
+    }
+
+    #[async_trait::async_trait]
+    impl SourceProvider for Canned {
+        fn name(&self) -> &str {
+            "canned"
+        }
+        async fn search(
+            &self,
+            query: &Query,
+        ) -> Result<Vec<crate::provider::Hit>, crate::provider::SearchError> {
+            let mut asked = self.asked.lock().unwrap();
+            let answer = self.per_query.get(asked.len()).cloned();
+            asked.push(query.text.clone());
+            match answer {
+                Some(Ok(hits)) => Ok(hits),
+                _ => Err(crate::provider::SearchError::Unreachable(
+                    "no route to host".to_owned(),
+                )),
+            }
+        }
+    }
+
+    fn hit(url: &str) -> crate::provider::Hit {
+        crate::provider::Hit {
+            url: url.to_owned(),
+            title: String::new(),
+            snippet: String::new(),
+        }
+    }
+
+    fn seed() -> Candidate {
+        Candidate {
+            name: "Basecamp".to_owned(),
+            canonical_domain: "basecamp.com".to_owned(),
+            what_it_is: "Project management and team communication".to_owned(),
+            confidence: 1.0,
+        }
+    }
+
+    #[test]
+    fn the_queries_a_company_produces_use_its_own_name_and_nothing_a_reader_typed() {
+        let asked: Vec<String> = for_company("Basecamp")
+            .into_iter()
+            .map(|q| q.text)
+            .collect();
+        assert_eq!(
+            asked,
+            vec![
+                "Basecamp alternatives",
+                "Basecamp competitors",
+                "companies like Basecamp"
+            ]
+        );
+    }
+
+    #[test]
+    fn three_queries_because_one_agrees_with_nothing() {
+        // The same argument `CORROBORATION` rests on, at the other end of the pipe.
+        assert_eq!(for_company("Basecamp").len(), 3);
+        assert!(
+            for_company("   ").is_empty(),
+            "blank input asked an engine anyway"
+        );
+    }
+
+    #[test]
+    fn a_company_is_recognised_however_its_domain_is_written() {
+        assert!(same_company("basecamp.com", "basecamp.com"));
+        assert!(same_company("www.basecamp.com", "basecamp.com"));
+        assert!(same_company("BASECAMP.COM", "https://basecamp.com/"));
+        assert!(!same_company("basecamp.co", "basecamp.com"));
+        assert!(!same_company("notbasecamp.com", "basecamp.com"));
+    }
+
+    #[tokio::test]
+    async fn a_named_company_is_first_and_is_not_scored() {
+        let all = vec![
+            hit("https://basecamp.com/"),
+            hit("https://linear.app/"),
+            hit("https://asana.com/"),
+        ];
+        let engine = Canned {
+            per_query: vec![Ok(all.clone()), Ok(all.clone()), Ok(all)],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (set, queried) = of_company(&engine, &seed(), |url| async move {
+            Some(format!(
+                "# A company at {url}\n\nProject management for a team."
+            ))
+        })
+        .await;
+
+        assert_eq!(queried.completed.len(), 3);
+        assert_eq!(set.members[0].candidate.canonical_domain, "basecamp.com");
+        assert_eq!(set.members[0].because, Because::Named);
+        assert_eq!(set.members[0].because.sentence(), "you named it");
+
+        let rest: Vec<&str> = set.members[1..]
+            .iter()
+            .map(|m| m.candidate.canonical_domain.as_str())
+            .collect();
+        assert_eq!(rest, vec!["asana.com", "linear.app"], "{:#?}", set.members);
+    }
+
+    #[tokio::test]
+    async fn a_company_is_never_its_own_competitor() {
+        // **Every one of these searches returns the seed**, and it outscores everything else -
+        // `basecamp alternatives` is a page about Basecamp. Leaving it in would put one company
+        // in the report twice, once because a reader named it and once because a search for it
+        // found it, which is a reason that argues with itself.
+        let all = vec![
+            hit("https://www.basecamp.com/pricing"),
+            hit("https://basecamp.com/"),
+        ];
+        let engine = Canned {
+            per_query: vec![Ok(all.clone()), Ok(all.clone()), Ok(all)],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (set, _) = of_company(&engine, &seed(), |url| async move {
+            Some(format!(
+                "# Basecamp at {url}\n\nProject management for a team."
+            ))
+        })
+        .await;
+
+        assert_eq!(set.members.len(), 1, "{:#?}", set.members);
+        assert_eq!(set.members[0].because, Because::Named);
+        assert!(
+            set.set_aside
+                .iter()
+                .all(|(c, _)| c.canonical_domain != "basecamp.com"),
+            "the seed was reported as an excluded competitor: {:#?}",
+            set.set_aside
+        );
+    }
+
+    #[tokio::test]
+    async fn a_rival_shares_the_seeds_words_rather_than_a_readers() {
+        // The vocabulary floor, pointed at the only words available here: the seed's own
+        // one-line description of itself. A company with nothing in common with it is set
+        // aside and named, exactly as on the description path.
+        let all = vec![hit("https://linear.app/"), hit("https://bakery.example/")];
+        let engine = Canned {
+            per_query: vec![Ok(all.clone()), Ok(all.clone()), Ok(all)],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (set, _) = of_company(&engine, &seed(), |url| async move {
+            Some(if url.contains("bakery") {
+                "# A Bakery\n\nSourdough, baked fresh each morning.".to_owned()
+            } else {
+                "# Linear\n\nProject management built for speed.".to_owned()
+            })
+        })
+        .await;
+
+        let compared: Vec<&str> = set
+            .members
+            .iter()
+            .map(|m| m.candidate.canonical_domain.as_str())
+            .collect();
+        assert_eq!(
+            compared,
+            vec!["basecamp.com", "linear.app"],
+            "{:#?}",
+            set.members
+        );
+        assert_eq!(set.set_aside.len(), 1);
+        assert_eq!(set.set_aside[0].0.canonical_domain, "bakery.example");
+        assert_eq!(set.set_aside[0].1, Aside::ElsewhereEntirely);
+    }
+
+    #[tokio::test]
+    async fn a_rival_is_scored_against_the_queries_that_were_sent() {
+        // The same rule the description path follows, on the other input. Two searches agreeing
+        // out of three sent is agreement between two of three; dividing by the two that
+        // answered would let an engine outage read as unanimity.
+        let both = vec![hit("https://linear.app/")];
+        let engine = Canned {
+            per_query: vec![Ok(both.clone()), Ok(both), Err(())],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (set, queried) = of_company(&engine, &seed(), |_url| async {
+            Some("# Linear\n\nProject management built for speed.".to_owned())
+        })
+        .await;
+
+        assert_eq!(queried.failed.len(), 1);
+        let rival = set
+            .members
+            .iter()
+            .find(|m| m.candidate.canonical_domain == "linear.app")
+            .expect("the rival two searches agreed on");
+        let Because::Found { agreed, asked, .. } = &rival.because else {
+            panic!("{:?}", rival.because)
+        };
+        assert_eq!(*agreed, 2);
+        assert_eq!(*asked, 3, "an outage was counted as unanimity");
+        assert!(
+            rival.because.sentence().contains("2 of the 3"),
+            "{}",
+            rival.because.sentence()
+        );
+    }
+
+    #[tokio::test]
+    async fn a_named_company_survives_every_search_failing() {
+        // The reader named it. An engine outage cannot take that away, and a report about the
+        // one company they asked about is a real answer rather than a refusal.
+        let engine = Canned {
+            per_query: vec![Err(()), Err(()), Err(())],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (set, queried) = of_company(&engine, &seed(), |_url| async { None }).await;
+        assert_eq!(queried.failed.len(), 3);
+        assert_eq!(set.members.len(), 1);
+        assert_eq!(set.members[0].because, Because::Named);
+        assert!(set.set_aside.is_empty());
     }
 
     #[test]
@@ -572,7 +933,7 @@ mod tests {
 
     #[test]
     fn a_reason_names_the_numbers_and_the_readers_own_words() {
-        let because = Because {
+        let because = Because::Found {
             agreed: 3,
             asked: 3,
             shares: vec!["privacy".to_owned(), "analytics".to_owned()],

@@ -1345,6 +1345,54 @@ a loose pin is retightened, **run it** — a pin nobody could apply is a pin nob
 
 ---
 
+## 43. The harness put a file back, and took two tests with it
+
+**Found:** by the harness, one run later.
+
+Two mutations came back `MISSED`. Both were real gaps, so I wrote the tests, watched 780 pass,
+and re-ran the catalogue. One of the two was still `MISSED`.
+
+```bash
+$ grep -c a_named_company_takes_its_name crates/landscape-search/src/candidates.rs
+0
+```
+
+**The test was gone.** A *different* catalogue was still running in the background when I wrote
+it. `scripts/mutate.py` copies each file before mutating it and moves the copy back in a
+`finally` — and the copy it held for `candidates.rs` predated my edit. The restore was correct
+by its own lights and silently deleted work.
+
+**Two things made it nearly invisible.** The sibling edit to `competitors.rs` survived, because
+that file was not in the catalogue that was running — so *one of two tests written in one command
+disappeared*, which looks like nothing at all. And `cargo nextest` passed: a test that does not
+exist does not fail.
+
+**The only thing that noticed was the mutation the test was written for.** That is the harness
+doing the job it exists for, aimed at the harness.
+
+**The mechanical fix.** `mutate.py` now reads the file back before restoring and compares it
+against the text it wrote. If they differ, somebody else has edited it since, and the backup is
+**not** put back:
+
+```text
+CHANGED      crates/landscape-search/src/candidates.rs was edited while this ran.
+    The original is in candidates.rs.mutate-backup and has NOT been put back, because
+    restoring it would delete whatever was just written. Merge it by hand.
+```
+
+This is the third entry about the same window — **41** was a run that died holding a file, **42**
+was a pin that came loose under one, and this is one that put a file back over somebody's work.
+**A tool that edits your source in place is a second author**, and every rule about two authors
+touching one file applies to it.
+
+**Rule:** while a mutation run is going, the working tree belongs to the harness. Edit docs, write
+the PR, read code — do not write source. If a background job is long enough that you will forget
+it is running, that is the argument for the machine checking rather than for remembering.
+
+> **Ask this:** *is anything running right now that owns the file I am about to write?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

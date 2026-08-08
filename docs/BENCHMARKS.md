@@ -33,6 +33,150 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 31 — a company brings its rivals
+
+**Date:** 2026-08-08 · **Where:** this laptop · **Model:** none for the set; the analysis that
+follows uses one exactly as it always has.
+
+Run 30 turned a *description* into a set. A **named** company still produced a report about
+itself alone — `basecamp.com` typed into a competitive landscape tool got a profile of Basecamp,
+which is answering a different question from the one that was asked.
+
+### The case P22 was written for, rather than the exception to it
+
+`FACT_CHECKING.md` P22 requires *"templated queries from resolved entities, not user phrasing"*.
+[`candidates::for_idea`] documents at length why it cannot comply: there is no resolved entity
+when all anybody has typed is a description, so the reader's words go to an engine exactly once,
+to produce a *set of companies* and never a fact.
+
+Here there is a resolved entity — the reader named the domain — and the name in the query comes
+off the company's **own front page**:
+
+```text
+company   Basecamp (basecamp.com)
+it says   Project management and team communication
+query set 2026-08-08.1
+  Basecamp alternatives
+  Basecamp competitors
+  companies like Basecamp
+```
+
+Nothing a reader phrased reaches the engine. It is the first retrieval path in this codebase that
+complies with P22 without an argument attached.
+
+### Reading one box three ways
+
+| Typed | Read as | Why |
+|---|---|---|
+| a description | search for the companies | Run 30 |
+| **one** domain | seed a landscape and find the rest | this run |
+| **two or more** domains | exactly those | a reader has said what to compare |
+
+**The third row is a decision, not an omission.** `basecamp.com vs linear.app` is somebody
+saying which comparison they want; adding a third company we happened to find would be overruling
+them. That rule is `subject::subjects_in` — a function with a name, because it is a judgement
+about what somebody meant and worth being able to assert. Four tests, three mutations.
+
+### The seed is dropped from its own results
+
+A search for *"Basecamp alternatives"* returns Basecamp, and it outscores every other host on the
+page — it is the subject of all three queries. Left in, one company appears twice: once as *"you
+named it"* and once as *"3 of the 3 searches returned it"*, the second of which is circular.
+
+### Two kinds of reason, and `Because` became an enum for it
+
+```text
+Basecamp (basecamp.com)      you named it
+Linear (linear.app)          3 of the 3 searches returned it, and its own front page uses
+                             "project", "management"
+```
+
+`Because` was a struct with `agreed`, `asked` and `shares`. It could only say the second thing —
+so putting a named company in the same list would have meant inventing a search nobody ran, in
+the field a reader is shown as evidence. **A reader who typed a domain has already answered the
+question**; a company we searched for has to justify itself, and those are not the same kind of
+fact.
+
+### The vocabulary floor, pointed at the only words there are
+
+On the description path a rival has to share a word with what the reader typed. On this path the
+reader typed a domain, so the words come from the **seed's own one-line description of itself**
+— the same `SHARED_WORDS = 1` floor, making the same narrow claim: a company whose front page has
+nothing in common with the seed's is not obviously in the same market. A bakery that a search for
+*"Basecamp alternatives"* somehow returned is set aside and **named**, as on the other path.
+
+### What the anchor gate caught on its first working day
+
+Extracting `from_its_own_page` so `describe` and `named_seed` share one copy of *"we were unable
+to read its front page"* moved the line an existing mutation pinned.
+`scripts/mutation_anchors.py` — added in Run 30's review — reported it before the harness was
+run at all:
+
+```text
+crates/landscape-search/src/candidates.rs
+  a candidate we could not read vanishes from the list instead of saying so   missing
+```
+
+That is the class it was written for, caught in a second rather than in a twenty-minute run whose
+output would have read *"26 of 27"*.
+
+### Two mutations that came back MISSED, and both were real
+
+`named_seed` had no test at all: every rival test passed a hand-built seed straight to
+`of_company`, so a version that fetched the front page and then ignored it passed the suite. And
+nothing pinned that a rival's score divides by the queries **sent** rather than the ones that
+answered — the rule Run 29's review established, which has to hold on both paths and was only
+tested on one.
+
+### What still does not happen
+
+**The seeded path has no honest empty.** With no `SEARX_URL`, or with every query failing, a
+named company gets a report about itself and nothing on the page says we looked. That is *"no
+public information at the level of a whole competitor set"* — its own row of S2, deliberately not
+half-built here: one sentence covering *no engine*, *the search did not finish* and *we looked and
+found nobody* is precisely the collapse this project has un-made three times, in Runs 29, 30 and
+30's review.
+
+**Nothing measures whether the set is right**, on either path. Three searches agreeing and a
+shared word is the whole of the evidence, and there is no recall number. That is
+[B1](../PROJECT_STATUS.md#4-blockers) and it is now the only thing holding this feature back that
+is about the feature rather than about the product around it.
+
+**And no engine has been asked**, still: Docker's daemon does not start where this was built, so
+every test is a canned provider over the real code path.
+
+### And the harness put a file back over two of those tests
+
+Writing them took one command; only one of the two survived. A **different** catalogue was still
+running, `mutate.py` had copied `candidates.rs` before mutating it, and the `finally` that puts
+the copy back predated the edit. The sibling test in `competitors.rs` lived, because that file
+was not in the catalogue that was running — so one of two tests written together disappeared,
+which looks like nothing at all. `cargo nextest` passed: a test that does not exist does not fail.
+
+**The only thing that noticed was the mutation the test had been written for.** The harness,
+aimed at the harness.
+
+`mutate.py` now reads the file back before restoring and compares it against what it wrote. If
+they differ, the backup is **not** put back:
+
+```text
+CHANGED      crates/landscape-search/src/candidates.rs was edited while this ran.
+    The original is in candidates.rs.mutate-backup and has NOT been put back, because
+    restoring it would delete whatever was just written. Merge it by hand.
+```
+
+Register entry 43, and the third about the same window: 41 was a run that died holding a file,
+42 was a pin that came loose under one, this is one that wrote over somebody's work. **A tool
+that edits source in place is a second author**, and every rule about two authors sharing a file
+applies to it.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 30 | 767 | 51 |
+| now | **782** | **51** |
+
+---
+
 ## Run 30 — one idea, several companies
 
 **Date:** 2026-08-07 · **Where:** this laptop · **Model:** none for the set; the analysis that

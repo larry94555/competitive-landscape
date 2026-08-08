@@ -122,7 +122,8 @@ def apply(mutation: dict) -> int:
 
     backup = path.with_suffix(path.suffix + ".mutate-backup")
     shutil.copy(path, backup)
-    io.open(path, "w", encoding="utf-8", newline="\n").write(source.replace(old, new, 1))
+    mutated = source.replace(old, new, 1)
+    io.open(path, "w", encoding="utf-8", newline="\n").write(mutated)
     try:
         argv = mutation.get("run", DEFAULT_RUN)
         cwd = ROOT / mutation["cwd"] if "cwd" in mutation else ROOT
@@ -137,7 +138,24 @@ def apply(mutation: dict) -> int:
         )
         output = (done.stdout or "") + (done.stderr or "")
     finally:
-        shutil.move(str(backup), path)
+        # **Restoring is only safe if the file is still the one this run mutated.** A catalogue
+        # takes tens of minutes, and anything that writes to a source file in that window - an
+        # editor, a formatter, somebody adding a test - is silently undone when the backup goes
+        # back. It happened: two tests written during a run vanished, and the only signal was a
+        # mutation reporting MISSED for a property that had just been covered.
+        #
+        # So the check is *what is on disk*, not what should be. If it is not the mutated text
+        # this run wrote, somebody else owns the file now and their work is worth more than a
+        # tidy restore.
+        if io.open(path, encoding="utf-8").read() == mutated:
+            shutil.move(str(backup), path)
+        else:
+            print(
+                f"  CHANGED      {mutation['file']} was edited while this ran.\n"
+                f"      The original is in {backup.name} and has NOT been put back, because\n"
+                "      restoring it would delete whatever was just written. Merge it by hand.\n"
+                "      Every result after this one is about a file this run does not control."
+            )
         # Restoring preserves mtime, which leaves cargo holding the mutated artefact. Touch it,
         # or the next run measures code nobody is looking at.
         os.utime(path, None)
