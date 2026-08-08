@@ -80,100 +80,99 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    said: {
-      name: "what the status page said",
-      purpose: "For six phases, in the same row.",
+    tie: {
+      name: "three companies, one score",
+      purpose: "Every search returned all three.",
       lines: [
-        ['s', '  S2  a business idea does'],
-        ['s', '      not run at all'],
+        ['s', '  0.8 x 3/3 + 0.2 = 1.0'],
+        ['s', '  0.8 x 3/3 + 0.2 = 1.0'],
+        ['s', '  0.8 x 3/3 + 0.2 = 1.0'],
         ['c', ''],
-        ['c', '// The gate was built in Phase 1.'],
-        ['f', '// It had nothing to gate.']
+        ['c', '// AMBIGUITY_MARGIN says tied.'],
+        ['f', '// So the gate asked: which one?']
       ]
     },
-    stale: {
-      name: "and what the refusal said",
-      purpose: "It had gone out of date too.",
+    answer: {
+      name: "and for a market, tied is the answer",
+      purpose: "The question was the wrong one.",
       lines: [
-        ['s', '  finding one from a description'],
-        ['s', '  needs the search channel that'],
-        ['s', '  is not built yet'],
+        ['s', '  which of these did you mean?'],
         ['c', ''],
-        ['t', '// It is built. Two PRs ago.']
+        ['t', '  all three. that is the market.'],
+        ['c', ''],
+        ['c', '// A landscape tool answering a'],
+        ['f', '// landscape with one company.']
       ]
     },
-    three: {
-      name: "the gate has three answers",
-      purpose: "The worker had one sentence.",
+    word: {
+      name: "a name, or a kind of thing",
+      purpose: "Arithmetic on the words typed.",
       lines: [
-        ['f', '  Resolved     run it'],
-        ['t', '  Ambiguous    name them, ask'],
-        ['t', '  NothingFound we looked'],
-        ['s', '  no engine    we could not look'],
+        ['s', '  Notion                 1 word'],
+        ['t', '  privacy-friendly       4 words'],
+        ['t', '  website analytics'],
         ['c', ''],
-        ['c', '// Only the last one is fixed by'],
-        ['c', '// installing something.']
+        ['c', '// One is a name. Two or more'],
+        ['f', '// is a description. Crude, checkable.']
       ]
     },
-    first: {
-      name: "and the report says who it is about",
-      purpose: "First. Not merely present.",
+    because: {
+      name: "why each company is here",
+      purpose: "Two numbers and your own words.",
       lines: [
-        ['f', '  You described a product rather'],
-        ['f', '  than naming a company, so we'],
-        ['f', '  searched for one...'],
+        ['f', '  3 of the 3 searches returned it,'],
+        ['f', '  and its own front page uses'],
+        ['f', '  "privacy", "analytics"'],
         ['c', ''],
-        ['c', '// The one thing a reader cannot'],
-        ['t', '// check by reading further down.']
+        ['c', '// Nothing here is a summary'],
+        ['t', '// somebody has to trust.']
       ]
     },
-    twice: {
-      name: "one question, asked twice",
-      purpose: "SEARX_URL, in two places.",
+    four: {
+      name: "four ways to be left out",
+      purpose: "And they are not interchangeable.",
       lines: [
-        ['s', '  resolve a description  -> env'],
-        ['s', '  fill a company gap     -> env'],
+        ['t', '  Uncorroborated  one search'],
+        ['t', '  Unconvincing    below the floor'],
+        ['t', '  ElsewhereEntirely  other market'],
+        ['s', '  Unread          we could not look'],
         ['c', ''],
-        ['t', '  read once, passed to both'],
-        ['c', ''],
-        ['c', '// Two answers that can disagree.']
+        ['c', '// Only the last one is about us.']
       ]
     },
-    eight: {
-      name: "clippy saw the shape first",
-      purpose: "Eight positional arguments.",
+    option: {
+      name: "two silences that look alike",
+      purpose: "An empty list, or no list.",
       lines: [
-        ['s', '  analyse_many(a,b,c,d,e,f,g,h)'],
+        ['t', '  Some([])  read, about something else'],
+        ['s', '  None      nobody could read it'],
         ['c', ''],
-        ['t', '  &Asked { .. }'],
-        ['c', ''],
-        ['c', '// The codebase already had the'],
-        ['f', '// answer, and it was not #[allow].']
+        ['c', '// Collapsing them tells a reader'],
+        ['f', '// something false about a company.']
       ]
     },
-    spaces: {
-      name: "and a note was shipping this",
-      purpose: "A lost line continuation.",
+    stop: {
+      name: "the stop list that could not grow",
+      purpose: "software, platform, tool, app.",
       lines: [
-        ['s', '  its own              discovery'],
+        ['s', '  tax software  -> [tax]'],
+        ['s', '  1 word -> read as a brand name'],
         ['c', ''],
-        ['f', '  its own discovery'],
+        ['t', '  tax software  -> [tax, software]'],
         ['c', ''],
-        ['c', '// Found while making the same'],
-        ['t', '// mistake one note below it.']
+        ['f', '// A weak content word is a word.']
       ]
     },
-    order: {
-      name: "one element cannot be first",
-      purpose: "The harness found the test.",
+    notes: {
+      name: "and only the ones it read",
+      purpose: "The cap and the note must agree.",
       lines: [
-        ['s', '  notes = [one]'],
-        ['s', '  insert(0) == insert(len())'],
+        ['s', '  names five, compares three'],
         ['c', ''],
-        ['t', '  four companies, two notes'],
+        ['t', '  members.iter().take(analysing)'],
         ['c', ''],
-        ['c', '// A position needs something'],
-        ['c', '// to be positioned against.']
+        ['c', '// The silent drop with better'],
+        ['f', '// prose in front of it.']
       ]
     }
   };
@@ -217,19 +216,19 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:said",   c: "The status page said this for six phases." },
-    { kind: "means",       a: "file:stale",  c: "And the refusal had gone stale with it." },
+    { kind: "recognition", a: "file:tie",     c: "Three companies. One score each." },
+    { kind: "means",       a: "file:answer",  c: "The gate asked which one. For a market, all of them." },
 
-    { kind: "turn",        a: "file:three",  c: "The gate has three answers. The worker had one." },
-    { kind: "result",      a: "file:first",  c: "And the report says who it is about, first." },
+    { kind: "turn",        a: "file:word",    c: "One word is a name. Two is a description." },
+    { kind: "result",      a: "file:because", c: "And every company carries why it is here." },
 
-    { kind: "turn",        a: "file:twice",  c: "One question was being asked of the environment twice." },
-    { kind: "result",      a: "file:eight",  c: "Clippy saw the shape before a reader did." },
+    { kind: "turn",        a: "file:four",    c: "Four ways to be left out, all of them named." },
+    { kind: "result",      a: "file:option",  c: "Two of them look identical from outside." },
 
-    { kind: "result",      a: "file:spaces", c: "A note had been shipping a lost continuation." },
-    { kind: "result",      a: "file:order",  c: "And one element cannot test an ordering." },
+    { kind: "result",      a: "file:stop",    c: "The stop list could not grow, and that is the rule." },
+    { kind: "result",      a: "file:notes",   c: "A note names only the companies actually read." },
 
-    { kind: "close",       a: "hold",        c: "Typing an idea runs." }
+    { kind: "close",       a: "hold",         c: "One idea, several companies." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -272,8 +271,8 @@
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "What a page claims",
-    blurb: "Two of six questions had no extractor, so a trust page was fetched and thrown away. A compliance standard is a closed vocabulary — the scanner finds the mention, and the model only reads whether the page claims to hold it or to be working towards it. Freezing a real security page found a duplicate on the first run, and measuring found the page the pipeline was reading instead.",
+    title: "One idea, several companies",
+    blurb: "A description produced one company, because the disambiguation gate answers \'which company did you mean\' and three companies every search returned score identically \u2014 a tie, and for a market a tie is the answer. What tells a market from a shared name is arithmetic on the reader\'s own words: one content word is a brand, two or more is a kind of thing. Every company in the report now carries the countable reason it is there, and every one left out carries which of four things happened to it \u2014 including the two that look identical from outside and are not.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

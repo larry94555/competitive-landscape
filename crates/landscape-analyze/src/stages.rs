@@ -858,6 +858,46 @@ mod tests {
         }
     }
 
+    #[tokio::test]
+    async fn a_trust_page_reaches_the_trust_extractor() {
+        // **The dispatch, not the extractor.** `trust-posture.json` pins what
+        // `assurance::every_assurance` finds and what the judge accepts; nothing asserted that
+        // `Answers::Trust` still arrives *there*. The mutation that returns an empty outcome
+        // for a trust page survived the whole suite, which is a page fetched, read, and thrown
+        // away in silence.
+        let page = landscape_golden::pages::load()
+            .expect("the page set loads")
+            .into_iter()
+            .find(|e| e.page == "linear-security.md")
+            .expect("the security page")
+            .markdown()
+            .expect("it reads");
+        let named = landscape_extract::assurance::every_assurance(&page)
+            .named
+            .len();
+        assert!(named > 0, "the fixture should name a standard");
+
+        let stub = StubModel::start(A_CLAIM).await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+        let mut carry_on = |_: &[crate::Finding]| crate::Wanted::Yes;
+        let outcome = extract(
+            &llm,
+            Answers::Trust,
+            "https://linear.app/security",
+            &page,
+            NaiveDate::from_ymd_opt(2026, 8, 5).unwrap(),
+            &mut carry_on,
+        )
+        .await;
+
+        assert_eq!(stub.calls(), named, "the trust extractor was not asked");
+        assert!(
+            !outcome.claims.is_empty(),
+            "a trust page was read and produced nothing"
+        );
+        assert!(outcome.window_words > 0, "no window was read");
+    }
+
     /// The real Basecamp features page: twelve capability windows, one model call each. The
     /// shape that made a reader wait four minutes in `BENCHMARKS.md` Run 16, and therefore the
     /// shape most worth abandoning when nobody is waiting any more.

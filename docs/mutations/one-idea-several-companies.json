@@ -1,0 +1,509 @@
+[
+  {
+    "name": "a market description is answered with a question instead of a set",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "        Resolution::Ambiguous { candidates, .. } if !about_a_market => {",
+    "new": "        Resolution::Ambiguous { candidates, .. } => {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a name several products share is reported on instead of asked about",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "        Resolution::Ambiguous { candidates, .. } if !about_a_market => {",
+    "new": "        Resolution::Ambiguous { candidates, .. } if false => {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "one word is treated as a description of a market",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "pub const DESCRIBES_A_MARKET: usize = 2;",
+    "new": "pub const DESCRIBES_A_MARKET: usize = 1;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a company found and left out is dropped in silence",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "            (Some(why), _) => set.set_aside.push((candidate, why)),",
+    "new": "            (Some(_), _) => {}",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a page nobody could read is reported as a page about another market",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "                Vocabulary::Unreadable => Some(Aside::Unread),",
+    "new": "                Vocabulary::Unreadable => Some(Aside::ElsewhereEntirely),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a page that could not be read shares an empty list rather than nothing",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        let shares = page.as_deref().map_or(Vocabulary::Unreadable, |markdown| {\n            Vocabulary::Read(crate::competitors::shared(words, markdown))\n        });",
+    "new": "        let shares = Vocabulary::Read(\n            page.as_deref()\n                .map(|markdown| crate::competitors::shared(words, markdown))\n                .unwrap_or_default(),\n        );",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a company whose page shares nothing joins the comparison anyway",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "                Vocabulary::Read(ref s) if s.len() < SHARED_WORDS => Some(Aside::ElsewhereEntirely),",
+    "new": "                Vocabulary::Read(ref s) if s.len() < 0 => Some(Aside::ElsewhereEntirely),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "an uncorroborated company joins the comparison",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "        let aside = if agreed < CORROBORATION {",
+    "new": "        let aside = if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a company we do not believe the score of joins the comparison",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "        } else if candidate.score() < MINIMUM_CONFIDENCE {",
+    "new": "        } else if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the weakest reason for absence is the one a reader is given",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "        let aside = if agreed < CORROBORATION {\n            Some(Aside::Uncorroborated { agreed, asked })\n        } else if candidate.score() < MINIMUM_CONFIDENCE {\n            Some(Aside::Unconvincing)\n        } else {",
+    "new": "        let aside = if candidate.score() < MINIMUM_CONFIDENCE {\n            Some(Aside::Unconvincing)\n        } else if agreed < CORROBORATION {\n            Some(Aside::Uncorroborated { agreed, asked })\n        } else {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the set is ordered however the candidates arrived",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    set.members.sort_by(|a, b| {",
+    "new": "    set.members.sort_by(|b, a| {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a tie in the set reorders between two runs of the same input",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "            .then_with(|| {\n                a.candidate\n                    .canonical_domain\n                    .cmp(&b.candidate.canonical_domain)\n            })",
+    "new": "            .then_with(|| std::cmp::Ordering::Equal)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a reason divides by the searches that answered rather than those sent",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    let set = crate::competitors::assemble(named.clone(), queried.sent());",
+    "new": "    let set = crate::competitors::assemble(named.clone(), queried.completed.len());",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a grammar word is counted as a word a reader typed",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "        if word.len() < 3 || NOT_CONTENT.contains(&word.as_str()) || out.contains(&word) {",
+    "new": "        if word.len() < 3 || out.contains(&word) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the same word typed twice counts twice",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "        if word.len() < 3 || NOT_CONTENT.contains(&word.as_str()) || out.contains(&word) {",
+    "new": "        if word.len() < 3 || NOT_CONTENT.contains(&word.as_str()) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "sharing a word is case sensitive",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    let on_the_page: Vec<String> = page\n        .to_lowercase()",
+    "new": "    let on_the_page: Vec<String> = page\n        .to_owned()",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the report names a company it never read",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "        set.members.iter().take(analysing).collect();",
+    "new": "        set.members.iter().collect();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the companies a report is about are mentioned last, under everything else",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        for note in subject::found_for_you(set, analysing.len())\n            .into_iter()\n            .rev()\n        {\n            notes.insert(0, note);\n        }",
+    "new": "        notes.extend(subject::found_for_you(set, analysing.len()));",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a report about companies nobody named does not say so",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "    if let Some(set) = set {",
+    "new": "    if let Some(set) = None::<&landscape_search::competitors::Set>.or(set).filter(|_| false) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the reasons each company is in the report are dropped",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "            .map(|m| format!(\"{} - {}\", m.candidate.name, m.because.sentence()))",
+    "new": "            .map(|m| m.candidate.name.clone())",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "companies found and set aside are not mentioned to a reader",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "    if !could_have.is_empty() {",
+    "new": "    if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "an empty set is reported as a market with nobody in it",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "        _ if set.is_empty() && !set.set_aside.is_empty() => {\n            Decided::Refuse(none_of_them(&set.set_aside))\n        }",
+    "new": "        _ if set.is_empty() && !set.set_aside.is_empty() => {\n            Decided::Refuse(NOTHING_RESOLVED.to_owned())\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "an empty set is analysed anyway",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "        _ if set.is_empty() => Decided::Refuse(NOTHING_RESOLVED.to_owned()),",
+    "new": "        _ if false => Decided::Refuse(NOTHING_RESOLVED.to_owned()),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "an outage is reported to a reader as an empty market",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "        Resolution::NothingFound { .. } if !queried.failed.is_empty() => {",
+    "new": "        Resolution::NothingFound { .. } if queried.failed.is_empty() && false => {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a set is thrown away because one of the searches failed",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "        Resolution::NothingFound { .. } if !queried.failed.is_empty() => {\n            Decided::Refuse(search_incomplete(queried.failed.len(), queried.sent()))\n        }",
+    "new": "        _ if !queried.failed.is_empty() => {\n            Decided::Refuse(search_incomplete(queried.failed.len(), queried.sent()))\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a list of companies is run together without an and",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "        [rest @ .., last] => format!(\"{} and {last}\", rest.join(\", \")),",
+    "new": "        [rest @ .., last] => format!(\"{}, {last}\", rest.join(\", \")),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the origins the report reads are not the set it named",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "            .map(|m| format!(\"https://{}\", m.candidate.canonical_domain))",
+    "new": "            .map(|m| format!(\"https://{}\", m.candidate.name))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a word inside another word counts as a word the page uses",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "        .filter(|w| on_the_page.iter().any(|t| t == *w))",
+    "new": "        .filter(|w| page.to_lowercase().contains(w.as_str()))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "punctuation around a word hides it from the page",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    let on_the_page: Vec<String> = page\n        .to_lowercase()\n        .split(|c: char| !c.is_alphanumeric())",
+    "new": "    let on_the_page: Vec<String> = page\n        .to_lowercase()\n        .split(' ')",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a company beyond the fetch budget is dropped rather than deferred",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        if rank >= NAMED {",
+    "new": "        if rank >= NAMED {\n            continue;\n        }\n        if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a page nobody asked for is reported as a page that failed",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "                Vocabulary::NotRequested => Some(Aside::BeyondTheFetchBudget { budget: NAMED }),",
+    "new": "                Vocabulary::NotRequested => Some(Aside::Unread),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a company beyond the fetch budget joins the comparison unread",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "                Vocabulary::NotRequested => Some(Aside::BeyondTheFetchBudget { budget: NAMED }),",
+    "new": "                Vocabulary::NotRequested => None,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "every front page found is fetched, whatever the budget says",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        if rank >= NAMED {",
+    "new": "        if rank >= usize::MAX {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a company that could have been compared is counted rather than named",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "    let (could_have, single): (Vec<_>, Vec<_>) = set.set_aside.iter().partition(|(_, why)| {\n        !matches!(\n            why,\n            landscape_search::competitors::Aside::Uncorroborated { .. }\n        )\n    });",
+    "new": "    let (could_have, single): (Vec<_>, Vec<_>) = set.set_aside.iter().partition(|_| false);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "twenty one-hit hosts are named one by one in a report note",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "    let (could_have, single): (Vec<_>, Vec<_>) = set.set_aside.iter().partition(|(_, why)| {\n        !matches!(\n            why,\n            landscape_search::competitors::Aside::Uncorroborated { .. }\n        )\n    });",
+    "new": "    let (could_have, single): (Vec<_>, Vec<_>) = set.set_aside.iter().partition(|_| true);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the sites only one search returned are not mentioned at all",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "    if !single.is_empty() {",
+    "new": "    if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a reader is asked to choose between companies nobody fetched",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    let choices: Vec<Candidate> = named\n        .into_iter()\n        .filter(Described::was_requested)\n        .map(|d| d.candidate)\n        .collect();",
+    "new": "    let choices: Vec<Candidate> = named.into_iter().map(|d| d.candidate).collect();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the set is bounded by the same list the gate is",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    let set = crate::competitors::assemble(named.clone(), queried.sent());",
+    "new": "    let set = crate::competitors::assemble(\n        named.iter().filter(|d| d.was_requested()).cloned().collect(),\n        queried.sent(),\n    );",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a candidate nobody fetched claims to have been requested",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        !matches!(self.shares, Vocabulary::NotRequested)",
+    "new": "        true",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  }
+]

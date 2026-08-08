@@ -68,7 +68,13 @@ class Gate:
             stripped = line.strip()
             if any(
                 mark in stripped
-                for mark in ("tests run:", "Tests ", "every internal link", "look runnable")
+                for mark in (
+                    "tests run:",
+                    "Tests ",
+                    "every internal link",
+                    "look runnable",
+                    "anchor is in its file",
+                )
             ):
                 return stripped
         return ""
@@ -81,6 +87,14 @@ def gates(web: bool) -> list[Gate]:
         # file is the defect there. This one is the opposite: it exists to stop a deliberate
         # defect *reaching* a commit, so asking HEAD would only ever find it too late.
         Gate("no live mutations", [sys.executable, "scripts/no_live_mutations.py"]),
+        # **The other way a catalogue stops meaning anything.** That gate finds a mutation left
+        # *in* the tree; this one finds a mutation that can no longer be put there, because the
+        # line it pins was reformatted or moved. `scripts/mutate.py` prints `NOT APPLIED` and
+        # carries on, so the run ends `26 of 27` and reads like a coverage gap. Review found one
+        # that way; the check then found four more, rotting since earlier phases, in catalogues
+        # nobody had reason to re-run. Text matching only, so it costs nothing - running the
+        # catalogues themselves takes tens of minutes and is why they were never a gate.
+        Gate("mutation anchors", [sys.executable, "scripts/mutation_anchors.py"]),
         Gate("fmt", ["cargo", "fmt", "--all", "--check"]),
         # `--all-features` and `--all-targets`, because CI uses both and a lint that only fires
         # on a test target is exactly the one a hurried local run misses.

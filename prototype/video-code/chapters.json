@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "What a page claims",
-    "blurb": "Two of six questions had no extractor, so a trust page was fetched and thrown away. A compliance standard is a closed vocabulary — the scanner finds the mention, and the model only reads whether the page claims to hold it or to be working towards it. Freezing a real security page found a duplicate on the first run, and measuring found the page the pipeline was reading instead.",
-    "seconds": 37.4
+    "title": "One idea, several companies",
+    "blurb": "A description produced one company, because the disambiguation gate answers 'which company did you mean' and three companies every search returned score identically — a tie, and for a market a tie is the answer. What tells a market from a shared name is arithmetic on the reader's own words: one content word is a brand, two or more is a kind of thing. Every company in the report now carries the countable reason it is there, and every one left out carries which of four things happened to it — including the two that look identical from outside and are not.",
+    "seconds": 37.9
   }
 ]

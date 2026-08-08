@@ -1,6 +1,6 @@
 # Project Status
 
-**As of 2026-08-07** · `main` at `c8a8318`, plus the branch this page is on.
+**As of 2026-08-07** · `main` at `72ce045`, plus the branch this page is on.
 
 This page answers one question: **what can somebody actually do with this today, and what
 stands between here and each of the six states that matter.** It is deliberately separate from
@@ -21,7 +21,7 @@ The six states, in the order they must be reached. **S1 is met.** The rest are n
 | # | State | Met? | Percentage Left | The single thing standing in the way |
 |---|---|---|---|---|
 | **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **Yes.** Pick an example idea, watch sections arrive, read a cited report about real companies, reload and it is still there. On a laptop. *This row once said the opposite twice* — see [§1.5](#15-the-correction-that-produced-phase-d). | [**0%**](docs/Full_Feature_List.md#s1--ready-for-a-guided-demo) | Nothing. Serve the app, a run has a URL, several companies in one report, example ideas that really run, and reads ordered so first content costs no model call — 23s on `linear.app`, measured. |
-| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**67%**](docs/Full_Feature_List.md#s2--ready-for-demonstration) | **A business idea runs.** *This row said "a business idea does not run at all" for six phases; it no longer does.* A prompt naming no domain is searched for, grouped into companies, scored on cross-query agreement, named from each company's own front page, and put through the disambiguation gate — one clear answer is analysed, and anything else is a refusal that names what was found. **33% done.** What is left: a *set* of competitors rather than one company, chips to answer the ambiguous question with, and the caches. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
+| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**61%**](docs/Full_Feature_List.md#s2--ready-for-demonstration) | **A business idea produces a comparison.** *This row said "a business idea does not run at all" for six phases.* A prompt naming no domain is searched for, grouped into companies, scored on cross-query agreement, named from each company's own front page — and what comes out is now the **set**, not the pick: every company that two searches agreed on and whose own front page uses the reader's words, each carrying why it is there, and every company found and left out carrying which of five things happened to it. **39% done.** What is left: competitors *of a named company* rather than only of a description, chips to answer a genuinely ambiguous name with, and the caches. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
 | **S3** | **Ready for use** — friendly users should find no issue | **No.** | [**96%**](docs/Full_Feature_List.md#s3--ready-for-use) | 6 of 9 report sections, no verification layer, no comparison matrix, no accounts. |
 | **S4** | **Ready for general use** — promotable, word-of-mouth quality | **No.** | [**100%**](docs/Full_Feature_List.md#s4--ready-for-general-use) | Everything in S3, plus no quality gates have ever been run against a deployed system. |
 | **S5** | **General use, free mode** — stable, email signup, community channels | **No.** | [**100%**](docs/Full_Feature_List.md#s5--general-use-free-mode) | No authentication code exists anywhere in the repository. No knowledge base. |
@@ -34,7 +34,7 @@ finished when it is demonstrable end to end on a development machine — Rust, N
 defect rather than a step in the plan.
 
 **Percentage Left is software only**, counted in pull requests and linked to the feature it comes
-from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **46 of 130 PRs done, 35% of the whole
+from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **47 of 130 PRs done, 36% of the whole
 deliverable.** Getting it onto a host is a
 [separate three-PR track](docs/Full_Feature_List.md#getting-it-onto-a-host) that gates *who can see*
 the software rather than what it can do, and the concierge interviews and source-terms audit are
@@ -144,22 +144,23 @@ substitution is deliberate and is noted on each one.
 
 ### F1 — Searching for competitive information on a product idea
 
-**Rung: R1, partially.** The happy path exists for one of the two input shapes.
+**Rung: R1, for both input shapes.** A description now produces a comparison rather than a
+refusal; what is unmeasured is whether it is the *right* comparison.
 
 | Rung | State | Why |
 |---|---|---|
-| R1 happy path, minimal information | **Met for a domain, and for three ideas. Not met for an idea in general.** | `basecamp.com` produces a six-section cited report. So do the three example ideas, over two real companies each. "an app that helps small farms sell to local restaurants" still fails with `no_subject` and a remedy line — **the curated ideas step over that gap, they do not close it.** |
+| R1 happy path, minimal information | **Met for a domain and for a description.** | `basecamp.com` produces a six-section cited report. So does *"privacy-friendly website analytics"*: three searches, hosts grouped and scored, each named from its own front page, and the ones that survive compared against each other with the reason each is there printed at the top. What is **not** met is R2 and up — nothing measures whether that set is the right set. |
 | R2 10% of relevant information | **Unknown — unmeasurable.** | No idea-level golden set exists. See [B1](#4-blockers). |
 | R3 25% · R4 50% · R5 80% | **Unknown — unmeasurable.** | Same. |
-| R6 relevant information returned | **No.** | Several named companies, all 6 question kinds, and off-domain pages now reachable when the company's own leave a question empty. What is missing is finding the companies. |
+| R6 relevant information returned | **No.** | Several companies, all 6 question kinds, off-domain pages when a company's own leave a question empty, and a set derived from a description. What is missing is any measurement that the set is right ([B1](#4-blockers)) and competitors *of a named company*. |
 | R7 ready for demo | **No.** | Not deployed. |
-| R8 ready for use | **No.** | An idea-shaped prompt is the *normal* input and it does not run. |
+| R8 ready for use | **No.** | Not deployed, unmeasured, and a genuinely ambiguous one-word name is still answered with a sentence rather than a chip. |
 
 **What exists.** `crates/landscape-discover` (on-domain probes, sitemap, `llms.txt`, ranked and
 capped at 8), `crates/landscape-fetch` (SSRF guard at 100% coverage, robots.txt, per-host
 politeness), `crates/landscape-extract` (Markdown conversion, span pre-selection, **all six**
 extractors), `crates/landscape-search` (templated versioned queries, a `SourceProvider` seam, a
-SearXNG adapter, and host-based admission — **not called by any analysis**),
+SearXNG adapter, host-based admission, candidate generation, and competitor-set derivation),
 `crates/landscape-llm` (grammar-constrained decoding), `crates/landscape-analyze` (the
 orchestrator), SSE streaming, and a React page that renders sections as they land.
 
@@ -172,19 +173,17 @@ description into companies — it hands over three descriptions whose companies 
 
 **What is missing, in the order it blocks things:**
 
-1. **The search channel — a quarter built, and not yet called by anything.**
-   `landscape-search` now exists: a versioned templated query set derived from the questions
-   discovery came back empty on, a `SourceProvider` seam with a SearXNG adapter behind it, and
-   an admission step where a result's standing comes from its host rather than from its rank —
-   the company's own domain is Primary, everything else is Unverified and may never set a value
-   in a comparison table. `landscape search <origin>` runs it by hand.
-   **No analysis calls it**, so a description still fails with `no_subject`. That join is the
-   next PR. [BENCHMARKS.md](docs/BENCHMARKS.md) Run 26.
-2. **Candidate generation for entity resolution.** The *gate* is built and unit-tested
-   (`landscape-core::subject`) — given scored candidates it resolves, asks, or reports nothing
-   found. Nothing generates candidates. The search channel is what will feed them, which is why
-   it was the piece that had to exist first.
-3. **Competitor set derivation.** Nothing turns one subject into several.
+1. **No measurement that the set is the right set.** Three searches agreeing and a shared word
+   on a front page is the whole of the evidence a company is in somebody's market. It is
+   arithmetic a reader can check, and it is not a *recall* number — nothing says how many real
+   competitors were missed. That is [B1](#4-blockers), and it is now the top item here because
+   the software that needed building got built. [BENCHMARKS.md](docs/BENCHMARKS.md) Run 30.
+2. **Competitors of a named company.** `basecamp.com` still produces a report about Basecamp
+   alone; the set is derived from a *description*, not from a company. Two PRs of that row are
+   left, and this is the first of them.
+3. **A one-word name is answered with a sentence, not a chip.** `Notion` correctly refuses to
+   guess and lists the candidates in prose. `PRODUCT_SPEC.md` §3 wants chips; that is the
+   clarifying-question row.
 4. **Gaps are measured from admission, not from coverage.** `landscape search` asks about a
    question when discovery admitted *no page* for it. A page that was found and yielded nothing —
    Help Scout's `/blog` for *changes* — therefore triggers no search, even though the section
@@ -192,13 +191,14 @@ description into companies — it hands over three descriptions whose companies 
    needs the orchestrator.
 5. **No caching.** The fetch cache and per-source extraction cache — called the
    highest-leverage cache in the system, and scheduled for Phase 1 — are not built. Two users
-   analysing the same competitor share no work.
+   analysing the same competitor share no work. **A set makes this worse**: three companies per
+   run is three times the fetching, and two readers describing the same market share none of it.
 
 **All six extractors are built.** Trust posture reads a closed vocabulary of compliance
 standards; investment direction reads a careers page and asks no model at all.
 
-**Blockers:** [B1](#4-blockers) (no measurement), [B2](#4-blockers) (search channel),
-[B5](#4-blockers) (not deployed).
+**Blockers:** [B1](#4-blockers) (no measurement — now the only one holding this feature back
+on its own merits), [B5](#4-blockers) (not deployed).
 **Risks:** [K1](#5-risks), [K2](#5-risks), [K5](#5-risks).
 
 ---
@@ -504,7 +504,7 @@ Ordered by what they hold up.
 | # | Blocker | Holds up | Owner | Note |
 |---|---|---|---|---|
 | **B1** | **No measurement of "relevant information returned."** The golden set scores extractors against frozen pages; nothing scores a *report about an idea* against a known-correct answer. | Every R2–R5 rung of [F1](#f1--searching-for-competitive-information-on-a-product-idea). Reporting the ladder at all. | Founder defines correct; agent builds | Needs sample ideas with hand-written competitor sets and a recall metric. Not on any phase's task list — **this is a gap in the plan, not just in the code.** |
-| **B2** | **The search channel reaches nothing yet.** `landscape-search` exists — queries, the provider seam, a SearXNG adapter, admission — and **no analysis calls it**, so a prompt that names no domain still fails. | F1 R6/R7/R8, F2, F3, F8's matrix, S2 and everything after it. | Agent | Was *"does not exist"*; one of its four PRs is in. Still the largest piece of unbuilt software on the critical path, and still open until an analysis can start from a description. |
+| ~~**B2**~~ | ~~**The search channel reaches nothing.**~~ **Closed.** Queries, the provider seam, a SearXNG adapter, admission, candidate generation, and set derivation — and an analysis that starts from a description and ends in a comparison. | ~~F1 R6/R7/R8, F2, F3, F8's matrix, S2~~ | Agent | Four PRs, from *"does not exist"* to a description producing a set. **What it does not close is [B1](#4-blockers)**: nothing measures whether the set is right, and a channel nobody can score is a channel nobody can improve. **SearXNG itself has still never been run against this** — the compose profile and `settings.yml` are checked in and unwalked. |
 | ~~**B3**~~ | ~~**No permalink.**~~ **Closed.** `/a/{id}` opens a run, and the address bar carries it from the moment it exists. | ~~F2, F3, F11~~ | Agent | Small. Disproportionate. Done in Phase D. |
 | **B4** | **Source terms unaudited.** Reddit, X, YouTube, Stack Exchange, GitHub search limits, review-platform robots.txt. | F12, the discovery channel ranking, part of Phase 0's exit. | Founder — must be read in a browser from the primary source | Two of these can invalidate a planned feature. Half a day. |
 | **B5** | **Nothing is deployed.** No address, no SSH user, no key reachable from here; instance shape and Pay-As-You-Go status unconfirmed. **The procedure now exists** — [DEPLOY.md](docs/DEPLOY.md), with units and a build script — and has never been run. | Phase 0's latency exit criterion, and every number that can only be taken from a client's side. **No longer any readiness state**: those are defined by what the software does, verified locally. | Founder | Claude stops at the PR. The first person through DEPLOY.md is the one who finds out where it is wrong. |
@@ -519,7 +519,7 @@ Ordered by what they hold up.
 | # | Risk | Likelihood · Impact | Where it shows | Mitigation, and whether it is in place |
 |---|---|---|---|---|
 | **K1** | **We are 20 weeks from a user and have not met one.** The report format, the buyer and the price are all assumptions. | High · Severe | Everything built since Phase 0 | The concierge track exists precisely for this and is [B8](#4-blockers), unstarted. **Not mitigated.** |
-| **K2** | **The headline input does not run.** "Type a business idea" is the product's promise; typing one fails. | Certain today · Severe | [F1](#f1--searching-for-competitive-information-on-a-product-idea) | Blocked on [B2](#4-blockers), which is now a quarter built and still blocking — the channel exists and nothing calls it. The failure is at least *honest* — it names what is missing and suggests a domain — rather than guessing a company, which would be the most expensive wrong answer available. |
+| **K2** | **The headline input runs, and nothing says the answer is right.** "Type a business idea" is the product's promise; typing one now produces a comparison of several companies. Whether they are *the* companies is unmeasured. | Certain today · Severe | [F1](#f1--searching-for-competitive-information-on-a-product-idea) | [B2](#4-blockers) is closed. The risk **moved** rather than cleared: it was *"the promise does not run"* and is now *"the promise runs and its answer is unscored"*, which is harder to see and is [B1](#4-blockers). What is in place is that every company in the set carries the countable reason it is there, and every one left out carries the reason it is not — a reader can audit the answer even though we cannot yet score it. |
 | **K3** | **Shape is not truth.** Constrained decoding guarantees a valid type and nothing about the values. A defective quantisation once passed every check we had. | Medium · Severe | [F9](#f9--claims-you-can-check) | Golden set with abstain-required subjects: in place. `landscape-verify` re-checking quotes against sources: **not built.** |
 | **K4** | **Free-tier latency.** Four ARM cores cannot serve the 15–25s promise; prefill dominates. Users abandon mid-stream. | Certain at Rung 0 · High | [F14](#f14--the-wait) | Deterministic-first extraction and span pre-selection are built and working. Caching, section-parallel generation and read-ordering are not. Never measured on the target host ([B5](#4-blockers)). |
 | **K5** | **Distribution, not features, is the likely cause of death.** The plan's only answer is one launch window in Phase 6, and the weekly distribution workstream was meant to start at Phase 1. | High · Severe | Not visible in the repository at all | The workstream is written as a standing weekly commitment. **No evidence it has started.** |
@@ -539,12 +539,15 @@ report covers every company named, three ideas over six real companies are on th
 and re-checkable against the live web, and the reads are ordered so the first thing on screen
 costs no model call. Deploying it ([B5](#4-blockers)) changes who can see it, not what it does.
 
-**To S2 — any business idea handled correctly.** Finish the search channel ([B2](#4-blockers)) —
-the crate exists and the orchestrator does not call it, so that join is the next step; generate
-entity candidates so the existing disambiguation gate has something to work on; derive a
-competitor set rather than one origin; and hold on to the honest-gap treatment, since S2's own
-definition requires that "no public information" be reported gracefully rather than as a failure.
-**All six extractors are done**, so no section is permanently empty any more.
+**To S2 — any business idea handled correctly.** The search channel is finished
+([B2](#4-blockers)) and a description now produces a set. What is left is a competitor set
+derived from a **named company** rather than only from a description; chips for the one-word
+names the gate still refuses in prose; vocabulary resolution, so a reader's words reach the
+category a vendor would use; the two caches, which a three-company run makes three times more
+valuable; and holding on to the honest-gap treatment, since S2's own definition requires that
+"no public information" be reported gracefully rather than as a failure — at the level of a
+whole set, which is its own row. **All six extractors are done**, so no section is permanently
+empty any more.
 
 **To S3 — friendly users find no issue.** `landscape-verify` and the quality gates; caching so a
 second user on the same subject is fast; the report at nine sections with the matrix; PDF; and

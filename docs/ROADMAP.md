@@ -718,9 +718,23 @@ the single most important phase; everything after it is commerce and polish.
   that say different things, because *"we looked and found nobody"* and *"we have no way to
   look"* are different facts and a reader acts on them differently. A report about a company
   nobody named says so in its **first** note.
-  **Still open:** one description produces **one company, not a set** — competitor-set
-  derivation is the next row, and the ambiguous verdict is answered by typing a domain until the
-  clarifying-question row gives it chips.
+  **A description produces the set now** — [BENCHMARKS.md](BENCHMARKS.md) Run 30, the first PR
+  of the competitor-set row. The gate's most common answer for a market description was *"which
+  of these three did you mean?"*, because three companies every search returned score identically
+  and `AMBIGUITY_MARGIN` calls that a tie. **It is a tie, and for a market a tie is the answer.**
+  What tells the two apart is arithmetic on the reader's own words: one content word is a name —
+  three products called *Notion* — and two or more is a description of a kind of thing. The gate
+  keeps its job for the first and the set is derived for the second, so no protection was traded
+  for the feature.
+  Every company in the report carries **why it is there**, in countable terms — how many of the
+  searches returned it, and which of the reader's words its own front page uses — and every
+  company found and left out carries which of **five** things happened to it: one search only,
+  a score we do not believe, a front page about another market, a front page nobody could read,
+  or a front page we never asked for. The last three look identical from the outside and are
+  not: only the first of them is about the company.
+  **Still open:** competitors of a **named company** rather than only of a description, chips
+  for the one-word names the gate still refuses in prose, and *"no public information"* reported
+  at the level of a whole set.
   **SearXNG itself has not been run against this.** `docker compose --profile search up -d
   searxng` and a checked-in `settings.yml` are in the repository and unwalked, for the same
   reason D3 is — the first person through corrects it.

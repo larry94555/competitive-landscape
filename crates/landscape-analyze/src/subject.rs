@@ -1,24 +1,24 @@
-//! Turning what somebody typed into a site to read.
+//! Turning what somebody typed into the companies a report will read.
 //!
-//! `FACT_CHECKING.md` §3.1 resolves a subject in three steps: find candidates, score them,
-//! and refuse to guess between the top two if they are close. [`landscape_core::resolve`] is
-//! that decision, written and tested — and it takes **candidates**, which come from search.
-//!
-//! **Search is not built.** §3.3 puts it last on purpose (*"search fills gaps; it does not
-//! lead"*) and it needs a self-hosted SearXNG this project does not have. So this module does
-//! the one case that needs no search at all: a prompt that already names the site.
+//! Two paths in, and they meet at [`decide`]:
 //!
 //! ```text
-//! https://basecamp.com          -> https://basecamp.com
-//! basecamp.com                  -> https://basecamp.com
-//! "compare basecamp.com"        -> https://basecamp.com
-//! "a tool for small farms"      -> nothing, and the run says so
+//! "basecamp.com vs linear.app"  -> origins_in       -> two sites, in the order written
+//! "privacy-friendly analytics"  -> the search path  -> a set, or one of four refusals
 //! ```
 //!
-//! The last line is the important one. A prompt this cannot resolve **fails the analysis with
-//! a reason**, rather than picking a plausible domain — an analysis of the wrong company is
-//! the most expensive wrong answer this product can produce, because everything in it is
-//! correctly cited and about somebody else.
+//! The first needs nothing: [`origins_in`] reads the domains out of the prompt. The second is
+//! `FACT_CHECKING.md` §3.1 — candidates, scores, and a gate that refuses to guess — followed by
+//! [`landscape_search::competitors`], which turns what survived into the several companies a
+//! landscape actually compares. [`decide`] is where every one of those endings is chosen, and
+//! it is a pure function for that reason.
+//!
+//! **The refusals are four different sentences and never one.** No engine configured; the
+//! searching did not finish; we looked and found nobody; we found companies and none held up.
+//! A reader acts on each of them differently, and a prompt this cannot resolve **fails the
+//! analysis with a reason** rather than picking a plausible domain — an analysis of the wrong
+//! company is the most expensive wrong answer this product can produce, because everything in
+//! it is correctly cited and about somebody else.
 
 /// A hostname's last label, when it looks like a public suffix worth trusting.
 ///
@@ -146,24 +146,46 @@ pub const NOTHING_RESOLVED: &str = "we searched for companies matching that desc
 /// whether a report is written about the wrong company or not written at all.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Decided {
-    /// One company, clearly. The run proceeds against it.
-    Analyse(Box<landscape_core::subject::Candidate>),
-    /// Not one company, and this is what a reader is told about why.
+    /// The companies the report will compare, best first.
+    Analyse(Box<landscape_search::competitors::Set>),
+    /// No set worth writing a report about, and this is what a reader is told about why.
     Refuse(String),
 }
 
-/// Turn a verdict and the evidence behind it into what happens next.
+/// Turn the gate's verdict, the set behind it, and the searching that produced both into what
+/// happens next.
+///
+/// **The order of these arms is the design.** A verdict that stops a report stops it first; only
+/// then is the set consulted. Reversing any two of them changes which sentence a reader gets for
+/// the same run, so each arm has its own test.
+///
+/// | The gate said | And | What happens |
+/// |---|---|---|
+/// | Several, and the reader typed a **name** | — | Ask which one. `PRODUCT_SPEC.md` §3 |
+/// | Nothing | a search failed | Try again — the searching did not finish |
+/// | Nothing | every search ran | We looked and found nobody |
+/// | Anything else | the set is empty | Say which of them was found and why none are in it |
+/// | Anything else | the set has members | Compare them |
 #[must_use]
 pub fn decide(
-    verdict: landscape_core::subject::Resolution,
+    derived: landscape_search::competitors::Derived,
     queried: &landscape_search::candidates::Queried,
 ) -> Decided {
     use landscape_core::subject::Resolution;
+    let landscape_search::competitors::Derived {
+        verdict,
+        set,
+        about_a_market,
+    } = derived;
     match verdict {
-        Resolution::Resolved { entity } => Decided::Analyse(Box::new(entity)),
-        // Several real candidates, whatever else failed. A reader can answer this, and telling
-        // them to try again instead would throw away an answer we already have.
-        Resolution::Ambiguous { candidates, .. } => Decided::Refuse(ambiguous(&candidates)),
+        // **Several candidates and one word typed is the ambiguity the gate exists for.** Three
+        // products called *Notion* are not a market, and comparing them against each other is a
+        // report nobody asked for. A reader answers this in one word; see
+        // [`landscape_search::competitors::DESCRIBES_A_MARKET`] for what "one word" means and
+        // what it cannot see.
+        Resolution::Ambiguous { candidates, .. } if !about_a_market => {
+            Decided::Refuse(ambiguous(&candidates))
+        }
         // **"Nothing found" is a conclusion about a market, and it needs the searching to have
         // happened.** With any query unanswered we have not established that nobody is out
         // there — only that we did not finish looking, which is a different sentence and a
@@ -172,6 +194,124 @@ pub fn decide(
             Decided::Refuse(search_incomplete(queried.failed.len(), queried.sent()))
         }
         Resolution::NothingFound { .. } => Decided::Refuse(NOTHING_RESOLVED.to_owned()),
+        // Companies were found and none of them survived. Naming them and saying what happened
+        // to each is the difference between a refusal a reader can act on and a shrug.
+        _ if set.is_empty() && !set.set_aside.is_empty() => {
+            Decided::Refuse(none_of_them(&set.set_aside))
+        }
+        _ if set.is_empty() => Decided::Refuse(NOTHING_RESOLVED.to_owned()),
+        _ => Decided::Analyse(Box::new(set)),
+    }
+}
+
+/// What a reader is told when every company we found was set aside.
+///
+/// **Each one is named with its own reason**, because *"we found nothing"* would be false — we
+/// found companies and rejected them, and a reader who can see which ones can tell a bad search
+/// from a market that really is empty. This is the same rule `FACT_CHECKING.md` §5.4 applies to
+/// an empty section: a negative nobody can check is not a finding.
+#[must_use]
+pub fn none_of_them(
+    set_aside: &[(
+        landscape_core::subject::Candidate,
+        landscape_search::competitors::Aside,
+    )],
+) -> String {
+    let named: Vec<String> = set_aside
+        .iter()
+        .map(|(c, why)| format!("{} ({}) - {}", c.name, c.canonical_domain, why.sentence()))
+        .collect();
+    format!(
+        "we found companies for that description and none of them held up: {}. Try naming a \
+         domain, or describing the product in the words a vendor would use.",
+        named.join("; ")
+    )
+}
+
+/// The notes a report opens with when nobody named the companies in it.
+///
+/// **Three notes rather than one paragraph, and each one is a separate fact:** who this report
+/// is about, why each of them is here, and which companies were found and left out. A reader
+/// scanning the top of a report should be able to stop after the first and still know what they
+/// are looking at.
+///
+/// `analysing` is how many of the set the run will actually read — [`MAX_SUBJECTS`] is a
+/// decision about how long somebody waits, and naming five companies in a note while comparing
+/// three would be the silent-drop defect with better prose in front of it.
+#[must_use]
+pub fn found_for_you(set: &landscape_search::competitors::Set, analysing: usize) -> Vec<String> {
+    let compared: Vec<&landscape_search::competitors::Member> =
+        set.members.iter().take(analysing).collect();
+    if compared.is_empty() {
+        return Vec::new();
+    }
+
+    let named: Vec<String> = compared
+        .iter()
+        .map(|m| format!("{} ({})", m.candidate.name, m.candidate.canonical_domain))
+        .collect();
+    let mut notes = vec![format!(
+        "You described a market rather than naming companies, so we searched for them. This \
+         report compares {}. If those are not the companies you meant, name the domains and we \
+         will read those instead.",
+        joined_with_and(&named)
+    )];
+
+    notes.push(format!(
+        "Why each one is here: {}.",
+        compared
+            .iter()
+            .map(|m| format!("{} - {}", m.candidate.name, m.because.sentence()))
+            .collect::<Vec<_>>()
+            .join("; ")
+    ));
+
+    // **A company found and left out in silence is the defect this row exists to remove**, at
+    // one company's remove from the one it removed first. Naming them costs a sentence.
+    //
+    // **Named, or counted, and the line between them is corroboration.** A company two searches
+    // agreed on could have been in the report, so it is named with its reason. A host one search
+    // returned could not have been, and there can be twenty of them — naming those turns a note
+    // into a search results page, which is a different way of not being read. They are counted
+    // instead, and the count is still not a silence: `landscape candidates` prints every one.
+    let (could_have, single): (Vec<_>, Vec<_>) = set.set_aside.iter().partition(|(_, why)| {
+        !matches!(
+            why,
+            landscape_search::competitors::Aside::Uncorroborated { .. }
+        )
+    });
+
+    let mut said = Vec::new();
+    if !could_have.is_empty() {
+        said.push(format!(
+            "Also found and not compared: {}",
+            could_have
+                .iter()
+                .map(|(c, why)| format!("{} ({}) - {}", c.name, c.canonical_domain, why.sentence()))
+                .collect::<Vec<_>>()
+                .join("; ")
+        ));
+    }
+    if !single.is_empty() {
+        said.push(format!(
+            "{} further {} returned by only one search, which is not enough to corroborate \
+             anything",
+            single.len(),
+            if single.len() == 1 { "site" } else { "sites" }
+        ));
+    }
+    if !said.is_empty() {
+        notes.push(format!("{}.", said.join(". ")));
+    }
+    notes
+}
+
+/// `a`, `a and b`, `a, b and c` — the way somebody would say a list out loud.
+fn joined_with_and(items: &[String]) -> String {
+    match items {
+        [] => String::new(),
+        [one] => one.clone(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
     }
 }
 
@@ -211,11 +351,12 @@ pub fn ambiguous(candidates: &[landscape_core::subject::Candidate]) -> String {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 mod deciding {
-    //! What happens to each of the gate's verdicts, and why they are not the same refusal.
+    //! Every arm of the decision, and why no two of them are the same sentence.
 
     use super::*;
     use landscape_core::subject::{Candidate, Resolution};
     use landscape_search::candidates::Queried;
+    use landscape_search::competitors::{Aside, Because, Derived, Member, Set};
 
     fn candidate(name: &str, domain: &str) -> Candidate {
         Candidate {
@@ -226,6 +367,17 @@ mod deciding {
         }
     }
 
+    fn member(name: &str, domain: &str) -> Member {
+        Member {
+            candidate: candidate(name, domain),
+            because: Because {
+                agreed: 3,
+                asked: 3,
+                shares: vec!["analytics".to_owned()],
+            },
+        }
+    }
+
     fn all_answered() -> Queried {
         Queried {
             completed: vec!["q1".to_owned(), "q2".to_owned(), "q3".to_owned()],
@@ -233,71 +385,107 @@ mod deciding {
         }
     }
 
-    #[test]
-    fn one_company_is_analysed() {
-        let decided = decide(
-            Resolution::Resolved {
-                entity: candidate("Fathom", "usefathom.com"),
-            },
-            &all_answered(),
-        );
-        match decided {
-            Decided::Analyse(entity) => assert_eq!(entity.canonical_domain, "usefathom.com"),
-            Decided::Refuse(why) => panic!("a clear answer was refused: {why}"),
+    fn derived(verdict: Resolution, set: Set, about_a_market: bool) -> Derived {
+        Derived {
+            verdict,
+            set,
+            about_a_market,
+        }
+    }
+
+    fn tie() -> Resolution {
+        Resolution::Ambiguous {
+            question: "which one?".to_owned(),
+            candidates: vec![
+                candidate("Alpha", "alpha.example"),
+                candidate("Beta", "beta.example"),
+            ],
+        }
+    }
+
+    fn two() -> Set {
+        Set {
+            members: vec![
+                member("Alpha", "alpha.example"),
+                member("Beta", "beta.example"),
+            ],
+            set_aside: Vec::new(),
         }
     }
 
     #[test]
-    fn several_companies_are_named_so_a_reader_can_pick() {
-        let decided = decide(
-            Resolution::Ambiguous {
-                question: "which one?".to_owned(),
-                candidates: vec![
-                    candidate("Alpha", "alpha.example"),
-                    candidate("Beta", "beta.example"),
-                ],
-            },
-            &all_answered(),
+    fn a_market_becomes_the_set_rather_than_a_question() {
+        // **The row this change is for.** Three companies every search returned score alike, so
+        // the gate calls them tied - and for a description of a market, tied is the answer.
+        let decided = decide(derived(tie(), two(), true), &all_answered());
+        let Decided::Analyse(set) = decided else {
+            panic!("a market was refused instead of compared")
+        };
+        assert_eq!(
+            set.origins(),
+            vec!["https://alpha.example", "https://beta.example"]
         );
+    }
+
+    #[test]
+    fn a_name_several_products_share_is_still_a_question() {
+        // The protection `FACT_CHECKING.md` 3.1 step 4 asks for, unchanged: one word typed and
+        // several products matching it is ambiguity, not a market, and one chip click prevents
+        // an entire wrong report.
+        let decided = decide(derived(tie(), two(), false), &all_answered());
         let Decided::Refuse(why) = decided else {
-            panic!("two companies were chosen between")
+            panic!("a shared name was reported on instead of asked about")
         };
         assert!(why.contains("Alpha (alpha.example)"), "{why}");
         assert!(why.contains("Beta (beta.example)"), "{why}");
     }
 
     #[test]
-    fn several_companies_are_still_asked_about_when_a_search_failed() {
+    fn one_company_clearly_ahead_still_brings_the_rest_of_its_market() {
+        // `Resolved` used to mean a report about exactly one company. It now means the gate had
+        // no objection - what goes in the report is the set.
+        let decided = decide(
+            derived(
+                Resolution::Resolved {
+                    entity: candidate("Alpha", "alpha.example"),
+                },
+                two(),
+                true,
+            ),
+            &all_answered(),
+        );
+        let Decided::Analyse(set) = decided else {
+            panic!("a resolved subject was refused")
+        };
+        assert_eq!(set.members.len(), 2);
+    }
+
+    #[test]
+    fn a_set_is_still_compared_when_a_search_failed() {
         // A real answer we already have beats telling somebody to try again for it.
         let decided = decide(
-            Resolution::Ambiguous {
-                question: "which one?".to_owned(),
-                candidates: vec![
-                    candidate("Alpha", "alpha.example"),
-                    candidate("Beta", "beta.example"),
-                ],
-            },
+            derived(tie(), two(), true),
             &Queried {
                 completed: vec!["q1".to_owned()],
                 failed: vec!["q2".to_owned(), "q3".to_owned()],
             },
         );
-        let Decided::Refuse(why) = decided else {
-            panic!("two companies were chosen between")
-        };
-        assert!(why.contains("Alpha"), "{why}");
         assert!(
-            !why.contains("try again"),
-            "a real answer was thrown away: {why}"
+            matches!(decided, Decided::Analyse(_)),
+            "an answer was thrown away over an outage: {decided:?}"
         );
     }
 
     #[test]
     fn a_market_we_searched_and_found_empty_says_so() {
         let decided = decide(
-            Resolution::NothingFound {
-                checked: vec!["q1".to_owned()],
-            },
+            derived(
+                Resolution::NothingFound {
+                    checked: vec!["q1".to_owned()],
+                },
+                Set::default(),
+                true,
+            ),
             &all_answered(),
         );
         let Decided::Refuse(why) = decided else {
@@ -321,9 +509,13 @@ mod deciding {
                 failed: failed.clone(),
             };
             let decided = decide(
-                Resolution::NothingFound {
-                    checked: queried.completed.clone(),
-                },
+                derived(
+                    Resolution::NothingFound {
+                        checked: queried.completed.clone(),
+                    },
+                    Set::default(),
+                    true,
+                ),
                 &queried,
             );
             let Decided::Refuse(why) = decided else {
@@ -336,6 +528,54 @@ mod deciding {
                 "the count a reader needs is missing: {why}"
             );
         }
+    }
+
+    #[test]
+    fn companies_found_and_all_set_aside_are_named_with_their_reasons() {
+        // *"We found nothing"* would be false, and a reader who can see which companies were
+        // rejected can tell a bad search from a market that really is empty.
+        let decided = decide(
+            derived(
+                Resolution::Resolved {
+                    entity: candidate("Alpha", "alpha.example"),
+                },
+                Set {
+                    members: Vec::new(),
+                    set_aside: vec![
+                        (
+                            candidate("Alpha", "alpha.example"),
+                            Aside::ElsewhereEntirely,
+                        ),
+                        (candidate("Beta", "beta.example"), Aside::Unread),
+                    ],
+                },
+                true,
+            ),
+            &all_answered(),
+        );
+        let Decided::Refuse(why) = decided else {
+            panic!("an empty set was reported on")
+        };
+        assert_ne!(why, NOTHING_RESOLVED);
+        assert!(why.contains("Alpha (alpha.example)"), "{why}");
+        assert!(why.contains("none of the words you typed"), "{why}");
+        assert!(why.contains("Beta (beta.example)"), "{why}");
+        assert!(why.contains("could not read its front page"), "{why}");
+    }
+
+    #[test]
+    fn an_empty_set_with_nothing_to_report_falls_back_to_the_plain_negative() {
+        let decided = decide(
+            derived(
+                Resolution::Resolved {
+                    entity: candidate("Alpha", "alpha.example"),
+                },
+                Set::default(),
+                true,
+            ),
+            &all_answered(),
+        );
+        assert_eq!(decided, Decided::Refuse(NOTHING_RESOLVED.to_owned()));
     }
 }
 

@@ -33,6 +33,275 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 30 — one idea, several companies
+
+**Date:** 2026-08-07 · **Where:** this laptop · **Model:** none for the set; the analysis that
+follows uses one exactly as it always has.
+
+A description produced **one** company. This product is a competitive landscape tool, so that
+was the wrong number, and it was the wrong number for a reason worth writing down.
+
+### The gate's most common answer for a market was "which one did you mean?"
+
+Three companies that all three differently-worded searches returned score identically:
+
+```text
+0.8 x 3/3 + 0.2 = 1.0    Fathom
+0.8 x 3/3 + 0.2 = 1.0    Plausible
+0.8 x 3/3 + 0.2 = 1.0    Simple Analytics
+```
+
+`resolve` compares them against `AMBIGUITY_MARGIN`, finds them tied, and asks the reader to pick
+one. **That is correct for the question it was asked.** Three products sharing a name is exactly
+what `PRODUCT_SPEC.md` §3 wants a chip for, and one chip click really does prevent an entire
+wrong report.
+
+It is also, for a market description, the *usual* answer — so answering *"privacy-friendly
+website analytics"* meant answering a question about a landscape with a question about a company.
+
+### Telling a market from a name, with arithmetic
+
+| The reader typed | Content words | What a tie means |
+|---|---|---|
+| `Notion` | 1 | Several products share a name. Ask. |
+| `privacy-friendly website analytics` | 4 | Several companies share a market. Compare them. |
+
+`DESCRIBES_A_MARKET = 2` is that rule and it is deliberately crude. It is checkable, it is
+explainable to a reader in one line — `landscape candidates` prints *"reading a market"* or
+*"reading a name"* — and it needs no model. **What it cannot do** is tell *"Notion project
+management"* from a two-word brand, and nothing here pretends otherwise: that is a chip, and
+chips are the clarifying-question row.
+
+**No protection was traded for the feature.** The gate keeps its job for the name case, and it
+still stops a report when nothing was found or the searching did not finish. What changed is
+what happens *after* it has no objection.
+
+### Why each company is in the report, in countable terms
+
+```text
+Fathom (usefathom.com)
+    3 of the 3 searches returned it, and its own front page uses "privacy", "analytics"
+```
+
+Two numbers and a list of the reader's own words. Nothing here is a summary somebody would have
+to trust, for the same reason the score is arithmetic over URLs: a reader asking *why is this
+company in my report* deserves an answer rather than a shrug.
+
+The divisor is the searches **sent**, not the ones that answered — the rule Run 29's review
+established for the score, carried into the sentence. An engine that answered twice out of three
+must not produce *"2 of the 2 searches returned it"*.
+
+### Five ways to be left out, and three of them look identical from outside
+
+| Set aside | What it says |
+|---|---|
+| `Uncorroborated` | One search found it, so nothing corroborates it |
+| `Unconvincing` | Corroborated and still below the floor |
+| `ElsewhereEntirely` | Its front page **was read** and uses none of your words |
+| `Unread` | Its front page was requested and could not be read |
+| `BeyondTheFetchBudget` | It ranked below the front pages we were willing to fetch |
+
+**The last three all produce an empty list of shared words and only the first is about the
+company.** `Described::shares` started as `Option<Vec<String>>`, where `None` meant *the page
+could not be read* — and review then found a company that was never fetched at all, with nowhere
+to put it that was not a lie about one of the other two. It is a three-state `Vocabulary` now:
+`Read(words)`, `Unreadable`, `NotRequested`. An `Option` could hold two of those, which is why it
+held the wrong two.
+
+Every company left out is **named** in the report. A competitor dropped in silence is the defect
+this row exists to remove, one company further out than the one it removed first.
+
+### What the reader sees
+
+Three notes, in this order, above everything else:
+
+```text
+You described a market rather than naming companies, so we searched for them. This report
+compares Fathom (usefathom.com) and Plausible (plausible.io). ...
+
+Why each one is here: Fathom - 3 of the 3 searches returned it, ...
+
+Also found and not compared: Notion Press (notionpress.example) - its own front page uses
+none of the words you typed.
+```
+
+Three rather than one paragraph, because they are three facts and a reader who stops after the
+first still knows what they are looking at. The note names only the companies the run actually
+**read**: `MAX_SUBJECTS` is three, and naming five while comparing three would be the silent-drop
+defect with better prose in front of it. There is a test for that specifically.
+
+### The stop list that could not grow
+
+The tempting additions to the grammar-word list are `software`, `platform`, `tool` and `app` —
+they appear on every front page and carry almost nothing. Dropping them would turn `tax software`
+into **one** content word, which `DESCRIBES_A_MARKET` then reads as a brand name and answers with
+a question. A weak content word is still a content word, and the list stayed at grammar.
+
+The same restraint applies to `SHARED_WORDS = 1`. It is a floor, not a filter: the only claim it
+makes is that a company whose front page uses *none* of the words somebody typed is not obviously
+in the market they described. It cannot tell a good competitor from a mediocre one and does not
+try.
+
+### What still does not happen
+
+**A named company still produces a report about itself alone.** `basecamp.com` gets Basecamp, not
+Basecamp and its competitors — the set is derived from a *description*. That is the next PR of
+this row and the more useful half.
+
+**Nothing measures whether the set is right.** Three searches agreeing and a shared word is the
+whole of the evidence. There is no recall number, so nobody can say how many real competitors
+were missed. That is [B1](../PROJECT_STATUS.md#4-blockers), and with the search channel finished
+it is the only thing holding this feature back on its own merits.
+
+**And no engine has been asked**, still: Docker's daemon does not start where this was built, so
+every test is a canned provider over the real code path.
+
+### Review: the cap that pre-empted the guarantee, and evidence made of spelling
+
+Two [P1]s, both reproduced before anything changed.
+
+**`from_results` truncated to five before the set could see the list.** Six corroborated
+companies in, five out — and the sixth was neither compared nor reported as excluded:
+
+```text
+six corroborated companies searched; from_results kept 5
+   c0.example agreed 3   c1.example agreed 3   c2.example agreed 3
+   c3.example agreed 3   c4.example agreed 3
+```
+
+That cap was written for *a list a reader picks one company from*, where five is generous. A set
+is a different consumer of the same list, and against it the cap was exactly the silent drop this
+row exists to remove — the guarantee was being broken one line above the code that makes it.
+
+The budget itself is real: every name costs a request against somebody's server. So it moved from
+*truncating* to *fetching*. `from_results` returns the complete ranked list, `describe` fetches
+the first `NAMED = 5` and marks the rest `Vocabulary::NotRequested`, and `assemble` turns those
+into `Aside::BeyondTheFetchBudget` — **a named exclusion a reader can act on**, rather than an
+absence nothing records.
+
+**And `shared` matched substrings.** `content_words("art marketplace")` yields `art`; a front page
+reading *"Tools for startups"* contains those three letters inside `startups`:
+
+```text
+words   = ["art", "marketplace"]
+shares  = ["art"]
+because = 3 of the 3 searches returned it, and its own front page uses "art"
+```
+
+One shared word is enough to admit a company, so a corroborated but unrelated result entered the
+report and the sentence explaining why cited a word the page never used. **Evidence manufactured
+out of a coincidence of spelling** — the failure this project's whole quoting discipline exists
+to prevent, reached by a different route.
+
+The doc comment defending the substring match said it was needed to find `analytics` inside `web
+analytics` and `Analytics.` — and **it never was**: splitting on non-alphanumerics finds both,
+plus `(analytics)` and `analytics/`. The justification had never been checked against the
+alternative it rejected. What is genuinely lost is plurals, and being strict is the safe
+direction for evidence a reader is shown.
+
+**One note changed shape as a consequence.** With nothing truncated, every one-hit host reaches
+`set_aside`, and naming twenty of them turns a report note into a search results page. The line
+is corroboration: a company two searches agreed on **could** have been in the report and is named
+with its reason; the rest are counted — *"3 further sites returned by only one search"* — which is
+a number rather than a silence, and `landscape candidates` still prints every one.
+
+### And then the fix broke the caller the cap was written for
+
+The next review round found the same defect pointing the other way. Removing the truncation so the
+*set* could see every company also handed every company to the *gate*:
+
+```text
+the reader is offered 6 choices:
+   Company at https://c0.example/ (c0.example)
+   ...
+   c5.example (c5.example)
+```
+
+Six choices where `PRODUCT_SPEC.md` §3 asks for three, bounded by how many results a provider felt
+like returning — and the last is a bare domain printed twice, because candidates past the fetch
+budget were never named from their own pages. *"Which of these did you mean: c5.example
+(c5.example)?"* is not a question anybody can answer.
+
+**One number was being asked two questions.** *How many companies did we find* and *how many can a
+reader be asked to choose between* are different, and no value of a single constant is right for
+both:
+
+| Consumer | Gets | Because |
+|---|---|---|
+| `competitors::assemble` | every company found | one it cannot see is one nothing can report as excluded |
+| `subject::resolve` | the fetched-and-named subset | a candidate with no name of its own is not a choice |
+
+The split is `Described::was_requested()` — a property of the candidate rather than a second
+comparison against `NAMED` somewhere else, because a caller redoing that arithmetic is how the
+two lists drift apart again. `NAMED`'s doc comment now names **both** jobs, which is the whole of
+what went wrong the first time.
+
+### And a harness result that was about code nobody wrote
+
+Confirming the fix nearly produced a worse mistake than the fix. The catalogue takes longer than
+ten minutes; a foreground run with a ten-minute timeout was killed mid-mutation, and
+`mutate.py`'s restore is a `finally` that a `SIGTERM` does not always reach. The mutated line was
+left in the tree.
+
+**The re-run then made that the baseline.** Every entry copies the current file and restores it
+afterwards, so thirty-eight mutations were measured against a tree with the defect in it — all
+reporting `caught`, counts adding up, output indistinguishable from a clean run. The only signal
+was the thirty-ninth reporting `NOT APPLIED`, which reads like a stale anchor.
+
+`scripts/no_live_mutations.py` exists for exactly this and opens by saying *"this exists because
+it happened"*. It is `verify.py`'s first gate — which runs long after every mutation result has
+been read and believed. So the same check now runs at the **start** of `mutate.py`, which refuses
+to measure anything while a recorded defect is live and says which one. A harness whose
+correctness depends on remembering to check something by hand is the defect this project keeps
+recording, one level up.
+
+### Five regression pins that had come loose
+
+Review then found the other way a catalogue stops meaning anything: `cargo fmt` had collapsed a
+`subject::resolve(...)` call onto one line, so the mutation pinning the ambiguity behaviour could
+no longer be applied. The harness prints `NOT APPLIED` and carries on; the run ends *26 of 27*,
+which reads like a coverage gap rather than a pin that came loose.
+
+**Running every catalogue after every change is not the fix** — it takes tens of minutes, which
+is why `verify.py` never ran them at all. Checking that each `old` still appears in its file
+exactly once takes a moment. That is `scripts/mutation_anchors.py`, now the **second** gate, and
+what it found on its first clean run is the point — not one loose pin, **five**, across four
+catalogues:
+
+| Pin | Loosened by |
+|---|---|
+| the ambiguity call | `cargo fmt` reflowing it, two commits back |
+| a changelog needs no model | `Answers::Direction` joining the `matches!`, Run 24 |
+| the model's health | a local becoming a struct field, Run 27 |
+| a company dropped in silence | `let notes` becoming `let mut notes` |
+| a trust page reaching its extractor | the dispatch moving to another file entirely |
+
+Each of those catalogues reported *"all caught"* on the day it was written and had been proving
+less ever since. **A suite of regression pins decays exactly like a suite of tests, except that
+nothing fails when it does.**
+
+**Two of the five, once retargeted, came back `MISSED`** — the pins had been loose long enough
+that the properties underneath had lost their coverage:
+
+* **A changelog read while the model is down.** The gate sits inside `read_one`, reachable only
+  through a real fetch, and the fetcher refuses `127.0.0.1` — so no test in the crate got there.
+  It is `can_read(question, model_ready) -> Option<bool>` now: `Some(true)` for a deterministic
+  question whatever the model is doing, `None` when nobody has asked yet. The case that matters
+  is assertable at last — *the model is known to be down and the changelog is still read*.
+* **A trust page reaching its extractor.** `trust-posture.json` pinned what
+  `assurance::every_assurance` finds and what the judge accepts; nothing asserted that
+  `Answers::Trust` still *arrives* there. An empty outcome for a trust page passed the whole
+  suite — a page fetched, read and thrown away in silence.
+
+All five retargeted, both gaps closed, and 203 anchors now check in a second.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 29 | 738 | 51 |
+| now | **767** | **51** |
+
+---
+
 ## Run 29 — typing an idea runs
 
 **Date:** 2026-08-07 · **Where:** this laptop · **Model:** none for the resolution; the analysis

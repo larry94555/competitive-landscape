@@ -130,10 +130,10 @@
     ]
   },
   {
-    "name": "the list a reader chooses from is not capped",
+    "name": "a company found is dropped before anything can report it",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "    found.truncate(MAX_CANDIDATES);",
-    "new": "    found.truncate(usize::MAX);",
+    "old": "    found\n}",
+    "new": "    found.truncate(5);\n    found\n}",
     "run": [
       "cargo",
       "nextest",
@@ -173,19 +173,6 @@
     "file": "crates/landscape-search/src/candidates.rs",
     "old": "        .unwrap_or_else(|| host.to_owned());",
     "new": "        .unwrap_or_default();",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-search"
-    ]
-  },
-  {
-    "name": "more front pages are fetched than the number that is stated",
-    "file": "crates/landscape-search/src/candidates.rs",
-    "old": "    for one in found.iter().take(NAMED) {",
-    "new": "    for one in found.iter() {",
     "run": [
       "cargo",
       "nextest",
@@ -275,8 +262,8 @@
   {
     "name": "a description that matches two companies picks one of them",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "        landscape_core::subject::resolve(description, named, checked),",
-    "new": "        named.first().cloned().map_or(\n            landscape_core::subject::Resolution::NothingFound { checked: checked.clone() },\n            |entity| landscape_core::subject::Resolution::Resolved { entity },\n        ),",
+    "old": "    let verdict = landscape_core::subject::resolve(description, choices, checked);",
+    "new": "    let verdict = choices.first().cloned().map_or(\n        landscape_core::subject::Resolution::NothingFound {\n            checked: checked.clone(),\n        },\n        |entity| landscape_core::subject::Resolution::Resolved { entity },\n    );",
     "run": [
       "cargo",
       "nextest",
@@ -296,32 +283,6 @@
       "run",
       "-p",
       "landscape-search"
-    ]
-  },
-  {
-    "name": "a report about a company nobody named does not say so",
-    "file": "crates/landscape-analyze/src/lib.rs",
-    "old": "    if let Some(entity) = chosen {\n        notes.insert(",
-    "new": "    if false {\n        let entity = landscape_core::subject::Candidate {\n            name: String::new(),\n            canonical_domain: String::new(),\n            what_it_is: String::new(),\n            confidence: 0.0,\n        };\n        let entity = &entity;\n        notes.insert(",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-analyze"
-    ]
-  },
-  {
-    "name": "the chosen company is mentioned last, under everything else",
-    "file": "crates/landscape-analyze/src/lib.rs",
-    "old": "        notes.insert(\n            0,",
-    "new": "        notes.insert(\n            notes.len(),",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-analyze"
     ]
   },
   {
@@ -368,19 +329,6 @@
     "file": "crates/landscape-analyze/src/subject.rs",
     "old": "        Resolution::NothingFound { .. } if !queried.failed.is_empty() => {",
     "new": "        Resolution::NothingFound { .. } if queried.failed.is_empty() && false => {",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-analyze"
-    ]
-  },
-  {
-    "name": "a company we found is chosen between rather than asked about",
-    "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "        Resolution::Ambiguous { candidates, .. } => Decided::Refuse(ambiguous(&candidates)),",
-    "new": "        Resolution::Ambiguous { mut candidates, .. } => {\n            Decided::Analyse(Box::new(candidates.remove(0)))\n        }",
     "run": [
       "cargo",
       "nextest",

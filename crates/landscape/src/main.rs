@@ -453,7 +453,8 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
 
     // The names come from each company's own front page. An engine's title is the engine's.
     let fetcher = landscape_fetch::Fetcher::new();
-    let named = landscape_search::candidates::describe(&found, |url| {
+    let words = landscape_search::competitors::content_words(description);
+    let named = landscape_search::candidates::describe(&found, &words, |url| {
         let fetcher = &fetcher;
         async move {
             fetcher
@@ -466,34 +467,56 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
     .await;
 
     println!("\nas a reader would see them");
-    for c in &named {
-        println!("  {} - {}", c.name, c.canonical_domain);
-        if !c.what_it_is.is_empty() {
-            println!("      {}", c.what_it_is);
+    for d in &named {
+        println!("  {} - {}", d.candidate.name, d.candidate.canonical_domain);
+        if !d.candidate.what_it_is.is_empty() {
+            println!("      {}", d.candidate.what_it_is);
         }
     }
 
     // **What came back, not what was sent.** The list a reader is shown as evidence of the
     // looking has to be the looking that happened.
     let checked = queried.completed.clone();
-    match landscape_core::subject::resolve(description, named, checked) {
-        landscape_core::subject::Resolution::Resolved { entity } => {
-            println!("\nresolved  {} ({})", entity.name, entity.canonical_domain);
-            println!("An analysis would run against that domain.");
+    let set = landscape_search::competitors::assemble(named.clone(), queried.sent());
+    let verdict = landscape_core::subject::resolve(
+        description,
+        named.into_iter().map(|d| d.candidate).collect(),
+        checked,
+    );
+
+    println!("\nwords     {}", words.join(", "));
+    println!(
+        "reading   {}",
+        if landscape_search::competitors::about_a_market(&words) {
+            "a market - several companies matching it is the answer"
+        } else {
+            "a name - several products matching it is a question"
         }
-        landscape_core::subject::Resolution::Ambiguous {
-            question,
-            candidates,
-        } => {
-            println!("\nambiguous {question}");
-            for c in &candidates {
-                println!("  - {} ({})", c.name, c.canonical_domain);
+    );
+
+    // **The same function the worker calls.** A diagnostic that agreed with the worker only by
+    // coincidence was how the first version of this command drifted.
+    match landscape_analyze::subject::decide(
+        landscape_search::competitors::Derived {
+            verdict,
+            set,
+            about_a_market: landscape_search::competitors::about_a_market(&words),
+        },
+        &queried,
+    ) {
+        landscape_analyze::subject::Decided::Analyse(set) => {
+            println!("\nthe report would compare");
+            for m in &set.members {
+                println!("  {} ({})", m.candidate.name, m.candidate.canonical_domain);
+                println!("      {}", m.because.sentence());
             }
-            println!("One chip click prevents an entire wrong report - PRODUCT_SPEC 3.");
+            for (c, why) in &set.set_aside {
+                println!("  not compared: {} ({})", c.name, c.canonical_domain);
+                println!("      {}", why.sentence());
+            }
         }
-        landscape_core::subject::Resolution::NothingFound { checked } => {
-            println!("\nnothing found. Asked: {}", checked.join(", "));
-            println!("Offering a list we do not believe in would invite somebody to pick one.");
+        landscape_analyze::subject::Decided::Refuse(why) => {
+            println!("\nno report: {why}");
         }
     }
     Ok(())
@@ -1070,7 +1093,7 @@ async fn resolve_from_description(
         );
     };
     let fetcher = landscape_fetch::Fetcher::new();
-    let (verdict, queried) = landscape_search::candidates::for_description(engine, prompt, |url| {
+    let (derived, queried) = landscape_search::candidates::for_description(engine, prompt, |url| {
         let fetcher = &fetcher;
         async move {
             fetcher
@@ -1088,7 +1111,7 @@ async fn resolve_from_description(
             "some candidate searches did not complete"
         );
     }
-    landscape_analyze::subject::decide(verdict, &queried)
+    landscape_analyze::subject::decide(derived, &queried)
 }
 
 /// Record a refusal a reader can act on, and say so if the claim was taken away first.
@@ -1141,12 +1164,16 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
     // §3.1 built before anything could feed it. What is still refused is a description we
     // cannot pin to **one** company, because the alternative is a report that is correctly
     // cited and about the wrong company.
-    let (origins, chosen) = if named.is_empty() {
+    let (origins, set) = if named.is_empty() {
         match resolve_from_description(searching, &analysis.prompt).await {
-            landscape_analyze::subject::Decided::Analyse(entity) => {
-                let domain = format!("https://{}", entity.canonical_domain);
-                tracing::info!(id = %analysis.id, %domain, "a description resolved to one company");
-                (vec![domain], Some(*entity))
+            landscape_analyze::subject::Decided::Analyse(set) => {
+                let origins = set.origins();
+                tracing::info!(
+                    id = %analysis.id,
+                    companies = origins.len(),
+                    "a description became a competitor set"
+                );
+                (origins, Some(*set))
             }
             landscape_analyze::subject::Decided::Refuse(why) => {
                 tracing::info!(id = %analysis.id, "no subject in prompt");
@@ -1159,7 +1186,8 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
     };
 
     let Some(first) = origins.first().cloned() else {
-        // Unreachable: `Chosen::One` always yields a domain and a named prompt is non-empty.
+        // Unreachable: `Decided::Analyse` always carries at least one member and a named
+        // prompt is non-empty.
         // Kept as a refusal rather than an `expect`, because a panic in a worker takes the
         // process down and a reader's run with it.
         tracing::error!(id = %analysis.id, "an empty subject list reached the reading");
@@ -1202,7 +1230,7 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
             now,
             today: now.date_naive(),
             search: searching,
-            chosen: chosen.as_ref(),
+            set: set.as_ref(),
         },
         &mut |so_far| progress.record(so_far),
     )

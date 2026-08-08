@@ -1088,6 +1088,263 @@ over a number the moment two callers want to divide by different halves of it.
 
 ---
 
+## 38. A `MISSED` that meant "the wrong suite ran", not "nothing tested this"
+
+**Written:** by me, cataloguing the mutations for competitor-set derivation.
+
+```json
+{
+  "name": "a company found and left out is dropped in silence",
+  "file": "crates/landscape-search/src/competitors.rs",
+  "new": "            (Some(_), _) => {}",
+  "run": ["cargo", "nextest", "run", "-p", "landscape-analyze"]
+}
+```
+
+`MISSED`. The obvious reading is *there is no test for this*, and the obvious response is to
+write one — which would have added a second test for a property already covered, and left the
+catalogue entry still lying.
+
+**What had actually happened:** the mutated code is in `landscape-search`; the test that catches
+it is in `landscape-search`; the `run` said `landscape-analyze`. That suite compiles the mutated
+crate, passes, and reports nothing wrong — because nothing in it exercises the mutated line.
+
+**Why this is worse than `NOT APPLIED`.** A wrong `file` or a stale anchor is *loud*: the harness
+says the anchor is not there and you go and look. A wrong `run` is **silent and looks exactly
+like a real finding**, and the natural response to it — write another test — makes the suite
+bigger, makes the catalogue *stay* wrong, and produces a green run that proves less than it did
+before. This is entry 17's sibling: there the mutation had been applied to a different copy of
+the code; here it was applied to the right code and checked by the wrong suite.
+
+**The check is one question and it costs nothing:** for every `MISSED`, before writing a test,
+grep the crate the mutation lives in for a test that names the property. If one exists, the
+catalogue is wrong, not the code. Two of this catalogue's four `MISSED`/`NOT APPLIED` reports on
+the first run were catalogue errors rather than coverage gaps.
+
+**Rule:** a mutation's `run` is part of the mutation, not a convenience. Default it to the crate
+the `file` is in, and only widen it when the *caller* in another crate is what you are testing —
+in which case say so in the name, because a reader of the catalogue cannot see the difference
+either.
+
+> **Ask this:** *is this `MISSED` telling me about my code, or about my catalogue entry?*
+
+---
+
+## 39. A cap written for one consumer, still applied when a second one arrived
+
+**Written:** by me, deriving a competitor set from candidates that were already being scored.
+
+```rust
+found.truncate(MAX_CANDIDATES);   // "the most companies worth putting in front of a reader"
+```
+
+That line was **correct** when it was written. The only consumer was a disambiguation chip list,
+and twenty candidates in a chip list is a search results page with your name on it.
+
+Then a second consumer arrived — a *set*, whose entire promised guarantee was *"a company we
+found and did not compare is named, never dropped"*. Six corroborated companies in, five out, and
+the sixth was neither a member nor an exclusion. **The guarantee was being broken one function
+above the code that makes it**, by a line nobody had touched and whose comment still read true.
+
+**Why the review caught it and the tests did not.** The test asserted `found.len() ==
+MAX_CANDIDATES` — the cap was *pinned*, and there was a mutation defending it. Every test agreed
+the truncation should happen, because every one of them predated the consumer that made it wrong.
+A green suite here means *"this still does what it used to"*, which is the one question that
+cannot detect this class of defect.
+
+**What the fix is not.** The budget was real — each name costs a request against a stranger's
+server — so deleting it would have traded one defect for a politer one. It moved from
+*truncating the list* to *bounding the fetch*, and what it costs became something a reader is
+told: a fifth `Aside`, `BeyondTheFetchBudget`, naming the company and the number.
+
+**Rule:** when you add a consumer to an existing pipeline, read every `truncate`, `take`, `min`,
+`filter` and early `return` upstream of it and ask *whose question was this answering?* A limit
+justified by presentation is not a limit on data, and the comment above it will not say so —
+because when it was written there was no difference.
+
+> **Ask this:** *this cap was right for the old caller. Is my new caller the same kind of caller?*
+
+### 39b. And then I deleted it, which broke the caller it was written for
+
+**One review round later.** The fix above removed `found.truncate(..)` so the set could see every
+company. The *same list* still fed the disambiguation gate, so the gate got all of them too:
+
+```text
+the reader is offered 6 choices:
+   Company at https://c0.example/ (c0.example)
+   ...
+   c5.example (c5.example)
+```
+
+Six choices where `PRODUCT_SPEC.md` §3 asks for three — bounded now by *how many results a
+provider felt like returning* — and the last one is a bare domain printed twice, because
+candidates past the fetch budget were never named from their own pages. **The same defect, from
+the opposite direction, introduced by the fix for it.**
+
+**Why I did not see it.** I checked what the removal gave the new consumer and never asked what
+it took from the old one. Deleting a constraint feels like a smaller act than adding one, and it
+is not: a shared limit is load-bearing for every caller downstream of it, and there is nothing at
+the deletion site that names them.
+
+**What was actually wrong both times: one number serving two questions.** *How many companies did
+we find* and *how many can a reader be asked to choose between* are different, and no value of
+one constant is right for both. The answer was two lists off one budget — the complete ranked
+list for the set, and the fetched-and-named subset for the gate, with the split expressed as
+`Described::was_requested()` rather than as a second comparison against `NAMED` somewhere else.
+
+**Rule:** removing a shared limit needs the same list of callers as adding one. Before deleting a
+`truncate`, `take` or `filter`, enumerate everything downstream that reads the result and say out
+loud what each one now receives. If two of them want different amounts, the fix is two lists, not
+a different number.
+
+> **Ask this:** *who else was relying on this being small?*
+
+---
+
+## 40. A justification in a doc comment that had never been tested against its alternative
+
+**Written:** by me, matching a reader's words against a company's front page.
+
+```rust
+/// Substring matching on a lowercased page, so `analytics` is found inside `web analytics` and
+/// inside `Analytics.` — a page is prose, not a token stream, and requiring whole-word equality
+/// would miss a company whose front page is one styled sentence.
+pub fn shared(words: &[String], page: &str) -> Vec<String> {
+    let lowered = page.to_lowercase();
+    words.iter().filter(|w| lowered.contains(w.as_str())).cloned().collect()
+}
+```
+
+**What it did:** `content_words("art marketplace")` yields `art`. A front page reading *"Tools
+for startups"* contains those three letters inside `startups`. One shared word is enough to admit
+a company, so an unrelated company entered the report — and the sentence explaining why told the
+reader *"its own front page uses \"art\""*, citing a word that page never used. **Evidence
+manufactured out of a coincidence of spelling.**
+
+**The defect is in the paragraph, not the line.** Both examples the comment offers —
+`web analytics` and `Analytics.` — are found *perfectly well* by splitting on non-alphanumerics.
+The justification described a cost that the rejected alternative does not have. It was written
+from the shape of the idea rather than from trying it, and then it sat there being persuasive:
+the test underneath it was named `sharing_is_not_case_sensitive_and_reads_inside_a_word`, so the
+wrong behaviour had a test asserting it was intended.
+
+This is [entry 34](#34-a-sentence-written-from-the-plan-not-from-the-run)'s failure aimed at a
+rationale instead of at output. A confident *"X would not work because Y"* is a claim about Y,
+and it is checkable in about a minute.
+
+**Rule:** a doc comment that rejects an alternative has to name a case where the alternative
+actually fails, and that case belongs in a test. If you cannot write the test, the comment is a
+preference wearing an argument's clothes — write *"chosen because"* rather than *"because the
+other one would"*.
+
+> **Ask this:** *have I run the thing this comment says would not work?*
+
+---
+
+## 41. A killed mutation run leaves the defect in your tree, and the next run believes it
+
+**Found:** while answering the review round above, by noticing a `git diff` hunk I had not written.
+
+The catalogue takes longer than ten minutes, and I ran it in the foreground with a ten-minute
+timeout. It was killed mid-mutation. `mutate.py` restores the file in a `finally`, and a
+`SIGTERM` at the wrong moment does not run it — so the tree was left holding the mutated line:
+
+```rust
+// what I wrote
+let choices: Vec<Candidate> = named.into_iter().filter(Described::was_requested)...
+// what was in the file afterwards - the mutation's `new`
+let choices: Vec<Candidate> = named.into_iter().map(|d| d.candidate).collect();
+```
+
+**Then I re-ran the catalogue, and that is where it got dangerous.** Every mutation copies the
+current file as its backup and restores it afterwards, so the second run's baseline *was the
+mutated code*. Thirty-eight entries were measured against a tree with the defect in it. The
+thirty-ninth — the one whose anchor the kill had eaten — reported `NOT APPLIED`, which reads like
+a stale anchor rather than *"the code you are testing is not the code you wrote"*.
+
+**Nothing in the run says so.** `caught` still prints, the counts still add up, and the summary
+line still says how many are covered. A poisoned baseline produces a report that looks exactly
+like a clean one.
+
+**This is the second time, and the first time already has a script.**
+`scripts/no_live_mutations.py` opens by saying *"this exists because it happened"* — a cut-short
+run once left an inverted rule in the tree and `git add -A` would have committed it. That guard
+is `verify.py`'s **first** gate, it works, and it is what finally confirmed the tree was clean
+here. The gap is *when* it runs: at verify time, which is after every mutation result has already
+been read and believed. A `git diff` before re-running would also have shown a hunk I did not
+write, and that is what eventually found it — several steps later than it should have.
+
+**The mechanical fix, not the resolution to be careful:** `mutate.py` now refuses to start while
+any catalogued mutation is live in the tree, and says which one and how to restore it. A harness
+whose correctness depends on remembering to check something by hand is the same defect this file
+keeps recording, one level up.
+
+**Rule:** run the catalogue in the background or with a timeout longer than it takes — never with
+one that can kill it. And treat *any* interrupted run as having poisoned the tree: `git diff`
+before doing anything else, because the next thing that reads those files will believe them.
+
+> **Ask this:** *the last run of this died. Is the tree the tree I think it is?*
+
+---
+
+## 42. A regression pin that came loose, in a catalogue nobody had reason to re-run
+
+**Found:** by review, at `a084775`.
+
+```text
+1 of 27 not caught - each one is a test that cannot fail
+   NOT APPLIED  a description that matches two companies picks one of them
+```
+
+`cargo fmt` had collapsed a `subject::resolve(...)` call onto one line two commits earlier. The
+mutation pinning the ambiguity behaviour still expected the multi-line form, so the harness could
+not apply it — and printed `NOT APPLIED`, which reads like a stale anchor and is *also* the thing
+that stops a real property from being covered.
+
+**The process failure is the interesting part.** I re-ran the catalogue I was working on, saw all
+39 caught, and never ran the other five. There was no reason to think a change in
+`landscape-search` could loosen a pin in `read-order.json` — and it can, because `cargo fmt`
+reflows whatever it touches and a mutation's anchor is a *verbatim string*.
+
+**Running every catalogue is not the fix**, because it takes tens of minutes and that is exactly
+why `scripts/verify.py` never ran them at all. Reading each `old` out of the JSON and checking it
+appears in its file **exactly once** takes a moment and catches the whole class:
+`scripts/mutation_anchors.py`, now the second gate.
+
+**What it found on its first run is the point.** Not one loose pin — **five**, across four
+catalogues, rotting since earlier phases:
+
+| Pin | Loosened by |
+|---|---|
+| the ambiguity call | `cargo fmt` reflowing it, two commits back |
+| a changelog needs no model | `Answers::Direction` joining the `matches!`, PR #44 |
+| the model's health | a local becoming a struct field, PR #46 |
+| a company dropped in silence | `let notes` becoming `let mut notes` |
+| a trust page reaching its extractor | the dispatch moving to another file entirely |
+
+Every one of those catalogues had reported *"all caught"* on the day it was written and had been
+quietly proving less ever since. **A suite of regression pins decays exactly like a suite of
+tests, except that nothing fails when it does** — the harness prints a line and returns 1, and
+nobody runs it.
+
+**And two of the five, once retargeted, came back `MISSED`** — which is the more useful half of
+the finding. The pins had been loose long enough that the properties underneath had quietly lost
+their coverage: nothing asserted that a changelog is read while the model is down (the gate sits
+behind a fetch the test fetcher refuses), and nothing asserted that a trust page reaches its
+extractor at all (the catalogue pinned what the extractor *finds*, never that the dispatch still
+arrives there). Both are now tested. This is entry 38's question — *is this `MISSED` about my
+code or my catalogue?* — coming out the other way for once.
+
+**Rule:** any artefact that pins code by *quoting* it — mutation anchors, golden-file excerpts,
+documentation snippets, `expect_test` blocks — needs a cheap mechanical check that the quote is
+still there, and that check has to run every time, not when somebody suspects something. If
+verifying the artefact properly is slow, verify that it is still *applicable* quickly. And when
+a loose pin is retightened, **run it** — a pin nobody could apply is a pin nobody was covering.
+
+> **Ask this:** *this pin quotes code. What tells me it still quotes code that exists?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

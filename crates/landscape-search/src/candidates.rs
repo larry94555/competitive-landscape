@@ -12,8 +12,15 @@
 //!         └─> SourceProvider      the same seam per-question search uses
 //!              └─> group by host  one host is one company
 //!                   └─> score     arithmetic over URLs, never a model's opinion
-//!                        └─> landscape_core::subject::resolve
+//!                        └─> describe  each company's own front page names it
+//!                             ├─> landscape_core::subject::resolve   may a report be written
+//!                             └─> crate::competitors::assemble       what goes in it
 //! ```
+//!
+//! **The last two are different questions and both are asked.** The gate decides whether we
+//! know enough to write anything; the set decides which companies a landscape compares. See
+//! [`crate::competitors`] for why answering the first one alone produced *"which of these three
+//! did you mean?"* for every market description anybody typed.
 //!
 //! # The one place a reader's phrasing may reach an engine
 //!
@@ -55,7 +62,7 @@
 
 use std::collections::HashMap;
 
-use landscape_core::subject::{Candidate, Resolution};
+use landscape_core::subject::Candidate;
 use landscape_fetch::Target;
 
 use crate::provider::{Hit, SourceProvider};
@@ -80,19 +87,28 @@ pub const IDEA_QUERY_SET: &str = "2026-08-07.1";
 /// would have run against a company that appeared in one search.
 pub const CORROBORATION: usize = 2;
 
-/// The most companies worth putting in front of a reader.
+/// How many candidates get their front page fetched — **and therefore how many a reader can be
+/// asked to choose between.**
 ///
-/// The gate asks a reader to choose between candidates, and a list of twenty is not a question —
-/// it is a search results page with our name on it. `PRODUCT_SPEC.md` §3 wants at most three
-/// chips; this leaves a little room above that so the gate has something to reject.
-pub const MAX_CANDIDATES: usize = 5;
-
-/// How many of the shown candidates get their front page fetched.
+/// Every fetch is a request against somebody's server before a reader has asked for anything, so
+/// the number is small and stated. [`describe`] works in score order, so the strongest
+/// candidates are the ones that get named.
 ///
-/// Every one is a request against somebody's server before a reader has asked for anything, so
-/// the number is small and stated. [`describe`] fetches in score order, so the ones a reader is
-/// most likely to pick are the ones that get named.
-pub const NAMED: usize = MAX_CANDIDATES;
+/// **Two jobs, and they are the same set rather than a coincidence.** A candidate whose front
+/// page we never read has no name of its own — only a domain — and *"which of these six did you
+/// mean: c5.example (c5.example)?"* is not a question anybody can answer. So the list the
+/// disambiguation gate sees is exactly the list that got fetched, and `PRODUCT_SPEC.md` §3's
+/// *at most three chips* stays bounded by something other than how many results a provider felt
+/// like returning.
+///
+/// **It is a budget and not a truncation.** It used to be `MAX_CANDIDATES` and [`from_results`]
+/// applied it to the whole list, so a sixth corroborated company vanished before anything could
+/// say it existed — the silent drop [`crate::competitors`] was written to remove. Removing it
+/// there then handed all six to the gate, which was the same mistake pointing the other way.
+/// The list is complete for [`crate::competitors::assemble`], bounded here for the gate, and
+/// what the bound costs is a [`crate::competitors::Aside::BeyondTheFetchBudget`] a reader can
+/// read.
+pub const NAMED: usize = 5;
 
 /// Hosts that are pages *about* a market rather than companies in it.
 ///
@@ -179,6 +195,59 @@ pub struct Found {
     /// becomes the company's name — a reader offered *"Pricing"* as one of three companies to
     /// choose between. The home page is built from [`Self::host`] instead.
     pub shallowest: String,
+}
+
+/// A candidate after its own front page has been read.
+///
+/// **The page is read once and answers two questions**: what this company calls itself, and
+/// which of the reader's words it uses. [`crate::competitors`] needs the second, and fetching
+/// the same page again to get it would be a second request to somebody's server for text we
+/// already have.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Described {
+    /// Name, domain and the one line that tells two companies apart.
+    pub candidate: Candidate,
+    /// How many of the differently-worded searches returned this host. Carried through from
+    /// [`Found`] because a reader asking *why is this company here* is owed the number.
+    pub agreed: usize,
+    /// What its front page turned out to say, or why nobody knows.
+    pub shares: Vocabulary,
+}
+
+impl Described {
+    /// Whether we asked for its front page.
+    ///
+    /// **The line between a candidate a reader can be offered and a bare domain.** One has a
+    /// name it gave itself and a sentence saying what it is; the other has a host. Review found
+    /// the second kind reaching a disambiguation question as *"c5.example (c5.example)"*.
+    ///
+    /// It is a property of the candidate rather than an index compared against [`NAMED`],
+    /// because the caller doing that arithmetic itself is how the two lists drift apart.
+    #[must_use]
+    pub fn was_requested(&self) -> bool {
+        !matches!(self.shares, Vocabulary::NotRequested)
+    }
+}
+
+/// What a company's front page turned out to say about the description — or why nobody knows.
+///
+/// **Three states, and an `Option` could only hold two.** It was `Option<Vec<String>>`, where
+/// `None` meant *the page could not be read*; then review found a fourth company that was never
+/// fetched at all, and there was nowhere to put it that was not a lie about one of the other
+/// two. This is [`landscape_core::coverage`]'s rule — distinguishable silences — for one
+/// company rather than one section.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Vocabulary {
+    /// The front page was read. These are the description's words it uses, possibly none.
+    ///
+    /// An empty list here is a **finding**: we looked, and the page is about something else.
+    Read(Vec<String>),
+    /// The front page was requested and did not come back. About us, not about the company.
+    Unreadable,
+    /// The front page was never requested — this company ranked below [`NAMED`].
+    ///
+    /// Not a failure of anything. It is a budget being spent, and it is reported as one.
+    NotRequested,
 }
 
 /// The queries a description produces.
@@ -293,7 +362,9 @@ pub fn from_results(results: &[Vec<Hit>], asked: usize) -> Vec<Found> {
             .unwrap_or(std::cmp::Ordering::Equal)
             .then_with(|| a.host.cmp(&b.host))
     });
-    found.truncate(MAX_CANDIDATES);
+    // **Complete, and ranked.** The cap that used to be here is now [`NAMED`], and it applies
+    // to fetching rather than to the list: a company dropped before [`crate::competitors`] can
+    // see it is a company nothing can report as excluded.
     found
 }
 
@@ -350,14 +421,37 @@ pub fn score(agreed: usize, asked: usize, depth: usize) -> f32 {
 /// A host whose front page cannot be read keeps its host as its name and says so, rather than
 /// being dropped: *"we could not read this one"* is a thing a reader can act on, and a candidate
 /// silently missing from a list is not.
-pub async fn describe<F, Fut>(found: &[Found], fetch: F) -> Vec<Candidate>
+pub async fn describe<F, Fut>(found: &[Found], words: &[String], fetch: F) -> Vec<Described>
 where
     F: Fn(String) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
 {
-    let mut out = Vec::with_capacity(found.len().min(NAMED));
-    for one in found.iter().take(NAMED) {
+    let mut out = Vec::with_capacity(found.len());
+    for (rank, one) in found.iter().enumerate() {
+        // **Every candidate comes back; only the first [`NAMED`] cost somebody a request.** The
+        // rest carry [`Vocabulary::NotRequested`] rather than being dropped, because a company
+        // that never reaches [`crate::competitors::assemble`] is one nothing can report as
+        // excluded — which is what review found happening to the sixth.
+        if rank >= NAMED {
+            out.push(Described {
+                candidate: Candidate {
+                    name: one.host.clone(),
+                    canonical_domain: one.host.clone(),
+                    what_it_is: "we did not read its front page".to_owned(),
+                    confidence: one.confidence,
+                },
+                agreed: one.agreed,
+                shares: Vocabulary::NotRequested,
+            });
+            continue;
+        }
         let page = fetch(home_page(&one.host)).await;
+        // **One read, two questions.** The name and the vocabulary both come from the front
+        // page, and fetching it twice would be a second request to somebody's server for text
+        // we already have.
+        let shares = page.as_deref().map_or(Vocabulary::Unreadable, |markdown| {
+            Vocabulary::Read(crate::competitors::shared(words, markdown))
+        });
         let (name, what_it_is) = page.map_or_else(
             || {
                 (
@@ -367,43 +461,69 @@ where
             },
             |markdown| naming(&one.host, &markdown),
         );
-        out.push(Candidate {
-            name,
-            canonical_domain: one.host.clone(),
-            what_it_is,
-            confidence: one.confidence,
+        out.push(Described {
+            candidate: Candidate {
+                name,
+                canonical_domain: one.host.clone(),
+                what_it_is,
+                confidence: one.confidence,
+            },
+            agreed: one.agreed,
+            shares,
         });
     }
     out
 }
 
-/// A description in, the gate's verdict out — the whole of `FACT_CHECKING.md` §3.1 steps 2 to 4.
+/// A description in, the gate's verdict **and** the competitor set out.
+///
+/// `FACT_CHECKING.md` §3.1 steps 2 to 4, plus the step this product is actually for: turning one
+/// description into the several companies a landscape compares. See
+/// [`crate::competitors`] for why those are two questions rather than one, and why the gate is
+/// still asked first.
 ///
 /// **One path, three callers.** `landscape candidates` prints what this returns, the worker acts
 /// on it, and the tests assert on it. The sequence was written out by hand in the first two of
 /// those and the third is the one that decides whether a report gets written, so a diagnostic
 /// that agreed with the worker only by coincidence was a matter of time.
 ///
-/// `fetch` names each candidate from its own front page; see [`describe`]. The count returned
-/// beside the verdict is how many searches did not complete, because a thin list and a quiet
-/// market are different findings and only that number tells them apart.
+/// `fetch` names each candidate from its own front page; see [`describe`]. The [`Queried`]
+/// returned beside the verdict says which searches completed, because a thin list and a quiet
+/// market are different findings and only that tells them apart.
 pub async fn for_description<F, Fut>(
     engine: &dyn SourceProvider,
     description: &str,
     fetch: F,
-) -> (Resolution, Queried)
+) -> (crate::competitors::Derived, Queried)
 where
     F: Fn(String) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
 {
     let (found, queried) = suggest(engine, description).await;
-    let named = describe(&found, fetch).await;
+    let words = crate::competitors::content_words(description);
+    let named = describe(&found, &words, fetch).await;
+    // **Two consumers, two lists, and the difference is deliberate.** The set gets everything
+    // that was found, because a company it cannot see is a company nothing can report as
+    // excluded. The gate gets only what was *fetched*, because it asks a reader to choose and a
+    // candidate with no name of its own is not a choice. Review found each of these in turn,
+    // from opposite directions.
+    let set = crate::competitors::assemble(named.clone(), queried.sent());
+    let choices: Vec<Candidate> = named
+        .into_iter()
+        .filter(Described::was_requested)
+        .map(|d| d.candidate)
+        .collect();
     // **Only what came back.** This list is what a reader is shown as *"we checked these"*, and
     // a query that never reached an engine checked nothing. Review found the previous version
     // listing all three after all three had failed.
     let checked = queried.completed.clone();
+    let verdict = landscape_core::subject::resolve(description, choices, checked);
     (
-        landscape_core::subject::resolve(description, named, checked),
+        crate::competitors::Derived {
+            verdict,
+            set,
+            about_a_market: crate::competitors::about_a_market(&words),
+        },
         queried,
     )
 }
@@ -522,6 +642,7 @@ fn depth(url: &str) -> usize {
 mod tests {
     use super::*;
     use crate::provider::SearchError;
+    use landscape_core::subject::Resolution;
 
     fn hit(url: &str) -> Hit {
         Hit {
@@ -678,12 +799,21 @@ mod tests {
     }
 
     #[test]
-    fn the_list_a_reader_sees_is_capped() {
+    fn every_company_found_survives_the_scoring() {
+        // **Review found the opposite behaviour and the reason it was wrong.** This used to
+        // assert the list was truncated to five, which is a fine rule for a list a reader picks
+        // one company from and a silent drop for a set: the sixth was neither compared nor
+        // reported as excluded. The budget still exists - it is `NAMED`, and it applies to
+        // fetching front pages, which is a cost somebody else pays.
         let many: Vec<Hit> = (0..12)
             .map(|i| hit(&format!("https://company{i}.com/")))
             .collect();
         let found = from_results(&[many], 1);
-        assert_eq!(found.len(), MAX_CANDIDATES);
+        assert_eq!(
+            found.len(),
+            12,
+            "a company was dropped before anything could report it"
+        );
     }
 
     #[test]
@@ -704,11 +834,11 @@ mod tests {
         let found = from_results(&results, 1);
 
         let got: Vec<&str> = found.iter().map(|f| f.host.as_str()).collect();
-        // Every one ties on score, so the whole order is the tie-break, and the cap then keeps
-        // the first five of it.
+        // Every one ties on score, so the whole order is the tie-break - all eight of it now
+        // that nothing is truncated, which is a stricter reading of the same rule.
         assert_eq!(
             got,
-            vec!["a.com", "b.com", "c.com", "d.com", "e.com"],
+            vec!["a.com", "b.com", "c.com", "d.com", "e.com", "f.com", "g.com", "h.com"],
             "{found:#?}"
         );
         assert_eq!(found, from_results(&results, 1), "two runs, two answers");
@@ -722,19 +852,19 @@ mod tests {
             agreed: 3,
             shallowest: "https://usefathom.com/".to_owned(),
         }];
-        let described = describe(&found, |_url| async {
+        let described = describe(&found, &[], |_url| async {
             Some(
                 "# Fathom Analytics\nSimple, privacy-first website analytics with no cookies."
                     .to_owned(),
             )
         })
         .await;
-        assert_eq!(described[0].name, "Fathom Analytics");
+        assert_eq!(described[0].candidate.name, "Fathom Analytics");
         assert_eq!(
-            described[0].what_it_is,
+            described[0].candidate.what_it_is,
             "Simple, privacy-first website analytics with no cookies."
         );
-        assert_eq!(described[0].canonical_domain, "usefathom.com");
+        assert_eq!(described[0].candidate.canonical_domain, "usefathom.com");
     }
 
     #[tokio::test]
@@ -747,10 +877,14 @@ mod tests {
             agreed: 1,
             shallowest: "https://unreachable.example/".to_owned(),
         }];
-        let described = describe(&found, |_url| async { None }).await;
+        let described = describe(&found, &["analytics".to_owned()], |_url| async { None }).await;
         assert_eq!(described.len(), 1);
-        assert_eq!(described[0].name, "unreachable.example");
-        assert!(described[0].what_it_is.contains("unable to read"));
+        assert_eq!(described[0].candidate.name, "unreachable.example");
+        assert!(described[0].candidate.what_it_is.contains("unable to read"));
+        // **A page nobody read shares nothing and knows nothing, and those are different.**
+        // `Read(vec![])` here would say the company is in some other market; `Unreadable` says
+        // we tried and could not - the distinction `competitors::Aside` is built on.
+        assert_eq!(described[0].shares, Vocabulary::Unreadable);
     }
 
     #[tokio::test]
@@ -769,7 +903,7 @@ mod tests {
             .collect();
         let fetched = std::sync::Arc::new(std::sync::Mutex::new(0usize));
         let counter = std::sync::Arc::clone(&fetched);
-        let described = describe(&many, move |_url| {
+        let described = describe(&many, &[], move |_url| {
             let counter = std::sync::Arc::clone(&counter);
             async move {
                 *counter.lock().unwrap() += 1;
@@ -781,8 +915,30 @@ It does a thing for other companies."
             }
         })
         .await;
-        assert_eq!(described.len(), NAMED);
-        assert_eq!(*fetched.lock().unwrap(), NAMED);
+        // **Every candidate comes back; only `NAMED` of them cost a request.** Returning five
+        // of eight is what review found: the other three were gone before anything could report
+        // them as excluded.
+        assert_eq!(
+            described.len(),
+            8,
+            "a candidate was dropped rather than deferred"
+        );
+        assert_eq!(
+            *fetched.lock().unwrap(),
+            NAMED,
+            "the fetch budget was not kept"
+        );
+        for one in described.iter().take(NAMED) {
+            assert!(
+                matches!(one.shares, Vocabulary::Read(_)),
+                "{:?}",
+                one.shares
+            );
+        }
+        for one in described.iter().skip(NAMED) {
+            // Not `Unreadable`: nobody asked, so nothing failed.
+            assert_eq!(one.shares, Vocabulary::NotRequested);
+        }
     }
 
     #[test]
@@ -926,7 +1082,7 @@ It does a thing for other companies."
         }];
         let asked = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
         let seen = std::sync::Arc::clone(&asked);
-        let described = describe(&found, move |url| {
+        let described = describe(&found, &[], move |url| {
             let seen = std::sync::Arc::clone(&seen);
             async move {
                 seen.lock().unwrap().push(url.clone());
@@ -948,7 +1104,7 @@ Simple, privacy-first website analytics."
             ["https://usefathom.com/".to_owned()],
             "the pricing page was fetched to name the company"
         );
-        assert_eq!(described[0].name, "Fathom Analytics");
+        assert_eq!(described[0].candidate.name, "Fathom Analytics");
     }
 
     #[tokio::test]
@@ -966,7 +1122,7 @@ Simple, privacy-first website analytics."
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].agreed, 1);
 
-        let named = describe(&found, |_url| async {
+        let named = describe(&found, &[], |_url| async {
             Some(
                 "# Lonely
 The only thing one search returned."
@@ -976,7 +1132,7 @@ The only thing one search returned."
         .await;
         let verdict = landscape_core::subject::resolve(
             "a market nobody agrees about",
-            named,
+            named.into_iter().map(|d| d.candidate).collect(),
             vec!["three queries, two of which did not complete".to_owned()],
         );
         assert!(
@@ -1002,7 +1158,7 @@ The only thing one search returned."
         let (found, _) = suggest(&engine, "something two engines agree about").await;
         assert_eq!(found[0].agreed, 2);
 
-        let named = describe(&found, |_url| async {
+        let named = describe(&found, &[], |_url| async {
             Some(
                 "# Agreed
 A company two searches both returned."
@@ -1010,7 +1166,11 @@ A company two searches both returned."
             )
         })
         .await;
-        let verdict = landscape_core::subject::resolve("something", named, Vec::new());
+        let verdict = landscape_core::subject::resolve(
+            "something",
+            named.into_iter().map(|d| d.candidate).collect(),
+            Vec::new(),
+        );
         match verdict {
             landscape_core::subject::Resolution::Resolved { entity } => {
                 assert_eq!(entity.canonical_domain, "agreed.example");
@@ -1062,7 +1222,7 @@ A company two searches both returned."
             ],
             asked: std::sync::Mutex::new(Vec::new()),
         };
-        let (verdict, queried) =
+        let (derived, queried) =
             for_description(&engine, "a market with one answer", |_url| async {
                 Some(
                     "# Agreed
@@ -1072,7 +1232,7 @@ A company every search returned."
             })
             .await;
         assert!(queried.failed.is_empty());
-        match verdict {
+        match derived.verdict {
             Resolution::Resolved { entity } => {
                 assert_eq!(entity.canonical_domain, "agreed.example");
                 assert_eq!(entity.name, "Agreed");
@@ -1104,7 +1264,7 @@ A company every search returned."
             ],
             asked: std::sync::Mutex::new(Vec::new()),
         };
-        let (verdict, _) = for_description(&engine, "a crowded market", |url| async move {
+        let (derived, _) = for_description(&engine, "a crowded market", |url| async move {
             Some(if url.contains("alpha") {
                 "# Alpha
 The first of two."
@@ -1116,7 +1276,7 @@ The second of two."
             })
         })
         .await;
-        match verdict {
+        match derived.verdict {
             Resolution::Ambiguous { candidates, .. } => {
                 assert_eq!(candidates.len(), 2, "{candidates:#?}");
                 let names: Vec<&str> = candidates.iter().map(|c| c.name.as_str()).collect();
@@ -1138,7 +1298,7 @@ The second of two."
             per_query: vec![Err(()), Err(()), Err(())],
             asked: std::sync::Mutex::new(Vec::new()),
         };
-        let (verdict, queried) =
+        let (derived, queried) =
             for_description(&engine, "privacy-friendly analytics", |_url| async { None }).await;
 
         assert_eq!(queried.failed.len(), 3);
@@ -1146,7 +1306,7 @@ The second of two."
         assert!(queried.nothing_completed());
         assert_eq!(queried.sent(), 3, "the divisor is still what was sent");
 
-        match verdict {
+        match derived.verdict {
             Resolution::NothingFound { checked } => assert!(
                 checked.is_empty(),
                 "queries that never completed are listed as checked: {checked:?}"
@@ -1194,7 +1354,7 @@ The second of two."
             per_query: vec![Ok(vec![hit("https://alone.example/")]), Err(()), Err(())],
             asked: std::sync::Mutex::new(Vec::new()),
         };
-        let (verdict, queried) =
+        let (derived, queried) =
             for_description(&engine, "a thin market", |_url| async { None }).await;
 
         assert_eq!(queried.completed.len(), 1);
@@ -1203,7 +1363,7 @@ The second of two."
 
         // One query found one host, so it is uncorroborated and the gate refuses it - and the
         // one checked query is what a reader is shown, not three.
-        match verdict {
+        match derived.verdict {
             Resolution::NothingFound { checked } => {
                 assert_eq!(checked, queried.completed, "{checked:?}");
                 assert_eq!(checked.len(), 1);
@@ -1213,14 +1373,319 @@ The second of two."
     }
 
     #[tokio::test]
+    async fn a_market_description_produces_every_company_rather_than_one() {
+        // **The whole row, end to end.** Three companies every search returned tie at 1.0, the
+        // gate calls that ambiguous, and for a description of a market the tie *is* the answer.
+        let engine = Canned {
+            per_query: vec![
+                Ok(vec![
+                    hit("https://usefathom.com/"),
+                    hit("https://plausible.io/"),
+                ]),
+                Ok(vec![
+                    hit("https://plausible.io/pricing"),
+                    hit("https://usefathom.com/"),
+                ]),
+                Ok(vec![
+                    hit("https://usefathom.com/"),
+                    hit("https://plausible.io/"),
+                ]),
+            ],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (derived, _) = for_description(
+            &engine,
+            "privacy-friendly website analytics",
+            |url| async move {
+                Some(if url.contains("fathom") {
+                    "# Fathom\nSimple privacy analytics.".to_owned()
+                } else {
+                    "# Plausible\nPrivacy-first website analytics.".to_owned()
+                })
+            },
+        )
+        .await;
+
+        assert!(derived.about_a_market, "four words read as a name");
+        assert!(
+            matches!(derived.verdict, Resolution::Ambiguous { .. }),
+            "the gate no longer sees a tie: {:?}",
+            derived.verdict
+        );
+        let names: Vec<&str> = derived
+            .set
+            .members
+            .iter()
+            .map(|m| m.candidate.name.as_str())
+            .collect();
+        assert_eq!(names.len(), 2, "{:#?}", derived.set);
+        assert!(
+            names.contains(&"Fathom") && names.contains(&"Plausible"),
+            "{names:?}"
+        );
+        assert!(
+            derived.set.set_aside.is_empty(),
+            "{:#?}",
+            derived.set.set_aside
+        );
+        for m in &derived.set.members {
+            assert_eq!(m.because.agreed, 3);
+            assert_eq!(m.because.asked, 3);
+            assert!(m.because.shares.contains(&"analytics".to_owned()));
+        }
+    }
+
+    #[tokio::test]
+    async fn a_sixth_corroborated_company_is_never_missing_from_both_lists() {
+        // **The guarantee, end to end.** Six companies, every search returning all of them,
+        // and a fetch budget of five. Review found the sixth vanishing inside `from_results`:
+        // not a member, not an exclusion, and named nowhere a reader could see it.
+        let all: Vec<Hit> = (0..6)
+            .map(|i| hit(&format!("https://c{i}.example/")))
+            .collect();
+        let engine = Canned {
+            per_query: vec![Ok(all.clone()), Ok(all.clone()), Ok(all)],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (derived, _) = for_description(
+            &engine,
+            "privacy-friendly website analytics",
+            |_url| async { Some("# A company\nPrivacy-first website analytics.".to_owned()) },
+        )
+        .await;
+
+        let mut accounted: Vec<&str> = derived
+            .set
+            .members
+            .iter()
+            .map(|m| m.candidate.canonical_domain.as_str())
+            .chain(
+                derived
+                    .set
+                    .set_aside
+                    .iter()
+                    .map(|(c, _)| c.canonical_domain.as_str()),
+            )
+            .collect();
+        accounted.sort_unstable();
+        assert_eq!(
+            accounted,
+            vec![
+                "c0.example",
+                "c1.example",
+                "c2.example",
+                "c3.example",
+                "c4.example",
+                "c5.example"
+            ],
+            "a company was found and appears in neither list: {:#?}",
+            derived.set
+        );
+
+        let (sixth, why) = derived
+            .set
+            .set_aside
+            .iter()
+            .find(|(c, _)| c.canonical_domain == "c5.example")
+            .expect("the sixth is somewhere");
+        assert_eq!(
+            *why,
+            crate::competitors::Aside::BeyondTheFetchBudget { budget: NAMED }
+        );
+        assert_eq!(sixth.canonical_domain, "c5.example");
+        assert_eq!(derived.set.members.len(), NAMED);
+    }
+
+    #[tokio::test]
+    async fn a_reader_is_never_asked_to_choose_between_bare_domains() {
+        // **Review found this arriving from the opposite direction to the last one.** Removing
+        // the truncation so the *set* could see every company also handed every company to the
+        // *gate* - including the ones nobody fetched, which have no name of their own:
+        //
+        // ```text
+        // the reader is offered 6 choices:
+        //    Company at https://c0.example/ (c0.example)
+        //    ...
+        //    c5.example (c5.example)
+        // ```
+        //
+        // A question bounded by how many results a provider felt like returning, whose last
+        // option is a domain repeated twice.
+        let all: Vec<Hit> = (0..6)
+            .map(|i| hit(&format!("https://c{i}.example/")))
+            .collect();
+        let engine = Canned {
+            per_query: vec![Ok(all.clone()), Ok(all.clone()), Ok(all)],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (derived, _) = for_description(&engine, "Notion", |url| async move {
+            Some(format!(
+                "# Company at {url}\n\nOne workspace for your notes."
+            ))
+        })
+        .await;
+
+        assert!(!derived.about_a_market, "one word read as a market");
+        let Resolution::Ambiguous { candidates, .. } = derived.verdict else {
+            panic!("six tied hosts did not ask")
+        };
+        assert_eq!(
+            candidates.len(),
+            NAMED,
+            "the question is bounded by the provider rather than by us: {candidates:#?}"
+        );
+        for c in &candidates {
+            assert_ne!(
+                c.name, c.canonical_domain,
+                "a candidate with no name of its own was offered as a choice: {c:?}"
+            );
+        }
+
+        // **And the set still accounts for all six.** The two lists differ on purpose, so a fix
+        // to either one that quietly re-joins them fails here.
+        let mut accounted: Vec<&str> = derived
+            .set
+            .members
+            .iter()
+            .map(|m| m.candidate.canonical_domain.as_str())
+            .chain(
+                derived
+                    .set
+                    .set_aside
+                    .iter()
+                    .map(|(c, _)| c.canonical_domain.as_str()),
+            )
+            .collect();
+        accounted.sort_unstable();
+        assert_eq!(accounted.len(), 6, "{:#?}", derived.set);
+        assert!(accounted.contains(&"c5.example"), "{accounted:?}");
+    }
+
+    #[tokio::test]
+    async fn a_reason_counts_the_searches_that_were_sent_not_the_ones_that_answered() {
+        // The same rule the score follows, carried into the sentence a reader reads. Two
+        // searches agreeing out of three sent is agreement between two of three; an engine
+        // outage must not turn it into "2 of the 2 searches returned it".
+        let engine = Canned {
+            per_query: vec![
+                Ok(vec![hit("https://plausible.io/")]),
+                Ok(vec![hit("https://plausible.io/pricing")]),
+                Err(()),
+            ],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (derived, queried) = for_description(
+            &engine,
+            "privacy-friendly website analytics",
+            |_url| async { Some("# Plausible\nPrivacy-first website analytics.".to_owned()) },
+        )
+        .await;
+
+        assert_eq!(queried.failed.len(), 1);
+        assert_eq!(derived.set.members.len(), 1, "{:#?}", derived.set);
+        let because = &derived.set.members[0].because;
+        assert_eq!(because.agreed, 2);
+        assert_eq!(because.asked, 3, "an outage was counted as unanimity");
+        assert!(
+            because.sentence().contains("2 of the 3"),
+            "{}",
+            because.sentence()
+        );
+    }
+
+    #[tokio::test]
+    async fn one_word_typed_is_still_a_question_rather_than_a_set() {
+        // The gate's own protection, unchanged: several products sharing a *name* is what
+        // `FACT_CHECKING.md` 3.1 step 4 asks a reader about, and a set would answer it for them.
+        let engine = Canned {
+            per_query: vec![
+                Ok(vec![
+                    hit("https://notion.example/"),
+                    hit("https://notionpress.example/"),
+                ]),
+                Ok(vec![
+                    hit("https://notionpress.example/"),
+                    hit("https://notion.example/"),
+                ]),
+                Ok(vec![
+                    hit("https://notion.example/"),
+                    hit("https://notionpress.example/"),
+                ]),
+            ],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (derived, _) = for_description(&engine, "Notion", |url| async move {
+            Some(if url.contains("press") {
+                "# Notion Press\nSelf-publish your book.".to_owned()
+            } else {
+                "# Notion\nOne workspace for your notes.".to_owned()
+            })
+        })
+        .await;
+
+        assert!(!derived.about_a_market, "one word read as a market");
+        assert!(matches!(derived.verdict, Resolution::Ambiguous { .. }));
+    }
+
+    #[tokio::test]
+    async fn a_company_from_another_market_is_set_aside_and_named() {
+        // A search for one market returning a company from another. It is excluded from the
+        // comparison and **named**, because a competitor dropped in silence is the defect the
+        // set exists to remove.
+        let engine = Canned {
+            per_query: vec![
+                Ok(vec![
+                    hit("https://plausible.io/"),
+                    hit("https://notionpress.example/"),
+                ]),
+                Ok(vec![
+                    hit("https://plausible.io/"),
+                    hit("https://notionpress.example/"),
+                ]),
+                Ok(vec![
+                    hit("https://plausible.io/"),
+                    hit("https://notionpress.example/"),
+                ]),
+            ],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (derived, _) = for_description(
+            &engine,
+            "privacy-friendly website analytics",
+            |url| async move {
+                Some(if url.contains("press") {
+                    "# Notion Press\nSelf-publish your book.".to_owned()
+                } else {
+                    "# Plausible\nPrivacy-first website analytics.".to_owned()
+                })
+            },
+        )
+        .await;
+
+        let compared: Vec<&str> = derived
+            .set
+            .members
+            .iter()
+            .map(|m| m.candidate.canonical_domain.as_str())
+            .collect();
+        assert_eq!(compared, vec!["plausible.io"], "{:#?}", derived.set);
+        assert_eq!(derived.set.set_aside.len(), 1);
+        assert_eq!(derived.set.set_aside[0].0.name, "Notion Press");
+        assert_eq!(
+            derived.set.set_aside[0].1,
+            crate::competitors::Aside::ElsewhereEntirely
+        );
+    }
+
+    #[tokio::test]
     async fn a_description_matching_nobody_says_so_rather_than_picking() {
         let engine = Canned {
             per_query: vec![Ok(Vec::new()), Ok(Vec::new()), Ok(Vec::new())],
             asked: std::sync::Mutex::new(Vec::new()),
         };
-        let (verdict, _) =
+        let (derived, _) =
             for_description(&engine, "something nobody sells", |_url| async { None }).await;
-        match verdict {
+        match derived.verdict {
             Resolution::NothingFound { checked } => {
                 // The queries are the auditable half of a negative — §5.4's rule that a
                 // negative nobody can check is not a finding.
