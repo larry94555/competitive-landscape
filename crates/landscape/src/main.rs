@@ -311,10 +311,13 @@ Example:
         .collect();
 
     let fetcher = landscape_fetch::Fetcher::new();
-    let budget = landscape_fetch::Budget::for_one_analysis();
     let mut report = landscape_extract::Report::default();
 
     for url in urls {
+        // One allowance per page, for the reason `check_examples` has one per company: these
+        // are twenty-eight independent measurements rather than one reader's question, and a
+        // shared allowance would make the last of them fail because of the first.
+        let budget = landscape_fetch::Budget::for_one_analysis();
         match fetcher.get(url, &budget).await {
             Ok(page) => {
                 let found = landscape_extract::locate(&page.body);
@@ -1127,7 +1130,6 @@ fn trim(url: &str) -> String {
 /// notes.
 async fn check_examples() -> Result<()> {
     let fetcher = landscape_fetch::Fetcher::new();
-    let budget = landscape_fetch::Budget::for_one_analysis();
     let mut poor: Vec<String> = Vec::new();
 
     for example in landscape_core::examples() {
@@ -1140,6 +1142,12 @@ async fn check_examples() -> Result<()> {
         for company in &example.companies {
             let origin = format!("https://{company}");
             let started = std::time::Instant::now();
+            // **One allowance per company, because these are not one reader's question.**
+            // Review found this: shared, the first two companies spend the sixty-four between
+            // them and every later one comes back with no pricing page — a health check failing
+            // on an artifact of the check before it, which is worse than no health check.
+            // `landscape_fetch::budget` is sized for one analysis, and each of these is one.
+            let budget = landscape_fetch::Budget::for_one_analysis();
             let found = landscape_discover::discover(&fetcher, &budget, &origin).await;
             let mut answered: Vec<&str> = found
                 .sources

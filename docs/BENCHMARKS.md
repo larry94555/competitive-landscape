@@ -69,6 +69,47 @@ The two paths look alike and are not, and the distinction decides what a claim i
   moment of confirmation, because a report saying *"as of an hour ago"* about something an origin
   just confirmed **understates what is known**.
 
+### Review: a `304` says *unchanged*, and it was read as *nothing*
+
+RFC 9111 lets a `304` omit any header whose value has not changed, and most origins omit
+`Cache-Control`. The first version re-inserted the confirmed page using **only the headers on the
+`304`** — so `storable` saw no policy, fell back to our hour, and an origin's `max-age=30` became
+sixty minutes the first time it was revalidated.
+
+**Asking a publisher whether their page changed widened the policy they set on it.** That is the
+opposite of what the request is for, and it is silent: the page is right, the citation is right,
+only the interval is wrong.
+
+`Stale` carries the freshness it was stored under, `confirmed` returns it with the page so there
+is no default for the caller to reach for, and `Cache::insert_revalidated` uses the stored
+lifetime **unless the `304` restates one**:
+
+| the `304` says | kept for |
+|---|---|
+| nothing | the stored lifetime, less any age it reports |
+| `max-age=600` on a page stored for 30s | 600s — the origin extending its own policy |
+| `max-age=30` on a page stored for an hour | 30s |
+| `no-store` | **not kept, and what we held is dropped** |
+| an unreadable header | not kept |
+
+The last two rows are the second half of the same finding. `Storable::No` meant *do not store
+this*, and the code did exactly that — while leaving the **older copy** in place to be served.
+Refusing to store and refusing to serve are different things, and a cache that obeys `no-store`
+by doing only the first still ignores it. `Cache::forget` is now called on every refusal, on the
+`200` path as well as the `304` one.
+
+### Review: one allowance for things that were never one question
+
+`landscape examples` checks six independent companies. The budget was created once above the
+loop, so the first two spent it and every later one came back with no pricing page — **a health
+check failing on an artifact of the check before it**, which is worse than no health check.
+
+The bound was right and its *scope* was copied from the place it was designed for to a place that
+merely looked similar. One allowance per company now, and the same correction in
+`landscape gap`, which measures twenty-eight independent pages. Every other construction site was
+audited against the same question — *what is the unit of work here?* — and the rest are genuinely
+one question each.
+
 ### `304` is a `3xx`, and that is a trap with a type for a fix
 
 Written as two `if`s, the redirect branch comes first and swallows it: `304` has no `Location`,
@@ -142,7 +183,7 @@ refuses. That is the one thing in this crate that a bound lets us test which a l
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 38 | 901 | 62 |
-| now | **917** | **62** |
+| now | **921** | **62** |
 
 ---
 

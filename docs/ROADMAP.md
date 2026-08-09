@@ -669,7 +669,12 @@ the single most important phase; everything after it is commerce and polish.
   And `Budget` bounds the **run**: everything else here bounds one request, and the run was
   bounded only by an accident of arithmetic. Sixty-four requests per analysis, shared by all
   three passes, counting `robots.txt` and every redirect hop. Running out is never reported as
-  the site refusing — that would blame a stranger for our own bound.
+  the site refusing — that would blame a stranger for our own bound — and the commands that check
+  several sites in a row get one allowance each, because a loop over independent targets is not
+  one reader's question however much it resembles one.
+  **A `304` keeps the policy the page was stored under**: a conforming `304` may omit an
+  unchanged `Cache-Control`, so reading it alone would turn an origin's `max-age=30` into our
+  hour — asking a publisher whether their page changed is no way to widen what they allow.
   Testable by hand: `cargo run -p landscape -- fetch <url>`.
 - **Review-platform access audit** (§ week 1, before any architecture assumes the channel):
   [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) ranks review-site category pages as the

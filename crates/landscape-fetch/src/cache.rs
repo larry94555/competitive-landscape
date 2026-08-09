@@ -275,10 +275,42 @@ pub fn storable(status: u16, headers: Freshness<'_>, now: DateTime<Utc>) -> Stor
 #[derive(Debug, Clone)]
 pub struct Stale {
     pub page: Page,
+    /// How long this entry was allowed to be served for. **Carried because a `304` may not
+    /// repeat it** — see [`Cache::insert_revalidated`].
+    pub fresh_for: Duration,
     /// `ETag`, the strong one, first.
     pub etag: Option<String>,
     /// `Last-Modified`, for origins that do not send an `ETag`.
     pub last_modified: Option<String>,
+}
+
+/// How long a page a `304` has just confirmed may be served for.
+///
+/// The stored lifetime unless the `304` restates one, less whatever age the `304` reports. See
+/// [`Cache::insert_revalidated`] for why silence is *unchanged* rather than *unset*.
+///
+/// A header on the `304` we cannot read is treated the way [`storable`] treats one: not
+/// cacheable. Keeping a page under a policy we misread is the failure that rule exists for, and
+/// it does not stop being that because the page came back as a `304`.
+#[must_use]
+pub fn confirmed_freshness(
+    stored_for: Duration,
+    status: u16,
+    headers: Freshness<'_>,
+    now: DateTime<Utc>,
+) -> Storable {
+    if headers.cache_control.is_some() || headers.expires.is_some() {
+        return storable(status, headers, now);
+    }
+    let Some(aged) = already_aged(headers, now) else {
+        return Storable::No;
+    };
+    let left = stored_for.saturating_sub(aged);
+    if left.is_zero() {
+        Storable::No
+    } else {
+        Storable::For(left)
+    }
 }
 
 /// Pages kept in memory, oldest evicted first.
@@ -352,9 +384,55 @@ impl Cache {
         }
         Some(Stale {
             page: entry.page.clone(),
+            fresh_for: entry.fresh_for,
             etag: entry.page.etag.clone(),
             last_modified: entry.page.last_modified.clone(),
         })
+    }
+
+    /// Keep a page the origin has just confirmed, under the policy it is still subject to.
+    ///
+    /// Returns whether it was kept.
+    ///
+    /// **Silence on a `304` means *unchanged*, not *no policy*.** RFC 9111 lets a `304` omit
+    /// headers whose values have not changed, and most origins do. Review found what that costs
+    /// if the `304` is read on its own: an origin's `max-age=30` becomes [`FRESH_FOR`] the first
+    /// time it is revalidated, because [`storable`] falls back to our hour when nobody says
+    /// otherwise. **Revalidating a page would widen the publisher's policy**, which is the exact
+    /// opposite of what asking politely is for.
+    ///
+    /// So the stored lifetime is the default and the `304`'s own headers override it. What the
+    /// `304` *does* say is honoured in full — including a `no-store` that arrives on it, which
+    /// drops what we hold rather than leaving a copy the origin has just forbidden.
+    pub fn insert_revalidated(
+        &mut self,
+        url: String,
+        page: Page,
+        stored_for: Duration,
+        headers: Freshness<'_>,
+        now: DateTime<Utc>,
+    ) -> bool {
+        match confirmed_freshness(stored_for, page.status, headers, now) {
+            Storable::No => {
+                self.forget(&url);
+                false
+            }
+            Storable::For(fresh_for) => {
+                self.insert_for(url, page, fresh_for);
+                true
+            }
+        }
+    }
+
+    /// Drop what we hold for this URL, if anything.
+    ///
+    /// **Refusing to store and continuing to serve are different things**, and only doing the
+    /// first is how a `no-store` gets ignored by a cache that obeys it: the response is not
+    /// kept, and the copy from before it is handed out anyway.
+    pub fn forget(&mut self, url: &str) {
+        if let Some(gone) = self.by_url.remove(url) {
+            self.bytes -= gone.cost;
+        }
     }
 
     /// Keep a page for as long as the origin's own headers allow, or not at all.
@@ -380,7 +458,13 @@ impl Cache {
         // **The status comes from the page rather than from a parameter.** They cannot disagree
         // that way, and a caller cannot pass the status of a different response.
         match storable(page.status, headers, now) {
-            Storable::No => false,
+            Storable::No => {
+                // **And drop what we already hold.** A page the origin now says not to store is
+                // not one to keep serving from an older copy, which is the way a cache that
+                // obeys `no-store` can still ignore it.
+                self.forget(&url);
+                false
+            }
             Storable::For(fresh_for) => {
                 self.insert_for(url, page, fresh_for);
                 true
@@ -833,6 +917,145 @@ mod tests {
         );
         assert!(!held, "a 503 was written down");
         assert!(cache.is_empty());
+    }
+
+    #[test]
+    fn revalidating_a_page_does_not_widen_the_policy_it_was_kept_under() {
+        // **Review found this, and it is a publisher's policy being loosened by asking them.**
+        // RFC 9111 lets a `304` omit a `Cache-Control` whose value has not changed, and most
+        // origins do. Read on its own, an origin's `max-age=30` becomes our hour the first time
+        // it is revalidated — the opposite of what asking politely is for.
+        let now = at("2026-08-09T00:00:00Z");
+        let thirty = Duration::from_secs(30);
+
+        assert_eq!(
+            confirmed_freshness(thirty, 200, Freshness::default(), now),
+            Storable::For(thirty),
+            "a silent 304 was taken as no policy at all"
+        );
+
+        // What the `304` does say is honoured in full, in both directions.
+        assert_eq!(
+            confirmed_freshness(thirty, 200, said("max-age=600"), now),
+            Storable::For(Duration::from_secs(600)),
+            "an origin extending its own policy was ignored"
+        );
+        assert_eq!(
+            confirmed_freshness(FRESH_FOR, 200, said("max-age=30"), now),
+            Storable::For(thirty)
+        );
+        assert_eq!(
+            confirmed_freshness(thirty, 200, said("no-store"), now),
+            Storable::No
+        );
+
+        // And a `304` that reports an age spends it, the same as any other response.
+        let aged = Freshness {
+            age: Some("25"),
+            ..Freshness::default()
+        };
+        assert_eq!(
+            confirmed_freshness(thirty, 200, aged, now),
+            Storable::For(Duration::from_secs(5))
+        );
+        let spent = Freshness {
+            age: Some("30"),
+            ..Freshness::default()
+        };
+        assert_eq!(confirmed_freshness(thirty, 200, spent, now), Storable::No);
+
+        // An unreadable header is not permission here either.
+        let unreadable = Freshness {
+            age: Some("soon"),
+            ..Freshness::default()
+        };
+        assert_eq!(
+            confirmed_freshness(thirty, 200, unreadable, now),
+            Storable::No
+        );
+    }
+
+    #[test]
+    fn a_thirty_second_page_is_still_a_thirty_second_page_after_a_304() {
+        // The same thing through the cache, which is where it would actually go wrong: a 200
+        // with `max-age=30`, then a `304` carrying no freshness at all.
+        let now = at("2026-08-09T00:00:00Z");
+        let mut cache = Cache::new();
+        let mut page = page("https://a.example/pricing", 40);
+        page.etag = Some("\"v1\"".to_owned());
+
+        assert!(cache.insert_allowed(
+            "https://a.example/pricing".to_owned(),
+            page.clone(),
+            said("max-age=30"),
+            now
+        ));
+        cache.age(Duration::from_secs(31));
+        let asking = cache
+            .stale("https://a.example/pricing")
+            .expect("expired, and askable");
+        assert_eq!(asking.fresh_for, Duration::from_secs(30));
+
+        assert!(cache.insert_revalidated(
+            "https://a.example/pricing".to_owned(),
+            page,
+            asking.fresh_for,
+            Freshness::default(),
+            now
+        ));
+        assert!(
+            cache.get("https://a.example/pricing").is_some(),
+            "confirmed and then not kept at all"
+        );
+        cache.age(Duration::from_secs(31));
+        assert!(
+            cache.get("https://a.example/pricing").is_none(),
+            "thirty seconds became an hour by being confirmed"
+        );
+    }
+
+    #[test]
+    fn a_page_the_origin_now_forbids_is_dropped_rather_than_served_from_before() {
+        // Refusing to store and continuing to serve are different things, and doing only the
+        // first is how a cache that obeys `no-store` still ignores it.
+        let now = at("2026-08-09T00:00:00Z");
+        let mut cache = Cache::new();
+        cache.insert(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 40),
+        );
+        assert!(cache.get("https://a.example/").is_some());
+
+        assert!(!cache.insert_allowed(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 40),
+            said("no-store"),
+            now
+        ));
+        assert!(
+            cache.get("https://a.example/").is_none(),
+            "a page the origin said not to store was served from an older copy"
+        );
+        assert_eq!(cache.bytes(), 0, "and its bytes were held for ever");
+    }
+
+    #[test]
+    fn a_304_that_forbids_storing_drops_what_it_confirmed() {
+        let now = at("2026-08-09T00:00:00Z");
+        let mut cache = Cache::new();
+        cache.insert(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 40),
+        );
+        assert!(!cache.insert_revalidated(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 40),
+            Duration::from_secs(30),
+            said("no-store"),
+            now
+        ));
+        assert!(cache.get("https://a.example/").is_none());
+        assert_eq!(cache.bytes(), 0);
     }
 
     #[test]

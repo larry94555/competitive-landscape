@@ -210,8 +210,8 @@
   {
     "name": "the origin's headers are read and then ignored",
     "file": "crates/landscape-fetch/src/cache.rs",
-    "old": "            Storable::No => false,",
-    "new": "            Storable::No => {\n                self.insert_for(url, page, FRESH_FOR);\n                true\n            }",
+    "old": "        match storable(page.status, headers, now) {\n            Storable::No => {",
+    "new": "        match Storable::For(FRESH_FOR) {\n            Storable::No => {",
     "run": [
       "cargo",
       "nextest",
@@ -249,8 +249,8 @@
   {
     "name": "the origin's own freshness is dropped on the way into the cache",
     "file": "crates/landscape-fetch/src/cache.rs",
-    "old": "                self.insert_for(url, page, fresh_for);",
-    "new": "                self.insert_for(url, page, FRESH_FOR);",
+    "old": "            Storable::For(fresh_for) => {\n                self.insert_for(url, page, fresh_for);\n                true\n            }\n        }\n    }\n\n    /// Keep a page for a stated time, evicting the oldest until it fits.",
+    "new": "            Storable::For(_) => {\n                self.insert_for(url, page, FRESH_FOR);\n                true\n            }\n        }\n    }\n\n    /// Keep a page for a stated time, evicting the oldest until it fits.",
     "run": [
       "cargo",
       "nextest",
@@ -301,8 +301,8 @@
   {
     "name": "an age we cannot read is taken as none at all",
     "file": "crates/landscape-fetch/src/cache.rs",
-    "old": "    let Some(aged) = already_aged(headers, now) else {\n        return Storable::No;\n    };",
-    "new": "    let aged = already_aged(headers, now).unwrap_or(Duration::ZERO);",
+    "old": "    let Some(aged) = already_aged(headers, now) else {\n        return Storable::No;\n    };\n    let mut allowed = FRESH_FOR.saturating_sub(aged);",
+    "new": "    let aged = already_aged(headers, now).unwrap_or(Duration::ZERO);\n    let mut allowed = FRESH_FOR.saturating_sub(aged);",
     "run": [
       "cargo",
       "nextest",

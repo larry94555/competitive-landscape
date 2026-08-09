@@ -2051,6 +2051,54 @@ decision that set it — if you cannot, it is an accident, and accidents do not 
 
 ---
 
+## 58. Silence read as absence, and one budget across things that were never one thing
+
+**Found:** by review, in the change that introduced both.
+
+### A `304` says *"unchanged"*, and I read it as *"nothing"*
+
+RFC 9111 lets a `304` omit any header whose value has not changed, and most origins omit
+`Cache-Control`. The revalidation branch re-inserted the confirmed page using **only the headers
+on the `304`** — so `storable` saw no policy, fell back to our hour, and an origin's
+`max-age=30` became sixty minutes the first time it was revalidated.
+
+**Asking a publisher whether their page changed widened the policy they set on it.** That is the
+opposite of what the request was for, and it is silent: the page is correct, the citation is
+correct, only the interval is wrong, and nothing on any surface says so.
+
+The general shape: **an absent field in an update is not the same as an absent field in a
+creation.** A partial update carries deltas; reading it as a whole record replaces everything it
+did not mention with a default. The fix is to carry the stored value and let the update override
+it — which meant `Stale` had to carry the freshness it was stored under, not only its body and
+validators.
+
+It also exposed a second half of the same error. `Storable::No` meant *do not store this*, and
+the code did exactly that — while leaving the **older copy** in place to be served. Refusing to
+store and refusing to serve are different, and a cache that obeys `no-store` by only doing the
+first still ignores it.
+
+### One allowance for things that were never one question
+
+A per-analysis fetch budget is right for an analysis. It was created once at the top of a
+health-check command that loops over six independent companies, so the first two spent it and
+every later one came back *"no pricing page"* — **a check failing on an artifact of the check
+before it**, which is worse than no check at all.
+
+The bound was correct; its *scope* was copied from the place it was designed for to a place that
+merely looked similar. When a resource is scoped to a unit of work, every construction site has
+to answer *"what is the unit of work here?"* — and a loop over independent targets is not one
+unit however much it resembles one.
+
+**Rule:** when consuming an update, ask what a missing field means — *unchanged* or *unset* —
+and carry the stored value when it means unchanged. When refusing to keep something, ask whether
+you are also refusing to serve what you already kept. And when a limit is scoped to a unit of
+work, name the unit at every place you construct it.
+
+> **Ask this:** *does silence here mean "same as before" or "none"? And is this loop one piece of
+> work or several?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

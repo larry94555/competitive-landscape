@@ -54,8 +54,8 @@
   {
     "name": "a revalidated page still claims the moment it was first read",
     "file": "crates/landscape-fetch/src/fetcher.rs",
-    "old": "    Ok(Page {\n        fetched_at: at,",
-    "new": "    Ok(Page {\n        fetched_at: held.page.fetched_at,",
+    "old": "    Ok((\n        Page {\n            fetched_at: at,",
+    "new": "    Ok((\n        Page {\n            fetched_at: held.page.fetched_at,",
     "run": [
       "cargo",
       "nextest",
@@ -68,7 +68,7 @@
     "name": "a 304 nobody asked a conditional question for becomes an empty page",
     "file": "crates/landscape-fetch/src/fetcher.rs",
     "old": "    let held = held.ok_or_else(|| {\n        FetchError::Transport(\"304 for a request that carried no validator\".into())\n    })?;",
-    "new": "    let Some(held) = held else {\n        return Ok(Page {\n            url: String::new(),\n            status: 304,\n            body: String::new(),\n            etag: None,\n            last_modified: None,\n            fetched_at: at,\n        });\n    };",
+    "new": "    let Some(held) = held else {\n        return Ok((\n            Page {\n                url: String::new(),\n                status: 304,\n                body: String::new(),\n                etag: None,\n                last_modified: None,\n                fetched_at: at,\n            },\n            crate::cache::FRESH_FOR,\n        ));\n    };",
     "run": [
       "cargo",
       "nextest",
@@ -244,6 +244,97 @@
       "run",
       "-p",
       "landscape-analyze"
+    ]
+  },
+  {
+    "name": "revalidating a page widens the policy it was kept under",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "    if headers.cache_control.is_some() || headers.expires.is_some() {\n        return storable(status, headers, now);\n    }",
+    "new": "    if true {\n        return storable(status, headers, now);\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a 304 restating a shorter policy is ignored",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "    if headers.cache_control.is_some() || headers.expires.is_some() {",
+    "new": "    if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the age a 304 reports is not spent",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "    let left = stored_for.saturating_sub(aged);",
+    "new": "    let left = stored_for;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a page the origin now forbids is served from an older copy",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "            Storable::No => {\n                // **And drop what we already hold.** A page the origin now says not to store is\n                // not one to keep serving from an older copy, which is the way a cache that\n                // obeys `no-store` can still ignore it.\n                self.forget(&url);\n                false\n            }",
+    "new": "            Storable::No => false,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a 304 forbidding storage leaves what it confirmed behind",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "            Storable::No => {\n                self.forget(&url);\n                false\n            }\n            Storable::For(fresh_for) => {\n                self.insert_for(url, page, fresh_for);",
+    "new": "            Storable::No => false,\n            Storable::For(fresh_for) => {\n                self.insert_for(url, page, fresh_for);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "forgetting a page keeps its bytes for ever",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        if let Some(gone) = self.by_url.remove(url) {\n            self.bytes -= gone.cost;\n        }",
+    "new": "        if self.by_url.remove(url).is_some() {}",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the stored lifetime is dropped on the way into a revalidation",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "        held.fresh_for,",
+    "new": "        crate::cache::FRESH_FOR,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
     ]
   }
 ]
