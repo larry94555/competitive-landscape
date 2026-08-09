@@ -255,8 +255,70 @@ impl Cache {
             .map(|(rules, _)| rules)
     }
 
+    /// Pretend every entry was stored `by` earlier than it was.
+    ///
+    /// Test-only, and the same shape [`crate::cache::Cache`] uses: `CACHE_TTL` is six hours, so
+    /// the alternative is a test that waits six hours or a clock threaded through every caller.
+    #[cfg(test)]
+    fn age(&mut self, by: std::time::Duration) {
+        for (_, at) in self.by_host.values_mut() {
+            if let Some(older) = at.checked_sub(by) {
+                *at = older;
+            }
+        }
+    }
+
     pub fn insert(&mut self, host: impl Into<String>, rules: Rules) {
+        // **Expired entries are dropped rather than merely ignored.** They were only filtered on
+        // lookup, which was harmless while a `Fetcher` lasted one analysis and is not now that
+        // one lasts the process: review pointed out that a worker seeing a thousand hosts kept a
+        // thousand rule sets for ever, and a rule set is not small. Pruning here costs a walk on
+        // the rare path — a host we have not seen — rather than on every request.
+        self.by_host.retain(|_, (_, at)| at.elapsed() < CACHE_TTL);
         self.by_host.insert(host.into(), (rules, Instant::now()));
+    }
+
+    /// How many hosts are remembered. For the test that this does not grow for ever.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.by_host.len()
+    }
+
+    /// Whether any host is remembered.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.by_host.is_empty()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod not_growing_for_ever {
+    //! What a process-long `Fetcher` costs, and what stops it costing more.
+
+    use super::*;
+
+    #[test]
+    fn a_host_whose_rules_have_expired_is_forgotten_rather_than_ignored() {
+        // **Review found this as a consequence of the fetcher's new lifetime.** Expired entries
+        // were filtered on lookup and never removed, which was free while a `Fetcher` lasted one
+        // analysis. A worker crossing a thousand companies now keeps a thousand rule sets, and a
+        // rule set is not small.
+        let mut cache = Cache::new();
+        for i in 0..500 {
+            cache.insert(format!("h{i}.example"), Rules::default());
+        }
+        assert_eq!(cache.len(), 500, "nothing has expired yet");
+
+        // Age everything past the window, then insert once more: the prune happens on the rare
+        // path — a host not seen before — rather than on every request.
+        cache.age(CACHE_TTL + std::time::Duration::from_secs(1));
+        cache.insert("fresh.example", Rules::default());
+        assert_eq!(
+            cache.len(),
+            1,
+            "five hundred expired rule sets were kept alongside the one that matters"
+        );
     }
 }
 

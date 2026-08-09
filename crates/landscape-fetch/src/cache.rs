@@ -33,6 +33,8 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
+use chrono::{DateTime, Utc};
+
 use crate::Page;
 
 /// How long a fetched page may be served again.
@@ -54,8 +56,124 @@ pub const FRESH_FOR: Duration = Duration::from_secs(60 * 60);
 ///
 /// **Bytes rather than a count of pages.** A page may be up to [`crate::MAX_BYTES`], so a cap of
 /// "256 pages" is a cap of anywhere between a few kilobytes and half a gigabyte — a number that
-/// does not bound the thing it claims to bound. This one does.
+/// does not bound the thing it claims to bound.
+///
+/// Review pointed the same argument back the other way, and it landed: the first version counted
+/// only [`Page::body`], so a hundred thousand **empty** responses sat in the map reporting zero
+/// bytes held and nothing was ever evicted. A byte budget that ignores keys and headers does not
+/// bound entries any more than an entry budget bounds bytes. [`cost`] counts the whole of what
+/// is retained, and [`MAX_ENTRIES`] bounds the count as well — **both**, because each alone has
+/// a hole shaped exactly like the other.
 pub const MAX_CACHED_BYTES: usize = 32 * 1024 * 1024;
+
+/// How many pages the cache may hold, whatever they weigh.
+///
+/// The second half of the bound. With [`OVERHEAD`] counted this is very unlikely to be the limit
+/// that binds — which is the point of having it: a number that only matters when the other one
+/// is wrong.
+pub const MAX_ENTRIES: usize = 4_096;
+
+/// What one entry costs beyond the bytes of the page.
+///
+/// The key, a duplicated [`Page::url`], two optional headers, the entry itself and the map's
+/// slot. **Deliberately approximate** — an exact figure would need the allocator's cooperation
+/// and does not need to be exact to do its job, which is to make a page with no body still cost
+/// something. That is the difference between a bound and a number.
+const OVERHEAD: usize = 256;
+
+/// What keeping this page actually costs.
+fn cost(url: &str, page: &Page) -> usize {
+    OVERHEAD
+        + url.len()
+        + page.url.len()
+        + page.body.len()
+        + page.etag.as_ref().map_or(0, String::len)
+        + page.last_modified.as_ref().map_or(0, String::len)
+}
+
+/// What the origin said we may do with a response.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Storable {
+    /// Not at all. `no-store`, `no-cache` or `private`.
+    No,
+    /// For this long — the shorter of what the origin allows and [`FRESH_FOR`].
+    For(Duration),
+}
+
+/// Read the origin's caching policy out of its own headers.
+///
+/// **Review found this missing, and it is the most pointed thing in the change.** The module
+/// argues that the cache belongs beside `robots.txt` as part of one commitment about how a
+/// stranger's server is treated — and then ignored the single header by which that stranger
+/// states the commitment. A `Cache-Control: no-store` was retained anyway and handed to a
+/// second reader; a `max-age=30` was served for an hour.
+///
+/// | The origin says | What happens |
+/// |---|---|
+/// | `no-store` | not kept. It said not to. |
+/// | `no-cache` | not kept. Reuse requires revalidating, and conditional GET is a later row. |
+/// | `private` | not kept. **This is a shared cache** — one process serving every reader — and that is exactly what `private` forbids. |
+/// | `s-maxage=N` | kept for `N`, capped at [`FRESH_FOR`]. Shared caches are told this one first. |
+/// | `max-age=N` | kept for `N`, capped. |
+/// | `Expires: <past>` | not kept. |
+/// | `Expires: <future>` | kept until then, capped. |
+/// | nothing | kept for [`FRESH_FOR`], which is our own restraint rather than a claim about theirs. |
+///
+/// Directives are matched on whole tokens, so `no-store` is found in `public, no-store` and not
+/// inside a hypothetical `x-no-store`. Anything unparseable is treated as **not cacheable**: a
+/// header we cannot read is not permission, and the cost of being wrong that way is one extra
+/// request rather than one ignored instruction.
+#[must_use]
+pub fn storable(
+    cache_control: Option<&str>,
+    expires: Option<&str>,
+    now: DateTime<Utc>,
+) -> Storable {
+    let mut allowed = FRESH_FOR;
+
+    if let Some(raw) = cache_control {
+        let lowered = raw.to_lowercase();
+        let directives: Vec<&str> = lowered.split(',').map(str::trim).collect();
+        if directives
+            .iter()
+            .any(|d| matches!(*d, "no-store" | "no-cache" | "private"))
+        {
+            return Storable::No;
+        }
+        // `s-maxage` first: it is the one addressed to shared caches, and this is one.
+        for name in ["s-maxage", "max-age"] {
+            if let Some(value) = directives
+                .iter()
+                .find_map(|d| d.strip_prefix(name)?.strip_prefix('='))
+            {
+                let Ok(seconds) = value.trim().parse::<u64>() else {
+                    // A `max-age` we cannot read is not a licence to keep it for an hour.
+                    return Storable::No;
+                };
+                allowed = allowed.min(Duration::from_secs(seconds));
+                break;
+            }
+        }
+    }
+
+    if let Some(raw) = expires {
+        let Ok(at) = DateTime::parse_from_rfc2822(raw.trim()) else {
+            // RFC 9111 says an unparseable `Expires` means already expired. It is also the
+            // conservative reading, which is the tie-breaker whenever those two agree.
+            return Storable::No;
+        };
+        let Ok(remaining) = (at.with_timezone(&Utc) - now).to_std() else {
+            return Storable::No;
+        };
+        allowed = allowed.min(remaining);
+    }
+
+    if allowed.is_zero() {
+        Storable::No
+    } else {
+        Storable::For(allowed)
+    }
+}
 
 /// Pages kept in memory, oldest evicted first.
 #[derive(Debug, Default)]
@@ -75,6 +193,11 @@ struct Entry {
     page: Page,
     stored: Instant,
     order: u64,
+    /// What this entry costs to keep, remembered so eviction subtracts what insertion added.
+    /// Recomputing it would go wrong the moment [`cost`] changed and an old entry was removed.
+    cost: usize,
+    /// How long this one may be served — the origin's number, not ours, when it gave one.
+    fresh_for: Duration,
 }
 
 impl Cache {
@@ -92,13 +215,51 @@ impl Cache {
     pub fn get(&self, url: &str) -> Option<Page> {
         self.by_url
             .get(url)
-            .filter(|e| e.stored.elapsed() < FRESH_FOR)
+            .filter(|e| e.stored.elapsed() < e.fresh_for)
             .map(|e| e.page.clone())
     }
 
     /// Keep a page, evicting the oldest until it fits.
     pub fn insert(&mut self, url: String, page: Page) {
-        let size = page.body.len();
+        self.insert_for(url, page, FRESH_FOR);
+    }
+
+    /// Keep a page for as long as the origin's own headers allow, or not at all.
+    ///
+    /// Returns whether it was kept.
+    ///
+    /// **The decision lives here rather than in [`crate::Fetcher::get`], and that placement is
+    /// the point.** The obvious shape is for the fetcher to read [`storable`] and branch on it,
+    /// and the first version did — but no test in this repository can reach that branch, because
+    /// a test server binds loopback and the address guard refuses loopback absolutely. A rule
+    /// written where nothing can exercise it is a rule a mutation deleting it survives, and the
+    /// harness said exactly that. Here it is one function call away from an assertion.
+    ///
+    /// The fetcher's remaining share is reading two header strings off the response — the same
+    /// untestable line as `etag` and `last-modified`, with no branch in it.
+    pub fn insert_allowed(
+        &mut self,
+        url: String,
+        page: Page,
+        cache_control: Option<&str>,
+        expires: Option<&str>,
+        now: DateTime<Utc>,
+    ) -> bool {
+        match storable(cache_control, expires, now) {
+            Storable::No => false,
+            Storable::For(fresh_for) => {
+                self.insert_for(url, page, fresh_for);
+                true
+            }
+        }
+    }
+
+    /// Keep a page for a stated time, evicting the oldest until it fits.
+    ///
+    /// The duration comes from the origin — see [`storable`] — capped at [`FRESH_FOR`]. A
+    /// publisher saying *thirty seconds* is not overruled by our hour.
+    pub fn insert_for(&mut self, url: String, page: Page, fresh_for: Duration) {
+        let size = cost(&url, &page);
         // A page too large to keep alongside anything else is not kept at all. Without this the
         // loop below could evict the entire cache to make room for one document and then still
         // not fit it — a cache that empties itself is worse than one that declines.
@@ -106,9 +267,9 @@ impl Cache {
             return;
         }
         if let Some(old) = self.by_url.remove(&url) {
-            self.bytes -= old.page.body.len();
+            self.bytes -= old.cost;
         }
-        while self.bytes + size > MAX_CACHED_BYTES {
+        while self.bytes + size > MAX_CACHED_BYTES || self.by_url.len() >= MAX_ENTRIES {
             let Some(oldest) = self
                 .by_url
                 .iter()
@@ -118,7 +279,7 @@ impl Cache {
                 break;
             };
             if let Some(gone) = self.by_url.remove(&oldest) {
-                self.bytes -= gone.page.body.len();
+                self.bytes -= gone.cost;
             }
         }
         self.bytes += size;
@@ -129,6 +290,8 @@ impl Cache {
                 page,
                 stored: Instant::now(),
                 order: self.next,
+                cost: size,
+                fresh_for,
             },
         );
     }
@@ -145,7 +308,8 @@ impl Cache {
         self.by_url.is_empty()
     }
 
-    /// How many body bytes are held.
+    /// How many bytes are held, counting keys, headers and per-entry overhead as well as
+    /// bodies. See [`cost`].
     #[must_use]
     pub fn bytes(&self) -> usize {
         self.bytes
@@ -227,7 +391,7 @@ mod tests {
         // A cap of "n pages" bounds nothing when a page may be two megabytes. Filling past the
         // byte budget has to evict, and what is left has to be under it.
         let mut cache = Cache::new();
-        let each = MAX_CACHED_BYTES / 4;
+        let each = MAX_CACHED_BYTES / 4 - OVERHEAD - 64;
         for i in 0..6 {
             cache.insert(
                 format!("https://a.example/{i}"),
@@ -247,6 +411,132 @@ mod tests {
         assert!(
             cache.get("https://a.example/5").is_some(),
             "the newest was evicted instead of the oldest"
+        );
+    }
+
+    fn at(raw: &str) -> DateTime<Utc> {
+        raw.parse().expect("a fixed instant")
+    }
+
+    #[test]
+    fn a_publisher_saying_do_not_store_this_is_obeyed() {
+        // The module argues the cache belongs beside `robots.txt` as one commitment about how a
+        // stranger's server is treated. Ignoring the header they state it in would make that
+        // sentence decorative.
+        let now = at("2026-08-09T00:00:00Z");
+        for said in [
+            "no-store",
+            "public, no-store",
+            "No-Store",
+            "private",
+            "no-cache",
+        ] {
+            assert_eq!(
+                storable(Some(said), None, now),
+                Storable::No,
+                "{said:?} was kept anyway"
+            );
+        }
+    }
+
+    #[test]
+    fn a_shorter_freshness_than_ours_wins_and_a_longer_one_does_not() {
+        let now = at("2026-08-09T00:00:00Z");
+        assert_eq!(
+            storable(Some("max-age=30"), None, now),
+            Storable::For(Duration::from_secs(30)),
+            "half a minute was stretched to an hour"
+        );
+        assert_eq!(
+            storable(Some("max-age=86400"), None, now),
+            Storable::For(FRESH_FOR),
+            "a day was taken as permission to hold it for a day"
+        );
+        // `s-maxage` is addressed to shared caches, and this is one, so it is read first.
+        assert_eq!(
+            storable(Some("max-age=600, s-maxage=60"), None, now),
+            Storable::For(Duration::from_secs(60))
+        );
+    }
+
+    #[test]
+    fn an_expiry_already_past_is_not_kept() {
+        let now = at("2026-08-09T00:00:00Z");
+        assert_eq!(
+            storable(None, Some("Fri, 08 Aug 2026 00:00:00 GMT"), now),
+            Storable::No
+        );
+        assert_eq!(
+            storable(None, Some("Sun, 09 Aug 2026 00:00:30 GMT"), now),
+            Storable::For(Duration::from_secs(30))
+        );
+    }
+
+    #[test]
+    fn a_header_we_cannot_read_is_not_permission() {
+        // The cost of refusing to cache something we misread is one extra request. The cost of
+        // keeping something we misread is ignoring an instruction somebody wrote down.
+        let now = at("2026-08-09T00:00:00Z");
+        assert_eq!(storable(Some("max-age=soon"), None, now), Storable::No);
+        assert_eq!(storable(None, Some("whenever"), now), Storable::No);
+    }
+
+    #[test]
+    fn silence_is_our_own_restraint_rather_than_their_permission() {
+        let now = at("2026-08-09T00:00:00Z");
+        assert_eq!(storable(None, None, now), Storable::For(FRESH_FOR));
+    }
+
+    #[test]
+    fn a_page_kept_for_the_origins_time_stops_being_served_at_that_time() {
+        // The whole point of reading the header: our hour must not outlive their thirty seconds.
+        let mut cache = Cache::new();
+        cache.insert_for(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 4),
+            Duration::from_secs(30),
+        );
+        cache.age(Duration::from_secs(31));
+        assert!(
+            cache.get("https://a.example/").is_none(),
+            "a page the origin allowed for thirty seconds was served after thirty-one"
+        );
+    }
+
+    #[test]
+    fn a_page_the_origin_said_not_to_store_is_not_stored() {
+        // **Reading the header and acting on it are one call apart on purpose.** The first shape
+        // of this put the branch in `Fetcher::get`, where the address guard means no test can
+        // reach it — and the mutation that read the headers and then ignored them survived.
+        let now = at("2026-08-09T00:00:00Z");
+        let mut cache = Cache::new();
+
+        let held = cache.insert_allowed(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 4),
+            Some("no-store"),
+            None,
+            now,
+        );
+        assert!(!held, "the origin said not to store it, and it was stored");
+        assert!(
+            cache.get("https://a.example/").is_none(),
+            "a page the origin refused was handed to the next reader"
+        );
+
+        // And when they do allow it, it is their number that is kept, not ours.
+        let held = cache.insert_allowed(
+            "https://b.example/".to_owned(),
+            page("https://b.example/", 4),
+            Some("max-age=30"),
+            None,
+            now,
+        );
+        assert!(held, "a page we were allowed to keep was dropped");
+        cache.age(Duration::from_secs(31));
+        assert!(
+            cache.get("https://b.example/").is_none(),
+            "held for our hour rather than for their thirty seconds"
         );
     }
 
@@ -279,6 +569,46 @@ mod tests {
     }
 
     #[test]
+    fn an_empty_body_still_costs_something_to_keep() {
+        // **Review found this, and it is the argument in this file turned back on itself.** The
+        // budget counted only the body, so a hundred thousand empty responses reported zero
+        // bytes held and nothing was ever evicted. A byte budget that ignores keys does not
+        // bound entries any more than an entry budget bounds bytes.
+        //
+        // Asserted against `OVERHEAD` rather than against zero: a bodyless entry still holds its
+        // key, so `bytes() > 0` passes while counting nothing but strings — which is the hole
+        // itself, spelt slightly differently.
+        let mut cache = Cache::new();
+        cache.insert(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 0),
+        );
+        assert!(
+            cache.bytes() >= OVERHEAD,
+            "an entry with no body was costed at {} bytes, less than the entry itself",
+            cache.bytes()
+        );
+
+        let mut cache = Cache::new();
+        for i in 0..(MAX_ENTRIES * 2) {
+            cache.insert(
+                format!("https://a.example/{i}"),
+                page("https://a.example/x", 0),
+            );
+        }
+        assert!(
+            cache.len() <= MAX_ENTRIES,
+            "held {} entries with no body between them",
+            cache.len()
+        );
+        assert!(
+            cache.bytes() > 0,
+            "entries were held and reported as weighing nothing"
+        );
+        assert!(cache.bytes() <= MAX_CACHED_BYTES);
+    }
+
+    #[test]
     fn a_page_too_large_to_keep_does_not_empty_the_cache_trying() {
         let mut cache = Cache::new();
         cache.insert(
@@ -307,10 +637,20 @@ mod tests {
             "https://a.example/".to_owned(),
             page("https://a.example/", 30),
         );
+
+        // **The property, not a figure.** What must hold is that replacing an entry costs what
+        // the replacement costs — the same as having inserted it alone. A literal byte count
+        // here would pin `OVERHEAD` into a test that is about accounting rather than about it.
+        let mut once = Cache::new();
+        once.insert(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 30),
+        );
+
         assert_eq!(cache.len(), 1);
         assert_eq!(
             cache.bytes(),
-            30,
+            once.bytes(),
             "the replaced page's bytes were counted for ever"
         );
     }

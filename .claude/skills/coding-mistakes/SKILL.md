@@ -1746,6 +1746,62 @@ like an improvement.
 
 ---
 
+## 52. A bound in the wrong unit, and the rule put where nothing can reach it
+
+**Found:** the first half by review; the second half by the mutation harness, in the fix.
+
+### The bound
+
+This file's own argument, one entry earlier in the same PR: *a cap of "256 pages" bounds nothing
+when a page may be 2 MiB*. So the cache was bounded in **bytes**. Review pointed the identical
+argument the other way and it landed on the first try:
+
+```text
+100,000 entries held.  bytes reported: 0.
+```
+
+The byte counter summed `Page::body` and nothing else. A hundred thousand empty responses cost
+zero, so eviction never ran, and the map holding the keys grew without any number describing it.
+
+**A budget in one unit does not bound the other, in either direction.** The fix counts what is
+actually retained — key, duplicated URL, headers, and a flat per-entry figure — *and* caps the
+entry count, because each bound alone has a hole shaped exactly like the other.
+
+### The rule nothing could reach
+
+Review's second finding was that `Cache-Control` was ignored entirely, and the fix read the
+header in `Fetcher::get` and branched there:
+
+```rust
+if let Storable::For(fresh_for) = keep { cache.insert_for(url, page, fresh_for); }
+```
+
+Correct, reviewed, and **untestable**: a test server binds loopback, and the address guard
+refuses loopback absolutely, on purpose, with no flag. Nothing in the repository can drive
+`Fetcher::get` to that line. The harness said so in the only way it can — *the origin's headers
+are read and then ignored*: **MISSED**.
+
+The fix was not another test. It was moving the branch into `Cache::insert_allowed`, which takes
+the two header values and returns whether it stored — one call away from an assertion. What is
+left in the fetcher is reading two strings off a response, the same untestable line as `etag`,
+with no decision in it.
+
+### And the assertion that agreed with the defect
+
+The test written beside the byte fix asserted `cache.bytes() > 0`. A bodyless entry still holds
+its key, so that passes while counting nothing but strings — *the defect itself*, spelt
+differently. It asserts `>= OVERHEAD` now: the entry costs at least what an entry costs.
+
+**Rule:** put a rule where something can call it, and prefer moving the rule to writing a test
+that cannot exist. An untestable branch is not "covered by review"; it is a line whose deletion
+nothing notices. And when a bound is the point, assert against the constant that expresses it,
+not against zero — `> 0` is satisfied by the part that was never in question.
+
+> **Ask this:** *can a test call this rule without a network, a clock or a socket? And does my
+> assertion fail if the bound is removed, or only if everything is?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

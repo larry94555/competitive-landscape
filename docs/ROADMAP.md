@@ -870,7 +870,13 @@ the single most important phase; everything after it is commerce and polish.
   the per-host delay rather than next to them. A hit is consulted before the guard, robots and
   the pacer, and that is sound for one reason — *nothing is sent* — resting on the invariant that
   only a page we were allowed to fetch is ever stored.
-  Bounded in **bytes**, because a cap of *"n pages"* bounds nothing when a page may be 2 MiB.
+  Bounded in **bytes and entries**, because a cap of *"n pages"* bounds nothing when a page may
+  be 2 MiB — and, as review pointed out by filling it with empty responses, a byte cap that
+  counts only bodies bounds nothing either. The per-host `robots.txt` and pacing state prune on
+  insert now that the fetcher outlives one analysis.
+  **And the origin's `Cache-Control` is obeyed**: `no-store`, `no-cache` and `private` are not
+  kept at all, and `max-age` shortens the hour rather than being overruled by it. A cache that
+  argues it belongs beside `robots.txt` cannot ignore the header a publisher states that in.
   `fetched_at` survives being served again, so a claim's `as_of` is when the bytes were read.
   **There is no test over a socket**, and the guard was not weakened to get one: a test server
   binds loopback and the SSRF guard refuses it, absolutely and with no flag, for the same reason

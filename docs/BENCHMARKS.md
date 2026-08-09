@@ -87,16 +87,75 @@ pins it.
 The one thing a hit can be wrong about is a `robots.txt` that changed since the fetch, and that
 window is bounded by `FRESH_FOR` rather than open.
 
+### Review: the argument in this file, turned back on itself
+
+The section below says a cap of *"256 pages"* bounds nothing when a page may be 2 MiB. Review
+pointed the same argument the other way, and it landed:
+
+```text
+100,000 entries held.  bytes reported: 0.
+```
+
+`bytes` counted only `Page::body`, so a hundred thousand **empty** responses sat in the map
+reporting nothing held, and eviction never ran. **A byte budget that ignores keys and headers
+does not bound entries any more than an entry budget bounds bytes.**
+
+`cost()` now counts the whole of what is retained — the key, the duplicated `Page::url`, the
+headers, and a flat 256 bytes for the entry and the map's slot — and `MAX_ENTRIES` bounds the
+count as well. **Both**, because each alone has a hole shaped exactly like the other.
+
+The test that went with the fix asserted `bytes() > 0`, which the mutation harness then walked
+through: a bodyless entry still holds its key, so that assertion passes while counting nothing
+but strings — the hole again, spelt differently. It asserts `>= OVERHEAD` now.
+
+### Review: the header a publisher states the commitment in
+
+The section below argues the cache belongs beside `robots.txt` as one commitment about how a
+stranger's server is treated. It then ignored `Cache-Control` entirely.
+
+| The origin says | before | now |
+|---|---|---|
+| `no-store` | kept, and handed to a second reader | not kept |
+| `no-cache` | reused with no revalidation | not kept — revalidating needs conditional GET, a later row |
+| `private` | kept in a cache shared by every reader | not kept |
+| `s-maxage=60` | ignored | kept for 60s — shared caches are told this one first |
+| `max-age=30` | served for an hour | kept for 30s |
+| `Expires` in the past | ignored | not kept |
+
+**Anything unparseable is treated as not cacheable.** A header we cannot read is not permission,
+and being wrong that way costs one extra request rather than one ignored instruction.
+
+**Where the decision lives is part of the fix.** The obvious shape puts the branch in
+`Fetcher::get` — read the headers, decide, insert — and that is what the first version did. No
+test in this repository can reach that branch: a test server binds loopback and the address
+guard refuses loopback absolutely, which is the same limitation stated two sections down. The
+harness said so, in the only way it can: *the origin's headers are read and then ignored* —
+MISSED. The branch moved into `Cache::insert_allowed`, one call from an assertion, and the
+fetcher's remaining share is reading two header strings, the same untestable line as `etag`.
+
+### Review: what a process-long fetcher keeps
+
+Making one `Fetcher` outlive the analysis also made `robots::Cache` and `Pacer` outlive it.
+Both filtered expired entries on lookup and never removed them — free when a fetcher lasted one
+run, a leak when it lasts the process. A worker crossing a thousand companies kept a thousand
+rule sets and a thousand elapsed instants, none of which meant anything.
+
+Both prune on insert, which is the rare path — a host not seen before — rather than on every
+request. Neither can change behaviour: an expired rule set was already ignored, and an elapsed
+wait already returns zero.
+
 ### Bounded in the unit it claims to be bounded in
 
 A cap of *"256 pages"* bounds nothing when a page may be 2 MiB — it is a cap of somewhere
-between a few kilobytes and half a gigabyte. The budget is **32 MiB of bodies**, oldest evicted
+between a few kilobytes and half a gigabyte. The budget is **32 MiB**, counting keys, headers and
+per-entry overhead as well as bodies, alongside a cap of **4,096 entries**; oldest is evicted
 first, and a page too large to sit beside anything else is declined rather than allowed to empty
 the cache and then not fit.
 
-`FRESH_FOR` is **one hour**, and it is a starting value on the same footing as
-`AMBIGUITY_MARGIN`. Two readers in one sitting share everything; a pricing page edited this
-morning is picked up this afternoon.
+`FRESH_FOR` is **one hour**, and it is a *ceiling* rather than a policy: it applies when the
+origin says nothing, and the origin's own number wins whenever it is shorter. It is a starting
+value on the same footing as `AMBIGUITY_MARGIN`. Two readers in one sitting share everything; a
+pricing page edited this morning is picked up this afternoon.
 
 **A cached page never claims to be fresher than it is.** `fetched_at` is stored with the body and
 returned unchanged, so a claim's `as_of` is the moment the bytes were read rather than the moment
@@ -119,7 +178,10 @@ What is asserted instead:
   can only have come from memory, because every path that reaches the network refuses it first;
 - that a refusal stores nothing, which is the invariant the ordering rests on;
 - that a page stops being served once it is past `FRESH_FOR`, using a test-only clock that ages
-  the entries rather than a test that waits an hour.
+  the entries rather than a test that waits an hour;
+- that `Cache::insert_allowed` refuses a `no-store` and keeps a `max-age=30` for thirty seconds
+  rather than for our hour — **the reason that function exists** rather than a branch in
+  `Fetcher::get`, which is on the far side of the same guard.
 
 **One mutation was dropped rather than kept as a pin nobody can satisfy.** *"Remember the page
 under where the redirect landed rather than under what was asked for"* is a real defect and the
@@ -146,7 +208,7 @@ across processes. That is the second half of this row.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 36 | 850 | 62 |
-| now | **861** | **62** |
+| now | **871** | **62** |
 
 ---
 

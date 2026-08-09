@@ -118,6 +118,11 @@ impl Fetcher {
 
             let etag = header(&response, "etag");
             let last_modified = header(&response, "last-modified");
+            // **What the origin says we may do with it.** Read before the body, because it comes
+            // off the same response and forgetting it is how a `no-store` gets kept. Read, and
+            // nothing more: what it *means* is decided in `cache`, where a test can reach it.
+            let cache_control = header(&response, "cache-control");
+            let expires = header(&response, "expires");
             let body = read_capped(response).await?;
 
             let page = Page {
@@ -128,12 +133,21 @@ impl Fetcher {
                 last_modified,
                 fetched_at: chrono::Utc::now(),
             };
-            // **Keyed on what was asked for, stored after every check has passed.** The second
-            // half is the invariant the read above rests on; the first is because two callers
-            // asking the same thing is the case this exists for, and they ask with the URL they
-            // have rather than with the one a redirect landed on.
+            // **Keyed on what was asked for, stored after every check has passed, and only for
+            // as long as the origin allows.** The middle clause is the invariant the read above
+            // rests on. The first is because two callers asking the same thing is the case this
+            // exists for, and they ask with the URL they have rather than the one a redirect
+            // landed on. The last is review's: a cache that argues it belongs beside
+            // `robots.txt` cannot ignore the header a publisher states that in.
             if let Ok(mut cache) = self.pages.lock() {
-                cache.insert(url.to_owned(), page.clone());
+                let held = cache.insert_allowed(
+                    url.to_owned(),
+                    page.clone(),
+                    cache_control.as_deref(),
+                    expires.as_deref(),
+                    page.fetched_at,
+                );
+                tracing::debug!(url, held, "considered for the page cache");
             }
             return Ok(page);
         }
@@ -378,7 +392,15 @@ mod serving_from_memory {
         let fetcher = Fetcher::new();
         assert_eq!(fetcher.cached(), (0, 0));
         seed(&fetcher, "http://127.0.0.1:9/a", "1234");
-        assert_eq!(fetcher.cached(), (1, 4));
+        let (pages, bytes) = fetcher.cached();
+        assert_eq!(pages, 1);
+        // Bodies **and** what it costs to hold them: keys, headers, entry overhead. A budget
+        // counting only bodies bounded nothing, which review found by filling it with empty
+        // responses — so the figure here has to be more than the body, not equal to it.
+        assert!(
+            bytes > "1234".len(),
+            "the body was counted and the rest of the entry was not: {bytes}"
+        );
     }
 
     #[tokio::test]
