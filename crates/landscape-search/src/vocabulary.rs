@@ -283,12 +283,26 @@ fn trimmed(window: &[String]) -> Option<String> {
     if words.len() < SHORTEST {
         return None;
     }
+    let phrase = words.join(" ");
+    // **A label a reader cannot send back is not a label**, and the thing that decides that is
+    // asked rather than imitated. It becomes a chip when two markets tie; `NewAnalysis::parse`
+    // is what the click is validated by, so it is what the phrase is validated by here.
+    //
+    // The first version of this counted `String::len` against `MIN_PROMPT` itself, and review
+    // found what re-deriving a rule costs: `len` is **bytes** and the parser counts
+    // **characters**, so `ää ää` — five characters, nine bytes — became a chip that rendered
+    // and then answered the click with a `400`. That is register 47 for the third time, in the
+    // guard written for register 47. It also silently ignored `MAX_PROMPT`, which the parser
+    // enforces and a re-derived rule had no reason to know about.
+    if landscape_core::NewAnalysis::parse(&phrase).is_err() {
+        return None;
+    }
     // **Our own boilerplate is not the market's word for anything.** We search `best {} software`
     // and `{} vendors`; a title reading *"Software Vendors"* is our query looking back at us.
     if words.iter().all(|w| ours().contains(w.as_str())) {
         return None;
     }
-    Some(words.join(" "))
+    Some(phrase)
 }
 
 /// The words this codebase puts into a query itself, from the templates that put them there.
@@ -454,6 +468,51 @@ fn contains(outer: &str, inner: &str) -> bool {
         || outer.contains(&format!(" {inner} "))
 }
 
+/// The competing markets as something a reader can click.
+///
+/// **The same shape the ambiguous-company question already uses**, so the interface has one way
+/// of asking *"which did you mean"* rather than two. `domain` is empty because a market has no
+/// website; what stands in its place is how many independent sites agreed on the name, which is
+/// the only evidence there is for either.
+#[must_use]
+pub fn choices_from(between: &[Market]) -> Vec<landscape_core::Choice> {
+    between
+        .iter()
+        .map(|m| landscape_core::Choice {
+            name: m.label.clone(),
+            domain: String::new(),
+            what_it_is: format!(
+                "{} independent {} use this name",
+                m.hosts,
+                if m.hosts == 1 { "site" } else { "sites" }
+            ),
+            // Sent verbatim, and it parses: `trimmed` refuses a phrase shorter than a prompt is
+            // allowed to be, so there is no length to check for a second time here.
+            prompt: m.label.clone(),
+        })
+        .collect()
+}
+
+/// The words a run should actually search for.
+///
+/// **One function, because two callers must not disagree about it.** The worker builds its
+/// company queries from this and the report shows the same string to a reader as *"interpreted
+/// as"*; a second copy of the rule is how a report comes to say it searched for one thing while
+/// having searched for another.
+///
+/// A market's label wins over the reader's phrasing — that is the whole of §4. Everything else
+/// falls back to what they typed, which is what happened before this module existed.
+#[must_use]
+pub fn search_with<'a>(interpreted: &'a Resolved, described: &'a str) -> &'a str {
+    match interpreted {
+        Resolved::Market(market) => &market.label,
+        Resolved::Ambiguous { .. }
+        | Resolved::TheirWords { .. }
+        | Resolved::Incomplete { .. }
+        | Resolved::NoEngine => described,
+    }
+}
+
 /// Ask, read the titles, and say what the market calls it.
 ///
 /// **The queries are [`crate::candidates::for_idea`]'s, unchanged.** §4 asks for 3–5 searches on
@@ -477,21 +536,7 @@ pub async fn resolve(
     let Some(engine) = engine else {
         return (Resolved::NoEngine, Queried::default());
     };
-    let queries = crate::candidates::for_idea(description);
-    let mut results: Vec<Vec<Hit>> = Vec::with_capacity(queries.len());
-    let mut queried = Queried::default();
-    for query in &queries {
-        match engine.search(query).await {
-            Ok(hits) => {
-                results.push(hits);
-                queried.completed.push(query.text.clone());
-            }
-            Err(e) => {
-                tracing::warn!(query = %query.text, error = %e, "a vocabulary query did not complete");
-                queried.failed.push(query.text.clone());
-            }
-        }
-    }
+    let (results, queried) = crate::candidates::ask(engine, description).await;
     (from_titles(&results, &queried), queried)
 }
 
@@ -851,6 +896,107 @@ mod tests {
                 .all(|m| !m.also.contains(&"management software".to_owned())),
             "the shared fragment was handed to one of them as evidence: {between:?}"
         );
+    }
+
+    #[test]
+    fn what_is_searched_for_is_decided_in_one_place() {
+        // The worker builds queries from this and the report shows it to a reader. Two copies
+        // of the rule is how a report comes to say it searched for one thing having searched
+        // for another.
+        let market = Resolved::Market(Market {
+            label: "competitive intelligence software".to_owned(),
+            also: Vec::new(),
+            hosts: 3,
+        });
+        assert_eq!(
+            search_with(&market, "a free competitive landscape research tool"),
+            "competitive intelligence software",
+            "the market's words are the whole point of the vocabulary step"
+        );
+        for fallback in [
+            Resolved::TheirWords {
+                titles: 4,
+                hosts: 4,
+            },
+            Resolved::Incomplete { failed: 2, sent: 3 },
+            Resolved::NoEngine,
+            Resolved::Ambiguous {
+                between: Vec::new(),
+            },
+        ] {
+            assert_eq!(
+                search_with(&fallback, "their own words"),
+                "their own words",
+                "{fallback:?} searched for something a reader never typed"
+            );
+        }
+    }
+
+    #[test]
+    fn a_market_a_reader_could_not_send_back_is_not_a_market() {
+        // Register 47, one row earlier, in a different shape: a chip that renders and then
+        // answers the click with a 400. A phrase too short to be a prompt is refused where
+        // phrases are made, so nothing downstream has to remember the rule.
+        //
+        // `abc cde` is seven characters with the space; `MIN_PROMPT` is eight.
+        assert!(
+            phrases_in("Abc Cde").is_empty(),
+            "a phrase too short to be sent back was offered as a category"
+        );
+        assert!(
+            phrases_in("Abcd Cde").contains(&"abcd cde".to_owned()),
+            "a phrase exactly long enough to send was dropped"
+        );
+
+        // **Characters, not bytes.** Review found the difference: `ää ää` is five characters
+        // and nine, so a guard counting `String::len` let it through and the click got a 400.
+        // The validator is asked now rather than imitated, so this cannot come apart again.
+        assert!(
+            phrases_in("Ää Ää").is_empty(),
+            "a five-character phrase passed a guard measuring bytes"
+        );
+        // And the other end of the same rule, which a re-derived guard had no reason to know
+        // existed: `MAX_PROMPT`.
+        let enormous = "x".repeat(landscape_core::MAX_PROMPT);
+        assert!(
+            phrases_in(&format!("{enormous} {enormous}")).is_empty(),
+            "a phrase longer than a prompt may be was offered as a category"
+        );
+    }
+
+    #[test]
+    fn every_market_chip_is_a_prompt_the_api_accepts() {
+        // **Through the real producer, not a hand-built `Market`.** Register 47: a chip that
+        // renders and then answers the click with a 400, because the thing that made the value
+        // and the thing that validates it were on two sides of one wire.
+        let bridged = vec![vec![
+            hit("https://a.example/", "Inventory Management Software"),
+            hit("https://b.example/", "Inventory Management Software"),
+            hit("https://c.example/", "Project Management Software"),
+            hit("https://d.example/", "Project Management Software"),
+        ]];
+        let Resolved::Ambiguous { between } = from_titles(&bridged, &asked(3)) else {
+            panic!("expected two markets to pick between")
+        };
+        let chips = choices_from(&between);
+        assert_eq!(chips.len(), 2, "both markets have to be clickable");
+        for choice in chips {
+            landscape_core::NewAnalysis::parse(&choice.prompt).unwrap_or_else(|e| {
+                panic!(
+                    "a chip for {:?} sends a prompt the API rejects: {e}",
+                    choice.name
+                )
+            });
+            assert_eq!(
+                choice.domain, "",
+                "a market has no website, and inventing one would be a claim"
+            );
+            assert!(
+                choice.what_it_is.contains("independent"),
+                "a market chip has to say what stands behind it: {:?}",
+                choice.what_it_is
+            );
+        }
     }
 
     #[test]

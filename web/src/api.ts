@@ -72,6 +72,22 @@ export interface Section {
   readonly notes: readonly string[];
 }
 
+/**
+ * What the market calls this, when the queries turned out to use different words.
+ *
+ * `COMPETITIVE_DISCOVERY.md` §4's *"Interpreted as …"* line. A reader typed one thing and the
+ * searches that found these companies said another; that substitution decides everything below
+ * it, so it is shown rather than assumed. **Absent when nothing was substituted** — a line
+ * saying *"interpreted as ‹what you typed›"* is noise, not disclosure.
+ */
+export interface Interpreted {
+  readonly label: string;
+  /** Other phrasings that recurred. Shown, and never searched. */
+  readonly also: readonly string[];
+  /** Independent sites whose titles used the label. The whole of the evidence for it. */
+  readonly hosts: number;
+}
+
 export interface Report {
   readonly subject: string;
   /** What was actually searched for. Shown above the results so a wrong reading is visible. */
@@ -83,6 +99,8 @@ export interface Report {
   readonly subjects?: readonly string[];
   readonly sections: readonly Section[];
   readonly sources: readonly unknown[];
+  /** What the market calls this. Absent when the reader's own words were searched for. */
+  readonly interpreted?: Interpreted | null;
   /** Anything true of the whole report — today, companies named and not analysed. */
   readonly notes?: readonly string[];
 }

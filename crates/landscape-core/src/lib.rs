@@ -18,7 +18,10 @@ pub mod report;
 pub mod source;
 pub mod subject;
 
-pub use analysis::{Analysis, AnalysisId, AnalysisStatus, Applied, Choice, Failure, NewAnalysis};
+pub use analysis::{
+    Analysis, AnalysisId, AnalysisStatus, Applied, Choice, Failure, NewAnalysis, MAX_PROMPT,
+    MIN_PROMPT,
+};
 pub use coverage::{attributed, Attempt, Coverage};
 pub use examples::{examples, Example, CURATION_NOTE};
 pub use extract::{
@@ -26,7 +29,7 @@ pub use extract::{
     PageChanges, PageFeatures, PageHiring, PageIdentity, PagePricing, PageTrust, PricingExtraction,
     Role, Stated, TrustExtraction,
 };
-pub use report::{Claim, Confidence, Report, Section, SectionStatus};
+pub use report::{Claim, Confidence, Interpreted, Report, Section, SectionStatus};
 pub use source::{Disposition, Source};
 pub use subject::{resolve, Candidate, Resolution};
 

@@ -172,6 +172,19 @@ impl Queried {
         self.completed.len() + self.failed.len()
     }
 
+    /// Both rounds of searching, as one run's evidence.
+    ///
+    /// A run can ask twice — once in the reader's words to learn what the market calls this,
+    /// once in the market's to find the companies. **The coverage note counts both**, because
+    /// *"1 of the 6 searches did not complete"* is what happened, and reporting only the second
+    /// round would hide an outage in the first behind a smaller, tidier number.
+    #[must_use]
+    pub fn and(mut self, other: Self) -> Self {
+        self.completed.extend(other.completed);
+        self.failed.extend(other.failed);
+        self
+    }
+
     /// Whether anything at all came back.
     #[must_use]
     pub fn nothing_completed(&self) -> bool {
@@ -257,6 +270,10 @@ pub enum Vocabulary {
 /// boilerplate coming back in a title cannot be counted as the market's word for anything. A
 /// second hand-written copy of this list would go stale the first time a template changed, and
 /// the failure would be silent: a template word quietly becoming a category.
+/// How many queries one description sends, per round. Named so a table can divide by it
+/// without reaching for the length of a list built somewhere else.
+pub const IDEA_QUERIES: usize = IDEA_TEMPLATES.len();
+
 pub(crate) const IDEA_TEMPLATES: [&str; 3] = [
     r#"best {} software"#,
     r#"{} tools comparison"#,
@@ -295,6 +312,23 @@ pub fn for_idea(description: &str) -> Vec<Query> {
 /// is a thinner candidate list, and returning nothing because one engine call timed out would
 /// turn a degraded answer into no answer.
 pub async fn suggest(engine: &dyn SourceProvider, description: &str) -> (Vec<Found>, Queried) {
+    let (results, queried) = ask(engine, description).await;
+    // **Sent, not answered.** A host found by the one query that came back has agreed with
+    // nothing, and dividing by the number that answered would call an outage unanimity.
+    let found = from_results(&results, queried.sent());
+    (found, queried)
+}
+
+/// Send a description's queries and keep what came back, untouched.
+///
+/// **One round trip, two questions.** The hits answer *which companies are these* and *what does
+/// the market call this* ([`crate::vocabulary`]), and asking twice for one set of results is
+/// three needless requests to somebody else's server. Splitting the asking out is what lets both
+/// answers come from the same corpus rather than from two that can disagree.
+///
+/// # Errors
+/// Never. A query that fails is counted and the rest carry on.
+pub async fn ask(engine: &dyn SourceProvider, description: &str) -> (Vec<Vec<Hit>>, Queried) {
     let queries = for_idea(description);
     let mut results: Vec<Vec<Hit>> = Vec::with_capacity(queries.len());
     let mut queried = Queried::default();
@@ -310,10 +344,7 @@ pub async fn suggest(engine: &dyn SourceProvider, description: &str) -> (Vec<Fou
             }
         }
     }
-    // **Sent, not answered.** A host found by the one query that came back has agreed with
-    // nothing, and dividing by the number that answered would call an outage unanimity.
-    let found = from_results(&results, queried.sent());
-    (found, queried)
+    (results, queried)
 }
 
 /// The pure half: hits in, scored companies out.
@@ -619,7 +650,125 @@ where
     F: Fn(String) -> Fut,
     Fut: std::future::Future<Output = Option<String>>,
 {
-    let (found, queried) = suggest(engine, description).await;
+    let (results, queried) = ask(engine, description).await;
+    from_hits(&results, &queried, description, fetch).await
+}
+
+/// Whether searching with `words` would ask anything the reader's own phrasing would not.
+///
+/// **Compared on the queries, not on the two strings.** [`for_idea`] runs its input through
+/// `safe_words` before interpolating it, and a search engine does not distinguish case — so
+/// *competitive intelligence software!* and *Competitive Intelligence Software* and
+/// *competitive intelligence software* are all **one search**, three times.
+///
+/// Review found what comparing the raw strings cost, in both directions at once:
+///
+/// - a trailing `!` sent three more requests to somebody else's server for the identical
+///   queries;
+/// - an exact match reused the hits correctly and **still** told a reader their own words had
+///   been *"interpreted as"* themselves, which is the opposite of what the disclosure is for.
+///
+/// One answer, used for both, derived from the thing that actually decides.
+#[must_use]
+pub fn substitutes(described: &str, words: &str) -> bool {
+    let asked = |text: &str| {
+        for_idea(text)
+            .into_iter()
+            .map(|q| q.text.to_lowercase())
+            .collect::<Vec<_>>()
+    };
+    asked(described) != asked(words)
+}
+
+/// Everything one description produced: what the market calls it, and who is in it.
+#[derive(Debug)]
+pub struct Read {
+    /// What the market calls this, or why it could not be said.
+    pub interpreted: crate::vocabulary::Resolved,
+    /// The companies, and the gate's verdict on them.
+    ///
+    /// `None` when [`Self::interpreted`] is ambiguous: **nothing was searched for**, because the
+    /// words a report searches with decide everything in it and two markets with the same
+    /// backing is a question rather than a sort order.
+    pub derived: Option<crate::competitors::Derived>,
+    /// Every query both rounds sent.
+    pub queried: Queried,
+    /// Whether the market's words asked anything the reader's would not have.
+    ///
+    /// **The second round and the disclosure are the same question**, so it is answered once
+    /// here rather than by each caller: a run that asked nothing new has nothing to disclose,
+    /// and a run that asked something new owes the reader that line.
+    pub substituted: bool,
+}
+
+/// Read a description the way a run does: the market's words first, then its companies.
+///
+/// **One function because there are two callers**, the worker and `landscape candidates`, and a
+/// diagnostic that agreed with the worker only by coincidence is a defect this codebase has
+/// already had once. What a reader is *told* still differs between them; what happened does not.
+///
+/// ```text
+/// ask(their words)  ->  hits  ->  from_titles  ->  the market's words
+///                                                    │
+///                    ┌───────────────────────────────┤
+///                    │ same words: reuse the hits    │ different: ask again, in the market's
+///                    └───────────────────────────────┴──> from_hits -> companies
+/// ```
+///
+/// The second round happens **only when the words changed**. If the market calls this what the
+/// reader called it, the hits already in hand are the answer and three more requests to somebody
+/// else's server would buy nothing.
+///
+/// # Errors
+/// Never. A query that fails is counted in [`Read::queried`] and the rest carry on.
+pub async fn for_market<F, Fut>(engine: &dyn SourceProvider, description: &str, fetch: F) -> Read
+where
+    F: Fn(String) -> Fut + Copy,
+    Fut: std::future::Future<Output = Option<String>>,
+{
+    let (hits, asked_once) = ask(engine, description).await;
+    let interpreted = crate::vocabulary::from_titles(&hits, &asked_once);
+    if matches!(interpreted, crate::vocabulary::Resolved::Ambiguous { .. }) {
+        return Read {
+            interpreted,
+            derived: None,
+            queried: asked_once,
+            substituted: false,
+        };
+    }
+
+    let words = crate::vocabulary::search_with(&interpreted, description);
+    let substituted = substitutes(description, words);
+    let (derived, queried) = if substituted {
+        let (again, asked_twice) = ask(engine, words).await;
+        let (derived, _) = from_hits(&again, &asked_twice, words, fetch).await;
+        (derived, asked_once.and(asked_twice))
+    } else {
+        from_hits(&hits, &asked_once, words, fetch).await
+    };
+    Read {
+        interpreted,
+        derived: Some(derived),
+        queried,
+        substituted,
+    }
+}
+
+/// The half after the asking: hits in, a competitor set out.
+///
+/// Separate so a caller holding hits already — because it read their titles for
+/// [`crate::vocabulary`] — does not send the same three queries again to get the companies.
+pub async fn from_hits<F, Fut>(
+    results: &[Vec<Hit>],
+    queried: &Queried,
+    description: &str,
+    fetch: F,
+) -> (crate::competitors::Derived, Queried)
+where
+    F: Fn(String) -> Fut,
+    Fut: std::future::Future<Output = Option<String>>,
+{
+    let found = from_results(results, queried.sent());
     let words = crate::competitors::content_words(description);
     let named = describe(&found, &words, fetch).await;
     // **Two consumers, two lists, and the difference is deliberate.** The set gets everything
@@ -634,7 +783,7 @@ where
     // the same evidence.
     set.alone = crate::competitors::alone_because(
         set.members.len(),
-        &queried,
+        queried,
         crate::competitors::Sought::CompaniesMatchingTheDescription,
         None,
     );
@@ -654,7 +803,7 @@ where
             set,
             about_a_market: crate::competitors::about_a_market(&words),
         },
-        queried,
+        queried.clone(),
     )
 }
 
@@ -1957,6 +2106,188 @@ The second of two."
                 _ => Err(SearchError::Unreachable("no route to host".to_owned())),
             }
         }
+    }
+
+    /// A provider that answers by what was asked, so the two rounds can be told apart.
+    struct ByWords {
+        asked: std::sync::Mutex<Vec<String>>,
+    }
+
+    #[async_trait::async_trait]
+    impl SourceProvider for ByWords {
+        fn name(&self) -> &str {
+            "by-words"
+        }
+        async fn search(&self, query: &Query) -> Result<Vec<Hit>, SearchError> {
+            self.asked.lock().unwrap().push(query.text.clone());
+            // The reader's phrasing finds category pages; the market's finds companies. That
+            // asymmetry is the whole of `COMPETITIVE_DISCOVERY.md` §4, so the fixture has it.
+            let hits = if query.text.contains("competitive intelligence software") {
+                vec![
+                    titled("https://klue.com/", "Klue"),
+                    titled("https://www.crayon.co/", "Crayon"),
+                ]
+            } else {
+                vec![
+                    titled(
+                        "https://www.g2.com/categories/x",
+                        "Best Competitive Intelligence Software 2025 | G2",
+                    ),
+                    titled(
+                        "https://www.capterra.com/y/",
+                        "Competitive Intelligence Software - Capterra",
+                    ),
+                    titled(
+                        "https://www.crayon.co/product",
+                        "Competitive Intelligence Software for Product Marketing",
+                    ),
+                ]
+            };
+            Ok(hits)
+        }
+    }
+
+    fn titled(url: &str, title: &str) -> Hit {
+        Hit {
+            url: url.to_owned(),
+            title: title.to_owned(),
+            snippet: String::new(),
+        }
+    }
+
+    async fn nothing_fetched(_url: String) -> Option<String> {
+        None
+    }
+
+    #[tokio::test]
+    async fn the_second_round_is_asked_in_the_market_s_words() {
+        // §4, end to end and with no network: what a reader typed finds the pages that *name*
+        // the market, and the market's name finds the companies in it.
+        let engine = ByWords {
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let read = for_market(&engine, "a free competitive landscape research tool", |u| {
+            nothing_fetched(u)
+        })
+        .await;
+
+        let crate::vocabulary::Resolved::Market(market) = &read.interpreted else {
+            panic!("no market: {:?}", read.interpreted)
+        };
+        assert_eq!(market.label, "competitive intelligence software");
+
+        let asked = engine.asked.lock().unwrap().clone();
+        assert_eq!(asked.len(), IDEA_QUERIES * 2, "two rounds: {asked:?}");
+        assert!(
+            asked[IDEA_QUERIES..]
+                .iter()
+                .all(|q| q.contains("competitive intelligence software")),
+            "the second round did not use the market's words: {asked:?}"
+        );
+        assert_eq!(
+            read.queried.sent(),
+            IDEA_QUERIES * 2,
+            "the coverage note has to count both rounds, or an outage in the first hides"
+        );
+        assert!(
+            read.substituted,
+            "the words changed, so the reader is owed the line that says so"
+        );
+    }
+
+    #[tokio::test]
+    async fn nothing_is_asked_twice_when_the_market_agrees_with_the_reader() {
+        // **Three spellings of one search.** `for_idea` normalises before interpolating and an
+        // engine ignores case, so all three of these produce the identical queries — and review
+        // found the raw string comparison sending three more requests for a trailing `!`, and
+        // telling a reader their own words had been *"interpreted as"* themselves.
+        for typed in [
+            "competitive intelligence software",
+            "Competitive Intelligence Software",
+            "competitive intelligence software!",
+        ] {
+            let engine = ByWords {
+                asked: std::sync::Mutex::new(Vec::new()),
+            };
+            let read = for_market(&engine, typed, nothing_fetched).await;
+            assert_eq!(
+                engine.asked.lock().unwrap().len(),
+                IDEA_QUERIES,
+                "{typed:?} was searched for twice"
+            );
+            assert!(read.derived.is_some(), "{typed:?}");
+            assert!(
+                !read.substituted,
+                "{typed:?} would be disclosed as an interpretation of itself"
+            );
+        }
+    }
+
+    #[test]
+    fn one_search_written_three_ways_is_one_search() {
+        // The predicate itself, so the rule is readable without a round trip. Both the second
+        // round and the *"Interpreted as"* line hang off this one answer.
+        let market = "competitive intelligence software";
+        for same in [
+            "competitive intelligence software",
+            "Competitive Intelligence Software",
+            "competitive intelligence software!",
+            "  competitive   intelligence software  ",
+        ] {
+            assert!(
+                !substitutes(same, market),
+                "{same:?} and the market's name are the same search"
+            );
+        }
+        assert!(
+            substitutes("a free competitive landscape research tool", market),
+            "a real substitution went unreported"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_ambiguous_market_searches_for_nothing_at_all() {
+        // The words a report searches with decide everything in it, so a tie is answered
+        // before anything is looked for rather than after.
+        struct Tied {
+            asked: std::sync::Mutex<usize>,
+        }
+        #[async_trait::async_trait]
+        impl SourceProvider for Tied {
+            fn name(&self) -> &str {
+                "tied"
+            }
+            async fn search(&self, _query: &Query) -> Result<Vec<Hit>, SearchError> {
+                *self.asked.lock().unwrap() += 1;
+                Ok(vec![
+                    titled("https://a.example/", "Inventory Management Software"),
+                    titled("https://b.example/", "Inventory Management Software"),
+                    titled("https://c.example/", "Project Management Software"),
+                    titled("https://d.example/", "Project Management Software"),
+                ])
+            }
+        }
+        let engine = Tied {
+            asked: std::sync::Mutex::new(0),
+        };
+        let read = for_market(&engine, "something people manage", nothing_fetched).await;
+        assert!(
+            matches!(
+                read.interpreted,
+                crate::vocabulary::Resolved::Ambiguous { .. }
+            ),
+            "{:?}",
+            read.interpreted
+        );
+        assert!(
+            read.derived.is_none(),
+            "companies were found for a market nobody had picked yet"
+        );
+        assert_eq!(
+            *engine.asked.lock().unwrap(),
+            IDEA_QUERIES,
+            "a second round went out for words nobody had chosen"
+        );
     }
 
     #[tokio::test]

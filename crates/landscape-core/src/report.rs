@@ -94,6 +94,23 @@ impl Section {
     }
 }
 
+/// The market's words, and how much agreement stood behind them.
+///
+/// Read off the titles of the searches a run already sends — `landscape_search::vocabulary`.
+/// **Not a claim about any company**: nothing here may appear in a section or set a value in a
+/// table. It exists so a reader can see what was substituted for their phrasing before
+/// believing anything underneath it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct Interpreted {
+    /// The phrase every query was built from.
+    pub label: String,
+    /// Other phrasings that recurred. Shown; never searched.
+    #[serde(default)]
+    pub also: Vec<String>,
+    /// Independent sites whose titles used [`Self::label`].
+    pub hosts: usize,
+}
+
 /// A finished report.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Report {
@@ -120,6 +137,19 @@ pub struct Report {
     pub subjects: Vec<String>,
     pub sections: Vec<Section>,
     pub sources: Vec<Source>,
+    /// What the market calls this, when it turned out to call it something else.
+    ///
+    /// **`COMPETITIVE_DISCOVERY.md` §4's "Interpreted as …" line, and it is doing real work.**
+    /// A reader typed *"a free competitive landscape research tool"*; the queries that found
+    /// these companies said *competitive intelligence software*. That substitution decides
+    /// everything below it, so it is shown rather than assumed — if the reading is wrong a
+    /// reader sees it immediately and retypes, which §4 argues is faster and less annoying than
+    /// any question we could have asked first.
+    ///
+    /// `None` when the reader's own words were searched for: nothing was substituted, so there
+    /// is nothing to disclose, and a line saying *"interpreted as ‹what you typed›"* is noise.
+    #[serde(default)]
+    pub interpreted: Option<Interpreted>,
     /// Anything true of the whole report rather than of one section.
     ///
     /// Today that is one thing: **which companies were named and not analysed.** Dropping a
@@ -209,6 +239,7 @@ mod tests {
                 notes: Vec::new(),
             }],
             sources,
+            interpreted: None,
             notes: Vec::new(),
         }
     }

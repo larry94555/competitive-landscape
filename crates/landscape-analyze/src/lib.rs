@@ -135,6 +135,13 @@ pub struct Asked<'a> {
     /// The report says so first, because it is the one thing a reader cannot check by reading
     /// further down the page: they never typed any of these names.
     pub set: Option<&'a landscape_search::competitors::Set>,
+    /// What the market calls this, when the queries turned out to use different words.
+    ///
+    /// Rides here rather than being stamped on afterwards because the **partial** reports go
+    /// to a reader too — `on_progress` fires after every page — and a line that appeared only
+    /// on the finished report would tell somebody, ninety seconds in, that the run they had
+    /// been watching had been about something else all along.
+    pub interpreted: Option<&'a landscape_core::Interpreted>,
 }
 
 /// Written by hand because a `dyn SourceProvider` has no `Debug`, and the useful thing about an
@@ -153,6 +160,7 @@ impl std::fmt::Debug for Asked<'_> {
                 "set",
                 &self.set.map(landscape_search::competitors::Set::origins),
             )
+            .field("interpreted", &self.interpreted.map(|i| &i.label))
             .finish()
     }
 }
@@ -191,6 +199,7 @@ pub async fn analyse_many(
         today,
         search,
         set,
+        interpreted,
     } = asked;
     // The cap is applied here rather than in the parser, so what it costs can be said out
     // loud. Dropping the fourth company in silence would be the defect this feature exists to
@@ -237,6 +246,7 @@ pub async fn analyse_many(
                     notes.clone(),
                     llm,
                     now,
+                    interpreted,
                 ))
             };
             let one = analyse_with(
@@ -261,7 +271,7 @@ pub async fn analyse_many(
         }
     }
 
-    let report = joined(&finished, None, origins, notes, llm, now);
+    let report = joined(&finished, None, origins, notes, llm, now, interpreted);
     Analysis {
         report,
         coverage: coverage_by_question(&finished),
@@ -306,6 +316,11 @@ fn joined(
     notes: Vec<String>,
     llm: &landscape_llm::LlamaClient,
     now: DateTime<Utc>,
+    // What the market calls this, when it turned out to call it something else. A parameter
+    // rather than something stamped on afterwards, because the **partial** reports reach a
+    // reader too — a line that appeared only at the end would tell somebody, ninety seconds
+    // in, that what they had been watching had been about something else all along.
+    interpreted: Option<&landscape_core::Interpreted>,
 ) -> Report {
     let mut sections: Vec<Section> = Vec::new();
     let mut sources: Vec<Source> = Vec::new();
@@ -410,6 +425,7 @@ fn joined(
         subjects: origins.to_vec(),
         sections,
         sources,
+        interpreted: interpreted.cloned(),
         notes,
     }
 }
@@ -1126,6 +1142,7 @@ fn assemble(
         subjects: Vec::new(),
         sections,
         sources: sources.to_vec(),
+        interpreted: None,
         notes: notes.to_vec(),
     };
     (report, coverage)
@@ -1571,6 +1588,7 @@ mod joining {
                 fetched_at: at(),
                 independence_group: origin.to_owned(),
             }],
+            interpreted: None,
         };
         Analysis {
             report,
@@ -1624,6 +1642,7 @@ mod joining {
             Vec::new(),
             &llm(),
             at(),
+            None,
         );
 
         let pricing = merged
@@ -1657,6 +1676,7 @@ mod joining {
             Vec::new(),
             &llm(),
             at(),
+            None,
         );
 
         assert!(
@@ -1709,6 +1729,7 @@ mod joining {
             Vec::new(),
             &llm(),
             at(),
+            None,
         );
 
         assert_eq!(merged.sections[0].claims.len(), 2);
@@ -1730,6 +1751,7 @@ mod joining {
             Vec::new(),
             &llm(),
             at(),
+            None,
         );
 
         let subjects: Vec<&str> = merged.sections[0]
@@ -1810,11 +1832,83 @@ mod joining {
             today: at().date_naive(),
             search: None,
             set: None,
+            interpreted: None,
         }
     }
 
     fn unreachable(n: usize) -> Vec<String> {
         (0..n).map(|i| format!("https://s{i}.invalid")).collect()
+    }
+
+    #[tokio::test]
+    async fn what_was_searched_for_reaches_the_finished_report() {
+        let origins = unreachable(2);
+        let market = landscape_core::Interpreted {
+            label: "competitive intelligence software".to_owned(),
+            also: vec!["competitive intelligence".to_owned()],
+            hosts: 3,
+        };
+        let outcome = analyse_many(
+            &landscape_fetch::Fetcher::new(),
+            &llm(),
+            &Asked {
+                interpreted: Some(&market),
+                ..named(&origins)
+            },
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+        assert_eq!(
+            outcome.report.interpreted.as_ref(),
+            Some(&market),
+            "the finished report does not say what it searched for"
+        );
+    }
+
+    #[test]
+    fn a_partial_report_says_what_it_is_being_searched_with_too() {
+        // **The reason it rides on `Asked` rather than being stamped on at the end.** A reader
+        // watches the partial reports for ninety seconds; a line that appeared only on the
+        // finished one would tell them, at the end, that what they had been watching had been
+        // about something else all along.
+        //
+        // Asserted on `joined` with an in-flight report, which is exactly the call
+        // `on_progress` makes — a test driving `analyse_many` cannot reach it without a network.
+        let origins = vec!["https://a.com".to_owned()];
+        let market = landscape_core::Interpreted {
+            label: "competitive intelligence software".to_owned(),
+            also: Vec::new(),
+            hosts: 3,
+        };
+        let in_flight = one_company("https://a.com", "Pro costs $15").report;
+        let partial = joined(
+            &[],
+            Some(&in_flight),
+            &origins,
+            Vec::new(),
+            &llm(),
+            at(),
+            Some(&market),
+        );
+        assert_eq!(partial.interpreted.as_ref(), Some(&market));
+    }
+
+    #[tokio::test]
+    async fn a_report_about_the_reader_s_own_words_claims_no_interpretation() {
+        // Absence is the disclosure working. Repeating somebody's words back at them as an
+        // "interpretation" is noise, and noise is what stops the real line being read.
+        let origins = unreachable(1);
+        let outcome = analyse_many(
+            &landscape_fetch::Fetcher::new(),
+            &llm(),
+            &named(&origins),
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+        assert!(
+            outcome.report.interpreted.is_none(),
+            "nothing was substituted, so there is nothing to disclose"
+        );
     }
 
     #[tokio::test]
@@ -1995,6 +2089,7 @@ mod joining {
             vec!["Comparing the first 2 sites named.".to_owned()],
             &llm(),
             at(),
+            None,
         );
 
         assert!(
@@ -2028,7 +2123,15 @@ mod joining {
         let mut second = one_company("https://b.com", "Business costs $16");
         second.report.notes = vec![note.clone()];
 
-        let merged = joined(&[first, second], None, &origins, Vec::new(), &llm(), at());
+        let merged = joined(
+            &[first, second],
+            None,
+            &origins,
+            Vec::new(),
+            &llm(),
+            at(),
+            None,
+        );
         assert_eq!(
             merged.notes.iter().filter(|n| **n == note).count(),
             1,
@@ -2058,6 +2161,7 @@ mod joining {
             Vec::new(),
             &llm(),
             at(),
+            None,
         );
 
         assert_eq!(
@@ -2649,7 +2753,7 @@ mod joining {
     #[test]
     fn the_report_says_which_companies_it_is_about() {
         let origins = vec!["https://a.com".to_owned(), "https://b.com".to_owned()];
-        let merged = joined(&[], None, &origins, Vec::new(), &llm(), at());
+        let merged = joined(&[], None, &origins, Vec::new(), &llm(), at(), None);
         assert_eq!(merged.subject, "https://a.com, https://b.com");
         assert_eq!(merged.searched_as, "https://a.com, https://b.com");
     }

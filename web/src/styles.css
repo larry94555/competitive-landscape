@@ -128,5 +128,11 @@ button.choice strong { display: block; }
 }
 .choice .what { display: block; color: var(--muted); font-size: 0.9rem; margin-top: 0.3rem; }
 
+/* The market's words, above the results. Quiet, because it is context rather than a finding —
+   but never hidden, because everything below it was searched for in these words. */
+.interpreted { color: var(--ink); margin-bottom: 0.2rem; }
+.interpreted .also { color: var(--muted); }
+.interpreted .backing { color: var(--muted); font-size: 0.9rem; }
+
 /* What is curated and what is not. Small, and never omitted. */
 .curation { color: var(--muted); font-size: 0.85rem; }

@@ -550,7 +550,65 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
         return Ok(());
     };
 
-    let (found, queried) = landscape_search::candidates::suggest(&engine, description).await;
+    // **The market's words first, exactly as a run does them.** This command exists to be
+    // believed about what a run would do, so it resolves the vocabulary before searching for
+    // companies rather than searching in the reader's words and reporting a different set.
+    let (hits, asked_once) = landscape_search::candidates::ask(&engine, description).await;
+    let interpreted = landscape_search::vocabulary::from_titles(&hits, &asked_once);
+    println!();
+    match &interpreted {
+        landscape_search::vocabulary::Resolved::Market(market) => {
+            println!("interpreted as  {}", market.label);
+            println!("agreed on by    {} independent sites", market.hosts);
+            if !market.also.is_empty() {
+                println!("also called     {}", market.also.join(", "));
+            }
+        }
+        landscape_search::vocabulary::Resolved::Ambiguous { between } => {
+            println!("no report: the market has two names with the same backing, and the");
+            println!("words a report searches with decide everything in it.");
+            for market in between {
+                println!("  pick: {} ({} sites)", market.label, market.hosts);
+            }
+            return Ok(());
+        }
+        landscape_search::vocabulary::Resolved::TheirWords { titles, hosts } => {
+            println!("interpreted as  your own words");
+            println!("                {titles} titles from {hosts} sites, none recurring");
+        }
+        landscape_search::vocabulary::Resolved::Incomplete { failed, sent } => {
+            println!("interpreted as  your own words");
+            println!("                {failed} of the {sent} searches did not complete");
+        }
+        landscape_search::vocabulary::Resolved::NoEngine => {
+            unreachable!("an engine is configured; the branch above returned without one")
+        }
+    }
+
+    // Everything below is about these words, whoever chose them.
+    let words = landscape_search::vocabulary::search_with(&interpreted, description);
+    // **The same predicate `for_market` uses.** Comparing the two strings is what review found
+    // wrong: `for_idea` normalises before interpolating, so a trailing `!` or a capital letter
+    // is the same search and asking again buys three requests and nothing else.
+    let substituted = landscape_search::candidates::substitutes(description, words);
+    println!("searched for    {words}");
+    if !substituted {
+        println!("                (unchanged - these are your own words)");
+    }
+    let description = words;
+
+    let (found, queried) = if substituted {
+        let (again, asked_twice) = landscape_search::candidates::ask(&engine, description).await;
+        (
+            landscape_search::candidates::from_results(&again, asked_twice.sent()),
+            asked_once.and(asked_twice),
+        )
+    } else {
+        (
+            landscape_search::candidates::from_results(&hits, asked_once.sent()),
+            asked_once,
+        )
+    };
     println!(
         "\n{:<34} {:>7} {:>8}  shallowest",
         "company", "agreed", "score"
@@ -561,7 +619,7 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
             "{:<34} {:>3}/{:<3} {:>8.2}  {}",
             one.host,
             one.agreed,
-            queries.len(),
+            landscape_search::candidates::IDEA_QUERIES,
             one.confidence,
             one.shallowest
         );
@@ -1373,19 +1431,35 @@ async fn worker(store: Arc<dyn Store>) -> Result<()> {
 /// engine configured, nothing found, several found, or a search that did not finish. A reader
 /// can act on all four, and they are four different actions —
 /// [`landscape_analyze::subject::decide`] is where that mapping lives and is tested.
+/// What reading a description came to, and the words it was read as.
+struct Read {
+    decided: landscape_analyze::subject::Decided,
+    /// Set only when the market's words replaced the reader's. `None` means nothing was
+    /// substituted, so there is nothing to disclose.
+    interpreted: Option<landscape_core::Interpreted>,
+}
+
 async fn resolve_from_description(
     engine: Option<&dyn landscape_search::SourceProvider>,
     prompt: &str,
-) -> landscape_analyze::subject::Decided {
+) -> Read {
+    let refuse =
+        |why: String, kind, choices| Read {
+            decided: landscape_analyze::subject::Decided::Refuse(
+                landscape_analyze::subject::Refusal { why, kind, choices },
+            ),
+            interpreted: None,
+        };
     let Some(engine) = engine else {
-        return landscape_analyze::subject::Decided::Refuse(landscape_analyze::subject::Refusal {
-            why: landscape_analyze::subject::NO_SUBJECT.to_owned(),
-            kind: landscape_core::Failure::NoSubject,
-            choices: Vec::new(),
-        });
+        return refuse(
+            landscape_analyze::subject::NO_SUBJECT.to_owned(),
+            landscape_core::Failure::NoSubject,
+            Vec::new(),
+        );
     };
+
     let fetcher = landscape_fetch::Fetcher::new();
-    let (derived, queried) = landscape_search::candidates::for_description(engine, prompt, |url| {
+    let read = landscape_search::candidates::for_market(engine, prompt, |url| {
         let fetcher = &fetcher;
         async move {
             fetcher
@@ -1396,14 +1470,64 @@ async fn resolve_from_description(
         }
     })
     .await;
-    if !queried.failed.is_empty() {
+
+    // **Nothing was searched for.** Two markets with the same backing is a question, and
+    // answering it by sorting would build every query below on a coin flip.
+    let Some(derived) = read.derived else {
+        let landscape_search::vocabulary::Resolved::Ambiguous { between } = &read.interpreted
+        else {
+            unreachable!("for_market returns no companies only when the market is ambiguous")
+        };
+        tracing::info!(markets = between.len(), "the market's name is ambiguous");
+        return refuse(
+            ambiguous_market(between),
+            landscape_core::Failure::Ambiguous,
+            landscape_search::vocabulary::choices_from(between),
+        );
+    };
+
+    if !read.queried.failed.is_empty() {
         tracing::warn!(
-            failed = queried.failed.len(),
-            sent = queried.sent(),
+            failed = read.queried.failed.len(),
+            sent = read.queried.sent(),
             "some candidate searches did not complete"
         );
     }
-    landscape_analyze::subject::decide(derived, &queried)
+    Read {
+        decided: landscape_analyze::subject::decide(derived, &read.queried),
+        // **Only when something was actually substituted.** A market whose name is what the
+        // reader already typed is not an interpretation, and a line saying so would be noise
+        // over the top of the one case the line exists for. `for_market` decided it, so this
+        // cannot come to a different answer than the second round of searches did.
+        interpreted: match (read.substituted, read.interpreted) {
+            (true, landscape_search::vocabulary::Resolved::Market(market)) => {
+                Some(landscape_core::Interpreted {
+                    label: market.label,
+                    also: market.also,
+                    hosts: market.hosts,
+                })
+            }
+            _ => None,
+        },
+    }
+}
+
+/// What a reader is told when the market has two names and the same evidence for each.
+///
+/// Named companies get `landscape_analyze::subject::ambiguous`; this is the same refusal one
+/// step earlier, about what to search *for* rather than about who to search for.
+fn ambiguous_market(between: &[landscape_search::vocabulary::Market]) -> String {
+    let named: Vec<String> = between
+        .iter()
+        .map(|m| format!("{} ({} sites)", m.label, m.hosts))
+        .collect();
+    format!(
+        concat!(
+            "that description matches more than one market and we will not guess between ",
+            "them: {}. The words a report searches with decide everything in it."
+        ),
+        named.join(", ")
+    )
 }
 
 /// The companies a named one competes with, and why there are none when there are none.
@@ -1518,12 +1642,17 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
     // **Three readings of one box**, and the rule lives in `subject::subjects_in` rather than
     // here because it is a decision about what somebody meant. See [`Subjects`] for why
     // naming two companies is an instruction and naming one is a starting point.
+    // Set by the description path alone: a reader who named a domain has said what to look at,
+    // and nothing is substituted for words they did not use.
+    let mut interpreted: Option<landscape_core::Interpreted> = None;
     let (origins, set) = match landscape_analyze::subject::subjects_in(&analysis.prompt) {
         // **A description is no longer the end of the road.** Until Run 29 a prompt naming no
         // domain was refused; the channel now produces candidates and hands them to the gate
         // `FACT_CHECKING.md` §3.1 built before anything could feed it.
         landscape_analyze::subject::Subjects::Describe => {
-            match resolve_from_description(searching, &analysis.prompt).await {
+            let read = resolve_from_description(searching, &analysis.prompt).await;
+            interpreted = read.interpreted;
+            match read.decided {
                 landscape_analyze::subject::Decided::Analyse(set) => {
                     let origins = set.origins();
                     tracing::info!(
@@ -1614,6 +1743,7 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
             today: now.date_naive(),
             search: searching,
             set: set.as_ref(),
+            interpreted: interpreted.as_ref(),
         },
         &mut |so_far| progress.record(so_far),
     )
@@ -1798,13 +1928,17 @@ mod tests {
         // **The worker's own choice of situation**, which `decide` never sees: with nothing
         // configured there is no verdict to decide from, and this is the only refusal where
         // *"try naming its website"* is the right instruction rather than a habit.
-        let decided = resolve_from_description(None, "a shared inbox for a small team").await;
-        let landscape_analyze::subject::Decided::Refuse(refusal) = decided else {
+        let read = resolve_from_description(None, "a shared inbox for a small team").await;
+        let landscape_analyze::subject::Decided::Refuse(refusal) = read.decided else {
             panic!("a run with no engine analysed something")
         };
         assert_eq!(refusal.kind, landscape_core::Failure::NoSubject);
         let why = &refusal.why;
         assert!(why.contains("not configured here"), "{why}");
+        assert!(
+            read.interpreted.is_none(),
+            "nothing was searched for, so nothing can have been interpreted"
+        );
     }
 
     #[tokio::test]

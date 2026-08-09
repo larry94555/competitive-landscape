@@ -1704,6 +1704,48 @@ arbitrary choice would be **profitable**: two candidates that share something bi
 
 ---
 
+## 51. Register 47's own rule, re-derived instead of called — twice
+
+**Found:** by review, in the guard written to satisfy register 47.
+
+Entry 47 says: a value one component builds and another validates must be **built so the
+constraint cannot be violated**, and the way to do that is to use the real validator. The guard
+written for it did this:
+
+```rust
+if words.iter().map(String::len).sum::<usize>() + words.len() - 1 < MIN_PROMPT
+```
+
+**`String::len` is bytes; `NewAnalysis::parse` counts characters.** `Ää Ää` is five characters
+and nine bytes, so the guard passed a label the API rejects — the exact rendered-chip-then-`400`
+failure entry 47 exists to prevent, now for every non-ASCII market name. And it silently ignored
+`MAX_PROMPT`, because a rule re-derived from one constant has no reason to know about the other.
+
+**The same PR did it again, in a different shape.** Whether the market's words differed from the
+reader's was decided by `words == description` — comparing two raw strings, when the thing that
+decides is `for_idea`, which normalises through `safe_words` first and produces queries an engine
+reads case-insensitively. A trailing `!` therefore counted as a change and bought three
+redundant requests, while an exact match reused the hits *and still* told the reader their own
+words had been "interpreted as" themselves.
+
+**Both are the same mistake:** a rule that already exists, written out again in the new code's
+own terms. The re-derivation is always *nearly* right, which is why it survives review and the
+tests written beside it — it fails on the inputs the author did not have in mind, and those are
+by definition the ones nobody wrote a fixture for.
+
+The fixes call the real thing. `trimmed` runs `NewAnalysis::parse`; `substitutes` compares the
+output of `for_idea`. Neither can drift, because neither holds a copy.
+
+**Rule:** when a constraint already has an implementation, *call it*. Not "match it", not
+"mirror it" — call it. If it cannot be called from where you are, that is a fact worth fixing or
+naming, and it is a much smaller problem than a second copy that agrees today. And note the
+tell: the re-derived version is usually **shorter and faster**, which is exactly why it looks
+like an improvement.
+
+> **Ask this:** *am I writing this rule down, or asking the thing that owns it?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**
@@ -1777,7 +1819,7 @@ Grouped by what has actually gone wrong, commonest first.
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35, 47, 49, 50 |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35, 47, 49, 50, 51 |
 | The mutation harness | 32, 36, 46, 48 | The only ones it found before review did. 36 deleted a rule rather than adding a test; 46 deleted an argument; 48 was a defect in a test |
 | Its own tooling | 28 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
