@@ -134,10 +134,12 @@ code change — the software does not become different.
 
 ## S2 — Ready for demonstration
 
-*Any business idea handled correctly, limited functionality, friendly users only.* **Past four
-fifths.** Fifteen of eighteen PRs are done, and seven of the ten rows are complete — the caches
-row closed with the extraction half, so **two readers of one competitor now share both the
-fetching and the reading**. Both inputs produce a comparison — a description and a
+*Any business idea handled correctly, limited functionality, friendly users only.* **Nearly
+there.** Sixteen of eighteen PRs are done, and **eight of the ten rows are complete** — everything
+`landscape-fetch` owed is built. Two readers of one competitor share both the fetching and the
+reading; a page past its hour is asked about rather than downloaded again; and one reader's
+question has a bound on what it costs strangers. **Both remaining PRs are the search channel and
+the competitor set**, which is where the honest gap has been all along. Both inputs produce a comparison — a description and a
 named company alike — a report that covers **one** company says which of four things happened to
 the others, and a run that produces **no** report now says which of five things happened rather
 than one. That last one is the same discipline reaching the surface a reader actually looks at:
@@ -155,8 +157,8 @@ them back into a single sentence.
 | Investment direction extractor — the sixth question kind | S2 | 1 | 1 | 0 | 100% |
 | Honest "no public information" at the level of a whole competitor set | S2 | 1 | 1 | 0 | 100% |
 | Fetch cache and per-source extraction cache — two readers of one competitor share work | S2 | 2 | 2 | 0 | 100% |
-| Conditional GET and a per-analysis fetch cap | S2 | 1 | 0 | **1** | 0% |
-| | | **18** | **15** | **3** | **83%** |
+| Conditional GET and a per-analysis fetch cap | S2 | 1 | 1 | 0 | 100% |
+| | | **18** | **16** | **2** | **89%** |
 
 **What the two clarifying-question PRs bought, and what §3 still describes.** The row is
 counted complete because what S2 needs is a run that cannot converge saying so in terms a reader
@@ -174,11 +176,12 @@ and `/careers`, the pipeline already reached them, and both sections were perman
 because nothing read them. They are the cheapest honest improvements available while
 [B2](../PROJECT_STATUS.md#4-blockers) is unbuilt.
 
-**Both caches are built** — [BENCHMARKS.md](BENCHMARKS.md) Runs 37 and 38. The second reader of
+**Every fetch row is closed** — [BENCHMARKS.md](BENCHMARKS.md) Runs 37, 38 and 39. The second reader of
 a company pays neither a stranger's server nor ours: the fetch half took eight fetches to zero,
-and the extraction half takes sixteen model calls to zero for the same company. What is left in
-this row is conditional GET, which is about the *first* reader coming back tomorrow rather than
-the second arriving today.
+and the extraction half takes sixteen model calls to zero for the same company. Conditional GET completes the
+set: it is about the *first* reader coming back tomorrow rather than the second arriving today,
+and a page past its hour costs a question rather than a download. The per-analysis budget went
+with it, because everything else in that crate bounds one request and nothing bounded a run.
 
 **With the sixth extractor, that seam is closed.** All six questions a report has a section for
 now have an extractor behind them, so there is no longer a *"one fewer section that can never

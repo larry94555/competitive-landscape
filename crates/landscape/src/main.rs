@@ -255,9 +255,10 @@ Examples:
     )?;
 
     let fetcher = landscape_fetch::Fetcher::new();
+    let budget = landscape_fetch::Budget::for_one_analysis();
     let started = std::time::Instant::now();
 
-    match fetcher.get(url).await {
+    match fetcher.get(url, &budget).await {
         Ok(page) => {
             let ms = started.elapsed().as_millis();
             tracing::info!(status = page.status, took_ms = ms, "fetched");
@@ -310,10 +311,11 @@ Example:
         .collect();
 
     let fetcher = landscape_fetch::Fetcher::new();
+    let budget = landscape_fetch::Budget::for_one_analysis();
     let mut report = landscape_extract::Report::default();
 
     for url in urls {
-        match fetcher.get(url).await {
+        match fetcher.get(url, &budget).await {
             Ok(page) => {
                 let found = landscape_extract::locate(&page.body);
                 tracing::info!(url, tier = found.tier(), "measured");
@@ -347,8 +349,9 @@ Example:
     )?;
 
     let fetcher = landscape_fetch::Fetcher::new();
+    let budget = landscape_fetch::Budget::for_one_analysis();
     let started = std::time::Instant::now();
-    let found = landscape_discover::discover(&fetcher, origin).await;
+    let found = landscape_discover::discover(&fetcher, &budget, origin).await;
 
     tracing::info!(
         sources = found.sources.len(),
@@ -641,12 +644,14 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
 
     // The names come from each company's own front page. An engine's title is the engine's.
     let fetcher = landscape_fetch::Fetcher::new();
+    let budget = landscape_fetch::Budget::for_one_analysis();
     let words = landscape_search::competitors::content_words(description);
     let named = landscape_search::candidates::describe(&found, &words, |url| {
         let fetcher = &fetcher;
+        let budget = &budget;
         async move {
             fetcher
-                .get(&url)
+                .get(&url, budget)
                 .await
                 .ok()
                 .map(|page| landscape_extract::markdown::from_body(&page.body))
@@ -825,11 +830,13 @@ async fn rivals_of_a_named_company(origin: &str) -> Result<()> {
     let target = landscape_fetch::Target::parse(origin)
         .map_err(|e| anyhow::anyhow!("{origin} is not a URL we fetch: {e}"))?;
     let fetcher = landscape_fetch::Fetcher::new();
+    let budget = landscape_fetch::Budget::for_one_analysis();
     let read = |url: String| {
         let fetcher = &fetcher;
+        let budget = &budget;
         async move {
             fetcher
-                .get(&url)
+                .get(&url, budget)
                 .await
                 .ok()
                 .map(|page| landscape_extract::markdown::from_body(&page.body))
@@ -890,7 +897,8 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
         .map_or_else(|| target.host.clone(), |w| w[1].clone());
 
     let fetcher = landscape_fetch::Fetcher::new();
-    let found = landscape_discover::discover(&fetcher, origin).await;
+    let budget = landscape_fetch::Budget::for_one_analysis();
+    let found = landscape_discover::discover(&fetcher, &budget, origin).await;
 
     const EVERY_QUESTION: [Answers; 6] = [
         Answers::Pricing,
@@ -1008,14 +1016,15 @@ Example:
     )?;
 
     let fetcher = landscape_fetch::Fetcher::new();
-    let found = landscape_discover::discover(&fetcher, origin).await;
+    let budget = landscape_fetch::Budget::for_one_analysis();
+    let found = landscape_discover::discover(&fetcher, &budget, origin).await;
     let plan = landscape_analyze::plan(&found.sources);
 
     // Every admitted page fetched once, including the ones the run will not read - their cost
     // is the thing being compared against.
     let mut read_pages: Vec<(String, &str, usize, bool)> = Vec::new();
     for source in &found.sources {
-        let (calls, yields) = match fetcher.get(&source.url).await {
+        let (calls, yields) = match fetcher.get(&source.url, &budget).await {
             Ok(page) => {
                 let markdown = landscape_extract::markdown::from_body(&page.body);
                 (
@@ -1118,6 +1127,7 @@ fn trim(url: &str) -> String {
 /// notes.
 async fn check_examples() -> Result<()> {
     let fetcher = landscape_fetch::Fetcher::new();
+    let budget = landscape_fetch::Budget::for_one_analysis();
     let mut poor: Vec<String> = Vec::new();
 
     for example in landscape_core::examples() {
@@ -1130,7 +1140,7 @@ async fn check_examples() -> Result<()> {
         for company in &example.companies {
             let origin = format!("https://{company}");
             let started = std::time::Instant::now();
-            let found = landscape_discover::discover(&fetcher, &origin).await;
+            let found = landscape_discover::discover(&fetcher, &budget, &origin).await;
             let mut answered: Vec<&str> = found
                 .sources
                 .iter()
@@ -1191,6 +1201,7 @@ Example:
     )?;
 
     let fetcher = landscape_fetch::Fetcher::new();
+    let budget = landscape_fetch::Budget::for_one_analysis();
     let llm = landscape_llm::LlamaClient::from_env();
     // The one place the clock is read. Everything downstream takes the time as an argument so
     // that what a report says about a 90-day window can be tested without waiting 90 days.
@@ -1215,6 +1226,7 @@ Example:
             llm: &llm,
             memo: &memo,
         },
+        &budget,
         origin,
         now,
         now.date_naive(),
@@ -1274,6 +1286,13 @@ Example:
     let (reads, read_bytes) = memo.held();
     println!("held for the next reader: {pages} pages, {page_bytes} bytes");
     println!("                          {reads} extractions, {read_bytes} bytes");
+    // **What this run cost somebody else.** The bound exists so the number has a ceiling; the
+    // number is printed so the ceiling is not the only thing anybody knows about it.
+    println!(
+        "requests sent to strangers: {} of {}",
+        budget.spent(),
+        budget.spent() + budget.left()
+    );
     Ok(())
 }
 
@@ -1480,6 +1499,7 @@ struct Read {
 async fn resolve_from_description(
     engine: Option<&dyn landscape_search::SourceProvider>,
     fetcher: &landscape_fetch::Fetcher,
+    budget: &landscape_fetch::Budget,
     prompt: &str,
 ) -> Read {
     let refuse =
@@ -1501,7 +1521,7 @@ async fn resolve_from_description(
         let fetcher = &fetcher;
         async move {
             fetcher
-                .get(&url)
+                .get(&url, budget)
                 .await
                 .ok()
                 .map(|page| landscape_extract::markdown::from_body(&page.body))
@@ -1579,6 +1599,7 @@ fn ambiguous_market(between: &[landscape_search::vocabulary::Market]) -> String 
 async fn rivals_of(
     engine: Option<&dyn landscape_search::SourceProvider>,
     fetcher: &landscape_fetch::Fetcher,
+    budget: &landscape_fetch::Budget,
     origin: &str,
 ) -> landscape_search::competitors::Set {
     let host = match landscape_fetch::Target::parse(origin) {
@@ -1594,7 +1615,7 @@ async fn rivals_of(
         let fetcher = &fetcher;
         async move {
             fetcher
-                .get(&url)
+                .get(&url, budget)
                 .await
                 .ok()
                 .map(|page| landscape_extract::markdown::from_body(&page.body))
@@ -1670,6 +1691,11 @@ async fn run_analysis(
     memo: &landscape_analyze::memo::Extractions,
     analysis: &landscape_core::Analysis,
 ) {
+    // **One allowance for the whole analysis, shared by all three passes.** Resolving a
+    // description, finding a named company's rivals and reading them are one reader's question,
+    // and a bound on what that question costs somebody else's servers has to be counted across
+    // the three rather than three times over. `landscape_fetch::budget` has the arithmetic.
+    let budget = landscape_fetch::Budget::for_one_analysis();
     // **Read once, for both callers.** Resolving a description and filling a company's gaps
     // are two questions for the same engine, and asking the environment twice is two answers
     // that can disagree — the second source of truth this codebase keeps deleting.
@@ -1693,7 +1719,8 @@ async fn run_analysis(
         // domain was refused; the channel now produces candidates and hands them to the gate
         // `FACT_CHECKING.md` §3.1 built before anything could feed it.
         landscape_analyze::subject::Subjects::Describe => {
-            let read = resolve_from_description(searching, fetcher, &analysis.prompt).await;
+            let read =
+                resolve_from_description(searching, fetcher, &budget, &analysis.prompt).await;
             interpreted = read.interpreted;
             match read.decided {
                 landscape_analyze::subject::Decided::Analyse(set) => {
@@ -1721,7 +1748,7 @@ async fn run_analysis(
         // engine this is exactly what it always was - the laptop default, unchanged - and
         // saying so at the level of a whole set is its own roadmap row.
         landscape_analyze::subject::Subjects::Seed(origin) => {
-            let set = rivals_of(searching, fetcher, &origin).await;
+            let set = rivals_of(searching, fetcher, &budget, &origin).await;
             let origins = set.origins();
             tracing::info!(
                 id = %analysis.id,
@@ -1785,6 +1812,7 @@ async fn run_analysis(
             llm: &llm,
             memo,
         },
+        &budget,
         &landscape_analyze::Asked {
             origins: &origins,
             now,
@@ -1896,6 +1924,7 @@ mod tests {
         let set = rivals_of(
             None,
             &landscape_fetch::Fetcher::new(),
+            &landscape_fetch::Budget::for_one_analysis(),
             "https://basecamp.invalid",
         )
         .await;
@@ -1984,6 +2013,7 @@ mod tests {
         let read = resolve_from_description(
             None,
             &landscape_fetch::Fetcher::new(),
+            &landscape_fetch::Budget::for_one_analysis(),
             "a shared inbox for a small team",
         )
         .await;

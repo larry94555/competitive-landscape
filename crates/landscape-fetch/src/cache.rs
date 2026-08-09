@@ -265,6 +265,22 @@ pub fn storable(status: u16, headers: Freshness<'_>, now: DateTime<Utc>) -> Stor
     }
 }
 
+/// A page we still hold and the proof we can ask whether it has changed.
+///
+/// **The body travels with the validators on purpose.** Revalidation needs the old bytes to hand
+/// back on a `304`, and looking them up again after the round trip would open a window in which
+/// another thread's insert had evicted them — a branch that could then only be tested by
+/// arranging a race. Carrying the page costs one clone on the revalidation path and closes the
+/// case rather than handling it.
+#[derive(Debug, Clone)]
+pub struct Stale {
+    pub page: Page,
+    /// `ETag`, the strong one, first.
+    pub etag: Option<String>,
+    /// `Last-Modified`, for origins that do not send an `ETag`.
+    pub last_modified: Option<String>,
+}
+
 /// Pages kept in memory, oldest evicted first.
 #[derive(Debug, Default)]
 pub struct Cache {
@@ -312,6 +328,33 @@ impl Cache {
     /// Keep a page, evicting the oldest until it fits.
     pub fn insert(&mut self, url: String, page: Page) {
         self.insert_for(url, page, FRESH_FOR);
+    }
+
+    /// A page we hold that is past its freshness, with something to revalidate it by.
+    ///
+    /// **This is what makes an expired entry worth more than an empty one.** Without it a page
+    /// whose hour is up costs a full download to learn that nothing about it changed; with it,
+    /// the origin is asked in a request that carries no body in either direction when the answer
+    /// is *no*. `Page` has carried `etag` and `last_modified` since the first fetch in this
+    /// crate and nothing has ever sent them back — see `ROADMAP.md`.
+    ///
+    /// `None` when the entry is missing, still fresh (in which case [`Self::get`] already served
+    /// it), or carries no validator — an origin that offered neither has given us no way to ask
+    /// a cheap question, and asking an expensive one is just a fetch.
+    #[must_use]
+    pub fn stale(&self, url: &str) -> Option<Stale> {
+        let entry = self.by_url.get(url)?;
+        if entry.stored.elapsed() < entry.fresh_for {
+            return None;
+        }
+        if entry.page.etag.is_none() && entry.page.last_modified.is_none() {
+            return None;
+        }
+        Some(Stale {
+            page: entry.page.clone(),
+            etag: entry.page.etag.clone(),
+            last_modified: entry.page.last_modified.clone(),
+        })
     }
 
     /// Keep a page for as long as the origin's own headers allow, or not at all.
@@ -790,6 +833,63 @@ mod tests {
         );
         assert!(!held, "a 503 was written down");
         assert!(cache.is_empty());
+    }
+
+    #[test]
+    fn a_page_past_its_hour_is_kept_to_ask_about_rather_than_thrown_away() {
+        // **What makes an expired entry worth more than an empty one.** Without this, a page
+        // whose hour is up costs a full download to learn that nothing about it changed. With
+        // it, the question is asked in a request whose answer carries no body when the answer
+        // is *no* — which is bandwidth on somebody else's server, not ours.
+        let mut cache = Cache::new();
+        let mut page = page("https://a.example/pricing", 400);
+        page.etag = Some("\"v1\"".to_owned());
+        cache.insert("https://a.example/pricing".to_owned(), page);
+
+        assert!(
+            cache.stale("https://a.example/pricing").is_none(),
+            "a page still inside its hour is served, not revalidated"
+        );
+
+        cache.age(FRESH_FOR + Duration::from_secs(1));
+        let asking = cache
+            .stale("https://a.example/pricing")
+            .expect("an expired page with an ETag is worth asking about");
+        assert_eq!(asking.etag.as_deref(), Some("\"v1\""));
+        assert_eq!(
+            asking.page.body.len(),
+            400,
+            "the body travels with the validators, so a 304 needs nothing from the cache"
+        );
+    }
+
+    #[test]
+    fn a_page_the_origin_gave_us_no_way_to_ask_about_is_not_asked_about() {
+        // An origin that sent neither `ETag` nor `Last-Modified` has given us no cheap question
+        // to ask. Asking an expensive one is just a fetch, and pretending otherwise would put a
+        // conditional header on a request that cannot be answered conditionally.
+        let mut cache = Cache::new();
+        cache.insert(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 4),
+        );
+        cache.age(FRESH_FOR + Duration::from_secs(1));
+        assert!(cache.stale("https://a.example/").is_none());
+
+        // And `Last-Modified` alone is enough, for the origins that offer only that.
+        let mut only_dated = page("https://b.example/", 4);
+        only_dated.last_modified = Some("Sat, 08 Aug 2026 23:00:00 GMT".to_owned());
+        cache.insert("https://b.example/".to_owned(), only_dated);
+        cache.age(FRESH_FOR + Duration::from_secs(1));
+        let asking = cache.stale("https://b.example/").expect("dated is askable");
+        assert!(asking.etag.is_none());
+        assert!(asking.last_modified.is_some());
+    }
+
+    #[test]
+    fn nothing_we_never_held_is_worth_asking_about() {
+        let cache = Cache::new();
+        assert!(cache.stale("https://a.example/never-seen").is_none());
     }
 
     #[test]

@@ -1993,6 +1993,64 @@ must be consulted **before** anything that the outage can fail.
 
 ---
 
+## 57. Ordering as a substitute for a type, and an accident mistaken for a bound
+
+**Found:** by writing the change, with the harness deciding where four of the rules had to live.
+
+Two habits, both of which look fine in a diff.
+
+### `304` is a `3xx`
+
+The obvious shape for a conditional GET is to add one branch to the loop that already reads a
+status:
+
+```rust
+if (300..400).contains(&status) { /* follow the Location */ }
+```
+
+`304 Not Modified` is in that range and has **no `Location`**, so the redirect branch swallows it
+and the cheapest answer an origin can give becomes `redirect with no location`. A conditional GET
+that turns every revalidation into a transport error is strictly worse than never sending one.
+
+The fix is not *"put the `304` check first"*. **Ordering is a property of how the code happens to
+be laid out**, and the next person to add a branch has no way to know that this one is load
+bearing. A `match` on a named type with **no wildcard arm** makes it a property of the status:
+
+```rust
+enum Answer { NotModified, Redirect, Body }
+```
+
+Now a fourth kind of answer is a build error, and the rule can be tested without a socket — which
+is the same reason four other rules in this change moved out of the function that opens one.
+
+### An accident of arithmetic is not a bound
+
+Nothing capped the number of requests one analysis sent to strangers. It *looked* bounded —
+eight pages a company, three companies — but that number is the product of two unrelated
+decisions, and neither was chosen to bound anything. A `sitemap.xml` naming ten thousand URLs, a
+redirect chain per page, a `robots.txt` per host reached through search: each turns one reader's
+question into an unbounded number of requests to somebody else's servers.
+
+Two things follow, and both are easy to get wrong:
+
+- **Count what leaves the process.** A bound on "pages the caller asked for" bounds the thing
+  nobody was worried about. `robots.txt` is a request; every redirect hop is a request; a cache
+  hit is not, because nothing was sent.
+- **Running out is your doing, and must never be reported as theirs.** The first version let a
+  spent allowance fail the `robots.txt` fetch, which every other failure turns into
+  `Rules::restrictive` — so the report would have said *"the site asks crawlers not to"* about a
+  site that had said nothing. A reader acts on that sentence. Our own limit needed its own error,
+  its own discovery outcome, and its own words on the page.
+
+**Rule:** when a check's correctness depends on running before another check, give it a type
+instead of a position. And when you believe something is already bounded, name the number and the
+decision that set it — if you cannot, it is an accident, and accidents do not hold.
+
+> **Ask this:** *would a new branch here silently break an old one? And is the limit I am relying
+> on something somebody chose, or something that fell out?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

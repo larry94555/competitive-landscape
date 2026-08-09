@@ -80,89 +80,94 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    cost: {
-      name: "landscape cost linear.app",
-      purpose: "Counted without asking a model.",
+    stored: {
+      name: "Page.etag, since the first fetch",
+      purpose: "Stored, and never sent.",
       lines: [
-        ['s', '  as this run reads them    16'],
-        ['s', '  plausible.io              14'],
+        ['f', '  pub etag: Option<String>,'],
+        ['f', '  pub last_modified: Option<String>,'],
         ['c', ''],
-        ['f', '// Calls, per company, per run.']
+        ['t', '// A page past its hour cost a'],
+        ['t', '// whole download to learn nothing'],
+        ['t', '// about it had changed.']
       ]
     },
-    twice: {
-      name: "the second reader paid again",
-      purpose: "Every one of them.",
+    ask: {
+      name: "so now we ask instead",
+      purpose: "If-None-Match, If-Modified-Since.",
       lines: [
-        ['t', '  fetches   before 8   now 0'],
-        ['t', '  model     before 16  now 16'],
+        ['s', '  304 Not Modified'],
         ['c', ''],
-        ['f', '// The fetch cache stopped half.']
+        ['f', '// No body in either direction.'],
+        ['f', '// The bytes not sent are theirs.']
       ]
     },
-    key: {
-      name: "the page's own text is the key",
-      purpose: "With everything else that decides.",
+    asof: {
+      name: "and it is dated now",
+      purpose: "Because we asked, and they answered.",
       lines: [
-        ['f', '  prompts'],
-        ['f', '  question'],
-        ['f', '  url'],
-        ['f', '  today'],
-        ['f', '  markdown'],
+        ['t', '  cache hit  -> when we read it'],
+        ['t', '  304        -> now'],
         ['c', ''],
-        ['t', '// Read::of, so nothing is dropped.']
+        ['f', '// Nobody asked about the first.'],
+        ['f', '// Saying "an hour ago" about the'],
+        ['f', '// second understates what we know.']
       ]
     },
-    nottl: {
-      name: "no TTL, and that is the point",
-      purpose: "The difference from a page cache.",
+    trap: {
+      name: "304 is a 3xx",
+      purpose: "A trap with a type for a fix.",
       lines: [
-        ['s', '  what is at this URL?  changes'],
-        ['t', '  what does this text say?  no'],
+        ['s', '  redirect with no location'],
         ['c', ''],
-        ['f', '// An edited page is a new key,'],
-        ['f', '// so a stale hit is impossible.']
+        ['t', '  enum Answer {'],
+        ['t', '    NotModified, Redirect, Body'],
+        ['t', '  }'],
+        ['c', ''],
+        ['f', '// No wildcard arm.']
       ]
     },
-    whole: {
-      name: "a failure is never remembered",
-      purpose: "Settled::Complete, or nothing.",
+    hop: {
+      name: "and only on the first hop",
+      purpose: "A validator names one URL.",
       lines: [
-        ['c', '// model error   -> Partial'],
-        ['c', '// reader left   -> Partial'],
+        ['t', '  conditional_on(hop, held)'],
         ['c', ''],
-        ['t', '  a cached outage is replayed'],
-        ['t', '  to every later reader']
+        ['f', '// Else a redirect answers 304 and'],
+        ['f', '// hands one page’s body back'],
+        ['f', '// under another page’s URL.']
       ]
     },
-    retry: {
-      name: "so the next reader asks again",
-      purpose: "And keeps that answer.",
+    accident: {
+      name: "nothing bounded the run",
+      purpose: "Everything bounded one request.",
       lines: [
-        ['t', '  three failures, three attempts'],
-        ['t', '  then one answer, kept'],
+        ['s', '  8 pages x 3 companies'],
         ['c', ''],
-        ['f', '// The same rule as a 503.']
+        ['f', '// An accident of arithmetic.'],
+        ['f', '// An accident is not a bound.']
       ]
     },
-    bounds: {
-      name: "bounded in bytes and entries",
-      purpose: "Each alone has the other's hole.",
+    cap: {
+      name: "64 requests, one question",
+      purpose: "Shared by all three passes.",
       lines: [
-        ['s', '  16 MiB   /   1024 entries'],
+        ['t', '  robots.txt        counts'],
+        ['t', '  every redirect    counts'],
+        ['t', '  a cache hit       does not'],
         ['c', ''],
-        ['f', '// Oldest first, and one page'],
-        ['f', '// too large is declined.']
+        ['f', '// Nothing was sent.']
       ]
     },
-    where: {
-      name: "where a test can reach it",
-      purpose: "read_one cannot be driven.",
+    ours: {
+      name: "running out is our doing",
+      purpose: "Never reported as theirs.",
       lines: [
-        ['t', '  remembering(memo, key, run)'],
+        ['s', '  robots.txt says no'],
+        ['t', '  not read - this run had already'],
+        ['t', '  made its 64 requests'],
         ['c', ''],
-        ['f', '// A test passes a counter and'],
-        ['f', '// watches whether we asked.']
+        ['f', '// A reader acts on the difference.']
       ]
     }
   };
@@ -206,19 +211,18 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:cost",   c: "One company. Sixteen model calls." },
-    { kind: "means",       a: "file:twice",  c: "The second reader paid all sixteen again." },
+    { kind: "recognition", a: "file:stored",   c: "We have stored the ETag since day one." },
+    { kind: "means",       a: "file:ask",      c: "And never once sent it back." },
 
-    { kind: "turn",        a: "file:key",    c: "The page's own text is the key." },
-    { kind: "result",      a: "file:nottl",  c: "So a stale hit is impossible, not bounded." },
+    { kind: "turn",        a: "file:asof",     c: "A page the origin confirms is dated now." },
+    { kind: "result",      a: "file:trap",     c: "304 is a 3xx, so the answer is a type." },
+    { kind: "result",      a: "file:hop",      c: "A validator belongs to one URL only." },
 
-    { kind: "turn",        a: "file:whole",  c: "A failure is never remembered." },
-    { kind: "result",      a: "file:retry",  c: "The next reader asks again instead." },
+    { kind: "turn",        a: "file:accident", c: "And nothing at all bounded the run." },
+    { kind: "result",      a: "file:cap",      c: "Sixty-four requests for one question." },
+    { kind: "result",      a: "file:ours",     c: "Running out is our doing, never theirs." },
 
-    { kind: "result",      a: "file:bounds", c: "Bounded in bytes and in entries." },
-    { kind: "result",      a: "file:where",  c: "And the rule sits where a test can call it." },
-
-    { kind: "close",       a: "hold",        c: "The second reader does not pay the model." }
+    { kind: "close",       a: "hold",          c: "Asking whether it changed." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -241,7 +245,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("cost");
+    show("stored");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -254,15 +258,15 @@
     }, TOTAL * 1000));
   }
 
-  show("cost");
+  show("stored");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "The second reader does not pay the model",
-    blurb: "The other half of the highest-leverage cache in the system. The fetch cache stopped the second reader paying somebody else’s server and left every model call in place — sixteen of them for linear.app, counted by landscape cost without asking a model. An extraction is now remembered against the page’s own text, so an edited page is a new question rather than a stale answer, and a run that failed or that nobody waited for is never remembered at all.",
+    title: "Asking whether it changed",
+    blurb: "`Page` has carried an ETag since the first fetch in this crate and nothing ever sent it back, so a page past its hour cost a whole download to learn that nothing about it had changed. It is asked about now, and a 304 carries no body in either direction — and a page the origin confirms is dated now rather than when we first read it. The other half of the row is a bound on the run: everything else in the crate bounds one request, and eight pages times three companies is an accident of arithmetic rather than a limit.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

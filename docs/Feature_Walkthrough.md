@@ -318,14 +318,16 @@ cargo run -p landscape -- read https://linear.app
 and, on the last line:
 
 ```text
-first content 23s - whole report 30s
-held for the next reader: 6 pages, 3105087 bytes
+first content 23s - whole report 29s
+held for the next reader: 9 pages, 4789071 bytes
                           2 extractions, 49723 bytes
+requests sent to strangers: 24 of 64
 ```
 
-**The last two lines are the caches**, and they are two different savings.
+**The last three lines are what this run cost somebody else**, and they are three different
+things.
 
-Those six pages will not be fetched again for an hour — not by this command, and not by an
+Those nine pages will not be fetched again for an hour — not by this command, and not by an
 analysis of the same company, because the worker holds one `Fetcher` for the life of the
 process. **The requests we do not send are theirs, not ours**, which is why that cache sits
 beside `robots.txt` and the per-host delay rather than filed under performance.
@@ -350,6 +352,17 @@ not need one.
 **A run that failed is not remembered.** If the model errors on a window, or you close the tab
 mid-run, that answer is shown to you and thrown away, so the next reader asks again rather than
 being handed your bad afternoon for an hour.
+
+**And after the hour is up, a page is asked about rather than downloaded again.** `linear.app`
+sends an `ETag`; the next run sends it back as `If-None-Match`, and a `304` comes back with no
+body at all. The bytes that are not sent are theirs.
+
+**24 of 64 is the bound on what one question costs strangers.** Everything else in
+`landscape-fetch` bounds a single request — the size cap, the per-host delay, `robots.txt` — and
+until this the run itself was bounded only by an accident of arithmetic. Ask about three
+companies and watch the first number rise; it counts `robots.txt` and every redirect, because
+those are requests to somebody else's server too. If it ever reaches the second number, the
+report says which pages went unasked rather than claiming the sites failed.
 
 **Why it matters.** `PRODUCT_SPEC.md` §2.1A asks for content in twenty to forty seconds. That is
 23, and **the model was not running** — which is the property worth having, because the model is

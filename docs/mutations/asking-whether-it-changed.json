@@ -1,0 +1,249 @@
+[
+  {
+    "name": "a 304 is read as a redirect with nowhere to go",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "        304 => Answer::NotModified,\n        300..=399 => Answer::Redirect,",
+    "new": "        300..=399 => Answer::Redirect,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "every status is treated as a body, so nothing is ever revalidated",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "        304 => Answer::NotModified,",
+    "new": "        304 if false => Answer::NotModified,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a redirect is read as a page and its body extracted from",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "        300..=399 => Answer::Redirect,",
+    "new": "        300..=399 if false => Answer::Redirect,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "one page's validators are sent to the URL a redirect landed on",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "    if hop == 0 {\n        held\n    } else {\n        None\n    }",
+    "new": "    let _ = hop;\n    held",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a revalidated page still claims the moment it was first read",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "    Ok(Page {\n        fetched_at: at,",
+    "new": "    Ok(Page {\n        fetched_at: held.page.fetched_at,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a 304 nobody asked a conditional question for becomes an empty page",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "    let held = held.ok_or_else(|| {\n        FetchError::Transport(\"304 for a request that carried no validator\".into())\n    })?;",
+    "new": "    let Some(held) = held else {\n        return Ok(Page {\n            url: String::new(),\n            status: 304,\n            body: String::new(),\n            etag: None,\n            last_modified: None,\n            fetched_at: at,\n        });\n    };",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a page past its hour is thrown away rather than asked about",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        let entry = self.by_url.get(url)?;\n        if entry.stored.elapsed() < entry.fresh_for {\n            return None;\n        }",
+    "new": "        let entry = self.by_url.get(url)?;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a fresh page is revalidated instead of being served",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        if entry.stored.elapsed() < entry.fresh_for {\n            return None;\n        }",
+    "new": "        if false {\n            return None;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a conditional request is sent about a page with nothing to condition on",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        if entry.page.etag.is_none() && entry.page.last_modified.is_none() {\n            return None;\n        }",
+    "new": "        if false {\n            return None;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "an origin that offers only Last-Modified is never asked",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        if entry.page.etag.is_none() && entry.page.last_modified.is_none() {",
+    "new": "        if entry.page.etag.is_none() {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the validators are read but never sent",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "        headers.push((\"if-none-match\", etag.clone()));",
+    "new": "        let _ = etag;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "an origin with no ETag is asked a question it cannot answer",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "        headers.push((\"if-modified-since\", since.clone()));",
+    "new": "        let _ = since;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the allowance is never spent, so a run may send for ever",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "        if !budget.spend() {",
+    "new": "        if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a refused request is counted as one that was sent",
+    "file": "crates/landscape-fetch/src/budget.rs",
+    "old": "        self.spent.fetch_sub(1, Ordering::Relaxed);\n        false",
+    "new": "        false",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the allowance is checked but off by one, so one more always goes out",
+    "file": "crates/landscape-fetch/src/budget.rs",
+    "old": "        if taken < self.limit {",
+    "new": "        if taken <= self.limit {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "robots.txt is fetched outside the allowance",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "        match self.send(&robots_target, addr, None, budget).await {",
+    "new": "        match self\n            .send(&robots_target, addr, None, &crate::Budget::for_one_analysis())\n            .await\n        {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "our own bound is reported as the site asking us not to",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "            Err(spent @ FetchError::BudgetSpent { .. }) => Err(spent),",
+    "new": "            Err(FetchError::BudgetSpent { .. }) => Ok(Rules::restrictive()),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a page nobody asked for reads as a site that did not answer",
+    "file": "crates/landscape-discover/src/lib.rs",
+    "old": "        Err(FetchError::BudgetSpent { .. }) => Outcome::NotAsked,",
+    "new": "        Err(FetchError::BudgetSpent { .. }) => Outcome::Unreachable,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a reader is told the site failed when this run stopped asking",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        landscape_fetch::FetchError::BudgetSpent { limit } => {\n            format!(\"not read - this run had already made its {limit} requests\")\n        }",
+    "new": "        landscape_fetch::FetchError::BudgetSpent { .. } => {\n            \"could not fetch\".to_owned()\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  }
+]

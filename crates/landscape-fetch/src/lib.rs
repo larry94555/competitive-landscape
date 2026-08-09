@@ -27,12 +27,14 @@
 //! rather than next to them — three parts of one commitment about how often a stranger's server
 //! is asked for the same bytes.
 
+pub mod budget;
 pub mod cache;
 pub mod fetcher;
 pub mod guard;
 pub mod limits;
 pub mod robots;
 
+pub use budget::{Budget, MAX_FETCHES_PER_ANALYSIS};
 pub use fetcher::Fetcher;
 
 use std::net::IpAddr;
@@ -86,6 +88,9 @@ pub enum FetchError {
 
     #[error("more than {MAX_REDIRECTS} redirects")]
     TooManyRedirects,
+
+    #[error("this run has already sent its {limit} requests")]
+    BudgetSpent { limit: usize },
 
     #[error("could not reach it: {0}")]
     Transport(String),

@@ -66,6 +66,11 @@ pub enum Outcome {
     Disallowed,
     /// The request did not complete.
     Unreachable,
+    /// **We did not ask.** This run had already spent its allowance of requests to strangers —
+    /// see `landscape_fetch::budget`. Kept apart from [`Self::Unreachable`] because a reader
+    /// deciding whether to look themselves acts differently on *"their server did not answer"*
+    /// and *"we stopped asking"*, and collapsing the two would blame a site for our own bound.
+    NotAsked,
 }
 
 impl Outcome {
@@ -77,6 +82,7 @@ impl Outcome {
             Self::Status(code) => code.to_string(),
             Self::Disallowed => "robots".to_owned(),
             Self::Unreachable => "unreachable".to_owned(),
+            Self::NotAsked => "not asked".to_owned(),
         }
     }
 }
@@ -212,14 +218,18 @@ pub const PROBE_BUDGET: usize = 14;
 /// Run discovery against one canonical domain.
 ///
 /// `origin` is a scheme and host — `https://example.com`.
-pub async fn discover(fetcher: &Fetcher, origin: &str) -> Discovered {
+pub async fn discover(
+    fetcher: &Fetcher,
+    budget: &landscape_fetch::Budget,
+    origin: &str,
+) -> Discovered {
     let origin = origin.trim_end_matches('/').to_owned();
     let mut found: Vec<Candidate> = Vec::new();
     let mut checked: Vec<Checked> = Vec::new();
 
     // 1. What the site says is worth reading. One request, and the best evidence there is.
     let llms_url = format!("{origin}/llms.txt");
-    let llms = fetcher.get(&llms_url).await;
+    let llms = fetcher.get(&llms_url, budget).await;
     checked.push(Checked {
         url: llms_url.clone(),
         outcome: outcome_of(&llms),
@@ -237,7 +247,7 @@ pub async fn discover(fetcher: &Fetcher, origin: &str) -> Discovered {
     }
 
     // 2. What exists. Reaches pages no probe would guess.
-    for listed in sitemap_urls(fetcher, &origin, &mut checked).await {
+    for listed in sitemap_urls(fetcher, budget, &origin, &mut checked).await {
         found.push(Candidate {
             url: listed.url,
             answers: listed.answers,
@@ -253,7 +263,7 @@ pub async fn discover(fetcher: &Fetcher, origin: &str) -> Discovered {
             break;
         }
         let url = format!("{origin}{}", probe.path);
-        let response = fetcher.get(&url).await;
+        let response = fetcher.get(&url, budget).await;
         checked.push(Checked {
             url: url.clone(),
             outcome: outcome_of(&response),
@@ -313,6 +323,7 @@ fn outcome_of(response: &Result<landscape_fetch::Page, FetchError>) -> Outcome {
         Ok(page) if page.status == 200 => Outcome::Answered,
         Ok(page) => Outcome::Status(page.status),
         Err(FetchError::RobotsDisallowed { .. } | FetchError::Refused(_)) => Outcome::Disallowed,
+        Err(FetchError::BudgetSpent { .. }) => Outcome::NotAsked,
         Err(_) => Outcome::Unreachable,
     }
 }
@@ -320,11 +331,12 @@ fn outcome_of(response: &Result<landscape_fetch::Page, FetchError>) -> Outcome {
 /// Sitemap URLs, following one level of index.
 async fn sitemap_urls(
     fetcher: &Fetcher,
+    budget: &landscape_fetch::Budget,
     origin: &str,
     checked: &mut Vec<Checked>,
 ) -> Vec<listings::Listed> {
     let root = format!("{origin}/sitemap.xml");
-    let response = fetcher.get(&root).await;
+    let response = fetcher.get(&root, budget).await;
     checked.push(Checked {
         url: root.clone(),
         outcome: outcome_of(&response),
@@ -347,7 +359,7 @@ async fn sitemap_urls(
     // we will find by reading all twenty.
     let mut out = Vec::new();
     for url in nested.into_iter().take(2) {
-        let child = fetcher.get(&url).await;
+        let child = fetcher.get(&url, budget).await;
         checked.push(Checked {
             url,
             outcome: outcome_of(&child),
@@ -507,6 +519,30 @@ mod tests {
             stopped_early: true,
         };
         assert!(d.render().contains("probe budget reached"));
+    }
+
+    #[test]
+    fn a_page_we_did_not_ask_for_is_not_a_site_that_did_not_answer() {
+        // **Four outcomes, four different things a reader does next.** *"Unreachable"* sends
+        // somebody to check a site that is fine; *"not asked"* tells them the run stopped, which
+        // is our doing and is fixable by running it again. Collapsing the two would blame a
+        // stranger for our own bound — the same distinction `Disallowed` is kept apart for.
+        let spent = outcome_of(&Err(FetchError::BudgetSpent { limit: 64 }));
+        assert_eq!(spent, Outcome::NotAsked);
+        assert_eq!(spent.name(), "not asked");
+
+        assert_eq!(
+            outcome_of(&Err(FetchError::Transport("connection refused".into()))),
+            Outcome::Unreachable,
+            "a site that really did not answer must still say so"
+        );
+        assert_eq!(
+            outcome_of(&Err(FetchError::RobotsDisallowed {
+                host: "e.com".to_owned(),
+                path: "/pricing".to_owned(),
+            })),
+            Outcome::Disallowed
+        );
     }
 
     #[test]

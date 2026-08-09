@@ -33,6 +33,119 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 39 — asking whether it changed
+
+**Date:** 2026-08-09 · **Where:** this laptop · **Model:** none. Neither half of this row asks a
+model anything; both are about requests that reach somebody else's server.
+
+This closes the last technical row `landscape-fetch` has carried open since it was written:
+*"conditional GET (`Page` carries the headers; nothing re-fetches), and a cap on total fetches
+per analysis — that belongs with the orchestrator."*
+
+### The header we have been storing and never sending
+
+`Page` has carried `etag` and `last_modified` since the first fetch in this crate. Nothing ever
+sent them back, so a page whose hour was up cost a **full download** to learn that nothing about
+it had changed.
+
+| | before | now |
+|---|---|---|
+| inside `FRESH_FOR` | served from memory, nothing sent | unchanged |
+| past `FRESH_FOR`, origin gave an `ETag` | full GET, whole body | **conditional GET; a `304` carries no body** |
+| past `FRESH_FOR`, origin gave only `Last-Modified` | full GET | conditional on the date |
+| past `FRESH_FOR`, origin gave neither | full GET | full GET — there is no cheap question to ask |
+
+**The saving is theirs, not ours**, which is the argument this row has made since the fetch
+cache: a `304` is the smallest thing a server can be asked for, and the bytes it does not send
+are bytes it did not have to read from its own disk.
+
+### A revalidated page is *as of now*; a merely unexpired one is not
+
+The two paths look alike and are not, and the distinction decides what a claim is dated:
+
+- **Cache hit.** Nobody asked anybody anything. `fetched_at` stands, and a claim drawn from the
+  page dates to the fetch — the rule Run 37 introduced and a mutation still guards.
+- **`304`.** We *did* ask, and the origin said the bytes are current. `fetched_at` becomes the
+  moment of confirmation, because a report saying *"as of an hour ago"* about something an origin
+  just confirmed **understates what is known**.
+
+### `304` is a `3xx`, and that is a trap with a type for a fix
+
+Written as two `if`s, the redirect branch comes first and swallows it: `304` has no `Location`,
+so the cheapest answer an origin can give becomes `redirect with no location` — a conditional GET
+strictly worse than none. Ordering is a property of how code happens to be laid out. So it is a
+`match` on a type, with **no wildcard arm**:
+
+```rust
+enum Answer { NotModified, Redirect, Body }
+```
+
+**Validators travel on the first hop only.** They are the origin's proof about *the URL the
+caller asked for*; a redirect lands somewhere else, and asking that somewhere else whether it
+matches another page's `ETag` is a question about nothing — which an origin may cheerfully answer
+`304`, handing back one page's body under another page's URL. That is the failure this whole
+pipeline exists to prevent, so it has its own function and its own test.
+
+### The cap: everything here bounded one request, and nothing bounded the run
+
+The size cap bounds one body, the pacer bounds how often one host is asked, `robots.txt` bounds
+which paths. The run was bounded only by an accident of arithmetic — eight pages a company, three
+companies — **and an accident is not a bound**. A `sitemap.xml` naming ten thousand URLs, a
+redirect chain per page, a `robots.txt` per host reached through search: each is a way for one
+reader's question to become an unbounded number of requests to strangers.
+
+`Budget` is per analysis, **shared by all three passes** — resolving a description, finding a
+named company's rivals, and reading them are one reader's question. Sixty-four requests: three
+companies at one `robots.txt`, eight discovered pages, three searched and a redirect or two is
+forty-two, so the ordinary run has room and the pathological one does not. A test asserts that
+arithmetic, because a bound the ordinary case trips is a bug wearing a limit's hat.
+
+**What counts is a request that leaves the process.** A cache hit costs nothing, for the same
+reason it skips the address guard. A `robots.txt` costs one — a run reaching a hundred hosts
+through search fetches a hundred of them whether or not it reads a page on any. Every redirect
+hop costs one, because a chain that never ends is the case this exists for.
+
+### Running out is our doing, and never reported as theirs
+
+Three surfaces, three different sentences, because a reader acts differently on each:
+
+| | |
+|---|---|
+| `robots.txt` that could not be read | `Rules::restrictive` — *unreachable is not permission* |
+| `robots.txt` we did not ask for | the error propagates. **Not** *"the site asks crawlers not to"* |
+| a discovery probe not sent | `Outcome::NotAsked`, printed `not asked`, kept apart from `unreachable` |
+| a page not read | *"not read - this run had already made its 64 requests"* |
+
+A reader told *"could not fetch"* about a page this run simply declined to ask for would check it
+by hand, find it fine, and stop believing the rest of the report. That is why the bound is in the
+sentence: a limit nobody can see reads as a bug.
+
+`landscape read` prints what a run cost:
+
+```text
+requests sent to strangers: 24 of 64
+```
+
+### What cannot be measured here, again
+
+**There is still no test over a socket**, and the guard was not weakened to get one — a test
+server binds loopback and the SSRF guard refuses it, absolutely and with no flag. So the `304`
+handling is asserted where the decisions live rather than over the wire: `answer_to`, `confirmed`,
+`conditional_on` and `asking_whether_it_changed` are each one call from an assertion, which is
+where the mutation harness put them. Four of the nineteen mutations came back `MISSED` on the
+first run — every one of them a rule still written inside a function that opens a socket.
+
+The budget half **can** be exercised end to end without a network, because the allowance is
+spent before a request is built: a literal address passes the guard without DNS, and `send`
+refuses. That is the one thing in this crate that a bound lets us test which a limit could not.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 38 | 901 | 62 |
+| now | **917** | **62** |
+
+---
+
 ## Run 38 — the second reader does not pay the model
 
 **Date:** 2026-08-09 · **Where:** this laptop · **Model:** none, and the point of the change is
