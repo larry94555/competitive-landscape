@@ -87,6 +87,60 @@ pins it.
 The one thing a hit can be wrong about is a `robots.txt` that changed since the fetch, and that
 window is bounded by `FRESH_FOR` rather than open.
 
+### Review, second pass: pruning what has expired is not a bound
+
+The fix for the leak below made `robots::Cache` drop expired entries on insert, and the
+regression beside it aged 500 hosts past the six-hour TTL, inserted one more, and asserted one
+remained. It passes, and it cannot see the case that matters — **nothing expires in an
+afternoon**. Asked directly:
+
+```text
+held 50000 live hosts
+```
+
+Six hours is long enough that a worker crossing many companies never expires anything, so
+"prune the expired" bounded a set that was never the problem. The regression was written from
+the fix's point of view rather than the defect's: it had to *arrange* expiry to observe
+anything, which is the one state in which the bug is absent.
+
+The robots cache is now bounded the same way the page cache is — expiry, **plus** a live-entry
+cap of 1,024, **plus** a 4 MiB budget over the retained directives, oldest evicted first. The two
+new regressions insert past each cap **without ageing anything**.
+
+Forgetting a *live* rule set is safe, and that is what makes eviction available here at all: the
+next request for that host re-fetches `robots.txt`. The cost is one extra request. What is never
+done is assuming permission from a rule set that was dropped.
+
+There is no "too large to keep" guard, unlike the page cache, and the asymmetry is deliberate: a
+`robots.txt` is read through `MAX_BYTES`, so one entry cannot reach 2 MiB of directives and
+cannot exceed a 4 MiB budget alone. A guard for a case that cannot arise is a branch no test can
+reach — the lesson from the round before, applied.
+
+### Review, second pass: a lifetime is not a deadline
+
+`max-age=3600` was being read as *"keep for 3600 seconds from now"*. It is measured from the
+origin's `Date`, so a CDN answering with `Age: 3590` is saying ten seconds remain:
+
+```text
+origin  ──3600s──▶  CDN (holds 3590s)  ──"3600s"──▶  us (holds 3600s more)
+```
+
+Each hop honestly obeys the number it was handed, and the response stays fresh for ever.
+`storable` now subtracts the age — RFC 9111 §4.2.3 in its two useful terms, the apparent age from
+`Date` and the stated `Age`, whichever is larger — and a response whose age has reached its
+lifetime is not kept at all. The round-trip correction is left out: it can only make the age
+larger, so omitting it errs toward serving rather than toward discarding, which is the wrong
+direction to err in silently and is therefore stated here.
+
+**`Expires` did not have this bug, and the reason is worth keeping.** It is an *instant*, so
+`expires - now` already nets out the age; subtracting the age from it as well would double-count.
+`max-age` is a *duration*, and a duration means nothing without the end it is measured from. A
+test pins both halves, including the one that must not change.
+
+`FRESH_FOR` is reduced by the age too, not only the origin's number: our hour is a ceiling on how
+stale served bytes may be, and time spent in somebody else's cache is staleness that has already
+happened.
+
 ### Review: the argument in this file, turned back on itself
 
 The section below says a cap of *"256 pages"* bounds nothing when a page may be 2 MiB. Review
@@ -120,6 +174,7 @@ stranger's server is treated. It then ignored `Cache-Control` entirely.
 | `private` | kept in a cache shared by every reader | not kept |
 | `s-maxage=60` | ignored | kept for 60s — shared caches are told this one first |
 | `max-age=30` | served for an hour | kept for 30s |
+| `max-age=3600` with `Age: 3590` | served for an hour | kept for 10s |
 | `Expires` in the past | ignored | not kept |
 
 **Anything unparseable is treated as not cacheable.** A header we cannot read is not permission,
@@ -134,6 +189,9 @@ MISSED. The branch moved into `Cache::insert_allowed`, one call from an assertio
 fetcher's remaining share is reading two header strings, the same untestable line as `etag`.
 
 ### Review: what a process-long fetcher keeps
+
+*Superseded in part by the second pass above: this was the right observation and the wrong
+bound.*
 
 Making one `Fetcher` outlive the analysis also made `robots::Cache` and `Pacer` outlive it.
 Both filtered expired entries on lookup and never removed them — free when a fetcher lasted one
@@ -181,7 +239,12 @@ What is asserted instead:
   the entries rather than a test that waits an hour;
 - that `Cache::insert_allowed` refuses a `no-store` and keeps a `max-age=30` for thirty seconds
   rather than for our hour — **the reason that function exists** rather than a branch in
-  `Fetcher::get`, which is on the far side of the same guard.
+  `Fetcher::get`, which is on the far side of the same guard;
+- that a `max-age` arriving with an `Age` or an old `Date` is honoured to the origin's deadline
+  rather than restarted, that a response already past it is not kept, and that `Expires` is
+  **not** age-adjusted twice;
+- that the robots cache evicts live entries past its host cap and past its byte budget, with
+  nothing aged.
 
 **One mutation was dropped rather than kept as a pin nobody can satisfy.** *"Remember the page
 under where the redirect landed rather than under what was asked for"* is a real defect and the
@@ -208,7 +271,7 @@ across processes. That is the second half of this row.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 36 | 850 | 62 |
-| now | **871** | **62** |
+| now | **874** | **62** |
 
 ---
 

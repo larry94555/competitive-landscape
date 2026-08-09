@@ -47,6 +47,10 @@ use crate::Page;
 /// within one sitting share everything, which is the demonstrable win. A pricing page edited
 /// this morning is picked up this afternoon, which is the staleness nobody would forgive.
 ///
+/// **A ceiling, not a policy.** It applies when the origin says nothing, the origin's own number
+/// wins whenever it is shorter, and time the response already spent in caches between the origin
+/// and us comes off it — see [`storable`].
+///
 /// **A cached page is never presented as fresher than it is.** [`Page::fetched_at`] is stored
 /// with the body and comes back unchanged, so every claim drawn from it carries the moment the
 /// bytes were actually read — the report's `as_of` is the fetch, not the serve.
@@ -96,8 +100,52 @@ fn cost(url: &str, page: &Page) -> usize {
 pub enum Storable {
     /// Not at all. `no-store`, `no-cache` or `private`.
     No,
-    /// For this long — the shorter of what the origin allows and [`FRESH_FOR`].
+    /// For this long — the shorter of what the origin allows and [`FRESH_FOR`], less whatever
+    /// of it the response had already spent in caches before reaching us.
     For(Duration),
+}
+
+/// The response headers that decide whether, and for how long, a page may be kept.
+///
+/// A struct rather than four positional `Option<&str>`, because the call site is where a
+/// `date` and an `age` get swapped and nothing complains.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct Freshness<'a> {
+    pub cache_control: Option<&'a str>,
+    pub expires: Option<&'a str>,
+    /// When the origin says it generated the response.
+    pub date: Option<&'a str>,
+    /// How long the response has already spent in caches between the origin and us.
+    pub age: Option<&'a str>,
+}
+
+/// How stale the response already was when it arrived.
+///
+/// **Review's finding, and it is the difference between a lifetime and a deadline.** A CDN
+/// answering `Cache-Control: max-age=3600` with `Age: 3590` is telling us the response has ten
+/// seconds of freshness left, not an hour: the hour is measured from when the *origin* generated
+/// it, not from when it reached us. Restarting the clock on arrival lets a chain of caches keep
+/// a response fresh for ever, one hop at a time.
+///
+/// RFC 9111 §4.2.3 in its two useful terms — the apparent age from `Date`, and the stated `Age`,
+/// whichever is larger. The round-trip correction is left out: it can only make the age larger,
+/// so omitting it errs toward serving, and the two terms below are what a real chain reports.
+///
+/// A clock skewed so the origin's `Date` is in the future gives no apparent age rather than a
+/// negative one.
+fn already_aged(headers: Freshness<'_>, now: DateTime<Utc>) -> Option<Duration> {
+    let mut age = Duration::ZERO;
+
+    if let Some(raw) = headers.date {
+        let at = DateTime::parse_from_rfc2822(raw.trim()).ok()?;
+        if let Ok(apparent) = (now - at.with_timezone(&Utc)).to_std() {
+            age = apparent;
+        }
+    }
+    if let Some(raw) = headers.age {
+        age = age.max(Duration::from_secs(raw.trim().parse::<u64>().ok()?));
+    }
+    Some(age)
 }
 
 /// Read the origin's caching policy out of its own headers.
@@ -113,25 +161,28 @@ pub enum Storable {
 /// | `no-store` | not kept. It said not to. |
 /// | `no-cache` | not kept. Reuse requires revalidating, and conditional GET is a later row. |
 /// | `private` | not kept. **This is a shared cache** — one process serving every reader — and that is exactly what `private` forbids. |
-/// | `s-maxage=N` | kept for `N`, capped at [`FRESH_FOR`]. Shared caches are told this one first. |
-/// | `max-age=N` | kept for `N`, capped. |
+/// | `s-maxage=N` | kept for `N` **less the age it arrived with**, capped at [`FRESH_FOR`]. Shared caches are told this one first. |
+/// | `max-age=N` | the same, one directive down. |
 /// | `Expires: <past>` | not kept. |
-/// | `Expires: <future>` | kept until then, capped. |
-/// | nothing | kept for [`FRESH_FOR`], which is our own restraint rather than a claim about theirs. |
+/// | `Expires: <future>` | kept until then, capped. Already relative to now, so the age is not subtracted twice. |
+/// | nothing | kept for [`FRESH_FOR`] less the age it arrived with. |
 ///
 /// Directives are matched on whole tokens, so `no-store` is found in `public, no-store` and not
 /// inside a hypothetical `x-no-store`. Anything unparseable is treated as **not cacheable**: a
 /// header we cannot read is not permission, and the cost of being wrong that way is one extra
 /// request rather than one ignored instruction.
+///
+/// **[`FRESH_FOR`] is reduced by the age too**, not only the origin's number. It is a ceiling on
+/// how stale served bytes may be, and time a response spent in somebody else's cache is
+/// staleness that has already happened.
 #[must_use]
-pub fn storable(
-    cache_control: Option<&str>,
-    expires: Option<&str>,
-    now: DateTime<Utc>,
-) -> Storable {
-    let mut allowed = FRESH_FOR;
+pub fn storable(headers: Freshness<'_>, now: DateTime<Utc>) -> Storable {
+    let Some(aged) = already_aged(headers, now) else {
+        return Storable::No;
+    };
+    let mut allowed = FRESH_FOR.saturating_sub(aged);
 
-    if let Some(raw) = cache_control {
+    if let Some(raw) = headers.cache_control {
         let lowered = raw.to_lowercase();
         let directives: Vec<&str> = lowered.split(',').map(str::trim).collect();
         if directives
@@ -150,13 +201,15 @@ pub fn storable(
                     // A `max-age` we cannot read is not a licence to keep it for an hour.
                     return Storable::No;
                 };
-                allowed = allowed.min(Duration::from_secs(seconds));
+                // **Less the age, not from now.** `max-age` is measured from the origin's
+                // `Date`, so a response that spent most of it in a CDN has most of it spent.
+                allowed = allowed.min(Duration::from_secs(seconds).saturating_sub(aged));
                 break;
             }
         }
     }
 
-    if let Some(raw) = expires {
+    if let Some(raw) = headers.expires {
         let Ok(at) = DateTime::parse_from_rfc2822(raw.trim()) else {
             // RFC 9111 says an unparseable `Expires` means already expired. It is also the
             // conservative reading, which is the tie-breaker whenever those two agree.
@@ -241,11 +294,10 @@ impl Cache {
         &mut self,
         url: String,
         page: Page,
-        cache_control: Option<&str>,
-        expires: Option<&str>,
+        headers: Freshness<'_>,
         now: DateTime<Utc>,
     ) -> bool {
-        match storable(cache_control, expires, now) {
+        match storable(headers, now) {
             Storable::No => false,
             Storable::For(fresh_for) => {
                 self.insert_for(url, page, fresh_for);
@@ -418,13 +470,29 @@ mod tests {
         raw.parse().expect("a fixed instant")
     }
 
+    /// What an origin said, when all it said was one `Cache-Control`.
+    fn said(cache_control: &str) -> Freshness<'_> {
+        Freshness {
+            cache_control: Some(cache_control),
+            ..Freshness::default()
+        }
+    }
+
+    /// What an origin said, when all it said was one `Expires`.
+    fn expiring(expires: &str) -> Freshness<'_> {
+        Freshness {
+            expires: Some(expires),
+            ..Freshness::default()
+        }
+    }
+
     #[test]
     fn a_publisher_saying_do_not_store_this_is_obeyed() {
         // The module argues the cache belongs beside `robots.txt` as one commitment about how a
         // stranger's server is treated. Ignoring the header they state it in would make that
         // sentence decorative.
         let now = at("2026-08-09T00:00:00Z");
-        for said in [
+        for directive in [
             "no-store",
             "public, no-store",
             "No-Store",
@@ -432,9 +500,9 @@ mod tests {
             "no-cache",
         ] {
             assert_eq!(
-                storable(Some(said), None, now),
+                storable(said(directive), now),
                 Storable::No,
-                "{said:?} was kept anyway"
+                "{directive:?} was kept anyway"
             );
         }
     }
@@ -443,18 +511,18 @@ mod tests {
     fn a_shorter_freshness_than_ours_wins_and_a_longer_one_does_not() {
         let now = at("2026-08-09T00:00:00Z");
         assert_eq!(
-            storable(Some("max-age=30"), None, now),
+            storable(said("max-age=30"), now),
             Storable::For(Duration::from_secs(30)),
             "half a minute was stretched to an hour"
         );
         assert_eq!(
-            storable(Some("max-age=86400"), None, now),
+            storable(said("max-age=86400"), now),
             Storable::For(FRESH_FOR),
             "a day was taken as permission to hold it for a day"
         );
         // `s-maxage` is addressed to shared caches, and this is one, so it is read first.
         assert_eq!(
-            storable(Some("max-age=600, s-maxage=60"), None, now),
+            storable(said("max-age=600, s-maxage=60"), now),
             Storable::For(Duration::from_secs(60))
         );
     }
@@ -463,11 +531,11 @@ mod tests {
     fn an_expiry_already_past_is_not_kept() {
         let now = at("2026-08-09T00:00:00Z");
         assert_eq!(
-            storable(None, Some("Fri, 08 Aug 2026 00:00:00 GMT"), now),
+            storable(expiring("Fri, 08 Aug 2026 00:00:00 GMT"), now),
             Storable::No
         );
         assert_eq!(
-            storable(None, Some("Sun, 09 Aug 2026 00:00:30 GMT"), now),
+            storable(expiring("Sun, 09 Aug 2026 00:00:30 GMT"), now),
             Storable::For(Duration::from_secs(30))
         );
     }
@@ -477,14 +545,30 @@ mod tests {
         // The cost of refusing to cache something we misread is one extra request. The cost of
         // keeping something we misread is ignoring an instruction somebody wrote down.
         let now = at("2026-08-09T00:00:00Z");
-        assert_eq!(storable(Some("max-age=soon"), None, now), Storable::No);
-        assert_eq!(storable(None, Some("whenever"), now), Storable::No);
+        assert_eq!(storable(said("max-age=soon"), now), Storable::No);
+        assert_eq!(storable(expiring("whenever"), now), Storable::No);
+        // And the two that say how much of the freshness is already gone.
+        let unreadable_age = Freshness {
+            cache_control: Some("max-age=600"),
+            age: Some("ages"),
+            ..Freshness::default()
+        };
+        assert_eq!(storable(unreadable_age, now), Storable::No);
+        let unreadable_date = Freshness {
+            cache_control: Some("max-age=600"),
+            date: Some("last tuesday"),
+            ..Freshness::default()
+        };
+        assert_eq!(storable(unreadable_date, now), Storable::No);
     }
 
     #[test]
     fn silence_is_our_own_restraint_rather_than_their_permission() {
         let now = at("2026-08-09T00:00:00Z");
-        assert_eq!(storable(None, None, now), Storable::For(FRESH_FOR));
+        assert_eq!(
+            storable(Freshness::default(), now),
+            Storable::For(FRESH_FOR)
+        );
     }
 
     #[test]
@@ -504,6 +588,107 @@ mod tests {
     }
 
     #[test]
+    fn freshness_already_spent_in_somebody_elses_cache_is_not_handed_back() {
+        // **Review's finding, and it is the difference between a lifetime and a deadline.** A
+        // CDN answering `max-age=3600` with `Age: 3590` has ten seconds of freshness left, not
+        // an hour: the hour runs from the origin's `Date`, not from our doorstep. Restarting it
+        // on arrival lets a chain of caches keep one response fresh for ever, a hop at a time.
+        let now = at("2026-08-09T00:00:00Z");
+
+        let nearly_stale = Freshness {
+            cache_control: Some("max-age=3600"),
+            age: Some("3590"),
+            ..Freshness::default()
+        };
+        assert_eq!(
+            storable(nearly_stale, now),
+            Storable::For(Duration::from_secs(10)),
+            "an hour was restarted on arrival"
+        );
+
+        // The same thing said with `Date` instead, which is the header every response carries.
+        let old_date = Freshness {
+            cache_control: Some("max-age=3600"),
+            date: Some("Sat, 08 Aug 2026 23:00:10 GMT"),
+            ..Freshness::default()
+        };
+        assert_eq!(
+            storable(old_date, now),
+            Storable::For(Duration::from_secs(10)),
+            "the apparent age from `Date` was ignored"
+        );
+
+        // Already past its deadline: not reusable at all, rather than reusable for a moment.
+        let stale = Freshness {
+            cache_control: Some("max-age=60"),
+            age: Some("60"),
+            ..Freshness::default()
+        };
+        assert_eq!(
+            storable(stale, now),
+            Storable::No,
+            "a stale response was kept"
+        );
+
+        // The larger of the two wins — a proxy that states `Age` is not overruled by a `Date`
+        // that makes the response look younger.
+        let both = Freshness {
+            cache_control: Some("max-age=3600"),
+            date: Some("Sat, 08 Aug 2026 23:59:59 GMT"),
+            age: Some("3000"),
+            ..Freshness::default()
+        };
+        assert_eq!(storable(both, now), Storable::For(Duration::from_secs(600)));
+
+        // And the other way round, which is the half that pins "whichever is larger": a `Date`
+        // an hour old is not overruled by a proxy reporting ten seconds.
+        let honest_date = Freshness {
+            cache_control: Some("max-age=3600"),
+            date: Some("Sat, 08 Aug 2026 23:00:00 GMT"),
+            age: Some("10"),
+            ..Freshness::default()
+        };
+        assert_eq!(
+            storable(honest_date, now),
+            Storable::No,
+            "an hour-old response was kept because a proxy under-reported its age"
+        );
+
+        // Our own hour is a ceiling on staleness too, not only theirs.
+        let old_and_silent = Freshness {
+            age: Some("3599"),
+            ..Freshness::default()
+        };
+        assert_eq!(
+            storable(old_and_silent, now),
+            Storable::For(Duration::from_secs(1))
+        );
+
+        // A clock skewed the other way gives no age rather than a negative one.
+        let from_the_future = Freshness {
+            cache_control: Some("max-age=60"),
+            date: Some("Sun, 09 Aug 2026 01:00:00 GMT"),
+            ..Freshness::default()
+        };
+        assert_eq!(
+            storable(from_the_future, now),
+            Storable::For(Duration::from_secs(60))
+        );
+
+        // `Expires` is already measured against now, so the age must not come off it twice.
+        let expiring_soon = Freshness {
+            expires: Some("Sun, 09 Aug 2026 00:00:30 GMT"),
+            age: Some("20"),
+            ..Freshness::default()
+        };
+        assert_eq!(
+            storable(expiring_soon, now),
+            Storable::For(Duration::from_secs(30)),
+            "the age was subtracted from a deadline that already accounts for it"
+        );
+    }
+
+    #[test]
     fn a_page_the_origin_said_not_to_store_is_not_stored() {
         // **Reading the header and acting on it are one call apart on purpose.** The first shape
         // of this put the branch in `Fetcher::get`, where the address guard means no test can
@@ -514,8 +699,7 @@ mod tests {
         let held = cache.insert_allowed(
             "https://a.example/".to_owned(),
             page("https://a.example/", 4),
-            Some("no-store"),
-            None,
+            said("no-store"),
             now,
         );
         assert!(!held, "the origin said not to store it, and it was stored");
@@ -528,8 +712,7 @@ mod tests {
         let held = cache.insert_allowed(
             "https://b.example/".to_owned(),
             page("https://b.example/", 4),
-            Some("max-age=30"),
-            None,
+            said("max-age=30"),
             now,
         );
         assert!(held, "a page we were allowed to keep was dropped");

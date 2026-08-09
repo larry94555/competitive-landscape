@@ -873,9 +873,12 @@ the single most important phase; everything after it is commerce and polish.
   Bounded in **bytes and entries**, because a cap of *"n pages"* bounds nothing when a page may
   be 2 MiB — and, as review pointed out by filling it with empty responses, a byte cap that
   counts only bodies bounds nothing either. The per-host `robots.txt` and pacing state prune on
-  insert now that the fetcher outlives one analysis.
+  insert now that the fetcher outlives one analysis — and the rules are capped in live hosts and
+  in bytes as well, because expiry is not a bound when the window is six hours long.
   **And the origin's `Cache-Control` is obeyed**: `no-store`, `no-cache` and `private` are not
-  kept at all, and `max-age` shortens the hour rather than being overruled by it. A cache that
+  kept at all, and `max-age` shortens the hour rather than being overruled by it — measured from
+  the origin's `Date` and net of any `Age`, so a response that spent its freshness in a CDN does
+  not get another hour of it here. A cache that
   argues it belongs beside `robots.txt` cannot ignore the header a publisher states that in.
   `fetched_at` survives being served again, so a claim's `as_of` is when the bytes were read.
   **There is no test over a socket**, and the guard was not weakened to get one: a test server

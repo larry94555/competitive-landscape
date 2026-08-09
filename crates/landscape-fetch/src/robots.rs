@@ -26,6 +26,36 @@ use std::time::{Duration, Instant};
 /// tightening its rules is honoured the same day.
 pub const CACHE_TTL: Duration = Duration::from_secs(6 * 60 * 60);
 
+/// How many hosts' rules may be remembered at once.
+///
+/// **Expiry is not a bound.** The first version of this pruned expired entries and stopped
+/// there, which review correctly said bounds nothing: every *live* host stays for six hours, so
+/// a worker crossing fifty thousand hosts in an afternoon holds fifty thousand rule sets. A
+/// regression that ages everything before re-inserting proves the pruning and cannot see this.
+///
+/// **Forgetting a live rule set is safe**, which is what makes eviction available here at all:
+/// the next request for that host re-fetches `robots.txt` and re-reads its wishes. The cost is
+/// one extra request; the alternative is a map with no ceiling. What is *never* done is assuming
+/// permission from a rule set we have dropped.
+pub const MAX_HOSTS: usize = 1_024;
+
+/// How much memory the remembered rules may take.
+///
+/// The second unit, for the same reason [`crate::cache::MAX_CACHED_BYTES`] has a companion: a
+/// thousand hosts is a thousand `Disallow:` lines or a thousand files of ten thousand, and only
+/// one of those two numbers is the one that hurts.
+///
+/// **No "too large to keep" guard, unlike the page cache**, and that asymmetry is deliberate: a
+/// `robots.txt` is read through [`crate::MAX_BYTES`], so a single entry cannot reach 2 MiB of
+/// retained directives and cannot exceed this budget on its own. A guard for a case that cannot
+/// arise is a branch no test can reach.
+pub const MAX_RULE_BYTES: usize = 4 * 1024 * 1024;
+
+/// What one remembered host costs beyond the text of its rules — the key, the entry, the map's
+/// slot. Deliberately approximate, for the same reason as [`crate::cache::MAX_CACHED_BYTES`]:
+/// a host with an empty rule set must still cost something, or the count is unbounded again.
+const HOST_OVERHEAD: usize = 256;
+
 /// What a site's `robots.txt` permits us.
 #[derive(Debug, Clone, Default)]
 pub struct Rules {
@@ -192,6 +222,17 @@ impl Rules {
     pub const fn crawl_delay(&self) -> Option<Duration> {
         self.crawl_delay
     }
+
+    /// Roughly what these rules occupy, for the cache's byte budget.
+    ///
+    /// The patterns plus the tuple that holds each one. Approximate on purpose — see
+    /// [`HOST_OVERHEAD`].
+    fn bytes(&self) -> usize {
+        self.directives
+            .iter()
+            .map(|(pattern, _)| pattern.len() + std::mem::size_of::<(String, bool)>())
+            .sum()
+    }
 }
 
 /// RFC 9309 path matching: `*` spans any run of characters, `$` anchors the end.
@@ -235,9 +276,33 @@ fn matches(pattern: &str, path: &str) -> bool {
 }
 
 /// One site's rules, remembered so a report does not re-fetch `robots.txt` per page.
+///
+/// **Bounded in three ways, because the first two are not enough on their own.** Entries expire
+/// after [`CACHE_TTL`]; the count is capped at [`MAX_HOSTS`]; the memory is capped at
+/// [`MAX_RULE_BYTES`]. Expiry alone bounds nothing — every live host stays six hours — and a
+/// count alone bounds nothing when one file can carry ten thousand `Disallow:` lines.
 #[derive(Debug, Default)]
 pub struct Cache {
-    by_host: HashMap<String, (Rules, Instant)>,
+    by_host: HashMap<String, Held>,
+    /// Kept alongside rather than recomputed, so the common path does not walk the map.
+    bytes: usize,
+    /// Insertion order. A monotonic counter rather than [`Instant`], because two inserts in one
+    /// tick of a coarse clock would tie and eviction needs a total order.
+    next: u64,
+}
+
+#[derive(Debug)]
+struct Held {
+    rules: Rules,
+    at: Instant,
+    order: u64,
+    /// What this entry costs, remembered so eviction subtracts what insertion added.
+    cost: usize,
+}
+
+/// What remembering this host costs.
+fn weight(host: &str, rules: &Rules) -> usize {
+    HOST_OVERHEAD + host.len() + rules.bytes()
 }
 
 impl Cache {
@@ -251,8 +316,8 @@ impl Cache {
     pub fn get(&self, host: &str) -> Option<&Rules> {
         self.by_host
             .get(host)
-            .filter(|(_, at)| at.elapsed() < CACHE_TTL)
-            .map(|(rules, _)| rules)
+            .filter(|held| held.at.elapsed() < CACHE_TTL)
+            .map(|held| &held.rules)
     }
 
     /// Pretend every entry was stored `by` earlier than it was.
@@ -261,24 +326,68 @@ impl Cache {
     /// the alternative is a test that waits six hours or a clock threaded through every caller.
     #[cfg(test)]
     fn age(&mut self, by: std::time::Duration) {
-        for (_, at) in self.by_host.values_mut() {
-            if let Some(older) = at.checked_sub(by) {
-                *at = older;
+        for held in self.by_host.values_mut() {
+            if let Some(older) = held.at.checked_sub(by) {
+                held.at = older;
             }
         }
     }
 
     pub fn insert(&mut self, host: impl Into<String>, rules: Rules) {
+        let host = host.into();
+        let cost = weight(&host, &rules);
+
         // **Expired entries are dropped rather than merely ignored.** They were only filtered on
         // lookup, which was harmless while a `Fetcher` lasted one analysis and is not now that
-        // one lasts the process: review pointed out that a worker seeing a thousand hosts kept a
-        // thousand rule sets for ever, and a rule set is not small. Pruning here costs a walk on
-        // the rare path — a host we have not seen — rather than on every request.
-        self.by_host.retain(|_, (_, at)| at.elapsed() < CACHE_TTL);
-        self.by_host.insert(host.into(), (rules, Instant::now()));
+        // one lasts the process. This runs on the rare path — a host we have not seen — rather
+        // than on every request, and the cap below keeps the walk short.
+        self.forget_expired();
+
+        if let Some(old) = self.by_host.remove(&host) {
+            self.bytes -= old.cost;
+        }
+        // **And then the live ones, oldest first.** Review's second pass: pruning what has
+        // expired is not a bound, because nothing has expired in the case that hurts.
+        while self.bytes + cost > MAX_RULE_BYTES || self.by_host.len() >= MAX_HOSTS {
+            let Some(oldest) = self
+                .by_host
+                .iter()
+                .min_by_key(|(_, held)| held.order)
+                .map(|(k, _)| k.clone())
+            else {
+                break;
+            };
+            if let Some(gone) = self.by_host.remove(&oldest) {
+                self.bytes -= gone.cost;
+            }
+        }
+
+        self.bytes += cost;
+        self.next += 1;
+        self.by_host.insert(
+            host,
+            Held {
+                rules,
+                at: Instant::now(),
+                order: self.next,
+                cost,
+            },
+        );
     }
 
-    /// How many hosts are remembered. For the test that this does not grow for ever.
+    fn forget_expired(&mut self) {
+        let mut freed = 0;
+        self.by_host.retain(|_, held| {
+            let live = held.at.elapsed() < CACHE_TTL;
+            if !live {
+                freed += held.cost;
+            }
+            live
+        });
+        self.bytes -= freed;
+    }
+
+    /// How many hosts are remembered. For the tests that this does not grow for ever.
     #[must_use]
     pub fn len(&self) -> usize {
         self.by_host.len()
@@ -289,6 +398,14 @@ impl Cache {
     pub fn is_empty(&self) -> bool {
         self.by_host.is_empty()
     }
+
+    /// Roughly how much the remembered rules occupy. For the byte-bound test, and for the same
+    /// reason the page cache exposes it: a cache nobody can see the size of is one nobody
+    /// notices growing.
+    #[must_use]
+    pub fn bytes(&self) -> usize {
+        self.bytes
+    }
 }
 
 #[cfg(test)]
@@ -297,6 +414,70 @@ mod not_growing_for_ever {
     //! What a process-long `Fetcher` costs, and what stops it costing more.
 
     use super::*;
+
+    #[test]
+    fn more_live_hosts_than_the_cap_evicts_the_oldest_rather_than_growing() {
+        // **Nothing expires in this test, which is the whole point of it.** The first regression
+        // aged every entry before re-inserting, so it proved that expired rules are dropped and
+        // was blind to the case that actually hurts: a worker crossing many hosts inside the
+        // six-hour window. Review said so, and it held 50,000 rule sets when asked.
+        let mut cache = Cache::new();
+        for i in 0..(MAX_HOSTS * 2) {
+            cache.insert(
+                format!("h{i}.example"),
+                Rules::parse("User-agent: *\nDisallow: /admin", "landscapebot"),
+            );
+        }
+        assert!(
+            cache.len() <= MAX_HOSTS,
+            "held {} live hosts against a cap of {MAX_HOSTS}",
+            cache.len()
+        );
+        assert!(
+            cache.get("h0.example").is_none(),
+            "the oldest host survived an eviction it should not have"
+        );
+        let newest = format!("h{}.example", MAX_HOSTS * 2 - 1);
+        assert!(
+            cache.get(&newest).is_some(),
+            "the newest host was evicted instead of the oldest"
+        );
+    }
+
+    #[test]
+    fn a_thousand_small_files_and_a_few_huge_ones_are_both_bounded() {
+        // The count is not the unit that hurts when one file carries ten thousand `Disallow:`
+        // lines, and the bytes are not the unit that hurts when ten thousand files carry one.
+        // A host with no directives at all must still cost something, or the byte budget stops
+        // bounding the count — the page cache's `OVERHEAD` lesson, in the other cache.
+        let mut empty = Cache::new();
+        empty.insert("h.example", Rules::permissive());
+        assert!(
+            empty.bytes() >= HOST_OVERHEAD,
+            "a host with no rules was costed at {} bytes",
+            empty.bytes()
+        );
+
+        let mut body = "User-agent: *\n".to_owned();
+        for i in 0..200 {
+            body.push_str(&format!("Disallow: /section-{i}/{}\n", "x".repeat(80)));
+        }
+
+        let mut cache = Cache::new();
+        for i in 0..400 {
+            cache.insert(format!("h{i}.example"), Rules::parse(&body, "landscapebot"));
+        }
+        assert!(
+            cache.bytes() <= MAX_RULE_BYTES,
+            "held {} bytes of rules against a budget of {MAX_RULE_BYTES}",
+            cache.bytes()
+        );
+        assert!(
+            cache.len() < 400,
+            "four hundred large rule sets were all kept, so the byte budget did nothing"
+        );
+        assert!(!cache.is_empty(), "the cache emptied itself instead");
+    }
 
     #[test]
     fn a_host_whose_rules_have_expired_is_forgotten_rather_than_ignored() {

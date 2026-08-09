@@ -123,6 +123,10 @@ impl Fetcher {
             // nothing more: what it *means* is decided in `cache`, where a test can reach it.
             let cache_control = header(&response, "cache-control");
             let expires = header(&response, "expires");
+            // `Date` and `Age` say how much of that freshness is already spent. Without them a
+            // chain of caches keeps one response fresh for ever, one hop at a time.
+            let date = header(&response, "date");
+            let age = header(&response, "age");
             let body = read_capped(response).await?;
 
             let page = Page {
@@ -143,8 +147,12 @@ impl Fetcher {
                 let held = cache.insert_allowed(
                     url.to_owned(),
                     page.clone(),
-                    cache_control.as_deref(),
-                    expires.as_deref(),
+                    crate::cache::Freshness {
+                        cache_control: cache_control.as_deref(),
+                        expires: expires.as_deref(),
+                        date: date.as_deref(),
+                        age: age.as_deref(),
+                    },
                     page.fetched_at,
                 );
                 tracing::debug!(url, held, "considered for the page cache");

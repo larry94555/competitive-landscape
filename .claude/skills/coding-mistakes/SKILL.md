@@ -1802,6 +1802,57 @@ not against zero — `> 0` is satisfied by the part that was never in question.
 
 ---
 
+## 53. A bound that only removes what was already dead, and a clock started at the wrong end
+
+**Found:** by review, in the fix for entry 52 — the round immediately after.
+
+### Removing the expired is not a bound
+
+Entry 52's fix made the process-long `robots::Cache` prune on insert:
+
+```rust
+self.by_host.retain(|_, (_, at)| at.elapsed() < CACHE_TTL);
+```
+
+and the regression beside it inserted 500 hosts, **aged all of them past the TTL**, inserted one
+more, and asserted one remained. It passes. It is also blind to the only case that matters:
+`CACHE_TTL` is six hours, so nothing expires in an afternoon, and a worker crossing many hosts
+holds every one of them. Asked directly, it held **50,000** live rule sets.
+
+**The regression was written from the fix's point of view, not the defect's.** The fix was "drop
+what has expired", so the test aged everything to make things expire — which is exactly the state
+in which the bug cannot appear. A test built out of the mechanism can only confirm the mechanism.
+
+The bound is now the same shape as the page cache's: expiry, *plus* a live-entry cap, *plus* a
+byte cap, with oldest-first eviction. The new regressions insert past each cap **without ageing
+anything**.
+
+### A lifetime is not a deadline
+
+The same round: `max-age=3600` was turned into "keep for 3600 seconds **from now**". But
+`max-age` is measured from the origin's `Date`, and a CDN answering with `Age: 3590` is saying
+ten seconds remain. Restarting the clock on arrival lets a chain of caches hold one response
+fresh for ever, one hop at a time — each honestly obeying the number it was handed.
+
+```text
+origin  ──3600s──▶  CDN (holds 3590s)  ──"3600s"──▶  us (holds 3600s more)
+```
+
+`Expires` did not have the bug, and the reason is worth keeping: it is an **instant**, so
+`expires - now` already nets out the age. `max-age` is a **duration**, and a duration is
+meaningless without the end it is measured from. The fix subtracts the age from durations only —
+subtracting it from `Expires` too would have double-counted, which is the same mistake mirrored.
+
+**Rule:** when a fix bounds or expires something, write the regression in the state the *defect*
+needs, not the state the *fix* creates — if the test has to arrange the fix's precondition to
+observe anything, it is testing the fix. And when a value crosses a boundary as a duration, ask
+what clock it started on; if that clock is not yours, the elapsed part is already gone.
+
+> **Ask this:** *does my regression still fail if I delete the setup line that makes the fix
+> apply? And is this number a duration or a deadline?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

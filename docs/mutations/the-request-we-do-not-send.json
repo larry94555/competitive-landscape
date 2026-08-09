@@ -171,8 +171,8 @@
   {
     "name": "our hour overrules the origin's thirty seconds",
     "file": "crates/landscape-fetch/src/cache.rs",
-    "old": "                allowed = allowed.min(Duration::from_secs(seconds));",
-    "new": "                allowed = allowed.max(Duration::from_secs(seconds));",
+    "old": "                allowed = allowed.min(Duration::from_secs(seconds).saturating_sub(aged));",
+    "new": "                allowed = allowed.max(Duration::from_secs(seconds).saturating_sub(aged));",
     "run": [
       "cargo",
       "nextest",
@@ -223,8 +223,8 @@
   {
     "name": "expired robots rules are kept for every host ever seen",
     "file": "crates/landscape-fetch/src/robots.rs",
-    "old": "        self.by_host.retain(|_, (_, at)| at.elapsed() < CACHE_TTL);",
-    "new": "        self.by_host.retain(|_, _| true);",
+    "old": "            let live = held.at.elapsed() < CACHE_TTL;",
+    "new": "            let live = true;",
     "run": [
       "cargo",
       "nextest",
@@ -251,6 +251,136 @@
     "file": "crates/landscape-fetch/src/cache.rs",
     "old": "                self.insert_for(url, page, fresh_for);",
     "new": "                self.insert_for(url, page, FRESH_FOR);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the age a response arrived with is thrown away",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "    let mut allowed = FRESH_FOR.saturating_sub(aged);",
+    "new": "    let mut allowed = FRESH_FOR;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "an hour of freshness is restarted at our doorstep",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "                allowed = allowed.min(Duration::from_secs(seconds).saturating_sub(aged));",
+    "new": "                allowed = allowed.min(Duration::from_secs(seconds));",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a proxy stating a large Age is overruled by a Date that looks younger",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        age = age.max(Duration::from_secs(raw.trim().parse::<u64>().ok()?));",
+    "new": "        age = Duration::from_secs(raw.trim().parse::<u64>().ok()?);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "an age we cannot read is taken as none at all",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "    let Some(aged) = already_aged(headers, now) else {\n        return Storable::No;\n    };",
+    "new": "    let aged = already_aged(headers, now).unwrap_or(Duration::ZERO);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "live robots rule sets are held for every host seen in six hours",
+    "file": "crates/landscape-fetch/src/robots.rs",
+    "old": "        while self.bytes + cost > MAX_RULE_BYTES || self.by_host.len() >= MAX_HOSTS {",
+    "new": "        while false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the robots cache is bounded in hosts but not in what they weigh",
+    "file": "crates/landscape-fetch/src/robots.rs",
+    "old": "        while self.bytes + cost > MAX_RULE_BYTES || self.by_host.len() >= MAX_HOSTS {",
+    "new": "        while self.by_host.len() >= MAX_HOSTS {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the robots cache is bounded in bytes but not in hosts",
+    "file": "crates/landscape-fetch/src/robots.rs",
+    "old": "        while self.bytes + cost > MAX_RULE_BYTES || self.by_host.len() >= MAX_HOSTS {",
+    "new": "        while self.bytes + cost > MAX_RULE_BYTES {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the newest rule set is evicted rather than the oldest",
+    "file": "crates/landscape-fetch/src/robots.rs",
+    "old": "                .min_by_key(|(_, held)| held.order)",
+    "new": "                .max_by_key(|(_, held)| held.order)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "an empty rule set is remembered for nothing, so the host count is unbounded again",
+    "file": "crates/landscape-fetch/src/robots.rs",
+    "old": "    HOST_OVERHEAD + host.len() + rules.bytes()",
+    "new": "    rules.bytes()",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "evicting a rule set does not give its bytes back",
+    "file": "crates/landscape-fetch/src/robots.rs",
+    "old": "            if let Some(gone) = self.by_host.remove(&oldest) {\n                self.bytes -= gone.cost;\n            }",
+    "new": "            if self.by_host.remove(&oldest).is_some() {}",
     "run": [
       "cargo",
       "nextest",
