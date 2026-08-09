@@ -118,6 +118,20 @@ pub struct With<'a> {
 /// The prompt set this crate speaks. Bumped when any extractor's wording changes.
 pub const PROMPT_VERSION: u32 = 1;
 
+/// Everything *else* about how an answer is produced, versioned the same way.
+///
+/// **A prompt can be word-for-word identical and still mean something different.** The decoding
+/// settings in `stages::decode` — temperature, seed, token budget — and the schemas the sampler
+/// is constrained by are as much a part of the question as the wording, and review found the
+/// hole this closes: `memo::Extractions` remembered an answer under `PROMPT_VERSION` alone, so
+/// changing the temperature would have reused answers produced at the old one.
+///
+/// **Bump this when `decode()` changes, when an extraction schema changes shape, or when the
+/// logic that judges an answer changes.** It is deliberately separate from [`PROMPT_VERSION`],
+/// which the golden set and the report also carry: those describe what a model was *asked*, and
+/// this describes how it was asked and what was done with the reply.
+pub const EXTRACTION_VERSION: u32 = 1;
+
 /// Discover, read and extract one company, and assemble what came out.
 ///
 /// `now` and `today` are arguments rather than clock reads. A report states when it was
@@ -457,7 +471,31 @@ pub async fn analyse_with(
     on_progress: &mut dyn FnMut(&Report) -> Wanted,
 ) -> Analysis {
     let &With { fetcher, llm, memo } = with;
+
+    // **Which model these answers will belong to, asked once and asked in parallel.** The memo
+    // outlives `llama-server`, so a restart with a different model at the same address would
+    // otherwise have this run reuse the previous model's answers and label them with the
+    // current one's address — review's finding, and the failure this pipeline exists to
+    // prevent, arriving through the cache.
+    //
+    // **Here rather than on the hit path**, which is the other half of review's finding: a page
+    // already read must cost nothing at all, and asking the model who it is before answering
+    // from memory would be a request. One metadata call per analysis, to a local process we
+    // run, with its own two-second timeout — `LlamaClient::identity` explains why it does not
+    // borrow the generous one prefill needs.
+    //
+    // An identity we could not read changes nothing. A question we could not ask is not
+    // evidence that the answer changed, and forgetting on an outage would throw the memory away
+    // in exactly the hour it is worth most.
     let found = landscape_discover::discover(fetcher, origin).await;
+    if let Some(identity) = llm.identity().await {
+        if memo.serving(&identity) {
+            tracing::info!(
+                identity,
+                "the model changed; what earlier readers were told is forgotten"
+            );
+        }
+    }
 
     // **When each page is read, and how many are read at all** — `order`. The page that needs
     // no model goes first so the first thing on screen costs a fetch rather than a chain of
@@ -941,31 +979,6 @@ async fn read_one(
         return Wanted::Yes;
     }
 
-    // A changelog is parsed, not generated, so it is read whether or not a model is running —
-    // ARCHITECTURE §5.4. Everything else needs one, and this is the first place that is true, so
-    // this is where the question is finally asked.
-    let ready = match can_read(question, so_far.model_ready) {
-        Some(known) => known,
-        None => {
-            let asked = llm.is_ready().await;
-            so_far.model_ready = Some(asked);
-            asked
-        }
-    };
-    if !ready {
-        so_far.pages.push(PageResult {
-            url,
-            question,
-            words: Some(assessment.words),
-            quality: Some(assessment.quality.name()),
-            window_words: None,
-            summary: "(no model)".to_owned(),
-            details: Vec::new(),
-        });
-        return Wanted::Yes;
-    }
-
-    so_far.opened.push((question, 1));
     let label = format!("S{}", so_far.sources.len() + 1);
     let cite = |title: String| Source {
         label: label.clone(),
@@ -989,8 +1002,37 @@ async fn read_one(
     // look like a hung screen, and a page that costs nothing does not hang. Everything the
     // reader sees is assembled from the returned outcome at the end of this function, exactly
     // as it is on a miss.
-    let outcome = memo::remembering(reading.memo, already_read, || async {
-        let (claims, sources, opened) = (&so_far.claims, &so_far.sources, &so_far.opened);
+    let Some(outcome) = memo::remembering(reading.memo, already_read, || async {
+        // **The model is asked about only on a miss, and health is part of asking.** Review
+        // found this: the readiness gate used to sit above the lookup, so a page whose answer
+        // was already held came back as `(no model)` during an outage — the cache failing in
+        // precisely the hour it exists for. A hit now makes no request of any kind.
+        //
+        // A changelog is parsed, not generated, so it is read whether or not a model is
+        // running — ARCHITECTURE §5.4. Everything else needs one, and this is the first place
+        // that is true, so this is where the question is finally asked.
+        let ready = match can_read(question, so_far.model_ready) {
+            Some(known) => known,
+            None => {
+                let asked = llm.is_ready().await;
+                so_far.model_ready = Some(asked);
+                asked
+            }
+        };
+        if !ready {
+            return None;
+        }
+
+        let (claims, sources) = (&so_far.claims, &so_far.sources);
+        // **This page, counted as opened, for the partial reports only.** The real push happens
+        // once below, on both paths, after there is an outcome — because *"read, and it said
+        // nothing"* and *"never opened"* are different findings and a page the model could not
+        // be asked about is the second one.
+        let opened = &{
+            let mut so_far_and_this = so_far.opened.clone();
+            so_far_and_this.push((question, 1));
+            so_far_and_this
+        };
         let searched = so_far.searched_evidence();
         let label = label.clone();
         let cite = &cite;
@@ -1018,9 +1060,22 @@ async fn read_one(
             let (report, _) = assemble(reading, &with_partial, &with_source, opened, &searched);
             on_progress(&report)
         };
-        stages::extract(llm, question, &url, &markdown, today, &mut emit).await
+        Some(stages::extract(llm, question, &url, &markdown, today, &mut emit).await)
     })
-    .await;
+    .await
+    else {
+        so_far.pages.push(PageResult {
+            url,
+            question,
+            words: Some(assessment.words),
+            quality: Some(assessment.quality.name()),
+            window_words: None,
+            summary: "(no model)".to_owned(),
+            details: Vec::new(),
+        });
+        return Wanted::Yes;
+    };
+    so_far.opened.push((question, 1));
 
     for text in outcome.claims {
         so_far.claims.push((
@@ -2000,6 +2055,76 @@ mod joining {
             landscape_llm::LlamaClient::new(format!("http://127.0.0.1:{port}")),
             holding,
         )
+    }
+
+    /// A `llama-server` that will say which model it has loaded and nothing else.
+    async fn a_model_calling_itself(named: &'static str) -> landscape_llm::LlamaClient {
+        let app = axum::Router::new().route(
+            "/props",
+            axum::routing::get(move || async move {
+                axum::Json(serde_json::json!({ "model_path": named }))
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("a port");
+        let base = format!("http://{}", listener.local_addr().expect("an address"));
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        landscape_llm::LlamaClient::new(base)
+    }
+
+    #[tokio::test]
+    async fn a_model_swapped_under_a_running_worker_does_not_answer_as_the_old_one() {
+        // **Review's finding, through the real run.** The memo outlives `llama-server`, so that
+        // server can restart with a different model at the same address — and a report would
+        // then carry the previous model's words labelled with this one's. The origins are
+        // `.invalid`, so nothing is fetched and no page is read: what is under test is that an
+        // analysis finds out who is answering before it serves anybody from memory.
+        let memo = memo::Extractions::new();
+        memo.serving("models/the-one-that-was-loaded-yesterday.gguf");
+        memo.remember(
+            memo::Read::of(
+                Answers::Pricing,
+                "https://a.example/pricing",
+                "# Pricing",
+                chrono::Utc::now().date_naive(),
+            ),
+            &Outcome {
+                claims: Vec::new(),
+                summary: "1 plan found in 1 window".to_owned(),
+                details: Vec::new(),
+                window_words: 40,
+                settled: Settled::Complete,
+            },
+        );
+        assert_ne!(
+            memo.held(),
+            (0, 0),
+            "the memory should start with something"
+        );
+
+        let llm = a_model_calling_itself("models/the-one-loaded-now.gguf").await;
+        analyse_with(
+            &With {
+                fetcher: &landscape_fetch::Fetcher::new(),
+                llm: &llm,
+                memo: &memo,
+            },
+            "https://subject.invalid",
+            chrono::Utc::now(),
+            chrono::Utc::now().date_naive(),
+            None,
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+
+        assert_eq!(
+            memo.held(),
+            (0, 0),
+            "a different model's answers survived the swap"
+        );
     }
 
     #[tokio::test]

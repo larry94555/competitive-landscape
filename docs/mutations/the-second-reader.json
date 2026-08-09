@@ -2,8 +2,8 @@
   {
     "name": "the second reader pays the model again",
     "file": "crates/landscape-analyze/src/memo.rs",
-    "old": "    if let Some(known) = memo.get(&key) {\n        tracing::debug!(url = key.url, \"extraction served from memory\");\n        return known;\n    }",
-    "new": "    if false {\n        return extract().await;\n    }",
+    "old": "    if let Some(known) = memo.get(&key) {\n        tracing::debug!(url = key.url, \"extraction served from memory\");\n        return Some(known);\n    }",
+    "new": "    if let Some(known) = memo.get(&key) {\n        tracing::debug!(url = key.url, \"extraction served from memory\");\n        let _ = known;\n    }",
     "run": [
       "cargo",
       "nextest",
@@ -15,8 +15,8 @@
   {
     "name": "nothing is ever remembered, so every reader is the first",
     "file": "crates/landscape-analyze/src/memo.rs",
-    "old": "    let fresh = extract().await;\n    memo.remember(key, &fresh);\n    fresh",
-    "new": "    let fresh = extract().await;\n    let _ = key;\n    fresh",
+    "old": "    memo.remember(key, &fresh);",
+    "new": "    let _ = &key;",
     "run": [
       "cargo",
       "nextest",
@@ -54,8 +54,8 @@
   {
     "name": "the question is not part of the question",
     "file": "crates/landscape-analyze/src/memo.rs",
-    "old": "            prompts: crate::PROMPT_VERSION,\n            question,",
-    "new": "            prompts: crate::PROMPT_VERSION,\n            question: Answers::Pricing,",
+    "old": "            extraction: crate::EXTRACTION_VERSION,\n            question,",
+    "new": "            extraction: crate::EXTRACTION_VERSION,\n            question: Answers::Pricing,",
     "run": [
       "cargo",
       "nextest",
@@ -199,6 +199,84 @@
     "file": "crates/landscape-analyze/src/memo.rs",
     "old": "        if let Some(old) = self.by_read.remove(&key) {\n            self.bytes -= old.cost;\n        }",
     "new": "        if self.by_read.remove(&key).is_some() {}",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a page already read still needs the model to be up",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "    if let Some(known) = memo.get(&key) {\n        tracing::debug!(url = key.url, \"extraction served from memory\");\n        return Some(known);\n    }",
+    "new": "    if false {\n        return None;\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a page nobody could read is remembered as having been read",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "    let fresh = extract().await?;",
+    "new": "    let Some(fresh) = extract().await else {\n        return Some(crate::Outcome {\n            claims: Vec::new(),\n            summary: String::new(),\n            details: Vec::new(),\n            window_words: 0,\n            settled: crate::Settled::Complete,\n        });\n    };",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "one model's answers are served as another's",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "        if held.scope.as_deref() == Some(identity) {\n            return false;\n        }",
+    "new": "        if held.scope.is_some() {\n            return false;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a model swap forgets the answers but keeps the bytes",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "        held.by_read.clear();\n        held.bytes = 0;",
+    "new": "        held.by_read.clear();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the decoding settings are not part of the question",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "            extraction: crate::EXTRACTION_VERSION,",
+    "new": "            extraction: 0,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the model behind the address is never identified",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "    if let Some(identity) = llm.identity().await {",
+    "new": "    if let Some(identity) = None::<String> {",
     "run": [
       "cargo",
       "nextest",

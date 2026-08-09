@@ -61,6 +61,57 @@ cargo run -p landscape -- cost https://plausible.io
 **That last column is what the second reader used to pay again**, in full, for a set of pages
 whose bytes were already in memory and identical.
 
+### Review: the cache stopped working during the outage it exists for
+
+The readiness gate sat **above** the lookup. So a page whose answer was already held came back
+as `(no model)` while `llama-server` was down — the cache failing in precisely the hour it is
+worth most, and a reader depending on the health of something the run never needed to touch.
+
+**A fallback checked after the thing it is a fallback for is not a fallback.** The gate moved
+inside the miss closure, so a hit makes **no request of any kind** — not a completion, not a
+health check. A miss that cannot ask returns *"not asked"* rather than an answer, so the run
+still reports `(no model)` honestly and nothing is remembered.
+
+The regression puts a flag where every model-dependent step would be and asserts a hit never
+reaches it.
+
+### Review: the key said what was asked and not who answered
+
+A memo is a claim that two computations are the same, and that claim has two halves — *same
+inputs* and *same function*. The first version wrote down only the first.
+
+`PROMPT_VERSION` covers a prompt's wording. It does not cover the decoding settings, the schemas
+the sampler is constrained by, or **the model**. And the worker outlives `llama-server`:
+
+```text
+llama-server restarts with a different model at the same LLAMA_URL
+  → the next analysis reuses the previous model's answers
+  → the report labels them with the current client's address
+```
+
+One model's words attributed to another, cited and internally consistent — the failure this whole
+pipeline is built to prevent, arriving through the thing added to make it faster.
+
+The static half is now `EXTRACTION_VERSION`, in the key beside `PROMPT_VERSION`: bump it when
+`decode()` changes, when a schema changes shape, or when the logic judging an answer changes.
+
+The model is a **scope** rather than a key field, and the distinction is the interesting part.
+Putting the model's name in the key would mean asking the model who it is *before* answering from
+memory — a request on the hit path, which the finding above forbids. Scoping the whole memory to
+one identity and emptying it when that changes costs **one metadata call per analysis** and
+nothing per hit:
+
+```rust
+if let Some(identity) = llm.identity().await {
+    if memo.serving(&identity) { /* the model changed; everything is forgotten */ }
+}
+```
+
+`LlamaClient::identity` reads llama.cpp's `/props` under its own **two-second** timeout rather
+than the generous one prefill needs, and returns `None` when it cannot find out. **`None` never
+forgets anything**: a question we could not ask is not evidence that the answer changed, and
+throwing the memory away on an outage would empty it in the hour it is worth most.
+
 ### The content is the key, so a hit cannot be stale
 
 `Extractions` has **no TTL**, and the absence is the design rather than an omission. A page cache
@@ -149,7 +200,7 @@ the same instrument Run 25 used for cancellation and the one that runs on every 
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 37 | 881 | 62 |
-| now | **897** | **62** |
+| now | **901** | **62** |
 
 ---
 

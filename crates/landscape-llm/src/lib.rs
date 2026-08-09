@@ -122,6 +122,47 @@ impl LlamaClient {
         &self.base
     }
 
+    /// Which model this server currently has loaded, as it names it.
+    ///
+    /// **`None` means "we could not find out"**, never "there is no model", and the two are
+    /// treated very differently by [`landscape_analyze::memo`]: an answer this process already
+    /// holds is served when the server is unreachable, because a question we could not ask is
+    /// not evidence that anything changed.
+    ///
+    /// Read from llama.cpp's `/props`, which is metadata rather than inference — so this gets
+    /// its own short timeout instead of the generous one [`Self::new`] sets for prefill. A
+    /// server that will not answer a metadata request in two seconds is one whose identity is
+    /// not worth waiting for.
+    ///
+    /// The value is the server's own words for the model, whatever shape they take. Nothing
+    /// parses it; it is only ever compared with itself.
+    pub async fn identity(&self) -> Option<String> {
+        let response = self
+            .http
+            .get(format!("{}/props", self.base))
+            .timeout(Duration::from_secs(2))
+            .send()
+            .await
+            .ok()?;
+        if !response.status().is_success() {
+            return None;
+        }
+        let props: serde_json::Value = response.json().await.ok()?;
+        for path in ["model_path", "model"] {
+            if let Some(named) = props.get(path).and_then(|v| v.as_str()) {
+                if !named.is_empty() {
+                    return Some(named.to_owned());
+                }
+            }
+        }
+        props
+            .get("default_generation_settings")
+            .and_then(|s| s.get("model"))
+            .and_then(|v| v.as_str())
+            .filter(|named| !named.is_empty())
+            .map(str::to_owned)
+    }
+
     /// Whether the server is up and has a model loaded.
     pub async fn is_ready(&self) -> bool {
         match self.http.get(format!("{}/health", self.base)).send().await {

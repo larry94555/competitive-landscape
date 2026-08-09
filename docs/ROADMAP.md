@@ -898,6 +898,11 @@ the single most important phase; everything after it is commerce and polish.
   cannot have. A run that failed, or that nobody waited for, is **never** remembered — the same
   rule the fetch cache learned about a `503`, in the unit where the cost is a model rather than
   a request. Bounded in bytes and entries, oldest first, with the oversized entry declined.
+  A hit costs **no request at all** — not a completion and not a health check — so a page already
+  read is served while the model is down, which is the hour it is worth most. And what is
+  remembered is scoped to the model that produced it: `llama-server` can restart with a different
+  model at the same address, and one model's words labelled with another's is the failure this
+  pipeline exists to prevent.
   **Still open:** nothing is shared between processes — a shared cache needs a store, and the
   laptop rule is that nothing requires a database.
 

@@ -29,6 +29,22 @@
 //! page's facts attached to another page's URL, cited, and internally consistent. The memory
 //! that costs is bounded in [`MAX_MEMO_BYTES`]; the wrong claim would not have been.
 //!
+//! # Everything in here was produced by one extractor, and that is checked
+//!
+//! `PROMPT_VERSION` covers the wording of a prompt, and [`crate::EXTRACTION_VERSION`] covers the
+//! decoding settings and the shape of the schemas around it. **Neither covers the model.** The
+//! worker outlives `llama-server`, so that server can restart with a different model at the same
+//! `LLAMA_URL`, and review pointed out what happens next: the next analysis reuses the previous
+//! model's answers and the report labels them with the client's current address. One model's
+//! words attributed to another, cited and internally consistent — the failure this pipeline
+//! exists to prevent, arriving through the cache.
+//!
+//! So the memory is **scoped** rather than keyed: see [`Extractions::serving`]. Everything held
+//! belongs to one model identity, and learning that the identity changed empties it. Scoping
+//! rather than keying is what lets a hit cost nothing at all — a key holding the model's name
+//! would mean asking the model who it is before answering from memory, which is exactly the
+//! request the next section says a hit must not make.
+//!
 //! # A failure is never remembered
 //!
 //! Only a [`Settled::Complete`] outcome is kept. A model error, or a run somebody stopped
@@ -70,6 +86,10 @@ pub struct Read {
     /// The prompt set. Bumping [`crate::PROMPT_VERSION`] must miss everything, because a
     /// re-worded prompt is a different question.
     pub prompts: u32,
+    /// Everything else about how the answer is produced — see [`crate::EXTRACTION_VERSION`].
+    /// A prompt can be word-for-word identical and still mean something different at a
+    /// different temperature or under a different schema.
+    pub extraction: u32,
     /// Which of the six is being asked.
     pub question: Answers,
     /// The page's address. The prompts embed it, so two pages with identical text and different
@@ -92,6 +112,7 @@ impl Read {
     pub(crate) fn of(question: Answers, url: &str, markdown: &str, today: NaiveDate) -> Self {
         Self {
             prompts: crate::PROMPT_VERSION,
+            extraction: crate::EXTRACTION_VERSION,
             question,
             url: url.to_owned(),
             today,
@@ -128,6 +149,9 @@ pub struct Extractions {
 #[derive(Debug, Default)]
 struct Held {
     by_read: HashMap<Read, Entry>,
+    /// Whose answers these are. `None` until a model has been identified — an empty memory
+    /// belongs to nobody.
+    scope: Option<String>,
     bytes: usize,
     /// Insertion order. A counter rather than a clock: eviction needs a total order, and two
     /// inserts inside one tick of a coarse clock would tie.
@@ -172,6 +196,31 @@ impl Extractions {
         true
     }
 
+    /// Declare which model these answers belong to, forgetting everything if it has changed.
+    ///
+    /// Returns whether anything was forgotten, which is what the diagnostic reports and what the
+    /// tests assert against.
+    ///
+    /// **Called once per analysis, never on the hit path.** Everything remembered is the work of
+    /// one model, so a swap invalidates all of it at once and no key has to carry the model's
+    /// name — which is what keeps a hit free of any request at all. See the module docs.
+    ///
+    /// An identity we could not read is never passed here, so an unreachable server forgets
+    /// nothing: a question we could not ask is not evidence that the answer changed.
+    pub fn serving(&self, identity: &str) -> bool {
+        let Ok(mut held) = self.held.lock() else {
+            return false;
+        };
+        if held.scope.as_deref() == Some(identity) {
+            return false;
+        }
+        let had = !held.by_read.is_empty();
+        held.by_read.clear();
+        held.bytes = 0;
+        held.scope = Some(identity.to_owned());
+        had
+    }
+
     /// How many extractions are held, and how many bytes they take.
     ///
     /// For the diagnostic, and for the tests about eviction. A cache nobody can see the size of
@@ -192,18 +241,24 @@ impl Extractions {
 /// A rule written inside it is a rule a mutation deleting it survives —
 /// `landscape_fetch::cache::insert_allowed` exists for the same reason and was moved there after
 /// the harness said so. Here a test passes a counter and watches whether the model was asked.
-pub(crate) async fn remembering<F, Fut>(memo: &Extractions, key: Read, extract: F) -> Outcome
+pub(crate) async fn remembering<F, Fut>(
+    memo: &Extractions,
+    key: Read,
+    extract: F,
+) -> Option<Outcome>
 where
     F: FnOnce() -> Fut,
-    Fut: std::future::Future<Output = Outcome>,
+    Fut: std::future::Future<Output = Option<Outcome>>,
 {
     if let Some(known) = memo.get(&key) {
         tracing::debug!(url = key.url, "extraction served from memory");
-        return known;
+        return Some(known);
     }
-    let fresh = extract().await;
+    // **`None` means the extractor could never be asked** — the model is down — and is neither
+    // an answer nor a failed one. Nothing is remembered, and the caller says so on the report.
+    let fresh = extract().await?;
     memo.remember(key, &fresh);
-    fresh
+    Some(fresh)
 }
 
 impl Held {
@@ -489,23 +544,108 @@ mod tests {
 
         let first = remembering(&memo, key.clone(), || async {
             asked.set(asked.get() + 1);
-            outcome("Pro costs $10", Settled::Complete)
+            Some(outcome("Pro costs $10", Settled::Complete))
         })
-        .await;
+        .await
+        .expect("the first reader gets an answer");
         assert_eq!(asked.get(), 1, "the first reader must pay");
         assert_eq!(first.claims[0].text, "Pro costs $10");
 
         let second = remembering(&memo, key, || async {
             asked.set(asked.get() + 1);
-            outcome("Pro costs $10", Settled::Complete)
+            Some(outcome("Pro costs $10", Settled::Complete))
         })
-        .await;
+        .await
+        .expect("and so does the second");
         assert_eq!(asked.get(), 1, "the second reader paid the model again");
         assert_eq!(
             second.claims[0].text, "Pro costs $10",
             "the hit lost what the page said"
         );
         assert_eq!(second.summary, "1 plan found in 1 window");
+    }
+
+    #[tokio::test]
+    async fn a_page_already_read_is_served_while_the_model_is_down() {
+        // **Review found this, and it is the cache failing in the hour it exists for.** The
+        // readiness gate used to sit above the lookup, so a page whose answer was already held
+        // came back as `(no model)` during an outage. The closure below stands for everything
+        // that needs the model to be up — the health check and the completion alike — and a hit
+        // must not enter it at all.
+        let memo = Extractions::new();
+        let key = read("https://a.example/pricing", "# Pricing\nPro $10");
+        memo.remember(key.clone(), &outcome("Pro costs $10", Settled::Complete));
+
+        let touched_the_model = std::cell::Cell::new(false);
+        let served = remembering(&memo, key.clone(), || async {
+            touched_the_model.set(true);
+            None // as an unreachable `is_ready()` would leave it
+        })
+        .await
+        .expect("a page already read should not need a model");
+
+        assert!(
+            !touched_the_model.get(),
+            "a hit asked the model whether it was up"
+        );
+        assert_eq!(served.claims[0].text, "Pro costs $10");
+
+        // And a page that was *not* already read still reports honestly rather than being
+        // remembered as an answer.
+        let unread = read("https://a.example/security", "# Security\nSOC 2");
+        assert!(
+            remembering(&memo, unread.clone(), || async { None })
+                .await
+                .is_none(),
+            "a page nobody could read came back as though it had been"
+        );
+        assert!(memo.get(&unread).is_none(), "a non-answer was remembered");
+    }
+
+    #[tokio::test]
+    async fn two_models_at_one_address_do_not_share_answers() {
+        // **Review found this too.** The worker outlives `llama-server`, so that server can
+        // restart with a different model at the same `LLAMA_URL` — and the report would then
+        // carry one model's words labelled with the other's address.
+        let memo = Extractions::new();
+        let key = read("https://a.example/pricing", "# Pricing\nPro $10");
+
+        memo.serving("models/qwen2.5-3b-instruct-q4_k_m.gguf");
+        memo.remember(key.clone(), &outcome("Pro costs $10", Settled::Complete));
+        assert!(memo.get(&key).is_some(), "the same model should hit");
+        assert!(
+            !memo.serving("models/qwen2.5-3b-instruct-q4_k_m.gguf"),
+            "the same identity forgot something"
+        );
+        assert!(
+            memo.get(&key).is_some(),
+            "a redeclaration threw the memory away"
+        );
+
+        assert!(
+            memo.serving("models/llama-3.2-3b-instruct-q4_k_m.gguf"),
+            "a different model should have emptied it"
+        );
+        assert!(
+            memo.get(&key).is_none(),
+            "one model's answer was served as another's"
+        );
+        assert_eq!(memo.held(), (0, 0), "the bytes went with it");
+    }
+
+    #[test]
+    fn what_produced_an_answer_is_part_of_the_question() {
+        // The static half of the same finding: identical prompts read at a different
+        // temperature, or under a different schema, are not the same question.
+        let key = Read::of(Answers::Pricing, "https://a.example/x", "# A", day());
+        assert_eq!(key.prompts, crate::PROMPT_VERSION);
+        assert_eq!(key.extraction, crate::EXTRACTION_VERSION);
+
+        let rewired = Read {
+            extraction: key.extraction + 1,
+            ..key.clone()
+        };
+        assert_ne!(key, rewired, "the extraction version was dropped");
     }
 
     #[tokio::test]
@@ -523,9 +663,10 @@ mod tests {
         for _ in 0..3 {
             let got = remembering(&memo, key.clone(), || async {
                 asked.set(asked.get() + 1);
-                failed.clone()
+                Some(failed.clone())
             })
-            .await;
+            .await
+            .expect("a partial answer is still an answer for this reader");
             assert!(got.claims.is_empty());
         }
         assert_eq!(
@@ -537,15 +678,16 @@ mod tests {
         // And when it recovers, that answer is the one kept.
         let good = remembering(&memo, key.clone(), || async {
             asked.set(asked.get() + 1);
-            outcome("Pro costs $10", Settled::Complete)
+            Some(outcome("Pro costs $10", Settled::Complete))
         })
-        .await;
+        .await
+        .expect("the recovered answer");
         assert_eq!(good.claims[0].text, "Pro costs $10");
         assert_eq!(asked.get(), 4);
 
         remembering(&memo, key, || async {
             asked.set(asked.get() + 1);
-            outcome("Pro costs $10", Settled::Complete)
+            Some(outcome("Pro costs $10", Settled::Complete))
         })
         .await;
         assert_eq!(asked.get(), 4, "the recovered answer was not kept");
