@@ -468,6 +468,26 @@ function AnalysisView({
         </p>
       ))}
 
+      {/*
+        **What the market calls this, above the results and below what the reader typed.**
+        `COMPETITIVE_DISCOVERY.md` §4: the substitution decides every query underneath it, so a
+        wrong reading has to be visible before anything below it is believed. It is absent when
+        nothing was substituted — repeating somebody's own words back at them discloses nothing.
+      */}
+      {report?.interpreted && (
+        <p className="interpreted">
+          Interpreted as <strong>{report.interpreted.label}</strong>
+          {report.interpreted.also.length > 0 && (
+            <span className="also"> (also: {report.interpreted.also.join(", ")})</span>
+          )}
+          <span className="backing">
+            {" "}
+            — {report.interpreted.hosts} independent{" "}
+            {report.interpreted.hosts === 1 ? "site" : "sites"} use this name
+          </span>
+        </p>
+      )}
+
       {report && report.searched_as !== "" && (
         <p className="searched-as">
           Searched as <strong>{report.searched_as}</strong>
@@ -503,7 +523,14 @@ function AnalysisView({
                   The domain is not decoration: two products sharing a name is exactly the
                   case this screen exists for, so it is the field that tells them apart.
                 */}
-                <span className="domain">{choice.domain}</span>
+                {/*
+                  Empty when the choice is a *market* rather than a company — there is no
+                  website to show, and inventing one would be a claim. What stands in its
+                  place is `what_it_is`, which says how many sites agreed on the name.
+                */}
+                {choice.domain !== "" && (
+                  <span className="domain">{choice.domain}</span>
+                )}
                 {choice.what_it_is !== "" && (
                   <span className="what">{choice.what_it_is}</span>
                 )}

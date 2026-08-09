@@ -54,8 +54,8 @@
   {
     "name": "a missing engine is reported as a market with nobody in it",
     "file": "crates/landscape/src/main.rs",
-    "old": "            why: landscape_analyze::subject::NO_SUBJECT.to_owned(),\n            kind: landscape_core::Failure::NoSubject,",
-    "new": "            why: landscape_analyze::subject::NO_SUBJECT.to_owned(),\n            kind: landscape_core::Failure::NothingFound,",
+    "old": "            landscape_analyze::subject::NO_SUBJECT.to_owned(),\n            landscape_core::Failure::NoSubject,",
+    "new": "            landscape_analyze::subject::NO_SUBJECT.to_owned(),\n            landscape_core::Failure::NothingFound,",
     "run": [
       "cargo",
       "nextest",

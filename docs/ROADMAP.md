@@ -820,8 +820,21 @@ the single most important phase; everything after it is commerce and polish.
   management software* and *project management software* alike — belongs to neither: it is their
   overlap, and review found it bridging them into one cluster when the first version joined
   phrases by every containment edge.
-  **Still open:** wiring it into a run, and the *"Interpreted as … [Change]"* header §4 asks
-  for. It costs no extra round trip — the queries are the ones an analysis already sends.
+- **The market decides what is searched for** — [BENCHMARKS.md](BENCHMARKS.md) Run 36, and the
+  row's second PR. The resolver existed and **nothing read it**: an analysis still searched for
+  what a reader typed. Now the label is what every company query is built from, and the
+  *"Interpreted as …"* line §4 asks for is on the report — carried on `Asked` rather than
+  stamped on at the end, because the partial reports reach a reader too and a line that appeared
+  only at ninety seconds would say the run had been about something else all along.
+  **A second round of searches happens only when the words changed**; when the reader already
+  typed the market's name the hits in hand are the answer. The coverage note counts both rounds,
+  because an outage in the first would otherwise hide behind a tidier number.
+  **An ambiguous market is `PRODUCT_SPEC.md` §3's category question**, arriving as chips — the
+  same control the ambiguous-company question uses, so there is one way of asking *which did you
+  mean*. A market has no website, so the chip omits the domain rather than showing a blank line,
+  and a label too short to be a prompt is refused where phrases are made.
+  **Still open:** §4's `[Change]` control, which is [F2](../PROJECT_STATUS.md#f2--editing-the-product-idea)
+  and still R0; and a chosen market that sticks, which needs session state §3 defers.
   **SearXNG itself has not been run against this.** `docker compose --profile search up -d
   searxng` and a checked-in `settings.yml` are in the repository and unwalked, for the same
   reason D3 is — the first person through corrects it.

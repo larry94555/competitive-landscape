@@ -80,88 +80,91 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    typed: {
-      name: "what somebody typed",
-      purpose: "And what we searched for.",
-      lines: [
-        ['s', '  a free competitive landscape'],
-        ['s', '  research tool'],
-        ['c', ''],
-        ['f', '// Nobody sells that.']
-      ]
-    },
-    market: {
-      name: "what the market says",
-      purpose: "Different words entirely.",
+    resolver: {
+      name: "the resolver, and nothing read it",
+      purpose: "Run 35 built this.",
       lines: [
         ['t', '  competitive intelligence'],
         ['t', '  software'],
         ['c', ''],
-        ['f', '// Theirs finds blog posts.'],
-        ['f', '// This finds the market.']
+        ['f', '// A fact about a market that'],
+        ['f', '// changed nothing in the report.']
       ]
     },
-    perhost: {
-      name: "counted once per site",
-      purpose: "Not once per page.",
+    two: {
+      name: "two rounds, two answers",
+      purpose: "Their words, then the market's.",
       lines: [
-        ['s', '  40 pages, 1 content farm'],
-        ['t', '  -> said it once'],
+        ['s', '  round 1 -> g2, capterra'],
+        ['t', '  round 2 -> klue, crayon'],
         ['c', ''],
-        ['f', '// Forty is not agreement.']
+        ['f', '// Round 1 finds who names it.'],
+        ['f', '// Round 2 finds who is in it.']
       ]
     },
-    specific: {
-      name: "the most specific that recurs",
-      purpose: "Section 4, step 4.",
+    once: {
+      name: "and only when the words change",
+      purpose: "Otherwise the hits are in hand.",
       lines: [
-        ['t', '  competitive intelligence   4'],
-        ['f', '  ...intelligence software   3'],
+        ['t', '  typed the market name? 1 round'],
+        ['s', '  typed something else?  2'],
         ['c', ''],
-        ['c', '// The longer one wins because'],
-        ['c', '// it extends the broad one.']
+        ['f', '// Three requests to somebody'],
+        ['f', '// else, charged when they buy.']
       ]
     },
-    tied: {
-      name: "and when two markets tie",
-      purpose: "It refuses to sort them.",
+    both: {
+      name: "the note counts both rounds",
+      purpose: "1 of 6, not 1 of 3.",
       lines: [
-        ['s', '  email marketing software   2'],
-        ['s', '  project management sw.     2'],
+        ['f', '  asked_once.and(asked_twice)'],
         ['c', ''],
-        ['f', '// A coin flip, shown as a fact.']
+        ['t', '// An outage in the first round'],
+        ['t', '// would hide behind a tidier'],
+        ['t', '// number.']
       ]
     },
-    notaclaim: {
-      name: "a title is not evidence",
-      purpose: "And this is not a claim.",
+    shown: {
+      name: "shown, not assumed",
+      purpose: "Section 4 asks for this line.",
       lines: [
-        ['c', '// A claim is about one company'],
-        ['c', '// and comes from its own page.'],
+        ['s', '  Interpreted as competitive'],
+        ['s', '  intelligence software'],
         ['c', ''],
-        ['f', '  a label is about a market,'],
-        ['f', '  seen across strangers at once']
+        ['f', '// Wrong reading? Visible before'],
+        ['f', '// anything under it is believed.']
       ]
     },
-    inverted: {
-      name: "g2 is barred next door",
-      purpose: "And is the best source here.",
+    partial: {
+      name: "on the partial reports too",
+      purpose: "Which is why it rides on Asked.",
       lines: [
-        ['s', '  candidates: not a company'],
-        ['t', '  vocabulary: the market itself'],
+        ['t', '  on_progress fires per page'],
         ['c', ''],
-        ['f', '// One list, two questions.']
+        ['f', '// A line that arrived at the end'],
+        ['f', '// would say the last 90 seconds'],
+        ['f', '// had been about something else.']
       ]
     },
-    gate: {
-      name: "the hole in a sentence",
-      purpose: "A lost backslash.",
+    absent: {
+      name: "and absent when nothing changed",
+      purpose: "Their words back at them is noise.",
       lines: [
-        ['s', '  discover,        search'],
+        ['c', '// interpreted: None'],
         ['c', ''],
-        ['f', '  8 found, 13th gate'],
+        ['t', '  noise is what stops the real'],
+        ['t', '  line being read']
+      ]
+    },
+    onefn: {
+      name: "one function, two callers",
+      purpose: "for_market.",
+      lines: [
+        ['s', '  the worker'],
+        ['s', '  landscape candidates'],
         ['c', ''],
-        ['t', '// It compiled. Tests passed.']
+        ['f', '// A diagnostic that agreed by'],
+        ['f', '// coincidence has happened here.']
       ]
     }
   };
@@ -205,19 +208,19 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:typed",     c: "This is what we sent to a search engine." },
-    { kind: "means",       a: "file:market",    c: "The market uses different words." },
+    { kind: "recognition", a: "file:resolver", c: "Run 35 built a resolver nothing read." },
+    { kind: "means",       a: "file:two",      c: "Two rounds return two different sets." },
 
-    { kind: "turn",        a: "file:perhost",   c: "Phrases are counted once per site." },
-    { kind: "result",      a: "file:specific",  c: "The most specific one that still recurs." },
+    { kind: "turn",        a: "file:once",     c: "The second only when the words change." },
+    { kind: "result",      a: "file:both",     c: "The coverage note counts both rounds." },
 
-    { kind: "turn",        a: "file:tied",      c: "Two markets equally backed is a question." },
-    { kind: "result",      a: "file:notaclaim", c: "A title is evidence of nothing." },
+    { kind: "turn",        a: "file:shown",    c: "What was substituted is shown." },
+    { kind: "result",      a: "file:partial",  c: "On the partial reports as well." },
 
-    { kind: "result",      a: "file:inverted",  c: "The site we bar next door is best here." },
-    { kind: "result",      a: "file:gate",      c: "And a gate for a hole in a sentence." },
+    { kind: "result",      a: "file:absent",   c: "And absent when nothing was substituted." },
+    { kind: "result",      a: "file:onefn",    c: "One function, so the two cannot drift." },
 
-    { kind: "close",       a: "hold",           c: "The market's words, not the reader's." }
+    { kind: "close",       a: "hold",          c: "The market decides what is searched for." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -240,7 +243,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("typed");
+    show("resolver");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -253,15 +256,15 @@
     }, TOTAL * 1000));
   }
 
-  show("typed");
+  show("resolver");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "The market’s words, not the reader’s",
-    blurb: "Somebody types “a free competitive landscape research tool” and we searched for exactly that, which finds articles about the idea rather than the market. The market says “competitive intelligence software”. Reading the titles of searches an analysis already sends, every two-to-four word phrase is counted once per independent site — forty pages from one content farm is not agreement — and the answer is the longest phrase that extends the one the most sites agreed on. Deterministic, no model, and shown to a reader as an interpretation rather than assumed.",
+    title: "The market decides what is searched for",
+    blurb: "The vocabulary resolver existed and nothing read it — an analysis still searched for what a reader typed, so the market’s name was a fact that changed nothing. Now it is what every company query is built from, and the substitution is shown on the report, including on the partial ones a reader watches for ninety seconds. A second round of searches goes out only when the words actually changed, and the coverage note counts both rounds so an outage in the first cannot hide behind the second.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

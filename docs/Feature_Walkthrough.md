@@ -1443,6 +1443,17 @@ farm publishing the same title forty times has said it once
 the command says so — *"the market has no settled word for this"* — which is a finding about a
 market rather than a failure, and different again from *"the searches did not complete"*.
 
+**In the browser, the substitution is on the report**, directly under what the reader typed and
+above the results:
+
+```text
+Interpreted as competitive intelligence software (also: competitive intelligence,
+intelligence software) — 3 independent sites use this name
+```
+
+It is **absent** when the reader's own words were searched for. Repeating somebody's words back
+at them as an interpretation discloses nothing, and noise is what stops the real line being read.
+
 **And when two markets are equally backed, it refuses.** Two sites saying *email marketing
 software* and two saying *project management software* is not a market with a name — it is a
 question, and the command asks it rather than sorting alphabetically:
@@ -1464,11 +1475,35 @@ sites happened to share from beating one nine sites use.
 about any company comes from one. What this produces is a phrase to search with, and §4 requires
 it be shown to a reader as an interpretation they can overrule.
 
-**What this does not do yet.** No analysis reads the label. `cargo run -p landscape -- candidates`
-still searches the reader's words, and wiring the two together — with the *"Interpreted as …"*
-header §4 asks for — is the second half of this row. It costs no extra round trip, because the
-queries above are the ones an analysis already sends. See
-[BENCHMARKS.md](BENCHMARKS.md) Run 35.
+**And a run searches with it.** `landscape candidates` and an analysis both resolve the market's
+name first and then look for companies **in those words** — the same function, so the diagnostic
+cannot describe a run the worker would not have had:
+
+```text
+interpreted as  competitive intelligence software
+agreed on by    3 independent sites
+searched for    competitive intelligence software
+
+company                             agreed    score  shallowest
+------------------------------------------------------------------------------
+crayon.co                            3/3       1.00  https://www.crayon.co/
+klue.com                             3/3       1.00  https://klue.com/
+kompyte.com                          3/3       1.00  https://www.kompyte.com/
+```
+
+**Those are not the companies the reader's phrasing returns.** Round one finds the pages that
+*name* the market — G2's category page, Capterra's. Round two finds the market.
+
+**The second round only happens when the words changed.** Type *"competitive intelligence
+software"* yourself and there is one round: the hits in hand are already the answer, and three
+more requests to somebody else's server would buy nothing. The coverage note counts whichever
+rounds went out, so an outage in the first cannot hide behind the second.
+
+**What this does not do yet.** §4's line ends with a `[Change]` control; editing an
+interpretation in place is [F2](../PROJECT_STATUS.md#f2--editing-the-product-idea) and not
+built. Retyping works. And a market picked from a chip does not *stick* — it starts a new
+analysis whose description is that market's name, which resolves to itself, but nothing records
+the choice. See [BENCHMARKS.md](BENCHMARKS.md) Runs 35 and 36.
 
 ---
 

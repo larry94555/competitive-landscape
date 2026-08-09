@@ -314,6 +314,7 @@ mod tests {
                 section("changes", Vec::new()),
             ],
             sources: Vec::new(),
+            interpreted: None,
             notes: Vec::new(),
         };
         let ready = report

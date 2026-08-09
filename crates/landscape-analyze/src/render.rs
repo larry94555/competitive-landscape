@@ -170,6 +170,7 @@ mod tests {
                 subjects: Vec::new(),
                 sections,
                 sources,
+                interpreted: None,
                 notes: Vec::new(),
             },
             coverage,

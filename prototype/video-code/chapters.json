@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "The market’s words, not the reader’s",
-    "blurb": "Somebody types “a free competitive landscape research tool” and we searched for exactly that, which finds articles about the idea rather than the market. The market says “competitive intelligence software”. Reading the titles of searches an analysis already sends, every two-to-four word phrase is counted once per independent site — forty pages from one content farm is not agreement — and the answer is the longest phrase that extends the one the most sites agreed on. Deterministic, no model, and shown to a reader as an interpretation rather than assumed.",
-    "seconds": 34.7
+    "title": "The market decides what is searched for",
+    "blurb": "The vocabulary resolver existed and nothing read it — an analysis still searched for what a reader typed, so the market’s name was a fact that changed nothing. Now it is what every company query is built from, and the substitution is shown on the report, including on the partial ones a reader watches for ninety seconds. A second round of searches goes out only when the words actually changed, and the coverage note counts both rounds so an outage in the first cannot hide behind the second.",
+    "seconds": 34.5
   }
 ]

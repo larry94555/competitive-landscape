@@ -33,6 +33,120 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 36 — the market decides what is searched for
+
+**Date:** 2026-08-09 · **Where:** this laptop · **Model:** none. The vocabulary step is
+deterministic; nothing here asks one.
+
+Run 35 built the resolver and a diagnostic. **Nothing read it.** An analysis still searched for
+what a reader typed, so the label was a fact about a market that changed nothing about the
+report. This wires it in.
+
+### The same idea, two rounds, two different answers
+
+Against a stand-in engine that answers the reader's phrasing and the market's differently — as
+the real web does, which is the entire premise of §4:
+
+```text
+idea      a free competitive landscape research tool
+  best a free competitive landscape research tool software
+  a free competitive landscape research tool tools comparison
+  a free competitive landscape research tool vendors
+
+interpreted as  competitive intelligence software
+agreed on by    3 independent sites
+also called     competitive intelligence, intelligence software
+searched for    competitive intelligence software
+
+company                             agreed    score  shallowest
+------------------------------------------------------------------------------
+crayon.co                            3/3       1.00  https://www.crayon.co/
+klue.com                             3/3       1.00  https://klue.com/
+kompyte.com                          3/3       1.00  https://www.kompyte.com/
+```
+
+**Round one found the pages that name the market** — G2's category, Capterra's, one vendor's
+product page. **Round two found the market.** Those are different sets, and before this change
+only the first existed.
+
+### The second round happens only when the words changed
+
+| The reader typed | Rounds | Why |
+|---|---|---|
+| *a free competitive landscape research tool* | **2** | the market calls it something else |
+| *competitive intelligence software* | **1** | it already is the market's name — the hits in hand are the answer |
+| anything, market ambiguous | **1** | nothing is searched for until somebody picks |
+| anything, no engine | **0** | unchanged |
+
+A test counts the queries for each. Three extra requests to somebody else's server is the price
+of the substitution, and it is charged only when the substitution happens.
+
+**The coverage note counts both rounds.** *"1 of the 6 searches did not complete"* is what
+happened; reporting only the second would hide an outage in the first behind a tidier number.
+
+### The interpretation is shown, not assumed
+
+```text
+Interpreted as competitive intelligence software (also: competitive intelligence,
+intelligence software) — 3 independent sites use this name
+```
+
+§4 asks for exactly this line and says why: *"If the interpretation is wrong, the user sees it
+immediately and fixes it in one click — which is faster and less annoying than any question we
+could have asked upfront."*
+
+**It rides on `Asked` rather than being stamped on the finished report**, because the *partial*
+reports reach a reader too — `on_progress` fires after every page. A line that appeared only at
+the end would tell somebody, ninety seconds in, that what they had been watching had been about
+something else all along.
+
+**And it is absent when nothing was substituted.** Repeating a reader's own words back at them
+as an "interpretation" is noise, and noise is what stops the real line being read. A test pins
+the absence, because that is the half that rots first.
+
+### An ambiguous market is the clarifying question §3 wanted
+
+`PRODUCT_SPEC.md` §3's *"who should I compare against?"* has been waiting on this. When two
+markets are backed by the same number of independent sites, the run **refuses before searching**
+and offers one chip per market — the same control the ambiguous-company question already uses,
+so the interface has one way of asking *which did you mean* rather than two.
+
+A market has no website, so `Choice::domain` is empty and the interface omits it rather than
+rendering a blank line where a reader has learned to expect the thing that tells two choices
+apart. What stands in its place is the evidence: *"2 independent sites use this name."*
+
+**A label too short to send back is not a label.** `NewAnalysis::parse` refuses under
+`MIN_PROMPT` characters, and a chip that renders and then answers the click with a `400` is
+exactly register 47, one row earlier. The guard is at the source — where phrases are made — so
+every later reader of a label gets one that works by construction rather than by remembering.
+
+### One function, two callers
+
+`candidates::for_market` is the whole sequence, and both the worker and `landscape candidates`
+call it. *"A diagnostic that agreed with the worker only by coincidence"* is a defect this
+codebase has already had once; the two still differ in what they **say**, and no longer in what
+they **do**.
+
+### What this does not do yet
+
+**A chosen market does not stick.** Clicking a chip starts a new analysis whose description is
+the market's name — which resolves to itself, so the answer holds in practice, but nothing
+records that a reader chose it. §3's *"the answer is remembered for the session"* needs session
+state that does not exist.
+
+**No `[Change]` control.** §4's line ends with one; editing an interpretation in place is
+[F2](../PROJECT_STATUS.md#f2--editing-the-product-idea), still R0. Retyping works today.
+
+**Nothing measures whether the label is right.** Unchanged, and now one step more consequential:
+the label decides the queries. [B1](../PROJECT_STATUS.md#4-blockers).
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 35 | 840 | 58 |
+| now | **849** | **62** |
+
+---
+
 ## Run 35 — the market's words, not the reader's
 
 **Date:** 2026-08-08 · **Where:** this laptop · **Model:** none, and that is the design —

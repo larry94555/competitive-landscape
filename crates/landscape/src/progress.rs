@@ -246,6 +246,7 @@ mod tests {
             subjects: Vec::new(),
             sections: vec![Section::not_found("pricing", title, Vec::new())],
             sources: Vec::new(),
+            interpreted: None,
             notes: Vec::new(),
         }
     }

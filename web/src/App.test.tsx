@@ -1105,6 +1105,79 @@ describe("watching a report being written", () => {
   });
 });
 
+describe("what the market calls it", () => {
+  /** Run to a finished report carrying `interpreted`, or not carrying it. */
+  async function reportWith(interpreted: unknown): Promise<void> {
+    stubEventSource();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) =>
+        Promise.resolve({
+          ok: true,
+          status: init?.method === "POST" ? 201 : 200,
+          json: () =>
+            Promise.resolve(
+              init?.method === "POST"
+                ? queued()
+                : {
+                    ...queued(),
+                    status: "complete",
+                    report: {
+                      subject: IDEA,
+                      searched_as: "competitive intelligence software",
+                      generated_at: "2026-08-09T00:00:00Z",
+                      model_id: "test",
+                      prompt_version: 1,
+                      sections: [],
+                      sources: [],
+                      interpreted,
+                    },
+                  },
+            ),
+        } as Response),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+    act(() => FakeEventSource.last!.send("done", ""));
+  }
+
+  it("says what it searched for when that is not what the reader typed", async () => {
+    // COMPETITIVE_DISCOVERY.md section 4. The substitution decides every query underneath it,
+    // so a wrong reading has to be visible *before* anything below it is believed.
+    await reportWith({
+      label: "competitive intelligence software",
+      also: ["competitive intelligence", "intelligence software"],
+      hosts: 3,
+    });
+    // Read the whole line rather than hunting for words in it: `searched_as` renders the same
+    // phrase a few lines down, and a loose matcher would pass on either of them.
+    const line = await screen.findByText(/interpreted as/i);
+    expect(line.textContent).toBe(
+      "Interpreted as competitive intelligence software" +
+        " (also: competitive intelligence, intelligence software)" +
+        " — 3 independent sites use this name",
+    );
+  });
+
+  it("says nothing when the reader's own words were searched for", async () => {
+    // **Absence is the disclosure working.** Repeating somebody's words back at them as an
+    // "interpretation" is noise, and noise is what stops the real line being read.
+    await reportWith(null);
+    expect(await screen.findByText("Done.")).toBeInTheDocument();
+    expect(screen.queryByText(/interpreted as/i)).toBeNull();
+  });
+
+  it("counts one site in the singular", async () => {
+    // A number a reader is meant to weigh has to read like one.
+    await reportWith({ label: "crm software", also: [], hosts: 1 });
+    expect(await screen.findByText(/1 independent site\b/)).toBeInTheDocument();
+  });
+});
+
 describe("when it does not finish", () => {
   it("tells a reader who named no company what to do instead", async () => {
     // The failure they can fix. "Nothing you did caused it" would be both wrong and a
@@ -1308,6 +1381,31 @@ describe("when it does not finish", () => {
     await waitFor(() => expect(chip).toBeDisabled());
     await user.click(chip);
     expect(posts).toBe(2);
+  });
+
+  it("shows a market to pick between without inventing a website for it", async () => {
+    // The ambiguous-*market* question reuses the chip the ambiguous-*company* question built,
+    // and a market has no domain. An empty one must not render as a blank line where a
+    // reader has learned to expect the thing that tells two choices apart.
+    await shownFor("ambiguous", [
+      {
+        name: "inventory management software",
+        domain: "",
+        what_it_is: "2 independent sites use this name",
+        prompt: "inventory management software",
+      },
+      {
+        name: "project management software",
+        domain: "",
+        what_it_is: "2 independent sites use this name",
+        prompt: "project management software",
+      },
+    ]);
+    expect(
+      await screen.findByRole("button", { name: /inventory management software/i }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/2 independent sites use this name/)).toHaveLength(2);
+    expect(document.querySelectorAll(".choice .domain")).toHaveLength(0);
   });
 
   it("does not offer a question the report on screen has already answered", async () => {

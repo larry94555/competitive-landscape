@@ -24,6 +24,7 @@ fn sample_report(subject: &str) -> Report {
         subjects: Vec::new(),
         sections: Vec::new(),
         sources: Vec::new(),
+        interpreted: None,
         notes: Vec::new(),
     }
 }

@@ -62,6 +62,7 @@ fn report_saying(text: &str) -> Report {
             notes: Vec::new(),
         }],
         sources: Vec::new(),
+        interpreted: None,
         notes: Vec::new(),
     }
 }

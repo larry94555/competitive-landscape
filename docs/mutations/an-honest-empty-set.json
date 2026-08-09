@@ -119,7 +119,7 @@
   {
     "name": "a description that found one company says nothing about why",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "    set.alone = crate::competitors::alone_because(\n        set.members.len(),\n        &queried,\n        crate::competitors::Sought::CompaniesMatchingTheDescription,\n        None,\n    );",
+    "old": "    set.alone = crate::competitors::alone_because(\n        set.members.len(),\n        queried,\n        crate::competitors::Sought::CompaniesMatchingTheDescription,\n        None,\n    );",
     "new": "    set.alone = None;",
     "run": [
       "cargo",
