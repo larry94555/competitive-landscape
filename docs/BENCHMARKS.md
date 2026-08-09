@@ -87,6 +87,51 @@ pins it.
 The one thing a hit can be wrong about is a `robots.txt` that changed since the fetch, and that
 window is bounded by `FRESH_FOR` rather than open.
 
+### Review, third pass: an argument written where a test belonged
+
+The section below ends by explaining why the robots cache needs no "too large to keep" guard:
+a `robots.txt` is read through `MAX_BYTES`, so 2 MiB of file cannot become 4 MiB of rules.
+Review answered in one line:
+
+```text
+one file left 5767378 bytes held against a budget of 4194304
+```
+
+An admissible 2 MiB file of `Disallow: /` lines is 174,000 directives, and the byte counter
+charges each one the 32 bytes of the tuple that holds it as well as its single character.
+**The parsed form is bigger than the bytes it was parsed from**, which reasoning from the wire
+size cannot see. Without the guard the eviction loop empties the map making room and then
+inserts the thing that did not fit.
+
+The guard is there now, and the regression builds a file right up against `MAX_BYTES`. The
+argument that replaced it in the source says what it cost — and the sharper lesson is that the
+comment cited *this file's own rule* about not writing branches no test can reach, and used it
+to justify not writing a check. A principle about testability became a reason to skip a test.
+
+### Review, third pass: `get` returns the first, and a header can arrive twice
+
+`Cache-Control` is a list-based field, and HTTP lets it arrive as several field lines whose
+values combine as though written on one line with commas. `HeaderMap::get` returns the first:
+
+```text
+Cache-Control: public
+Cache-Control: no-store      ← never read
+```
+
+So a response arrived as a bare `public` and was cached against an explicit instruction, and
+nothing downstream could recover it — splitting on commas does not help when the value that must
+be found was dropped before being passed along. `combined()` reads `get_all` and joins, and a
+value that is not readable text is reported as `no-store`: it may have *been* one, and a header
+we cannot read is not permission.
+
+The tests build a `HeaderMap` with `append` rather than a response, for the reason the section
+below gives about `insert_allowed`: nothing in `fetcher.rs` can be driven over a socket, so the
+header readers take the map. **The harness made that point again mid-fix.** The first version
+called `combined` from inside `Fetcher::get`, and *a directive on a second Cache-Control line is
+never read* came back MISSED — the choice of which reader to use is a decision, and a decision
+made in that function is one nothing can reach. Which field is list-based now lives in `Said`,
+one call from an assertion, and `get`'s share is a single line with no choice in it.
+
 ### Review, second pass: pruning what has expired is not a bound
 
 The fix for the leak below made `robots::Cache` drop expired entries on insert, and the
@@ -111,10 +156,9 @@ Forgetting a *live* rule set is safe, and that is what makes eviction available 
 next request for that host re-fetches `robots.txt`. The cost is one extra request. What is never
 done is assuming permission from a rule set that was dropped.
 
-There is no "too large to keep" guard, unlike the page cache, and the asymmetry is deliberate: a
-`robots.txt` is read through `MAX_BYTES`, so one entry cannot reach 2 MiB of directives and
-cannot exceed a 4 MiB budget alone. A guard for a case that cannot arise is a branch no test can
-reach — the lesson from the round before, applied.
+*This paragraph originally argued that no "too large to keep" guard was needed, because a
+`robots.txt` is read through `MAX_BYTES` and one entry could not exceed a 4 MiB budget alone.
+That was wrong, and the round above records how. There is a guard.*
 
 ### Review, second pass: a lifetime is not a deadline
 
@@ -244,7 +288,10 @@ What is asserted instead:
   rather than restarted, that a response already past it is not kept, and that `Expires` is
   **not** age-adjusted twice;
 - that the robots cache evicts live entries past its host cap and past its byte budget, with
-  nothing aged.
+  nothing aged, and declines one rule set too heavy for the whole budget without emptying itself
+  first;
+- that a `no-store` on a second `Cache-Control` field line reaches `storable`, over a `HeaderMap`
+  built with `append`.
 
 **One mutation was dropped rather than kept as a pin nobody can satisfy.** *"Remember the page
 under where the redirect landed rather than under what was asked for"* is a real defect and the
@@ -271,7 +318,7 @@ across processes. That is the second half of this row.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 36 | 850 | 62 |
-| now | **874** | **62** |
+| now | **879** | **62** |
 
 ---
 

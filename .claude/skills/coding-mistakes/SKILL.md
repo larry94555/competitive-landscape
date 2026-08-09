@@ -1853,6 +1853,64 @@ what clock it started on; if that clock is not yours, the elapsed part is alread
 
 ---
 
+## 54. An argument written where a test belonged, and the first value taken for all of them
+
+**Found:** by review, in the fix for entry 53 — the third consecutive round on one cache.
+
+### Prose is not a proof, and a correct principle can be used to skip a check
+
+The page cache declines a single entry too large for its whole budget, or the eviction loop
+empties the map making room and then inserts the thing that did not fit. The robots cache was
+given the same budget and **no such guard**, with a comment explaining why one was unnecessary:
+
+> a `robots.txt` is read through `MAX_BYTES`, so a single entry cannot reach 2 MiB of retained
+> directives and cannot exceed this budget on its own. A guard for a case that cannot arise is a
+> branch no test can reach.
+
+Every clause of that is confident and the conclusion is false. Review answered it in one line:
+
+```text
+one file left 5767378 bytes held against a budget of 4194304
+```
+
+An admissible 2 MiB file of `Disallow: /` lines is 174,000 directives, and the byte counter —
+**mine, three paragraphs above the comment** — charges each one the 32 bytes of the tuple that
+holds it as well as its single character. The argument reasoned about the size on the wire; the
+budget counts the size in memory. *The parsed form is bigger than the bytes it was parsed from.*
+
+The worst part is the second sentence. Entry 52's rule — do not write branches no test can reach
+— is right, and it was used here to justify *not writing a check*, on the strength of an argument
+about reachability that was never run. **A principle about testability became a reason to skip a
+test.** Deleting a guard needs the same evidence as adding one, and the evidence is a test, not
+a paragraph.
+
+### `get` returns the first, and a header can arrive twice
+
+`Cache-Control` is a list-based field, and HTTP lets it arrive as several field lines whose
+values combine as though written on one line with commas. `HeaderMap::get` returns the **first**:
+
+```text
+Cache-Control: public
+Cache-Control: no-store      ← never read
+```
+
+so a response arrived as a bare `public` and was cached against an explicit instruction. Nothing
+downstream could recover it: splitting on commas does not help when the value that must be found
+was dropped before it was passed along. The fix reads `get_all` and joins.
+
+Note the shape — this is the same family as the round before it. A part standing in for the
+whole: the first field line for the whole field, the wire size for the whole cost.
+
+**Rule:** when you remove or omit a bound, guard or check, write the test that proves it
+redundant — an argument in a comment carries no weight against a defect and is worse than
+silence, because it discourages the next reader from checking. And when an API offers `get` and
+`get_all`, find out which of the two the *protocol* means before picking the shorter name.
+
+> **Ask this:** *is my reason for leaving this out a measurement or a paragraph? And can this
+> thing legitimately occur more than once?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

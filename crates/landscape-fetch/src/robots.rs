@@ -45,10 +45,20 @@ pub const MAX_HOSTS: usize = 1_024;
 /// thousand hosts is a thousand `Disallow:` lines or a thousand files of ten thousand, and only
 /// one of those two numbers is the one that hurts.
 ///
-/// **No "too large to keep" guard, unlike the page cache**, and that asymmetry is deliberate: a
-/// `robots.txt` is read through [`crate::MAX_BYTES`], so a single entry cannot reach 2 MiB of
-/// retained directives and cannot exceed this budget on its own. A guard for a case that cannot
-/// arise is a branch no test can reach.
+/// A single rule set too heavy for this budget is **declined rather than retained**, the same as
+/// an oversized page. The first version of this argued the guard was unnecessary — a `robots.txt`
+/// is read through [`crate::MAX_BYTES`], so 2 MiB of file cannot become 4 MiB of rules — and
+/// review disproved it in one line:
+///
+/// ```text
+/// one file left 5767378 bytes held against a budget of 4194304
+/// ```
+///
+/// A file of `Disallow: /` lines is 174,000 directives, and [`Rules::bytes`] charges each one the
+/// 32 bytes of the tuple that holds it as well as its single character. **The parsed form is
+/// bigger than the bytes it was parsed from**, which is exactly what an argument from the wire
+/// size cannot see. Declining costs a re-fetch on the next request for that host; the rules still
+/// govern the request that fetched them.
 pub const MAX_RULE_BYTES: usize = 4 * 1024 * 1024;
 
 /// What one remembered host costs beyond the text of its rules — the key, the entry, the map's
@@ -346,6 +356,14 @@ impl Cache {
         if let Some(old) = self.by_host.remove(&host) {
             self.bytes -= old.cost;
         }
+        // **A rule set too heavy for the whole budget is not kept at all.** Without this the loop
+        // below empties the map making room and then inserts the thing that did not fit — see
+        // [`MAX_RULE_BYTES`] for the argument that said this could not happen and the one line of
+        // review output that disproved it. Dropping the host's old entry first is deliberate:
+        // stale rules are worse than none, and none means we re-read them next time.
+        if cost > MAX_RULE_BYTES {
+            return;
+        }
         // **And then the live ones, oldest first.** Review's second pass: pruning what has
         // expired is not a bound, because nothing has expired in the case that hurts.
         while self.bytes + cost > MAX_RULE_BYTES || self.by_host.len() >= MAX_HOSTS {
@@ -415,6 +433,8 @@ mod not_growing_for_ever {
 
     use super::*;
 
+    const UA: &str = "landscapebot";
+
     #[test]
     fn more_live_hosts_than_the_cap_evicts_the_oldest_rather_than_growing() {
         // **Nothing expires in this test, which is the whole point of it.** The first regression
@@ -445,6 +465,45 @@ mod not_growing_for_ever {
     }
 
     #[test]
+    fn one_admissible_file_cannot_blow_the_whole_budget() {
+        // **The argument this replaces said the guard was unnecessary**: a `robots.txt` is read
+        // through `MAX_BYTES`, so 2 MiB of file cannot become 4 MiB of rules. Review answered
+        // with `one file left 5767378 bytes held against a budget of 4194304`. A file of
+        // `Disallow: /` lines is 174,000 directives, and each is charged the tuple that holds it
+        // as well as its one character — **the parsed form is bigger than the bytes it came
+        // from**, which reasoning from the wire size cannot see.
+        let line = "Disallow: /\n";
+        let head = "User-agent: *\n";
+        let body = head.to_owned() + &line.repeat((crate::MAX_BYTES - head.len()) / line.len());
+        assert!(
+            body.len() <= crate::MAX_BYTES,
+            "the file itself has to be one we would accept, or this proves nothing"
+        );
+
+        let mut cache = Cache::new();
+        cache.insert(
+            "small.example",
+            Rules::parse("User-agent: *\nDisallow: /a", UA),
+        );
+        cache.insert("huge.example", Rules::parse(&body, UA));
+
+        assert!(
+            cache.bytes() <= MAX_RULE_BYTES,
+            "one file left {} bytes held against a budget of {MAX_RULE_BYTES}",
+            cache.bytes()
+        );
+        assert!(
+            cache.get("huge.example").is_none(),
+            "a rule set too heavy for the whole budget was retained anyway"
+        );
+        // Declining the newcomer must not have cost the cache everything else on the way.
+        assert!(
+            cache.get("small.example").is_some(),
+            "the cache emptied itself making room for something it then refused"
+        );
+    }
+
+    #[test]
     fn a_thousand_small_files_and_a_few_huge_ones_are_both_bounded() {
         // The count is not the unit that hurts when one file carries ten thousand `Disallow:`
         // lines, and the bytes are not the unit that hurts when ten thousand files carry one.
@@ -465,7 +524,7 @@ mod not_growing_for_ever {
 
         let mut cache = Cache::new();
         for i in 0..400 {
-            cache.insert(format!("h{i}.example"), Rules::parse(&body, "landscapebot"));
+            cache.insert(format!("h{i}.example"), Rules::parse(&body, UA));
         }
         assert!(
             cache.bytes() <= MAX_RULE_BYTES,

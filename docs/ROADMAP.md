@@ -874,7 +874,9 @@ the single most important phase; everything after it is commerce and polish.
   be 2 MiB — and, as review pointed out by filling it with empty responses, a byte cap that
   counts only bodies bounds nothing either. The per-host `robots.txt` and pacing state prune on
   insert now that the fetcher outlives one analysis — and the rules are capped in live hosts and
-  in bytes as well, because expiry is not a bound when the window is six hours long.
+  in bytes as well, because expiry is not a bound when the window is six hours long — and one
+  rule set too heavy for the whole budget is declined rather than retained, because a 2 MiB file
+  of `Disallow:` lines parses into more than 4 MiB of rules.
   **And the origin's `Cache-Control` is obeyed**: `no-store`, `no-cache` and `private` are not
   kept at all, and `max-age` shortens the hour rather than being overruled by it — measured from
   the origin's `Date` and net of any `Age`, so a response that spent its freshness in a CDN does

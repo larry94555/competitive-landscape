@@ -388,5 +388,70 @@
       "-p",
       "landscape-fetch"
     ]
+  },
+  {
+    "name": "one rule set too heavy for the whole budget is kept anyway",
+    "file": "crates/landscape-fetch/src/robots.rs",
+    "old": "        if cost > MAX_RULE_BYTES {\n            return;\n        }",
+    "new": "        if cost > usize::MAX {\n            return;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a directive on a second Cache-Control line is never read",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "            cache_control: combined(headers, \"cache-control\"),",
+    "new": "            cache_control: header(headers, \"cache-control\"),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "only the first field line of a list-based header is combined",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "    for value in headers.get_all(name) {",
+    "new": "    for value in headers.get(name) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a header value we cannot read is treated as silence",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "        let Ok(text) = value.to_str() else {\n            return Some(\"no-store\".to_owned());\n        };",
+    "new": "        let Ok(text) = value.to_str() else {\n            continue;\n        };",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a single-valued field is joined as though it were a list",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "            date: header(headers, \"date\"),",
+    "new": "            date: combined(headers, \"date\"),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
   }
 ]
