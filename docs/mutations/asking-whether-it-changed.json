@@ -68,7 +68,7 @@
     "name": "a 304 nobody asked a conditional question for becomes an empty page",
     "file": "crates/landscape-fetch/src/fetcher.rs",
     "old": "    let held = held.ok_or_else(|| {\n        FetchError::Transport(\"304 for a request that carried no validator\".into())\n    })?;",
-    "new": "    let Some(held) = held else {\n        return Ok((\n            Page {\n                url: String::new(),\n                status: 304,\n                body: String::new(),\n                etag: None,\n                last_modified: None,\n                fetched_at: at,\n            },\n            crate::cache::FRESH_FOR,\n        ));\n    };",
+    "new": "    let Some(held) = held else {\n        return Ok((\n            Page {\n                url: String::new(),\n                status: 304,\n                body: String::new(),\n                etag: None,\n                last_modified: None,\n                fetched_at: at,\n            },\n            crate::cache::Policy::default(),\n        ));\n    };",
     "run": [
       "cargo",
       "nextest",
@@ -247,45 +247,6 @@
     ]
   },
   {
-    "name": "revalidating a page widens the policy it was kept under",
-    "file": "crates/landscape-fetch/src/cache.rs",
-    "old": "    if headers.cache_control.is_some() || headers.expires.is_some() {\n        return storable(status, headers, now);\n    }",
-    "new": "    if true {\n        return storable(status, headers, now);\n    }",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-fetch"
-    ]
-  },
-  {
-    "name": "a 304 restating a shorter policy is ignored",
-    "file": "crates/landscape-fetch/src/cache.rs",
-    "old": "    if headers.cache_control.is_some() || headers.expires.is_some() {",
-    "new": "    if false {",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-fetch"
-    ]
-  },
-  {
-    "name": "the age a 304 reports is not spent",
-    "file": "crates/landscape-fetch/src/cache.rs",
-    "old": "    let left = stored_for.saturating_sub(aged);",
-    "new": "    let left = stored_for;",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-fetch"
-    ]
-  },
-  {
     "name": "a page the origin now forbids is served from an older copy",
     "file": "crates/landscape-fetch/src/cache.rs",
     "old": "            Storable::No => {\n                // **And drop what we already hold.** A page the origin now says not to store is\n                // not one to keep serving from an older copy, which is the way a cache that\n                // obeys `no-store` can still ignore it.\n                self.forget(&url);\n                false\n            }",
@@ -301,8 +262,8 @@
   {
     "name": "a 304 forbidding storage leaves what it confirmed behind",
     "file": "crates/landscape-fetch/src/cache.rs",
-    "old": "            Storable::No => {\n                self.forget(&url);\n                false\n            }\n            Storable::For(fresh_for) => {\n                self.insert_for(url, page, fresh_for);",
-    "new": "            Storable::No => false,\n            Storable::For(fresh_for) => {\n                self.insert_for(url, page, fresh_for);",
+    "old": "            Storable::No => {\n                self.forget(&url);\n                false\n            }\n            Storable::For(fresh_for) => {\n                self.keep(url, page, fresh_for, merged);",
+    "new": "            Storable::No => false,\n            Storable::For(fresh_for) => {\n                self.keep(url, page, fresh_for, merged);",
     "run": [
       "cargo",
       "nextest",
@@ -325,10 +286,101 @@
     ]
   },
   {
-    "name": "the stored lifetime is dropped on the way into a revalidation",
+    "name": "a 304 that supplies one field is read as if it supplied them all",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "            cache_control: headers\n                .cache_control\n                .map(str::to_owned)\n                .or_else(|| self.cache_control.clone()),",
+    "new": "            cache_control: headers.cache_control.map(str::to_owned),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a 304 updating an Expires cannot update it",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "            expires: headers\n                .expires\n                .map(str::to_owned)\n                .or_else(|| self.expires.clone()),",
+    "new": "            expires: self.expires.clone(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the merged policy is discarded and the 304 read on its own",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        let merged = stored.updated_by(headers);",
+    "new": "        let merged = Policy::of(headers);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the age a 304 arrives with is not spent",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        match storable(page.status, merged.against(headers.date, headers.age), now) {",
+    "new": "        match storable(page.status, merged.against(None, None), now) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the policy a page was stored under is not remembered",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "                self.keep(url, page, fresh_for, Policy::of(headers));",
+    "new": "                self.keep(url, page, fresh_for, Policy::default());",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a new ETag on a 304 is thrown away",
     "file": "crates/landscape-fetch/src/fetcher.rs",
-    "old": "        held.fresh_for,",
-    "new": "        crate::cache::FRESH_FOR,",
+    "old": "            etag: header(headers, \"etag\").or_else(|| held.page.etag.clone()),",
+    "new": "            etag: held.page.etag.clone(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a 304 that repeats nothing loses the validator we asked with",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "            etag: header(headers, \"etag\").or_else(|| held.page.etag.clone()),",
+    "new": "            etag: header(headers, \"etag\"),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a new Last-Modified on a 304 is thrown away",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "            last_modified: header(headers, \"last-modified\")\n                .or_else(|| held.page.last_modified.clone()),",
+    "new": "            last_modified: held.page.last_modified.clone(),",
     "run": [
       "cargo",
       "nextest",

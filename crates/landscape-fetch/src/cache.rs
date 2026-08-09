@@ -265,6 +265,63 @@ pub fn storable(status: u16, headers: Freshness<'_>, now: DateTime<Utc>) -> Stor
     }
 }
 
+/// The freshness fields a response stated, kept as the origin wrote them.
+///
+/// **Fields rather than the duration they work out to**, and review is the reason. RFC 9111 §3.2
+/// says a `304` replaces the stored fields it *supplies* and leaves the ones it omits alone, so
+/// the merge is field by field and a computed number cannot express it. The case that proves it:
+/// a page stored with `Cache-Control: max-age=30` **and** an `Expires` an hour out is fresh for
+/// thirty seconds, and a `304` that updates only `Expires` is still thirty seconds — but reading
+/// the `304` alone, or merging a single duration, gives an hour.
+///
+/// `Date` and `Age` are deliberately **not** here. They describe *a response*, not a policy, and
+/// the ones stored belong to a response that is no longer the one in hand; carrying them forward
+/// would charge a fresh `304` with the age of the `200` it confirms.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Policy {
+    pub cache_control: Option<String>,
+    pub expires: Option<String>,
+}
+
+impl Policy {
+    /// What this response said about being kept.
+    #[must_use]
+    pub fn of(headers: Freshness<'_>) -> Self {
+        Self {
+            cache_control: headers.cache_control.map(str::to_owned),
+            expires: headers.expires.map(str::to_owned),
+        }
+    }
+
+    /// The stored policy with whatever the newer response supplied written over it.
+    ///
+    /// RFC 9111 §3.2 and §4.3.4: *supplied* replaces, *omitted* remains. Not "the newer response
+    /// wins if it said anything", which is the shape that loses a `max-age` to an `Expires`.
+    #[must_use]
+    pub fn updated_by(&self, headers: Freshness<'_>) -> Self {
+        Self {
+            cache_control: headers
+                .cache_control
+                .map(str::to_owned)
+                .or_else(|| self.cache_control.clone()),
+            expires: headers
+                .expires
+                .map(str::to_owned)
+                .or_else(|| self.expires.clone()),
+        }
+    }
+
+    /// This policy, read against the age *this* response reports.
+    fn against<'a>(&'a self, date: Option<&'a str>, age: Option<&'a str>) -> Freshness<'a> {
+        Freshness {
+            cache_control: self.cache_control.as_deref(),
+            expires: self.expires.as_deref(),
+            date,
+            age,
+        }
+    }
+}
+
 /// A page we still hold and the proof we can ask whether it has changed.
 ///
 /// **The body travels with the validators on purpose.** Revalidation needs the old bytes to hand
@@ -275,42 +332,13 @@ pub fn storable(status: u16, headers: Freshness<'_>, now: DateTime<Utc>) -> Stor
 #[derive(Debug, Clone)]
 pub struct Stale {
     pub page: Page,
-    /// How long this entry was allowed to be served for. **Carried because a `304` may not
-    /// repeat it** — see [`Cache::insert_revalidated`].
-    pub fresh_for: Duration,
+    /// The freshness fields this entry was stored under. **Carried because a `304` may not
+    /// repeat them** — see [`Policy`] and [`Cache::insert_revalidated`].
+    pub policy: Policy,
     /// `ETag`, the strong one, first.
     pub etag: Option<String>,
     /// `Last-Modified`, for origins that do not send an `ETag`.
     pub last_modified: Option<String>,
-}
-
-/// How long a page a `304` has just confirmed may be served for.
-///
-/// The stored lifetime unless the `304` restates one, less whatever age the `304` reports. See
-/// [`Cache::insert_revalidated`] for why silence is *unchanged* rather than *unset*.
-///
-/// A header on the `304` we cannot read is treated the way [`storable`] treats one: not
-/// cacheable. Keeping a page under a policy we misread is the failure that rule exists for, and
-/// it does not stop being that because the page came back as a `304`.
-#[must_use]
-pub fn confirmed_freshness(
-    stored_for: Duration,
-    status: u16,
-    headers: Freshness<'_>,
-    now: DateTime<Utc>,
-) -> Storable {
-    if headers.cache_control.is_some() || headers.expires.is_some() {
-        return storable(status, headers, now);
-    }
-    let Some(aged) = already_aged(headers, now) else {
-        return Storable::No;
-    };
-    let left = stored_for.saturating_sub(aged);
-    if left.is_zero() {
-        Storable::No
-    } else {
-        Storable::For(left)
-    }
 }
 
 /// Pages kept in memory, oldest evicted first.
@@ -336,6 +364,8 @@ struct Entry {
     cost: usize,
     /// How long this one may be served — the origin's number, not ours, when it gave one.
     fresh_for: Duration,
+    /// The fields that number was worked out from, kept for the merge a `304` needs.
+    policy: Policy,
 }
 
 impl Cache {
@@ -384,7 +414,7 @@ impl Cache {
         }
         Some(Stale {
             page: entry.page.clone(),
-            fresh_for: entry.fresh_for,
+            policy: entry.policy.clone(),
             etag: entry.page.etag.clone(),
             last_modified: entry.page.last_modified.clone(),
         })
@@ -408,17 +438,21 @@ impl Cache {
         &mut self,
         url: String,
         page: Page,
-        stored_for: Duration,
+        stored: &Policy,
         headers: Freshness<'_>,
         now: DateTime<Utc>,
     ) -> bool {
-        match confirmed_freshness(stored_for, page.status, headers, now) {
+        // **Field by field, then recomputed from the merge.** The `Date` and `Age` are the
+        // `304`'s own, because they describe the response in hand rather than the one it
+        // confirms.
+        let merged = stored.updated_by(headers);
+        match storable(page.status, merged.against(headers.date, headers.age), now) {
             Storable::No => {
                 self.forget(&url);
                 false
             }
             Storable::For(fresh_for) => {
-                self.insert_for(url, page, fresh_for);
+                self.keep(url, page, fresh_for, merged);
                 true
             }
         }
@@ -466,7 +500,7 @@ impl Cache {
                 false
             }
             Storable::For(fresh_for) => {
-                self.insert_for(url, page, fresh_for);
+                self.keep(url, page, fresh_for, Policy::of(headers));
                 true
             }
         }
@@ -477,6 +511,11 @@ impl Cache {
     /// The duration comes from the origin — see [`storable`] — capped at [`FRESH_FOR`]. A
     /// publisher saying *thirty seconds* is not overruled by our hour.
     pub fn insert_for(&mut self, url: String, page: Page, fresh_for: Duration) {
+        self.keep(url, page, fresh_for, Policy::default());
+    }
+
+    /// Keep a page for a stated time, remembering the fields that time came from.
+    fn keep(&mut self, url: String, page: Page, fresh_for: Duration, policy: Policy) {
         let size = cost(&url, &page);
         // A page too large to keep alongside anything else is not kept at all. Without this the
         // loop below could evict the entire cache to make room for one document and then still
@@ -510,6 +549,7 @@ impl Cache {
                 order: self.next,
                 cost: size,
                 fresh_for,
+                policy,
             },
         );
     }
@@ -920,58 +960,86 @@ mod tests {
     }
 
     #[test]
-    fn revalidating_a_page_does_not_widen_the_policy_it_was_kept_under() {
-        // **Review found this, and it is a publisher's policy being loosened by asking them.**
-        // RFC 9111 lets a `304` omit a `Cache-Control` whose value has not changed, and most
-        // origins do. Read on its own, an origin's `max-age=30` becomes our hour the first time
-        // it is revalidated — the opposite of what asking politely is for.
-        let now = at("2026-08-09T00:00:00Z");
-        let thirty = Duration::from_secs(30);
-
+    fn a_304_replaces_the_fields_it_supplies_and_leaves_the_ones_it_omits() {
+        // **RFC 9111 §3.2 and §4.3.4, and the case that shows why a duration is not enough.**
+        // Review's example: a page stored with `max-age=30` *and* an `Expires` an hour out is
+        // fresh for thirty seconds. A `304` that updates only `Expires` is still thirty seconds
+        // — but "the newer response wins if it said anything" reads that as an hour.
+        let stored = Policy {
+            cache_control: Some("max-age=30".to_owned()),
+            expires: Some("Sun, 09 Aug 2026 01:00:00 GMT".to_owned()),
+        };
+        let merged = stored.updated_by(expiring("Sun, 09 Aug 2026 02:00:00 GMT"));
         assert_eq!(
-            confirmed_freshness(thirty, 200, Freshness::default(), now),
-            Storable::For(thirty),
-            "a silent 304 was taken as no policy at all"
+            merged.cache_control.as_deref(),
+            Some("max-age=30"),
+            "an omitted Cache-Control was dropped rather than left alone"
+        );
+        assert_eq!(
+            merged.expires.as_deref(),
+            Some("Sun, 09 Aug 2026 02:00:00 GMT"),
+            "a supplied Expires did not replace the stored one"
         );
 
-        // What the `304` does say is honoured in full, in both directions.
+        let now = at("2026-08-09T00:00:00Z");
         assert_eq!(
-            confirmed_freshness(thirty, 200, said("max-age=600"), now),
+            storable(200, merged.against(None, None), now),
+            Storable::For(Duration::from_secs(30)),
+            "thirty seconds became an hour by being confirmed"
+        );
+    }
+
+    #[test]
+    fn a_silent_304_leaves_the_whole_policy_where_it_was() {
+        let now = at("2026-08-09T00:00:00Z");
+        let stored = Policy::of(said("max-age=30"));
+        let merged = stored.updated_by(Freshness::default());
+        assert_eq!(merged, stored, "silence changed the policy");
+        assert_eq!(
+            storable(200, merged.against(None, None), now),
+            Storable::For(Duration::from_secs(30))
+        );
+    }
+
+    #[test]
+    fn what_a_304_does_say_is_honoured_in_both_directions() {
+        let now = at("2026-08-09T00:00:00Z");
+        let stored = Policy::of(said("max-age=30"));
+
+        let longer = stored.updated_by(said("max-age=600"));
+        assert_eq!(
+            storable(200, longer.against(None, None), now),
             Storable::For(Duration::from_secs(600)),
             "an origin extending its own policy was ignored"
         );
+
+        let forbidden = Policy::of(said("max-age=3600")).updated_by(said("no-store"));
         assert_eq!(
-            confirmed_freshness(FRESH_FOR, 200, said("max-age=30"), now),
-            Storable::For(thirty)
-        );
-        assert_eq!(
-            confirmed_freshness(thirty, 200, said("no-store"), now),
+            storable(200, forbidden.against(None, None), now),
             Storable::No
         );
+    }
 
-        // And a `304` that reports an age spends it, the same as any other response.
-        let aged = Freshness {
-            age: Some("25"),
-            ..Freshness::default()
-        };
+    #[test]
+    fn the_age_a_304_reports_is_its_own_and_the_stored_one_is_not_carried() {
+        // `Date` and `Age` describe a response, not a policy. Carrying the `200`'s forward would
+        // charge a fresh `304` with the age of the response it confirms — and the stored ones are
+        // deliberately not in `Policy` at all, so there is nothing to carry.
+        let now = at("2026-08-09T00:00:00Z");
+        let merged = Policy::of(said("max-age=30")).updated_by(Freshness::default());
         assert_eq!(
-            confirmed_freshness(thirty, 200, aged, now),
+            storable(200, merged.against(None, Some("25")), now),
             Storable::For(Duration::from_secs(5))
         );
-        let spent = Freshness {
-            age: Some("30"),
-            ..Freshness::default()
-        };
-        assert_eq!(confirmed_freshness(thirty, 200, spent, now), Storable::No);
-
-        // An unreadable header is not permission here either.
-        let unreadable = Freshness {
-            age: Some("soon"),
-            ..Freshness::default()
-        };
         assert_eq!(
-            confirmed_freshness(thirty, 200, unreadable, now),
-            Storable::No
+            storable(200, merged.against(None, Some("30")), now),
+            Storable::No,
+            "a 304 arriving with its freshness already spent was kept anyway"
+        );
+        assert_eq!(
+            storable(200, merged.against(None, Some("soon")), now),
+            Storable::No,
+            "an unreadable Age on a 304 is not permission either"
         );
     }
 
@@ -994,12 +1062,12 @@ mod tests {
         let asking = cache
             .stale("https://a.example/pricing")
             .expect("expired, and askable");
-        assert_eq!(asking.fresh_for, Duration::from_secs(30));
+        assert_eq!(asking.policy, Policy::of(said("max-age=30")));
 
         assert!(cache.insert_revalidated(
             "https://a.example/pricing".to_owned(),
             page,
-            asking.fresh_for,
+            &asking.policy,
             Freshness::default(),
             now
         ));
@@ -1011,6 +1079,48 @@ mod tests {
         assert!(
             cache.get("https://a.example/pricing").is_none(),
             "thirty seconds became an hour by being confirmed"
+        );
+    }
+
+    #[test]
+    fn a_304_that_arrives_with_its_freshness_spent_is_not_kept() {
+        // Through the cache, because the age has to reach `storable` from the `304`'s own
+        // headers rather than from the stored policy — and the difference between the two is
+        // invisible until something asserts it on the path that carries it.
+        let now = at("2026-08-09T00:00:00Z");
+        let mut cache = Cache::new();
+        let stored = Policy::of(said("max-age=30"));
+
+        let arrived_old = Freshness {
+            age: Some("30"),
+            ..Freshness::default()
+        };
+        assert!(
+            !cache.insert_revalidated(
+                "https://a.example/".to_owned(),
+                page("https://a.example/", 40),
+                &stored,
+                arrived_old,
+                now
+            ),
+            "a 304 whose thirty seconds were already spent was kept anyway"
+        );
+
+        let arrived_fresh = Freshness {
+            age: Some("25"),
+            ..Freshness::default()
+        };
+        assert!(cache.insert_revalidated(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 40),
+            &stored,
+            arrived_fresh,
+            now
+        ));
+        cache.age(Duration::from_secs(6));
+        assert!(
+            cache.get("https://a.example/").is_none(),
+            "five seconds of freshness lasted longer than five seconds"
         );
     }
 
@@ -1050,7 +1160,7 @@ mod tests {
         assert!(!cache.insert_revalidated(
             "https://a.example/".to_owned(),
             page("https://a.example/", 40),
-            Duration::from_secs(30),
+            &Policy::of(said("max-age=30")),
             said("no-store"),
             now
         ));

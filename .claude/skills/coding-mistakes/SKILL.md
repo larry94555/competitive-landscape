@@ -2089,13 +2089,28 @@ merely looked similar. When a resource is scoped to a unit of work, every constr
 to answer *"what is the unit of work here?"* — and a loop over independent targets is not one
 unit however much it resembles one.
 
-**Rule:** when consuming an update, ask what a missing field means — *unchanged* or *unset* —
-and carry the stored value when it means unchanged. When refusing to keep something, ask whether
-you are also refusing to serve what you already kept. And when a limit is scoped to a unit of
-work, name the unit at every place you construct it.
+**The first fix was not enough, and the second round is the more useful half.** I carried the
+stored *duration* forward and used it whenever the `304` restated nothing. Review took that apart
+too: RFC 9111 §3.2 says the fields a response *supplies* replace their stored counterparts and
+the ones it *omits* remain, so the merge is **per field**, and a computed number cannot express
+it. A page stored with `max-age=30` **and** an `Expires` an hour out is fresh for thirty seconds;
+a `304` updating only `Expires` is still thirty seconds; "it said something, so read it alone"
+gives two hours.
 
-> **Ask this:** *does silence here mean "same as before" or "none"? And is this loop one piece of
-> work or several?*
+**Merging is a field-level operation, and a derived value has already thrown the fields away.**
+Keep the fields, overlay what arrived, recompute. And the same round found the same shape in a
+neighbour: the validators. A `304` may supply a new `ETag`, and keeping the one we asked with
+would make every later revalidation ask about a version nobody has.
+
+**Rule:** when consuming an update, ask what a missing field means — *unchanged* or *unset* —
+and carry the stored value when it means unchanged. Carry the **fields**, not what you computed
+from them: a merge you cannot perform field by field is a merge you are not performing. When
+refusing to keep something, ask whether you are also refusing to serve what you already kept. And
+when a limit is scoped to a unit of work, name the unit at every place you construct it.
+
+> **Ask this:** *does silence here mean "same as before" or "none"? Can I merge this field by
+> field, or have I already reduced it to a number? And is this loop one piece of work or
+> several?*
 
 ---
 

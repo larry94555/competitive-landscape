@@ -80,17 +80,37 @@ sixty minutes the first time it was revalidated.
 opposite of what the request is for, and it is silent: the page is right, the citation is right,
 only the interval is wrong.
 
-`Stale` carries the freshness it was stored under, `confirmed` returns it with the page so there
-is no default for the caller to reach for, and `Cache::insert_revalidated` uses the stored
-lifetime **unless the `304` restates one**:
+The first fix carried the stored **duration** forward and used it whenever the `304` restated
+no freshness at all. Review took that apart too, and correctly: RFC 9111 §3.2 and §4.3.4 say the
+fields a `304` *supplies* replace their stored counterparts and the ones it *omits* remain — and
+that is a merge **per field**, which a computed number cannot express.
+
+```text
+stored   Cache-Control: max-age=30   Expires: +1h     -> fresh for 30s
+304                                  Expires: +2h     -> still 30s
+read as "it said something, so read it alone"         -> two hours
+```
+
+So the entry keeps the freshness **fields** as the origin wrote them. `Policy::updated_by`
+overlays what the `304` supplied, and the lifetime is recomputed from the merge:
 
 | the `304` says | kept for |
 |---|---|
-| nothing | the stored lifetime, less any age it reports |
-| `max-age=600` on a page stored for 30s | 600s — the origin extending its own policy |
-| `max-age=30` on a page stored for an hour | 30s |
+| nothing | the stored policy, unchanged |
+| `Expires` only, over a stored `max-age=30` | **30s** — the `max-age` is still there |
+| `max-age=600` over a stored 30s | 600s — an origin extending its own policy is still the origin |
+| `max-age=30` over a stored hour | 30s |
 | `no-store` | **not kept, and what we held is dropped** |
 | an unreadable header | not kept |
+
+**`Date` and `Age` are deliberately not part of the policy.** They describe *a response*, not a
+policy, and the stored ones belong to a response that is no longer the one in hand — carrying
+them forward would charge a fresh `304` with the age of the `200` it confirms. The `304`'s own
+are used, so a `304` arriving with its freshness already spent is not kept.
+
+**And a new validator replaces the old one.** §4.3.4 again: an origin may hand back a new `ETag`
+on a `304`, and keeping the one we asked with would make every later revalidation ask about a
+version nobody has — so the saving would quietly stop happening.
 
 The last two rows are the second half of the same finding. `Storable::No` meant *do not store
 this*, and the code did exactly that — while leaving the **older copy** in place to be served.
@@ -183,7 +203,7 @@ refuses. That is the one thing in this crate that a bound lets us test which a l
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 38 | 901 | 62 |
-| now | **921** | **62** |
+| now | **926** | **62** |
 
 ---
 

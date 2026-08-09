@@ -117,15 +117,16 @@ impl Fetcher {
                 // **The cheapest answer an origin can give**, and the reason this is a `match`
                 // on a type rather than two `if`s in a particular order — see [`answer_to`].
                 Answer::NotModified => {
-                    let (confirmed, stored_for) = confirmed(asking, chrono::Utc::now())?;
+                    let (confirmed, stored) = confirmed(asking, &headers, chrono::Utc::now())?;
                     if let Ok(mut cache) = self.pages.lock() {
-                        // **Under the policy it was already subject to**, not under whatever the
-                        // `304` happens to repeat. A `304` may omit an unchanged `Cache-Control`,
-                        // and reading it alone turns an origin's `max-age=30` into our hour.
+                        // **Under the policy it was already subject to, field by field**, not
+                        // under whatever the `304` happens to repeat. A `304` may omit an
+                        // unchanged `Cache-Control` while updating an `Expires`, and reading it
+                        // alone turns an origin's `max-age=30` into our hour.
                         cache.insert_revalidated(
                             url.to_owned(),
                             confirmed.clone(),
-                            stored_for,
+                            &stored,
                             Said::read(&headers).freshness(),
                             confirmed.fetched_at,
                         );
@@ -429,27 +430,35 @@ fn asking_whether_it_changed(held: &crate::cache::Stale) -> Vec<(&'static str, S
 /// asked about, and the origin said the bytes are current — so the claim is true as of the
 /// moment of confirmation, and saying otherwise would understate what is known.
 ///
-/// **The freshness it was stored under comes back with it**, because a `304` may not repeat it
-/// and reading the `304` alone turns an origin's `max-age=30` into our hour — see
-/// [`crate::cache::Cache::insert_revalidated`]. Returned as a pair rather than looked up again
-/// at the call site, so there is no default for the caller to reach for.
+/// **The policy it was stored under comes back with it**, because a `304` may not repeat it and
+/// reading the `304` alone turns an origin's `max-age=30` into our hour — see
+/// [`crate::cache::Cache::insert_revalidated`]. Returned as a pair rather than looked up again at
+/// the call site, so there is no default for the caller to reach for.
+///
+/// **Validators the `304` supplies replace the ones we held.** RFC 9111 §4.3.4 again: an origin
+/// may hand back a new `ETag` on a `304`, and keeping the old one would make the next
+/// conditional request ask about a version nobody has.
 ///
 /// # Errors
 /// When nothing was held. A `304` for a request that carried no validator is an origin answering
 /// a question nobody asked, and there is no stored body to answer it with.
 fn confirmed(
     held: Option<&crate::cache::Stale>,
+    headers: &HeaderMap,
     at: chrono::DateTime<chrono::Utc>,
-) -> Result<(Page, Duration), FetchError> {
+) -> Result<(Page, crate::cache::Policy), FetchError> {
     let held = held.ok_or_else(|| {
         FetchError::Transport("304 for a request that carried no validator".into())
     })?;
     Ok((
         Page {
             fetched_at: at,
+            etag: header(headers, "etag").or_else(|| held.page.etag.clone()),
+            last_modified: header(headers, "last-modified")
+                .or_else(|| held.page.last_modified.clone()),
             ..held.page.clone()
         },
-        held.fresh_for,
+        held.policy.clone(),
     ))
 }
 
@@ -781,7 +790,10 @@ mod tests {
 
     fn held(url: &str, body: &str) -> crate::cache::Stale {
         crate::cache::Stale {
-            fresh_for: std::time::Duration::from_secs(30),
+            policy: crate::cache::Policy {
+                cache_control: Some("max-age=30".to_owned()),
+                expires: None,
+            },
             page: Page {
                 url: url.to_owned(),
                 status: 200,
@@ -865,9 +877,10 @@ Pro $10",
         );
         let at: chrono::DateTime<chrono::Utc> = "2026-08-09T12:00:00Z".parse().unwrap();
 
-        let (page, stored_for) = confirmed(Some(&stale), at).expect("a held page is confirmable");
+        let (page, stored) =
+            confirmed(Some(&stale), &HeaderMap::new(), at).expect("a held page is confirmable");
         assert_eq!(
-            stored_for, stale.fresh_for,
+            stored, stale.policy,
             "the policy it was kept under did not travel with it"
         );
         assert_eq!(
@@ -886,11 +899,46 @@ Pro $10",
     }
 
     #[test]
+    fn a_new_validator_on_a_304_replaces_the_one_we_asked_with() {
+        // **RFC 9111 §4.3.4.** An origin may hand back a new `ETag` on a `304`, and keeping the
+        // old one would make the next conditional request ask about a version nobody has — so
+        // every later revalidation misses and the saving quietly stops happening.
+        let stale = held("https://a.example/pricing", "# Pricing");
+        let at: chrono::DateTime<chrono::Utc> = "2026-08-09T12:00:00Z".parse().unwrap();
+
+        let mut fresher = HeaderMap::new();
+        fresher.append(
+            reqwest::header::HeaderName::from_static("etag"),
+            reqwest::header::HeaderValue::from_static("\"v2\""),
+        );
+        fresher.append(
+            reqwest::header::HeaderName::from_static("last-modified"),
+            reqwest::header::HeaderValue::from_static("Sun, 09 Aug 2026 11:00:00 GMT"),
+        );
+        let (page, _) = confirmed(Some(&stale), &fresher, at).expect("confirmable");
+        assert_eq!(
+            page.etag.as_deref(),
+            Some("\"v2\""),
+            "the next conditional request would ask about a version nobody has"
+        );
+        assert_eq!(
+            page.last_modified.as_deref(),
+            Some("Sun, 09 Aug 2026 11:00:00 GMT"),
+            "an origin that revises only its Last-Modified was ignored"
+        );
+        assert_eq!(page.body, "# Pricing", "the body is still the one we held");
+
+        // And a `304` that repeats nothing leaves the validators we asked with in place.
+        let (unchanged, _) = confirmed(Some(&stale), &HeaderMap::new(), at).expect("confirmable");
+        assert_eq!(unchanged.etag.as_deref(), Some("\"v1\""));
+    }
+
+    #[test]
     fn a_304_for_a_question_nobody_asked_is_a_failure_rather_than_a_page() {
         // There is no stored body to answer with, so the only honest thing is an error. Handing
         // back an empty page would put a company on a report with nothing under it.
         let at = chrono::Utc::now();
-        assert!(confirmed(None, at).is_err());
+        assert!(confirmed(None, &HeaderMap::new(), at).is_err());
     }
 
     #[test]

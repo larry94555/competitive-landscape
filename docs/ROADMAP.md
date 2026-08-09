@@ -672,9 +672,10 @@ the single most important phase; everything after it is commerce and polish.
   the site refusing — that would blame a stranger for our own bound — and the commands that check
   several sites in a row get one allowance each, because a loop over independent targets is not
   one reader's question however much it resembles one.
-  **A `304` keeps the policy the page was stored under**: a conforming `304` may omit an
-  unchanged `Cache-Control`, so reading it alone would turn an origin's `max-age=30` into our
-  hour — asking a publisher whether their page changed is no way to widen what they allow.
+  **A `304` keeps the policy the page was stored under, field by field**: RFC 9111 §3.2 says the
+  fields it supplies replace their stored counterparts and the ones it omits remain, so a `304`
+  updating only an `Expires` leaves a stored `max-age=30` in force. Asking a publisher whether
+  their page changed is no way to widen what they allow.
   Testable by hand: `cargo run -p landscape -- fetch <url>`.
 - **Review-platform access audit** (§ week 1, before any architecture assumes the channel):
   [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) ranks review-site category pages as the
