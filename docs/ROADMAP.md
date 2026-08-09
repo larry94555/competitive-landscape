@@ -815,8 +815,11 @@ the single most important phase; everything after it is commerce and polish.
   hosts saying *email marketing software* and two saying *project management software* resolving
   to the first alphabetically — `AMBIGUITY_MARGIN`'s *"coin flip presented to the reader as a
   fact"*, and worse here than for a company, because the label decides every query downstream.
-  `Resolved::Ambiguous` carries the competing categories, grouped by containment so one market
-  described at two widths is not mistaken for two.
+  `Resolved::Ambiguous` carries the competing categories. **A market is a phrase nothing else
+  extends**, and a phrase two markets both extend — *management software*, under *inventory
+  management software* and *project management software* alike — belongs to neither: it is their
+  overlap, and review found it bridging them into one cluster when the first version joined
+  phrases by every containment edge.
   **Still open:** wiring it into a run, and the *"Interpreted as … [Change]"* header §4 asks
   for. It costs no extra round trip — the queries are the ones an analysis already sends.
   **SearXNG itself has not been run against this.** `docker compose --profile search up -d

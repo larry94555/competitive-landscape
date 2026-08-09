@@ -1659,6 +1659,51 @@ silently, and it grows fastest exactly where somebody once had a good reason to 
 
 ---
 
+## 50. A fix for an arbitrary choice, with the arbitrary choice inside it
+
+**Found:** by review, in the fix for the defect review had found one round earlier.
+
+A tie between two categories was being resolved alphabetically. The fix grouped phrases into
+markets by **containment** — *email marketing*, *marketing software* and *email marketing
+software* are one thing said three ways — and refused to choose when two markets tied.
+
+Grouping was connected components over every containment edge. Two rounds later:
+
+```text
+inventory management software   2 hosts   ─┐
+project management software     2 hosts   ─┤
+management software             4 hosts   ─┴─ contained in BOTH
+```
+
+**`management software` is on all four hosts precisely *because* it is what two different
+markets have in common.** One containment edge to each, transitivity does the rest, and the two
+markets became one cluster — with the arbitrary choice back, now backed by a bigger number than
+either real category had.
+
+**The relation was right and the closure over it was wrong.** "A contains B" says B is a less
+precise way of saying A. It does not survive being chained: A contains B and C contains B says
+nothing whatever about A and C, and treating it as if it did is what merged them.
+
+**A market is a phrase nothing else extends.** A shorter phrase belongs to the one market that
+extends it; a phrase extended by more than one belongs to neither, because it is their overlap
+rather than evidence for either. No transitivity, and the fragment case that seemed to need it
+falls out for free.
+
+**Both rounds of this defect were the same shape** — a choice made where the evidence does not
+support one — and the second was introduced *by the fix for the first*, in the same file, the
+same afternoon. A fix for "we chose arbitrarily" is exactly the code most likely to contain a
+new arbitrary choice, because it is where the tie-breaking lives.
+
+**Rule:** when you group things by a relation, ask what the *transitive closure* of that
+relation means, in words, about the things at either end of a chain. If the sentence is not one
+you would defend — *"these two markets are the same because they share a word"* — the closure is
+not the grouping you want. And test a fix for an arbitrary choice with an input where the
+arbitrary choice would be **profitable**: two candidates that share something big.
+
+> **Ask this:** *what does A-to-B-to-C mean here, and would I say it out loud?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**
@@ -1732,7 +1777,7 @@ Grouped by what has actually gone wrong, commonest first.
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35, 47, 49 |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35, 47, 49, 50 |
 | The mutation harness | 32, 36, 46, 48 | The only ones it found before review did. 36 deleted a rule rather than adding a test; 46 deleted an argument; 48 was a defect in a test |
 | Its own tooling | 28 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |

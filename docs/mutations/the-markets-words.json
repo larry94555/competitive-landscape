@@ -28,8 +28,8 @@
   {
     "name": "the broadest phrase wins instead of the most specific one",
     "file": "crates/landscape-search/src/vocabulary.rs",
-    "old": "    let label = cluster\n        .iter()\n        .filter(|p| contains(&p.words, &anchor.words))",
-    "new": "    let label = cluster\n        .iter()\n        .filter(|p| p.words == anchor.words)",
+    "old": "        .filter(|p| {\n            !counted\n                .iter()\n                .any(|q| q.words != p.words && contains(&q.words, &p.words))\n        })",
+    "new": "        .filter(|p| {\n            !counted\n                .iter()\n                .any(|q| q.words != p.words && contains(&p.words, &q.words))\n        })",
     "run": [
       "cargo",
       "nextest",
@@ -210,8 +210,8 @@
   {
     "name": "one market described at two widths is reported as a choice a reader must make",
     "file": "crates/landscape-search/src/vocabulary.rs",
-    "old": "            if !related(&counted[a], &counted[b]) {\n                continue;\n            }",
-    "new": "            if true {\n                continue;\n            }",
+    "old": "            !counted\n                .iter()\n                .any(|q| q.words != p.words && contains(&q.words, &p.words))",
+    "new": "            !counted.iter().any(|_q| true)",
     "run": [
       "cargo",
       "nextest",
@@ -223,8 +223,21 @@
   {
     "name": "a fragment of one market becomes a market of its own",
     "file": "crates/landscape-search/src/vocabulary.rs",
-    "old": "fn related(a: &Phrase, b: &Phrase) -> bool {\n    contains(&a.words, &b.words) || contains(&b.words, &a.words)",
-    "new": "fn related(a: &Phrase, b: &Phrase) -> bool {\n    contains(&a.words, &b.words)",
+    "old": "                .filter(|p| extended_by(&maximal, &p.words) == 1)",
+    "new": "                .filter(|p| extended_by(&maximal, &p.words) >= 1)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a fragment two markets share bridges them into one",
+    "file": "crates/landscape-search/src/vocabulary.rs",
+    "old": "fn extended_by(maximal: &[&Phrase], words: &str) -> usize {\n    maximal.iter().filter(|m| contains(&m.words, words)).count()\n}",
+    "new": "fn extended_by(maximal: &[&Phrase], words: &str) -> usize {\n    let _ = (maximal, words);\n    1\n}",
     "run": [
       "cargo",
       "nextest",

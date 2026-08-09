@@ -97,9 +97,29 @@ a market nobody asked for.
 software* and *email marketing software* are one market said three ways, and *project management
 software* is not.
 
-**Transitive on purpose.** *marketing software* links to *email marketing software* and nothing
-else; without transitivity it becomes a third "market" made of a fragment of the first, and a
-three-way tie where there are two real categories. A test pins the count at two.
+### Review again: the fix had a bridge in it
+
+Connected components over every containment edge was wrong, and the counterexample is better
+than the original:
+
+```text
+inventory management software   2 hosts   ─┐
+project management software     2 hosts   ─┤
+management software             4 hosts   ─┴─ contained in BOTH
+```
+
+`management software` is on **all four** hosts *because* it is the part two different markets
+have in common. Transitivity made one cluster of the lot, and the arbitrary choice came straight
+back wearing a bigger number.
+
+**A market is a phrase nothing else extends** — §4 step 4's *most specific term* read as a
+definition rather than a search. A shorter phrase belongs to the one market that extends it; a
+phrase extended by **more than one** belongs to neither, because it is the overlap between them
+and not evidence for either. Dropping it leaves two clusters of two hosts each: a tie, and a
+question.
+
+That also removes the fragment problem the first version needed transitivity for. *marketing
+software* is extended by exactly one market, so it joins it rather than becoming a third.
 
 **A fractional margin is the wrong instrument.** These are counts of two to five, where 15% is
 either zero or everything. Equal corroboration is a tie, and a tie is a question.
@@ -221,7 +241,7 @@ earlier in the pipeline than usual.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 34 | 822 | 58 |
-| now | **839** | **58** |
+| now | **840** | **58** |
 
 ---
 

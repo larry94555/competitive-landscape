@@ -382,102 +382,76 @@ pub fn from_titles(results: &[Vec<Hit>], queried: &Queried) -> Resolved {
 
 /// The categories the titles describe, one entry per market rather than one per phrase.
 ///
-/// **Grouped by containment, which is the relation [`most_specific`] already uses.** Every phrase
-/// that contains another, or is contained by it, belongs to the same market: *email marketing*,
-/// *marketing software* and *email marketing software* are one thing said three ways. *Project
-/// management software* is not, and that is what makes a tie between them a question rather than
-/// a sort order.
+/// **A market is a phrase nothing else extends, and §4 step 4 is why.** *The most specific term
+/// that still recurs widely* — so among *competitive intelligence*, *intelligence software* and
+/// *competitive intelligence software*, the market is the last: the other two are the same thing
+/// said less precisely, and each of them is contained in it.
 ///
-/// Transitive on purpose. *marketing software* links to *email marketing software* and nothing
-/// else; without transitivity it would become a third "market" that is a fragment of the first,
-/// and three tied clusters where there are two real ones.
+/// # A shared fragment is not a bridge, and it is not a market either
+///
+/// **Review found the first version welding two markets together.** It joined phrases into
+/// connected components over every containment edge, which reads as *"one market said several
+/// ways"* and is not:
+///
+/// ```text
+/// inventory management software   2 hosts   ─┐
+/// project management software     2 hosts   ─┤
+/// management software             4 hosts   ─┴─ contained in BOTH
+/// ```
+///
+/// `management software` is on all four hosts *because* it is the part two different markets
+/// have in common. Transitivity then made one cluster of the lot and the arbitrary choice this
+/// gate exists to remove came straight back, wearing a bigger number.
+///
+/// So a phrase extended by **more than one** market belongs to neither. It is the overlap
+/// between them, not evidence for either, and dropping it is what leaves two clusters of two
+/// hosts each — a tie, and a question. A phrase extended by exactly one market is that market's,
+/// which is what keeps *marketing software* from becoming a market of its own.
 fn clusters(counted: &[Phrase]) -> Vec<Market> {
-    let mut group: Vec<usize> = (0..counted.len()).collect();
-    fn root(group: &mut [usize], mut i: usize) -> usize {
-        while group[i] != i {
-            group[i] = group[group[i]];
-            i = group[i];
-        }
-        i
-    }
-    for a in 0..counted.len() {
-        for b in (a + 1)..counted.len() {
-            if !related(&counted[a], &counted[b]) {
-                continue;
-            }
-            let (ra, rb) = (root(&mut group, a), root(&mut group, b));
-            if ra != rb {
-                group[rb] = ra;
-            }
-        }
-    }
+    // Best-first, because `counted` is: the strongest market comes out first and two runs of one
+    // input cannot disagree about which that is.
+    let maximal: Vec<&Phrase> = counted
+        .iter()
+        .filter(|p| {
+            !counted
+                .iter()
+                .any(|q| q.words != p.words && contains(&q.words, &p.words))
+        })
+        .collect();
 
-    // `counted` is already sorted best-first, so walking it in order puts the strongest market
-    // first and keeps every tie broken the same way on a second run.
-    let mut out: Vec<Market> = Vec::new();
-    let mut seen: Vec<usize> = Vec::new();
-    for i in 0..counted.len() {
-        let r = root(&mut group, i);
-        if seen.contains(&r) {
-            continue;
-        }
-        seen.push(r);
-        let members: Vec<Phrase> = (0..counted.len())
-            .filter(|&j| root(&mut group, j) == r)
-            .map(|j| counted[j].clone())
-            .collect();
-        out.push(most_specific(&counted[i], &members));
-    }
-    out
+    maximal
+        .iter()
+        .map(|top| {
+            let also: Vec<String> = counted
+                .iter()
+                .filter(|p| p.words != top.words && contains(&top.words, &p.words))
+                .filter(|p| extended_by(&maximal, &p.words) == 1)
+                .take(ALSO)
+                .map(|p| p.words.clone())
+                .collect();
+            Market {
+                label: top.words.clone(),
+                also,
+                hosts: top.hosts,
+            }
+        })
+        .collect()
 }
 
-/// Whether one phrase is the other said at a different width.
-fn related(a: &Phrase, b: &Phrase) -> bool {
-    contains(&a.words, &b.words) || contains(&b.words, &a.words)
+/// How many markets extend this phrase. More than one and it belongs to none of them.
+fn extended_by(maximal: &[&Phrase], words: &str) -> usize {
+    maximal.iter().filter(|m| contains(&m.words, words)).count()
 }
 
 /// Whether `outer` holds `inner` as a whole run of words.
+///
+/// Whole words on both ends, so *management software* is inside *project management software*
+/// and *anagement software* is inside nothing.
 fn contains(outer: &str, inner: &str) -> bool {
     outer == inner
         || outer.starts_with(&format!("{inner} "))
         || outer.ends_with(&format!(" {inner}"))
         || outer.contains(&format!(" {inner} "))
-}
-
-/// §4 step 4: **the most specific term that still recurs widely.**
-///
-/// The anchor is the phrase the most hosts agreed on — the broadest thing the market really
-/// says. The label is the **longest** phrase that contains it and still clears the floor, which
-/// is what makes *competitive intelligence software* win over *competitive intelligence* without
-/// letting *battlecard automation platform* win over either: a narrower phrase only counts if it
-/// is an extension of what everybody already agreed on.
-///
-/// **A ratio would have been the obvious alternative and is worse.** "Recurs widely" as a
-/// fraction of the top count needs a number nobody can defend, and it would move every time the
-/// query count moved. Containment needs none.
-fn most_specific(anchor: &Phrase, cluster: &[Phrase]) -> Market {
-    let label = cluster
-        .iter()
-        .filter(|p| contains(&p.words, &anchor.words))
-        .max_by(|a, b| {
-            a.words
-                .split(' ')
-                .count()
-                .cmp(&b.words.split(' ').count())
-                .then_with(|| a.hosts.cmp(&b.hosts))
-                .then_with(|| b.words.cmp(&a.words))
-        })
-        .unwrap_or(anchor);
-    Market {
-        label: label.words.clone(),
-        also: cluster
-            .iter()
-            .filter(|p| p.words != label.words)
-            .take(ALSO)
-            .map(|p| p.words.clone())
-            .collect(),
-        hosts: label.hosts,
-    }
 }
 
 /// Ask, read the titles, and say what the market calls it.
@@ -837,6 +811,45 @@ mod tests {
             between.len(),
             2,
             "a fragment became a market of its own: {between:?}"
+        );
+    }
+
+    #[test]
+    fn a_fragment_two_markets_share_does_not_weld_them_together() {
+        // **Review found this in the fix for the tie above**, which is the more interesting
+        // half. Both titles end in `management software`, so that phrase is on *all four*
+        // hosts - more than either market - and joining phrases by every containment edge made
+        // it a bridge. One cluster came out, and the arbitrary choice came back wearing a
+        // bigger number.
+        //
+        // A phrase two markets both extend is the overlap between them, not evidence for
+        // either.
+        let bridged = vec![vec![
+            hit("https://a.example/", "Inventory Management Software"),
+            hit("https://b.example/", "Inventory Management Software"),
+            hit("https://c.example/", "Project Management Software"),
+            hit("https://d.example/", "Project Management Software"),
+        ]];
+        let Resolved::Ambiguous { between } = from_titles(&bridged, &asked(3)) else {
+            panic!(
+                "a shared fragment welded two markets into one: {:?}",
+                from_titles(&bridged, &asked(3))
+            )
+        };
+        let labels: Vec<&str> = between.iter().map(|m| m.label.as_str()).collect();
+        assert_eq!(
+            labels,
+            [
+                "inventory management software",
+                "project management software"
+            ],
+            "both markets have to survive the fragment they share"
+        );
+        assert!(
+            between
+                .iter()
+                .all(|m| !m.also.contains(&"management software".to_owned())),
+            "the shared fragment was handed to one of them as evidence: {between:?}"
         );
     }
 
