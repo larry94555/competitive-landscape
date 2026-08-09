@@ -80,91 +80,91 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    resolver: {
-      name: "the resolver, and nothing read it",
-      purpose: "Run 35 built this.",
+    three: {
+      name: "three fetchers, one run",
+      purpose: "Each remembering nothing.",
       lines: [
-        ['t', '  competitive intelligence'],
-        ['t', '  software'],
+        ['s', '  resolve_from_description'],
+        ['s', '  rivals_of'],
+        ['s', '  run_analysis'],
         ['c', ''],
-        ['f', '// A fact about a market that'],
-        ['f', '// changed nothing in the report.']
+        ['f', '// Fetcher::new() in each.']
       ]
     },
-    two: {
-      name: "two rounds, two answers",
-      purpose: "Their words, then the market's.",
+    thrice: {
+      name: "so robots came three times",
+      purpose: "For one company.",
       lines: [
-        ['s', '  round 1 -> g2, capterra'],
-        ['t', '  round 2 -> klue, crayon'],
+        ['t', '  a page read to name a company'],
+        ['t', '  read again to extract from it'],
         ['c', ''],
-        ['f', '// Round 1 finds who names it.'],
-        ['f', '// Round 2 finds who is in it.']
+        ['f', '// From a stranger’s server.']
       ]
     },
-    once: {
-      name: "and only when the words change",
-      purpose: "Otherwise the hits are in hand.",
+    theirs: {
+      name: "the requests are theirs",
+      purpose: "The bandwidth is ours.",
       lines: [
-        ['t', '  typed the market name? 1 round'],
-        ['s', '  typed something else?  2'],
+        ['f', '  robots.txt'],
+        ['f', '  the per-host delay'],
+        ['f', '  the request we do not send'],
         ['c', ''],
-        ['f', '// Three requests to somebody'],
-        ['f', '// else, charged when they buy.']
+        ['t', '// One commitment, three parts.']
       ]
     },
-    both: {
-      name: "the note counts both rounds",
-      purpose: "1 of 6, not 1 of 3.",
+    nothing: {
+      name: "a hit sends nothing",
+      purpose: "Which is what makes it safe.",
       lines: [
-        ['f', '  asked_once.and(asked_twice)'],
+        ['c', '// guard: stops us reaching'],
+        ['c', '// robots: stops us requesting'],
+        ['c', '// pacer: stops us asking often'],
         ['c', ''],
-        ['t', '// An outage in the first round'],
-        ['t', '// would hide behind a tidier'],
-        ['t', '// number.']
+        ['t', '  none of them protects anything'],
+        ['t', '  when no request leaves']
       ]
     },
-    shown: {
-      name: "shown, not assumed",
-      purpose: "Section 4 asks for this line.",
+    onlyok: {
+      name: "only what we were allowed",
+      purpose: "The invariant it rests on.",
       lines: [
-        ['s', '  Interpreted as competitive'],
-        ['s', '  intelligence software'],
+        ['t', '  insert happens after both pass'],
         ['c', ''],
-        ['f', '// Wrong reading? Visible before'],
-        ['f', '// anything under it is believed.']
+        ['f', '// A refusal is an error.'],
+        ['f', '// An error is not a page.']
       ]
     },
-    partial: {
-      name: "on the partial reports too",
-      purpose: "Which is why it rides on Asked.",
+    bytes: {
+      name: "bounded in bytes",
+      purpose: "Not in pages.",
       lines: [
-        ['t', '  on_progress fires per page'],
+        ['s', '  256 pages = 8 KB or 512 MB'],
+        ['t', '  32 MiB of bodies'],
         ['c', ''],
-        ['f', '// A line that arrived at the end'],
-        ['f', '// would say the last 90 seconds'],
-        ['f', '// had been about something else.']
+        ['f', '// A cap that bounds the thing'],
+        ['f', '// it claims to bound.']
       ]
     },
-    absent: {
-      name: "and absent when nothing changed",
-      purpose: "Their words back at them is noise.",
+    asof: {
+      name: "and it says when it was read",
+      purpose: "A claim's as_of comes from this.",
       lines: [
-        ['c', '// interpreted: None'],
+        ['t', '  fetched_at survives the serve'],
         ['c', ''],
-        ['t', '  noise is what stops the real'],
-        ['t', '  line being read']
+        ['f', '// Otherwise a report dated now'],
+        ['f', '// is built on an hour-old page'],
+        ['f', '// and says so nowhere.']
       ]
     },
-    onefn: {
-      name: "one function, two callers",
-      purpose: "for_market.",
+    nosocket: {
+      name: "no test over a socket",
+      purpose: "And the guard stays.",
       lines: [
-        ['s', '  the worker'],
-        ['s', '  landscape candidates'],
+        ['s', '  a server binds 127.0.0.1'],
+        ['s', '  the guard refuses loopback'],
         ['c', ''],
-        ['f', '// A diagnostic that agreed by'],
-        ['f', '// coincidence has happened here.']
+        ['t', '// The flag would be used, and'],
+        ['t', '// the commitment is the product.']
       ]
     }
   };
@@ -208,19 +208,19 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:resolver", c: "Run 35 built a resolver nothing read." },
-    { kind: "means",       a: "file:two",      c: "Two rounds return two different sets." },
+    { kind: "recognition", a: "file:three",    c: "One run built three fetchers." },
+    { kind: "means",       a: "file:thrice",   c: "So the same page was fetched twice." },
 
-    { kind: "turn",        a: "file:once",     c: "The second only when the words change." },
-    { kind: "result",      a: "file:both",     c: "The coverage note counts both rounds." },
+    { kind: "turn",        a: "file:theirs",   c: "The requests we do not send are theirs." },
+    { kind: "result",      a: "file:nothing",  c: "A hit sends nothing, so nothing is skipped." },
 
-    { kind: "turn",        a: "file:shown",    c: "What was substituted is shown." },
-    { kind: "result",      a: "file:partial",  c: "On the partial reports as well." },
+    { kind: "turn",        a: "file:onlyok",   c: "Only a page we were allowed is stored." },
+    { kind: "result",      a: "file:bytes",    c: "Bounded in bytes, not in pages." },
 
-    { kind: "result",      a: "file:absent",   c: "And absent when nothing was substituted." },
-    { kind: "result",      a: "file:onefn",    c: "One function, so the two cannot drift." },
+    { kind: "result",      a: "file:asof",     c: "And it reports when it was really read." },
+    { kind: "result",      a: "file:nosocket", c: "There is no socket test, deliberately." },
 
-    { kind: "close",       a: "hold",          c: "The market decides what is searched for." }
+    { kind: "close",       a: "hold",          c: "The request we do not send." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -243,7 +243,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("resolver");
+    show("three");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -256,15 +256,15 @@
     }, TOTAL * 1000));
   }
 
-  show("resolver");
+  show("three");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "The market decides what is searched for",
-    blurb: "The vocabulary resolver existed and nothing read it — an analysis still searched for what a reader typed, so the market’s name was a fact that changed nothing. Now it is what every company query is built from, and the substitution is shown on the report, including on the partial ones a reader watches for ninety seconds. A second round of searches goes out only when the words actually changed, and the coverage note counts both rounds so an outage in the first cannot hide behind the second.",
+    title: "The request we do not send",
+    blurb: "The roadmap has called the fetch cache the highest-leverage cache in the system since Phase 1. It was worse than absent: the worker built three fetchers inside one run, and a fetcher remembers pages, robots.txt and the per-host delay by itself — so one company’s robots.txt was fetched three times, and a page read to work out which companies these are was read again to extract from. One per process now. The bandwidth saved is ours; the requests not sent are somebody else’s.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

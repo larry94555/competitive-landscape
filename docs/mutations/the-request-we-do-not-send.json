@@ -1,0 +1,509 @@
+[
+  {
+    "name": "a page is served long after the bytes stopped being current",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "            .filter(|e| e.stored.elapsed() < e.fresh_for)",
+    "new": "            .filter(|_| true)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a page served from memory claims to have been read just now",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "        if let Some(page) = self.pages.lock().ok().and_then(|c| c.get(url)) {\n            tracing::debug!(url, \"served from the page cache\");\n            return Ok(page);\n        }",
+    "new": "        if let Some(mut page) = self.pages.lock().ok().and_then(|c| c.get(url)) {\n            page.fetched_at = chrono::Utc::now();\n            return Ok(page);\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the cache is never read, so every page is fetched again",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "        if let Some(page) = self.pages.lock().ok().and_then(|c| c.get(url)) {",
+    "new": "        if let Some(page) = None::<Page> {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the byte budget is not enforced, so the cache grows without bound",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        while self.bytes + size > MAX_CACHED_BYTES || self.by_url.len() >= MAX_ENTRIES {",
+    "new": "        while false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the newest entry is evicted instead of the oldest",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "                .min_by_key(|(_, e)| e.order)",
+    "new": "                .max_by_key(|(_, e)| e.order)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "one page too large to keep empties the cache trying",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        if size > MAX_CACHED_BYTES {\n            return;\n        }",
+    "new": "        if false {\n            return;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a replaced page's bytes are counted for ever",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        if let Some(old) = self.by_url.remove(&url) {\n            self.bytes -= old.cost;\n        }",
+    "new": "        if let Some(_old) = self.by_url.remove(&url) {}",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the size of what is held is reported as nothing",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "        self.pages.lock().map_or((0, 0), |c| (c.len(), c.bytes()))",
+    "new": "        (0, 0)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "an empty response is held for nothing, so nothing is ever evicted",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "    OVERHEAD\n        + url.len()",
+    "new": "    0 + url.len()",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the number of entries is unbounded as long as they are small",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        while self.bytes + size > MAX_CACHED_BYTES || self.by_url.len() >= MAX_ENTRIES {",
+    "new": "        while self.bytes + size > MAX_CACHED_BYTES {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "eviction subtracts a different figure from the one insertion added",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "                self.bytes -= gone.cost;",
+    "new": "                self.bytes -= gone.page.body.len();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a publisher saying do not store this is overruled",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "            .any(|d| matches!(*d, \"no-store\" | \"no-cache\" | \"private\"))",
+    "new": "            .any(|d| matches!(*d, \"no-store-never\"))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a shared cache keeps something marked private",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "            .any(|d| matches!(*d, \"no-store\" | \"no-cache\" | \"private\"))",
+    "new": "            .any(|d| matches!(*d, \"no-store\" | \"no-cache\"))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "our hour overrules the origin's thirty seconds",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "                allowed = allowed.min(Duration::from_secs(seconds).saturating_sub(aged));",
+    "new": "                allowed = allowed.max(Duration::from_secs(seconds).saturating_sub(aged));",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "an expiry already in the past is treated as permission",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        let Ok(at) = DateTime::parse_from_rfc2822(raw.trim()) else {\n            // RFC 9111 says an unparseable `Expires` means already expired. It is also the\n            // conservative reading, which is the tie-breaker whenever those two agree.\n            return Storable::No;\n        };",
+    "new": "        let Ok(at) = DateTime::parse_from_rfc2822(raw.trim()) else {\n            return Storable::For(allowed);\n        };",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a max-age we cannot read is taken as an hour",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "                let Ok(seconds) = value.trim().parse::<u64>() else {\n                    // A `max-age` we cannot read is not a licence to keep it for an hour.\n                    return Storable::No;\n                };",
+    "new": "                let Ok(seconds) = value.trim().parse::<u64>() else {\n                    break;\n                };",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the origin's headers are read and then ignored",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "            Storable::No => false,",
+    "new": "            Storable::No => {\n                self.insert_for(url, page, FRESH_FOR);\n                true\n            }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "expired robots rules are kept for every host ever seen",
+    "file": "crates/landscape-fetch/src/robots.rs",
+    "old": "            let live = held.at.elapsed() < CACHE_TTL;",
+    "new": "            let live = true;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a host whose wait has elapsed is remembered for ever",
+    "file": "crates/landscape-fetch/src/limits.rs",
+    "old": "        self.next_allowed.retain(|_, at| *at > now);",
+    "new": "        self.next_allowed.retain(|_, _| true);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the origin's own freshness is dropped on the way into the cache",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "                self.insert_for(url, page, fresh_for);",
+    "new": "                self.insert_for(url, page, FRESH_FOR);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the age a response arrived with is thrown away",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "    let mut allowed = FRESH_FOR.saturating_sub(aged);",
+    "new": "    let mut allowed = FRESH_FOR;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "an hour of freshness is restarted at our doorstep",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "                allowed = allowed.min(Duration::from_secs(seconds).saturating_sub(aged));",
+    "new": "                allowed = allowed.min(Duration::from_secs(seconds));",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a proxy stating a large Age is overruled by a Date that looks younger",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        age = age.max(Duration::from_secs(raw.trim().parse::<u64>().ok()?));",
+    "new": "        age = Duration::from_secs(raw.trim().parse::<u64>().ok()?);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "an age we cannot read is taken as none at all",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "    let Some(aged) = already_aged(headers, now) else {\n        return Storable::No;\n    };",
+    "new": "    let aged = already_aged(headers, now).unwrap_or(Duration::ZERO);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "live robots rule sets are held for every host seen in six hours",
+    "file": "crates/landscape-fetch/src/robots.rs",
+    "old": "        while self.bytes + cost > MAX_RULE_BYTES || self.by_host.len() >= MAX_HOSTS {",
+    "new": "        while false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the robots cache is bounded in hosts but not in what they weigh",
+    "file": "crates/landscape-fetch/src/robots.rs",
+    "old": "        while self.bytes + cost > MAX_RULE_BYTES || self.by_host.len() >= MAX_HOSTS {",
+    "new": "        while self.by_host.len() >= MAX_HOSTS {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the robots cache is bounded in bytes but not in hosts",
+    "file": "crates/landscape-fetch/src/robots.rs",
+    "old": "        while self.bytes + cost > MAX_RULE_BYTES || self.by_host.len() >= MAX_HOSTS {",
+    "new": "        while self.bytes + cost > MAX_RULE_BYTES {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the newest rule set is evicted rather than the oldest",
+    "file": "crates/landscape-fetch/src/robots.rs",
+    "old": "                .min_by_key(|(_, held)| held.order)",
+    "new": "                .max_by_key(|(_, held)| held.order)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "an empty rule set is remembered for nothing, so the host count is unbounded again",
+    "file": "crates/landscape-fetch/src/robots.rs",
+    "old": "    HOST_OVERHEAD + host.len() + rules.bytes()",
+    "new": "    rules.bytes()",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "evicting a rule set does not give its bytes back",
+    "file": "crates/landscape-fetch/src/robots.rs",
+    "old": "            if let Some(gone) = self.by_host.remove(&oldest) {\n                self.bytes -= gone.cost;\n            }",
+    "new": "            if self.by_host.remove(&oldest).is_some() {}",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "one rule set too heavy for the whole budget is kept anyway",
+    "file": "crates/landscape-fetch/src/robots.rs",
+    "old": "        if cost > MAX_RULE_BYTES {\n            return;\n        }",
+    "new": "        if cost > usize::MAX {\n            return;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a directive on a second Cache-Control line is never read",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "            cache_control: combined(headers, \"cache-control\"),",
+    "new": "            cache_control: header(headers, \"cache-control\"),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "only the first field line of a list-based header is combined",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "    for value in headers.get_all(name) {",
+    "new": "    for value in headers.get(name) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a header value we cannot read is treated as silence",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "        let Ok(text) = value.to_str() else {\n            return Some(\"no-store\".to_owned());\n        };",
+    "new": "        let Ok(text) = value.to_str() else {\n            continue;\n        };",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a single-valued field is joined as though it were a list",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "            date: header(headers, \"date\"),",
+    "new": "            date: combined(headers, \"date\"),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a transient failure is written down and replayed for an hour",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "    if !stated && !CACHEABLE_BY_DEFAULT.contains(&status) {\n        return Storable::No;\n    }",
+    "new": "    if false {\n        return Storable::No;\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "an origin stating a freshness for a 503 is overruled anyway",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "    if !stated && !CACHEABLE_BY_DEFAULT.contains(&status) {",
+    "new": "    if !CACHEABLE_BY_DEFAULT.contains(&status) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "an Expires is not counted as the origin stating a freshness",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        allowed = allowed.min(remaining);\n        stated = true;",
+    "new": "        allowed = allowed.min(remaining);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the status of a different response decides whether this one is kept",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        match storable(page.status, headers, now) {",
+    "new": "        match storable(200, headers, now) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  }
+]

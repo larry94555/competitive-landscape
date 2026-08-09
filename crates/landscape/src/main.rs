@@ -1261,6 +1261,10 @@ Example:
         ),
         took.as_secs_f64()
     );
+    // **What the next reader of this company will not have to pay for.** A cache nobody can
+    // see the size of is one nobody notices growing, and one nobody believes is working.
+    let (pages, bytes) = fetcher.cached();
+    println!("held for the next reader: {pages} pages, {bytes} bytes");
     Ok(())
 }
 
@@ -1377,6 +1381,17 @@ const STALE_AFTER: i64 = 20 * 60;
 
 async fn worker(store: Arc<dyn Store>) -> Result<()> {
     tracing::info!("worker started");
+    // **One fetcher for the life of the process, and that is the whole of the cache.**
+    // Everything a `Fetcher` remembers — pages, `robots.txt`, the per-host delay — it remembers
+    // by itself, so a second one shares none of it. Three were built inside a single run: the
+    // description pass, the rivals pass and the analysis each had their own, which meant one
+    // company's `robots.txt` was fetched three times and a page read to name a company was read
+    // again to extract from it.
+    //
+    // Holding it across analyses is what turns that into the thing `ROADMAP.md` asks for —
+    // *two users analysing the same competitor share work* — because the second reader arrives
+    // after the first has finished.
+    let fetcher = Arc::new(landscape_fetch::Fetcher::new());
     let mut shutdown = Box::pin(shutdown_signal());
     let mut sweep = tokio::time::interval(std::time::Duration::from_secs(60));
 
@@ -1411,7 +1426,9 @@ async fn worker(store: Arc<dyn Store>) -> Result<()> {
                         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     }
                     Ok(Some(analysis)) => {
-                        run_analysis(&store, &analysis).await;
+                        run_analysis(&store, &fetcher, &analysis).await;
+                        let (pages, bytes) = fetcher.cached();
+                        tracing::info!(pages, bytes, "pages held for the next reader");
                     }
                 }
             }
@@ -1441,6 +1458,7 @@ struct Read {
 
 async fn resolve_from_description(
     engine: Option<&dyn landscape_search::SourceProvider>,
+    fetcher: &landscape_fetch::Fetcher,
     prompt: &str,
 ) -> Read {
     let refuse =
@@ -1458,7 +1476,6 @@ async fn resolve_from_description(
         );
     };
 
-    let fetcher = landscape_fetch::Fetcher::new();
     let read = landscape_search::candidates::for_market(engine, prompt, |url| {
         let fetcher = &fetcher;
         async move {
@@ -1540,6 +1557,7 @@ fn ambiguous_market(between: &[landscape_search::vocabulary::Market]) -> String 
 /// of them differently.
 async fn rivals_of(
     engine: Option<&dyn landscape_search::SourceProvider>,
+    fetcher: &landscape_fetch::Fetcher,
     origin: &str,
 ) -> landscape_search::competitors::Set {
     let host = match landscape_fetch::Target::parse(origin) {
@@ -1551,7 +1569,6 @@ async fn rivals_of(
             return landscape_search::competitors::Set::default();
         }
     };
-    let fetcher = landscape_fetch::Fetcher::new();
     let read = |url: String| {
         let fetcher = &fetcher;
         async move {
@@ -1626,7 +1643,11 @@ async fn refuse(
 /// watch a report fill in — `PRODUCT_SPEC.md` §2.1A. A failed save is logged and the run
 /// continues: losing an intermediate write costs a reader a few seconds of staleness, and
 /// abandoning the analysis over it would cost them the report.
-async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysis) {
+async fn run_analysis(
+    store: &Arc<dyn Store>,
+    fetcher: &landscape_fetch::Fetcher,
+    analysis: &landscape_core::Analysis,
+) {
     // **Read once, for both callers.** Resolving a description and filling a company's gaps
     // are two questions for the same engine, and asking the environment twice is two answers
     // that can disagree — the second source of truth this codebase keeps deleting.
@@ -1650,7 +1671,7 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
         // domain was refused; the channel now produces candidates and hands them to the gate
         // `FACT_CHECKING.md` §3.1 built before anything could feed it.
         landscape_analyze::subject::Subjects::Describe => {
-            let read = resolve_from_description(searching, &analysis.prompt).await;
+            let read = resolve_from_description(searching, fetcher, &analysis.prompt).await;
             interpreted = read.interpreted;
             match read.decided {
                 landscape_analyze::subject::Decided::Analyse(set) => {
@@ -1678,7 +1699,7 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
         // engine this is exactly what it always was - the laptop default, unchanged - and
         // saying so at the level of a whole set is its own roadmap row.
         landscape_analyze::subject::Subjects::Seed(origin) => {
-            let set = rivals_of(searching, &origin).await;
+            let set = rivals_of(searching, fetcher, &origin).await;
             let origins = set.origins();
             tracing::info!(
                 id = %analysis.id,
@@ -1729,13 +1750,15 @@ async fn run_analysis(store: &Arc<dyn Store>, analysis: &landscape_core::Analysi
         first = %first,
         "running analysis"
     );
-    let fetcher = landscape_fetch::Fetcher::new();
+    // The same fetcher the description pass used: a page read to work out *which* companies
+    // these are is the same page the analysis reads to extract from, and it used to be fetched
+    // twice inside one run because each pass built its own.
     let llm = landscape_llm::LlamaClient::from_env();
     let now = chrono::Utc::now();
 
     let progress = progress::Progress::new(Arc::clone(store), analysis.id, analysis.generation);
     let outcome = landscape_analyze::analyse_many(
-        &fetcher,
+        fetcher,
         &llm,
         &landscape_analyze::Asked {
             origins: &origins,
@@ -1845,7 +1868,12 @@ mod tests {
         // have been asked either.
         //
         // `.invalid` is RFC 2606, so the seed's front page is never really fetched.
-        let set = rivals_of(None, "https://basecamp.invalid").await;
+        let set = rivals_of(
+            None,
+            &landscape_fetch::Fetcher::new(),
+            "https://basecamp.invalid",
+        )
+        .await;
 
         assert_eq!(set.members.len(), 1, "{:#?}", set.members);
         assert_eq!(
@@ -1928,7 +1956,12 @@ mod tests {
         // **The worker's own choice of situation**, which `decide` never sees: with nothing
         // configured there is no verdict to decide from, and this is the only refusal where
         // *"try naming its website"* is the right instruction rather than a habit.
-        let read = resolve_from_description(None, "a shared inbox for a small team").await;
+        let read = resolve_from_description(
+            None,
+            &landscape_fetch::Fetcher::new(),
+            "a shared inbox for a small team",
+        )
+        .await;
         let landscape_analyze::subject::Decided::Refuse(refusal) = read.decided else {
             panic!("a run with no engine analysed something")
         };
@@ -1964,7 +1997,7 @@ mod tests {
             .expect("a row");
         let claimed = store.claim_next().await.expect("a claim").expect("a row");
 
-        run_analysis(&store, &claimed).await;
+        run_analysis(&store, &landscape_fetch::Fetcher::new(), &claimed).await;
 
         let read = store.get(queued.id).await.expect("it reads back");
         assert_eq!(read.status, landscape_core::AnalysisStatus::Failed);
@@ -2271,7 +2304,7 @@ mod tests {
             .expect("claim")
             .expect("one queued");
 
-        run_analysis(&store, &claimed).await;
+        run_analysis(&store, &landscape_fetch::Fetcher::new(), &claimed).await;
 
         let done = store.get(queued.id).await.expect("get");
         assert_eq!(

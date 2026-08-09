@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "The market decides what is searched for",
-    "blurb": "The vocabulary resolver existed and nothing read it — an analysis still searched for what a reader typed, so the market’s name was a fact that changed nothing. Now it is what every company query is built from, and the substitution is shown on the report, including on the partial ones a reader watches for ninety seconds. A second round of searches goes out only when the words actually changed, and the coverage note counts both rounds so an outage in the first cannot hide behind the second.",
-    "seconds": 34.5
+    "title": "The request we do not send",
+    "blurb": "The roadmap has called the fetch cache the highest-leverage cache in the system since Phase 1. It was worse than absent: the worker built three fetchers inside one run, and a fetcher remembers pages, robots.txt and the per-host delay by itself — so one company’s robots.txt was fetched three times, and a page read to work out which companies these are was read again to extract from. One per process now. The bandwidth saved is ours; the requests not sent are somebody else’s.",
+    "seconds": 33.9
   }
 ]

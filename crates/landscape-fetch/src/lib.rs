@@ -19,7 +19,15 @@
 //! **Every redirect re-enters at the top.** A URL that passes every check and then redirects
 //! to `169.254.169.254` has defeated a guard that only ran once, so automatic redirect
 //! following is switched off and each hop is checked as if a stranger had just typed it.
+//!
+//! # The request we do not send
+//!
+//! [`cache`] sits in front of all of it. The bandwidth it saves is ours; **the requests it does
+//! not send are somebody else's**, which puts it beside `robots.txt` and the per-host delay
+//! rather than next to them — three parts of one commitment about how often a stranger's server
+//! is asked for the same bytes.
 
+pub mod cache;
 pub mod fetcher;
 pub mod guard;
 pub mod limits;

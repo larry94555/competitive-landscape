@@ -18,15 +18,25 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::Mutex;
 use std::time::Duration;
 
+use reqwest::header::HeaderMap;
+
 use crate::limits::{Pacer, DEFAULT_DELAY};
 use crate::robots::{self, Rules};
 use crate::{FetchError, Page, Target, MAX_BYTES, MAX_REDIRECTS, TIMEOUT, USER_AGENT};
 
-/// Fetches pages, remembering what each host has told us.
+/// Fetches pages, remembering what each host has told us and what it already said.
+///
+/// **One per process, not one per analysis.** Everything remembered here — the pages, the
+/// `robots.txt` rules, the per-host delay — is remembered *by this object*, so a second
+/// `Fetcher` shares none of it. Three of them used to be built inside a single run, which meant
+/// one company's `robots.txt` was fetched three times and a page read by the description pass
+/// was read again by the analysis pass. The cache is only worth having if the thing holding it
+/// outlives the question that filled it.
 #[derive(Debug)]
 pub struct Fetcher {
     pacer: Mutex<Pacer>,
     robots: Mutex<robots::Cache>,
+    pages: Mutex<crate::cache::Cache>,
     /// Off for tests that must not reach the network, and for a `--ignore-robots` that does
     /// not exist and should not: the flag would be used, and the commitment is the product.
     obey_robots: bool,
@@ -44,8 +54,17 @@ impl Fetcher {
         Self {
             pacer: Mutex::new(Pacer::new()),
             robots: Mutex::new(robots::Cache::new()),
+            pages: Mutex::new(crate::cache::Cache::new()),
             obey_robots: true,
         }
+    }
+
+    /// How many pages are held, and how many bytes they take.
+    ///
+    /// For the diagnostic. A cache nobody can see the size of is one nobody notices growing.
+    #[must_use]
+    pub fn cached(&self) -> (usize, usize) {
+        self.pages.lock().map_or((0, 0), |c| (c.len(), c.bytes()))
     }
 
     /// Fetch one page, following redirects by hand and re-checking every hop.
@@ -54,6 +73,19 @@ impl Fetcher {
     /// Any refusal, or a transport failure.
     pub async fn get(&self, url: &str) -> Result<Page, FetchError> {
         let mut target = Target::parse(url)?;
+
+        // **Before the guard, robots and the pacer, and each is fine to skip for one reason:
+        // nothing is sent.** The guard stops us reaching an address, robots stops us requesting
+        // a path, the pacer stops us asking too often — none of them protects anything when no
+        // request leaves this process.
+        //
+        // What makes that sound rather than convenient is the invariant on the way in: only a
+        // page we were *allowed* to fetch is ever stored, because the insert below happens after
+        // both have passed. A disallowed path is an error and is never in here to be served.
+        if let Some(page) = self.pages.lock().ok().and_then(|c| c.get(url)) {
+            tracing::debug!(url, "served from the page cache");
+            return Ok(page);
+        }
 
         for _ in 0..=MAX_REDIRECTS {
             let addr = self.approve(&target).await?;
@@ -86,18 +118,40 @@ impl Fetcher {
                 continue;
             }
 
-            let etag = header(&response, "etag");
-            let last_modified = header(&response, "last-modified");
+            let headers = response.headers().clone();
+            let etag = header(&headers, "etag");
+            let last_modified = header(&headers, "last-modified");
+            // **What the origin says we may do with it.** Read before the body, because it comes
+            // off the same response and forgetting it is how a `no-store` gets kept. Read, and
+            // nothing more: which of these fields is list-based, and what they all mean, are both
+            // decided where a test can reach them.
+            let said = Said::read(&headers);
             let body = read_capped(response).await?;
 
-            return Ok(Page {
+            let page = Page {
                 url: target.url(),
                 status,
                 body,
                 etag,
                 last_modified,
                 fetched_at: chrono::Utc::now(),
-            });
+            };
+            // **Keyed on what was asked for, stored after every check has passed, and only for
+            // as long as the origin allows.** The middle clause is the invariant the read above
+            // rests on. The first is because two callers asking the same thing is the case this
+            // exists for, and they ask with the URL they have rather than the one a redirect
+            // landed on. The last is review's: a cache that argues it belongs beside
+            // `robots.txt` cannot ignore the header a publisher states that in.
+            if let Ok(mut cache) = self.pages.lock() {
+                let held = cache.insert_allowed(
+                    url.to_owned(),
+                    page.clone(),
+                    said.freshness(),
+                    page.fetched_at,
+                );
+                tracing::debug!(url, held, "considered for the page cache");
+            }
+            return Ok(page);
         }
         Err(FetchError::TooManyRedirects)
     }
@@ -201,12 +255,83 @@ impl Fetcher {
     }
 }
 
-fn header(response: &reqwest::Response, name: &str) -> Option<String> {
-    response
-        .headers()
+/// What one response said about being kept.
+///
+/// **A type rather than four locals in [`Fetcher::get`], and that is the point.** Which field is
+/// list-based and which is single-valued is a decision, and a decision made inside `get` is one
+/// no test can reach — the address guard refuses loopback, so nothing drives that function. The
+/// mutation harness said so about exactly this: *a directive on a second `Cache-Control` line is
+/// never read* came back MISSED while the call lived up there. Here it is one call from an
+/// assertion, and `get`'s share is a single line with no choice in it.
+#[derive(Debug, Default)]
+struct Said {
+    cache_control: Option<String>,
+    expires: Option<String>,
+    date: Option<String>,
+    age: Option<String>,
+}
+
+impl Said {
+    /// Read the four fields, each in the way its own definition requires.
+    fn read(headers: &HeaderMap) -> Self {
+        Self {
+            // `Cache-Control` is list-based and may arrive split across field lines.
+            cache_control: combined(headers, "cache-control"),
+            // The other three are single-valued: an instant, an instant, and a number.
+            expires: header(headers, "expires"),
+            date: header(headers, "date"),
+            age: header(headers, "age"),
+        }
+    }
+
+    fn freshness(&self) -> crate::cache::Freshness<'_> {
+        crate::cache::Freshness {
+            cache_control: self.cache_control.as_deref(),
+            expires: self.expires.as_deref(),
+            date: self.date.as_deref(),
+            age: self.age.as_deref(),
+        }
+    }
+}
+
+/// One field's value, for the fields that have exactly one.
+///
+/// Takes the map rather than the response so a test can build one — the same reason
+/// [`crate::cache::Cache::insert_allowed`] owns the storage decision. Nothing in this file can
+/// be driven over a socket.
+fn header(headers: &HeaderMap, name: &str) -> Option<String> {
+    headers
         .get(name)
         .and_then(|v| v.to_str().ok())
         .map(str::to_owned)
+}
+
+/// Every field line of a list-based field, combined as HTTP requires.
+///
+/// **Review found this, and it is a hole with a `no-store` in it.** `Cache-Control` may arrive
+/// as several field lines, and their values are defined to combine as if written on one line
+/// separated by commas. Reading only the first turns
+///
+/// ```text
+/// Cache-Control: public
+/// Cache-Control: no-store
+/// ```
+///
+/// into a bare `public`, and the instruction the origin actually gave is gone before
+/// [`crate::cache::storable`] ever sees it. Splitting on commas downstream is not a substitute:
+/// the value that must be *found* was never passed along.
+///
+/// A value that is not readable text is reported as `no-store`. It may have *been* a `no-store`,
+/// and the rule in this crate is that a header we cannot read is not permission.
+fn combined(headers: &HeaderMap, name: &str) -> Option<String> {
+    let mut values: Vec<String> = Vec::new();
+    for value in headers.get_all(name) {
+        let Ok(text) = value.to_str() else {
+            return Some("no-store".to_owned());
+        };
+        values.push(text.to_owned());
+    }
+    (!values.is_empty()).then(|| values.join(", "))
 }
 
 /// Read a body, giving up once it exceeds the cap.
@@ -250,6 +375,223 @@ pub fn resolve_relative(from: &Target, location: &str) -> Result<Target, FetchEr
     // Relative to the current directory.
     let base = from.path.rsplit_once('/').map_or("/", |(dir, _)| dir);
     Target::parse(&format!("{}{}/{}", from.origin(), base, location))
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod serving_from_memory {
+    //! What the cache is worth, and the one thing it must never do.
+    //!
+    //! # Why there is no test over a real socket
+    //!
+    //! A test server binds `127.0.0.1`, and [`crate::guard`] refuses loopback — deliberately,
+    //! absolutely, and with no flag to turn it off, for the same reason `--ignore-robots` does
+    //! not exist: *the flag would be used, and the commitment is the product*. So the number
+    //! this feature exists to change, **requests arriving at a stranger's server**, cannot be
+    //! counted from inside this repository. That is a limit worth stating rather than a gap
+    //! worth papering over, and it is stated in `BENCHMARKS.md` too.
+    //!
+    //! What can be established here is stronger than it looks, because the guard's refusal is
+    //! the instrument: a loopback URL that comes back as a **page** can only have come from
+    //! memory, since every path that reaches the network refuses it first.
+
+    use super::*;
+
+    fn page(url: &str, body: &str) -> Page {
+        Page {
+            url: url.to_owned(),
+            status: 200,
+            body: body.to_owned(),
+            etag: None,
+            last_modified: None,
+            fetched_at: "2026-08-01T09:00:00Z".parse().unwrap(),
+        }
+    }
+
+    /// Put a page in as a successful fetch would have, without one.
+    fn seed(fetcher: &Fetcher, url: &str, body: &str) {
+        fetcher
+            .pages
+            .lock()
+            .unwrap()
+            .insert(url.to_owned(), page(url, body));
+    }
+
+    #[tokio::test]
+    async fn a_page_already_held_is_returned_without_a_request() {
+        // **The guard is the proof.** `127.0.0.1` is refused by every path that would send
+        // anything, so a page coming back at all means nothing was sent.
+        let fetcher = Fetcher::new();
+        let url = "http://127.0.0.1:9/pricing";
+        seed(&fetcher, url, "<h1>Pricing</h1>");
+
+        let served = fetcher.get(url).await.expect("served from memory");
+        assert_eq!(served.body, "<h1>Pricing</h1>");
+        assert_eq!(served.url, url, "a hit lost where the bytes came from");
+    }
+
+    #[tokio::test]
+    async fn a_page_served_from_memory_says_when_it_was_actually_read() {
+        // A claim's `as_of` comes from this. A cached page that restamped itself would make a
+        // report dated today out of bytes read an hour ago, and say so nowhere.
+        let fetcher = Fetcher::new();
+        let url = "http://127.0.0.1:9/pricing";
+        seed(&fetcher, url, "body");
+        let served = fetcher.get(url).await.expect("served from memory");
+        assert_eq!(
+            served.fetched_at.to_rfc3339(),
+            "2026-08-01T09:00:00+00:00",
+            "the second read claimed to be newer than the bytes it returned"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_refusal_leaves_nothing_behind_to_be_served_later() {
+        // **The invariant the whole ordering rests on.** The cache is read before the guard and
+        // before robots, which is only sound because nothing that failed either can be in it.
+        let fetcher = Fetcher::new();
+        let refused = fetcher.get("http://127.0.0.1:9/private").await;
+        assert!(refused.is_err(), "loopback was fetched: {refused:?}");
+        assert_eq!(
+            fetcher.cached(),
+            (0, 0),
+            "a refusal was remembered, so the next attempt would be served it"
+        );
+    }
+
+    #[tokio::test]
+    async fn what_is_held_is_visible() {
+        // A cache nobody can see the size of is one nobody notices growing.
+        let fetcher = Fetcher::new();
+        assert_eq!(fetcher.cached(), (0, 0));
+        seed(&fetcher, "http://127.0.0.1:9/a", "1234");
+        let (pages, bytes) = fetcher.cached();
+        assert_eq!(pages, 1);
+        // Bodies **and** what it costs to hold them: keys, headers, entry overhead. A budget
+        // counting only bodies bounded nothing, which review found by filling it with empty
+        // responses — so the figure here has to be more than the body, not equal to it.
+        assert!(
+            bytes > "1234".len(),
+            "the body was counted and the rest of the entry was not: {bytes}"
+        );
+    }
+
+    #[tokio::test]
+    async fn two_fetchers_share_nothing_which_is_why_the_worker_holds_one() {
+        // The cache lives on the `Fetcher`, so this is the failure mode the worker had: three
+        // of them inside one run, each paying for the same pages. Pinned so that going back to
+        // a fetcher per pass fails here rather than quietly costing somebody else the requests.
+        let one = Fetcher::new();
+        seed(&one, "http://127.0.0.1:9/a", "held");
+        let other = Fetcher::new();
+        assert!(
+            other.get("http://127.0.0.1:9/a").await.is_err(),
+            "a second fetcher was served the first one's memory"
+        );
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod reading_what_the_origin_actually_said {
+    //! Header reading, over a `HeaderMap` a test can build rather than a socket it cannot.
+
+    use super::*;
+    use reqwest::header::{HeaderName, HeaderValue};
+
+    fn lines(name: &str, values: &[&str]) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        let name: HeaderName = name.parse().unwrap();
+        for value in values {
+            // `append`, not `insert`: this is the shape being tested.
+            headers.append(&name, HeaderValue::from_str(value).unwrap());
+        }
+        headers
+    }
+
+    #[test]
+    fn a_directive_on_a_second_field_line_is_not_lost() {
+        // **Review's finding.** `HeaderMap::get` returns the first value, so this response read
+        // as a bare `public` and was cached in defiance of the line underneath it.
+        let headers = lines("cache-control", &["public", "no-store"]);
+        assert_eq!(
+            header(&headers, "cache-control").as_deref(),
+            Some("public"),
+            "the single-value reader is what made this possible; it still does that"
+        );
+        assert_eq!(
+            combined(&headers, "cache-control").as_deref(),
+            Some("public, no-store")
+        );
+
+        // And the consequence, through the same reader `Fetcher::get` uses — which is why that
+        // reader is a type here rather than four lines inside a function no test can drive.
+        let now = "2026-08-09T00:00:00Z".parse().unwrap();
+        let said = Said::read(&headers);
+        assert_eq!(
+            crate::cache::storable(200, said.freshness(), now),
+            crate::cache::Storable::No,
+            "a `no-store` on the second field line was cached anyway"
+        );
+    }
+
+    #[test]
+    fn the_single_valued_fields_are_read_as_themselves() {
+        // The other half of `Said::read`: joining these would turn two `Date` lines from a
+        // confused proxy into one unparseable string, and an unparseable `Date` refuses to cache
+        // at all. Only the list-based field is combined.
+        let mut headers = lines(
+            "date",
+            &[
+                "Sat, 08 Aug 2026 23:50:00 GMT",
+                "Sat, 08 Aug 2026 22:00:00 GMT",
+            ],
+        );
+        headers.append(
+            HeaderName::from_static("age"),
+            HeaderValue::from_static("120"),
+        );
+
+        let said = Said::read(&headers);
+        assert_eq!(
+            said.date.as_deref(),
+            Some("Sat, 08 Aug 2026 23:50:00 GMT"),
+            "two instants were combined into a string that is neither"
+        );
+        assert_eq!(said.age.as_deref(), Some("120"));
+        assert_eq!(said.cache_control, None);
+
+        // And the response is still cacheable, which is the point: a malformed duplicate should
+        // not silently cost every page on that origin its place in the cache. Ten minutes old by
+        // `Date`, two by `Age`, and the larger wins.
+        let now = "2026-08-09T00:00:00Z".parse().unwrap();
+        assert_eq!(
+            crate::cache::storable(200, said.freshness(), now),
+            crate::cache::Storable::For(Duration::from_secs(3600 - 600)),
+            "a duplicated `Date` was handled as unreadable"
+        );
+    }
+
+    #[test]
+    fn a_field_we_cannot_read_is_not_permission() {
+        let mut headers = HeaderMap::new();
+        headers.append(
+            HeaderName::from_static("cache-control"),
+            HeaderValue::from_bytes(&[0xff, 0xfe]).unwrap(),
+        );
+        assert_eq!(
+            combined(&headers, "cache-control").as_deref(),
+            Some("no-store"),
+            "a value we could not read was treated as though nothing had been said"
+        );
+    }
+
+    #[test]
+    fn a_field_nobody_sent_stays_absent() {
+        // Not the same as an empty one: absent means the origin said nothing, and saying nothing
+        // is what `FRESH_FOR` exists for.
+        assert_eq!(combined(&HeaderMap::new(), "cache-control"), None);
+    }
 }
 
 #[cfg(test)]

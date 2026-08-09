@@ -33,6 +33,330 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 37 — the request we do not send
+
+**Date:** 2026-08-09 · **Where:** this laptop · **Model:** none. A cache changes how often a
+stranger's server is asked, not what a model is asked.
+
+`ROADMAP.md` has called the fetch cache *"the highest-leverage cache in the system — build it in
+Phase 1, not later"* since Phase 1. It was not built. Worse than not built:
+
+```text
+resolve_from_description  →  Fetcher::new()
+rivals_of                 →  Fetcher::new()
+run_analysis              →  Fetcher::new()
+```
+
+**Three fetchers inside one run.** A `Fetcher` remembers pages, `robots.txt` rules and the
+per-host delay *by itself*, so three of them share none of it. One company's `robots.txt` was
+fetched up to three times, and a page read to work out *which* companies these are was read
+again to extract from.
+
+### What changed
+
+| | before | after |
+|---|---|---|
+| fetchers in the worker path | **3 per analysis** | **1 per process** |
+| the same page, two passes of one run | fetched twice | fetched once |
+| the same page, two readers an hour apart | fetched twice | fetched once |
+| `robots.txt` per host per run | up to 3 | 1 |
+
+The cache lives on the `Fetcher`, so the fix is two things at once: a cache, and something that
+holds it long enough to matter. `run_analysis`, `resolve_from_description` and `rivals_of` now
+take `&Fetcher` rather than making one.
+
+### Politeness is the point, not a side effect
+
+The bandwidth saved is ours; **the requests not sent are somebody else's**. That puts this
+beside `robots.txt` and the per-host delay as part of one commitment about how often a
+stranger's machine is asked for the same bytes, rather than as an optimisation standing next to
+them.
+
+### A hit performs no network I/O, which is what makes it safe to serve
+
+The cache is consulted **before** the address guard, `robots.txt` and the pacer. Each is fine to
+skip for exactly one reason: *nothing is sent*. The guard stops us reaching an address; robots
+stops us requesting a path; the pacer stops us asking too often. None protects anything when no
+request leaves the process.
+
+What makes that sound rather than convenient is the invariant on the way **in**: only a page we
+were allowed to fetch is ever stored, because the insert happens after both have passed. A
+disallowed path is an error, and an error is not a page. `a_refusal_leaves_nothing_behind_to_be_served_later`
+pins it.
+
+The one thing a hit can be wrong about is a `robots.txt` that changed since the fetch, and that
+window is bounded by `FRESH_FOR` rather than open.
+
+### Review, fourth pass: a bad afternoon written down and replayed
+
+`storable` decided from the headers and only the headers, so a `500` or a `429` with no
+`Cache-Control` was kept for the full hour and handed to every later reader — **without the
+origin ever being asked whether it had recovered.**
+
+The value that decides this was already in the room twice. `Page::status` was on the struct being
+stored, unread. And one module away, `robots::Rules::from_status` already encodes this exact
+judgement in this repository's own words: a `429` or a `5xx` means *"the site is unwell — assume
+disallowed. The polite reading of 'I am struggling' is not 'carry on'."* The cache took that same
+afternoon and wrote it down.
+
+**A cached failure is worse than a slow one.** The report has a gap whose cause is no longer
+live, and nothing goes back to look for an hour. The politeness argument this row leads with
+points the same way: a cached `503` spares an origin nothing, because there was never going to be
+a second request for a page we already failed to read.
+
+The rule is HTTP's own — keep on our own initiative only for the statuses RFC 9110 §15.1 defines
+as cacheable, and for anything else require the origin to state a freshness:
+
+| | headerless | `max-age=30` |
+|---|---|---|
+| `200`, `404`, `410`, `501`, … | held for the hour | 30s |
+| `429`, `500`, `503`, `400`, `403` | **not held** | 30s — their number, obeyed |
+
+**A bare `public` is not taken as permission**, though RFC 9111 §3 would allow storing on it.
+`public` says *may be stored*, not *is fresh for*, and inventing an hour of freshness for a `503`
+on that basis is what costs an origin its recovery. The stricter reading costs one request.
+
+`insert_allowed` reads the status off the `Page` rather than taking it as a parameter, so the
+status stored and the status judged cannot disagree.
+
+### Review, third pass: an argument written where a test belonged
+
+The section below ends by explaining why the robots cache needs no "too large to keep" guard:
+a `robots.txt` is read through `MAX_BYTES`, so 2 MiB of file cannot become 4 MiB of rules.
+Review answered in one line:
+
+```text
+one file left 5767378 bytes held against a budget of 4194304
+```
+
+An admissible 2 MiB file of `Disallow: /` lines is 174,000 directives, and the byte counter
+charges each one the 32 bytes of the tuple that holds it as well as its single character.
+**The parsed form is bigger than the bytes it was parsed from**, which reasoning from the wire
+size cannot see. Without the guard the eviction loop empties the map making room and then
+inserts the thing that did not fit.
+
+The guard is there now, and the regression builds a file right up against `MAX_BYTES`. The
+argument that replaced it in the source says what it cost — and the sharper lesson is that the
+comment cited *this file's own rule* about not writing branches no test can reach, and used it
+to justify not writing a check. A principle about testability became a reason to skip a test.
+
+### Review, third pass: `get` returns the first, and a header can arrive twice
+
+`Cache-Control` is a list-based field, and HTTP lets it arrive as several field lines whose
+values combine as though written on one line with commas. `HeaderMap::get` returns the first:
+
+```text
+Cache-Control: public
+Cache-Control: no-store      ← never read
+```
+
+So a response arrived as a bare `public` and was cached against an explicit instruction, and
+nothing downstream could recover it — splitting on commas does not help when the value that must
+be found was dropped before being passed along. `combined()` reads `get_all` and joins, and a
+value that is not readable text is reported as `no-store`: it may have *been* one, and a header
+we cannot read is not permission.
+
+The tests build a `HeaderMap` with `append` rather than a response, for the reason the section
+below gives about `insert_allowed`: nothing in `fetcher.rs` can be driven over a socket, so the
+header readers take the map. **The harness made that point again mid-fix.** The first version
+called `combined` from inside `Fetcher::get`, and *a directive on a second Cache-Control line is
+never read* came back MISSED — the choice of which reader to use is a decision, and a decision
+made in that function is one nothing can reach. Which field is list-based now lives in `Said`,
+one call from an assertion, and `get`'s share is a single line with no choice in it.
+
+### Review, second pass: pruning what has expired is not a bound
+
+The fix for the leak below made `robots::Cache` drop expired entries on insert, and the
+regression beside it aged 500 hosts past the six-hour TTL, inserted one more, and asserted one
+remained. It passes, and it cannot see the case that matters — **nothing expires in an
+afternoon**. Asked directly:
+
+```text
+held 50000 live hosts
+```
+
+Six hours is long enough that a worker crossing many companies never expires anything, so
+"prune the expired" bounded a set that was never the problem. The regression was written from
+the fix's point of view rather than the defect's: it had to *arrange* expiry to observe
+anything, which is the one state in which the bug is absent.
+
+The robots cache is now bounded the same way the page cache is — expiry, **plus** a live-entry
+cap of 1,024, **plus** a 4 MiB budget over the retained directives, oldest evicted first. The two
+new regressions insert past each cap **without ageing anything**.
+
+Forgetting a *live* rule set is safe, and that is what makes eviction available here at all: the
+next request for that host re-fetches `robots.txt`. The cost is one extra request. What is never
+done is assuming permission from a rule set that was dropped.
+
+*This paragraph originally argued that no "too large to keep" guard was needed, because a
+`robots.txt` is read through `MAX_BYTES` and one entry could not exceed a 4 MiB budget alone.
+That was wrong, and the round above records how. There is a guard.*
+
+### Review, second pass: a lifetime is not a deadline
+
+`max-age=3600` was being read as *"keep for 3600 seconds from now"*. It is measured from the
+origin's `Date`, so a CDN answering with `Age: 3590` is saying ten seconds remain:
+
+```text
+origin  ──3600s──▶  CDN (holds 3590s)  ──"3600s"──▶  us (holds 3600s more)
+```
+
+Each hop honestly obeys the number it was handed, and the response stays fresh for ever.
+`storable` now subtracts the age — RFC 9111 §4.2.3 in its two useful terms, the apparent age from
+`Date` and the stated `Age`, whichever is larger — and a response whose age has reached its
+lifetime is not kept at all. The round-trip correction is left out: it can only make the age
+larger, so omitting it errs toward serving rather than toward discarding, which is the wrong
+direction to err in silently and is therefore stated here.
+
+**`Expires` did not have this bug, and the reason is worth keeping.** It is an *instant*, so
+`expires - now` already nets out the age; subtracting the age from it as well would double-count.
+`max-age` is a *duration*, and a duration means nothing without the end it is measured from. A
+test pins both halves, including the one that must not change.
+
+`FRESH_FOR` is reduced by the age too, not only the origin's number: our hour is a ceiling on how
+stale served bytes may be, and time spent in somebody else's cache is staleness that has already
+happened.
+
+### Review: the argument in this file, turned back on itself
+
+The section below says a cap of *"256 pages"* bounds nothing when a page may be 2 MiB. Review
+pointed the same argument the other way, and it landed:
+
+```text
+100,000 entries held.  bytes reported: 0.
+```
+
+`bytes` counted only `Page::body`, so a hundred thousand **empty** responses sat in the map
+reporting nothing held, and eviction never ran. **A byte budget that ignores keys and headers
+does not bound entries any more than an entry budget bounds bytes.**
+
+`cost()` now counts the whole of what is retained — the key, the duplicated `Page::url`, the
+headers, and a flat 256 bytes for the entry and the map's slot — and `MAX_ENTRIES` bounds the
+count as well. **Both**, because each alone has a hole shaped exactly like the other.
+
+The test that went with the fix asserted `bytes() > 0`, which the mutation harness then walked
+through: a bodyless entry still holds its key, so that assertion passes while counting nothing
+but strings — the hole again, spelt differently. It asserts `>= OVERHEAD` now.
+
+### Review: the header a publisher states the commitment in
+
+The section below argues the cache belongs beside `robots.txt` as one commitment about how a
+stranger's server is treated. It then ignored `Cache-Control` entirely.
+
+| The origin says | before | now |
+|---|---|---|
+| `no-store` | kept, and handed to a second reader | not kept |
+| `no-cache` | reused with no revalidation | not kept — revalidating needs conditional GET, a later row |
+| `private` | kept in a cache shared by every reader | not kept |
+| `s-maxage=60` | ignored | kept for 60s — shared caches are told this one first |
+| `max-age=30` | served for an hour | kept for 30s |
+| `max-age=3600` with `Age: 3590` | served for an hour | kept for 10s |
+| `Expires` in the past | ignored | not kept |
+
+**Anything unparseable is treated as not cacheable.** A header we cannot read is not permission,
+and being wrong that way costs one extra request rather than one ignored instruction.
+
+**Where the decision lives is part of the fix.** The obvious shape puts the branch in
+`Fetcher::get` — read the headers, decide, insert — and that is what the first version did. No
+test in this repository can reach that branch: a test server binds loopback and the address
+guard refuses loopback absolutely, which is the same limitation stated two sections down. The
+harness said so, in the only way it can: *the origin's headers are read and then ignored* —
+MISSED. The branch moved into `Cache::insert_allowed`, one call from an assertion, and the
+fetcher's remaining share is reading two header strings, the same untestable line as `etag`.
+
+### Review: what a process-long fetcher keeps
+
+*Superseded in part by the second pass above: this was the right observation and the wrong
+bound.*
+
+Making one `Fetcher` outlive the analysis also made `robots::Cache` and `Pacer` outlive it.
+Both filtered expired entries on lookup and never removed them — free when a fetcher lasted one
+run, a leak when it lasts the process. A worker crossing a thousand companies kept a thousand
+rule sets and a thousand elapsed instants, none of which meant anything.
+
+Both prune on insert, which is the rare path — a host not seen before — rather than on every
+request. Neither can change behaviour: an expired rule set was already ignored, and an elapsed
+wait already returns zero.
+
+### Bounded in the unit it claims to be bounded in
+
+A cap of *"256 pages"* bounds nothing when a page may be 2 MiB — it is a cap of somewhere
+between a few kilobytes and half a gigabyte. The budget is **32 MiB**, counting keys, headers and
+per-entry overhead as well as bodies, alongside a cap of **4,096 entries**; oldest is evicted
+first, and a page too large to sit beside anything else is declined rather than allowed to empty
+the cache and then not fit.
+
+`FRESH_FOR` is **one hour**, and it is a *ceiling* rather than a policy: it applies when the
+origin says nothing, and the origin's own number wins whenever it is shorter. It is a starting
+value on the same footing as `AMBIGUITY_MARGIN`. Two readers in one sitting share everything; a
+pricing page edited this morning is picked up this afternoon.
+
+**A cached page never claims to be fresher than it is.** `fetched_at` is stored with the body and
+returned unchanged, so a claim's `as_of` is the moment the bytes were read rather than the moment
+they were handed over. A mutation that restamps it is caught.
+
+### What cannot be measured here, and why
+
+The number this feature exists to change is **requests arriving at somebody else's server**, and
+that cannot be counted from inside this repository: a test server binds `127.0.0.1`, and the SSRF
+guard refuses loopback — deliberately, absolutely, and with no flag to turn it off, for the same
+reason `--ignore-robots` does not exist. *The flag would be used, and the commitment is the
+product.*
+
+So there is **no integration test over a socket**, and none was written by weakening the guard.
+What is asserted instead:
+
+- the `Cache` directly — a hit, `fetched_at` surviving, byte-bounded eviction, replacement, and
+  an oversized page declining rather than clearing everything;
+- `Fetcher::get` with **the guard as the instrument** — a loopback URL that comes back as a page
+  can only have come from memory, because every path that reaches the network refuses it first;
+- that a refusal stores nothing, which is the invariant the ordering rests on;
+- that a page stops being served once it is past `FRESH_FOR`, using a test-only clock that ages
+  the entries rather than a test that waits an hour;
+- that `Cache::insert_allowed` refuses a `no-store` and keeps a `max-age=30` for thirty seconds
+  rather than for our hour — **the reason that function exists** rather than a branch in
+  `Fetcher::get`, which is on the far side of the same guard;
+- that a `max-age` arriving with an `Age` or an old `Date` is honoured to the origin's deadline
+  rather than restarted, that a response already past it is not kept, and that `Expires` is
+  **not** age-adjusted twice;
+- that the robots cache evicts live entries past its host cap and past its byte budget, with
+  nothing aged, and declines one rule set too heavy for the whole budget without emptying itself
+  first;
+- that a `no-store` on a second `Cache-Control` field line reaches `storable`, over a `HeaderMap`
+  built with `append`;
+- that a headerless `429`, `500`, `502`, `503`, `504`, `400` and `403` are none of them kept,
+  that every status HTTP calls cacheable still is, and that an origin stating a `max-age` for a
+  `503` is obeyed.
+
+**One mutation was dropped rather than kept as a pin nobody can satisfy.** *"Remember the page
+under where the redirect landed rather than under what was asked for"* is a real defect and the
+insert path is only reachable through a completed fetch, which loopback forbids — so it came
+back `MISSED` for the same reason there is no socket test. A catalogue entry that cannot fail is
+worse than none: it reads as coverage. The behaviour is stated in the module doc instead.
+
+`landscape read <origin>` prints what is held, so a person running it against a real site can see
+the number this cannot.
+
+### What this does not do yet
+
+**Nothing is shared between processes.** Two workers on one machine, or a restart, start cold.
+A shared cache means a store, and the laptop rule is that nothing requires a database —
+`docs/ROADMAP.md` keeps that as its own decision rather than a side effect of this one.
+
+**No conditional GET.** `Page` has carried `etag` and `last_modified` since the first fetch and
+nothing sends them back. Turning a re-fetch into a `304` with no body is the row's other PR.
+
+**No per-source extraction cache.** The model calls are still paid twice for one page read
+twice — which cannot happen inside a run any more, but can across `PROMPT_VERSION` bumps and
+across processes. That is the second half of this row.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 36 | 850 | 62 |
+| now | **881** | **62** |
+
+---
+
 ## Run 36 — the market decides what is searched for
 
 **Date:** 2026-08-09 · **Where:** this laptop · **Model:** none. The vocabulary step is

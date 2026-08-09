@@ -50,8 +50,28 @@ impl Pacer {
     /// `delay` is the site's `Crawl-delay` where it stated one, and [`DEFAULT_DELAY`]
     /// otherwise.
     pub fn record(&mut self, host: impl Into<String>, delay: Duration) {
-        self.next_allowed
-            .insert(host.into(), Instant::now() + delay);
+        // **Hosts whose wait has already elapsed are forgotten.** An entry in the past answers
+        // the same question as no entry at all — [`Self::wait_for`] returns zero either way — so
+        // dropping it cannot change behaviour, only memory.
+        //
+        // It became worth doing when a `Fetcher` started living as long as the process: review
+        // pointed out that a worker crossing a thousand companies otherwise kept a thousand
+        // instants for ever, none of which meant anything any more.
+        let now = Instant::now();
+        self.next_allowed.retain(|_, at| *at > now);
+        self.next_allowed.insert(host.into(), now + delay);
+    }
+
+    /// How many hosts are being paced. For the test that this does not grow for ever.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.next_allowed.len()
+    }
+
+    /// Whether any host is being paced.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.next_allowed.is_empty()
     }
 }
 
@@ -72,6 +92,24 @@ mod tests {
         let wait = p.wait_for("example.com");
         assert!(wait > Duration::ZERO, "expected a wait, got {wait:?}");
         assert!(wait <= DEFAULT_DELAY);
+    }
+
+    #[test]
+    fn a_host_whose_wait_has_passed_is_forgotten() {
+        // **A consequence of the fetcher outliving one analysis**, which review found: an entry
+        // in the past means exactly what no entry means, and keeping one per host ever seen is
+        // a leak with a politeness-shaped excuse.
+        let mut p = Pacer::new();
+        for i in 0..1_000 {
+            p.record(format!("h{i}.example"), Duration::ZERO);
+        }
+        p.record("current.example", Duration::from_secs(60));
+        assert_eq!(
+            p.len(),
+            1,
+            "a thousand elapsed waits were kept alongside the one that matters"
+        );
+        assert!(p.wait_for("current.example") > Duration::ZERO);
     }
 
     #[test]

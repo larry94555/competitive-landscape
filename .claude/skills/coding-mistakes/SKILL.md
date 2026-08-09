@@ -1746,6 +1746,207 @@ like an improvement.
 
 ---
 
+## 52. A bound in the wrong unit, and the rule put where nothing can reach it
+
+**Found:** the first half by review; the second half by the mutation harness, in the fix.
+
+### The bound
+
+This file's own argument, one entry earlier in the same PR: *a cap of "256 pages" bounds nothing
+when a page may be 2 MiB*. So the cache was bounded in **bytes**. Review pointed the identical
+argument the other way and it landed on the first try:
+
+```text
+100,000 entries held.  bytes reported: 0.
+```
+
+The byte counter summed `Page::body` and nothing else. A hundred thousand empty responses cost
+zero, so eviction never ran, and the map holding the keys grew without any number describing it.
+
+**A budget in one unit does not bound the other, in either direction.** The fix counts what is
+actually retained — key, duplicated URL, headers, and a flat per-entry figure — *and* caps the
+entry count, because each bound alone has a hole shaped exactly like the other.
+
+### The rule nothing could reach
+
+Review's second finding was that `Cache-Control` was ignored entirely, and the fix read the
+header in `Fetcher::get` and branched there:
+
+```rust
+if let Storable::For(fresh_for) = keep { cache.insert_for(url, page, fresh_for); }
+```
+
+Correct, reviewed, and **untestable**: a test server binds loopback, and the address guard
+refuses loopback absolutely, on purpose, with no flag. Nothing in the repository can drive
+`Fetcher::get` to that line. The harness said so in the only way it can — *the origin's headers
+are read and then ignored*: **MISSED**.
+
+The fix was not another test. It was moving the branch into `Cache::insert_allowed`, which takes
+the two header values and returns whether it stored — one call away from an assertion. What is
+left in the fetcher is reading two strings off a response, the same untestable line as `etag`,
+with no decision in it.
+
+### And the assertion that agreed with the defect
+
+The test written beside the byte fix asserted `cache.bytes() > 0`. A bodyless entry still holds
+its key, so that passes while counting nothing but strings — *the defect itself*, spelt
+differently. It asserts `>= OVERHEAD` now: the entry costs at least what an entry costs.
+
+**Rule:** put a rule where something can call it, and prefer moving the rule to writing a test
+that cannot exist. An untestable branch is not "covered by review"; it is a line whose deletion
+nothing notices. And when a bound is the point, assert against the constant that expresses it,
+not against zero — `> 0` is satisfied by the part that was never in question.
+
+> **Ask this:** *can a test call this rule without a network, a clock or a socket? And does my
+> assertion fail if the bound is removed, or only if everything is?*
+
+---
+
+## 53. A bound that only removes what was already dead, and a clock started at the wrong end
+
+**Found:** by review, in the fix for entry 52 — the round immediately after.
+
+### Removing the expired is not a bound
+
+Entry 52's fix made the process-long `robots::Cache` prune on insert:
+
+```rust
+self.by_host.retain(|_, (_, at)| at.elapsed() < CACHE_TTL);
+```
+
+and the regression beside it inserted 500 hosts, **aged all of them past the TTL**, inserted one
+more, and asserted one remained. It passes. It is also blind to the only case that matters:
+`CACHE_TTL` is six hours, so nothing expires in an afternoon, and a worker crossing many hosts
+holds every one of them. Asked directly, it held **50,000** live rule sets.
+
+**The regression was written from the fix's point of view, not the defect's.** The fix was "drop
+what has expired", so the test aged everything to make things expire — which is exactly the state
+in which the bug cannot appear. A test built out of the mechanism can only confirm the mechanism.
+
+The bound is now the same shape as the page cache's: expiry, *plus* a live-entry cap, *plus* a
+byte cap, with oldest-first eviction. The new regressions insert past each cap **without ageing
+anything**.
+
+### A lifetime is not a deadline
+
+The same round: `max-age=3600` was turned into "keep for 3600 seconds **from now**". But
+`max-age` is measured from the origin's `Date`, and a CDN answering with `Age: 3590` is saying
+ten seconds remain. Restarting the clock on arrival lets a chain of caches hold one response
+fresh for ever, one hop at a time — each honestly obeying the number it was handed.
+
+```text
+origin  ──3600s──▶  CDN (holds 3590s)  ──"3600s"──▶  us (holds 3600s more)
+```
+
+`Expires` did not have the bug, and the reason is worth keeping: it is an **instant**, so
+`expires - now` already nets out the age. `max-age` is a **duration**, and a duration is
+meaningless without the end it is measured from. The fix subtracts the age from durations only —
+subtracting it from `Expires` too would have double-counted, which is the same mistake mirrored.
+
+**Rule:** when a fix bounds or expires something, write the regression in the state the *defect*
+needs, not the state the *fix* creates — if the test has to arrange the fix's precondition to
+observe anything, it is testing the fix. And when a value crosses a boundary as a duration, ask
+what clock it started on; if that clock is not yours, the elapsed part is already gone.
+
+> **Ask this:** *does my regression still fail if I delete the setup line that makes the fix
+> apply? And is this number a duration or a deadline?*
+
+---
+
+## 54. An argument written where a test belonged, and the first value taken for all of them
+
+**Found:** by review, in the fix for entry 53 — the third consecutive round on one cache.
+
+### Prose is not a proof, and a correct principle can be used to skip a check
+
+The page cache declines a single entry too large for its whole budget, or the eviction loop
+empties the map making room and then inserts the thing that did not fit. The robots cache was
+given the same budget and **no such guard**, with a comment explaining why one was unnecessary:
+
+> a `robots.txt` is read through `MAX_BYTES`, so a single entry cannot reach 2 MiB of retained
+> directives and cannot exceed this budget on its own. A guard for a case that cannot arise is a
+> branch no test can reach.
+
+Every clause of that is confident and the conclusion is false. Review answered it in one line:
+
+```text
+one file left 5767378 bytes held against a budget of 4194304
+```
+
+An admissible 2 MiB file of `Disallow: /` lines is 174,000 directives, and the byte counter —
+**mine, three paragraphs above the comment** — charges each one the 32 bytes of the tuple that
+holds it as well as its single character. The argument reasoned about the size on the wire; the
+budget counts the size in memory. *The parsed form is bigger than the bytes it was parsed from.*
+
+The worst part is the second sentence. Entry 52's rule — do not write branches no test can reach
+— is right, and it was used here to justify *not writing a check*, on the strength of an argument
+about reachability that was never run. **A principle about testability became a reason to skip a
+test.** Deleting a guard needs the same evidence as adding one, and the evidence is a test, not
+a paragraph.
+
+### `get` returns the first, and a header can arrive twice
+
+`Cache-Control` is a list-based field, and HTTP lets it arrive as several field lines whose
+values combine as though written on one line with commas. `HeaderMap::get` returns the **first**:
+
+```text
+Cache-Control: public
+Cache-Control: no-store      ← never read
+```
+
+so a response arrived as a bare `public` and was cached against an explicit instruction. Nothing
+downstream could recover it: splitting on commas does not help when the value that must be found
+was dropped before it was passed along. The fix reads `get_all` and joins.
+
+Note the shape — this is the same family as the round before it. A part standing in for the
+whole: the first field line for the whole field, the wire size for the whole cost.
+
+**Rule:** when you remove or omit a bound, guard or check, write the test that proves it
+redundant — an argument in a comment carries no weight against a defect and is worse than
+silence, because it discourages the next reader from checking. And when an API offers `get` and
+`get_all`, find out which of the two the *protocol* means before picking the shorter name.
+
+> **Ask this:** *is my reason for leaving this out a measurement or a paragraph? And can this
+> thing legitimately occur more than once?*
+
+---
+
+## 55. A judgement this codebase already makes, not consulted by the new code
+
+**Found:** by review, in the same cache, fourth round.
+
+`storable` decided whether a response could be kept from its headers, and only its headers. So a
+`500` or a `429` with no `Cache-Control` was kept for the full hour and replayed to every later
+reader — **without the origin ever being asked whether it had recovered.**
+
+The value that decides this was already in the room, twice over:
+
+- `Page::status` was on the very struct being stored, unread.
+- One module away, `robots::Rules::from_status` already encodes this exact judgement, in this
+  repository's own words: a `429` or a `5xx` means *"the site is unwell — assume disallowed. The
+  polite reading of 'I am struggling' is not 'carry on'."*
+
+The cache took that same afternoon and wrote it down. **A cached failure is worse than a slow
+one**: the report has a gap whose cause is no longer live, and nothing will go and look again for
+an hour. The politeness argument the module leads with points the same way — a cached `503` does
+not spare an origin anything, because there was never going to be a second request for a page we
+already failed to read.
+
+The fix is HTTP's own rule: keep on our own initiative only for the statuses RFC 9110 §15.1
+defines as cacheable, and for anything else require the origin to state a freshness. `storable`
+takes the status, and `insert_allowed` reads it off the `Page` rather than from a parameter, so
+the two cannot disagree.
+
+**Rule:** before writing a policy, ask whether this codebase already has an opinion about the
+same value — and whether the type you are handed is already carrying the input you need. A new
+component that reaches a different verdict from an existing one about the same fact is a
+contradiction, not a feature, and the older one is usually the one that was thought about.
+
+> **Ask this:** *does anything else here already decide something about this value? And am I
+> ignoring a field of the thing I was handed?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

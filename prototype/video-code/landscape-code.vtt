@@ -1,37 +1,37 @@
 WEBVTT
 
 1
-00:00:01.500 --> 00:00:05.100
-Run 35 built a resolver nothing read.
+00:00:01.500 --> 00:00:04.500
+One run built three fetchers.
 
 2
-00:00:05.100 --> 00:00:08.700
-Two rounds return two different sets.
+00:00:04.500 --> 00:00:08.000
+So the same page was fetched twice.
 
 3
-00:00:08.700 --> 00:00:12.400
-The second only when the words change.
+00:00:08.000 --> 00:00:11.800
+The requests we do not send are theirs.
 
 4
-00:00:12.400 --> 00:00:16.000
-The coverage note counts both rounds.
+00:00:11.800 --> 00:00:15.800
+A hit sends nothing, so nothing is skipped.
 
 5
-00:00:16.000 --> 00:00:19.100
-What was substituted is shown.
+00:00:15.800 --> 00:00:19.500
+Only a page we were allowed is stored.
 
 6
-00:00:19.100 --> 00:00:22.300
-On the partial reports as well.
+00:00:19.500 --> 00:00:22.700
+Bounded in bytes, not in pages.
 
 7
-00:00:22.300 --> 00:00:26.100
-And absent when nothing was substituted.
+00:00:22.700 --> 00:00:26.500
+And it reports when it was really read.
 
 8
-00:00:26.100 --> 00:00:29.800
-One function, so the two cannot drift.
+00:00:26.500 --> 00:00:30.200
+There is no socket test, deliberately.
 
 9
-00:00:29.800 --> 00:00:33.000
-The market decides what is searched for.
+00:00:30.200 --> 00:00:32.400
+The request we do not send.
