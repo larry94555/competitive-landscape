@@ -1593,8 +1593,69 @@ quantified over everything the function can produce — rather than one string t
 contain. A negative built from a guess is only as good as the guess, and there is no feedback
 when the guess is wrong: it passes either way.
 
+### The sequel, in the next PR, in a test written *after* reading this entry
+
+Numbers separate a listicle's headline from its category, so `Top 10 CRM Software` yields
+`crm software` and not `top crm`. The assertion:
+
+```rust
+assert!(!found.iter().any(|p| p.contains("top")));
+```
+
+**MISSED again.** Deleting the break leaves `top`, `10`, `crm`, `software` in one run — and the
+furniture trim removes `top` from every phrase anyway, so the assertion passes while
+`10 crm software` sits in the output. A bare number had been glued to a category, which is the
+whole defect.
+
+The rule is *no phrase may contain a word that is all digits*, and it does not care what the
+neighbouring words are.
+
+**Writing this entry did not stop me making the same mistake eight hours later**, which is worth
+recording as plainly as the mistake: a negative assertion aimed at a *word* is the reflex, and
+the reflex is wrong. The only reliable tell is that the assertion names something specific from
+the example rather than something universal about the output.
+
 > **Ask this:** *if this code were broken in a way I have not thought of, would this assertion
 > still fail?*
+
+---
+
+## 49. A check written to find a defect, blind to the shape that defect takes
+
+**Found:** by review, on the gate added in the same PR as the defect it was written for.
+
+`scripts/no_lost_continuations.py` looks for a run of spaces inside a string literal — the
+wreckage of a lost `\` continuation. It found eight and closed them. It extracted literals with
+a per-line regex:
+
+```python
+for lit in re.findall(QUOTED, line):   # one line at a time
+```
+
+**A `\` continuation is, by definition, a literal that spans several lines.** The three model
+prompts in `landscape-analyze::stages` — the longest multi-line literals in the repository, and
+the place where damage matters most because a mangled prompt changes what a model is asked —
+were invisible to the check written to find exactly this. I had even *documented* them as
+deferred, on the strength of an old note rather than the gate's own output; the gate had never
+seen them, and my exemption list was a guess dressed as a finding.
+
+**The exemption made it worse.** It named a *file*, so a new damaged string in that file would
+increment a counter and pass. The place the check most needed to look was the one place it had
+been told not to.
+
+**Both halves are fixed the same way: read what the defect actually looks like.** Literals are
+now parsed whole with a small state machine (skipping comments, char literals and lifetimes),
+and exemptions are keyed on the **digest of the exact literal** — so a new damaged string fails,
+editing a deferred one fails, and fixing one fails until its entry is removed. Every one of
+those was checked by making it happen.
+
+**Rule:** a check for a defect has to be tested against the defect, on real inputs, before it is
+believed. "It found eight" is evidence it finds *some*; it is not evidence of coverage. And an
+exemption must name the thing exempted, never the place it lives — a path-shaped exemption grows
+silently, and it grows fastest exactly where somebody once had a good reason to add it.
+
+> **Ask this:** *what does this defect look like in the worst file I have, and would my check see
+> it there?*
 
 ---
 
@@ -1671,7 +1732,7 @@ Grouped by what has actually gone wrong, commonest first.
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35, 47 |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35, 47, 49 |
 | The mutation harness | 32, 36, 46, 48 | The only ones it found before review did. 36 deleted a rule rather than adding a test; 46 deleted an argument; 48 was a defect in a test |
 | Its own tooling | 28 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |

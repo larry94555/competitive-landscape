@@ -75,6 +75,50 @@ exactly that and requires the answer to be *"the market has no word for this"*:
 | 40 pages, 1 host, all saying *battlecard automation platform* | `TheirWords` — nothing recurred |
 | 5 pages, 5 hosts, 3 saying *competitive intelligence software* | `Market` — 3 independent sites |
 
+### Review: two markets, and a coin flip presented as a fact
+
+Two hosts titled *Email Marketing Software*, two titled *Project Management Software*:
+
+```text
+Market { label: "email marketing software", hosts: 2 }
+```
+
+The other market — backed by exactly as many independent sites — was **not returned, not
+offered, and not even in the `also` list**, which had been consumed by overlapping fragments of
+the winner. It won because `e` sorts before `p`.
+
+`landscape_core::subject::AMBIGUITY_MARGIN` already has the words for this: *"picking the top
+one is a coin flip presented to the reader as a fact"*. Here it is worse than picking the wrong
+company, because **the label decides every query downstream** — the whole report would be about
+a market nobody asked for.
+
+`Resolved::Ambiguous { between }` now carries the competing categories. The grouping is by
+**containment**, the relation `most_specific` already used: *email marketing*, *marketing
+software* and *email marketing software* are one market said three ways, and *project management
+software* is not.
+
+**Transitive on purpose.** *marketing software* links to *email marketing software* and nothing
+else; without transitivity it becomes a third "market" made of a fragment of the first, and a
+three-way tie where there are two real categories. A test pins the count at two.
+
+**A fractional margin is the wrong instrument.** These are counts of two to five, where 15% is
+either zero or everything. Equal corroboration is a tie, and a tie is a question.
+
+### Review: a digit inside a word is not a separator
+
+```text
+phrases_in("B2B Marketing Automation Software")  ->  "b marketing automation software"
+phrases_in("3D Modeling Software")               ->  "d modeling software"
+```
+
+Breaking a run on every digit was right for the `10` in *Top 10 CRM Software* and wrong for
+every category that contains one. Two hosts using either title would have promoted a word that
+does not exist to a market label.
+
+**A whole word made of digits is a separator; a digit inside a word is part of it.** `10` is the
+first; `b2b` and `3d` are the second. Both behaviours now have their own test, because fixing
+one at the cost of the other is the obvious way to get this wrong.
+
 ### The most specific term that still recurs widely
 
 §4 step 4 in one sentence, and the hard half is *"still recurs widely"*. `competitive
@@ -124,10 +168,10 @@ A `\` continuation in a Rust string strips the newline **and** the indentation. 
 backslash and the indentation stays, baked into a sentence somebody is shown. It compiles and
 every test passes.
 
-`scripts/no_lost_continuations.py` is the **thirteenth gate**. It found eight, in a CLI message,
-five test assertions in `interrupted_runs.rs` and two in `conformance.rs` — all of them closed
-here. Telling it apart from deliberate column padding needed two signals together, because this
-codebase pads columns constantly:
+`scripts/no_lost_continuations.py` is the **thirteenth gate**. It found ten — a CLI message,
+five test assertions in `interrupted_runs.rs`, two in `conformance.rs` and two more in
+`stages.rs` — all of them closed here. Telling it apart from deliberate column padding needed
+two signals together, because this codebase pads columns constantly:
 
 | | gap | what follows |
 |---|---|---|
@@ -140,9 +184,25 @@ Nine spaces or more **and** letters on both sides. A continuation carries the wh
 of the line that followed it, which inside a function inside a block is never small; a column
 that wide would be unreadable, which is why nobody writes one.
 
-The three prompts in `landscape-analyze::stages` carry the same damage and are **deferred by
-name in the script**, because editing a prompt needs `PROMPT_VERSION` bumped and the golden set
-re-run against a real model. That is a benchmark, not a lint fix.
+### Review: the gate was blind where it mattered most
+
+The first version matched `"…"` **per line** — and a `\` continuation is *by definition* a
+literal that spans several. The three model prompts in `landscape-analyze::stages`, the longest
+multi-line literals in the repository, were invisible to the check written to find exactly this.
+Reading literals whole, with a small state machine that skips comments, char literals and
+lifetimes, found all three.
+
+They are still **deferred**, because editing a prompt needs `PROMPT_VERSION` bumped and the
+golden set re-run against a real model — a benchmark, not a lint fix. But deferred **by the
+digest of the exact literal**, not by file:
+
+| | before | after |
+|---|---|---|
+| a new damaged string in `stages.rs` | silently counted as deferred | **fails** |
+| one of the three prompts edited | silently accepted | **fails** — that is the decision point |
+| a deferred string finally fixed | nothing said | **fails**, so the exemption is removed |
+
+Both failure modes were checked by making them happen.
 
 ### What this does not do yet
 
@@ -161,7 +221,7 @@ earlier in the pipeline than usual.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 34 | 822 | 58 |
-| now | **835** | **58** |
+| now | **839** | **58** |
 
 ---
 

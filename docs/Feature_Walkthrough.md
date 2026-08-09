@@ -1443,6 +1443,17 @@ farm publishing the same title forty times has said it once
 the command says so — *"the market has no settled word for this"* — which is a finding about a
 market rather than a failure, and different again from *"the searches did not complete"*.
 
+**And when two markets are equally backed, it refuses.** Two sites saying *email marketing
+software* and two saying *project management software* is not a market with a name — it is a
+question, and the command asks it rather than sorting alphabetically:
+
+```text
+no vocabulary: these categories are backed by the same number of
+independent sites, and the label decides every query a report sends:
+  email marketing software (2 sites)
+  project management software (2 sites)
+```
+
 **Why the longer phrase wins.** `competitive intelligence` was on four sites and `competitive
 intelligence software` on three, and the longer one is the answer because it **extends** the
 phrase everybody agreed on. That is [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) §4

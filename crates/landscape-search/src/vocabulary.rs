@@ -127,6 +127,22 @@ pub struct Market {
 pub enum Resolved {
     /// The market has a name for it.
     Market(Market),
+    /// Two or more **unrelated** categories, corroborated by exactly as many sites as each other.
+    ///
+    /// **The gate the resolver owed.** Two hosts saying *email marketing software* and two
+    /// saying *project management software* used to come back as the first of those, chosen by
+    /// nothing but which sorted earlier — `landscape_core::subject::AMBIGUITY_MARGIN`'s words
+    /// for it are exact: *"picking the top one is a coin flip presented to the reader as a
+    /// fact"*. And this one is worse than picking the wrong company, because the label decides
+    /// every query downstream: the whole report would be about a market nobody asked for.
+    ///
+    /// **Unrelated** means neither phrase contains the other. *competitive intelligence* and
+    /// *competitive intelligence software* are one market described at two widths, and choosing
+    /// the wider is [`most_specific`]'s job rather than a reader's.
+    Ambiguous {
+        /// The competing categories, each already reduced to its most specific phrasing.
+        between: Vec<Market>,
+    },
     /// Titles were read and nothing recurred across [`INDEPENDENT_HOSTS`] of them.
     ///
     /// **A finding, not a failure.** Some ideas genuinely have no category yet, and the honest
@@ -183,49 +199,65 @@ pub fn phrases_in(title: &str) -> Vec<String> {
     out
 }
 
-/// The letter runs of a title, already split at grammar words.
+/// The word runs of a title, already split at numbers and at grammar words.
+///
+/// **A number on its own is a separator; a number inside a word is part of it.** Review found
+/// the difference: breaking on every digit turned `B2B Marketing Automation Software` into
+/// `b marketing automation software` and `3D Modeling Software` into `d modeling software` —
+/// corrupted phrases that two hosts using either title would have promoted to a market label.
+/// The `10` in `Top 10 CRM Software` still separates the headline from the category, because it
+/// is a whole word made of digits and `b2b` is not.
 fn runs_of(title: &str) -> Vec<Vec<String>> {
     let mut runs: Vec<Vec<String>> = Vec::new();
-    let mut current = String::new();
+    let mut run: Vec<String> = Vec::new();
+    let mut word = String::new();
     let chars: Vec<char> = title.chars().collect();
+
     for (i, c) in chars.iter().enumerate() {
-        if c.is_alphabetic() {
-            current.extend(c.to_lowercase());
-        } else if c.is_whitespace()
-            || (*c == '-'
-                && i > 0
-                && chars[i - 1].is_alphabetic()
-                && chars.get(i + 1).is_some_and(|n| n.is_alphabetic()))
-        {
+        if c.is_alphanumeric() {
+            word.extend(c.to_lowercase());
+        } else if c.is_whitespace() || tight_hyphen(&chars, i) {
             // A space separates two words of one phrase; a **tight** hyphen is the same thing
             // spelled differently. `Klue - Competitive Intelligence` reaches neither arm,
             // because that hyphen has a space on each side and is the title's own punctuation.
-            current.push(' ');
+            close_word(&mut word, &mut run, &mut runs);
         } else {
-            push_run(&mut runs, &current);
-            current.clear();
+            close_word(&mut word, &mut run, &mut runs);
+            close_run(&mut run, &mut runs);
         }
     }
-    push_run(&mut runs, &current);
+    close_word(&mut word, &mut run, &mut runs);
+    close_run(&mut run, &mut runs);
     runs
 }
 
-/// Split one run at its grammar words and keep whatever is long enough to hold a phrase.
-fn push_run(runs: &mut Vec<Vec<String>>, text: &str) {
-    let mut part: Vec<String> = Vec::new();
-    for word in text.split_whitespace() {
-        if NOT_CONTENT.contains(&word) {
-            if part.len() >= SHORTEST {
-                runs.push(std::mem::take(&mut part));
-            } else {
-                part.clear();
-            }
-            continue;
-        }
-        part.push(word.to_owned());
+/// Whether this `-` joins two characters rather than separating two words.
+fn tight_hyphen(chars: &[char], i: usize) -> bool {
+    chars[i] == '-'
+        && i > 0
+        && chars[i - 1].is_alphanumeric()
+        && chars.get(i + 1).is_some_and(char::is_ascii_alphanumeric)
+}
+
+/// End the current word. A bare number and a grammar word both end the *run* instead.
+fn close_word(word: &mut String, run: &mut Vec<String>, runs: &mut Vec<Vec<String>>) {
+    if word.is_empty() {
+        return;
     }
-    if part.len() >= SHORTEST {
-        runs.push(part);
+    let finished = std::mem::take(word);
+    if finished.chars().all(|c| c.is_numeric()) || NOT_CONTENT.contains(&finished.as_str()) {
+        close_run(run, runs);
+    } else {
+        run.push(finished);
+    }
+}
+
+/// Keep a run if it is long enough to hold a phrase, and start a new one either way.
+fn close_run(run: &mut Vec<String>, runs: &mut Vec<Vec<String>>) {
+    if run.len() >= SHORTEST {
+        runs.push(std::mem::take(run));
+    } else {
+        run.clear();
     }
 }
 
@@ -318,7 +350,8 @@ pub fn from_titles(results: &[Vec<Hit>], queried: &Queried) -> Resolved {
             .then_with(|| a.words.cmp(&b.words))
     });
 
-    match counted.first() {
+    let found = clusters(&counted);
+    match found.split_first() {
         None if !queried.failed.is_empty() => Resolved::Incomplete {
             failed: queried.failed.len(),
             sent: queried.sent(),
@@ -327,8 +360,88 @@ pub fn from_titles(results: &[Vec<Hit>], queried: &Queried) -> Resolved {
             titles,
             hosts: hosts.len(),
         },
-        Some(anchor) => Resolved::Market(most_specific(anchor, &counted)),
+        Some((best, rest)) => {
+            // **Equal corroboration, and nothing else to choose on.** A fractional margin is the
+            // wrong instrument here: these are counts of two to five, where 15% is either zero
+            // or everything. Two independent sites each is a tie, and a tie is a question.
+            let tied: Vec<Market> = rest
+                .iter()
+                .filter(|m| m.hosts == best.hosts)
+                .cloned()
+                .collect();
+            if tied.is_empty() {
+                Resolved::Market(best.clone())
+            } else {
+                Resolved::Ambiguous {
+                    between: std::iter::once(best.clone()).chain(tied).collect(),
+                }
+            }
+        }
     }
+}
+
+/// The categories the titles describe, one entry per market rather than one per phrase.
+///
+/// **Grouped by containment, which is the relation [`most_specific`] already uses.** Every phrase
+/// that contains another, or is contained by it, belongs to the same market: *email marketing*,
+/// *marketing software* and *email marketing software* are one thing said three ways. *Project
+/// management software* is not, and that is what makes a tie between them a question rather than
+/// a sort order.
+///
+/// Transitive on purpose. *marketing software* links to *email marketing software* and nothing
+/// else; without transitivity it would become a third "market" that is a fragment of the first,
+/// and three tied clusters where there are two real ones.
+fn clusters(counted: &[Phrase]) -> Vec<Market> {
+    let mut group: Vec<usize> = (0..counted.len()).collect();
+    fn root(group: &mut [usize], mut i: usize) -> usize {
+        while group[i] != i {
+            group[i] = group[group[i]];
+            i = group[i];
+        }
+        i
+    }
+    for a in 0..counted.len() {
+        for b in (a + 1)..counted.len() {
+            if !related(&counted[a], &counted[b]) {
+                continue;
+            }
+            let (ra, rb) = (root(&mut group, a), root(&mut group, b));
+            if ra != rb {
+                group[rb] = ra;
+            }
+        }
+    }
+
+    // `counted` is already sorted best-first, so walking it in order puts the strongest market
+    // first and keeps every tie broken the same way on a second run.
+    let mut out: Vec<Market> = Vec::new();
+    let mut seen: Vec<usize> = Vec::new();
+    for i in 0..counted.len() {
+        let r = root(&mut group, i);
+        if seen.contains(&r) {
+            continue;
+        }
+        seen.push(r);
+        let members: Vec<Phrase> = (0..counted.len())
+            .filter(|&j| root(&mut group, j) == r)
+            .map(|j| counted[j].clone())
+            .collect();
+        out.push(most_specific(&counted[i], &members));
+    }
+    out
+}
+
+/// Whether one phrase is the other said at a different width.
+fn related(a: &Phrase, b: &Phrase) -> bool {
+    contains(&a.words, &b.words) || contains(&b.words, &a.words)
+}
+
+/// Whether `outer` holds `inner` as a whole run of words.
+fn contains(outer: &str, inner: &str) -> bool {
+    outer == inner
+        || outer.starts_with(&format!("{inner} "))
+        || outer.ends_with(&format!(" {inner}"))
+        || outer.contains(&format!(" {inner} "))
 }
 
 /// §4 step 4: **the most specific term that still recurs widely.**
@@ -342,16 +455,10 @@ pub fn from_titles(results: &[Vec<Hit>], queried: &Queried) -> Resolved {
 /// **A ratio would have been the obvious alternative and is worse.** "Recurs widely" as a
 /// fraction of the top count needs a number nobody can defend, and it would move every time the
 /// query count moved. Containment needs none.
-fn most_specific(anchor: &Phrase, counted: &[Phrase]) -> Market {
-    let contains = |p: &Phrase| {
-        p.words == anchor.words
-            || p.words.starts_with(&format!("{} ", anchor.words))
-            || p.words.ends_with(&format!(" {}", anchor.words))
-            || p.words.contains(&format!(" {} ", anchor.words))
-    };
-    let label = counted
+fn most_specific(anchor: &Phrase, cluster: &[Phrase]) -> Market {
+    let label = cluster
         .iter()
-        .filter(|p| contains(p))
+        .filter(|p| contains(&p.words, &anchor.words))
         .max_by(|a, b| {
             a.words
                 .split(' ')
@@ -363,7 +470,7 @@ fn most_specific(anchor: &Phrase, counted: &[Phrase]) -> Market {
         .unwrap_or(anchor);
     Market {
         label: label.words.clone(),
-        also: counted
+        also: cluster
             .iter()
             .filter(|p| p.words != label.words)
             .take(ALSO)
@@ -461,21 +568,6 @@ mod tests {
                 "Top 10 Competitor Analysis Tools",
             ),
         ]]
-    }
-
-    #[test]
-    fn a_number_between_a_headline_and_a_category_separates_them() {
-        // `Top 10 CRM Software` must not yield `top crm`. The digits are the separator, and
-        // treating them as one is what stops a listicle's furniture gluing onto a category.
-        let found = phrases_in("Top 10 CRM Software");
-        assert!(
-            found.contains(&"crm software".to_owned()),
-            "the category is missing: {found:?}"
-        );
-        assert!(
-            !found.iter().any(|p| p.contains("top")),
-            "a headline word crossed a number: {found:?}"
-        );
     }
 
     #[test]
@@ -639,6 +731,112 @@ mod tests {
             queried.sent(),
             0,
             "queries were counted with no engine to send them to"
+        );
+    }
+
+    #[test]
+    fn a_digit_inside_a_category_is_part_of_it() {
+        // **Review found this.** Breaking on every digit turned `B2B` into `b` and `3D` into
+        // `d`, and two hosts using either title would have promoted the corrupted phrase to a
+        // market label — every query in the report built from a word that does not exist.
+        let b2b = phrases_in("B2B Marketing Automation Software");
+        assert!(
+            b2b.contains(&"b2b marketing automation software".to_owned()),
+            "a category with a digit in it came out mangled: {b2b:?}"
+        );
+        assert!(
+            !b2b.iter().any(|p| p.starts_with("b ")),
+            "a digit was cut out of a word: {b2b:?}"
+        );
+
+        let threed = phrases_in("3D Modeling Software");
+        assert!(
+            threed.contains(&"3d modeling software".to_owned()),
+            "a category starting with a digit came out mangled: {threed:?}"
+        );
+        assert!(!threed.iter().any(|p| p.starts_with("d ")), "{threed:?}");
+    }
+
+    #[test]
+    fn a_number_on_its_own_still_separates_a_headline_from_a_category() {
+        // The other half of the rule above, and the half that came first. `10` is a whole word
+        // made of digits; `b2b` is not. Fixing one must not cost the other.
+        let found = phrases_in("Top 10 CRM Software");
+        assert!(found.contains(&"crm software".to_owned()), "{found:?}");
+        assert!(
+            !found.iter().any(|p| p.contains("top")),
+            "a headline word crossed a bare number: {found:?}"
+        );
+        // **The rule, not one spelling of the failure.** `!p.contains("top")` passed with the
+        // break deleted, because the furniture trim removes `top` anyway - and left `10 crm
+        // software` behind, which is the actual defect. No phrase may contain a bare number.
+        assert!(
+            !found
+                .iter()
+                .any(|p| p.split(' ').any(|w| w.chars().all(char::is_numeric))),
+            "a bare number ended up inside a phrase: {found:?}"
+        );
+    }
+
+    #[test]
+    fn two_unrelated_markets_with_the_same_backing_are_not_chosen_between() {
+        // **Review found this too, and it is the worse of the pair.** Two hosts say one thing
+        // and two say another; the resolver returned the first alphabetically, and the label
+        // decides *every query downstream* — so the whole report would have been about a market
+        // nobody asked for, picked by a sort order.
+        let split = vec![vec![
+            hit("https://a.example/", "Email Marketing Software"),
+            hit("https://b.example/", "Email Marketing Software"),
+            hit("https://c.example/", "Project Management Software"),
+            hit("https://d.example/", "Project Management Software"),
+        ]];
+        let Resolved::Ambiguous { between } = from_titles(&split, &asked(3)) else {
+            panic!(
+                "two equally backed markets were chosen between: {:?}",
+                from_titles(&split, &asked(3))
+            )
+        };
+        let labels: Vec<&str> = between.iter().map(|m| m.label.as_str()).collect();
+        assert!(
+            labels.contains(&"email marketing software")
+                && labels.contains(&"project management software"),
+            "both markets have to be offered, not just the one that sorted first: {labels:?}"
+        );
+        assert!(
+            between.iter().all(|m| m.hosts == 2),
+            "the tie is the reason this is a question: {between:?}"
+        );
+    }
+
+    #[test]
+    fn one_market_described_at_two_widths_is_not_a_tie() {
+        // The other side, so the gate above cannot fire on every input. `competitive
+        // intelligence` and `competitive intelligence software` are one market said two ways,
+        // and choosing the wider is `most_specific`'s job rather than a reader's.
+        assert!(
+            matches!(from_titles(&a_market(), &asked(3)), Resolved::Market(_)),
+            "one market at two widths was reported as a choice a reader has to make"
+        );
+    }
+
+    #[test]
+    fn a_fragment_of_one_market_is_not_a_second_market() {
+        // `marketing software` is inside `email marketing software` and nothing else, so it
+        // belongs to that cluster. Without transitivity it would be a third "market" made of a
+        // piece of the first, and a tie between three things where there are two.
+        let split = vec![vec![
+            hit("https://a.example/", "Email Marketing Software"),
+            hit("https://b.example/", "Email Marketing Software"),
+            hit("https://c.example/", "Project Management Software"),
+            hit("https://d.example/", "Project Management Software"),
+        ]];
+        let Resolved::Ambiguous { between } = from_titles(&split, &asked(3)) else {
+            panic!("not ambiguous")
+        };
+        assert_eq!(
+            between.len(),
+            2,
+            "a fragment became a market of its own: {between:?}"
         );
     }
 

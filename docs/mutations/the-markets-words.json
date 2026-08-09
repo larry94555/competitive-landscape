@@ -28,8 +28,8 @@
   {
     "name": "the broadest phrase wins instead of the most specific one",
     "file": "crates/landscape-search/src/vocabulary.rs",
-    "old": "    let label = counted\n        .iter()\n        .filter(|p| contains(p))",
-    "new": "    let label = counted\n        .iter()\n        .filter(|p| p.words == anchor.words)",
+    "old": "    let label = cluster\n        .iter()\n        .filter(|p| contains(&p.words, &anchor.words))",
+    "new": "    let label = cluster\n        .iter()\n        .filter(|p| p.words == anchor.words)",
     "run": [
       "cargo",
       "nextest",
@@ -41,8 +41,8 @@
   {
     "name": "a title's own punctuation stops separating a company from a category",
     "file": "crates/landscape-search/src/vocabulary.rs",
-    "old": "            || (*c == '-'\n                && i > 0\n                && chars[i - 1].is_alphabetic()\n                && chars.get(i + 1).is_some_and(|n| n.is_alphabetic()))",
-    "new": "            || (*c == '-')",
+    "old": "        } else if c.is_whitespace() || tight_hyphen(&chars, i) {",
+    "new": "        } else if c.is_whitespace() || chars[i] == '-' {",
     "run": [
       "cargo",
       "nextest",
@@ -67,8 +67,8 @@
   {
     "name": "a grammar word sits inside a phrase instead of breaking it",
     "file": "crates/landscape-search/src/vocabulary.rs",
-    "old": "        if NOT_CONTENT.contains(&word) {",
-    "new": "        if false {",
+    "old": "    if finished.chars().all(|c| c.is_numeric()) || NOT_CONTENT.contains(&finished.as_str()) {",
+    "new": "    if finished.chars().all(|c| c.is_numeric()) {",
     "run": [
       "cargo",
       "nextest",
@@ -119,8 +119,8 @@
   {
     "name": "an answer already in hand is thrown away because a query timed out",
     "file": "crates/landscape-search/src/vocabulary.rs",
-    "old": "    match counted.first() {\n        None if !queried.failed.is_empty() => Resolved::Incomplete {",
-    "new": "    match None::<&Phrase> {\n        None if !queried.failed.is_empty() => Resolved::Incomplete {",
+    "old": "    let found = clusters(&counted);\n    match found.split_first() {",
+    "new": "    let found: Vec<Market> = Vec::new();\n    match found.split_first() {",
     "run": [
       "cargo",
       "nextest",
@@ -160,6 +160,71 @@
     "file": "crates/landscape-search/src/vocabulary.rs",
     "old": "    IDEA_TEMPLATES\n        .iter()\n        .flat_map(|t| t.split(|c: char| !c.is_alphabetic()))",
     "new": "    [\"best\", \"software\"]\n        .iter()\n        .flat_map(|t| t.split(|c: char| !c.is_alphabetic()))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a digit inside a word cuts the word in half",
+    "file": "crates/landscape-search/src/vocabulary.rs",
+    "old": "        if c.is_alphanumeric() {",
+    "new": "        if c.is_alphabetic() {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a bare listicle number stops separating a headline from a category",
+    "file": "crates/landscape-search/src/vocabulary.rs",
+    "old": "    if finished.chars().all(|c| c.is_numeric()) || NOT_CONTENT.contains(&finished.as_str()) {",
+    "new": "    if NOT_CONTENT.contains(&finished.as_str()) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "two equally backed markets are chosen between on a sort order",
+    "file": "crates/landscape-search/src/vocabulary.rs",
+    "old": "            if tied.is_empty() {",
+    "new": "            if true {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "one market described at two widths is reported as a choice a reader must make",
+    "file": "crates/landscape-search/src/vocabulary.rs",
+    "old": "            if !related(&counted[a], &counted[b]) {\n                continue;\n            }",
+    "new": "            if true {\n                continue;\n            }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a fragment of one market becomes a market of its own",
+    "file": "crates/landscape-search/src/vocabulary.rs",
+    "old": "fn related(a: &Phrase, b: &Phrase) -> bool {\n    contains(&a.words, &b.words) || contains(&b.words, &a.words)",
+    "new": "fn related(a: &Phrase, b: &Phrase) -> bool {\n    contains(&a.words, &b.words)",
     "run": [
       "cargo",
       "nextest",

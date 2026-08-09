@@ -465,6 +465,16 @@ Nothing to ask: a description with no words in it would send bare"
             println!("so the reader's own words are the best available and are what");
             println!("would be searched.");
         }
+        landscape_search::vocabulary::Resolved::Ambiguous { between } => {
+            println!("no vocabulary: these categories are backed by the same number of");
+            println!("independent sites, and the label decides every query a report sends:");
+            for market in &between {
+                println!("  {} ({} sites)", market.label, market.hosts);
+            }
+            println!();
+            println!("Choosing between them on a sort order would put a whole report about");
+            println!("a market nobody asked for. Say which one you meant.");
+        }
         landscape_search::vocabulary::Resolved::Market(market) => {
             println!("interpreted as  {}", market.label);
             println!("agreed on by    {} independent sites", market.hosts);

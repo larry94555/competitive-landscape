@@ -811,6 +811,12 @@ the single most important phase; everything after it is commerce and polish.
   **Review sites are the best source here and the worst next door**: `candidates` excludes
   `g2.com` because it is not a company, and §4 step 5 calls its curated category tree the
   strongest signal there is. A test pins the inversion so the two lists cannot quietly merge.
+  **And it refuses to choose between two markets rather than sorting them.** Review found two
+  hosts saying *email marketing software* and two saying *project management software* resolving
+  to the first alphabetically — `AMBIGUITY_MARGIN`'s *"coin flip presented to the reader as a
+  fact"*, and worse here than for a company, because the label decides every query downstream.
+  `Resolved::Ambiguous` carries the competing categories, grouped by containment so one market
+  described at two widths is not mistaken for two.
   **Still open:** wiring it into a run, and the *"Interpreted as … [Change]"* header §4 asks
   for. It costs no extra round trip — the queries are the ones an analysis already sends.
   **SearXNG itself has not been run against this.** `docker compose --profile search up -d
