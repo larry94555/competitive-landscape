@@ -661,8 +661,21 @@ the single most important phase; everything after it is commerce and polish.
   connection is pinned to the one that was verified so DNS rebinding cannot swap it, and
   every redirect hop re-enters every check. `robots.txt` is parsed here and deliberately
   strict: 404 means allowed, 5xx and 429 mean disallowed.
-  **Not yet:** conditional GET (`Page` carries the headers; nothing re-fetches), and a cap
-  on total fetches per analysis — that belongs with the orchestrator.
+  **And both of those are done too** — [BENCHMARKS.md](BENCHMARKS.md) Run 39. A page past its
+  hour is now *asked about* rather than downloaded again: `If-None-Match` and
+  `If-Modified-Since` go out, and a `304` carries no body in either direction. A revalidated page
+  is dated **now** — the origin was asked and said the bytes are current — while a page still
+  inside its hour keeps the moment it was really read, because nobody asked anybody anything.
+  And `Budget` bounds the **run**: everything else here bounds one request, and the run was
+  bounded only by an accident of arithmetic. Sixty-four requests per analysis, shared by all
+  three passes, counting `robots.txt` and every redirect hop. Running out is never reported as
+  the site refusing — that would blame a stranger for our own bound — and the commands that check
+  several sites in a row get one allowance each, because a loop over independent targets is not
+  one reader's question however much it resembles one.
+  **A `304` keeps the policy the page was stored under, field by field**: RFC 9111 §3.2 says the
+  fields it supplies replace their stored counterparts and the ones it omits remain, so a `304`
+  updating only an `Expires` leaves a stored `max-age=30` in force. Asking a publisher whether
+  their page changed is no way to widen what they allow.
   Testable by hand: `cargo run -p landscape -- fetch <url>`.
 - **Review-platform access audit** (§ week 1, before any architecture assumes the channel):
   [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) ranks review-site category pages as the

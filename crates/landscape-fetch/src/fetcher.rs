@@ -71,7 +71,7 @@ impl Fetcher {
     ///
     /// # Errors
     /// Any refusal, or a transport failure.
-    pub async fn get(&self, url: &str) -> Result<Page, FetchError> {
+    pub async fn get(&self, url: &str, budget: &crate::Budget) -> Result<Page, FetchError> {
         let mut target = Target::parse(url)?;
 
         // **Before the guard, robots and the pacer, and each is fine to skip for one reason:
@@ -87,11 +87,18 @@ impl Fetcher {
             return Ok(page);
         }
 
-        for _ in 0..=MAX_REDIRECTS {
+        // **What we still hold and may only need to have confirmed.** An entry past its hour is
+        // not worthless: if the origin gave us an `ETag` or a `Last-Modified`, the question
+        // *"has this changed?"* can be asked in a request whose answer carries no body at all.
+        // Taken here, before anything is sent, and carried through the loop so a `304` needs
+        // nothing from the cache that another thread could have evicted in the meantime.
+        let held = self.pages.lock().ok().and_then(|c| c.stale(url));
+
+        for hop in 0..=MAX_REDIRECTS {
             let addr = self.approve(&target).await?;
 
             if self.obey_robots {
-                let rules = self.rules_for(&target).await;
+                let rules = self.rules_for(&target, budget).await?;
                 if !rules.allows(&target.path) {
                     return Err(FetchError::RobotsDisallowed {
                         host: target.host.clone(),
@@ -101,24 +108,47 @@ impl Fetcher {
                 self.pace(&target.host, rules.crawl_delay()).await;
             }
 
-            let response = self.send(&target, addr).await?;
+            let asking = conditional_on(hop, held.as_ref());
+            let response = self.send(&target, addr, asking, budget).await?;
             let status = response.status().as_u16();
+            let headers = response.headers().clone();
 
-            // 3xx with a Location: check the next hop from the top rather than trusting it.
-            if (300..400).contains(&status) {
-                let Some(location) = response
-                    .headers()
-                    .get("location")
-                    .and_then(|v| v.to_str().ok())
-                    .map(str::to_owned)
-                else {
-                    return Err(FetchError::Transport("redirect with no location".into()));
-                };
-                target = resolve_relative(&target, &location)?;
-                continue;
+            match answer_to(status) {
+                // **The cheapest answer an origin can give**, and the reason this is a `match`
+                // on a type rather than two `if`s in a particular order — see [`answer_to`].
+                Answer::NotModified => {
+                    let (confirmed, stored) = confirmed(asking, &headers, chrono::Utc::now())?;
+                    if let Ok(mut cache) = self.pages.lock() {
+                        // **Under the policy it was already subject to, field by field**, not
+                        // under whatever the `304` happens to repeat. A `304` may omit an
+                        // unchanged `Cache-Control` while updating an `Expires`, and reading it
+                        // alone turns an origin's `max-age=30` into our hour.
+                        cache.insert_revalidated(
+                            url.to_owned(),
+                            confirmed.clone(),
+                            &stored,
+                            Said::read(&headers).freshness(),
+                            confirmed.fetched_at,
+                        );
+                    }
+                    tracing::debug!(url, "the origin says it has not changed");
+                    return Ok(confirmed);
+                }
+                // A Location: check the next hop from the top rather than trusting it.
+                Answer::Redirect => {
+                    let Some(location) = headers
+                        .get("location")
+                        .and_then(|v| v.to_str().ok())
+                        .map(str::to_owned)
+                    else {
+                        return Err(FetchError::Transport("redirect with no location".into()));
+                    };
+                    target = resolve_relative(&target, &location)?;
+                    continue;
+                }
+                Answer::Body => {}
             }
 
-            let headers = response.headers().clone();
             let etag = header(&headers, "etag");
             let last_modified = header(&headers, "last-modified");
             // **What the origin says we may do with it.** Read before the body, because it comes
@@ -175,21 +205,35 @@ impl Fetcher {
     }
 
     /// This host's `robots.txt`, fetched once and remembered.
-    async fn rules_for(&self, target: &Target) -> Rules {
+    ///
+    /// # Errors
+    /// Only when the run has spent its allowance. Every other failure becomes
+    /// [`Rules::restrictive`] — *unreachable is not permission* — but **being out of allowance
+    /// is not the site's doing**, and reporting it as `robots.txt says no` would blame a
+    /// stranger for our own bound and put a wrong sentence on a report.
+    async fn rules_for(
+        &self,
+        target: &Target,
+        budget: &crate::Budget,
+    ) -> Result<Rules, FetchError> {
         if let Ok(cache) = self.robots.lock() {
             if let Some(rules) = cache.get(&target.host) {
-                return rules.clone();
+                return Ok(rules.clone());
             }
         }
 
-        let rules = self.fetch_robots(target).await;
+        let rules = self.fetch_robots(target, budget).await?;
         if let Ok(mut cache) = self.robots.lock() {
             cache.insert(target.host.clone(), rules.clone());
         }
-        rules
+        Ok(rules)
     }
 
-    async fn fetch_robots(&self, target: &Target) -> Rules {
+    async fn fetch_robots(
+        &self,
+        target: &Target,
+        budget: &crate::Budget,
+    ) -> Result<Rules, FetchError> {
         let robots_target = Target {
             path: "/robots.txt".to_owned(),
             ..target.clone()
@@ -198,23 +242,24 @@ impl Fetcher {
         // URL from the same stranger, and exempting it would be a hole shaped exactly like
         // the thing the guard exists for.
         let Ok(addr) = self.approve(&robots_target).await else {
-            return Rules::restrictive();
+            return Ok(Rules::restrictive());
         };
 
-        match self.send(&robots_target, addr).await {
+        match self.send(&robots_target, addr, None, budget).await {
             Ok(response) => {
                 let status = response.status().as_u16();
                 if let Some(decided) = Rules::from_status(status) {
-                    return decided;
+                    return Ok(decided);
                 }
-                match read_capped(response).await {
+                Ok(match read_capped(response).await {
                     Ok(body) => Rules::parse(&body, USER_AGENT),
                     // A robots.txt we could not read is one we must not assume permits us.
                     Err(_) => Rules::restrictive(),
-                }
+                })
             }
+            Err(spent @ FetchError::BudgetSpent { .. }) => Err(spent),
             // Unreachable is not permission.
-            Err(_) => Rules::restrictive(),
+            Err(_) => Ok(Rules::restrictive()),
         }
     }
 
@@ -234,7 +279,23 @@ impl Fetcher {
     }
 
     /// One request, with the connection pinned to the address the guard approved.
-    async fn send(&self, target: &Target, addr: IpAddr) -> Result<reqwest::Response, FetchError> {
+    ///
+    /// **Every request that leaves this process passes through here**, which is why the
+    /// allowance is spent here rather than in [`Self::get`]: a redirect hop is a request and a
+    /// `robots.txt` is a request, and a bound counting only the pages a caller named would
+    /// bound the thing nobody was worried about.
+    async fn send(
+        &self,
+        target: &Target,
+        addr: IpAddr,
+        asking: Option<&crate::cache::Stale>,
+        budget: &crate::Budget,
+    ) -> Result<reqwest::Response, FetchError> {
+        if !budget.spend() {
+            return Err(FetchError::BudgetSpent {
+                limit: budget.spent() + budget.left(),
+            });
+        }
         // A client per request, because `resolve_to_addrs` is a builder-level override and
         // this is what makes the pinning real. Wasteful, and the waste is bounded by our
         // own rate limit — one request per host per second is not a connection-pool
@@ -247,8 +308,11 @@ impl Fetcher {
             .build()
             .map_err(|e| FetchError::Transport(e.to_string()))?;
 
-        client
-            .get(target.url())
+        let mut request = client.get(target.url());
+        for (name, value) in asking.map(asking_whether_it_changed).unwrap_or_default() {
+            request = request.header(name, value);
+        }
+        request
             .send()
             .await
             .map_err(|e| FetchError::Transport(e.to_string()))
@@ -299,6 +363,105 @@ impl Said {
 /// Takes the map rather than the response so a test can build one — the same reason
 /// [`crate::cache::Cache::insert_allowed`] owns the storage decision. Nothing in this file can
 /// be driven over a socket.
+/// What a response's status means for the loop that is reading it.
+///
+/// **A type rather than two `if`s in the right order.** `304` is a `3xx`, so a redirect branch
+/// written first swallows it: the cheapest answer an origin can give becomes *"redirect with no
+/// location"*, and a conditional GET is worse than no conditional GET. Ordering is a property of
+/// how the code happens to be laid out; this is a property of the status, and the `match` on it
+/// has **no wildcard arm**, so a fourth kind of answer is a build error rather than a body.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Answer {
+    /// `304`. Nothing was sent back; what we already hold is current.
+    NotModified,
+    /// `3xx` with somewhere to go.
+    Redirect,
+    /// Everything else, including the failures: a `404` and a `503` are pages with a status.
+    Body,
+}
+
+fn answer_to(status: u16) -> Answer {
+    match status {
+        304 => Answer::NotModified,
+        300..=399 => Answer::Redirect,
+        _ => Answer::Body,
+    }
+}
+
+/// Whether this hop may carry the validators we hold.
+///
+/// **The first hop only.** They are the origin's proof about *the URL the caller asked for*; a
+/// redirect lands somewhere else, and asking that somewhere else whether it matches another
+/// page's `ETag` is a question about nothing — which an origin may well answer `304`, handing
+/// back one page's body under another page's URL.
+fn conditional_on(hop: usize, held: Option<&crate::cache::Stale>) -> Option<&crate::cache::Stale> {
+    if hop == 0 {
+        held
+    } else {
+        None
+    }
+}
+
+/// The headers that turn a request into *"only if it changed"*.
+///
+/// **Both, when both exist.** `If-None-Match` is the one an origin ought to honour, and
+/// `If-Modified-Since` is what an origin with no `ETag` has to offer — sending each we hold lets
+/// the origin use whichever it actually implements rather than making us guess.
+///
+/// A named function rather than two lines inside [`Fetcher::send`], because `send` opens a
+/// socket and nothing in this repository may: the address guard refuses loopback, so a rule
+/// written in there is one a mutation deleting it survives. This is one call from an assertion.
+fn asking_whether_it_changed(held: &crate::cache::Stale) -> Vec<(&'static str, String)> {
+    let mut headers = Vec::new();
+    if let Some(etag) = &held.etag {
+        headers.push(("if-none-match", etag.clone()));
+    }
+    if let Some(since) = &held.last_modified {
+        headers.push(("if-modified-since", since.clone()));
+    }
+    headers
+}
+
+/// The page a `304` confirms, stamped with the moment it was confirmed.
+///
+/// **A revalidated page is as of now; a merely unexpired one is not.** That distinction is the
+/// whole difference between this and a cache hit: nobody asked about a page still inside its
+/// hour, so its `fetched_at` stands and a claim drawn from it dates to the fetch. This one *was*
+/// asked about, and the origin said the bytes are current — so the claim is true as of the
+/// moment of confirmation, and saying otherwise would understate what is known.
+///
+/// **The policy it was stored under comes back with it**, because a `304` may not repeat it and
+/// reading the `304` alone turns an origin's `max-age=30` into our hour — see
+/// [`crate::cache::Cache::insert_revalidated`]. Returned as a pair rather than looked up again at
+/// the call site, so there is no default for the caller to reach for.
+///
+/// **Validators the `304` supplies replace the ones we held.** RFC 9111 §4.3.4 again: an origin
+/// may hand back a new `ETag` on a `304`, and keeping the old one would make the next
+/// conditional request ask about a version nobody has.
+///
+/// # Errors
+/// When nothing was held. A `304` for a request that carried no validator is an origin answering
+/// a question nobody asked, and there is no stored body to answer it with.
+fn confirmed(
+    held: Option<&crate::cache::Stale>,
+    headers: &HeaderMap,
+    at: chrono::DateTime<chrono::Utc>,
+) -> Result<(Page, crate::cache::Policy), FetchError> {
+    let held = held.ok_or_else(|| {
+        FetchError::Transport("304 for a request that carried no validator".into())
+    })?;
+    Ok((
+        Page {
+            fetched_at: at,
+            etag: header(headers, "etag").or_else(|| held.page.etag.clone()),
+            last_modified: header(headers, "last-modified")
+                .or_else(|| held.page.last_modified.clone()),
+            ..held.page.clone()
+        },
+        held.policy.clone(),
+    ))
+}
+
 fn header(headers: &HeaderMap, name: &str) -> Option<String> {
     headers
         .get(name)
@@ -397,6 +560,14 @@ mod serving_from_memory {
 
     use super::*;
 
+    /// An allowance nothing in this module is trying to exhaust.
+    ///
+    /// Named rather than defaulted so a test about the budget stands out from a test that just
+    /// needs one — `budget::tests` is where the counting itself is asserted.
+    fn plenty() -> crate::Budget {
+        crate::Budget::for_one_analysis()
+    }
+
     fn page(url: &str, body: &str) -> Page {
         Page {
             url: url.to_owned(),
@@ -425,7 +596,10 @@ mod serving_from_memory {
         let url = "http://127.0.0.1:9/pricing";
         seed(&fetcher, url, "<h1>Pricing</h1>");
 
-        let served = fetcher.get(url).await.expect("served from memory");
+        let served = fetcher
+            .get(url, &plenty())
+            .await
+            .expect("served from memory");
         assert_eq!(served.body, "<h1>Pricing</h1>");
         assert_eq!(served.url, url, "a hit lost where the bytes came from");
     }
@@ -437,7 +611,10 @@ mod serving_from_memory {
         let fetcher = Fetcher::new();
         let url = "http://127.0.0.1:9/pricing";
         seed(&fetcher, url, "body");
-        let served = fetcher.get(url).await.expect("served from memory");
+        let served = fetcher
+            .get(url, &plenty())
+            .await
+            .expect("served from memory");
         assert_eq!(
             served.fetched_at.to_rfc3339(),
             "2026-08-01T09:00:00+00:00",
@@ -450,7 +627,7 @@ mod serving_from_memory {
         // **The invariant the whole ordering rests on.** The cache is read before the guard and
         // before robots, which is only sound because nothing that failed either can be in it.
         let fetcher = Fetcher::new();
-        let refused = fetcher.get("http://127.0.0.1:9/private").await;
+        let refused = fetcher.get("http://127.0.0.1:9/private", &plenty()).await;
         assert!(refused.is_err(), "loopback was fetched: {refused:?}");
         assert_eq!(
             fetcher.cached(),
@@ -485,7 +662,7 @@ mod serving_from_memory {
         seed(&one, "http://127.0.0.1:9/a", "held");
         let other = Fetcher::new();
         assert!(
-            other.get("http://127.0.0.1:9/a").await.is_err(),
+            other.get("http://127.0.0.1:9/a", &plenty()).await.is_err(),
             "a second fetcher was served the first one's memory"
         );
     }
@@ -599,8 +776,243 @@ mod reading_what_the_origin_actually_said {
 mod tests {
     use super::*;
 
+    /// An allowance nothing in this module is trying to exhaust.
+    ///
+    /// Named rather than defaulted so a test about the budget stands out from a test that just
+    /// needs one — `budget::tests` is where the counting itself is asserted.
+    fn plenty() -> crate::Budget {
+        crate::Budget::for_one_analysis()
+    }
+
     fn target(url: &str) -> Target {
         Target::parse(url).expect("test url parses")
+    }
+
+    fn held(url: &str, body: &str) -> crate::cache::Stale {
+        crate::cache::Stale {
+            policy: crate::cache::Policy {
+                cache_control: Some("max-age=30".to_owned()),
+                expires: None,
+            },
+            page: Page {
+                url: url.to_owned(),
+                status: 200,
+                body: body.to_owned(),
+                etag: Some("\"v1\"".to_owned()),
+                last_modified: None,
+                fetched_at: "2026-08-09T09:00:00Z".parse().unwrap(),
+            },
+            etag: Some("\"v1\"".to_owned()),
+            last_modified: None,
+        }
+    }
+
+    #[test]
+    fn what_we_hold_is_what_the_origin_is_asked_about() {
+        // Read but never sent is the shape this fails in: the cache does its half, the request
+        // goes out unconditional, and every re-fetch is a full download that was supposed to be
+        // a `304`. Nothing about it is visible in the answer.
+        let both = crate::cache::Stale {
+            last_modified: Some("Sat, 08 Aug 2026 23:00:00 GMT".to_owned()),
+            ..held("https://a.example/", "x")
+        };
+        assert_eq!(
+            asking_whether_it_changed(&both),
+            vec![
+                ("if-none-match", "\"v1\"".to_owned()),
+                (
+                    "if-modified-since",
+                    "Sat, 08 Aug 2026 23:00:00 GMT".to_owned()
+                ),
+            ]
+        );
+
+        // An origin that offers only a date is asked with a date. Sending nothing here would
+        // quietly turn every such origin's pages back into full downloads.
+        let dated = crate::cache::Stale {
+            etag: None,
+            last_modified: Some("Sat, 08 Aug 2026 23:00:00 GMT".to_owned()),
+            ..held("https://a.example/", "x")
+        };
+        assert_eq!(
+            asking_whether_it_changed(&dated),
+            vec![(
+                "if-modified-since",
+                "Sat, 08 Aug 2026 23:00:00 GMT".to_owned()
+            )]
+        );
+
+        let tagged = held("https://a.example/", "x");
+        assert_eq!(
+            asking_whether_it_changed(&tagged),
+            vec![("if-none-match", "\"v1\"".to_owned())]
+        );
+    }
+
+    #[test]
+    fn a_304_is_not_a_redirect_with_nowhere_to_go() {
+        // **The whole reason this is a type and not two `if`s in a particular order.** `304` is
+        // a `3xx`: a redirect branch written first swallows it, and the cheapest answer an
+        // origin can give becomes a transport error — a conditional GET worse than none.
+        assert_eq!(answer_to(304), Answer::NotModified);
+        for redirect in [301, 302, 303, 307, 308] {
+            assert_eq!(answer_to(redirect), Answer::Redirect, "{redirect}");
+        }
+        // Failures are bodies with a status: a 404 page is read, and a 503 is reported.
+        for body in [200, 204, 404, 410, 500, 503] {
+            assert_eq!(answer_to(body), Answer::Body, "{body}");
+        }
+    }
+
+    #[test]
+    fn a_confirmed_page_is_the_body_we_held_and_the_moment_it_was_confirmed() {
+        // **A revalidated page is as of now; a merely unexpired one is not.** Nobody asked about
+        // a page still inside its hour, so its `fetched_at` stands. This one was asked about and
+        // the origin said the bytes are current, so a claim drawn from it is true as of now —
+        // and saying otherwise would understate what is known.
+        let stale = held(
+            "https://a.example/pricing",
+            "# Pricing
+Pro $10",
+        );
+        let at: chrono::DateTime<chrono::Utc> = "2026-08-09T12:00:00Z".parse().unwrap();
+
+        let (page, stored) =
+            confirmed(Some(&stale), &HeaderMap::new(), at).expect("a held page is confirmable");
+        assert_eq!(
+            stored, stale.policy,
+            "the policy it was kept under did not travel with it"
+        );
+        assert_eq!(
+            page.body,
+            "# Pricing
+Pro $10",
+            "the held body is the answer"
+        );
+        assert_eq!(page.url, "https://a.example/pricing");
+        assert_eq!(page.etag.as_deref(), Some("\"v1\""));
+        assert_eq!(
+            page.fetched_at, at,
+            "a revalidated page still dates to the fetch"
+        );
+        assert_ne!(page.fetched_at, stale.page.fetched_at);
+    }
+
+    #[test]
+    fn a_new_validator_on_a_304_replaces_the_one_we_asked_with() {
+        // **RFC 9111 §4.3.4.** An origin may hand back a new `ETag` on a `304`, and keeping the
+        // old one would make the next conditional request ask about a version nobody has — so
+        // every later revalidation misses and the saving quietly stops happening.
+        let stale = held("https://a.example/pricing", "# Pricing");
+        let at: chrono::DateTime<chrono::Utc> = "2026-08-09T12:00:00Z".parse().unwrap();
+
+        let mut fresher = HeaderMap::new();
+        fresher.append(
+            reqwest::header::HeaderName::from_static("etag"),
+            reqwest::header::HeaderValue::from_static("\"v2\""),
+        );
+        fresher.append(
+            reqwest::header::HeaderName::from_static("last-modified"),
+            reqwest::header::HeaderValue::from_static("Sun, 09 Aug 2026 11:00:00 GMT"),
+        );
+        let (page, _) = confirmed(Some(&stale), &fresher, at).expect("confirmable");
+        assert_eq!(
+            page.etag.as_deref(),
+            Some("\"v2\""),
+            "the next conditional request would ask about a version nobody has"
+        );
+        assert_eq!(
+            page.last_modified.as_deref(),
+            Some("Sun, 09 Aug 2026 11:00:00 GMT"),
+            "an origin that revises only its Last-Modified was ignored"
+        );
+        assert_eq!(page.body, "# Pricing", "the body is still the one we held");
+
+        // And a `304` that repeats nothing leaves the validators we asked with in place.
+        let (unchanged, _) = confirmed(Some(&stale), &HeaderMap::new(), at).expect("confirmable");
+        assert_eq!(unchanged.etag.as_deref(), Some("\"v1\""));
+    }
+
+    #[test]
+    fn a_304_for_a_question_nobody_asked_is_a_failure_rather_than_a_page() {
+        // There is no stored body to answer with, so the only honest thing is an error. Handing
+        // back an empty page would put a company on a report with nothing under it.
+        let at = chrono::Utc::now();
+        assert!(confirmed(None, &HeaderMap::new(), at).is_err());
+    }
+
+    #[test]
+    fn validators_never_travel_past_the_first_hop() {
+        // They are the origin's proof about *the URL the caller asked for*. A redirect lands
+        // somewhere else, and asking that somewhere else whether it matches another page's
+        // `ETag` is a question about nothing — which an origin may answer `304`, handing back
+        // one page's body under another page's URL.
+        let stale = held("https://a.example/pricing", "# Pricing");
+        assert!(conditional_on(0, Some(&stale)).is_some());
+        for hop in 1..=MAX_REDIRECTS {
+            assert!(
+                conditional_on(hop, Some(&stale)).is_none(),
+                "hop {hop} carried a validator for a different URL"
+            );
+        }
+        assert!(
+            conditional_on(0, None).is_none(),
+            "nothing held, nothing asked"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_run_that_has_spent_its_allowance_says_so_rather_than_blaming_the_site() {
+        // **The budget is checked before the request is built**, so this reaches no network at
+        // all: the address is a literal, so the guard approves it without DNS, and the first
+        // thing `send` does is ask the allowance. Reported as our own bound rather than as
+        // `robots.txt says no`, which is what it looked like before `rules_for` learned to
+        // propagate this one error and swallow the rest.
+        let fetcher = Fetcher::new();
+        let spent = crate::Budget::of(0);
+        let refused = fetcher.get("http://93.184.216.34/pricing", &spent).await;
+
+        assert!(
+            matches!(refused, Err(FetchError::BudgetSpent { limit: 0 })),
+            "a spent allowance reported as {refused:?}"
+        );
+        assert_eq!(spent.spent(), 0, "a refusal was counted as a request");
+    }
+
+    #[tokio::test]
+    async fn robots_txt_comes_out_of_the_allowance_like_any_other_request() {
+        // A bound that counted only the pages a caller named would bound the thing nobody was
+        // worried about: a run reaching a hundred hosts through search fetches a hundred
+        // `robots.txt` whether or not it reads a page on any of them.
+        //
+        // Asked of `rules_for` directly, because the property is about *where the allowance is
+        // spent* rather than about what a run does with the answer — and because nothing here
+        // may reach a network. The address is a literal, so the guard approves it without DNS,
+        // and the allowance refuses before a request is built.
+        let fetcher = Fetcher::new();
+        let target = Target::parse("http://93.184.216.34/pricing").expect("a literal address");
+        let spent = crate::Budget::of(0);
+
+        let refused = fetcher.rules_for(&target, &spent).await;
+        assert!(
+            matches!(refused, Err(FetchError::BudgetSpent { limit: 0 })),
+            "reading robots.txt did not go through the allowance: {refused:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn being_out_of_allowance_is_never_reported_as_the_site_refusing() {
+        // Every other failure to read `robots.txt` becomes `Rules::restrictive` — *unreachable
+        // is not permission*. This one must not: blaming a stranger for our own bound would put
+        // a wrong sentence on a report, and *"the site asks crawlers not to"* is a sentence a
+        // reader would act on.
+        let fetcher = Fetcher::new();
+        let spent = crate::Budget::of(0);
+        let refused = fetcher.get("http://93.184.216.34/pricing", &spent).await;
+        assert!(
+            !matches!(refused, Err(FetchError::RobotsDisallowed { .. })),
+            "our own bound was reported as the site's wishes"
+        );
     }
 
     #[test]
@@ -653,7 +1065,7 @@ mod tests {
             "http://10.0.0.1/",
             "http://[::1]/",
         ] {
-            match f.get(url).await {
+            match f.get(url, &plenty()).await {
                 Err(FetchError::Refused(_)) => {}
                 other => panic!("{url} should have been refused, got {other:?}"),
             }
@@ -664,7 +1076,7 @@ mod tests {
     async fn a_scheme_we_do_not_fetch_never_reaches_the_network() {
         let f = Fetcher::new();
         assert!(matches!(
-            f.get("file:///etc/passwd").await,
+            f.get("file:///etc/passwd", &plenty()).await,
             Err(FetchError::UnsupportedScheme { .. })
         ));
     }

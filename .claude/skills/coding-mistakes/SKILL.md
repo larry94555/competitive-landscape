@@ -1993,6 +1993,135 @@ must be consulted **before** anything that the outage can fail.
 
 ---
 
+## 57. Ordering as a substitute for a type, and an accident mistaken for a bound
+
+**Found:** by writing the change, with the harness deciding where four of the rules had to live.
+
+Two habits, both of which look fine in a diff.
+
+### `304` is a `3xx`
+
+The obvious shape for a conditional GET is to add one branch to the loop that already reads a
+status:
+
+```rust
+if (300..400).contains(&status) { /* follow the Location */ }
+```
+
+`304 Not Modified` is in that range and has **no `Location`**, so the redirect branch swallows it
+and the cheapest answer an origin can give becomes `redirect with no location`. A conditional GET
+that turns every revalidation into a transport error is strictly worse than never sending one.
+
+The fix is not *"put the `304` check first"*. **Ordering is a property of how the code happens to
+be laid out**, and the next person to add a branch has no way to know that this one is load
+bearing. A `match` on a named type with **no wildcard arm** makes it a property of the status:
+
+```rust
+enum Answer { NotModified, Redirect, Body }
+```
+
+Now a fourth kind of answer is a build error, and the rule can be tested without a socket — which
+is the same reason four other rules in this change moved out of the function that opens one.
+
+### An accident of arithmetic is not a bound
+
+Nothing capped the number of requests one analysis sent to strangers. It *looked* bounded —
+eight pages a company, three companies — but that number is the product of two unrelated
+decisions, and neither was chosen to bound anything. A `sitemap.xml` naming ten thousand URLs, a
+redirect chain per page, a `robots.txt` per host reached through search: each turns one reader's
+question into an unbounded number of requests to somebody else's servers.
+
+Two things follow, and both are easy to get wrong:
+
+- **Count what leaves the process.** A bound on "pages the caller asked for" bounds the thing
+  nobody was worried about. `robots.txt` is a request; every redirect hop is a request; a cache
+  hit is not, because nothing was sent.
+- **Running out is your doing, and must never be reported as theirs.** The first version let a
+  spent allowance fail the `robots.txt` fetch, which every other failure turns into
+  `Rules::restrictive` — so the report would have said *"the site asks crawlers not to"* about a
+  site that had said nothing. A reader acts on that sentence. Our own limit needed its own error,
+  its own discovery outcome, and its own words on the page.
+
+**Rule:** when a check's correctness depends on running before another check, give it a type
+instead of a position. And when you believe something is already bounded, name the number and the
+decision that set it — if you cannot, it is an accident, and accidents do not hold.
+
+> **Ask this:** *would a new branch here silently break an old one? And is the limit I am relying
+> on something somebody chose, or something that fell out?*
+
+---
+
+## 58. Silence read as absence, and one budget across things that were never one thing
+
+**Found:** by review, in the change that introduced both.
+
+### A `304` says *"unchanged"*, and I read it as *"nothing"*
+
+RFC 9111 lets a `304` omit any header whose value has not changed, and most origins omit
+`Cache-Control`. The revalidation branch re-inserted the confirmed page using **only the headers
+on the `304`** — so `storable` saw no policy, fell back to our hour, and an origin's
+`max-age=30` became sixty minutes the first time it was revalidated.
+
+**Asking a publisher whether their page changed widened the policy they set on it.** That is the
+opposite of what the request was for, and it is silent: the page is correct, the citation is
+correct, only the interval is wrong, and nothing on any surface says so.
+
+The general shape: **an absent field in an update is not the same as an absent field in a
+creation.** A partial update carries deltas; reading it as a whole record replaces everything it
+did not mention with a default. The fix is to carry the stored value and let the update override
+it — which meant `Stale` had to carry the freshness it was stored under, not only its body and
+validators.
+
+It also exposed a second half of the same error. `Storable::No` meant *do not store this*, and
+the code did exactly that — while leaving the **older copy** in place to be served. Refusing to
+store and refusing to serve are different, and a cache that obeys `no-store` by only doing the
+first still ignores it.
+
+### One allowance for things that were never one question
+
+A per-analysis fetch budget is right for an analysis. It was created once at the top of a
+health-check command that loops over six independent companies, so the first two spent it and
+every later one came back *"no pricing page"* — **a check failing on an artifact of the check
+before it**, which is worse than no check at all.
+
+The bound was correct; its *scope* was copied from the place it was designed for to a place that
+merely looked similar. When a resource is scoped to a unit of work, every construction site has
+to answer *"what is the unit of work here?"* — and a loop over independent targets is not one
+unit however much it resembles one.
+
+**The first fix was not enough, and the second round is the more useful half.** I carried the
+stored *duration* forward and used it whenever the `304` restated nothing. Review took that apart
+too: RFC 9111 §3.2 says the fields a response *supplies* replace their stored counterparts and
+the ones it *omits* remain, so the merge is **per field**, and a computed number cannot express
+it. A page stored with `max-age=30` **and** an `Expires` an hour out is fresh for thirty seconds;
+a `304` updating only `Expires` is still thirty seconds; "it said something, so read it alone"
+gives two hours.
+
+**Merging is a field-level operation, and a derived value has already thrown the fields away.**
+Keep the fields, overlay what arrived, recompute. And the same round found the same shape in a
+neighbour: the validators. A `304` may supply a new `ETag`, and keeping the one we asked with
+would make every later revalidation ask about a version nobody has.
+
+**And keeping fields means paying for them.** The policy went into the entry and not into the
+cache's `cost`, which is the hole that same function had been written to close two rounds
+earlier: `Cache-Control` and `Expires` are origin-controlled heap allocations, so a byte budget
+counting the body and the key but not them reports a cache inside its limit while it is not.
+**Anything added to a bounded structure is added to its bound in the same commit** — the two are
+one change, and a review that has already made this point about one field will make it about the
+next.
+
+**Rule:** when consuming an update, ask what a missing field means — *unchanged* or *unset* —
+and carry the stored value when it means unchanged. Carry the **fields**, not what you computed
+from them: a merge you cannot perform field by field is a merge you are not performing. When
+refusing to keep something, ask whether you are also refusing to serve what you already kept. And
+when a limit is scoped to a unit of work, name the unit at every place you construct it.
+
+> **Ask this:** *does silence here mean "same as before" or "none"? Can I merge this field by
+> field, or have I already reduced it to a number? And is this loop one piece of work or
+> several?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

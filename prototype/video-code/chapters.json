@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "The second reader does not pay the model",
-    "blurb": "The other half of the highest-leverage cache in the system. The fetch cache stopped the second reader paying somebody else’s server and left every model call in place — sixteen of them for linear.app, counted by landscape cost without asking a model. An extraction is now remembered against the page’s own text, so an edited page is a new question rather than a stale answer, and a run that failed or that nobody waited for is never remembered at all.",
-    "seconds": 34.5
+    "title": "Asking whether it changed",
+    "blurb": "`Page` has carried an ETag since the first fetch in this crate and nothing ever sent it back, so a page past its hour cost a whole download to learn that nothing about it had changed. It is asked about now, and a 304 carries no body in either direction — and a page the origin confirms is dated now rather than when we first read it. The other half of the row is a bound on the run: everything else in the crate bounds one request, and eight pages times three companies is an accident of arithmetic rather than a limit.",
+    "seconds": 33.8
   }
 ]

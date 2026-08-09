@@ -86,13 +86,21 @@ pub const MAX_ENTRIES: usize = 4_096;
 const OVERHEAD: usize = 256;
 
 /// What keeping this page actually costs.
-fn cost(url: &str, page: &Page) -> usize {
+///
+/// **Everything retained, including the policy.** Review found the policy missing from here the
+/// moment it was added to [`Entry`], and it is the same hole this function was written to close:
+/// `Cache-Control` and `Expires` are origin-controlled heap allocations, so a budget that counted
+/// the body and the key but not them would report a cache inside its limit while it was not.
+/// The rule holds for anything a `304` replaces too — [`Cache::keep`] costs the policy it is
+/// about to store rather than the one it is replacing.
+fn cost(url: &str, page: &Page, policy: &Policy) -> usize {
     OVERHEAD
         + url.len()
         + page.url.len()
         + page.body.len()
         + page.etag.as_ref().map_or(0, String::len)
         + page.last_modified.as_ref().map_or(0, String::len)
+        + policy.bytes()
 }
 
 /// What the origin said we may do with a response.
@@ -265,6 +273,89 @@ pub fn storable(status: u16, headers: Freshness<'_>, now: DateTime<Utc>) -> Stor
     }
 }
 
+/// The freshness fields a response stated, kept as the origin wrote them.
+///
+/// **Fields rather than the duration they work out to**, and review is the reason. RFC 9111 §3.2
+/// says a `304` replaces the stored fields it *supplies* and leaves the ones it omits alone, so
+/// the merge is field by field and a computed number cannot express it. The case that proves it:
+/// a page stored with `Cache-Control: max-age=30` **and** an `Expires` an hour out is fresh for
+/// thirty seconds, and a `304` that updates only `Expires` is still thirty seconds — but reading
+/// the `304` alone, or merging a single duration, gives an hour.
+///
+/// `Date` and `Age` are deliberately **not** here. They describe *a response*, not a policy, and
+/// the ones stored belong to a response that is no longer the one in hand; carrying them forward
+/// would charge a fresh `304` with the age of the `200` it confirms.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Policy {
+    pub cache_control: Option<String>,
+    pub expires: Option<String>,
+}
+
+impl Policy {
+    /// What this response said about being kept.
+    #[must_use]
+    pub fn of(headers: Freshness<'_>) -> Self {
+        Self {
+            cache_control: headers.cache_control.map(str::to_owned),
+            expires: headers.expires.map(str::to_owned),
+        }
+    }
+
+    /// The stored policy with whatever the newer response supplied written over it.
+    ///
+    /// RFC 9111 §3.2 and §4.3.4: *supplied* replaces, *omitted* remains. Not "the newer response
+    /// wins if it said anything", which is the shape that loses a `max-age` to an `Expires`.
+    #[must_use]
+    pub fn updated_by(&self, headers: Freshness<'_>) -> Self {
+        Self {
+            cache_control: headers
+                .cache_control
+                .map(str::to_owned)
+                .or_else(|| self.cache_control.clone()),
+            expires: headers
+                .expires
+                .map(str::to_owned)
+                .or_else(|| self.expires.clone()),
+        }
+    }
+
+    /// What the fields of this policy occupy. See [`cost`].
+    #[must_use]
+    pub fn bytes(&self) -> usize {
+        self.cache_control.as_ref().map_or(0, String::len)
+            + self.expires.as_ref().map_or(0, String::len)
+    }
+
+    /// This policy, read against the age *this* response reports.
+    fn against<'a>(&'a self, date: Option<&'a str>, age: Option<&'a str>) -> Freshness<'a> {
+        Freshness {
+            cache_control: self.cache_control.as_deref(),
+            expires: self.expires.as_deref(),
+            date,
+            age,
+        }
+    }
+}
+
+/// A page we still hold and the proof we can ask whether it has changed.
+///
+/// **The body travels with the validators on purpose.** Revalidation needs the old bytes to hand
+/// back on a `304`, and looking them up again after the round trip would open a window in which
+/// another thread's insert had evicted them — a branch that could then only be tested by
+/// arranging a race. Carrying the page costs one clone on the revalidation path and closes the
+/// case rather than handling it.
+#[derive(Debug, Clone)]
+pub struct Stale {
+    pub page: Page,
+    /// The freshness fields this entry was stored under. **Carried because a `304` may not
+    /// repeat them** — see [`Policy`] and [`Cache::insert_revalidated`].
+    pub policy: Policy,
+    /// `ETag`, the strong one, first.
+    pub etag: Option<String>,
+    /// `Last-Modified`, for origins that do not send an `ETag`.
+    pub last_modified: Option<String>,
+}
+
 /// Pages kept in memory, oldest evicted first.
 #[derive(Debug, Default)]
 pub struct Cache {
@@ -288,6 +379,8 @@ struct Entry {
     cost: usize,
     /// How long this one may be served — the origin's number, not ours, when it gave one.
     fresh_for: Duration,
+    /// The fields that number was worked out from, kept for the merge a `304` needs.
+    policy: Policy,
 }
 
 impl Cache {
@@ -314,6 +407,83 @@ impl Cache {
         self.insert_for(url, page, FRESH_FOR);
     }
 
+    /// A page we hold that is past its freshness, with something to revalidate it by.
+    ///
+    /// **This is what makes an expired entry worth more than an empty one.** Without it a page
+    /// whose hour is up costs a full download to learn that nothing about it changed; with it,
+    /// the origin is asked in a request that carries no body in either direction when the answer
+    /// is *no*. `Page` has carried `etag` and `last_modified` since the first fetch in this
+    /// crate and nothing has ever sent them back — see `ROADMAP.md`.
+    ///
+    /// `None` when the entry is missing, still fresh (in which case [`Self::get`] already served
+    /// it), or carries no validator — an origin that offered neither has given us no way to ask
+    /// a cheap question, and asking an expensive one is just a fetch.
+    #[must_use]
+    pub fn stale(&self, url: &str) -> Option<Stale> {
+        let entry = self.by_url.get(url)?;
+        if entry.stored.elapsed() < entry.fresh_for {
+            return None;
+        }
+        if entry.page.etag.is_none() && entry.page.last_modified.is_none() {
+            return None;
+        }
+        Some(Stale {
+            page: entry.page.clone(),
+            policy: entry.policy.clone(),
+            etag: entry.page.etag.clone(),
+            last_modified: entry.page.last_modified.clone(),
+        })
+    }
+
+    /// Keep a page the origin has just confirmed, under the policy it is still subject to.
+    ///
+    /// Returns whether it was kept.
+    ///
+    /// **Silence on a `304` means *unchanged*, not *no policy*.** RFC 9111 lets a `304` omit
+    /// headers whose values have not changed, and most origins do. Review found what that costs
+    /// if the `304` is read on its own: an origin's `max-age=30` becomes [`FRESH_FOR`] the first
+    /// time it is revalidated, because [`storable`] falls back to our hour when nobody says
+    /// otherwise. **Revalidating a page would widen the publisher's policy**, which is the exact
+    /// opposite of what asking politely is for.
+    ///
+    /// So the stored lifetime is the default and the `304`'s own headers override it. What the
+    /// `304` *does* say is honoured in full — including a `no-store` that arrives on it, which
+    /// drops what we hold rather than leaving a copy the origin has just forbidden.
+    pub fn insert_revalidated(
+        &mut self,
+        url: String,
+        page: Page,
+        stored: &Policy,
+        headers: Freshness<'_>,
+        now: DateTime<Utc>,
+    ) -> bool {
+        // **Field by field, then recomputed from the merge.** The `Date` and `Age` are the
+        // `304`'s own, because they describe the response in hand rather than the one it
+        // confirms.
+        let merged = stored.updated_by(headers);
+        match storable(page.status, merged.against(headers.date, headers.age), now) {
+            Storable::No => {
+                self.forget(&url);
+                false
+            }
+            Storable::For(fresh_for) => {
+                self.keep(url, page, fresh_for, merged);
+                true
+            }
+        }
+    }
+
+    /// Drop what we hold for this URL, if anything.
+    ///
+    /// **Refusing to store and continuing to serve are different things**, and only doing the
+    /// first is how a `no-store` gets ignored by a cache that obeys it: the response is not
+    /// kept, and the copy from before it is handed out anyway.
+    pub fn forget(&mut self, url: &str) {
+        if let Some(gone) = self.by_url.remove(url) {
+            self.bytes -= gone.cost;
+        }
+    }
+
     /// Keep a page for as long as the origin's own headers allow, or not at all.
     ///
     /// Returns whether it was kept.
@@ -337,9 +507,15 @@ impl Cache {
         // **The status comes from the page rather than from a parameter.** They cannot disagree
         // that way, and a caller cannot pass the status of a different response.
         match storable(page.status, headers, now) {
-            Storable::No => false,
+            Storable::No => {
+                // **And drop what we already hold.** A page the origin now says not to store is
+                // not one to keep serving from an older copy, which is the way a cache that
+                // obeys `no-store` can still ignore it.
+                self.forget(&url);
+                false
+            }
             Storable::For(fresh_for) => {
-                self.insert_for(url, page, fresh_for);
+                self.keep(url, page, fresh_for, Policy::of(headers));
                 true
             }
         }
@@ -350,7 +526,12 @@ impl Cache {
     /// The duration comes from the origin — see [`storable`] — capped at [`FRESH_FOR`]. A
     /// publisher saying *thirty seconds* is not overruled by our hour.
     pub fn insert_for(&mut self, url: String, page: Page, fresh_for: Duration) {
-        let size = cost(&url, &page);
+        self.keep(url, page, fresh_for, Policy::default());
+    }
+
+    /// Keep a page for a stated time, remembering the fields that time came from.
+    fn keep(&mut self, url: String, page: Page, fresh_for: Duration, policy: Policy) {
+        let size = cost(&url, &page, &policy);
         // A page too large to keep alongside anything else is not kept at all. Without this the
         // loop below could evict the entire cache to make room for one document and then still
         // not fit it — a cache that empties itself is worse than one that declines.
@@ -383,6 +564,7 @@ impl Cache {
                 order: self.next,
                 cost: size,
                 fresh_for,
+                policy,
             },
         );
     }
@@ -790,6 +972,388 @@ mod tests {
         );
         assert!(!held, "a 503 was written down");
         assert!(cache.is_empty());
+    }
+
+    #[test]
+    fn the_policy_is_counted_in_the_budget_like_everything_else_retained() {
+        // **Review found this the moment the policy was added to an entry, and it is the same
+        // hole `cost` was written to close.** `Cache-Control` and `Expires` are
+        // origin-controlled heap allocations: a budget counting the body and the key but not
+        // them reports a cache inside its limit while it is not.
+        let now = at("2026-08-09T00:00:00Z");
+        let long = format!("max-age=30, {}", "x".repeat(4_000));
+
+        let mut cache = Cache::new();
+        cache.insert(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 0),
+        );
+        let without = cache.bytes();
+
+        let mut cache = Cache::new();
+        cache.insert_allowed(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 0),
+            said(&long),
+            now,
+        );
+        assert!(
+            cache.bytes() >= without + 4_000,
+            "the policy's {} bytes were held and not counted: {} vs {without}",
+            long.len(),
+            cache.bytes()
+        );
+
+        // **Both fields, not the interesting one.** An `Expires` is normally a short date, but
+        // the length is a stranger's choice: leading space is trimmed before it is parsed and
+        // kept in what is stored, so a valid `Expires` can be as long as they like.
+        let padded = format!("{}Sun, 09 Aug 2026 01:00:00 GMT", " ".repeat(4_000));
+        assert_eq!(
+            Policy::of(said("max-age=30")).bytes(),
+            "max-age=30".len(),
+            "the cache-control was not counted"
+        );
+        assert_eq!(
+            Policy::of(expiring(&padded)).bytes(),
+            padded.len(),
+            "the expires was not counted"
+        );
+        assert_eq!(
+            Policy {
+                cache_control: Some("max-age=30".to_owned()),
+                expires: Some(padded.clone()),
+            }
+            .bytes(),
+            "max-age=30".len() + padded.len(),
+            "one field was counted and the other was held for free"
+        );
+
+        let mut both = Cache::new();
+        both.insert_allowed(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 0),
+            Freshness {
+                cache_control: Some("max-age=30"),
+                expires: Some(&padded),
+                ..Freshness::default()
+            },
+            now,
+        );
+        assert!(
+            both.bytes() >= without + padded.len(),
+            "an expires of {} bytes was held and not counted: {}",
+            padded.len(),
+            both.bytes()
+        );
+
+        // And it is the policy actually stored, so a `304` replacing a long one with a short
+        // one gives the bytes back rather than remembering the wrong figure.
+        cache.age(FRESH_FOR + Duration::from_secs(1));
+        assert!(cache.insert_revalidated(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 0),
+            &Policy::of(said(&long)),
+            said("max-age=30"),
+            now
+        ));
+        assert!(
+            cache.bytes() < without + 4_000,
+            "a replaced policy's bytes were counted for ever: {}",
+            cache.bytes()
+        );
+    }
+
+    #[test]
+    fn a_cache_full_of_enormous_policies_is_still_bounded() {
+        // The bound, in the unit the policy is spent in. Sixty-four kilobytes of `Cache-Control`
+        // is absurd and that is the point: a stranger chooses this number, not us.
+        let now = at("2026-08-09T00:00:00Z");
+        let absurd = format!("max-age=30, {}", "x".repeat(64 * 1024));
+        let mut cache = Cache::new();
+        for i in 0..600 {
+            cache.insert_allowed(
+                format!("https://a.example/{i}"),
+                page("https://a.example/x", 0),
+                said(&absurd),
+                now,
+            );
+        }
+        assert!(
+            cache.bytes() <= MAX_CACHED_BYTES,
+            "held {} bytes of policy against a budget of {MAX_CACHED_BYTES}",
+            cache.bytes()
+        );
+        assert!(
+            cache.len() < 600,
+            "six hundred enormous policies were all kept, so they cost nothing"
+        );
+        assert!(!cache.is_empty(), "the cache emptied itself instead");
+    }
+
+    #[test]
+    fn a_304_replaces_the_fields_it_supplies_and_leaves_the_ones_it_omits() {
+        // **RFC 9111 §3.2 and §4.3.4, and the case that shows why a duration is not enough.**
+        // Review's example: a page stored with `max-age=30` *and* an `Expires` an hour out is
+        // fresh for thirty seconds. A `304` that updates only `Expires` is still thirty seconds
+        // — but "the newer response wins if it said anything" reads that as an hour.
+        let stored = Policy {
+            cache_control: Some("max-age=30".to_owned()),
+            expires: Some("Sun, 09 Aug 2026 01:00:00 GMT".to_owned()),
+        };
+        let merged = stored.updated_by(expiring("Sun, 09 Aug 2026 02:00:00 GMT"));
+        assert_eq!(
+            merged.cache_control.as_deref(),
+            Some("max-age=30"),
+            "an omitted Cache-Control was dropped rather than left alone"
+        );
+        assert_eq!(
+            merged.expires.as_deref(),
+            Some("Sun, 09 Aug 2026 02:00:00 GMT"),
+            "a supplied Expires did not replace the stored one"
+        );
+
+        let now = at("2026-08-09T00:00:00Z");
+        assert_eq!(
+            storable(200, merged.against(None, None), now),
+            Storable::For(Duration::from_secs(30)),
+            "thirty seconds became an hour by being confirmed"
+        );
+    }
+
+    #[test]
+    fn a_silent_304_leaves_the_whole_policy_where_it_was() {
+        let now = at("2026-08-09T00:00:00Z");
+        let stored = Policy::of(said("max-age=30"));
+        let merged = stored.updated_by(Freshness::default());
+        assert_eq!(merged, stored, "silence changed the policy");
+        assert_eq!(
+            storable(200, merged.against(None, None), now),
+            Storable::For(Duration::from_secs(30))
+        );
+    }
+
+    #[test]
+    fn what_a_304_does_say_is_honoured_in_both_directions() {
+        let now = at("2026-08-09T00:00:00Z");
+        let stored = Policy::of(said("max-age=30"));
+
+        let longer = stored.updated_by(said("max-age=600"));
+        assert_eq!(
+            storable(200, longer.against(None, None), now),
+            Storable::For(Duration::from_secs(600)),
+            "an origin extending its own policy was ignored"
+        );
+
+        let forbidden = Policy::of(said("max-age=3600")).updated_by(said("no-store"));
+        assert_eq!(
+            storable(200, forbidden.against(None, None), now),
+            Storable::No
+        );
+    }
+
+    #[test]
+    fn the_age_a_304_reports_is_its_own_and_the_stored_one_is_not_carried() {
+        // `Date` and `Age` describe a response, not a policy. Carrying the `200`'s forward would
+        // charge a fresh `304` with the age of the response it confirms — and the stored ones are
+        // deliberately not in `Policy` at all, so there is nothing to carry.
+        let now = at("2026-08-09T00:00:00Z");
+        let merged = Policy::of(said("max-age=30")).updated_by(Freshness::default());
+        assert_eq!(
+            storable(200, merged.against(None, Some("25")), now),
+            Storable::For(Duration::from_secs(5))
+        );
+        assert_eq!(
+            storable(200, merged.against(None, Some("30")), now),
+            Storable::No,
+            "a 304 arriving with its freshness already spent was kept anyway"
+        );
+        assert_eq!(
+            storable(200, merged.against(None, Some("soon")), now),
+            Storable::No,
+            "an unreadable Age on a 304 is not permission either"
+        );
+    }
+
+    #[test]
+    fn a_thirty_second_page_is_still_a_thirty_second_page_after_a_304() {
+        // The same thing through the cache, which is where it would actually go wrong: a 200
+        // with `max-age=30`, then a `304` carrying no freshness at all.
+        let now = at("2026-08-09T00:00:00Z");
+        let mut cache = Cache::new();
+        let mut page = page("https://a.example/pricing", 40);
+        page.etag = Some("\"v1\"".to_owned());
+
+        assert!(cache.insert_allowed(
+            "https://a.example/pricing".to_owned(),
+            page.clone(),
+            said("max-age=30"),
+            now
+        ));
+        cache.age(Duration::from_secs(31));
+        let asking = cache
+            .stale("https://a.example/pricing")
+            .expect("expired, and askable");
+        assert_eq!(asking.policy, Policy::of(said("max-age=30")));
+
+        assert!(cache.insert_revalidated(
+            "https://a.example/pricing".to_owned(),
+            page,
+            &asking.policy,
+            Freshness::default(),
+            now
+        ));
+        assert!(
+            cache.get("https://a.example/pricing").is_some(),
+            "confirmed and then not kept at all"
+        );
+        cache.age(Duration::from_secs(31));
+        assert!(
+            cache.get("https://a.example/pricing").is_none(),
+            "thirty seconds became an hour by being confirmed"
+        );
+    }
+
+    #[test]
+    fn a_304_that_arrives_with_its_freshness_spent_is_not_kept() {
+        // Through the cache, because the age has to reach `storable` from the `304`'s own
+        // headers rather than from the stored policy — and the difference between the two is
+        // invisible until something asserts it on the path that carries it.
+        let now = at("2026-08-09T00:00:00Z");
+        let mut cache = Cache::new();
+        let stored = Policy::of(said("max-age=30"));
+
+        let arrived_old = Freshness {
+            age: Some("30"),
+            ..Freshness::default()
+        };
+        assert!(
+            !cache.insert_revalidated(
+                "https://a.example/".to_owned(),
+                page("https://a.example/", 40),
+                &stored,
+                arrived_old,
+                now
+            ),
+            "a 304 whose thirty seconds were already spent was kept anyway"
+        );
+
+        let arrived_fresh = Freshness {
+            age: Some("25"),
+            ..Freshness::default()
+        };
+        assert!(cache.insert_revalidated(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 40),
+            &stored,
+            arrived_fresh,
+            now
+        ));
+        cache.age(Duration::from_secs(6));
+        assert!(
+            cache.get("https://a.example/").is_none(),
+            "five seconds of freshness lasted longer than five seconds"
+        );
+    }
+
+    #[test]
+    fn a_page_the_origin_now_forbids_is_dropped_rather_than_served_from_before() {
+        // Refusing to store and continuing to serve are different things, and doing only the
+        // first is how a cache that obeys `no-store` still ignores it.
+        let now = at("2026-08-09T00:00:00Z");
+        let mut cache = Cache::new();
+        cache.insert(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 40),
+        );
+        assert!(cache.get("https://a.example/").is_some());
+
+        assert!(!cache.insert_allowed(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 40),
+            said("no-store"),
+            now
+        ));
+        assert!(
+            cache.get("https://a.example/").is_none(),
+            "a page the origin said not to store was served from an older copy"
+        );
+        assert_eq!(cache.bytes(), 0, "and its bytes were held for ever");
+    }
+
+    #[test]
+    fn a_304_that_forbids_storing_drops_what_it_confirmed() {
+        let now = at("2026-08-09T00:00:00Z");
+        let mut cache = Cache::new();
+        cache.insert(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 40),
+        );
+        assert!(!cache.insert_revalidated(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 40),
+            &Policy::of(said("max-age=30")),
+            said("no-store"),
+            now
+        ));
+        assert!(cache.get("https://a.example/").is_none());
+        assert_eq!(cache.bytes(), 0);
+    }
+
+    #[test]
+    fn a_page_past_its_hour_is_kept_to_ask_about_rather_than_thrown_away() {
+        // **What makes an expired entry worth more than an empty one.** Without this, a page
+        // whose hour is up costs a full download to learn that nothing about it changed. With
+        // it, the question is asked in a request whose answer carries no body when the answer
+        // is *no* — which is bandwidth on somebody else's server, not ours.
+        let mut cache = Cache::new();
+        let mut page = page("https://a.example/pricing", 400);
+        page.etag = Some("\"v1\"".to_owned());
+        cache.insert("https://a.example/pricing".to_owned(), page);
+
+        assert!(
+            cache.stale("https://a.example/pricing").is_none(),
+            "a page still inside its hour is served, not revalidated"
+        );
+
+        cache.age(FRESH_FOR + Duration::from_secs(1));
+        let asking = cache
+            .stale("https://a.example/pricing")
+            .expect("an expired page with an ETag is worth asking about");
+        assert_eq!(asking.etag.as_deref(), Some("\"v1\""));
+        assert_eq!(
+            asking.page.body.len(),
+            400,
+            "the body travels with the validators, so a 304 needs nothing from the cache"
+        );
+    }
+
+    #[test]
+    fn a_page_the_origin_gave_us_no_way_to_ask_about_is_not_asked_about() {
+        // An origin that sent neither `ETag` nor `Last-Modified` has given us no cheap question
+        // to ask. Asking an expensive one is just a fetch, and pretending otherwise would put a
+        // conditional header on a request that cannot be answered conditionally.
+        let mut cache = Cache::new();
+        cache.insert(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 4),
+        );
+        cache.age(FRESH_FOR + Duration::from_secs(1));
+        assert!(cache.stale("https://a.example/").is_none());
+
+        // And `Last-Modified` alone is enough, for the origins that offer only that.
+        let mut only_dated = page("https://b.example/", 4);
+        only_dated.last_modified = Some("Sat, 08 Aug 2026 23:00:00 GMT".to_owned());
+        cache.insert("https://b.example/".to_owned(), only_dated);
+        cache.age(FRESH_FOR + Duration::from_secs(1));
+        let asking = cache.stale("https://b.example/").expect("dated is askable");
+        assert!(asking.etag.is_none());
+        assert!(asking.last_modified.is_some());
+    }
+
+    #[test]
+    fn nothing_we_never_held_is_worth_asking_about() {
+        let cache = Cache::new();
+        assert!(cache.stale("https://a.example/never-seen").is_none());
     }
 
     #[test]

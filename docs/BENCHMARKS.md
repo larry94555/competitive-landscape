@@ -33,6 +33,189 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 39 — asking whether it changed
+
+**Date:** 2026-08-09 · **Where:** this laptop · **Model:** none. Neither half of this row asks a
+model anything; both are about requests that reach somebody else's server.
+
+This closes the last technical row `landscape-fetch` has carried open since it was written:
+*"conditional GET (`Page` carries the headers; nothing re-fetches), and a cap on total fetches
+per analysis — that belongs with the orchestrator."*
+
+### The header we have been storing and never sending
+
+`Page` has carried `etag` and `last_modified` since the first fetch in this crate. Nothing ever
+sent them back, so a page whose hour was up cost a **full download** to learn that nothing about
+it had changed.
+
+| | before | now |
+|---|---|---|
+| inside `FRESH_FOR` | served from memory, nothing sent | unchanged |
+| past `FRESH_FOR`, origin gave an `ETag` | full GET, whole body | **conditional GET; a `304` carries no body** |
+| past `FRESH_FOR`, origin gave only `Last-Modified` | full GET | conditional on the date |
+| past `FRESH_FOR`, origin gave neither | full GET | full GET — there is no cheap question to ask |
+
+**The saving is theirs, not ours**, which is the argument this row has made since the fetch
+cache: a `304` is the smallest thing a server can be asked for, and the bytes it does not send
+are bytes it did not have to read from its own disk.
+
+### A revalidated page is *as of now*; a merely unexpired one is not
+
+The two paths look alike and are not, and the distinction decides what a claim is dated:
+
+- **Cache hit.** Nobody asked anybody anything. `fetched_at` stands, and a claim drawn from the
+  page dates to the fetch — the rule Run 37 introduced and a mutation still guards.
+- **`304`.** We *did* ask, and the origin said the bytes are current. `fetched_at` becomes the
+  moment of confirmation, because a report saying *"as of an hour ago"* about something an origin
+  just confirmed **understates what is known**.
+
+### Review: a `304` says *unchanged*, and it was read as *nothing*
+
+RFC 9111 lets a `304` omit any header whose value has not changed, and most origins omit
+`Cache-Control`. The first version re-inserted the confirmed page using **only the headers on the
+`304`** — so `storable` saw no policy, fell back to our hour, and an origin's `max-age=30` became
+sixty minutes the first time it was revalidated.
+
+**Asking a publisher whether their page changed widened the policy they set on it.** That is the
+opposite of what the request is for, and it is silent: the page is right, the citation is right,
+only the interval is wrong.
+
+The first fix carried the stored **duration** forward and used it whenever the `304` restated
+no freshness at all. Review took that apart too, and correctly: RFC 9111 §3.2 and §4.3.4 say the
+fields a `304` *supplies* replace their stored counterparts and the ones it *omits* remain — and
+that is a merge **per field**, which a computed number cannot express.
+
+```text
+stored   Cache-Control: max-age=30   Expires: +1h     -> fresh for 30s
+304                                  Expires: +2h     -> still 30s
+read as "it said something, so read it alone"         -> two hours
+```
+
+So the entry keeps the freshness **fields** as the origin wrote them. `Policy::updated_by`
+overlays what the `304` supplied, and the lifetime is recomputed from the merge:
+
+| the `304` says | kept for |
+|---|---|
+| nothing | the stored policy, unchanged |
+| `Expires` only, over a stored `max-age=30` | **30s** — the `max-age` is still there |
+| `max-age=600` over a stored 30s | 600s — an origin extending its own policy is still the origin |
+| `max-age=30` over a stored hour | 30s |
+| `no-store` | **not kept, and what we held is dropped** |
+| an unreadable header | not kept |
+
+**`Date` and `Age` are deliberately not part of the policy.** They describe *a response*, not a
+policy, and the stored ones belong to a response that is no longer the one in hand — carrying
+them forward would charge a fresh `304` with the age of the `200` it confirms. The `304`'s own
+are used, so a `304` arriving with its freshness already spent is not kept.
+
+**And a new validator replaces the old one.** §4.3.4 again: an origin may hand back a new `ETag`
+on a `304`, and keeping the one we asked with would make every later revalidation ask about a
+version nobody has — so the saving would quietly stop happening.
+
+**Keeping fields means paying for fields.** Review's third pass: the policy went into the entry
+and not into `cost`, which is the same hole `cost` was written to close two runs earlier —
+`Cache-Control` and `Expires` are origin-controlled heap allocations, so a budget that counted the
+body and the key but not them reports a cache inside its limit while it is not. Both fields are
+costed now, under the policy actually stored rather than the one being replaced, and there is a
+regression that fills a cache with sixty-four-kilobyte `Cache-Control` headers and one that pads
+an `Expires` — a valid `Expires` can be as long as a stranger likes, because leading space is
+trimmed before it is parsed and kept in what is stored.
+
+The last two rows are the second half of the same finding. `Storable::No` meant *do not store
+this*, and the code did exactly that — while leaving the **older copy** in place to be served.
+Refusing to store and refusing to serve are different things, and a cache that obeys `no-store`
+by doing only the first still ignores it. `Cache::forget` is now called on every refusal, on the
+`200` path as well as the `304` one.
+
+### Review: one allowance for things that were never one question
+
+`landscape examples` checks six independent companies. The budget was created once above the
+loop, so the first two spent it and every later one came back with no pricing page — **a health
+check failing on an artifact of the check before it**, which is worse than no health check.
+
+The bound was right and its *scope* was copied from the place it was designed for to a place that
+merely looked similar. One allowance per company now, and the same correction in
+`landscape gap`, which measures twenty-eight independent pages. Every other construction site was
+audited against the same question — *what is the unit of work here?* — and the rest are genuinely
+one question each.
+
+### `304` is a `3xx`, and that is a trap with a type for a fix
+
+Written as two `if`s, the redirect branch comes first and swallows it: `304` has no `Location`,
+so the cheapest answer an origin can give becomes `redirect with no location` — a conditional GET
+strictly worse than none. Ordering is a property of how code happens to be laid out. So it is a
+`match` on a type, with **no wildcard arm**:
+
+```rust
+enum Answer { NotModified, Redirect, Body }
+```
+
+**Validators travel on the first hop only.** They are the origin's proof about *the URL the
+caller asked for*; a redirect lands somewhere else, and asking that somewhere else whether it
+matches another page's `ETag` is a question about nothing — which an origin may cheerfully answer
+`304`, handing back one page's body under another page's URL. That is the failure this whole
+pipeline exists to prevent, so it has its own function and its own test.
+
+### The cap: everything here bounded one request, and nothing bounded the run
+
+The size cap bounds one body, the pacer bounds how often one host is asked, `robots.txt` bounds
+which paths. The run was bounded only by an accident of arithmetic — eight pages a company, three
+companies — **and an accident is not a bound**. A `sitemap.xml` naming ten thousand URLs, a
+redirect chain per page, a `robots.txt` per host reached through search: each is a way for one
+reader's question to become an unbounded number of requests to strangers.
+
+`Budget` is per analysis, **shared by all three passes** — resolving a description, finding a
+named company's rivals, and reading them are one reader's question. Sixty-four requests: three
+companies at one `robots.txt`, eight discovered pages, three searched and a redirect or two is
+forty-two, so the ordinary run has room and the pathological one does not. A test asserts that
+arithmetic, because a bound the ordinary case trips is a bug wearing a limit's hat.
+
+**What counts is a request that leaves the process.** A cache hit costs nothing, for the same
+reason it skips the address guard. A `robots.txt` costs one — a run reaching a hundred hosts
+through search fetches a hundred of them whether or not it reads a page on any. Every redirect
+hop costs one, because a chain that never ends is the case this exists for.
+
+### Running out is our doing, and never reported as theirs
+
+Three surfaces, three different sentences, because a reader acts differently on each:
+
+| | |
+|---|---|
+| `robots.txt` that could not be read | `Rules::restrictive` — *unreachable is not permission* |
+| `robots.txt` we did not ask for | the error propagates. **Not** *"the site asks crawlers not to"* |
+| a discovery probe not sent | `Outcome::NotAsked`, printed `not asked`, kept apart from `unreachable` |
+| a page not read | *"not read - this run had already made its 64 requests"* |
+
+A reader told *"could not fetch"* about a page this run simply declined to ask for would check it
+by hand, find it fine, and stop believing the rest of the report. That is why the bound is in the
+sentence: a limit nobody can see reads as a bug.
+
+`landscape read` prints what a run cost:
+
+```text
+requests sent to strangers: 24 of 64
+```
+
+### What cannot be measured here, again
+
+**There is still no test over a socket**, and the guard was not weakened to get one — a test
+server binds loopback and the SSRF guard refuses it, absolutely and with no flag. So the `304`
+handling is asserted where the decisions live rather than over the wire: `answer_to`, `confirmed`,
+`conditional_on` and `asking_whether_it_changed` are each one call from an assertion, which is
+where the mutation harness put them. Four of the nineteen mutations came back `MISSED` on the
+first run — every one of them a rule still written inside a function that opens a socket.
+
+The budget half **can** be exercised end to end without a network, because the allowance is
+spent before a request is built: a literal address passes the guard without DNS, and `send`
+refuses. That is the one thing in this crate that a bound lets us test which a limit could not.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 38 | 901 | 62 |
+| now | **928** | **62** |
+
+---
+
 ## Run 38 — the second reader does not pay the model
 
 **Date:** 2026-08-09 · **Where:** this laptop · **Model:** none, and the point of the change is

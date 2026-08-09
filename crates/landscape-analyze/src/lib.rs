@@ -139,12 +139,16 @@ pub const EXTRACTION_VERSION: u32 = 1;
 /// function that asks the operating system.
 pub async fn analyse(
     with: &With<'_>,
+    budget: &landscape_fetch::Budget,
     origin: &str,
     now: DateTime<Utc>,
     today: NaiveDate,
     search: Option<&dyn landscape_search::SourceProvider>,
 ) -> Analysis {
-    analyse_with(with, origin, now, today, search, &mut |_| Wanted::Yes).await
+    analyse_with(with, budget, origin, now, today, search, &mut |_| {
+        Wanted::Yes
+    })
+    .await
 }
 
 /// What one run was asked to do, and with what.
@@ -220,6 +224,7 @@ impl std::fmt::Debug for Asked<'_> {
 /// a reader watching sees the first company fill in while the second is still being read.
 pub async fn analyse_many(
     with: &With<'_>,
+    budget: &landscape_fetch::Budget,
     asked: &Asked<'_>,
     on_progress: &mut dyn FnMut(&Report) -> Wanted,
 ) -> Analysis {
@@ -280,7 +285,16 @@ pub async fn analyse_many(
                     interpreted,
                 ))
             };
-            let one = analyse_with(with, origin, now, today, search, &mut merge_and_report).await;
+            let one = analyse_with(
+                with,
+                budget,
+                origin,
+                now,
+                today,
+                search,
+                &mut merge_and_report,
+            )
+            .await;
             let stopped = one.stopped_early;
             finished.push(one);
             stopped
@@ -464,6 +478,7 @@ fn joined(
 /// out of nowhere; they see one fill in.
 pub async fn analyse_with(
     with: &With<'_>,
+    budget: &landscape_fetch::Budget,
     origin: &str,
     now: DateTime<Utc>,
     today: NaiveDate,
@@ -487,7 +502,7 @@ pub async fn analyse_with(
     // An identity we could not read changes nothing. A question we could not ask is not
     // evidence that the answer changed, and forgetting on an outage would throw the memory away
     // in exactly the hour it is worth most.
-    let found = landscape_discover::discover(fetcher, origin).await;
+    let found = landscape_discover::discover(fetcher, budget, origin).await;
     if let Some(identity) = llm.identity().await {
         if memo.serving(&identity) {
             tracing::info!(
@@ -512,6 +527,7 @@ pub async fn analyse_with(
             found: &found,
             origin,
             llm,
+            budget,
             memo,
             now,
             notes: &notes,
@@ -548,6 +564,7 @@ pub async fn analyse_with(
                 found: &found,
                 origin,
                 llm,
+                budget,
                 memo,
                 now,
                 notes: &notes,
@@ -582,6 +599,7 @@ pub async fn analyse_with(
         found: &found,
         origin,
         llm,
+        budget,
         memo,
         now,
         notes: &notes,
@@ -951,17 +969,25 @@ async fn read_one(
     // **Every question has an extractor now**, so the branch that used to skip a page here is
     // gone rather than left in as a wildcard nothing could reach. `stages::extract` matches all
     // six with no `_` arm, which makes a seventh question a build error.
-    let Ok(page) = fetcher.get(&url).await else {
-        so_far.pages.push(PageResult {
-            url,
-            question,
-            words: None,
-            quality: None,
-            window_words: None,
-            summary: "could not fetch".to_owned(),
-            details: Vec::new(),
-        });
-        return Wanted::Yes;
+    let page = match fetcher.get(&url, reading.budget).await {
+        Ok(page) => page,
+        Err(why) => {
+            // **Our own bound and a stranger's failure are different findings.** A reader who is
+            // told *"could not fetch"* about a page this run simply declined to ask for would go
+            // and check the page by hand, find it fine, and stop believing the rest of the
+            // report. `landscape_fetch::budget` is where that number comes from.
+            let summary = why_not_read(&why);
+            so_far.pages.push(PageResult {
+                url,
+                question,
+                words: None,
+                quality: None,
+                window_words: None,
+                summary,
+                details: Vec::new(),
+            });
+            return Wanted::Yes;
+        }
     };
     let markdown = landscape_extract::markdown::from_body(&page.body);
     let assessment = landscape_extract::quality::assess(&markdown);
@@ -1116,6 +1142,25 @@ async fn read_one(
     on_progress(&report)
 }
 
+/// What to tell a reader about a page that was not read.
+///
+/// **Our own bound and a stranger's failure are different findings.** A reader told *"could not
+/// fetch"* about a page this run simply declined to ask for would check it by hand, find it
+/// fine, and stop believing the rest of the report. `landscape_fetch::budget` is where the
+/// number in that sentence comes from, and it is in the sentence because a bound nobody can see
+/// reads as a bug.
+///
+/// A function rather than a `match` inside `read_one`, which needs a fetched page and therefore
+/// cannot be driven by a test at all — the same reason `memo::remembering` exists.
+fn why_not_read(why: &landscape_fetch::FetchError) -> String {
+    match why {
+        landscape_fetch::FetchError::BudgetSpent { limit } => {
+            format!("not read - this run had already made its {limit} requests")
+        }
+        _ => "could not fetch".to_owned(),
+    }
+}
+
 /// Which sources are not independent of each other.
 ///
 /// The subject's own pages are one voice, however many of them are read. A page on somebody
@@ -1142,6 +1187,10 @@ struct Reading<'a> {
     found: &'a landscape_discover::Discovered,
     origin: &'a str,
     llm: &'a landscape_llm::LlamaClient,
+    /// What is left of this analysis's allowance of requests to strangers. **Per analysis, not
+    /// per process**, unlike everything in [`With`]: it exists to bound one reader's question,
+    /// and sharing it would let a quiet afternoon pay for a busy one.
+    budget: &'a landscape_fetch::Budget,
     /// What a page has already been read to say. Beside the model rather than beside the
     /// clock, because the two together are what an extraction costs.
     memo: &'a memo::Extractions,
@@ -1715,6 +1764,29 @@ mod joining {
     }
 
     #[test]
+    fn a_page_this_run_declined_to_ask_for_does_not_read_as_a_broken_site() {
+        // **The distinction a reader acts on.** *"Could not fetch"* sends somebody to check a
+        // page that is fine; *"this run had already made its 64 requests"* tells them the run
+        // stopped, which is our doing and is fixable by asking about fewer companies.
+        let spent = why_not_read(&landscape_fetch::FetchError::BudgetSpent { limit: 64 });
+        assert!(spent.contains("64"), "the bound is invisible: {spent}");
+        assert!(!spent.contains("could not fetch"), "{spent}");
+
+        assert_eq!(
+            why_not_read(&landscape_fetch::FetchError::Transport("refused".into())),
+            "could not fetch",
+            "a site that really did fail must still say so"
+        );
+        assert_eq!(
+            why_not_read(&landscape_fetch::FetchError::RobotsDisallowed {
+                host: "e.com".to_owned(),
+                path: "/pricing".to_owned(),
+            }),
+            "could not fetch"
+        );
+    }
+
+    #[test]
     fn a_page_that_needs_no_model_is_read_while_the_model_is_down() {
         // **The property the whole read order exists for.** A changelog is parsed rather than
         // generated, so a model outage costs a reader the sections that need one and nothing
@@ -1962,6 +2034,7 @@ mod joining {
         };
         let outcome = analyse_many(
             &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
             &Asked {
                 interpreted: Some(&market),
                 ..named(&origins)
@@ -2009,7 +2082,13 @@ mod joining {
         // Absence is the disclosure working. Repeating somebody's words back at them as an
         // "interpretation" is noise, and noise is what stops the real line being read.
         let origins = unreachable(1);
-        let outcome = analyse_many(&offline(), &named(&origins), &mut |_| Wanted::Yes).await;
+        let outcome = analyse_many(
+            &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
+            &named(&origins),
+            &mut |_| Wanted::Yes,
+        )
+        .await;
         assert!(
             outcome.report.interpreted.is_none(),
             "nothing was substituted, so there is nothing to disclose"
@@ -2022,7 +2101,13 @@ mod joining {
         // defect as taking the first and dropping the second, one count higher. Asserted on
         // the real function rather than on a note handed to the joiner by a test.
         let origins = unreachable(subject::MAX_SUBJECTS + 1);
-        let outcome = analyse_many(&offline(), &named(&origins), &mut |_| Wanted::Yes).await;
+        let outcome = analyse_many(
+            &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
+            &named(&origins),
+            &mut |_| Wanted::Yes,
+        )
+        .await;
 
         let last = origins.last().expect("a dropped origin");
         assert!(
@@ -2112,6 +2197,7 @@ mod joining {
                 llm: &llm,
                 memo: &memo,
             },
+            &landscape_fetch::Budget::for_one_analysis(),
             "https://subject.invalid",
             chrono::Utc::now(),
             chrono::Utc::now().date_naive(),
@@ -2146,6 +2232,7 @@ mod joining {
                 llm: &stalling,
                 memo: &memo::Extractions::new(),
             },
+            &landscape_fetch::Budget::for_one_analysis(),
             &named(&unreachable(1)),
             &mut |_| Wanted::Yes,
         )
@@ -2169,7 +2256,13 @@ mod joining {
         // would leave the second company's negative evidence unreachable — and this asserts it
         // on the function the worker actually calls, not on the merge helper alone.
         let origins = unreachable(2);
-        let outcome = analyse_many(&offline(), &named(&origins), &mut |_| Wanted::Yes).await;
+        let outcome = analyse_many(
+            &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
+            &named(&origins),
+            &mut |_| Wanted::Yes,
+        )
+        .await;
 
         assert_eq!(
             outcome.coverage.len(),
@@ -2446,6 +2539,7 @@ mod joining {
         let many = unreachable(4);
         let outcome = analyse_many(
             &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
             &Asked {
                 set: Some(&set),
                 ..named(&many)
@@ -2550,6 +2644,7 @@ mod joining {
         let many = unreachable(4);
         let outcome = analyse_many(
             &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
             &Asked {
                 set: Some(&set),
                 ..named(&many)
@@ -2598,6 +2693,7 @@ mod joining {
         let many = unreachable(4);
         let outcome = analyse_many(
             &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
             &Asked {
                 set: Some(&set),
                 ..named(&many)
@@ -2649,6 +2745,7 @@ mod joining {
         let many = unreachable(4);
         let outcome = analyse_many(
             &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
             &Asked {
                 set: Some(&set),
                 ..named(&many)
@@ -2718,6 +2815,7 @@ mod joining {
             let many = unreachable(4);
             let outcome = analyse_many(
                 &offline(),
+                &landscape_fetch::Budget::for_one_analysis(),
                 &Asked {
                     set: Some(&set),
                     ..named(&many)
@@ -2759,6 +2857,7 @@ mod joining {
         let many = unreachable(4);
         let outcome = analyse_many(
             &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
             &Asked {
                 set: Some(&set),
                 ..named(&many)
@@ -2803,6 +2902,7 @@ mod joining {
         let many = unreachable(4);
         let outcome = analyse_many(
             &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
             &Asked {
                 set: Some(&set),
                 ..named(&many)
@@ -2836,6 +2936,7 @@ mod joining {
         let many = unreachable(4);
         let outcome = analyse_many(
             &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
             &Asked {
                 set: Some(&set),
                 ..named(&many)
@@ -2870,6 +2971,7 @@ mod joining {
         let many = unreachable(4);
         let outcome = analyse_many(
             &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
             &Asked {
                 set: Some(&set),
                 ..named(&many)
@@ -2889,7 +2991,13 @@ mod joining {
     async fn a_report_about_a_company_somebody_named_says_nothing_extra() {
         // The other half: a prompt that named a domain must not grow a sentence explaining a
         // choice nobody made.
-        let outcome = analyse_many(&offline(), &named(&unreachable(1)), &mut |_| Wanted::Yes).await;
+        let outcome = analyse_many(
+            &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
+            &named(&unreachable(1)),
+            &mut |_| Wanted::Yes,
+        )
+        .await;
         assert!(
             !outcome
                 .report
@@ -3270,6 +3378,7 @@ mod filling_gaps {
             found: &found,
             origin: "https://e.com",
             llm: &landscape_llm::LlamaClient::new("http://127.0.0.1:1".to_owned()),
+            budget: &landscape_fetch::Budget::for_one_analysis(),
             memo: &memo::Extractions::new(),
             now: chrono::Utc::now(),
             notes: &notes,
@@ -3337,6 +3446,7 @@ mod filling_gaps {
             found: &found,
             origin: "https://e.com",
             llm: &landscape_llm::LlamaClient::new("http://127.0.0.1:1".to_owned()),
+            budget: &landscape_fetch::Budget::for_one_analysis(),
             memo: &memo::Extractions::new(),
             now: chrono::Utc::now(),
             notes: &notes,
@@ -3396,6 +3506,7 @@ mod filling_gaps {
         let engine = Canned::holding(&["https://found.invalid/trust"]);
         let analysis = analyse_with(
             &crate::joining::offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
             "https://subject.invalid",
             chrono::Utc::now(),
             chrono::Utc::now().date_naive(),
