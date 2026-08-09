@@ -80,6 +80,16 @@ enum Role {
     /// description produces whether or not an engine is configured, then — with `SEARX_URL` —
     /// the companies, their scores, and the gate's verdict.
     Candidates,
+    /// What the market calls the thing a reader described.
+    ///
+    /// `COMPETITIVE_DISCOVERY.md` §4. A reader's words are not the market's words, and
+    /// searching theirs finds blog posts where searching the market's finds the market. Prints
+    /// the phrases that recurred, how many independent hosts used each, and the label every
+    /// downstream query would be built from.
+    ///
+    /// **The same queries `candidates` sends**, so the two commands read one corpus and the
+    /// wiring that follows costs no extra round trip.
+    Vocabulary,
     /// Check that the demo's curated ideas still have pages worth reading.
     ///
     /// The catalogue in `landscape-core` promises one thing about each domain: that discovery
@@ -153,11 +163,12 @@ async fn main() -> Result<()> {
         Some("discover") => Role::Discover,
         Some("search") => Role::Search,
         Some("candidates") => Role::Candidates,
+        Some("vocabulary") => Role::Vocabulary,
         Some("examples") => Role::Examples,
         Some("cost") => Role::Cost,
         Some("read") => Role::Read,
         Some(other) => anyhow::bail!(
-            "unknown command {other:?}.              Try: dev, serve, worker, migrate, fetch, gap, discover, search, candidates, read, examples, cost"
+            "unknown command {other:?}. Try: dev, serve, worker, migrate, fetch, gap, discover, search, candidates, vocabulary, read, examples, cost"
         ),
     };
 
@@ -177,6 +188,9 @@ async fn main() -> Result<()> {
     }
     if role == Role::Candidates {
         return suggest_candidates(&args).await;
+    }
+    if role == Role::Vocabulary {
+        return resolve_vocabulary(&args).await;
     }
     if role == Role::Examples {
         return check_examples().await;
@@ -370,6 +384,101 @@ Example:
 /// twice is how one of them ends up passing `None` for ever without anybody noticing.
 fn searching(engine: &landscape_search::Searx) -> &dyn landscape_search::SourceProvider {
     engine
+}
+
+/// `landscape vocabulary "<description>"` — what the market calls it.
+///
+/// **The diagnostic exists before the wiring, on purpose.** `COMPETITIVE_DISCOVERY.md` §4 turns
+/// a reader's phrasing into the market's, and every query in the run that follows is built from
+/// the answer. A step that decides that much and can only be observed by running a whole
+/// analysis is a step nobody checks — this is the same reason `landscape candidates` was built
+/// before the worker resolved anything.
+async fn resolve_vocabulary(args: &[String]) -> Result<()> {
+    let description = args.get(1).filter(|a| !a.starts_with("--")).context(
+        "usage: landscape vocabulary \"<description>\"
+
+Examples:
+  landscape vocabulary \"a free competitive landscape research tool\"
+  landscape vocabulary \"privacy-friendly website analytics\"
+
+Set SEARX_URL to run the queries; without it the queries are printed and nothing is asked.",
+    )?;
+
+    println!("idea      {description}");
+    println!("query set {}", landscape_search::candidates::IDEA_QUERY_SET);
+    let queries = landscape_search::candidates::for_idea(description);
+    for q in &queries {
+        println!("  {}", q.text);
+    }
+    if queries.is_empty() {
+        println!(
+            "
+Nothing to ask: a description with no words in it would send bare"
+        );
+        println!("boilerplate to an engine, which returns the internet.");
+        return Ok(());
+    }
+
+    let engine = landscape_search::Searx::from_env()?;
+    // **`resolve` is told there is no engine rather than asked to guess.** One place decides
+    // what that means, so this command and the worker cannot describe the same laptop
+    // differently.
+    let (resolved, queried) = landscape_search::vocabulary::resolve(
+        engine
+            .as_ref()
+            .map(|e| e as &dyn landscape_search::SourceProvider),
+        description,
+    )
+    .await;
+
+    if !queried.failed.is_empty() {
+        println!(
+            "
+{} of {} queries did not complete, so anything below is thinner than it would be:",
+            queried.failed.len(),
+            queried.sent()
+        );
+        for q in &queried.failed {
+            println!("  did not complete: {q}");
+        }
+    }
+
+    println!();
+    match resolved {
+        landscape_search::vocabulary::Resolved::NoEngine => {
+            println!(
+                "{} is not set, so nothing was asked. The queries above are what would go.",
+                landscape_search::searx::URL_VAR
+            );
+        }
+        landscape_search::vocabulary::Resolved::Incomplete { failed, sent } => {
+            println!("no vocabulary: {failed} of the {sent} searches did not complete,");
+            println!("and nothing recurred without them. This is about us, not about");
+            println!("the market - try again.");
+        }
+        landscape_search::vocabulary::Resolved::TheirWords { titles, hosts } => {
+            println!("no vocabulary: {titles} titles from {hosts} sites, and no phrase");
+            println!(
+                "was used by {} of them. The market has no settled word for this,",
+                landscape_search::vocabulary::INDEPENDENT_HOSTS
+            );
+            println!("so the reader's own words are the best available and are what");
+            println!("would be searched.");
+        }
+        landscape_search::vocabulary::Resolved::Market(market) => {
+            println!("interpreted as  {}", market.label);
+            println!("agreed on by    {} independent sites", market.hosts);
+            if market.also.is_empty() {
+                println!("also called     (nothing else recurred)");
+            } else {
+                println!("also called     {}", market.also.join(", "));
+            }
+            println!();
+            println!("Every query a report builds would use the label, not the words");
+            println!("above it. The other phrasings are shown and never searched.");
+        }
+    }
+    Ok(())
 }
 
 /// `landscape candidates "<description>"` — the companies a description might be about.
@@ -1104,6 +1213,7 @@ async fn run(role: Role, store: Arc<dyn Store>) -> Result<()> {
         | Role::Discover
         | Role::Search
         | Role::Candidates
+        | Role::Vocabulary
         | Role::Read
         | Role::Examples
         | Role::Cost => Ok(()),

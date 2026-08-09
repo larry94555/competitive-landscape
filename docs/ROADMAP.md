@@ -789,8 +789,30 @@ the single most important phase; everything after it is commerce and polish.
   **This one deviates from `PRODUCT_SPEC.md` §3 on purpose:** there is no *"skip, just analyse"*
   here, because skipping means guessing between two companies that share a name — precisely what
   the gate refuses — and a report about the wrong Notion is indistinguishable from a right one.
-  **Still open:** vocabulary resolution, and the other two triggers in §3 (buyer and intent),
-  which need a router model rather than candidates we already have.
+  **Still open:** the other two triggers in §3 (buyer and intent), which need a router model
+  rather than candidates we already have.
+- **The market's words, not the reader's** — [BENCHMARKS.md](BENCHMARKS.md) Run 35, the first of
+  the vocabulary row's two PRs. Somebody types *"a free competitive landscape research tool"* and
+  we searched for exactly that, which finds blog posts about the idea; the market says
+  *competitive intelligence software*, and searching **its** words finds the companies.
+  `landscape-search::vocabulary` reads the titles of the searches an analysis already sends,
+  counts every 2-to-4-word phrase **once per independent host**
+  ([FACT_CHECKING.md](FACT_CHECKING.md) §6 — forty pages from one content farm is not
+  agreement), and takes §4 step 4's *most specific term that still recurs widely*: the longest
+  phrase that **extends** the one the most hosts agreed on. Containment rather than a ratio,
+  because a ratio needs a number nobody can defend and it moves whenever the query count does.
+  **Deterministic and no model**, which §9 budgets for and which matters more than the cost: a
+  label decides every query downstream, so a step that answered differently on a second run would
+  make a whole report irreproducible.
+  **A title is not evidence and this is not a claim.** `Hit::title` is the engine's account of a
+  page; nothing here can reach a report as a fact about a company. A claim is about one company
+  and comes from its own page — a category label is about the words a *market* uses, and the only
+  way to see those is across many strangers' pages at once.
+  **Review sites are the best source here and the worst next door**: `candidates` excludes
+  `g2.com` because it is not a company, and §4 step 5 calls its curated category tree the
+  strongest signal there is. A test pins the inversion so the two lists cannot quietly merge.
+  **Still open:** wiring it into a run, and the *"Interpreted as … [Change]"* header §4 asks
+  for. It costs no extra round trip — the queries are the ones an analysis already sends.
   **SearXNG itself has not been run against this.** `docker compose --profile search up -d
   searxng` and a checked-in `settings.yml` are in the repository and unwalked, for the same
   reason D3 is — the first person through corrects it.

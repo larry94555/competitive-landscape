@@ -247,7 +247,7 @@ pub async fn run(store: &impl Store) {
     assert_eq!(
         failed.failure,
         Some(Failure::Internal),
-        "a failed analysis says which situation it is in, so an interface can write a sentence          a reader can act on"
+        "a failed analysis says which situation it is in, so an interface can write a sentence a reader can act on"
     );
     assert!(
         failed.report.is_none(),
@@ -401,7 +401,7 @@ pub async fn run(store: &impl Store) {
     );
     assert!(
         back.generation > claimed.generation,
-        "the sweep has to raise the generation, or the worker it just replaced can still          write - and it will not find out until it tries"
+        "the sweep has to raise the generation, or the worker it just replaced can still write - and it will not find out until it tries"
     );
     assert!(
         back.report.is_none(),

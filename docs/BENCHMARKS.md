@@ -33,6 +33,138 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 35 — the market's words, not the reader's
+
+**Date:** 2026-08-08 · **Where:** this laptop · **Model:** none, and that is the design —
+`COMPETITIVE_DISCOVERY.md` §9 budgets this step at *"deterministic, no model"*.
+
+Somebody types **a free competitive landscape research tool**. Here is what we sent:
+
+```text
+best a free competitive landscape research tool software
+a free competitive landscape research tool tools comparison
+a free competitive landscape research tool vendors
+```
+
+**Nobody in that market uses that phrase.** Those queries find blog posts about the idea of
+competitive research. The market says *competitive intelligence software*, and searching its
+words finds the companies.
+
+### What it does now
+
+`landscape vocabulary "a free competitive landscape research tool"`, against a stand-in engine
+serving five plausible first-page results:
+
+```text
+interpreted as  competitive intelligence software
+agreed on by    3 independent sites
+also called     competitive intelligence, intelligence software
+
+Every query a report builds would use the label, not the words
+above it. The other phrasings are shown and never searched.
+```
+
+### Counted once per site, never per page
+
+`FACT_CHECKING.md` §6, and it is the whole reason the number means anything. A content farm with
+a title template can put one phrase in forty titles, and forty is not agreement — the test feeds
+exactly that and requires the answer to be *"the market has no word for this"*:
+
+| Input | Answer |
+|---|---|
+| 40 pages, 1 host, all saying *battlecard automation platform* | `TheirWords` — nothing recurred |
+| 5 pages, 5 hosts, 3 saying *competitive intelligence software* | `Market` — 3 independent sites |
+
+### The most specific term that still recurs widely
+
+§4 step 4 in one sentence, and the hard half is *"still recurs widely"*. `competitive
+intelligence` is on four hosts; `competitive intelligence software` is on three. The longer one
+wins — but only because it **extends the phrase everybody already agreed on**, which is what
+keeps *battlecard automation platform* from winning on a lucky two.
+
+**A ratio was the obvious alternative and is worse.** "Widely" as a fraction of the top count
+needs a number nobody can defend, and it would move every time the query count moved.
+Containment needs none.
+
+### A title is not evidence, and this is not a claim
+
+`Hit::title` says plainly it is the engine's account of a page and *"not evidence of anything"*.
+That rule is intact: **nothing this module produces can reach a report as a fact about a
+company.** A claim is about one company and must come from that company's own page; a category
+label is about *the words a market uses*, and the only way to observe those is across many
+strangers' pages at once. Counting them is not trusting any one of them — and §4 requires the
+label be shown to a reader as an interpretation they can overrule, precisely because it was
+inferred.
+
+### Review sites are the best source here and the worst source next door
+
+`candidates` excludes `g2.com` and `capterra.com` by name — they are places people talk about
+companies, not companies. This module deliberately does **not** share that list, because §4 step
+5 calls their curated category trees *"the strongest signal available"*: they **are** the
+market's own vocabulary. One question is *who is a company*; the other is *what is this called*.
+A test pins the inversion, so sharing the list later fails loudly instead of quietly costing the
+label its two best sources.
+
+### Our own boilerplate cannot become the answer
+
+We send `best {} software` and `{} vendors`. A title reading *"Software Vendors"* is this
+codebase's phrasing looking back at us, and counting it would let a template vote. The guard
+reads `IDEA_TEMPLATES` rather than a retyped copy — a second list would go stale the first time
+a template changed, and silently.
+
+### A gate for a defect no compiler can see
+
+Writing this found the fourth instance of something this repository keeps producing:
+
+```text
+"...worker, migrate, fetch, gap, discover,              search, candidates, ..."
+```
+
+A `\` continuation in a Rust string strips the newline **and** the indentation. Lose the
+backslash and the indentation stays, baked into a sentence somebody is shown. It compiles and
+every test passes.
+
+`scripts/no_lost_continuations.py` is the **thirteenth gate**. It found eight, in a CLI message,
+five test assertions in `interrupted_runs.rs` and two in `conformance.rs` — all of them closed
+here. Telling it apart from deliberate column padding needed two signals together, because this
+codebase pads columns constantly:
+
+| | gap | what follows |
+|---|---|---|
+| `"none    no price found"` | 4 | a word — but the gap is small |
+| `"{:<58} answers      may set a table value"` | 6 | a word — small again |
+| `"  fits in 120s        {:.0} extractions"` | 8 | a format specifier |
+| `"...discover,              search, candidates"` | **14** | a word |
+
+Nine spaces or more **and** letters on both sides. A continuation carries the whole indentation
+of the line that followed it, which inside a function inside a block is never small; a column
+that wide would be unreadable, which is why nobody writes one.
+
+The three prompts in `landscape-analyze::stages` carry the same damage and are **deferred by
+name in the script**, because editing a prompt needs `PROMPT_VERSION` bumped and the golden set
+re-run against a real model. That is a benchmark, not a lint fix.
+
+### What this does not do yet
+
+**It is not wired into an analysis.** This is the first of the row's two PRs: the resolver and
+its diagnostic. Nothing a reader sees changes yet — the queries an analysis sends are still
+built from their own words.
+
+**It costs nothing to wire.** `resolve` sends exactly `candidates::for_idea`'s queries, which an
+analysis already sends to find companies, so the second PR reads titles it is already holding —
+zero extra round trips — and adds the *"Interpreted as …"* header §4 asks for.
+
+**Nothing measures whether the label is right**, and there is no golden set for it. The tests
+here pin the *arithmetic*, not the taste. [B1](../PROJECT_STATUS.md#4-blockers) again, one step
+earlier in the pipeline than usual.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 34 | 822 | 58 |
+| now | **835** | **58** |
+
+---
+
 ## Run 34 — the question, handed back as three buttons
 
 **Date:** 2026-08-08 · **Where:** this laptop · **Model:** none — this is the boundary again,

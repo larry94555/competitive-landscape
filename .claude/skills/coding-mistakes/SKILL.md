@@ -1561,6 +1561,43 @@ rather than so it usually is not.
 
 ---
 
+## 48. A negative asserted as one spelling of the defect, not as the rule
+
+**Found:** by the mutation harness, on vocabulary resolution — and the fix was to the test.
+
+Phrases are cut at grammar words, so *competitive intelligence software **for** product
+marketing* yields two phrases and none that spans the `for`. The test said:
+
+```rust
+assert!(!found.iter().any(|p| p.contains("software product")));
+```
+
+A mutation deleting the break reported **MISSED**. It had worked exactly as intended: without
+the break the run produces `software for product` — the defect, spelled the other way round —
+and the assertion looked for the one spelling it does not have.
+
+**The rule is not about those two words.** It is *no phrase may contain a grammar word at all*,
+and written that way it needs no guess about which words end up either side of one:
+
+```rust
+assert!(!found.iter().any(|p| p.split(' ').any(|w| NOT_CONTENT.contains(&w))));
+```
+
+**This is entry 35's shape on a negative.** That one was a threshold asserted as a number
+instead of as the decision it drives; this is an invariant asserted as a sample of what its
+violation might look like. Both pass while the thing they exist to protect is broken, and both
+read like real tests until something tries to break the code underneath them.
+
+**Rule:** when asserting that something must *not* happen, state the property that must hold —
+quantified over everything the function can produce — rather than one string the failure might
+contain. A negative built from a guess is only as good as the guess, and there is no feedback
+when the guess is wrong: it passes either way.
+
+> **Ask this:** *if this code were broken in a way I have not thought of, would this assertion
+> still fail?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**
@@ -1635,7 +1672,7 @@ Grouped by what has actually gone wrong, commonest first.
 | Found by | Entries | |
 |---|---|---|
 | Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35, 47 |
-| The mutation harness | 32, 36, 46 | The only ones it found before review did. 36 deleted a rule rather than adding a test; 46 deleted an argument |
+| The mutation harness | 32, 36, 46, 48 | The only ones it found before review did. 36 deleted a rule rather than adding a test; 46 deleted an argument; 48 was a defect in a test |
 | Its own tooling | 28 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |

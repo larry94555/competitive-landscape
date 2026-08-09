@@ -67,8 +67,10 @@ pub mod competitors;
 pub mod provider;
 pub mod queries;
 pub mod searx;
+pub mod vocabulary;
 
 pub use admit::Found;
 pub use provider::{Hit, SearchError, SourceProvider};
 pub use queries::{Query, QUERY_SET};
 pub use searx::Searx;
+pub use vocabulary::{Market, Resolved};

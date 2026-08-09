@@ -1,6 +1,6 @@
 # Project Status
 
-**As of 2026-08-08** · `main` at `1f854c9`, plus the branch this page is on.
+**As of 2026-08-08** · `main` at `83a3f3c`, plus the branch this page is on.
 
 This page answers one question: **what can somebody actually do with this today, and what
 stands between here and each of the six states that matter.** It is deliberately separate from
@@ -21,7 +21,7 @@ The six states, in the order they must be reached. **S1 is met.** The rest are n
 | # | State | Met? | Percentage Left | The single thing standing in the way |
 |---|---|---|---|---|
 | **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **Yes.** Pick an example idea, watch sections arrive, read a cited report about real companies, reload and it is still there. On a laptop. *This row once said the opposite twice* — see [§1.5](#15-the-correction-that-produced-phase-d). | [**0%**](docs/Full_Feature_List.md#s1--ready-for-a-guided-demo) | Nothing. Serve the app, a run has a URL, several companies in one report, example ideas that really run, and reads ordered so first content costs no model call — 23s on `linear.app`, measured. |
-| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**39%**](docs/Full_Feature_List.md#s2--ready-for-demonstration) | **Both inputs produce a comparison; a report that cannot says why, and so does a run that produces none.** *This row said "a business idea does not run at all" for six phases.* A description is searched for, grouped into companies, scored on cross-query agreement, named from each company's own front page, and the **set** comes out rather than the pick; a **named** company brings its rivals the same way. When a report covers **one** company it now says which of four things happened to the others — no engine, its own page gave nothing to judge one against, the searching did not finish, or nobody held up — because a reader acts on each of those differently — and a run that produces **no** report now says which of five situations it is in rather than answering all five with *"try naming its website"* — and when that situation is *a name several products share*, **the companies it would not choose between arrive as buttons**, each carrying a whole prompt so answering costs one click rather than a retyped idea. **61% done.** What is left: vocabulary resolution and the caches. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
+| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**33%**](docs/Full_Feature_List.md#s2--ready-for-demonstration) | **Both inputs produce a comparison; a report that cannot says why, and so does a run that produces none.** *This row said "a business idea does not run at all" for six phases.* A description is searched for, grouped into companies, scored on cross-query agreement, named from each company's own front page, and the **set** comes out rather than the pick; a **named** company brings its rivals the same way. When a report covers **one** company it now says which of four things happened to the others — no engine, its own page gave nothing to judge one against, the searching did not finish, or nobody held up — because a reader acts on each of those differently — and a run that produces **no** report now says which of five situations it is in rather than answering all five with *"try naming its website"* — and when that situation is *a name several products share*, **the companies it would not choose between arrive as buttons**, each carrying a whole prompt so answering costs one click rather than a retyped idea. And a reader's words are now turned into the market's before anything is searched for — *"a free competitive landscape research tool"* is *competitive intelligence software*, counted once per independent site and shown as an interpretation rather than assumed. **67% done.** What is left: wiring that label into a run, and the caches. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
 | **S3** | **Ready for use** — friendly users should find no issue | **No.** | [**96%**](docs/Full_Feature_List.md#s3--ready-for-use) | 6 of 9 report sections, no verification layer, no comparison matrix, no accounts. |
 | **S4** | **Ready for general use** — promotable, word-of-mouth quality | **No.** | [**100%**](docs/Full_Feature_List.md#s4--ready-for-general-use) | Everything in S3, plus no quality gates have ever been run against a deployed system. |
 | **S5** | **General use, free mode** — stable, email signup, community channels | **No.** | [**100%**](docs/Full_Feature_List.md#s5--general-use-free-mode) | No authentication code exists anywhere in the repository. No knowledge base. |
@@ -34,7 +34,7 @@ finished when it is demonstrable end to end on a development machine — Rust, N
 defect rather than a step in the plan.
 
 **Percentage Left is software only**, counted in pull requests and linked to the feature it comes
-from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **51 of 130 PRs done, 39% of the whole
+from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **52 of 130 PRs done, 40% of the whole
 deliverable.** Getting it onto a host is a
 [separate three-PR track](docs/Full_Feature_List.md#getting-it-onto-a-host) that gates *who can see*
 the software rather than what it can do, and the concierge interviews and source-terms audit are
@@ -156,11 +156,19 @@ refusal; what is unmeasured is whether it is the *right* comparison.
 | R7 ready for demo | **No.** | Not deployed. |
 | R8 ready for use | **No.** | Not deployed, and unmeasured. A genuinely ambiguous one-word name is now told apart from every other refusal, answered in its own words, and **answerable in one click** — the candidates the gate would not choose between are offered as chips, each sending the company's canonical domain verbatim. What is still missing here is measurement ([B1](#4-blockers)), not a way to answer. |
 
+**And a reader's words are turned into the market's before anything is searched for.**
+`landscape vocabulary "a free competitive landscape research tool"` answers *competitive
+intelligence software*, counted once per independent site over the titles of searches an
+analysis already sends. **It is not wired into a run yet** — that is the second half of the row,
+and it costs no extra round trip because the queries are the same ones.
+[BENCHMARKS.md](docs/BENCHMARKS.md) Run 35.
+
 **What exists.** `crates/landscape-discover` (on-domain probes, sitemap, `llms.txt`, ranked and
 capped at 8), `crates/landscape-fetch` (SSRF guard at 100% coverage, robots.txt, per-host
 politeness), `crates/landscape-extract` (Markdown conversion, span pre-selection, **all six**
 extractors), `crates/landscape-search` (templated versioned queries, a `SourceProvider` seam, a
-SearXNG adapter, host-based admission, candidate generation, and competitor-set derivation),
+SearXNG adapter, host-based admission, candidate generation, competitor-set derivation, and
+vocabulary resolution),
 `crates/landscape-llm` (grammar-constrained decoding), `crates/landscape-analyze` (the
 orchestrator), SSE streaming, and a React page that renders sections as they land.
 
@@ -180,7 +188,8 @@ description into companies — it hands over three descriptions whose companies 
    the software that needed building got built. [BENCHMARKS.md](docs/BENCHMARKS.md) Run 30.
 2. **Only one clarifying question exists.** An ambiguous brand name is asked about and
    answered in one click. The other three triggers in `PRODUCT_SPEC.md` §3 are not built:
-   *"who should I compare against?"* waits on vocabulary resolution, and the buyer and intent
+   *"who should I compare against?"* waits on the vocabulary label being wired into a run
+   (`landscape vocabulary` resolves it today, nothing reads it yet), and the buyer and intent
    questions need the grammar-constrained router model, which is Phase 2. And this one has **no
    skip**, deliberately — §3 promises every question is skippable, and skipping this one means
    guessing which of two same-named companies a report is about.
@@ -546,9 +555,9 @@ costs no model call. Deploying it ([B5](#4-blockers)) changes who can see it, no
 ([B2](#4-blockers)), both inputs produce a set, a report that covers one company says which of
 four things happened to the others, and a run that produces no report says which of five
 situations it is in — and the ambiguous one comes back as buttons, so answering it costs a
-click rather than a retyped idea. What is left is vocabulary resolution, so a reader's words
-reach the category a vendor would use, and the two caches, which a three-company run makes three
-times more valuable. **All six extractors are
+click rather than a retyped idea, and a reader's words are resolved to the market's before
+anything is searched for. What is left is wiring that label into a run, and the two caches,
+which a three-company run makes three times more valuable. **All six extractors are
 done**, so no section is permanently empty any more.
 
 **To S3 — friendly users find no issue.** `landscape-verify` and the quality gates; caching so a

@@ -95,6 +95,12 @@ def gates(web: bool) -> list[Gate]:
         # nobody had reason to re-run. Text matching only, so it costs nothing - running the
         # catalogues themselves takes tens of minutes and is why they were never a gate.
         Gate("mutation anchors", [sys.executable, "scripts/mutation_anchors.py"]),
+        # **A defect no compiler and no test can see.** A `\` continuation in a Rust string
+        # literal strips the newline *and* the indentation after it; lose the backslash and the
+        # indentation stays, baked into a sentence a reader is shown. It has happened four times
+        # here - a CLI message, two test assertions, three model prompts - and every one was
+        # found by eye, afterwards. Text matching, so it costs nothing.
+        Gate("lost continuations", [sys.executable, "scripts/no_lost_continuations.py"]),
         Gate("fmt", ["cargo", "fmt", "--all", "--check"]),
         # `--all-features` and `--all-targets`, because CI uses both and a lint that only fires
         # on a test target is exactly the one a hurried local run misses.
