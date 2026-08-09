@@ -1,0 +1,210 @@
+[
+  {
+    "name": "the second reader pays the model again",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "    if let Some(known) = memo.get(&key) {\n        tracing::debug!(url = key.url, \"extraction served from memory\");\n        return known;\n    }",
+    "new": "    if false {\n        return extract().await;\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "nothing is ever remembered, so every reader is the first",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "    let fresh = extract().await;\n    memo.remember(key, &fresh);\n    fresh",
+    "new": "    let fresh = extract().await;\n    let _ = key;\n    fresh",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a model outage is written down and replayed to every later reader",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "        if outcome.settled != Settled::Complete {\n            return false;\n        }",
+    "new": "        if false {\n            return false;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a page that was edited is answered from what the old one said",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "            markdown: markdown.to_owned(),",
+    "new": "            markdown: String::new(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the question is not part of the question",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "            prompts: crate::PROMPT_VERSION,\n            question,",
+    "new": "            prompts: crate::PROMPT_VERSION,\n            question: Answers::Pricing,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "two different pages with the same text are one question",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "            url: url.to_owned(),",
+    "new": "            url: String::new(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a re-worded prompt set still answers from the old prompts",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "            prompts: crate::PROMPT_VERSION,",
+    "new": "            prompts: 0,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "yesterday's answer to \"what changed recently\" is today's",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "            url: url.to_owned(),\n            today,",
+    "new": "            url: url.to_owned(),\n            today: NaiveDate::default(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a window the model never answered counts as a whole answer",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "            Err(e) => {\n                details.push(format!(\"model error: {e}\"));\n                whole = false;\n            }\n        }\n        // **After every window, whatever became of it.** One plan is enough to put the section",
+    "new": "            Err(e) => {\n                details.push(format!(\"model error: {e}\"));\n            }\n        }\n        // **After every window, whatever became of it.** One plan is enough to put the section",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a run nobody is waiting for is remembered as the whole page",
+    "file": "crates/landscape-analyze/src/stages.rs",
+    "old": "        {\n            whole = false;\n            break;\n        }\n    }\n    let page = PagePricing::assembled(extracted);",
+    "new": "        {\n            break;\n        }\n    }\n    let page = PagePricing::assembled(extracted);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the memo grows without bound as long as the pages are small",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "        while self.bytes + cost > MAX_MEMO_BYTES || self.by_read.len() >= MAX_MEMOS {",
+    "new": "        while self.bytes + cost > MAX_MEMO_BYTES {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the memo grows without bound as long as there are few pages",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "        while self.bytes + cost > MAX_MEMO_BYTES || self.by_read.len() >= MAX_MEMOS {",
+    "new": "        while self.by_read.len() >= MAX_MEMOS {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "an entry with an empty page costs nothing, so the count is unbounded again",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "        OVERHEAD + self.url.len() + self.markdown.len()",
+    "new": "        self.url.len() + self.markdown.len()",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "one enormous page empties the memo and is then kept anyway",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "        if cost > MAX_MEMO_BYTES {\n            return;\n        }",
+    "new": "        if cost > usize::MAX {\n            return;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the newest extraction is evicted rather than the oldest",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "                .min_by_key(|(_, e)| e.order)",
+    "new": "                .max_by_key(|(_, e)| e.order)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a replaced extraction's bytes are counted for ever",
+    "file": "crates/landscape-analyze/src/memo.rs",
+    "old": "        if let Some(old) = self.by_read.remove(&key) {\n            self.bytes -= old.cost;\n        }",
+    "new": "        if self.by_read.remove(&key).is_some() {}",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  }
+]

@@ -134,8 +134,10 @@ code change — the software does not become different.
 
 ## S2 — Ready for demonstration
 
-*Any business idea handled correctly, limited functionality, friendly users only.* **Past
-half.** Ten of eighteen rows are done. Both inputs produce a comparison — a description and a
+*Any business idea handled correctly, limited functionality, friendly users only.* **Past four
+fifths.** Fifteen of eighteen PRs are done, and seven of the ten rows are complete — the caches
+row closed with the extraction half, so **two readers of one competitor now share both the
+fetching and the reading**. Both inputs produce a comparison — a description and a
 named company alike — a report that covers **one** company says which of four things happened to
 the others, and a run that produces **no** report now says which of five things happened rather
 than one. That last one is the same discipline reaching the surface a reader actually looks at:
@@ -152,9 +154,9 @@ them back into a single sentence.
 | Trust posture extractor — the fifth question kind | S2 | 1 | 1 | 0 | 100% |
 | Investment direction extractor — the sixth question kind | S2 | 1 | 1 | 0 | 100% |
 | Honest "no public information" at the level of a whole competitor set | S2 | 1 | 1 | 0 | 100% |
-| Fetch cache and per-source extraction cache — two readers of one competitor share work | S2 | 2 | 1 | **1** | 50% |
+| Fetch cache and per-source extraction cache — two readers of one competitor share work | S2 | 2 | 2 | 0 | 100% |
 | Conditional GET and a per-analysis fetch cap | S2 | 1 | 0 | **1** | 0% |
-| | | **18** | **14** | **4** | **78%** |
+| | | **18** | **15** | **3** | **83%** |
 
 **What the two clarifying-question PRs bought, and what §3 still describes.** The row is
 counted complete because what S2 needs is a run that cannot converge saying so in terms a reader
@@ -171,6 +173,12 @@ and investment direction extractors need no search channel: discovery already ad
 and `/careers`, the pipeline already reached them, and both sections were permanently empty
 because nothing read them. They are the cheapest honest improvements available while
 [B2](../PROJECT_STATUS.md#4-blockers) is unbuilt.
+
+**Both caches are built** — [BENCHMARKS.md](BENCHMARKS.md) Runs 37 and 38. The second reader of
+a company pays neither a stranger's server nor ours: the fetch half took eight fetches to zero,
+and the extraction half takes sixteen model calls to zero for the same company. What is left in
+this row is conditional GET, which is about the *first* reader coming back tomorrow rather than
+the second arriving today.
 
 **With the sixth extractor, that seam is closed.** All six questions a report has a section for
 now have an extractor behind them, so there is no longer a *"one fewer section that can never

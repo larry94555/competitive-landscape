@@ -11,6 +11,7 @@ python3 scripts/mutate.py docs/mutations/anonymous-cap.json
 python3 scripts/mutate.py docs/mutations/trust-posture.json
 python3 scripts/mutate.py docs/mutations/where-they-invest.json
 python3 scripts/mutate.py docs/mutations/the-search-channel.json
+python3 scripts/mutate.py docs/mutations/the-second-reader.json
 ```
 
 **Why these are committed when the register says to keep them in a scratchpad.** Most are

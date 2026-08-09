@@ -33,6 +33,126 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 38 — the second reader does not pay the model
+
+**Date:** 2026-08-09 · **Where:** this laptop · **Model:** none, and the point of the change is
+that a model is asked **fewer times** rather than differently. What it says is unchanged.
+
+### The half that was left
+
+`ROADMAP.md` has called the pair *"the highest-leverage cache in the system"* since Phase 1. Run
+37 built the fetch half and stopped the second reader of a company paying **somebody else's
+server**. It left every model call in place, and the model is where a run spends nearly all of
+its time.
+
+`landscape cost` counts what a run will ask a model, by running the same span-finding code the
+run uses and counting rather than reading. No model is needed, so the number is reproducible:
+
+```bash
+cargo run -p landscape -- cost https://linear.app
+cargo run -p landscape -- cost https://plausible.io
+```
+
+| | every admitted page | as this run reads them |
+|---|---|---|
+| `linear.app` | 28 | **16** |
+| `plausible.io` | 15 | **14** |
+
+**That last column is what the second reader used to pay again**, in full, for a set of pages
+whose bytes were already in memory and identical.
+
+### The content is the key, so a hit cannot be stale
+
+`Extractions` has **no TTL**, and the absence is the design rather than an omission. A page cache
+answers *"what is at this URL"*, whose answer changes without warning, so it needs a window. This
+one answers *"what does **this exact text** say about this question"* — and text that changed
+produces a different key and therefore a miss.
+
+```rust
+Read::of(question, url, markdown, today)   // + PROMPT_VERSION
+```
+
+A stale hit is not bounded here; **it is not expressible**. That also settles the question a
+digest would raise: the key holds the whole markdown rather than a hash of it, because a 64-bit
+collision is unlikely and its consequence is the one failure this pipeline exists to prevent —
+one page's facts attached to another page's URL, cited, and internally consistent. The memory
+that costs is bounded below; a wrong claim would not have been.
+
+Every input is in the key because a cache key that omits one answers a question it was not asked:
+the prompt set (a re-worded prompt is a different question), the question, the URL (the prompts
+name it), today (`Answers::Changes` resolves *"last week"* against it), and the text.
+
+### A failure is never remembered
+
+This is Run 37's last finding, arriving one row later in a different unit. `Outcome` gained
+`Settled`, and only `Complete` is kept:
+
+| what happened | settled | remembered |
+|---|---|---|
+| every window read and answered | `Complete` | yes |
+| a window's model call failed | `Partial` | **no** |
+| the reader stopped waiting | `Partial` | **no** |
+| nothing on the page to ask about | `Complete` | yes — reaching *"nothing here"* costs every scanner |
+| a changelog or a careers page | `Complete` | yes — no model ran, so nothing can half-happen |
+
+A cached outage would be replayed to every later reader with nothing ever going back to ask
+again. The regression asks three times, gets three failures, then one success — and asserts the
+model was asked four times and not five.
+
+### Where the rule lives, decided by the harness rather than by taste
+
+The first version put the lookup inline in `read_one`. Run 37 ended with the same lesson twice —
+a rule written where no test can reach it is a rule a mutation deleting it survives — and the
+harness said it again immediately: four of the sixteen mutations came back `MISSED`, all of them
+about the key, all of them unreachable because `read_one` needs a fetched page and a test server
+binds loopback, which the address guard refuses absolutely.
+
+So `memo::remembering` takes a closure, and a test passes a counter where the model would be:
+
+```rust
+let second = remembering(&memo, key, || async { asked.set(asked.get() + 1); … }).await;
+assert_eq!(asked.get(), 1, "the second reader paid the model again");
+```
+
+and `Read::of` builds the key, so *"the URL is not part of the question"* is one assertion rather
+than an unreachable line. `read_one`'s remaining share is one call with no decision in it.
+
+### Bounded in both units, at the third attempt in three rows
+
+16 MiB and 1,024 entries, oldest evicted first, and one page too large for the whole budget
+declined rather than allowed to empty the cache and then not fit. Every clause of that sentence
+is a correction review made to the fetch cache one row earlier, applied here **before** review
+had to make it again — including the "too large to keep" guard whose absence was argued for in
+prose last time and disproved in one line.
+
+Two of the bound tests earned their wording the hard way even so: a byte budget tested only with
+tiny pages is bounded by the entry cap and proves nothing about bytes, and a per-entry overhead
+tested against a full cache is swamped by the URLs. There is a test for each in the unit that
+binds.
+
+### What this does not do
+
+**Nothing is shared between processes**, unchanged from Run 37: a restart is cold, and a shared
+cache means a store, which the laptop rule keeps as its own decision rather than a side effect of
+this one.
+
+**`landscape cost` is now an upper bound in a warm process**, and says so in `model_calls_for`'s
+own documentation. It runs as a fresh process with nothing remembered, so what it prints is exact
+for the run it describes — the first one. Teaching it to consult a memo it cannot have would be
+predicting a different program in the other direction, which is the mistake Run 22 recorded.
+
+**The saving is not measured end-to-end**, and cannot be here: it needs two analyses of one
+company in one long-lived process, which is the worker, with a model attached. What is asserted
+is the count — *the model was asked once, not twice* — with a stub where the model goes, which is
+the same instrument Run 25 used for cancellation and the one that runs on every pull request.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 37 | 881 | 62 |
+| now | **897** | **62** |
+
+---
+
 ## Run 37 — the request we do not send
 
 **Date:** 2026-08-09 · **Where:** this laptop · **Model:** none. A cache changes how often a

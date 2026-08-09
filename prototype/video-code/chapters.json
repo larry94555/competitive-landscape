@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "The request we do not send",
-    "blurb": "The roadmap has called the fetch cache the highest-leverage cache in the system since Phase 1. It was worse than absent: the worker built three fetchers inside one run, and a fetcher remembers pages, robots.txt and the per-host delay by itself — so one company’s robots.txt was fetched three times, and a page read to work out which companies these are was read again to extract from. One per process now. The bandwidth saved is ours; the requests not sent are somebody else’s.",
-    "seconds": 33.9
+    "title": "The second reader does not pay the model",
+    "blurb": "The other half of the highest-leverage cache in the system. The fetch cache stopped the second reader paying somebody else’s server and left every model call in place — sixteen of them for linear.app, counted by landscape cost without asking a model. An extraction is now remembered against the page’s own text, so an edited page is a new question rather than a stale answer, and a run that failed or that nobody waited for is never remembered at all.",
+    "seconds": 34.5
   }
 ]

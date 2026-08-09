@@ -80,91 +80,89 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    three: {
-      name: "three fetchers, one run",
-      purpose: "Each remembering nothing.",
+    cost: {
+      name: "landscape cost linear.app",
+      purpose: "Counted without asking a model.",
       lines: [
-        ['s', '  resolve_from_description'],
-        ['s', '  rivals_of'],
-        ['s', '  run_analysis'],
+        ['s', '  as this run reads them    16'],
+        ['s', '  plausible.io              14'],
         ['c', ''],
-        ['f', '// Fetcher::new() in each.']
+        ['f', '// Calls, per company, per run.']
       ]
     },
-    thrice: {
-      name: "so robots came three times",
-      purpose: "For one company.",
+    twice: {
+      name: "the second reader paid again",
+      purpose: "Every one of them.",
       lines: [
-        ['t', '  a page read to name a company'],
-        ['t', '  read again to extract from it'],
+        ['t', '  fetches   before 8   now 0'],
+        ['t', '  model     before 16  now 16'],
         ['c', ''],
-        ['f', '// From a stranger’s server.']
+        ['f', '// The fetch cache stopped half.']
       ]
     },
-    theirs: {
-      name: "the requests are theirs",
-      purpose: "The bandwidth is ours.",
+    key: {
+      name: "the page's own text is the key",
+      purpose: "With everything else that decides.",
       lines: [
-        ['f', '  robots.txt'],
-        ['f', '  the per-host delay'],
-        ['f', '  the request we do not send'],
+        ['f', '  prompts'],
+        ['f', '  question'],
+        ['f', '  url'],
+        ['f', '  today'],
+        ['f', '  markdown'],
         ['c', ''],
-        ['t', '// One commitment, three parts.']
+        ['t', '// Read::of, so nothing is dropped.']
       ]
     },
-    nothing: {
-      name: "a hit sends nothing",
-      purpose: "Which is what makes it safe.",
+    nottl: {
+      name: "no TTL, and that is the point",
+      purpose: "The difference from a page cache.",
       lines: [
-        ['c', '// guard: stops us reaching'],
-        ['c', '// robots: stops us requesting'],
-        ['c', '// pacer: stops us asking often'],
+        ['s', '  what is at this URL?  changes'],
+        ['t', '  what does this text say?  no'],
         ['c', ''],
-        ['t', '  none of them protects anything'],
-        ['t', '  when no request leaves']
+        ['f', '// An edited page is a new key,'],
+        ['f', '// so a stale hit is impossible.']
       ]
     },
-    onlyok: {
-      name: "only what we were allowed",
-      purpose: "The invariant it rests on.",
+    whole: {
+      name: "a failure is never remembered",
+      purpose: "Settled::Complete, or nothing.",
       lines: [
-        ['t', '  insert happens after both pass'],
+        ['c', '// model error   -> Partial'],
+        ['c', '// reader left   -> Partial'],
         ['c', ''],
-        ['f', '// A refusal is an error.'],
-        ['f', '// An error is not a page.']
+        ['t', '  a cached outage is replayed'],
+        ['t', '  to every later reader']
       ]
     },
-    bytes: {
-      name: "bounded in bytes",
-      purpose: "Not in pages.",
+    retry: {
+      name: "so the next reader asks again",
+      purpose: "And keeps that answer.",
       lines: [
-        ['s', '  256 pages = 8 KB or 512 MB'],
-        ['t', '  32 MiB of bodies'],
+        ['t', '  three failures, three attempts'],
+        ['t', '  then one answer, kept'],
         ['c', ''],
-        ['f', '// A cap that bounds the thing'],
-        ['f', '// it claims to bound.']
+        ['f', '// The same rule as a 503.']
       ]
     },
-    asof: {
-      name: "and it says when it was read",
-      purpose: "A claim's as_of comes from this.",
+    bounds: {
+      name: "bounded in bytes and entries",
+      purpose: "Each alone has the other's hole.",
       lines: [
-        ['t', '  fetched_at survives the serve'],
+        ['s', '  16 MiB   /   1024 entries'],
         ['c', ''],
-        ['f', '// Otherwise a report dated now'],
-        ['f', '// is built on an hour-old page'],
-        ['f', '// and says so nowhere.']
+        ['f', '// Oldest first, and one page'],
+        ['f', '// too large is declined.']
       ]
     },
-    nosocket: {
-      name: "no test over a socket",
-      purpose: "And the guard stays.",
+    where: {
+      name: "where a test can reach it",
+      purpose: "read_one cannot be driven.",
       lines: [
-        ['s', '  a server binds 127.0.0.1'],
-        ['s', '  the guard refuses loopback'],
+        ['t', '  remembering(memo, key, run)'],
         ['c', ''],
-        ['t', '// The flag would be used, and'],
-        ['t', '// the commitment is the product.']
+        ['f', '// A test passes a counter and'],
+        ['f', '// watches whether we asked.']
       ]
     }
   };
@@ -208,19 +206,19 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:three",    c: "One run built three fetchers." },
-    { kind: "means",       a: "file:thrice",   c: "So the same page was fetched twice." },
+    { kind: "recognition", a: "file:cost",   c: "One company. Sixteen model calls." },
+    { kind: "means",       a: "file:twice",  c: "The second reader paid all sixteen again." },
 
-    { kind: "turn",        a: "file:theirs",   c: "The requests we do not send are theirs." },
-    { kind: "result",      a: "file:nothing",  c: "A hit sends nothing, so nothing is skipped." },
+    { kind: "turn",        a: "file:key",    c: "The page's own text is the key." },
+    { kind: "result",      a: "file:nottl",  c: "So a stale hit is impossible, not bounded." },
 
-    { kind: "turn",        a: "file:onlyok",   c: "Only a page we were allowed is stored." },
-    { kind: "result",      a: "file:bytes",    c: "Bounded in bytes, not in pages." },
+    { kind: "turn",        a: "file:whole",  c: "A failure is never remembered." },
+    { kind: "result",      a: "file:retry",  c: "The next reader asks again instead." },
 
-    { kind: "result",      a: "file:asof",     c: "And it reports when it was really read." },
-    { kind: "result",      a: "file:nosocket", c: "There is no socket test, deliberately." },
+    { kind: "result",      a: "file:bounds", c: "Bounded in bytes and in entries." },
+    { kind: "result",      a: "file:where",  c: "And the rule sits where a test can call it." },
 
-    { kind: "close",       a: "hold",          c: "The request we do not send." }
+    { kind: "close",       a: "hold",        c: "The second reader does not pay the model." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -243,7 +241,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("three");
+    show("cost");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -256,15 +254,15 @@
     }, TOTAL * 1000));
   }
 
-  show("three");
+  show("cost");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "The request we do not send",
-    blurb: "The roadmap has called the fetch cache the highest-leverage cache in the system since Phase 1. It was worse than absent: the worker built three fetchers inside one run, and a fetcher remembers pages, robots.txt and the per-host delay by itself — so one company’s robots.txt was fetched three times, and a page read to work out which companies these are was read again to extract from. One per process now. The bandwidth saved is ours; the requests not sent are somebody else’s.",
+    title: "The second reader does not pay the model",
+    blurb: "The other half of the highest-leverage cache in the system. The fetch cache stopped the second reader paying somebody else’s server and left every model call in place — sixteen of them for linear.app, counted by landscape cost without asking a model. An extraction is now remembered against the page’s own text, so an edited page is a new question rather than a stale answer, and a run that failed or that nobody waited for is never remembered at all.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;
