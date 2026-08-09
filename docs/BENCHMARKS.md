@@ -112,6 +112,15 @@ are used, so a `304` arriving with its freshness already spent is not kept.
 on a `304`, and keeping the one we asked with would make every later revalidation ask about a
 version nobody has — so the saving would quietly stop happening.
 
+**Keeping fields means paying for fields.** Review's third pass: the policy went into the entry
+and not into `cost`, which is the same hole `cost` was written to close two runs earlier —
+`Cache-Control` and `Expires` are origin-controlled heap allocations, so a budget that counted the
+body and the key but not them reports a cache inside its limit while it is not. Both fields are
+costed now, under the policy actually stored rather than the one being replaced, and there is a
+regression that fills a cache with sixty-four-kilobyte `Cache-Control` headers and one that pads
+an `Expires` — a valid `Expires` can be as long as a stranger likes, because leading space is
+trimmed before it is parsed and kept in what is stored.
+
 The last two rows are the second half of the same finding. `Storable::No` meant *do not store
 this*, and the code did exactly that — while leaving the **older copy** in place to be served.
 Refusing to store and refusing to serve are different things, and a cache that obeys `no-store`
@@ -203,7 +212,7 @@ refuses. That is the one thing in this crate that a bound lets us test which a l
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 38 | 901 | 62 |
-| now | **926** | **62** |
+| now | **928** | **62** |
 
 ---
 

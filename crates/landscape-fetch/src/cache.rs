@@ -86,13 +86,21 @@ pub const MAX_ENTRIES: usize = 4_096;
 const OVERHEAD: usize = 256;
 
 /// What keeping this page actually costs.
-fn cost(url: &str, page: &Page) -> usize {
+///
+/// **Everything retained, including the policy.** Review found the policy missing from here the
+/// moment it was added to [`Entry`], and it is the same hole this function was written to close:
+/// `Cache-Control` and `Expires` are origin-controlled heap allocations, so a budget that counted
+/// the body and the key but not them would report a cache inside its limit while it was not.
+/// The rule holds for anything a `304` replaces too — [`Cache::keep`] costs the policy it is
+/// about to store rather than the one it is replacing.
+fn cost(url: &str, page: &Page, policy: &Policy) -> usize {
     OVERHEAD
         + url.len()
         + page.url.len()
         + page.body.len()
         + page.etag.as_ref().map_or(0, String::len)
         + page.last_modified.as_ref().map_or(0, String::len)
+        + policy.bytes()
 }
 
 /// What the origin said we may do with a response.
@@ -311,6 +319,13 @@ impl Policy {
         }
     }
 
+    /// What the fields of this policy occupy. See [`cost`].
+    #[must_use]
+    pub fn bytes(&self) -> usize {
+        self.cache_control.as_ref().map_or(0, String::len)
+            + self.expires.as_ref().map_or(0, String::len)
+    }
+
     /// This policy, read against the age *this* response reports.
     fn against<'a>(&'a self, date: Option<&'a str>, age: Option<&'a str>) -> Freshness<'a> {
         Freshness {
@@ -516,7 +531,7 @@ impl Cache {
 
     /// Keep a page for a stated time, remembering the fields that time came from.
     fn keep(&mut self, url: String, page: Page, fresh_for: Duration, policy: Policy) {
-        let size = cost(&url, &page);
+        let size = cost(&url, &page, &policy);
         // A page too large to keep alongside anything else is not kept at all. Without this the
         // loop below could evict the entire cache to make room for one document and then still
         // not fit it — a cache that empties itself is worse than one that declines.
@@ -957,6 +972,122 @@ mod tests {
         );
         assert!(!held, "a 503 was written down");
         assert!(cache.is_empty());
+    }
+
+    #[test]
+    fn the_policy_is_counted_in_the_budget_like_everything_else_retained() {
+        // **Review found this the moment the policy was added to an entry, and it is the same
+        // hole `cost` was written to close.** `Cache-Control` and `Expires` are
+        // origin-controlled heap allocations: a budget counting the body and the key but not
+        // them reports a cache inside its limit while it is not.
+        let now = at("2026-08-09T00:00:00Z");
+        let long = format!("max-age=30, {}", "x".repeat(4_000));
+
+        let mut cache = Cache::new();
+        cache.insert(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 0),
+        );
+        let without = cache.bytes();
+
+        let mut cache = Cache::new();
+        cache.insert_allowed(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 0),
+            said(&long),
+            now,
+        );
+        assert!(
+            cache.bytes() >= without + 4_000,
+            "the policy's {} bytes were held and not counted: {} vs {without}",
+            long.len(),
+            cache.bytes()
+        );
+
+        // **Both fields, not the interesting one.** An `Expires` is normally a short date, but
+        // the length is a stranger's choice: leading space is trimmed before it is parsed and
+        // kept in what is stored, so a valid `Expires` can be as long as they like.
+        let padded = format!("{}Sun, 09 Aug 2026 01:00:00 GMT", " ".repeat(4_000));
+        assert_eq!(
+            Policy::of(said("max-age=30")).bytes(),
+            "max-age=30".len(),
+            "the cache-control was not counted"
+        );
+        assert_eq!(
+            Policy::of(expiring(&padded)).bytes(),
+            padded.len(),
+            "the expires was not counted"
+        );
+        assert_eq!(
+            Policy {
+                cache_control: Some("max-age=30".to_owned()),
+                expires: Some(padded.clone()),
+            }
+            .bytes(),
+            "max-age=30".len() + padded.len(),
+            "one field was counted and the other was held for free"
+        );
+
+        let mut both = Cache::new();
+        both.insert_allowed(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 0),
+            Freshness {
+                cache_control: Some("max-age=30"),
+                expires: Some(&padded),
+                ..Freshness::default()
+            },
+            now,
+        );
+        assert!(
+            both.bytes() >= without + padded.len(),
+            "an expires of {} bytes was held and not counted: {}",
+            padded.len(),
+            both.bytes()
+        );
+
+        // And it is the policy actually stored, so a `304` replacing a long one with a short
+        // one gives the bytes back rather than remembering the wrong figure.
+        cache.age(FRESH_FOR + Duration::from_secs(1));
+        assert!(cache.insert_revalidated(
+            "https://a.example/".to_owned(),
+            page("https://a.example/", 0),
+            &Policy::of(said(&long)),
+            said("max-age=30"),
+            now
+        ));
+        assert!(
+            cache.bytes() < without + 4_000,
+            "a replaced policy's bytes were counted for ever: {}",
+            cache.bytes()
+        );
+    }
+
+    #[test]
+    fn a_cache_full_of_enormous_policies_is_still_bounded() {
+        // The bound, in the unit the policy is spent in. Sixty-four kilobytes of `Cache-Control`
+        // is absurd and that is the point: a stranger chooses this number, not us.
+        let now = at("2026-08-09T00:00:00Z");
+        let absurd = format!("max-age=30, {}", "x".repeat(64 * 1024));
+        let mut cache = Cache::new();
+        for i in 0..600 {
+            cache.insert_allowed(
+                format!("https://a.example/{i}"),
+                page("https://a.example/x", 0),
+                said(&absurd),
+                now,
+            );
+        }
+        assert!(
+            cache.bytes() <= MAX_CACHED_BYTES,
+            "held {} bytes of policy against a budget of {MAX_CACHED_BYTES}",
+            cache.bytes()
+        );
+        assert!(
+            cache.len() < 600,
+            "six hundred enormous policies were all kept, so they cost nothing"
+        );
+        assert!(!cache.is_empty(), "the cache emptied itself instead");
     }
 
     #[test]

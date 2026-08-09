@@ -2102,6 +2102,14 @@ Keep the fields, overlay what arrived, recompute. And the same round found the s
 neighbour: the validators. A `304` may supply a new `ETag`, and keeping the one we asked with
 would make every later revalidation ask about a version nobody has.
 
+**And keeping fields means paying for them.** The policy went into the entry and not into the
+cache's `cost`, which is the hole that same function had been written to close two rounds
+earlier: `Cache-Control` and `Expires` are origin-controlled heap allocations, so a byte budget
+counting the body and the key but not them reports a cache inside its limit while it is not.
+**Anything added to a bounded structure is added to its bound in the same commit** — the two are
+one change, and a review that has already made this point about one field will make it about the
+next.
+
 **Rule:** when consuming an update, ask what a missing field means — *unchanged* or *unset* —
 and carry the stored value when it means unchanged. Carry the **fields**, not what you computed
 from them: a merge you cannot perform field by field is a merge you are not performing. When

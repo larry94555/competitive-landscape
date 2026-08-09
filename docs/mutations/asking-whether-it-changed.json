@@ -388,5 +388,44 @@
       "-p",
       "landscape-fetch"
     ]
+  },
+  {
+    "name": "the policy an entry holds is retained and not counted",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        + policy.bytes()",
+    "new": "        + 0",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "only one of the two policy fields is counted",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        self.cache_control.as_ref().map_or(0, String::len)\n            + self.expires.as_ref().map_or(0, String::len)",
+    "new": "        self.cache_control.as_ref().map_or(0, String::len)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "an entry is costed under the policy it is replacing",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        let size = cost(&url, &page, &policy);",
+    "new": "        let size = cost(&url, &page, &Policy::default());",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
   }
 ]
