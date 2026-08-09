@@ -321,7 +321,7 @@ async fn a_reader_watching_a_reclaimed_run_is_never_told_it_finished() {
         .expect("the second run's answer");
     assert!(
         changed_at < nineteen_at,
-        "the new generation has to arrive before the replacement's answer, or the gap is          exactly the window where a reader is looking at a claim nobody stands behind:          {events:#?}"
+        "the new generation has to arrive before the replacement's answer, or the gap is exactly the window where a reader is looking at a claim nobody stands behind:          {events:#?}"
     );
     let fifteen_after: Vec<&String> = events[changed_at..]
         .iter()
@@ -379,7 +379,7 @@ async fn after_a_restart_the_same_answer_is_sent_again_rather_than_suppressed() 
         .expect("the new generation is on the wire");
     assert!(
         events[changed_at..].iter().any(|e| e.contains("Pro costs $15")),
-        "after the run started over the stream never sent the answer again - so a reader          whose screen was cleared would sit in front of an empty section for the whole          second run: {events:#?}"
+        "after the run started over the stream never sent the answer again - so a reader whose screen was cleared would sit in front of an empty section for the whole second run: {events:#?}"
     );
 }
 
@@ -462,7 +462,7 @@ async fn a_stream_that_opens_after_the_reclaim_says_which_run_it_is_watching() {
         .expect("a stream has to say which run it is watching");
     assert!(
         opened_with > generation,
-        "a stream opening on a reclaimed row announced generation {opened_with}, the same one          the dead worker was writing under - so a reader who reconnects into it has nothing          to compare and keeps that worker's answer: {events:#?}"
+        "a stream opening on a reclaimed row announced generation {opened_with}, the same one the dead worker was writing under - so a reader who reconnects into it has nothing to compare and keeps that worker's answer: {events:#?}"
     );
 }
 
@@ -542,11 +542,11 @@ async fn a_second_reclaim_on_the_same_connection_is_announced_too() {
     assert_eq!(
         seen.len(),
         3,
-        "two workers died, so the reader should have been told about three runs - the          original and the two replacements: {seen:?}"
+        "two workers died, so the reader should have been told about three runs - the original and the two replacements: {seen:?}"
     );
     assert!(
         seen.windows(2).all(|w| w[1] > w[0]),
-        "the generation has to move forwards every time, or a reader cannot tell a restart          from a repeat: {seen:?}"
+        "the generation has to move forwards every time, or a reader cannot tell a restart from a repeat: {seen:?}"
     );
     assert!(
         events.iter().any(|e| e.contains("Pro costs $23")),

@@ -1088,7 +1088,7 @@ mod tests {
         assert_eq!(
             stub.calls(),
             1,
-            "a twelve-window page kept calling the model after being told to stop - which is              the entire cost this exists to avoid"
+            "a twelve-window page kept calling the model after being told to stop - which is the entire cost this exists to avoid"
         );
     }
 
@@ -1182,7 +1182,7 @@ mod tests {
         assert_eq!(
             stub.calls(),
             1,
-            "the model kept being called for a run nobody wanted, because every answer failed              to parse and nothing on that path ever asked whether to carry on"
+            "the model kept being called for a run nobody wanted, because every answer failed to parse and nothing on that path ever asked whether to carry on"
         );
     }
 

@@ -250,6 +250,19 @@ pub enum Vocabulary {
     NotRequested,
 }
 
+/// Interpolated with the reader's words, and nothing else in this codebase does that.
+///
+/// **Lifted out of [`for_idea`] so it can be read rather than retyped.**
+/// [`crate::vocabulary`] has to know which words *we* put into a query, so that our own
+/// boilerplate coming back in a title cannot be counted as the market's word for anything. A
+/// second hand-written copy of this list would go stale the first time a template changed, and
+/// the failure would be silent: a template word quietly becoming a category.
+pub(crate) const IDEA_TEMPLATES: [&str; 3] = [
+    r#"best {} software"#,
+    r#"{} tools comparison"#,
+    r#"{} vendors"#,
+];
+
 /// The queries a description produces.
 ///
 /// Three, and each asks the same thing a different way, because the whole score below rests on
@@ -259,18 +272,11 @@ pub enum Vocabulary {
 /// returns the internet.
 #[must_use]
 pub fn for_idea(description: &str) -> Vec<Query> {
-    /// Interpolated with the reader's words, and nothing else in this codebase does that.
-    const TEMPLATES: [&str; 3] = [
-        r#"best {} software"#,
-        r#"{} tools comparison"#,
-        r#"{} vendors"#,
-    ];
-
     let cleaned = crate::queries::safe_words(description);
     if cleaned.is_empty() {
         return Vec::new();
     }
-    TEMPLATES
+    IDEA_TEMPLATES
         .into_iter()
         .map(|template| Query {
             text: template.replacen("{}", &cleaned, 1),
@@ -721,7 +727,7 @@ fn naming(host: &str, markdown: &str) -> (String, String) {
 ///
 /// A host the list cannot place at all — `localhost`, a bare label — is returned lowercased and
 /// unchanged rather than guessed at.
-fn registrable(host: &str) -> String {
+pub(crate) fn registrable(host: &str) -> String {
     let lowered = host.trim().trim_end_matches('.').to_lowercase();
     if lowered.parse::<std::net::IpAddr>().is_ok() {
         return lowered;

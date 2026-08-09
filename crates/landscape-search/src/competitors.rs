@@ -75,7 +75,7 @@ pub const SHARED_WORDS: usize = 1;
 /// `app` — and dropping those would turn `tax software` into a one-word input, which
 /// [`DESCRIBES_A_MARKET`] would then read as a brand name and refuse to build a set for. A weak
 /// content word is still a content word.
-const NOT_CONTENT: [&str; 26] = [
+pub(crate) const NOT_CONTENT: [&str; 26] = [
     "the", "and", "for", "with", "that", "this", "from", "are", "was", "its", "our", "your",
     "their", "his", "her", "you", "who", "what", "how", "any", "all", "can", "has", "have", "not",
     "but",

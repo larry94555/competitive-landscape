@@ -33,6 +33,218 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 35 — the market's words, not the reader's
+
+**Date:** 2026-08-08 · **Where:** this laptop · **Model:** none, and that is the design —
+`COMPETITIVE_DISCOVERY.md` §9 budgets this step at *"deterministic, no model"*.
+
+Somebody types **a free competitive landscape research tool**. Here is what we sent:
+
+```text
+best a free competitive landscape research tool software
+a free competitive landscape research tool tools comparison
+a free competitive landscape research tool vendors
+```
+
+**Nobody in that market uses that phrase.** Those queries find blog posts about the idea of
+competitive research. The market says *competitive intelligence software*, and searching its
+words finds the companies.
+
+### What it does now
+
+`landscape vocabulary "a free competitive landscape research tool"`, against a stand-in engine
+serving five plausible first-page results:
+
+```text
+interpreted as  competitive intelligence software
+agreed on by    3 independent sites
+also called     competitive intelligence, intelligence software
+
+Every query a report builds would use the label, not the words
+above it. The other phrasings are shown and never searched.
+```
+
+### Counted once per site, never per page
+
+`FACT_CHECKING.md` §6, and it is the whole reason the number means anything. A content farm with
+a title template can put one phrase in forty titles, and forty is not agreement — the test feeds
+exactly that and requires the answer to be *"the market has no word for this"*:
+
+| Input | Answer |
+|---|---|
+| 40 pages, 1 host, all saying *battlecard automation platform* | `TheirWords` — nothing recurred |
+| 5 pages, 5 hosts, 3 saying *competitive intelligence software* | `Market` — 3 independent sites |
+
+### Review: two markets, and a coin flip presented as a fact
+
+Two hosts titled *Email Marketing Software*, two titled *Project Management Software*:
+
+```text
+Market { label: "email marketing software", hosts: 2 }
+```
+
+The other market — backed by exactly as many independent sites — was **not returned, not
+offered, and not even in the `also` list**, which had been consumed by overlapping fragments of
+the winner. It won because `e` sorts before `p`.
+
+`landscape_core::subject::AMBIGUITY_MARGIN` already has the words for this: *"picking the top
+one is a coin flip presented to the reader as a fact"*. Here it is worse than picking the wrong
+company, because **the label decides every query downstream** — the whole report would be about
+a market nobody asked for.
+
+`Resolved::Ambiguous { between }` now carries the competing categories. The grouping is by
+**containment**, the relation `most_specific` already used: *email marketing*, *marketing
+software* and *email marketing software* are one market said three ways, and *project management
+software* is not.
+
+### Review again: the fix had a bridge in it
+
+Connected components over every containment edge was wrong, and the counterexample is better
+than the original:
+
+```text
+inventory management software   2 hosts   ─┐
+project management software     2 hosts   ─┤
+management software             4 hosts   ─┴─ contained in BOTH
+```
+
+`management software` is on **all four** hosts *because* it is the part two different markets
+have in common. Transitivity made one cluster of the lot, and the arbitrary choice came straight
+back wearing a bigger number.
+
+**A market is a phrase nothing else extends** — §4 step 4's *most specific term* read as a
+definition rather than a search. A shorter phrase belongs to the one market that extends it; a
+phrase extended by **more than one** belongs to neither, because it is the overlap between them
+and not evidence for either. Dropping it leaves two clusters of two hosts each: a tie, and a
+question.
+
+That also removes the fragment problem the first version needed transitivity for. *marketing
+software* is extended by exactly one market, so it joins it rather than becoming a third.
+
+**A fractional margin is the wrong instrument.** These are counts of two to five, where 15% is
+either zero or everything. Equal corroboration is a tie, and a tie is a question.
+
+### Review: a digit inside a word is not a separator
+
+```text
+phrases_in("B2B Marketing Automation Software")  ->  "b marketing automation software"
+phrases_in("3D Modeling Software")               ->  "d modeling software"
+```
+
+Breaking a run on every digit was right for the `10` in *Top 10 CRM Software* and wrong for
+every category that contains one. Two hosts using either title would have promoted a word that
+does not exist to a market label.
+
+**A whole word made of digits is a separator; a digit inside a word is part of it.** `10` is the
+first; `b2b` and `3d` are the second. Both behaviours now have their own test, because fixing
+one at the cost of the other is the obvious way to get this wrong.
+
+### The most specific term that still recurs widely
+
+§4 step 4 in one sentence, and the hard half is *"still recurs widely"*. `competitive
+intelligence` is on four hosts; `competitive intelligence software` is on three. The longer one
+wins — but only because it **extends the phrase everybody already agreed on**, which is what
+keeps *battlecard automation platform* from winning on a lucky two.
+
+**A ratio was the obvious alternative and is worse.** "Widely" as a fraction of the top count
+needs a number nobody can defend, and it would move every time the query count moved.
+Containment needs none.
+
+### A title is not evidence, and this is not a claim
+
+`Hit::title` says plainly it is the engine's account of a page and *"not evidence of anything"*.
+That rule is intact: **nothing this module produces can reach a report as a fact about a
+company.** A claim is about one company and must come from that company's own page; a category
+label is about *the words a market uses*, and the only way to observe those is across many
+strangers' pages at once. Counting them is not trusting any one of them — and §4 requires the
+label be shown to a reader as an interpretation they can overrule, precisely because it was
+inferred.
+
+### Review sites are the best source here and the worst source next door
+
+`candidates` excludes `g2.com` and `capterra.com` by name — they are places people talk about
+companies, not companies. This module deliberately does **not** share that list, because §4 step
+5 calls their curated category trees *"the strongest signal available"*: they **are** the
+market's own vocabulary. One question is *who is a company*; the other is *what is this called*.
+A test pins the inversion, so sharing the list later fails loudly instead of quietly costing the
+label its two best sources.
+
+### Our own boilerplate cannot become the answer
+
+We send `best {} software` and `{} vendors`. A title reading *"Software Vendors"* is this
+codebase's phrasing looking back at us, and counting it would let a template vote. The guard
+reads `IDEA_TEMPLATES` rather than a retyped copy — a second list would go stale the first time
+a template changed, and silently.
+
+### A gate for a defect no compiler can see
+
+Writing this found the fourth instance of something this repository keeps producing:
+
+```text
+"...worker, migrate, fetch, gap, discover,              search, candidates, ..."
+```
+
+A `\` continuation in a Rust string strips the newline **and** the indentation. Lose the
+backslash and the indentation stays, baked into a sentence somebody is shown. It compiles and
+every test passes.
+
+`scripts/no_lost_continuations.py` is the **thirteenth gate**. It found ten — a CLI message,
+five test assertions in `interrupted_runs.rs`, two in `conformance.rs` and two more in
+`stages.rs` — all of them closed here. Telling it apart from deliberate column padding needed
+two signals together, because this codebase pads columns constantly:
+
+| | gap | what follows |
+|---|---|---|
+| `"none    no price found"` | 4 | a word — but the gap is small |
+| `"{:<58} answers      may set a table value"` | 6 | a word — small again |
+| `"  fits in 120s        {:.0} extractions"` | 8 | a format specifier |
+| `"...discover,              search, candidates"` | **14** | a word |
+
+Nine spaces or more **and** letters on both sides. A continuation carries the whole indentation
+of the line that followed it, which inside a function inside a block is never small; a column
+that wide would be unreadable, which is why nobody writes one.
+
+### Review: the gate was blind where it mattered most
+
+The first version matched `"…"` **per line** — and a `\` continuation is *by definition* a
+literal that spans several. The three model prompts in `landscape-analyze::stages`, the longest
+multi-line literals in the repository, were invisible to the check written to find exactly this.
+Reading literals whole, with a small state machine that skips comments, char literals and
+lifetimes, found all three.
+
+They are still **deferred**, because editing a prompt needs `PROMPT_VERSION` bumped and the
+golden set re-run against a real model — a benchmark, not a lint fix. But deferred **by the
+digest of the exact literal**, not by file:
+
+| | before | after |
+|---|---|---|
+| a new damaged string in `stages.rs` | silently counted as deferred | **fails** |
+| one of the three prompts edited | silently accepted | **fails** — that is the decision point |
+| a deferred string finally fixed | nothing said | **fails**, so the exemption is removed |
+
+Both failure modes were checked by making them happen.
+
+### What this does not do yet
+
+**It is not wired into an analysis.** This is the first of the row's two PRs: the resolver and
+its diagnostic. Nothing a reader sees changes yet — the queries an analysis sends are still
+built from their own words.
+
+**It costs nothing to wire.** `resolve` sends exactly `candidates::for_idea`'s queries, which an
+analysis already sends to find companies, so the second PR reads titles it is already holding —
+zero extra round trips — and adds the *"Interpreted as …"* header §4 asks for.
+
+**Nothing measures whether the label is right**, and there is no golden set for it. The tests
+here pin the *arithmetic*, not the taste. [B1](../PROJECT_STATUS.md#4-blockers) again, one step
+earlier in the pipeline than usual.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 34 | 822 | 58 |
+| now | **840** | **58** |
+
+---
+
 ## Run 34 — the question, handed back as three buttons
 
 **Date:** 2026-08-08 · **Where:** this laptop · **Model:** none — this is the boundary again,

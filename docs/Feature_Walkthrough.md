@@ -1401,6 +1401,77 @@ which are the next two pieces. See [BENCHMARKS.md](BENCHMARKS.md) Run 27.
 
 ---
 
+## Part 8F2 — Ask what the market calls it
+
+The queries in Part 8G are built from the reader's own words, and **the market does not use
+them.** Needs nothing running.
+
+```bash
+cargo run -p landscape -- vocabulary "a free competitive landscape research tool"
+```
+
+**You should see** the same three queries Part 8G sends — that is the point — and, without an
+engine, nothing asked:
+
+```text
+idea      a free competitive landscape research tool
+query set 2026-08-07.1
+  best a free competitive landscape research tool software
+  a free competitive landscape research tool tools comparison
+  a free competitive landscape research tool vendors
+
+SEARX_URL is not set, so nothing was asked. The queries above are what would go.
+```
+
+**Read those queries.** Nobody sells *a free competitive landscape research tool*. Searching that
+phrase finds articles about the idea; the market itself says *competitive intelligence software*.
+
+### With `SEARX_URL` set
+
+```text
+interpreted as  competitive intelligence software
+agreed on by    3 independent sites
+also called     competitive intelligence, intelligence software
+
+Every query a report builds would use the label, not the words
+above it. The other phrasings are shown and never searched.
+```
+
+**Three sites, not three pages.** A phrase is counted once per registrable domain, so a content
+farm publishing the same title forty times has said it once
+([FACT_CHECKING.md](FACT_CHECKING.md) §6). Below two independent sites there is no label, and
+the command says so — *"the market has no settled word for this"* — which is a finding about a
+market rather than a failure, and different again from *"the searches did not complete"*.
+
+**And when two markets are equally backed, it refuses.** Two sites saying *email marketing
+software* and two saying *project management software* is not a market with a name — it is a
+question, and the command asks it rather than sorting alphabetically:
+
+```text
+no vocabulary: these categories are backed by the same number of
+independent sites, and the label decides every query a report sends:
+  email marketing software (2 sites)
+  project management software (2 sites)
+```
+
+**Why the longer phrase wins.** `competitive intelligence` was on four sites and `competitive
+intelligence software` on three, and the longer one is the answer because it **extends** the
+phrase everybody agreed on. That is [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) §4
+step 4 — *the most specific term that still recurs widely* — and it is what stops a phrase two
+sites happened to share from beating one nine sites use.
+
+**Nothing here becomes a claim.** A search engine's title is its account of a page, and no fact
+about any company comes from one. What this produces is a phrase to search with, and §4 requires
+it be shown to a reader as an interpretation they can overrule.
+
+**What this does not do yet.** No analysis reads the label. `cargo run -p landscape -- candidates`
+still searches the reader's words, and wiring the two together — with the *"Interpreted as …"*
+header §4 asks for — is the second half of this row. It costs no extra round trip, because the
+queries above are the ones an analysis already sends. See
+[BENCHMARKS.md](BENCHMARKS.md) Run 35.
+
+---
+
 ## Part 8G — Turn a description into the companies a report compares
 
 The step the disambiguation gate has been waiting for since Phase 1. Needs nothing running, and

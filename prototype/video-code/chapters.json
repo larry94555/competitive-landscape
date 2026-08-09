@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "The question, handed back as buttons",
-    "blurb": "A run that will not choose between two companies sharing a name now hands the choice back — one button per company, each carrying a whole prompt, so answering costs one click rather than a retyped idea. The gate had already resolved them: a name read off each company’s own front page, a canonical domain, and the line that tells them apart. What was missing was somewhere to put them, because the operator’s reason field is never shown verbatim and these are shown verbatim.",
-    "seconds": 34.9
+    "title": "The market’s words, not the reader’s",
+    "blurb": "Somebody types “a free competitive landscape research tool” and we searched for exactly that, which finds articles about the idea rather than the market. The market says “competitive intelligence software”. Reading the titles of searches an analysis already sends, every two-to-four word phrase is counted once per independent site — forty pages from one content farm is not agreement — and the answer is the longest phrase that extends the one the most sites agreed on. Deterministic, no model, and shown to a reader as an interpretation rather than assumed.",
+    "seconds": 34.7
   }
 ]

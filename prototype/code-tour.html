@@ -80,90 +80,88 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    asked: {
-      name: "a question with no answer attached",
-      purpose: "Run 33 left this.",
+    typed: {
+      name: "what somebody typed",
+      purpose: "And what we searched for.",
       lines: [
-        ['s', '  That name matches more than'],
-        ['s', '  one company.'],
+        ['s', '  a free competitive landscape'],
+        ['s', '  research tool'],
         ['c', ''],
-        ['f', '// ...and it cannot say which.']
+        ['f', '// Nobody sells that.']
       ]
     },
-    had: {
-      name: "the gate already had them",
-      purpose: "Resolution::Ambiguous.",
+    market: {
+      name: "what the market says",
+      purpose: "Different words entirely.",
       lines: [
-        ['t', '  name, read off its own page'],
-        ['t', '  canonical domain'],
-        ['t', '  the line that tells them apart'],
+        ['t', '  competitive intelligence'],
+        ['t', '  software'],
         ['c', ''],
-        ['f', '// decide kept the Failure.']
+        ['f', '// Theirs finds blog posts.'],
+        ['f', '// This finds the market.']
       ]
     },
-    column: {
-      name: "the choices needed a column",
-      purpose: "And not the one that was there.",
+    perhost: {
+      name: "counted once per site",
+      purpose: "Not once per page.",
       lines: [
-        ['c', '// failure_reason: the operator\'s,'],
-        ['c', '// never shown verbatim.'],
+        ['s', '  40 pages, 1 content farm'],
+        ['t', '  -> said it once'],
         ['c', ''],
-        ['f', '  0005: clarification jsonb'],
-        ['t', '  two audiences, two fields']
+        ['f', '// Forty is not agreement.']
       ]
     },
-    domain: {
-      name: "a domain, not a name",
-      purpose: "One click is the whole answer.",
+    specific: {
+      name: "the most specific that recurs",
+      purpose: "Section 4, step 4.",
       lines: [
-        ['s', '  prompt: canonical_domain'],
+        ['t', '  competitive intelligence   4'],
+        ['f', '  ...intelligence software   3'],
         ['c', ''],
-        ['t', '  a name goes back through the'],
-        ['t', '  search that made the tie'],
-        ['f', '// and can return the same question.']
+        ['c', '// The longer one wins because'],
+        ['c', '// it extends the broad one.']
       ]
     },
-    struct: {
-      name: "five arguments became one value",
-      purpose: "Refused, and Refusal.",
+    tied: {
+      name: "and when two markets tie",
+      purpose: "It refuses to sort them.",
       lines: [
-        ['s', '  fail(id, gen, kind, reason)'],
+        ['s', '  email marketing software   2'],
+        ['s', '  project management sw.     2'],
         ['c', ''],
-        ['f', '  Refused { kind, reason, choices }'],
-        ['c', ''],
-        ['t', '// There is nothing left to drop.']
+        ['f', '// A coin flip, shown as a fact.']
       ]
     },
-    found: {
-      name: "the mutation that found it",
-      purpose: "choices dropped on the way.",
+    notaclaim: {
+      name: "a title is not evidence",
+      purpose: "And this is not a claim.",
       lines: [
-        ['s', '  refuse(.., &why, &[])'],
+        ['c', '// A claim is about one company'],
+        ['c', '// and comes from its own page.'],
         ['c', ''],
-        ['f', '  MISSED - nothing failed'],
-        ['c', ''],
-        ['t', '// So the seam went away instead.']
+        ['f', '  a label is about a market,'],
+        ['f', '  seen across strangers at once']
       ]
     },
-    sentence: {
-      name: "the sentence follows the buttons",
-      purpose: "Or it asks for the work twice.",
+    inverted: {
+      name: "g2 is barred next door",
+      purpose: "And is the best source here.",
       lines: [
-        ['s', '  name the one you mean'],
-        ['t', '  -> pick the one you meant'],
+        ['s', '  candidates: not a company'],
+        ['t', '  vocabulary: the market itself'],
         ['c', ''],
-        ['f', '// The test asserts the negative.']
+        ['f', '// One list, two questions.']
       ]
     },
-    skip: {
-      name: "and this one has no skip",
-      purpose: "Deliberately. Spec section 3.",
+    gate: {
+      name: "the hole in a sentence",
+      purpose: "A lost backslash.",
       lines: [
-        ['t', '  skipping = guess which company'],
+        ['s', '  discover,        search'],
         ['c', ''],
-        ['f', '// A report about the wrong Notion'],
-        ['f', '// reads like a report about the'],
-        ['f', '// right one.']
+        ['f', '  8 found, 13th gate'],
+        ['c', ''],
+        ['t', '// It compiled. Tests passed.']
       ]
     }
   };
@@ -207,19 +205,19 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:asked",    c: "Run 33 gave this refusal its own sentence." },
-    { kind: "means",       a: "file:had",      c: "The gate had already resolved them." },
+    { kind: "recognition", a: "file:typed",     c: "This is what we sent to a search engine." },
+    { kind: "means",       a: "file:market",    c: "The market uses different words." },
 
-    { kind: "turn",        a: "file:column",   c: "The choices needed a column of their own." },
-    { kind: "result",      a: "file:domain",   c: "A chip sends a domain, not a name." },
+    { kind: "turn",        a: "file:perhost",   c: "Phrases are counted once per site." },
+    { kind: "result",      a: "file:specific",  c: "The most specific one that still recurs." },
 
-    { kind: "turn",        a: "file:struct",   c: "Five arguments became one value." },
-    { kind: "result",      a: "file:found",    c: "A mutation found the seam that dropped it." },
+    { kind: "turn",        a: "file:tied",      c: "Two markets equally backed is a question." },
+    { kind: "result",      a: "file:notaclaim", c: "A title is evidence of nothing." },
 
-    { kind: "result",      a: "file:sentence", c: "The sentence changes with the buttons." },
-    { kind: "result",      a: "file:skip",     c: "And this question has no skip." },
+    { kind: "result",      a: "file:inverted",  c: "The site we bar next door is best here." },
+    { kind: "result",      a: "file:gate",      c: "And a gate for a hole in a sentence." },
 
-    { kind: "close",       a: "hold",          c: "The question, handed back as buttons." }
+    { kind: "close",       a: "hold",           c: "The market's words, not the reader's." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -242,7 +240,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("asked");
+    show("typed");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -255,15 +253,15 @@
     }, TOTAL * 1000));
   }
 
-  show("asked");
+  show("typed");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "The question, handed back as buttons",
-    blurb: "A run that will not choose between two companies sharing a name now hands the choice back \u2014 one button per company, each carrying a whole prompt, so answering costs one click rather than a retyped idea. The gate had already resolved them: a name read off each company\u2019s own front page, a canonical domain, and the line that tells them apart. What was missing was somewhere to put them, because the operator\u2019s reason field is never shown verbatim and these are shown verbatim.",
+    title: "The market’s words, not the reader’s",
+    blurb: "Somebody types “a free competitive landscape research tool” and we searched for exactly that, which finds articles about the idea rather than the market. The market says “competitive intelligence software”. Reading the titles of searches an analysis already sends, every two-to-four word phrase is counted once per independent site — forty pages from one content farm is not agreement — and the answer is the longest phrase that extends the one the most sites agreed on. Deterministic, no model, and shown to a reader as an interpretation rather than assumed.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

@@ -1561,6 +1561,149 @@ rather than so it usually is not.
 
 ---
 
+## 48. A negative asserted as one spelling of the defect, not as the rule
+
+**Found:** by the mutation harness, on vocabulary resolution — and the fix was to the test.
+
+Phrases are cut at grammar words, so *competitive intelligence software **for** product
+marketing* yields two phrases and none that spans the `for`. The test said:
+
+```rust
+assert!(!found.iter().any(|p| p.contains("software product")));
+```
+
+A mutation deleting the break reported **MISSED**. It had worked exactly as intended: without
+the break the run produces `software for product` — the defect, spelled the other way round —
+and the assertion looked for the one spelling it does not have.
+
+**The rule is not about those two words.** It is *no phrase may contain a grammar word at all*,
+and written that way it needs no guess about which words end up either side of one:
+
+```rust
+assert!(!found.iter().any(|p| p.split(' ').any(|w| NOT_CONTENT.contains(&w))));
+```
+
+**This is entry 35's shape on a negative.** That one was a threshold asserted as a number
+instead of as the decision it drives; this is an invariant asserted as a sample of what its
+violation might look like. Both pass while the thing they exist to protect is broken, and both
+read like real tests until something tries to break the code underneath them.
+
+**Rule:** when asserting that something must *not* happen, state the property that must hold —
+quantified over everything the function can produce — rather than one string the failure might
+contain. A negative built from a guess is only as good as the guess, and there is no feedback
+when the guess is wrong: it passes either way.
+
+### The sequel, in the next PR, in a test written *after* reading this entry
+
+Numbers separate a listicle's headline from its category, so `Top 10 CRM Software` yields
+`crm software` and not `top crm`. The assertion:
+
+```rust
+assert!(!found.iter().any(|p| p.contains("top")));
+```
+
+**MISSED again.** Deleting the break leaves `top`, `10`, `crm`, `software` in one run — and the
+furniture trim removes `top` from every phrase anyway, so the assertion passes while
+`10 crm software` sits in the output. A bare number had been glued to a category, which is the
+whole defect.
+
+The rule is *no phrase may contain a word that is all digits*, and it does not care what the
+neighbouring words are.
+
+**Writing this entry did not stop me making the same mistake eight hours later**, which is worth
+recording as plainly as the mistake: a negative assertion aimed at a *word* is the reflex, and
+the reflex is wrong. The only reliable tell is that the assertion names something specific from
+the example rather than something universal about the output.
+
+> **Ask this:** *if this code were broken in a way I have not thought of, would this assertion
+> still fail?*
+
+---
+
+## 49. A check written to find a defect, blind to the shape that defect takes
+
+**Found:** by review, on the gate added in the same PR as the defect it was written for.
+
+`scripts/no_lost_continuations.py` looks for a run of spaces inside a string literal — the
+wreckage of a lost `\` continuation. It found eight and closed them. It extracted literals with
+a per-line regex:
+
+```python
+for lit in re.findall(QUOTED, line):   # one line at a time
+```
+
+**A `\` continuation is, by definition, a literal that spans several lines.** The three model
+prompts in `landscape-analyze::stages` — the longest multi-line literals in the repository, and
+the place where damage matters most because a mangled prompt changes what a model is asked —
+were invisible to the check written to find exactly this. I had even *documented* them as
+deferred, on the strength of an old note rather than the gate's own output; the gate had never
+seen them, and my exemption list was a guess dressed as a finding.
+
+**The exemption made it worse.** It named a *file*, so a new damaged string in that file would
+increment a counter and pass. The place the check most needed to look was the one place it had
+been told not to.
+
+**Both halves are fixed the same way: read what the defect actually looks like.** Literals are
+now parsed whole with a small state machine (skipping comments, char literals and lifetimes),
+and exemptions are keyed on the **digest of the exact literal** — so a new damaged string fails,
+editing a deferred one fails, and fixing one fails until its entry is removed. Every one of
+those was checked by making it happen.
+
+**Rule:** a check for a defect has to be tested against the defect, on real inputs, before it is
+believed. "It found eight" is evidence it finds *some*; it is not evidence of coverage. And an
+exemption must name the thing exempted, never the place it lives — a path-shaped exemption grows
+silently, and it grows fastest exactly where somebody once had a good reason to add it.
+
+> **Ask this:** *what does this defect look like in the worst file I have, and would my check see
+> it there?*
+
+---
+
+## 50. A fix for an arbitrary choice, with the arbitrary choice inside it
+
+**Found:** by review, in the fix for the defect review had found one round earlier.
+
+A tie between two categories was being resolved alphabetically. The fix grouped phrases into
+markets by **containment** — *email marketing*, *marketing software* and *email marketing
+software* are one thing said three ways — and refused to choose when two markets tied.
+
+Grouping was connected components over every containment edge. Two rounds later:
+
+```text
+inventory management software   2 hosts   ─┐
+project management software     2 hosts   ─┤
+management software             4 hosts   ─┴─ contained in BOTH
+```
+
+**`management software` is on all four hosts precisely *because* it is what two different
+markets have in common.** One containment edge to each, transitivity does the rest, and the two
+markets became one cluster — with the arbitrary choice back, now backed by a bigger number than
+either real category had.
+
+**The relation was right and the closure over it was wrong.** "A contains B" says B is a less
+precise way of saying A. It does not survive being chained: A contains B and C contains B says
+nothing whatever about A and C, and treating it as if it did is what merged them.
+
+**A market is a phrase nothing else extends.** A shorter phrase belongs to the one market that
+extends it; a phrase extended by more than one belongs to neither, because it is their overlap
+rather than evidence for either. No transitivity, and the fragment case that seemed to need it
+falls out for free.
+
+**Both rounds of this defect were the same shape** — a choice made where the evidence does not
+support one — and the second was introduced *by the fix for the first*, in the same file, the
+same afternoon. A fix for "we chose arbitrarily" is exactly the code most likely to contain a
+new arbitrary choice, because it is where the tie-breaking lives.
+
+**Rule:** when you group things by a relation, ask what the *transitive closure* of that
+relation means, in words, about the things at either end of a chain. If the sentence is not one
+you would defend — *"these two markets are the same because they share a word"* — the closure is
+not the grouping you want. And test a fix for an arbitrary choice with an input where the
+arbitrary choice would be **profitable**: two candidates that share something big.
+
+> **Ask this:** *what does A-to-B-to-C mean here, and would I say it out loud?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**
@@ -1634,8 +1777,8 @@ Grouped by what has actually gone wrong, commonest first.
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35, 47 |
-| The mutation harness | 32, 36, 46 | The only ones it found before review did. 36 deleted a rule rather than adding a test; 46 deleted an argument |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35, 47, 49, 50 |
+| The mutation harness | 32, 36, 46, 48 | The only ones it found before review did. 36 deleted a rule rather than adding a test; 46 deleted an argument; 48 was a defect in a test |
 | Its own tooling | 28 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |
