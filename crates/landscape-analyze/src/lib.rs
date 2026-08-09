@@ -94,8 +94,43 @@ pub struct PageResult {
     pub details: Vec<String>,
 }
 
+pub mod memo;
+
+/// The three things a run is run **with**, as opposed to what it is asked about.
+///
+/// **Grouped for the reason [`Asked`] is**, and clippy said so again the moment the memo joined
+/// them: eight positional arguments is where *"the right value in the wrong position"* starts,
+/// and two of these three are now `&`-references to caches that look nothing alike and would
+/// swap silently if they had the same type.
+///
+/// They also share a property [`Asked`] does not: **each is held for the life of the process and
+/// shared by every reader.** That is the whole point of the two caches in here — a second one
+/// shares nothing, so building one per run is not an inefficiency but a defect, and this shape
+/// makes that visible at every call site.
+#[derive(Debug, Clone, Copy)]
+pub struct With<'a> {
+    pub fetcher: &'a landscape_fetch::Fetcher,
+    pub llm: &'a landscape_llm::LlamaClient,
+    /// What a page has already been read to say. See [`memo`].
+    pub memo: &'a memo::Extractions,
+}
+
 /// The prompt set this crate speaks. Bumped when any extractor's wording changes.
 pub const PROMPT_VERSION: u32 = 1;
+
+/// Everything *else* about how an answer is produced, versioned the same way.
+///
+/// **A prompt can be word-for-word identical and still mean something different.** The decoding
+/// settings in `stages::decode` — temperature, seed, token budget — and the schemas the sampler
+/// is constrained by are as much a part of the question as the wording, and review found the
+/// hole this closes: `memo::Extractions` remembered an answer under `PROMPT_VERSION` alone, so
+/// changing the temperature would have reused answers produced at the old one.
+///
+/// **Bump this when `decode()` changes, when an extraction schema changes shape, or when the
+/// logic that judges an answer changes.** It is deliberately separate from [`PROMPT_VERSION`],
+/// which the golden set and the report also carry: those describe what a model was *asked*, and
+/// this describes how it was asked and what was done with the reply.
+pub const EXTRACTION_VERSION: u32 = 1;
 
 /// Discover, read and extract one company, and assemble what came out.
 ///
@@ -103,17 +138,13 @@ pub const PROMPT_VERSION: u32 = 1;
 /// generated and what fell inside a 90-day window, and neither can be tested against a
 /// function that asks the operating system.
 pub async fn analyse(
-    fetcher: &landscape_fetch::Fetcher,
-    llm: &landscape_llm::LlamaClient,
+    with: &With<'_>,
     origin: &str,
     now: DateTime<Utc>,
     today: NaiveDate,
     search: Option<&dyn landscape_search::SourceProvider>,
 ) -> Analysis {
-    analyse_with(fetcher, llm, origin, now, today, search, &mut |_| {
-        Wanted::Yes
-    })
-    .await
+    analyse_with(with, origin, now, today, search, &mut |_| Wanted::Yes).await
 }
 
 /// What one run was asked to do, and with what.
@@ -188,8 +219,7 @@ impl std::fmt::Debug for Asked<'_> {
 /// Progress is reported after every window of every subject, over the *whole* report so far, so
 /// a reader watching sees the first company fill in while the second is still being read.
 pub async fn analyse_many(
-    fetcher: &landscape_fetch::Fetcher,
-    llm: &landscape_llm::LlamaClient,
+    with: &With<'_>,
     asked: &Asked<'_>,
     on_progress: &mut dyn FnMut(&Report) -> Wanted,
 ) -> Analysis {
@@ -201,6 +231,7 @@ pub async fn analyse_many(
         set,
         interpreted,
     } = asked;
+    let llm = with.llm;
     // The cap is applied here rather than in the parser, so what it costs can be said out
     // loud. Dropping the fourth company in silence would be the defect this feature exists to
     // remove, at a higher count.
@@ -249,16 +280,7 @@ pub async fn analyse_many(
                     interpreted,
                 ))
             };
-            let one = analyse_with(
-                fetcher,
-                llm,
-                origin,
-                now,
-                today,
-                search,
-                &mut merge_and_report,
-            )
-            .await;
+            let one = analyse_with(with, origin, now, today, search, &mut merge_and_report).await;
             let stopped = one.stopped_early;
             finished.push(one);
             stopped
@@ -441,15 +463,39 @@ fn joined(
 /// each carrying its coverage note until it has claims. A reader never sees a section appear
 /// out of nowhere; they see one fill in.
 pub async fn analyse_with(
-    fetcher: &landscape_fetch::Fetcher,
-    llm: &landscape_llm::LlamaClient,
+    with: &With<'_>,
     origin: &str,
     now: DateTime<Utc>,
     today: NaiveDate,
     search: Option<&dyn landscape_search::SourceProvider>,
     on_progress: &mut dyn FnMut(&Report) -> Wanted,
 ) -> Analysis {
+    let &With { fetcher, llm, memo } = with;
+
+    // **Which model these answers will belong to, asked once and asked in parallel.** The memo
+    // outlives `llama-server`, so a restart with a different model at the same address would
+    // otherwise have this run reuse the previous model's answers and label them with the
+    // current one's address — review's finding, and the failure this pipeline exists to
+    // prevent, arriving through the cache.
+    //
+    // **Here rather than on the hit path**, which is the other half of review's finding: a page
+    // already read must cost nothing at all, and asking the model who it is before answering
+    // from memory would be a request. One metadata call per analysis, to a local process we
+    // run, with its own two-second timeout — `LlamaClient::identity` explains why it does not
+    // borrow the generous one prefill needs.
+    //
+    // An identity we could not read changes nothing. A question we could not ask is not
+    // evidence that the answer changed, and forgetting on an outage would throw the memory away
+    // in exactly the hour it is worth most.
     let found = landscape_discover::discover(fetcher, origin).await;
+    if let Some(identity) = llm.identity().await {
+        if memo.serving(&identity) {
+            tracing::info!(
+                identity,
+                "the model changed; what earlier readers were told is forgotten"
+            );
+        }
+    }
 
     // **When each page is read, and how many are read at all** — `order`. The page that needs
     // no model goes first so the first thing on screen costs a fetch rather than a chain of
@@ -466,6 +512,7 @@ pub async fn analyse_with(
             found: &found,
             origin,
             llm,
+            memo,
             now,
             notes: &notes,
         };
@@ -501,6 +548,7 @@ pub async fn analyse_with(
                 found: &found,
                 origin,
                 llm,
+                memo,
                 now,
                 notes: &notes,
             };
@@ -534,6 +582,7 @@ pub async fn analyse_with(
         found: &found,
         origin,
         llm,
+        memo,
         now,
         notes: &notes,
     };
@@ -930,31 +979,6 @@ async fn read_one(
         return Wanted::Yes;
     }
 
-    // A changelog is parsed, not generated, so it is read whether or not a model is running —
-    // ARCHITECTURE §5.4. Everything else needs one, and this is the first place that is true, so
-    // this is where the question is finally asked.
-    let ready = match can_read(question, so_far.model_ready) {
-        Some(known) => known,
-        None => {
-            let asked = llm.is_ready().await;
-            so_far.model_ready = Some(asked);
-            asked
-        }
-    };
-    if !ready {
-        so_far.pages.push(PageResult {
-            url,
-            question,
-            words: Some(assessment.words),
-            quality: Some(assessment.quality.name()),
-            window_words: None,
-            summary: "(no model)".to_owned(),
-            details: Vec::new(),
-        });
-        return Wanted::Yes;
-    }
-
-    so_far.opened.push((question, 1));
     let label = format!("S{}", so_far.sources.len() + 1);
     let cite = |title: String| Source {
         label: label.clone(),
@@ -968,11 +992,47 @@ async fn read_one(
         independence_group: independence_group(origin, &url, disposition),
     };
 
-    // Each fact this page produces, as it produces it. A page is too large a unit to wait on:
-    // plausible.io's first page is twelve windows and took four minutes, which a reader watching
-    // an empty screen reads as nothing happening.
-    let outcome = {
-        let (claims, sources, opened) = (&so_far.claims, &so_far.sources, &so_far.opened);
+    // **Everything that decides what the extractor will say**, built before it is asked. The
+    // markdown is in here rather than a digest of it — see `memo` for why a collision is the one
+    // failure this pipeline exists to prevent.
+    let already_read = memo::Read::of(question, &url, &markdown, today);
+
+    // **The second reader does not pay the model.** No progress is emitted on a hit, and there
+    // is nothing to emit it for: the per-window callback exists so a four-minute page does not
+    // look like a hung screen, and a page that costs nothing does not hang. Everything the
+    // reader sees is assembled from the returned outcome at the end of this function, exactly
+    // as it is on a miss.
+    let Some(outcome) = memo::remembering(reading.memo, already_read, || async {
+        // **The model is asked about only on a miss, and health is part of asking.** Review
+        // found this: the readiness gate used to sit above the lookup, so a page whose answer
+        // was already held came back as `(no model)` during an outage — the cache failing in
+        // precisely the hour it exists for. A hit now makes no request of any kind.
+        //
+        // A changelog is parsed, not generated, so it is read whether or not a model is
+        // running — ARCHITECTURE §5.4. Everything else needs one, and this is the first place
+        // that is true, so this is where the question is finally asked.
+        let ready = match can_read(question, so_far.model_ready) {
+            Some(known) => known,
+            None => {
+                let asked = llm.is_ready().await;
+                so_far.model_ready = Some(asked);
+                asked
+            }
+        };
+        if !ready {
+            return None;
+        }
+
+        let (claims, sources) = (&so_far.claims, &so_far.sources);
+        // **This page, counted as opened, for the partial reports only.** The real push happens
+        // once below, on both paths, after there is an outcome — because *"read, and it said
+        // nothing"* and *"never opened"* are different findings and a page the model could not
+        // be asked about is the second one.
+        let opened = &{
+            let mut so_far_and_this = so_far.opened.clone();
+            so_far_and_this.push((question, 1));
+            so_far_and_this
+        };
         let searched = so_far.searched_evidence();
         let label = label.clone();
         let cite = &cite;
@@ -1000,8 +1060,22 @@ async fn read_one(
             let (report, _) = assemble(reading, &with_partial, &with_source, opened, &searched);
             on_progress(&report)
         };
-        stages::extract(llm, question, &url, &markdown, today, &mut emit).await
+        Some(stages::extract(llm, question, &url, &markdown, today, &mut emit).await)
+    })
+    .await
+    else {
+        so_far.pages.push(PageResult {
+            url,
+            question,
+            words: Some(assessment.words),
+            quality: Some(assessment.quality.name()),
+            window_words: None,
+            summary: "(no model)".to_owned(),
+            details: Vec::new(),
+        });
+        return Wanted::Yes;
     };
+    so_far.opened.push((question, 1));
 
     for text in outcome.claims {
         so_far.claims.push((
@@ -1068,6 +1142,9 @@ struct Reading<'a> {
     found: &'a landscape_discover::Discovered,
     origin: &'a str,
     llm: &'a landscape_llm::LlamaClient,
+    /// What a page has already been read to say. Beside the model rather than beside the
+    /// clock, because the two together are what an extraction costs.
+    memo: &'a memo::Extractions,
     now: DateTime<Utc>,
     /// Anything true of the whole report - today, the pages the budget left unread.
     notes: &'a [String],
@@ -1086,6 +1163,7 @@ fn assemble(
         llm,
         now,
         notes,
+        ..
     } = *reading;
     let coverage: Vec<Coverage> = sections::SECTIONS
         .iter()
@@ -1159,6 +1237,7 @@ fn page_title(markdown: &str, url: &str) -> String {
 }
 
 /// One fact on its way to becoming a [`Claim`].
+#[derive(Debug, Clone)]
 pub(crate) struct Finding {
     pub text: String,
     pub quote: String,
@@ -1167,12 +1246,33 @@ pub(crate) struct Finding {
     pub as_of: Option<DateTime<Utc>>,
 }
 
+/// Whether an outcome is the whole answer to the question that was asked.
+///
+/// **This exists so a failure is never remembered.** A model error, or a run the reader stopped
+/// waiting for, produces an outcome that is real, reportable and *incomplete* — and
+/// [`memo::Extractions`] must not keep one, because a cached failure is replayed to every later
+/// reader and nothing ever goes back to ask again. `landscape_fetch` was corrected for exactly
+/// that one row earlier, over HTTP statuses; this is the same rule where the cost is a model.
+///
+/// A deterministic extractor is always `Complete`: there is nothing in a changelog parse that
+/// can half-happen.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Settled {
+    /// Every window was read and every answer came back.
+    Complete,
+    /// Something failed, or nobody was still waiting. Reportable, not reusable.
+    Partial,
+}
+
 /// What one page's extractor produced.
+#[derive(Debug, Clone)]
 pub(crate) struct Outcome {
     pub claims: Vec<Finding>,
     pub summary: String,
     pub details: Vec<String>,
     pub window_words: usize,
+    /// Whether this is worth remembering. See [`Settled`].
+    pub settled: Settled,
 }
 
 /// Turn the four assembled page types into claims. Kept here so the wording of a claim is in
@@ -1602,6 +1702,18 @@ mod joining {
         landscape_llm::LlamaClient::new("http://127.0.0.1:8080")
     }
 
+    /// A run with nothing warm in it: no pages held, nothing read before.
+    ///
+    /// Leaks both caches on purpose. A test process is short, and the alternative is threading
+    /// two owned values through every one of these tests to say the same thing.
+    pub(crate) fn offline() -> With<'static> {
+        With {
+            fetcher: Box::leak(Box::new(landscape_fetch::Fetcher::new())),
+            llm: Box::leak(Box::new(llm())),
+            memo: Box::leak(Box::new(memo::Extractions::new())),
+        }
+    }
+
     #[test]
     fn a_page_that_needs_no_model_is_read_while_the_model_is_down() {
         // **The property the whole read order exists for.** A changelog is parsed rather than
@@ -1849,8 +1961,7 @@ mod joining {
             hosts: 3,
         };
         let outcome = analyse_many(
-            &landscape_fetch::Fetcher::new(),
-            &llm(),
+            &offline(),
             &Asked {
                 interpreted: Some(&market),
                 ..named(&origins)
@@ -1898,13 +2009,7 @@ mod joining {
         // Absence is the disclosure working. Repeating somebody's words back at them as an
         // "interpretation" is noise, and noise is what stops the real line being read.
         let origins = unreachable(1);
-        let outcome = analyse_many(
-            &landscape_fetch::Fetcher::new(),
-            &llm(),
-            &named(&origins),
-            &mut |_| Wanted::Yes,
-        )
-        .await;
+        let outcome = analyse_many(&offline(), &named(&origins), &mut |_| Wanted::Yes).await;
         assert!(
             outcome.report.interpreted.is_none(),
             "nothing was substituted, so there is nothing to disclose"
@@ -1917,13 +2022,7 @@ mod joining {
         // defect as taking the first and dropping the second, one count higher. Asserted on
         // the real function rather than on a note handed to the joiner by a test.
         let origins = unreachable(subject::MAX_SUBJECTS + 1);
-        let outcome = analyse_many(
-            &landscape_fetch::Fetcher::new(),
-            &llm(),
-            &named(&origins),
-            &mut |_| Wanted::Yes,
-        )
-        .await;
+        let outcome = analyse_many(&offline(), &named(&origins), &mut |_| Wanted::Yes).await;
 
         let last = origins.last().expect("a dropped origin");
         assert!(
@@ -1958,6 +2057,76 @@ mod joining {
         )
     }
 
+    /// A `llama-server` that will say which model it has loaded and nothing else.
+    async fn a_model_calling_itself(named: &'static str) -> landscape_llm::LlamaClient {
+        let app = axum::Router::new().route(
+            "/props",
+            axum::routing::get(move || async move {
+                axum::Json(serde_json::json!({ "model_path": named }))
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("a port");
+        let base = format!("http://{}", listener.local_addr().expect("an address"));
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app).await;
+        });
+        landscape_llm::LlamaClient::new(base)
+    }
+
+    #[tokio::test]
+    async fn a_model_swapped_under_a_running_worker_does_not_answer_as_the_old_one() {
+        // **Review's finding, through the real run.** The memo outlives `llama-server`, so that
+        // server can restart with a different model at the same address — and a report would
+        // then carry the previous model's words labelled with this one's. The origins are
+        // `.invalid`, so nothing is fetched and no page is read: what is under test is that an
+        // analysis finds out who is answering before it serves anybody from memory.
+        let memo = memo::Extractions::new();
+        memo.serving("models/the-one-that-was-loaded-yesterday.gguf");
+        memo.remember(
+            memo::Read::of(
+                Answers::Pricing,
+                "https://a.example/pricing",
+                "# Pricing",
+                chrono::Utc::now().date_naive(),
+            ),
+            &Outcome {
+                claims: Vec::new(),
+                summary: "1 plan found in 1 window".to_owned(),
+                details: Vec::new(),
+                window_words: 40,
+                settled: Settled::Complete,
+            },
+        );
+        assert_ne!(
+            memo.held(),
+            (0, 0),
+            "the memory should start with something"
+        );
+
+        let llm = a_model_calling_itself("models/the-one-loaded-now.gguf").await;
+        analyse_with(
+            &With {
+                fetcher: &landscape_fetch::Fetcher::new(),
+                llm: &llm,
+                memo: &memo,
+            },
+            "https://subject.invalid",
+            chrono::Utc::now(),
+            chrono::Utc::now().date_naive(),
+            None,
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+
+        assert_eq!(
+            memo.held(),
+            (0, 0),
+            "a different model's answers survived the swap"
+        );
+    }
+
     #[tokio::test]
     async fn a_model_that_never_answers_does_not_delay_a_run_that_needs_no_model() {
         // Review found this, and it is the whole feature failing in the case it exists for.
@@ -1972,8 +2141,11 @@ mod joining {
         let (stalling, holding) = a_model_that_never_answers().await;
         let started = std::time::Instant::now();
         let outcome = analyse_many(
-            &landscape_fetch::Fetcher::new(),
-            &stalling,
+            &With {
+                fetcher: &landscape_fetch::Fetcher::new(),
+                llm: &stalling,
+                memo: &memo::Extractions::new(),
+            },
             &named(&unreachable(1)),
             &mut |_| Wanted::Yes,
         )
@@ -1997,13 +2169,7 @@ mod joining {
         // would leave the second company's negative evidence unreachable — and this asserts it
         // on the function the worker actually calls, not on the merge helper alone.
         let origins = unreachable(2);
-        let outcome = analyse_many(
-            &landscape_fetch::Fetcher::new(),
-            &llm(),
-            &named(&origins),
-            &mut |_| Wanted::Yes,
-        )
-        .await;
+        let outcome = analyse_many(&offline(), &named(&origins), &mut |_| Wanted::Yes).await;
 
         assert_eq!(
             outcome.coverage.len(),
@@ -2279,8 +2445,7 @@ mod joining {
         // this one has to sit above.
         let many = unreachable(4);
         let outcome = analyse_many(
-            &landscape_fetch::Fetcher::new(),
-            &llm(),
+            &offline(),
             &Asked {
                 set: Some(&set),
                 ..named(&many)
@@ -2384,8 +2549,7 @@ mod joining {
         };
         let many = unreachable(4);
         let outcome = analyse_many(
-            &landscape_fetch::Fetcher::new(),
-            &llm(),
+            &offline(),
             &Asked {
                 set: Some(&set),
                 ..named(&many)
@@ -2433,8 +2597,7 @@ mod joining {
         };
         let many = unreachable(4);
         let outcome = analyse_many(
-            &landscape_fetch::Fetcher::new(),
-            &llm(),
+            &offline(),
             &Asked {
                 set: Some(&set),
                 ..named(&many)
@@ -2485,8 +2648,7 @@ mod joining {
         };
         let many = unreachable(4);
         let outcome = analyse_many(
-            &landscape_fetch::Fetcher::new(),
-            &llm(),
+            &offline(),
             &Asked {
                 set: Some(&set),
                 ..named(&many)
@@ -2555,8 +2717,7 @@ mod joining {
             };
             let many = unreachable(4);
             let outcome = analyse_many(
-                &landscape_fetch::Fetcher::new(),
-                &llm(),
+                &offline(),
                 &Asked {
                     set: Some(&set),
                     ..named(&many)
@@ -2597,8 +2758,7 @@ mod joining {
         };
         let many = unreachable(4);
         let outcome = analyse_many(
-            &landscape_fetch::Fetcher::new(),
-            &llm(),
+            &offline(),
             &Asked {
                 set: Some(&set),
                 ..named(&many)
@@ -2642,8 +2802,7 @@ mod joining {
         };
         let many = unreachable(4);
         let outcome = analyse_many(
-            &landscape_fetch::Fetcher::new(),
-            &llm(),
+            &offline(),
             &Asked {
                 set: Some(&set),
                 ..named(&many)
@@ -2676,8 +2835,7 @@ mod joining {
         };
         let many = unreachable(4);
         let outcome = analyse_many(
-            &landscape_fetch::Fetcher::new(),
-            &llm(),
+            &offline(),
             &Asked {
                 set: Some(&set),
                 ..named(&many)
@@ -2711,8 +2869,7 @@ mod joining {
         };
         let many = unreachable(4);
         let outcome = analyse_many(
-            &landscape_fetch::Fetcher::new(),
-            &llm(),
+            &offline(),
             &Asked {
                 set: Some(&set),
                 ..named(&many)
@@ -2732,13 +2889,7 @@ mod joining {
     async fn a_report_about_a_company_somebody_named_says_nothing_extra() {
         // The other half: a prompt that named a domain must not grow a sentence explaining a
         // choice nobody made.
-        let outcome = analyse_many(
-            &landscape_fetch::Fetcher::new(),
-            &llm(),
-            &named(&unreachable(1)),
-            &mut |_| Wanted::Yes,
-        )
-        .await;
+        let outcome = analyse_many(&offline(), &named(&unreachable(1)), &mut |_| Wanted::Yes).await;
         assert!(
             !outcome
                 .report
@@ -3119,6 +3270,7 @@ mod filling_gaps {
             found: &found,
             origin: "https://e.com",
             llm: &landscape_llm::LlamaClient::new("http://127.0.0.1:1".to_owned()),
+            memo: &memo::Extractions::new(),
             now: chrono::Utc::now(),
             notes: &notes,
         };
@@ -3185,6 +3337,7 @@ mod filling_gaps {
             found: &found,
             origin: "https://e.com",
             llm: &landscape_llm::LlamaClient::new("http://127.0.0.1:1".to_owned()),
+            memo: &memo::Extractions::new(),
             now: chrono::Utc::now(),
             notes: &notes,
         };
@@ -3242,8 +3395,7 @@ mod filling_gaps {
         // admits fails to fetch. That is enough: coverage has to know the page existed.
         let engine = Canned::holding(&["https://found.invalid/trust"]);
         let analysis = analyse_with(
-            &landscape_fetch::Fetcher::new(),
-            &landscape_llm::LlamaClient::new("http://127.0.0.1:1".to_owned()),
+            &crate::joining::offline(),
             "https://subject.invalid",
             chrono::Utc::now(),
             chrono::Utc::now().date_naive(),

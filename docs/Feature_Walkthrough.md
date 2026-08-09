@@ -318,17 +318,38 @@ cargo run -p landscape -- read https://linear.app
 and, on the last line:
 
 ```text
-first content 23s - whole report 26s
-held for the next reader: 7 pages, 214113 bytes
+first content 23s - whole report 30s
+held for the next reader: 6 pages, 3105087 bytes
+                          2 extractions, 49723 bytes
 ```
 
-**The second line is the cache.** Those seven pages will not be fetched again for an hour — not
-by this command, and not by an analysis of the same company, because the worker holds one
-`Fetcher` for the life of the process. Run the command twice and the second run does not ask
-that company's server for anything it already has.
+**The last two lines are the caches**, and they are two different savings.
 
-**The requests we do not send are theirs, not ours.** That is why the cache sits beside
-`robots.txt` and the per-host delay rather than filed under performance.
+Those six pages will not be fetched again for an hour — not by this command, and not by an
+analysis of the same company, because the worker holds one `Fetcher` for the life of the
+process. **The requests we do not send are theirs, not ours**, which is why that cache sits
+beside `robots.txt` and the per-host delay rather than filed under performance.
+
+**Two extractions with no model running is the right number**, not a disappointing one: the
+changelog and the careers page are parsed rather than generated, so they are the two questions a
+reader still gets when the model is down — and they are the two answers there are to remember.
+Start `llama-server` and that line counts the rest.
+
+To see what those are worth, ask what reading this company costs a model — without running one:
+
+```bash
+cargo run -p landscape -- cost https://linear.app
+```
+
+The `as this run reads them` total is **16 calls**. In a long-lived worker, the second reader of
+`linear.app` pays none of them: an extraction is remembered against the page's **own text**, so
+the answer comes back only if the page is byte-for-byte what it was. An edited page is a
+different question, not a stale answer — which is why this cache has no expiry window and does
+not need one.
+
+**A run that failed is not remembered.** If the model errors on a window, or you close the tab
+mid-run, that answer is shown to you and thrown away, so the next reader asks again rather than
+being handed your bad afternoon for an hour.
 
 **Why it matters.** `PRODUCT_SPEC.md` §2.1A asks for content in twenty to forty seconds. That is
 23, and **the model was not running** — which is the property worth having, because the model is

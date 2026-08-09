@@ -106,6 +106,8 @@ fn direction(markdown: &str) -> Outcome {
             },
             details: Vec::new(),
             window_words: 0,
+            // Nothing to ask, so nothing could fail: this is the whole answer.
+            settled: crate::Settled::Complete,
         };
     }
 
@@ -134,6 +136,8 @@ fn direction(markdown: &str) -> Outcome {
         ),
         details,
         window_words: page.roles.len(),
+        // No model ran, so there is nothing here that can half-happen.
+        settled: crate::Settled::Complete,
     }
 }
 
@@ -151,9 +155,16 @@ async fn pricing(
             summary: "no pricing content on the page".to_owned(),
             details: Vec::new(),
             window_words: 0,
+            // Nothing to ask, so nothing could fail: this is the whole answer.
+            settled: crate::Settled::Complete,
         };
     }
 
+    // **Whether this answer is worth remembering.** A window whose model call failed, or a run
+    // nobody is waiting for any more, produces a real report and an incomplete one — and
+    // `memo::Extractions` must not keep it, or a transient outage is replayed for the life of
+    // the process. See `crate::Settled`.
+    let mut whole = true;
     let mut extracted: Vec<PricingExtraction> = Vec::with_capacity(spans.len());
     let mut details = Vec::new();
     let mut unsupported = 0usize;
@@ -168,7 +179,10 @@ async fn pricing(
                 }
                 extracted.push(got);
             }
-            Err(e) => details.push(format!("model error: {e}")),
+            Err(e) => {
+                details.push(format!("model error: {e}"));
+                whole = false;
+            }
         }
         // **After every window, whatever became of it.** One plan is enough to put the section
         // on somebody's screen — and asking here rather than inside the `Ok` arm is what makes
@@ -177,6 +191,7 @@ async fn pricing(
             extracted.clone(),
         ))) == crate::Wanted::No
         {
+            whole = false;
             break;
         }
     }
@@ -201,6 +216,11 @@ async fn pricing(
         ),
         details: lines,
         window_words: window_words(&spans),
+        settled: if whole {
+            crate::Settled::Complete
+        } else {
+            crate::Settled::Partial
+        },
     }
 }
 
@@ -218,9 +238,16 @@ async fn features(
             summary: "no named capabilities on the page".to_owned(),
             details: Vec::new(),
             window_words: 0,
+            // Nothing to ask, so nothing could fail: this is the whole answer.
+            settled: crate::Settled::Complete,
         };
     }
 
+    // **Whether this answer is worth remembering.** A window whose model call failed, or a run
+    // nobody is waiting for any more, produces a real report and an incomplete one — and
+    // `memo::Extractions` must not keep it, or a transient outage is replayed for the life of
+    // the process. See `crate::Settled`.
+    let mut whole = true;
     let mut extracted: Vec<FeatureExtraction> = Vec::with_capacity(found.windows.len());
     let mut details = Vec::new();
     let (mut unsupported, mut ungrounded) = (0usize, 0usize);
@@ -241,13 +268,17 @@ async fn features(
                     ungrounded += 1;
                 }
             }
-            Err(e) => details.push(format!("model error: {e}")),
+            Err(e) => {
+                details.push(format!("model error: {e}"));
+                whole = false;
+            }
         }
         if so_far(&crate::claims_from_features(&PageFeatures::assembled(
             extracted.clone(),
             found.considered,
         ))) == crate::Wanted::No
         {
+            whole = false;
             break;
         }
     }
@@ -296,6 +327,11 @@ async fn features(
             .iter()
             .map(|w| w.text.split_whitespace().count())
             .sum(),
+        settled: if whole {
+            crate::Settled::Complete
+        } else {
+            crate::Settled::Partial
+        },
     }
 }
 
@@ -326,9 +362,16 @@ async fn trust(
             summary: "no named standard on the page".to_owned(),
             details: Vec::new(),
             window_words: 0,
+            // Nothing to ask, so nothing could fail: this is the whole answer.
+            settled: crate::Settled::Complete,
         };
     }
 
+    // **Whether this answer is worth remembering.** A window whose model call failed, or a run
+    // nobody is waiting for any more, produces a real report and an incomplete one — and
+    // `memo::Extractions` must not keep it, or a transient outage is replayed for the life of
+    // the process. See `crate::Settled`.
+    let mut whole = true;
     let mut extracted: Vec<landscape_core::TrustExtraction> = Vec::with_capacity(found.named.len());
     let mut details = Vec::new();
     let (mut unsupported, mut mismatched) = (0usize, 0usize);
@@ -363,12 +406,16 @@ async fn trust(
                     }
                 }
             }
-            Err(e) => details.push(format!("model error: {e}")),
+            Err(e) => {
+                details.push(format!("model error: {e}"));
+                whole = false;
+            }
         }
         if so_far(&crate::claims_from_trust(
             &landscape_core::PageTrust::assembled(extracted.clone(), found.considered),
         )) == crate::Wanted::No
         {
+            whole = false;
             break;
         }
     }
@@ -414,6 +461,11 @@ async fn trust(
             .iter()
             .map(|n| n.span.text.split_whitespace().count())
             .sum(),
+        settled: if whole {
+            crate::Settled::Complete
+        } else {
+            crate::Settled::Partial
+        },
     }
 }
 
@@ -549,6 +601,8 @@ fn changes(markdown: &str, today: NaiveDate) -> Outcome {
             summary: "no dated entries on the page".to_owned(),
             details: Vec::new(),
             window_words: 0,
+            // Nothing to ask, so nothing could fail: this is the whole answer.
+            settled: crate::Settled::Complete,
         };
     }
 
@@ -598,6 +652,8 @@ fn changes(markdown: &str, today: NaiveDate) -> Outcome {
             PageChanges::LOOKBACK_DAYS
         ),
         details,
+        // Parsed rather than generated — see the module docs. Nothing can half-happen.
+        settled: crate::Settled::Complete,
         window_words: found.entries.len(),
     }
 }
@@ -616,9 +672,16 @@ async fn identity(
             summary: "no stated facts about the company".to_owned(),
             details: Vec::new(),
             window_words: 0,
+            // Nothing to ask, so nothing could fail: this is the whole answer.
+            settled: crate::Settled::Complete,
         };
     }
 
+    // **Whether this answer is worth remembering.** A window whose model call failed, or a run
+    // nobody is waiting for any more, produces a real report and an incomplete one — and
+    // `memo::Extractions` must not keep it, or a transient outage is replayed for the life of
+    // the process. See `crate::Settled`.
+    let mut whole = true;
     let mut extracted: Vec<IdentityExtraction> = Vec::with_capacity(windows.len());
     let mut details = Vec::new();
     let (mut unsupported, mut ungrounded) = (0usize, 0usize);
@@ -638,13 +701,17 @@ async fn identity(
                 }
                 extracted.push(kept);
             }
-            Err(e) => details.push(format!("model error: {e}")),
+            Err(e) => {
+                details.push(format!("model error: {e}"));
+                whole = false;
+            }
         }
         // After every window, whatever became of it — see the note in `pricing`.
         if so_far(&crate::claims_from_identity(&PageIdentity::assembled(
             extracted.clone(),
         ))) == crate::Wanted::No
         {
+            whole = false;
             break;
         }
     }
@@ -671,6 +738,11 @@ async fn identity(
             .iter()
             .map(|(_, w)| w.text.split_whitespace().count())
             .sum(),
+        settled: if whole {
+            crate::Settled::Complete
+        } else {
+            crate::Settled::Partial
+        },
     }
 }
 
@@ -1433,6 +1505,100 @@ mod tests {
     #[test]
     fn the_prompt_version_is_stated_so_two_runs_can_be_compared() {
         assert_eq!(crate::PROMPT_VERSION, 1);
+    }
+
+    #[test]
+    fn a_page_with_nothing_to_ask_about_is_still_a_whole_answer() {
+        // "Nothing found" is an answer, and an expensive one to reach: it means every scanner
+        // ran. Marking it partial would re-scan the same page for every later reader.
+        for outcome in [
+            direction("Why we love working here"),
+            changes("# Home\nNothing dated here", "2026-08-09".parse().unwrap()),
+        ] {
+            assert_eq!(outcome.settled, crate::Settled::Complete);
+        }
+    }
+
+    #[test]
+    fn a_parsed_answer_is_always_whole() {
+        // Neither of these asks a model, so neither has anything that can half-happen — and
+        // that is why they are the two questions a reader still gets when the model is down.
+        let roles = direction("## Open roles\n- Staff Data Engineer");
+        assert_eq!(roles.settled, crate::Settled::Complete);
+        assert!(!roles.claims.is_empty(), "this test needs a real answer");
+
+        let dated = changes(
+            "# Changelog\n## 2026-08-01\nShipped the thing",
+            "2026-08-09".parse().unwrap(),
+        );
+        assert_eq!(dated.settled, crate::Settled::Complete);
+    }
+
+    #[tokio::test]
+    async fn a_window_the_model_never_answered_is_not_a_whole_answer() {
+        // **The rule `memo::Extractions` rests on, at the place that knows.** Nothing is
+        // listening on port 1, so every window fails — and an outcome that reports a model
+        // error must never be remembered, or the outage is replayed to every later reader.
+        let down = landscape_llm::LlamaClient::new("http://127.0.0.1:1".to_owned());
+        let page = "# Pricing\n\n## Pro\n\n$15 per user per month, billed annually.\n";
+        let outcome = pricing(&down, "https://e.com/pricing", page, &mut |_| {
+            crate::Wanted::Yes
+        })
+        .await;
+
+        assert!(
+            outcome.details.iter().any(|d| d.starts_with("model error")),
+            "this test needs the model to have failed: {:?}",
+            outcome.details
+        );
+        assert_eq!(
+            outcome.settled,
+            crate::Settled::Partial,
+            "an outage was marked as a reusable answer"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_run_nobody_is_waiting_for_is_not_a_whole_answer() {
+        // **The other way an answer comes back short, and the model answering is the point.**
+        // A stopped run gathers real facts from the windows it reached — nothing failed — so
+        // this needs a model that succeeds, or the failure path would be doing the work and the
+        // abandonment itself would stay untested. What was gathered is worth showing the reader
+        // who caused it and worth nothing to the next one, who wants the whole page.
+        let page = five_plan_windows();
+        let windows = landscape_extract::span::every_plan(&page).len();
+        assert!(windows > 1, "the fixture should offer several windows");
+
+        let stub = StubModel::start(A_PLAN).await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+        let stopped = pricing(&llm, "https://www.notion.com/pricing", &page, &mut |_| {
+            crate::Wanted::No
+        })
+        .await;
+        assert!(
+            !stopped.claims.is_empty(),
+            "this test needs the model to have answered before the stop"
+        );
+        assert!(
+            !stopped.details.iter().any(|d| d.starts_with("model error")),
+            "nothing should have failed here: {:?}",
+            stopped.details
+        );
+        assert_eq!(
+            stopped.settled,
+            crate::Settled::Partial,
+            "a page read as far as its first window was remembered as the whole page"
+        );
+
+        // And the same page read to the end is the answer the next reader may have.
+        let stub = StubModel::start(A_PLAN).await;
+        let llm = landscape_llm::LlamaClient::new(&stub.base);
+        let whole = pricing(&llm, "https://www.notion.com/pricing", &page, &mut |_| {
+            crate::Wanted::Yes
+        })
+        .await;
+        assert_eq!(whole.settled, crate::Settled::Complete);
+        assert_eq!(stub.calls(), windows, "every window should have been read");
     }
 }
 

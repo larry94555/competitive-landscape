@@ -859,8 +859,9 @@ the single most important phase; everything after it is commerce and polish.
 - Postgres schema + job queue (`FOR UPDATE SKIP LOCKED`).
 - React: `useAnalysisStream`, stage rail, source cards, seven section components, `Citation`
   hover cards, `NotFoundInPublic`.
-- ~~Fetch cache~~ + **per-source extraction cache** (the highest-leverage cache in the system —
-  build it in Phase 1, not later).
+- ~~Fetch cache + per-source extraction cache~~ (the highest-leverage cache in the system —
+  build it in Phase 1, not later). **Both halves are done** —
+  [BENCHMARKS.md](BENCHMARKS.md) Runs 37 and 38.
   **The fetch half is done** — [BENCHMARKS.md](BENCHMARKS.md) Run 37. It was worse than absent:
   the worker built **three** `Fetcher`s inside one run, and a `Fetcher` remembers pages,
   `robots.txt` and the per-host delay by itself — so one company's `robots.txt` was fetched three
@@ -889,8 +890,21 @@ the single most important phase; everything after it is commerce and polish.
   **There is no test over a socket**, and the guard was not weakened to get one: a test server
   binds loopback and the SSRF guard refuses it, absolutely and with no flag, for the same reason
   `--ignore-robots` does not exist.
-  **Still open:** the per-source extraction cache, and nothing is shared between processes —
-  a shared cache needs a store, and the laptop rule is that nothing requires a database.
+  **And the expensive half.** The fetch cache took the second reader's fetches to zero and left
+  every model call in place — sixteen of them for `linear.app`, fourteen for `plausible.io`,
+  counted by `landscape cost` without asking a model. An extraction is now remembered against
+  the page's **own text**, so there is no TTL and none is needed: an edited page is a different
+  key rather than a stale answer waiting for a window to close, which is a property a page cache
+  cannot have. A run that failed, or that nobody waited for, is **never** remembered — the same
+  rule the fetch cache learned about a `503`, in the unit where the cost is a model rather than
+  a request. Bounded in bytes and entries, oldest first, with the oversized entry declined.
+  A hit costs **no request at all** — not a completion and not a health check — so a page already
+  read is served while the model is down, which is the hour it is worth most. And what is
+  remembered is scoped to the model that produced it: `llama-server` can restart with a different
+  model at the same address, and one model's words labelled with another's is the failure this
+  pipeline exists to prevent.
+  **Still open:** nothing is shared between processes — a shared cache needs a store, and the
+  laptop rule is that nothing requires a database.
 
 **UX polish:** the perceived-latency ladder from [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §2.1.
 Sources appearing live within 3 seconds is the moment the product stops feeling like a

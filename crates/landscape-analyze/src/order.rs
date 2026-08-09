@@ -151,6 +151,14 @@ pub fn plan(sources: &[Candidate]) -> Plan {
 /// on it. A prediction of the run has to include everything the run decides, or it is a
 /// prediction of a different program.
 ///
+/// # What this counts is a **cold** run, and that is deliberate
+///
+/// [`crate::memo::Extractions`] means a page whose exact text has already been read costs
+/// nothing at all, so in a long-lived worker this number is an **upper bound** rather than the
+/// figure. `landscape cost` is a fresh process with nothing remembered, so what it prints is
+/// exact for the run it describes — the first one. Making it consult a memo it cannot have
+/// would be predicting a different program in the other direction.
+///
 /// [`worth_extracting`]: landscape_extract::quality::Quality::worth_extracting
 #[must_use]
 pub fn model_calls_for(question: Answers, markdown: &str) -> usize {

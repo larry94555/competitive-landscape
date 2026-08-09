@@ -1205,9 +1205,16 @@ Example:
     // exactly the pages discovery planned and the report says so, which is the laptop default
     // and the behaviour every test in this repository runs against.
     let engine = landscape_search::Searx::from_env()?;
+    // One command, one process: nothing here is served from a previous run. `landscape read`
+    // prints what it holds at the end, which is the number a second `read` of the same company
+    // in a long-lived worker would start from.
+    let memo = landscape_analyze::memo::Extractions::new();
     let analysis = landscape_analyze::analyse_with(
-        &fetcher,
-        &llm,
+        &landscape_analyze::With {
+            fetcher: &fetcher,
+            llm: &llm,
+            memo: &memo,
+        },
         origin,
         now,
         now.date_naive(),
@@ -1263,8 +1270,10 @@ Example:
     );
     // **What the next reader of this company will not have to pay for.** A cache nobody can
     // see the size of is one nobody notices growing, and one nobody believes is working.
-    let (pages, bytes) = fetcher.cached();
-    println!("held for the next reader: {pages} pages, {bytes} bytes");
+    let (pages, page_bytes) = fetcher.cached();
+    let (reads, read_bytes) = memo.held();
+    println!("held for the next reader: {pages} pages, {page_bytes} bytes");
+    println!("                          {reads} extractions, {read_bytes} bytes");
     Ok(())
 }
 
@@ -1392,6 +1401,11 @@ async fn worker(store: Arc<dyn Store>) -> Result<()> {
     // *two users analysing the same competitor share work* — because the second reader arrives
     // after the first has finished.
     let fetcher = Arc::new(landscape_fetch::Fetcher::new());
+    // **And the expensive half of the same idea.** The fetch cache stopped the second reader
+    // paying somebody else's server; this stops them paying ours. A page a model has already
+    // read is where a run spends nearly all of its time, and re-reading identical text to
+    // produce an identical answer is the one cost in this program with nothing to show for it.
+    let memo = Arc::new(landscape_analyze::memo::Extractions::new());
     let mut shutdown = Box::pin(shutdown_signal());
     let mut sweep = tokio::time::interval(std::time::Duration::from_secs(60));
 
@@ -1426,9 +1440,16 @@ async fn worker(store: Arc<dyn Store>) -> Result<()> {
                         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     }
                     Ok(Some(analysis)) => {
-                        run_analysis(&store, &fetcher, &analysis).await;
+                        run_analysis(&store, &fetcher, &memo, &analysis).await;
                         let (pages, bytes) = fetcher.cached();
-                        tracing::info!(pages, bytes, "pages held for the next reader");
+                        let (reads, read_bytes) = memo.held();
+                        tracing::info!(
+                            pages,
+                            bytes,
+                            reads,
+                            read_bytes,
+                            "held for the next reader"
+                        );
                     }
                 }
             }
@@ -1646,6 +1667,7 @@ async fn refuse(
 async fn run_analysis(
     store: &Arc<dyn Store>,
     fetcher: &landscape_fetch::Fetcher,
+    memo: &landscape_analyze::memo::Extractions,
     analysis: &landscape_core::Analysis,
 ) {
     // **Read once, for both callers.** Resolving a description and filling a company's gaps
@@ -1758,8 +1780,11 @@ async fn run_analysis(
 
     let progress = progress::Progress::new(Arc::clone(store), analysis.id, analysis.generation);
     let outcome = landscape_analyze::analyse_many(
-        fetcher,
-        &llm,
+        &landscape_analyze::With {
+            fetcher,
+            llm: &llm,
+            memo,
+        },
         &landscape_analyze::Asked {
             origins: &origins,
             now,
@@ -1997,7 +2022,13 @@ mod tests {
             .expect("a row");
         let claimed = store.claim_next().await.expect("a claim").expect("a row");
 
-        run_analysis(&store, &landscape_fetch::Fetcher::new(), &claimed).await;
+        run_analysis(
+            &store,
+            &landscape_fetch::Fetcher::new(),
+            &landscape_analyze::memo::Extractions::new(),
+            &claimed,
+        )
+        .await;
 
         let read = store.get(queued.id).await.expect("it reads back");
         assert_eq!(read.status, landscape_core::AnalysisStatus::Failed);
@@ -2304,7 +2335,13 @@ mod tests {
             .expect("claim")
             .expect("one queued");
 
-        run_analysis(&store, &landscape_fetch::Fetcher::new(), &claimed).await;
+        run_analysis(
+            &store,
+            &landscape_fetch::Fetcher::new(),
+            &landscape_analyze::memo::Extractions::new(),
+            &claimed,
+        )
+        .await;
 
         let done = store.get(queued.id).await.expect("get");
         assert_eq!(

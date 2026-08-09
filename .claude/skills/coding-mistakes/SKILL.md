@@ -1947,6 +1947,52 @@ contradiction, not a feature, and the older one is usually the one that was thou
 
 ---
 
+## 56. A cache keyed on the question but not on who answers it — and put behind the failure it exists to survive
+
+**Found:** by review, in the extraction cache, first round.
+
+A memo is a claim that **two computations are the same**. That claim has two halves — *same
+inputs* and *same function* — and the first version wrote down only the first.
+
+### The key described the question and not the answerer
+
+`Read` carried every input: the prompt version, the question, the URL, the day, and the page's
+whole text. It said nothing about **what would answer it**. Two things were missing:
+
+- **the decoding settings and schemas** — a prompt can be word-for-word identical and mean
+  something different at another temperature or under another constraint;
+- **the model itself.** The worker outlives `llama-server`, so that server can restart with a
+  different model at the same `LLAMA_URL`. The next analysis would reuse the previous model's
+  answers, and the report would label them with the current client's address. *One model's words
+  attributed to another, cited, and internally consistent* — the exact failure the whole pipeline
+  is built to prevent, arriving through the thing added to make it faster.
+
+The static half became `EXTRACTION_VERSION` in the key. The model became a **scope** rather than
+a key field, and that distinction is the interesting part: putting the model's name in the key
+means asking the model who it is *before* answering from memory — a request on the hit path,
+which the other half of this entry says must not exist. Scoping the whole memory to one identity
+and emptying it when that changes costs one metadata call per analysis and nothing per hit.
+
+### The fast path was placed behind the slow path's precondition
+
+The lookup sat **after** the model-readiness gate. So a page whose answer was already held came
+back as `(no model)` while `llama-server` was down — the cache failing in precisely the hour it
+exists for, and the reader depending on the health of a thing it never needed to touch.
+
+**A fallback checked after the thing it is a fallback for is not a fallback.** The gate moved
+inside the miss closure: a hit now makes no request of any kind, and a miss that cannot ask
+returns "not asked" rather than an answer, so nothing is remembered.
+
+**Rule:** a cache key must identify **the function as well as the argument** — version the
+behaviour, not only the input, and if part of the behaviour is a live external thing, scope the
+cache to its identity rather than keying on it. And a memory that exists to survive an outage
+must be consulted **before** anything that the outage can fail.
+
+> **Ask this:** *if the thing that produced this answer were swapped out, would my key notice?
+> And can this hit be served when everything else is down?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**
