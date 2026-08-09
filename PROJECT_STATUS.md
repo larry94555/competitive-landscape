@@ -1,6 +1,6 @@
 # Project Status
 
-**As of 2026-08-09** · `main` at `ccb32dd`, plus the branch this page is on.
+**As of 2026-08-09** · `main` at `b8be90a`, plus the branch this page is on.
 
 This page answers one question: **what can somebody actually do with this today, and what
 stands between here and each of the six states that matter.** It is deliberately separate from
@@ -21,7 +21,7 @@ The six states, in the order they must be reached. **S1 is met.** The rest are n
 | # | State | Met? | Percentage Left | The single thing standing in the way |
 |---|---|---|---|---|
 | **S1** | **Ready for a guided demo** — only certain product ideas work reliably | **Yes.** Pick an example idea, watch sections arrive, read a cited report about real companies, reload and it is still there. On a laptop. *This row once said the opposite twice* — see [§1.5](#15-the-correction-that-produced-phase-d). | [**0%**](docs/Full_Feature_List.md#s1--ready-for-a-guided-demo) | Nothing. Serve the app, a run has a URL, several companies in one report, example ideas that really run, and reads ordered so first content costs no model call — 23s on `linear.app`, measured. |
-| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**28%**](docs/Full_Feature_List.md#s2--ready-for-demonstration) | **Both inputs produce a comparison; a report that cannot says why, and so does a run that produces none.** *This row said "a business idea does not run at all" for six phases.* A description is searched for, grouped into companies, scored on cross-query agreement, named from each company's own front page, and the **set** comes out rather than the pick; a **named** company brings its rivals the same way. When a report covers **one** company it now says which of four things happened to the others — no engine, its own page gave nothing to judge one against, the searching did not finish, or nobody held up — because a reader acts on each of those differently — and a run that produces **no** report now says which of five situations it is in rather than answering all five with *"try naming its website"* — and when that situation is *a name several products share*, **the companies it would not choose between arrive as buttons**, each carrying a whole prompt so answering costs one click rather than a retyped idea. And a reader's words are now turned into the market's **before anything is searched for, and the companies are found with them** — *"a free competitive landscape research tool"* is searched as *competitive intelligence software*, counted once per independent site, and the substitution is shown on the report rather than assumed. **72% done.** What is left: the two caches. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
+| **S2** | **Ready for demonstration** — any business idea handled correctly, limited functionality, friendly users only | **No.** | [**22%**](docs/Full_Feature_List.md#s2--ready-for-demonstration) | **Both inputs produce a comparison; a report that cannot says why, and so does a run that produces none.** *This row said "a business idea does not run at all" for six phases.* A description is searched for, grouped into companies, scored on cross-query agreement, named from each company's own front page, and the **set** comes out rather than the pick; a **named** company brings its rivals the same way. When a report covers **one** company it now says which of four things happened to the others — no engine, its own page gave nothing to judge one against, the searching did not finish, or nobody held up — because a reader acts on each of those differently — and a run that produces **no** report now says which of five situations it is in rather than answering all five with *"try naming its website"* — and when that situation is *a name several products share*, **the companies it would not choose between arrive as buttons**, each carrying a whole prompt so answering costs one click rather than a retyped idea. And a reader's words are now turned into the market's **before anything is searched for, and the companies are found with them** — *"a free competitive landscape research tool"* is searched as *competitive intelligence software*, counted once per independent site, and the substitution is shown on the report rather than assumed. And a page fetched once is not fetched again — the worker held **three** fetchers per run and now holds one for the process, so two readers of the same competitor share the work rather than both paying a stranger's server for it. **78% done.** What is left: the extraction cache, and conditional GET. See [F1](#f1--searching-for-competitive-information-on-a-product-idea). |
 | **S3** | **Ready for use** — friendly users should find no issue | **No.** | [**96%**](docs/Full_Feature_List.md#s3--ready-for-use) | 6 of 9 report sections, no verification layer, no comparison matrix, no accounts. |
 | **S4** | **Ready for general use** — promotable, word-of-mouth quality | **No.** | [**100%**](docs/Full_Feature_List.md#s4--ready-for-general-use) | Everything in S3, plus no quality gates have ever been run against a deployed system. |
 | **S5** | **General use, free mode** — stable, email signup, community channels | **No.** | [**100%**](docs/Full_Feature_List.md#s5--general-use-free-mode) | No authentication code exists anywhere in the repository. No knowledge base. |
@@ -34,7 +34,7 @@ finished when it is demonstrable end to end on a development machine — Rust, N
 defect rather than a step in the plan.
 
 **Percentage Left is software only**, counted in pull requests and linked to the feature it comes
-from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **53 of 130 PRs done, 41% of the whole
+from in [Full_Feature_List.md](docs/Full_Feature_List.md) — **54 of 130 PRs done, 42% of the whole
 deliverable.** Getting it onto a host is a
 [separate three-PR track](docs/Full_Feature_List.md#getting-it-onto-a-host) that gates *who can see*
 the software rather than what it can do, and the concierge interviews and source-terms audit are
@@ -199,10 +199,12 @@ description into companies — it hands over three descriptions whose companies 
    Help Scout's `/blog` for *changes* — therefore triggers no search, even though the section
    comes back empty. `Coverage` already tells those silences apart; wiring the trigger to it
    needs the orchestrator.
-4. **No caching.** The fetch cache and per-source extraction cache — called the
-   highest-leverage cache in the system, and scheduled for Phase 1 — are not built. Two users
-   analysing the same competitor share no work. **A set makes this worse**: three companies per
-   run is three times the fetching, and two readers describing the same market share none of it.
+4. **Half the caching.** The fetch cache is built and the worker holds one `Fetcher` for the
+   process, so two readers of the same competitor share the pages rather than both paying a
+   stranger's server for them. The **per-source extraction cache** is not: one page read twice
+   still costs two sets of model calls across processes and across `PROMPT_VERSION` bumps.
+   Nothing is shared between processes either — that needs a store, and the laptop rule is that
+   nothing requires a database.
 
 **All six extractors are built.** Trust posture reads a closed vocabulary of compliance
 standards; investment direction reads a careers page and asks no model at all.
@@ -477,7 +479,7 @@ than reading one.
 | Candidate generation for entity resolution | The disambiguation gate has nothing to disambiguate. |
 | Competitor *discovery* | Several companies can be analysed, but only ones the reader names. |
 | ~~One of six extractors (direction)~~ | **Built.** All six questions extract, and two of them need no model. The `no extractor yet` branch is deleted rather than left unreachable, so a seventh question is a build error. |
-| Fetch cache + per-source extraction cache | The highest-leverage cache in the system, scheduled for this phase, absent. |
+| ~~Fetch cache~~ + per-source extraction cache | **The fetch half is built** — one `Fetcher` per process, bounded in bytes, and a page served again reports when it was actually read. The extraction half is not. |
 | ~~Anonymous rate limit (2/day)~~ | **Built.** Two a day per address, hashed, reset daily. |
 | Stage rail, source cards, citation hover cards | The UI is functional and unfinished. **Example chips are built** — three ideas over six companies, with what is curated said beside them — **and so are clarification chips**: a name matching several companies comes back as one button per candidate. |
 | Conditional GET; per-analysis fetch cap | Every run re-fetches everything. |
@@ -556,9 +558,9 @@ costs no model call. Deploying it ([B5](#4-blockers)) changes who can see it, no
 ([B2](#4-blockers)), both inputs produce a set, a report that covers one company says which of
 four things happened to the others, and a run that produces no report says which of five
 situations it is in — and the ambiguous one comes back as buttons, so answering it costs a
-click rather than a retyped idea, and a reader's words are resolved to the market's and
-searched for in them. What is left is the two caches, which a three-company run makes three
-times more valuable. **All six extractors are
+click rather than a retyped idea, a reader's words are resolved to the market's and searched
+for in them, and a page fetched once is not fetched again. What is left is the extraction cache
+and conditional GET. **All six extractors are
 done**, so no section is permanently empty any more.
 
 **To S3 — friendly users find no issue.** `landscape-verify` and the quality gates; caching so a

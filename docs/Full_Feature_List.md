@@ -1,6 +1,6 @@
 # Full Feature List
 
-**As of 2026-08-09** · `main` at `ccb32dd` · **53 of 130 PRs · 41% of the software deliverable**
+**As of 2026-08-09** · `main` at `b8be90a` · **54 of 130 PRs · 42% of the software deliverable**
 
 Every feature the roadmap describes, sorted by the readiness state that first requires it, with
 what it is estimated to cost in pull requests and how much of that is spent.
@@ -69,12 +69,12 @@ only you can do; they are listed at the bottom and are not counted anywhere.
 | State | What it means | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
 | [**S1**](#s1--ready-for-a-guided-demo) | Ready for a guided demo | 39 | 39 | **0** | **100%** |
-| [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 18 | 13 | **5** | **72%** |
+| [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 18 | 14 | **4** | **78%** |
 | [**S3**](#s3--ready-for-use) | Friendly users find no issue | 26 | 1 | **25** | **4%** |
 | [**S4**](#s4--ready-for-general-use) | Promotable, word-of-mouth quality | 11 | 0 | **11** | **0%** |
 | [**S5**](#s5--general-use-free-mode) | Stable, email signup, community | 15 | 0 | **15** | **0%** |
 | [**S6**](#s6--general-use-full-mode) | Notifications and paid subscriptions | 21 | 0 | **21** | **0%** |
-| | **Total** | **130** | **53** | **77** | **41%** |
+| | **Total** | **130** | **54** | **76** | **42%** |
 | | *Getting it onto a host (not a state)* | *3* | *0* | *3* | *0%* |
 
 **The shape of that table is the answer to "how far are we".** **S1 is complete** — the guided
@@ -152,9 +152,9 @@ them back into a single sentence.
 | Trust posture extractor — the fifth question kind | S2 | 1 | 1 | 0 | 100% |
 | Investment direction extractor — the sixth question kind | S2 | 1 | 1 | 0 | 100% |
 | Honest "no public information" at the level of a whole competitor set | S2 | 1 | 1 | 0 | 100% |
-| Fetch cache and per-source extraction cache — two readers of one competitor share work | S2 | 2 | 0 | **2** | 0% |
+| Fetch cache and per-source extraction cache — two readers of one competitor share work | S2 | 2 | 1 | **1** | 50% |
 | Conditional GET and a per-analysis fetch cap | S2 | 1 | 0 | **1** | 0% |
-| | | **18** | **13** | **5** | **72%** |
+| | | **18** | **14** | **4** | **78%** |
 
 **What the two clarifying-question PRs bought, and what §3 still describes.** The row is
 counted complete because what S2 needs is a run that cannot converge saying so in terms a reader

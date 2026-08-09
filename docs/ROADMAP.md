@@ -859,8 +859,24 @@ the single most important phase; everything after it is commerce and polish.
 - Postgres schema + job queue (`FOR UPDATE SKIP LOCKED`).
 - React: `useAnalysisStream`, stage rail, source cards, seven section components, `Citation`
   hover cards, `NotFoundInPublic`.
-- Fetch cache + **per-source extraction cache** (the highest-leverage cache in the system —
+- ~~Fetch cache~~ + **per-source extraction cache** (the highest-leverage cache in the system —
   build it in Phase 1, not later).
+  **The fetch half is done** — [BENCHMARKS.md](BENCHMARKS.md) Run 37. It was worse than absent:
+  the worker built **three** `Fetcher`s inside one run, and a `Fetcher` remembers pages,
+  `robots.txt` and the per-host delay by itself — so one company's `robots.txt` was fetched three
+  times, and a page read to work out *which* companies these are was read again to extract from.
+  One per process now, and the cache lives on it.
+  **The requests it does not send are somebody else's**, which puts it beside `robots.txt` and
+  the per-host delay rather than next to them. A hit is consulted before the guard, robots and
+  the pacer, and that is sound for one reason — *nothing is sent* — resting on the invariant that
+  only a page we were allowed to fetch is ever stored.
+  Bounded in **bytes**, because a cap of *"n pages"* bounds nothing when a page may be 2 MiB.
+  `fetched_at` survives being served again, so a claim's `as_of` is when the bytes were read.
+  **There is no test over a socket**, and the guard was not weakened to get one: a test server
+  binds loopback and the SSRF guard refuses it, absolutely and with no flag, for the same reason
+  `--ignore-robots` does not exist.
+  **Still open:** the per-source extraction cache, and nothing is shared between processes —
+  a shared cache needs a store, and the laptop rule is that nothing requires a database.
 
 **UX polish:** the perceived-latency ladder from [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §2.1.
 Sources appearing live within 3 seconds is the moment the product stops feeling like a

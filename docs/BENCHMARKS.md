@@ -33,6 +33,123 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 37 — the request we do not send
+
+**Date:** 2026-08-09 · **Where:** this laptop · **Model:** none. A cache changes how often a
+stranger's server is asked, not what a model is asked.
+
+`ROADMAP.md` has called the fetch cache *"the highest-leverage cache in the system — build it in
+Phase 1, not later"* since Phase 1. It was not built. Worse than not built:
+
+```text
+resolve_from_description  →  Fetcher::new()
+rivals_of                 →  Fetcher::new()
+run_analysis              →  Fetcher::new()
+```
+
+**Three fetchers inside one run.** A `Fetcher` remembers pages, `robots.txt` rules and the
+per-host delay *by itself*, so three of them share none of it. One company's `robots.txt` was
+fetched up to three times, and a page read to work out *which* companies these are was read
+again to extract from.
+
+### What changed
+
+| | before | after |
+|---|---|---|
+| fetchers in the worker path | **3 per analysis** | **1 per process** |
+| the same page, two passes of one run | fetched twice | fetched once |
+| the same page, two readers an hour apart | fetched twice | fetched once |
+| `robots.txt` per host per run | up to 3 | 1 |
+
+The cache lives on the `Fetcher`, so the fix is two things at once: a cache, and something that
+holds it long enough to matter. `run_analysis`, `resolve_from_description` and `rivals_of` now
+take `&Fetcher` rather than making one.
+
+### Politeness is the point, not a side effect
+
+The bandwidth saved is ours; **the requests not sent are somebody else's**. That puts this
+beside `robots.txt` and the per-host delay as part of one commitment about how often a
+stranger's machine is asked for the same bytes, rather than as an optimisation standing next to
+them.
+
+### A hit performs no network I/O, which is what makes it safe to serve
+
+The cache is consulted **before** the address guard, `robots.txt` and the pacer. Each is fine to
+skip for exactly one reason: *nothing is sent*. The guard stops us reaching an address; robots
+stops us requesting a path; the pacer stops us asking too often. None protects anything when no
+request leaves the process.
+
+What makes that sound rather than convenient is the invariant on the way **in**: only a page we
+were allowed to fetch is ever stored, because the insert happens after both have passed. A
+disallowed path is an error, and an error is not a page. `a_refusal_leaves_nothing_behind_to_be_served_later`
+pins it.
+
+The one thing a hit can be wrong about is a `robots.txt` that changed since the fetch, and that
+window is bounded by `FRESH_FOR` rather than open.
+
+### Bounded in the unit it claims to be bounded in
+
+A cap of *"256 pages"* bounds nothing when a page may be 2 MiB — it is a cap of somewhere
+between a few kilobytes and half a gigabyte. The budget is **32 MiB of bodies**, oldest evicted
+first, and a page too large to sit beside anything else is declined rather than allowed to empty
+the cache and then not fit.
+
+`FRESH_FOR` is **one hour**, and it is a starting value on the same footing as
+`AMBIGUITY_MARGIN`. Two readers in one sitting share everything; a pricing page edited this
+morning is picked up this afternoon.
+
+**A cached page never claims to be fresher than it is.** `fetched_at` is stored with the body and
+returned unchanged, so a claim's `as_of` is the moment the bytes were read rather than the moment
+they were handed over. A mutation that restamps it is caught.
+
+### What cannot be measured here, and why
+
+The number this feature exists to change is **requests arriving at somebody else's server**, and
+that cannot be counted from inside this repository: a test server binds `127.0.0.1`, and the SSRF
+guard refuses loopback — deliberately, absolutely, and with no flag to turn it off, for the same
+reason `--ignore-robots` does not exist. *The flag would be used, and the commitment is the
+product.*
+
+So there is **no integration test over a socket**, and none was written by weakening the guard.
+What is asserted instead:
+
+- the `Cache` directly — a hit, `fetched_at` surviving, byte-bounded eviction, replacement, and
+  an oversized page declining rather than clearing everything;
+- `Fetcher::get` with **the guard as the instrument** — a loopback URL that comes back as a page
+  can only have come from memory, because every path that reaches the network refuses it first;
+- that a refusal stores nothing, which is the invariant the ordering rests on;
+- that a page stops being served once it is past `FRESH_FOR`, using a test-only clock that ages
+  the entries rather than a test that waits an hour.
+
+**One mutation was dropped rather than kept as a pin nobody can satisfy.** *"Remember the page
+under where the redirect landed rather than under what was asked for"* is a real defect and the
+insert path is only reachable through a completed fetch, which loopback forbids — so it came
+back `MISSED` for the same reason there is no socket test. A catalogue entry that cannot fail is
+worse than none: it reads as coverage. The behaviour is stated in the module doc instead.
+
+`landscape read <origin>` prints what is held, so a person running it against a real site can see
+the number this cannot.
+
+### What this does not do yet
+
+**Nothing is shared between processes.** Two workers on one machine, or a restart, start cold.
+A shared cache means a store, and the laptop rule is that nothing requires a database —
+`docs/ROADMAP.md` keeps that as its own decision rather than a side effect of this one.
+
+**No conditional GET.** `Page` has carried `etag` and `last_modified` since the first fetch and
+nothing sends them back. Turning a re-fetch into a `304` with no body is the row's other PR.
+
+**No per-source extraction cache.** The model calls are still paid twice for one page read
+twice — which cannot happen inside a run any more, but can across `PROMPT_VERSION` bumps and
+across processes. That is the second half of this row.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 36 | 850 | 62 |
+| now | **861** | **62** |
+
+---
+
 ## Run 36 — the market decides what is searched for
 
 **Date:** 2026-08-09 · **Where:** this laptop · **Model:** none. The vocabulary step is

@@ -22,11 +22,19 @@ use crate::limits::{Pacer, DEFAULT_DELAY};
 use crate::robots::{self, Rules};
 use crate::{FetchError, Page, Target, MAX_BYTES, MAX_REDIRECTS, TIMEOUT, USER_AGENT};
 
-/// Fetches pages, remembering what each host has told us.
+/// Fetches pages, remembering what each host has told us and what it already said.
+///
+/// **One per process, not one per analysis.** Everything remembered here — the pages, the
+/// `robots.txt` rules, the per-host delay — is remembered *by this object*, so a second
+/// `Fetcher` shares none of it. Three of them used to be built inside a single run, which meant
+/// one company's `robots.txt` was fetched three times and a page read by the description pass
+/// was read again by the analysis pass. The cache is only worth having if the thing holding it
+/// outlives the question that filled it.
 #[derive(Debug)]
 pub struct Fetcher {
     pacer: Mutex<Pacer>,
     robots: Mutex<robots::Cache>,
+    pages: Mutex<crate::cache::Cache>,
     /// Off for tests that must not reach the network, and for a `--ignore-robots` that does
     /// not exist and should not: the flag would be used, and the commitment is the product.
     obey_robots: bool,
@@ -44,8 +52,17 @@ impl Fetcher {
         Self {
             pacer: Mutex::new(Pacer::new()),
             robots: Mutex::new(robots::Cache::new()),
+            pages: Mutex::new(crate::cache::Cache::new()),
             obey_robots: true,
         }
+    }
+
+    /// How many pages are held, and how many bytes they take.
+    ///
+    /// For the diagnostic. A cache nobody can see the size of is one nobody notices growing.
+    #[must_use]
+    pub fn cached(&self) -> (usize, usize) {
+        self.pages.lock().map_or((0, 0), |c| (c.len(), c.bytes()))
     }
 
     /// Fetch one page, following redirects by hand and re-checking every hop.
@@ -54,6 +71,19 @@ impl Fetcher {
     /// Any refusal, or a transport failure.
     pub async fn get(&self, url: &str) -> Result<Page, FetchError> {
         let mut target = Target::parse(url)?;
+
+        // **Before the guard, robots and the pacer, and each is fine to skip for one reason:
+        // nothing is sent.** The guard stops us reaching an address, robots stops us requesting
+        // a path, the pacer stops us asking too often — none of them protects anything when no
+        // request leaves this process.
+        //
+        // What makes that sound rather than convenient is the invariant on the way in: only a
+        // page we were *allowed* to fetch is ever stored, because the insert below happens after
+        // both have passed. A disallowed path is an error and is never in here to be served.
+        if let Some(page) = self.pages.lock().ok().and_then(|c| c.get(url)) {
+            tracing::debug!(url, "served from the page cache");
+            return Ok(page);
+        }
 
         for _ in 0..=MAX_REDIRECTS {
             let addr = self.approve(&target).await?;
@@ -90,14 +120,22 @@ impl Fetcher {
             let last_modified = header(&response, "last-modified");
             let body = read_capped(response).await?;
 
-            return Ok(Page {
+            let page = Page {
                 url: target.url(),
                 status,
                 body,
                 etag,
                 last_modified,
                 fetched_at: chrono::Utc::now(),
-            });
+            };
+            // **Keyed on what was asked for, stored after every check has passed.** The second
+            // half is the invariant the read above rests on; the first is because two callers
+            // asking the same thing is the case this exists for, and they ask with the URL they
+            // have rather than with the one a redirect landed on.
+            if let Ok(mut cache) = self.pages.lock() {
+                cache.insert(url.to_owned(), page.clone());
+            }
+            return Ok(page);
         }
         Err(FetchError::TooManyRedirects)
     }
@@ -250,6 +288,112 @@ pub fn resolve_relative(from: &Target, location: &str) -> Result<Target, FetchEr
     // Relative to the current directory.
     let base = from.path.rsplit_once('/').map_or("/", |(dir, _)| dir);
     Target::parse(&format!("{}{}/{}", from.origin(), base, location))
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod serving_from_memory {
+    //! What the cache is worth, and the one thing it must never do.
+    //!
+    //! # Why there is no test over a real socket
+    //!
+    //! A test server binds `127.0.0.1`, and [`crate::guard`] refuses loopback — deliberately,
+    //! absolutely, and with no flag to turn it off, for the same reason `--ignore-robots` does
+    //! not exist: *the flag would be used, and the commitment is the product*. So the number
+    //! this feature exists to change, **requests arriving at a stranger's server**, cannot be
+    //! counted from inside this repository. That is a limit worth stating rather than a gap
+    //! worth papering over, and it is stated in `BENCHMARKS.md` too.
+    //!
+    //! What can be established here is stronger than it looks, because the guard's refusal is
+    //! the instrument: a loopback URL that comes back as a **page** can only have come from
+    //! memory, since every path that reaches the network refuses it first.
+
+    use super::*;
+
+    fn page(url: &str, body: &str) -> Page {
+        Page {
+            url: url.to_owned(),
+            status: 200,
+            body: body.to_owned(),
+            etag: None,
+            last_modified: None,
+            fetched_at: "2026-08-01T09:00:00Z".parse().unwrap(),
+        }
+    }
+
+    /// Put a page in as a successful fetch would have, without one.
+    fn seed(fetcher: &Fetcher, url: &str, body: &str) {
+        fetcher
+            .pages
+            .lock()
+            .unwrap()
+            .insert(url.to_owned(), page(url, body));
+    }
+
+    #[tokio::test]
+    async fn a_page_already_held_is_returned_without_a_request() {
+        // **The guard is the proof.** `127.0.0.1` is refused by every path that would send
+        // anything, so a page coming back at all means nothing was sent.
+        let fetcher = Fetcher::new();
+        let url = "http://127.0.0.1:9/pricing";
+        seed(&fetcher, url, "<h1>Pricing</h1>");
+
+        let served = fetcher.get(url).await.expect("served from memory");
+        assert_eq!(served.body, "<h1>Pricing</h1>");
+        assert_eq!(served.url, url, "a hit lost where the bytes came from");
+    }
+
+    #[tokio::test]
+    async fn a_page_served_from_memory_says_when_it_was_actually_read() {
+        // A claim's `as_of` comes from this. A cached page that restamped itself would make a
+        // report dated today out of bytes read an hour ago, and say so nowhere.
+        let fetcher = Fetcher::new();
+        let url = "http://127.0.0.1:9/pricing";
+        seed(&fetcher, url, "body");
+        let served = fetcher.get(url).await.expect("served from memory");
+        assert_eq!(
+            served.fetched_at.to_rfc3339(),
+            "2026-08-01T09:00:00+00:00",
+            "the second read claimed to be newer than the bytes it returned"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_refusal_leaves_nothing_behind_to_be_served_later() {
+        // **The invariant the whole ordering rests on.** The cache is read before the guard and
+        // before robots, which is only sound because nothing that failed either can be in it.
+        let fetcher = Fetcher::new();
+        let refused = fetcher.get("http://127.0.0.1:9/private").await;
+        assert!(refused.is_err(), "loopback was fetched: {refused:?}");
+        assert_eq!(
+            fetcher.cached(),
+            (0, 0),
+            "a refusal was remembered, so the next attempt would be served it"
+        );
+    }
+
+    #[tokio::test]
+    async fn what_is_held_is_visible() {
+        // A cache nobody can see the size of is one nobody notices growing.
+        let fetcher = Fetcher::new();
+        assert_eq!(fetcher.cached(), (0, 0));
+        seed(&fetcher, "http://127.0.0.1:9/a", "1234");
+        assert_eq!(fetcher.cached(), (1, 4));
+    }
+
+    #[tokio::test]
+    async fn two_fetchers_share_nothing_which_is_why_the_worker_holds_one() {
+        // The cache lives on the `Fetcher`, so this is the failure mode the worker had: three
+        // of them inside one run, each paying for the same pages. Pinned so that going back to
+        // a fetcher per pass fails here rather than quietly costing somebody else the requests.
+        let one = Fetcher::new();
+        seed(&one, "http://127.0.0.1:9/a", "held");
+        let other = Fetcher::new();
+        assert!(
+            other.get("http://127.0.0.1:9/a").await.is_err(),
+            "a second fetcher was served the first one's memory"
+        );
+    }
 }
 
 #[cfg(test)]

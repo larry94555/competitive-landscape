@@ -1,0 +1,106 @@
+[
+  {
+    "name": "a page is served long after the bytes stopped being current",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "            .filter(|e| e.stored.elapsed() < FRESH_FOR)",
+    "new": "            .filter(|_| true)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a page served from memory claims to have been read just now",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "        if let Some(page) = self.pages.lock().ok().and_then(|c| c.get(url)) {\n            tracing::debug!(url, \"served from the page cache\");\n            return Ok(page);\n        }",
+    "new": "        if let Some(mut page) = self.pages.lock().ok().and_then(|c| c.get(url)) {\n            page.fetched_at = chrono::Utc::now();\n            return Ok(page);\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the cache is never read, so every page is fetched again",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "        if let Some(page) = self.pages.lock().ok().and_then(|c| c.get(url)) {",
+    "new": "        if let Some(page) = None::<Page> {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the byte budget is not enforced, so the cache grows without bound",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        while self.bytes + size > MAX_CACHED_BYTES {",
+    "new": "        while false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the newest entry is evicted instead of the oldest",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "                .min_by_key(|(_, e)| e.order)",
+    "new": "                .max_by_key(|(_, e)| e.order)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "one page too large to keep empties the cache trying",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        if size > MAX_CACHED_BYTES {\n            return;\n        }",
+    "new": "        if false {\n            return;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "a replaced page's bytes are counted for ever",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        if let Some(old) = self.by_url.remove(&url) {\n            self.bytes -= old.page.body.len();\n        }",
+    "new": "        if let Some(_old) = self.by_url.remove(&url) {}",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the size of what is held is reported as nothing",
+    "file": "crates/landscape-fetch/src/fetcher.rs",
+    "old": "        self.pages.lock().map_or((0, 0), |c| (c.len(), c.bytes()))",
+    "new": "        (0, 0)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  }
+]

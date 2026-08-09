@@ -319,7 +319,16 @@ and, on the last line:
 
 ```text
 first content 23s - whole report 26s
+held for the next reader: 7 pages, 214113 bytes
 ```
+
+**The second line is the cache.** Those seven pages will not be fetched again for an hour — not
+by this command, and not by an analysis of the same company, because the worker holds one
+`Fetcher` for the life of the process. Run the command twice and the second run does not ask
+that company's server for anything it already has.
+
+**The requests we do not send are theirs, not ours.** That is why the cache sits beside
+`robots.txt` and the per-host delay rather than filed under performance.
 
 **Why it matters.** `PRODUCT_SPEC.md` §2.1A asks for content in twenty to forty seconds. That is
 23, and **the model was not running** — which is the property worth having, because the model is
