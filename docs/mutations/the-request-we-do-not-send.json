@@ -453,5 +453,57 @@
       "-p",
       "landscape-fetch"
     ]
+  },
+  {
+    "name": "a transient failure is written down and replayed for an hour",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "    if !stated && !CACHEABLE_BY_DEFAULT.contains(&status) {\n        return Storable::No;\n    }",
+    "new": "    if false {\n        return Storable::No;\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "an origin stating a freshness for a 503 is overruled anyway",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "    if !stated && !CACHEABLE_BY_DEFAULT.contains(&status) {",
+    "new": "    if !CACHEABLE_BY_DEFAULT.contains(&status) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "an Expires is not counted as the origin stating a freshness",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        allowed = allowed.min(remaining);\n        stated = true;",
+    "new": "        allowed = allowed.min(remaining);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
+  },
+  {
+    "name": "the status of a different response decides whether this one is kept",
+    "file": "crates/landscape-fetch/src/cache.rs",
+    "old": "        match storable(page.status, headers, now) {",
+    "new": "        match storable(200, headers, now) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-fetch"
+    ]
   }
 ]

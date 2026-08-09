@@ -87,6 +87,38 @@ pins it.
 The one thing a hit can be wrong about is a `robots.txt` that changed since the fetch, and that
 window is bounded by `FRESH_FOR` rather than open.
 
+### Review, fourth pass: a bad afternoon written down and replayed
+
+`storable` decided from the headers and only the headers, so a `500` or a `429` with no
+`Cache-Control` was kept for the full hour and handed to every later reader — **without the
+origin ever being asked whether it had recovered.**
+
+The value that decides this was already in the room twice. `Page::status` was on the struct being
+stored, unread. And one module away, `robots::Rules::from_status` already encodes this exact
+judgement in this repository's own words: a `429` or a `5xx` means *"the site is unwell — assume
+disallowed. The polite reading of 'I am struggling' is not 'carry on'."* The cache took that same
+afternoon and wrote it down.
+
+**A cached failure is worse than a slow one.** The report has a gap whose cause is no longer
+live, and nothing goes back to look for an hour. The politeness argument this row leads with
+points the same way: a cached `503` spares an origin nothing, because there was never going to be
+a second request for a page we already failed to read.
+
+The rule is HTTP's own — keep on our own initiative only for the statuses RFC 9110 §15.1 defines
+as cacheable, and for anything else require the origin to state a freshness:
+
+| | headerless | `max-age=30` |
+|---|---|---|
+| `200`, `404`, `410`, `501`, … | held for the hour | 30s |
+| `429`, `500`, `503`, `400`, `403` | **not held** | 30s — their number, obeyed |
+
+**A bare `public` is not taken as permission**, though RFC 9111 §3 would allow storing on it.
+`public` says *may be stored*, not *is fresh for*, and inventing an hour of freshness for a `503`
+on that basis is what costs an origin its recovery. The stricter reading costs one request.
+
+`insert_allowed` reads the status off the `Page` rather than taking it as a parameter, so the
+status stored and the status judged cannot disagree.
+
 ### Review, third pass: an argument written where a test belonged
 
 The section below ends by explaining why the robots cache needs no "too large to keep" guard:
@@ -291,7 +323,10 @@ What is asserted instead:
   nothing aged, and declines one rule set too heavy for the whole budget without emptying itself
   first;
 - that a `no-store` on a second `Cache-Control` field line reaches `storable`, over a `HeaderMap`
-  built with `append`.
+  built with `append`;
+- that a headerless `429`, `500`, `502`, `503`, `504`, `400` and `403` are none of them kept,
+  that every status HTTP calls cacheable still is, and that an origin stating a `max-age` for a
+  `503` is obeyed.
 
 **One mutation was dropped rather than kept as a pin nobody can satisfy.** *"Remember the page
 under where the redirect landed rather than under what was asked for"* is a real defect and the
@@ -318,7 +353,7 @@ across processes. That is the second half of this row.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 36 | 850 | 62 |
-| now | **879** | **62** |
+| now | **881** | **62** |
 
 ---
 

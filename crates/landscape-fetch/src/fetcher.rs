@@ -529,7 +529,7 @@ mod reading_what_the_origin_actually_said {
         let now = "2026-08-09T00:00:00Z".parse().unwrap();
         let said = Said::read(&headers);
         assert_eq!(
-            crate::cache::storable(said.freshness(), now),
+            crate::cache::storable(200, said.freshness(), now),
             crate::cache::Storable::No,
             "a `no-store` on the second field line was cached anyway"
         );
@@ -566,7 +566,7 @@ mod reading_what_the_origin_actually_said {
         // `Date`, two by `Age`, and the larger wins.
         let now = "2026-08-09T00:00:00Z".parse().unwrap();
         assert_eq!(
-            crate::cache::storable(said.freshness(), now),
+            crate::cache::storable(200, said.freshness(), now),
             crate::cache::Storable::For(Duration::from_secs(3600 - 600)),
             "a duplicated `Date` was handled as unreadable"
         );

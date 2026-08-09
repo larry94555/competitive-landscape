@@ -1911,6 +1911,42 @@ silence, because it discourages the next reader from checking. And when an API o
 
 ---
 
+## 55. A judgement this codebase already makes, not consulted by the new code
+
+**Found:** by review, in the same cache, fourth round.
+
+`storable` decided whether a response could be kept from its headers, and only its headers. So a
+`500` or a `429` with no `Cache-Control` was kept for the full hour and replayed to every later
+reader — **without the origin ever being asked whether it had recovered.**
+
+The value that decides this was already in the room, twice over:
+
+- `Page::status` was on the very struct being stored, unread.
+- One module away, `robots::Rules::from_status` already encodes this exact judgement, in this
+  repository's own words: a `429` or a `5xx` means *"the site is unwell — assume disallowed. The
+  polite reading of 'I am struggling' is not 'carry on'."*
+
+The cache took that same afternoon and wrote it down. **A cached failure is worse than a slow
+one**: the report has a gap whose cause is no longer live, and nothing will go and look again for
+an hour. The politeness argument the module leads with points the same way — a cached `503` does
+not spare an origin anything, because there was never going to be a second request for a page we
+already failed to read.
+
+The fix is HTTP's own rule: keep on our own initiative only for the statuses RFC 9110 §15.1
+defines as cacheable, and for anything else require the origin to state a freshness. `storable`
+takes the status, and `insert_allowed` reads it off the `Page` rather than from a parameter, so
+the two cannot disagree.
+
+**Rule:** before writing a policy, ask whether this codebase already has an opinion about the
+same value — and whether the type you are handed is already carrying the input you need. A new
+component that reaches a different verdict from an existing one about the same fact is a
+contradiction, not a feature, and the older one is usually the one that was thought about.
+
+> **Ask this:** *does anything else here already decide something about this value? And am I
+> ignoring a field of the thing I was handed?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

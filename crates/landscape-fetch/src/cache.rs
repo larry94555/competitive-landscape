@@ -148,6 +148,19 @@ fn already_aged(headers: Freshness<'_>, now: DateTime<Utc>) -> Option<Duration> 
     Some(age)
 }
 
+/// The statuses HTTP defines as cacheable without the origin saying so.
+///
+/// RFC 9110 §15.1, minus the redirects: a 3xx never reaches the store here, because
+/// [`crate::Fetcher::get`] follows it and only the response at the end of the chain is kept.
+///
+/// **Everything else needs the origin's permission in writing.** Review found the hole this
+/// closes, and it is one this crate had already argued against itself: `robots::Rules::from_status`
+/// treats a 429 or a 5xx as *"the site is unwell, leave it alone"* — and the cache then wrote that
+/// bad afternoon down and replayed it to every later reader for an hour, without ever asking the
+/// origin whether it had recovered. A cached failure is worse than a slow one: it is a gap in a
+/// report that no longer has a live cause.
+pub const CACHEABLE_BY_DEFAULT: [u16; 9] = [200, 203, 204, 206, 404, 405, 410, 414, 501];
+
 /// Read the origin's caching policy out of its own headers.
 ///
 /// **Review found this missing, and it is the most pointed thing in the change.** The module
@@ -165,7 +178,7 @@ fn already_aged(headers: Freshness<'_>, now: DateTime<Utc>) -> Option<Duration> 
 /// | `max-age=N` | the same, one directive down. |
 /// | `Expires: <past>` | not kept. |
 /// | `Expires: <future>` | kept until then, capped. Already relative to now, so the age is not subtracted twice. |
-/// | nothing | kept for [`FRESH_FOR`] less the age it arrived with. |
+/// | nothing | kept for [`FRESH_FOR`] less the age it arrived with — **but only if the status is one HTTP says may be kept on our own initiative**. See [`CACHEABLE_BY_DEFAULT`]. |
 ///
 /// Directives are matched on whole tokens, so `no-store` is found in `public, no-store` and not
 /// inside a hypothetical `x-no-store`. Anything unparseable is treated as **not cacheable**: a
@@ -175,12 +188,27 @@ fn already_aged(headers: Freshness<'_>, now: DateTime<Utc>) -> Option<Duration> 
 /// **[`FRESH_FOR`] is reduced by the age too**, not only the origin's number. It is a ceiling on
 /// how stale served bytes may be, and time a response spent in somebody else's cache is
 /// staleness that has already happened.
+///
+/// # The status is part of the policy
+///
+/// A `500` or a `429` with no headers used to be kept for the hour like anything else. Storing
+/// without the origin's say-so is only permitted for the statuses in [`CACHEABLE_BY_DEFAULT`];
+/// for anything else the origin has to state a freshness explicitly, and then its number is
+/// obeyed like any other.
+///
+/// **A bare `public` is not taken as that permission**, though RFC 9111 §3 would allow it. This
+/// is stricter on purpose: `public` says *may be stored*, not *is fresh for*, and inventing an
+/// hour of freshness for a `503` on the strength of it is the reading that costs an origin its
+/// recovery. The price of the stricter reading is one extra request.
 #[must_use]
-pub fn storable(headers: Freshness<'_>, now: DateTime<Utc>) -> Storable {
+pub fn storable(status: u16, headers: Freshness<'_>, now: DateTime<Utc>) -> Storable {
     let Some(aged) = already_aged(headers, now) else {
         return Storable::No;
     };
     let mut allowed = FRESH_FOR.saturating_sub(aged);
+    // Whether the origin stated a freshness of its own, which is what a status HTTP does not
+    // consider cacheable needs before anything is kept.
+    let mut stated = false;
 
     if let Some(raw) = headers.cache_control {
         let lowered = raw.to_lowercase();
@@ -204,6 +232,7 @@ pub fn storable(headers: Freshness<'_>, now: DateTime<Utc>) -> Storable {
                 // **Less the age, not from now.** `max-age` is measured from the origin's
                 // `Date`, so a response that spent most of it in a CDN has most of it spent.
                 allowed = allowed.min(Duration::from_secs(seconds).saturating_sub(aged));
+                stated = true;
                 break;
             }
         }
@@ -219,6 +248,14 @@ pub fn storable(headers: Freshness<'_>, now: DateTime<Utc>) -> Storable {
             return Storable::No;
         };
         allowed = allowed.min(remaining);
+        stated = true;
+    }
+
+    // **Heuristic freshness is for the statuses HTTP says it is for.** A transient failure kept
+    // on our own initiative is a gap in every later report until the hour is up, and the origin
+    // is never asked whether it recovered.
+    if !stated && !CACHEABLE_BY_DEFAULT.contains(&status) {
+        return Storable::No;
     }
 
     if allowed.is_zero() {
@@ -297,7 +334,9 @@ impl Cache {
         headers: Freshness<'_>,
         now: DateTime<Utc>,
     ) -> bool {
-        match storable(headers, now) {
+        // **The status comes from the page rather than from a parameter.** They cannot disagree
+        // that way, and a caller cannot pass the status of a different response.
+        match storable(page.status, headers, now) {
             Storable::No => false,
             Storable::For(fresh_for) => {
                 self.insert_for(url, page, fresh_for);
@@ -500,7 +539,7 @@ mod tests {
             "no-cache",
         ] {
             assert_eq!(
-                storable(said(directive), now),
+                storable(200, said(directive), now),
                 Storable::No,
                 "{directive:?} was kept anyway"
             );
@@ -511,18 +550,18 @@ mod tests {
     fn a_shorter_freshness_than_ours_wins_and_a_longer_one_does_not() {
         let now = at("2026-08-09T00:00:00Z");
         assert_eq!(
-            storable(said("max-age=30"), now),
+            storable(200, said("max-age=30"), now),
             Storable::For(Duration::from_secs(30)),
             "half a minute was stretched to an hour"
         );
         assert_eq!(
-            storable(said("max-age=86400"), now),
+            storable(200, said("max-age=86400"), now),
             Storable::For(FRESH_FOR),
             "a day was taken as permission to hold it for a day"
         );
         // `s-maxage` is addressed to shared caches, and this is one, so it is read first.
         assert_eq!(
-            storable(said("max-age=600, s-maxage=60"), now),
+            storable(200, said("max-age=600, s-maxage=60"), now),
             Storable::For(Duration::from_secs(60))
         );
     }
@@ -531,11 +570,11 @@ mod tests {
     fn an_expiry_already_past_is_not_kept() {
         let now = at("2026-08-09T00:00:00Z");
         assert_eq!(
-            storable(expiring("Fri, 08 Aug 2026 00:00:00 GMT"), now),
+            storable(200, expiring("Fri, 08 Aug 2026 00:00:00 GMT"), now),
             Storable::No
         );
         assert_eq!(
-            storable(expiring("Sun, 09 Aug 2026 00:00:30 GMT"), now),
+            storable(200, expiring("Sun, 09 Aug 2026 00:00:30 GMT"), now),
             Storable::For(Duration::from_secs(30))
         );
     }
@@ -545,28 +584,28 @@ mod tests {
         // The cost of refusing to cache something we misread is one extra request. The cost of
         // keeping something we misread is ignoring an instruction somebody wrote down.
         let now = at("2026-08-09T00:00:00Z");
-        assert_eq!(storable(said("max-age=soon"), now), Storable::No);
-        assert_eq!(storable(expiring("whenever"), now), Storable::No);
+        assert_eq!(storable(200, said("max-age=soon"), now), Storable::No);
+        assert_eq!(storable(200, expiring("whenever"), now), Storable::No);
         // And the two that say how much of the freshness is already gone.
         let unreadable_age = Freshness {
             cache_control: Some("max-age=600"),
             age: Some("ages"),
             ..Freshness::default()
         };
-        assert_eq!(storable(unreadable_age, now), Storable::No);
+        assert_eq!(storable(200, unreadable_age, now), Storable::No);
         let unreadable_date = Freshness {
             cache_control: Some("max-age=600"),
             date: Some("last tuesday"),
             ..Freshness::default()
         };
-        assert_eq!(storable(unreadable_date, now), Storable::No);
+        assert_eq!(storable(200, unreadable_date, now), Storable::No);
     }
 
     #[test]
     fn silence_is_our_own_restraint_rather_than_their_permission() {
         let now = at("2026-08-09T00:00:00Z");
         assert_eq!(
-            storable(Freshness::default(), now),
+            storable(200, Freshness::default(), now),
             Storable::For(FRESH_FOR)
         );
     }
@@ -601,7 +640,7 @@ mod tests {
             ..Freshness::default()
         };
         assert_eq!(
-            storable(nearly_stale, now),
+            storable(200, nearly_stale, now),
             Storable::For(Duration::from_secs(10)),
             "an hour was restarted on arrival"
         );
@@ -613,7 +652,7 @@ mod tests {
             ..Freshness::default()
         };
         assert_eq!(
-            storable(old_date, now),
+            storable(200, old_date, now),
             Storable::For(Duration::from_secs(10)),
             "the apparent age from `Date` was ignored"
         );
@@ -625,7 +664,7 @@ mod tests {
             ..Freshness::default()
         };
         assert_eq!(
-            storable(stale, now),
+            storable(200, stale, now),
             Storable::No,
             "a stale response was kept"
         );
@@ -638,7 +677,10 @@ mod tests {
             age: Some("3000"),
             ..Freshness::default()
         };
-        assert_eq!(storable(both, now), Storable::For(Duration::from_secs(600)));
+        assert_eq!(
+            storable(200, both, now),
+            Storable::For(Duration::from_secs(600))
+        );
 
         // And the other way round, which is the half that pins "whichever is larger": a `Date`
         // an hour old is not overruled by a proxy reporting ten seconds.
@@ -649,7 +691,7 @@ mod tests {
             ..Freshness::default()
         };
         assert_eq!(
-            storable(honest_date, now),
+            storable(200, honest_date, now),
             Storable::No,
             "an hour-old response was kept because a proxy under-reported its age"
         );
@@ -660,7 +702,7 @@ mod tests {
             ..Freshness::default()
         };
         assert_eq!(
-            storable(old_and_silent, now),
+            storable(200, old_and_silent, now),
             Storable::For(Duration::from_secs(1))
         );
 
@@ -671,7 +713,7 @@ mod tests {
             ..Freshness::default()
         };
         assert_eq!(
-            storable(from_the_future, now),
+            storable(200, from_the_future, now),
             Storable::For(Duration::from_secs(60))
         );
 
@@ -682,10 +724,72 @@ mod tests {
             ..Freshness::default()
         };
         assert_eq!(
-            storable(expiring_soon, now),
+            storable(200, expiring_soon, now),
             Storable::For(Duration::from_secs(30)),
             "the age was subtracted from a deadline that already accounts for it"
         );
+    }
+
+    #[test]
+    fn a_bad_afternoon_is_not_written_down_and_replayed() {
+        // **Review found this, and this crate had already argued against it.**
+        // `robots::Rules::from_status` treats a 429 or a 5xx as *"the site is unwell, leave it
+        // alone"* — and the cache then kept that failure for an hour and handed it to every later
+        // reader without ever asking whether the origin had recovered. A cached failure is worse
+        // than a slow one: it is a gap in a report that no longer has a live cause.
+        let now = at("2026-08-09T00:00:00Z");
+        for status in [429, 500, 502, 503, 504, 400, 403] {
+            assert_eq!(
+                storable(status, Freshness::default(), now),
+                Storable::No,
+                "a headerless {status} was kept on our own initiative"
+            );
+        }
+
+        // The statuses HTTP does say may be kept without being asked still are.
+        for status in CACHEABLE_BY_DEFAULT {
+            assert_eq!(
+                storable(status, Freshness::default(), now),
+                Storable::For(FRESH_FOR),
+                "a {status} that HTTP says is cacheable was refused"
+            );
+        }
+
+        // And an origin that states a freshness is obeyed whatever the status — its number, not
+        // ours, and not an hour invented on its behalf.
+        assert_eq!(
+            storable(503, said("max-age=30"), now),
+            Storable::For(Duration::from_secs(30)),
+            "an origin asking us to hold a 503 for thirty seconds was ignored"
+        );
+        assert_eq!(
+            storable(503, expiring("Sun, 09 Aug 2026 00:00:30 GMT"), now),
+            Storable::For(Duration::from_secs(30))
+        );
+
+        // A bare `public` is *not* that permission. RFC 9111 §3 would allow storing on it; this
+        // is stricter on purpose, because `public` says "may be stored", not "is fresh for", and
+        // inventing an hour of freshness for a 503 on that basis costs an origin its recovery.
+        assert_eq!(storable(503, said("public"), now), Storable::No);
+    }
+
+    #[test]
+    fn a_failure_that_reached_the_page_is_still_not_held() {
+        // The whole way through, with the status coming off the `Page` rather than a parameter —
+        // they cannot disagree that way.
+        let now = at("2026-08-09T00:00:00Z");
+        let mut cache = Cache::new();
+        let mut down = page("https://a.example/", 4);
+        down.status = 503;
+
+        let held = cache.insert_allowed(
+            "https://a.example/".to_owned(),
+            down,
+            Freshness::default(),
+            now,
+        );
+        assert!(!held, "a 503 was written down");
+        assert!(cache.is_empty());
     }
 
     #[test]

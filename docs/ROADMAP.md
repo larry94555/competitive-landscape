@@ -882,6 +882,9 @@ the single most important phase; everything after it is commerce and polish.
   the origin's `Date` and net of any `Age`, so a response that spent its freshness in a CDN does
   not get another hour of it here. A cache that
   argues it belongs beside `robots.txt` cannot ignore the header a publisher states that in.
+  **And the status is part of the policy**: a headerless `500` or `429` is not kept, because
+  `robots.txt` handling already reads those as *"the site is unwell, leave it alone"* and a cache
+  that writes that afternoon down replays it to every later reader for an hour.
   `fetched_at` survives being served again, so a claim's `as_of` is when the bytes were read.
   **There is no test over a socket**, and the guard was not weakened to get one: a test server
   binds loopback and the SSRF guard refuses it, absolutely and with no flag, for the same reason
