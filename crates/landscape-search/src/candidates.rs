@@ -654,6 +654,32 @@ where
     from_hits(&results, &queried, description, fetch).await
 }
 
+/// Whether searching with `words` would ask anything the reader's own phrasing would not.
+///
+/// **Compared on the queries, not on the two strings.** [`for_idea`] runs its input through
+/// `safe_words` before interpolating it, and a search engine does not distinguish case — so
+/// *competitive intelligence software!* and *Competitive Intelligence Software* and
+/// *competitive intelligence software* are all **one search**, three times.
+///
+/// Review found what comparing the raw strings cost, in both directions at once:
+///
+/// - a trailing `!` sent three more requests to somebody else's server for the identical
+///   queries;
+/// - an exact match reused the hits correctly and **still** told a reader their own words had
+///   been *"interpreted as"* themselves, which is the opposite of what the disclosure is for.
+///
+/// One answer, used for both, derived from the thing that actually decides.
+#[must_use]
+pub fn substitutes(described: &str, words: &str) -> bool {
+    let asked = |text: &str| {
+        for_idea(text)
+            .into_iter()
+            .map(|q| q.text.to_lowercase())
+            .collect::<Vec<_>>()
+    };
+    asked(described) != asked(words)
+}
+
 /// Everything one description produced: what the market calls it, and who is in it.
 #[derive(Debug)]
 pub struct Read {
@@ -667,6 +693,12 @@ pub struct Read {
     pub derived: Option<crate::competitors::Derived>,
     /// Every query both rounds sent.
     pub queried: Queried,
+    /// Whether the market's words asked anything the reader's would not have.
+    ///
+    /// **The second round and the disclosure are the same question**, so it is answered once
+    /// here rather than by each caller: a run that asked nothing new has nothing to disclose,
+    /// and a run that asked something new owes the reader that line.
+    pub substituted: bool,
 }
 
 /// Read a description the way a run does: the market's words first, then its companies.
@@ -701,21 +733,24 @@ where
             interpreted,
             derived: None,
             queried: asked_once,
+            substituted: false,
         };
     }
 
     let words = crate::vocabulary::search_with(&interpreted, description);
-    let (derived, queried) = if words == description {
-        from_hits(&hits, &asked_once, words, fetch).await
-    } else {
+    let substituted = substitutes(description, words);
+    let (derived, queried) = if substituted {
         let (again, asked_twice) = ask(engine, words).await;
         let (derived, _) = from_hits(&again, &asked_twice, words, fetch).await;
         (derived, asked_once.and(asked_twice))
+    } else {
+        from_hits(&hits, &asked_once, words, fetch).await
     };
     Read {
         interpreted,
         derived: Some(derived),
         queried,
+        substituted,
     }
 }
 
@@ -2154,25 +2189,60 @@ The second of two."
             IDEA_QUERIES * 2,
             "the coverage note has to count both rounds, or an outage in the first hides"
         );
+        assert!(
+            read.substituted,
+            "the words changed, so the reader is owed the line that says so"
+        );
     }
 
     #[tokio::test]
     async fn nothing_is_asked_twice_when_the_market_agrees_with_the_reader() {
-        // The reader typed the market's own name. A second round would be three more requests
-        // to somebody else's server for results already in hand.
-        let engine = ByWords {
-            asked: std::sync::Mutex::new(Vec::new()),
-        };
-        let read = for_market(&engine, "competitive intelligence software", |u| {
-            nothing_fetched(u)
-        })
-        .await;
-        assert_eq!(
-            engine.asked.lock().unwrap().len(),
-            IDEA_QUERIES,
-            "the same words were searched for twice"
+        // **Three spellings of one search.** `for_idea` normalises before interpolating and an
+        // engine ignores case, so all three of these produce the identical queries — and review
+        // found the raw string comparison sending three more requests for a trailing `!`, and
+        // telling a reader their own words had been *"interpreted as"* themselves.
+        for typed in [
+            "competitive intelligence software",
+            "Competitive Intelligence Software",
+            "competitive intelligence software!",
+        ] {
+            let engine = ByWords {
+                asked: std::sync::Mutex::new(Vec::new()),
+            };
+            let read = for_market(&engine, typed, nothing_fetched).await;
+            assert_eq!(
+                engine.asked.lock().unwrap().len(),
+                IDEA_QUERIES,
+                "{typed:?} was searched for twice"
+            );
+            assert!(read.derived.is_some(), "{typed:?}");
+            assert!(
+                !read.substituted,
+                "{typed:?} would be disclosed as an interpretation of itself"
+            );
+        }
+    }
+
+    #[test]
+    fn one_search_written_three_ways_is_one_search() {
+        // The predicate itself, so the rule is readable without a round trip. Both the second
+        // round and the *"Interpreted as"* line hang off this one answer.
+        let market = "competitive intelligence software";
+        for same in [
+            "competitive intelligence software",
+            "Competitive Intelligence Software",
+            "competitive intelligence software!",
+            "  competitive   intelligence software  ",
+        ] {
+            assert!(
+                !substitutes(same, market),
+                "{same:?} and the market's name are the same search"
+            );
+        }
+        assert!(
+            substitutes("a free competitive landscape research tool", market),
+            "a real substitution went unreported"
         );
-        assert!(read.derived.is_some());
     }
 
     #[tokio::test]

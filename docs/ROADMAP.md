@@ -832,7 +832,13 @@ the single most important phase; everything after it is commerce and polish.
   **An ambiguous market is `PRODUCT_SPEC.md` §3's category question**, arriving as chips — the
   same control the ambiguous-company question uses, so there is one way of asking *which did you
   mean*. A market has no website, so the chip omits the domain rather than showing a blank line,
-  and a label too short to be a prompt is refused where phrases are made.
+  and a label a reader could not send back is refused where phrases are made — by asking
+  `NewAnalysis::parse`, after review found the first version measuring bytes where the API counts
+  characters and letting `Ää Ää` through.
+  **"Did the words change" is decided on the queries, not on the strings.** `for_idea` normalises
+  before interpolating and engines ignore case, so a trailing `!` used to buy three more requests
+  for identical queries — and an exact match still told a reader their own words had been
+  interpreted as themselves. One predicate now answers both the second round and the disclosure.
   **Still open:** §4's `[Change]` control, which is [F2](../PROJECT_STATUS.md#f2--editing-the-product-idea)
   and still R0; and a chosen market that sticks, which needs session state §3 defers.
   **SearXNG itself has not been run against this.** `docker compose --profile search up -d

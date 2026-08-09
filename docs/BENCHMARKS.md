@@ -120,6 +120,53 @@ apart. What stands in its place is the evidence: *"2 independent sites use this 
 exactly register 47, one row earlier. The guard is at the source — where phrases are made — so
 every later reader of a label gets one that works by construction rather than by remembering.
 
+### Review: a guard that measured bytes where the API counts characters
+
+The chip guard was written for register 47 — *use the real validator* — and then **re-derived
+the rule anyway**:
+
+```rust
+if words.iter().map(String::len).sum::<usize>() + words.len() - 1 < MIN_PROMPT
+```
+
+`String::len` is **bytes**. `NewAnalysis::parse` counts **characters**. Two hosts titled `Ää Ää`
+resolve as a tie, the label is five characters and nine bytes, the guard passes it, and the chip
+renders and answers the click with a `400` — the exact failure the guard exists to prevent, for
+every non-ASCII market name. It also silently ignored `MAX_PROMPT`, which the parser enforces
+and a re-derived rule had no reason to know about.
+
+**The fix is to stop deriving it.** `trimmed` now calls `NewAnalysis::parse` on the candidate
+phrase: the thing that validates the click is the thing that validates the phrase, so the two
+cannot come apart. Both ends are tested — a five-character phrase and one longer than a prompt
+may be.
+
+### Review: one search written three ways, treated as three
+
+`for_market` decided *"did the words change"* by comparing two raw strings. `for_idea` normalises
+through `safe_words` before interpolating, and search engines ignore case — so these are **one
+search**:
+
+```text
+competitive intelligence software
+Competitive Intelligence Software
+competitive intelligence software!
+```
+
+The raw comparison went wrong in **both directions at once**:
+
+| | what happened | what it cost |
+|---|---|---|
+| a trailing `!` | *"the words changed"* | three more requests to somebody else's server, for identical queries |
+| an exact match | reused the hits correctly | and **still** told a reader their own words had been *"interpreted as"* themselves |
+
+The second is the worse one: it contradicts the line's whole purpose, which is to disclose a
+**substitution**.
+
+**One answer, derived from the queries rather than from the strings.** `substitutes` compares
+what `for_idea` would actually send, lowercased, and `Read::substituted` carries the result — so
+the second round and the disclosure are the same decision made once. The worker and the CLI both
+read it; neither recomputes it.
+
 ### One function, two callers
 
 `candidates::for_market` is the whole sequence, and both the worker and `landscape candidates`
@@ -143,7 +190,7 @@ the label decides the queries. [B1](../PROJECT_STATUS.md#4-blockers).
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 35 | 840 | 58 |
-| now | **849** | **62** |
+| now | **850** | **62** |
 
 ---
 

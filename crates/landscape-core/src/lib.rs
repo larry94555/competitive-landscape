@@ -19,7 +19,8 @@ pub mod source;
 pub mod subject;
 
 pub use analysis::{
-    Analysis, AnalysisId, AnalysisStatus, Applied, Choice, Failure, NewAnalysis, MIN_PROMPT,
+    Analysis, AnalysisId, AnalysisStatus, Applied, Choice, Failure, NewAnalysis, MAX_PROMPT,
+    MIN_PROMPT,
 };
 pub use coverage::{attributed, Attempt, Coverage};
 pub use examples::{examples, Example, CURATION_NOTE};

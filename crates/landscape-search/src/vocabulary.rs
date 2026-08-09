@@ -283,12 +283,18 @@ fn trimmed(window: &[String]) -> Option<String> {
     if words.len() < SHORTEST {
         return None;
     }
-    // **A label a reader cannot send back is not a label.** It becomes a chip when two markets
-    // tie, and `NewAnalysis::parse` refuses anything under `MIN_PROMPT` characters - which is
-    // how a chip came to render and then answer the click with a 400 one row ago (register 47).
-    // Guarding at the source rather than at each use means every later reader of a label gets
-    // one that works, by construction rather than by remembering.
-    if words.iter().map(String::len).sum::<usize>() + words.len() - 1 < landscape_core::MIN_PROMPT {
+    let phrase = words.join(" ");
+    // **A label a reader cannot send back is not a label**, and the thing that decides that is
+    // asked rather than imitated. It becomes a chip when two markets tie; `NewAnalysis::parse`
+    // is what the click is validated by, so it is what the phrase is validated by here.
+    //
+    // The first version of this counted `String::len` against `MIN_PROMPT` itself, and review
+    // found what re-deriving a rule costs: `len` is **bytes** and the parser counts
+    // **characters**, so `ää ää` — five characters, nine bytes — became a chip that rendered
+    // and then answered the click with a `400`. That is register 47 for the third time, in the
+    // guard written for register 47. It also silently ignored `MAX_PROMPT`, which the parser
+    // enforces and a re-derived rule had no reason to know about.
+    if landscape_core::NewAnalysis::parse(&phrase).is_err() {
         return None;
     }
     // **Our own boilerplate is not the market's word for anything.** We search `best {} software`
@@ -296,7 +302,7 @@ fn trimmed(window: &[String]) -> Option<String> {
     if words.iter().all(|w| ours().contains(w.as_str())) {
         return None;
     }
-    Some(words.join(" "))
+    Some(phrase)
 }
 
 /// The words this codebase puts into a query itself, from the templates that put them there.
@@ -940,6 +946,21 @@ mod tests {
         assert!(
             phrases_in("Abcd Cde").contains(&"abcd cde".to_owned()),
             "a phrase exactly long enough to send was dropped"
+        );
+
+        // **Characters, not bytes.** Review found the difference: `ää ää` is five characters
+        // and nine, so a guard counting `String::len` let it through and the click got a 400.
+        // The validator is asked now rather than imitated, so this cannot come apart again.
+        assert!(
+            phrases_in("Ää Ää").is_empty(),
+            "a five-character phrase passed a guard measuring bytes"
+        );
+        // And the other end of the same rule, which a re-derived guard had no reason to know
+        // existed: `MAX_PROMPT`.
+        let enormous = "x".repeat(landscape_core::MAX_PROMPT);
+        assert!(
+            phrases_in(&format!("{enormous} {enormous}")).is_empty(),
+            "a phrase longer than a prompt may be was offered as a category"
         );
     }
 

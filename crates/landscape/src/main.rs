@@ -586,19 +586,27 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
     }
 
     // Everything below is about these words, whoever chose them.
-    let description = landscape_search::vocabulary::search_with(&interpreted, description);
-    println!("searched for    {description}");
+    let words = landscape_search::vocabulary::search_with(&interpreted, description);
+    // **The same predicate `for_market` uses.** Comparing the two strings is what review found
+    // wrong: `for_idea` normalises before interpolating, so a trailing `!` or a capital letter
+    // is the same search and asking again buys three requests and nothing else.
+    let substituted = landscape_search::candidates::substitutes(description, words);
+    println!("searched for    {words}");
+    if !substituted {
+        println!("                (unchanged - these are your own words)");
+    }
+    let description = words;
 
-    let (found, queried) = if description == args[1] {
-        (
-            landscape_search::candidates::from_results(&hits, asked_once.sent()),
-            asked_once,
-        )
-    } else {
+    let (found, queried) = if substituted {
         let (again, asked_twice) = landscape_search::candidates::ask(&engine, description).await;
         (
             landscape_search::candidates::from_results(&again, asked_twice.sent()),
             asked_once.and(asked_twice),
+        )
+    } else {
+        (
+            landscape_search::candidates::from_results(&hits, asked_once.sent()),
+            asked_once,
         )
     };
     println!(
@@ -1487,8 +1495,12 @@ async fn resolve_from_description(
     }
     Read {
         decided: landscape_analyze::subject::decide(derived, &read.queried),
-        interpreted: match read.interpreted {
-            landscape_search::vocabulary::Resolved::Market(market) => {
+        // **Only when something was actually substituted.** A market whose name is what the
+        // reader already typed is not an interpretation, and a line saying so would be noise
+        // over the top of the one case the line exists for. `for_market` decided it, so this
+        // cannot come to a different answer than the second round of searches did.
+        interpreted: match (read.substituted, read.interpreted) {
+            (true, landscape_search::vocabulary::Resolved::Market(market)) => {
                 Some(landscape_core::Interpreted {
                     label: market.label,
                     also: market.also,

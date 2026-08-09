@@ -15,8 +15,8 @@
   {
     "name": "a second round of searches goes out even when the words did not change",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "    let (derived, queried) = if words == description {",
-    "new": "    let (derived, queried) = if false {",
+    "old": "    let (derived, queried) = if substituted {",
+    "new": "    let (derived, queried) = if true {",
     "run": [
       "cargo",
       "nextest",
@@ -54,7 +54,7 @@
   {
     "name": "a market's label is used even when it is too short to send back",
     "file": "crates/landscape-search/src/vocabulary.rs",
-    "old": "    if words.iter().map(String::len).sum::<usize>() + words.len() - 1 < landscape_core::MIN_PROMPT {\n        return None;\n    }",
+    "old": "    if landscape_core::NewAnalysis::parse(&phrase).is_err() {\n        return None;\n    }",
     "new": "    if false {\n        return None;\n    }",
     "run": [
       "cargo",
@@ -163,5 +163,57 @@
       "run"
     ],
     "cwd": "web"
+  },
+  {
+    "name": "a label is measured in bytes where the API counts characters",
+    "file": "crates/landscape-search/src/vocabulary.rs",
+    "old": "    if landscape_core::NewAnalysis::parse(&phrase).is_err() {",
+    "new": "    if phrase.len() < landscape_core::MIN_PROMPT {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "one search written two ways is treated as two",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    asked(described) != asked(words)",
+    "new": "    described != words",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the queries are compared with their capitalisation intact",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "            .map(|q| q.text.to_lowercase())",
+    "new": "            .map(|q| q.text.clone())",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a run that substituted nothing says it interpreted something",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    let substituted = substitutes(description, words);",
+    "new": "    let substituted = true;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
   }
 ]
