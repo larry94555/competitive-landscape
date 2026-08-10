@@ -1937,3 +1937,169 @@ describe("the set a report was built from", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+describe("the report as something to paste", () => {
+  /**
+   * A finished report, and whatever the context endpoint should answer with.
+   *
+   * **The clipboard is `userEvent`'s.** `userEvent.setup()` installs its own, so stubbing
+   * `navigator` here would be quietly replaced a line later and the test would assert against
+   * a stub nothing ever wrote to. Reading it back with `readText` exercises the real call.
+   */
+  function ready(markdown: string): { asked: string[] } {
+    const asked: string[] = [];
+    stubEventSource();
+    const finished = {
+      ...queued(),
+      status: "complete" as const,
+      report: {
+        subject: "basecamp.com",
+        searched_as: "basecamp.com",
+        generated_at: "2026-08-05T00:00:00Z",
+        model_id: "test",
+        prompt_version: 1,
+        subjects: ["https://basecamp.com"],
+        sections: [
+          section("pricing", "Pricing & packaging", "Pro costs $15", "https://basecamp.com"),
+        ],
+        sources: [],
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string, init?: RequestInit) => {
+        if (String(url).endsWith("/context")) {
+          asked.push(String(url));
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            text: () => Promise.resolve(markdown),
+          } as Response);
+        }
+        return Promise.resolve({
+          ok: true,
+          status: init?.method === "POST" ? 201 : 200,
+          json: () => Promise.resolve(init?.method === "POST" ? queued() : finished),
+        } as Response);
+      }),
+    );
+    return { asked };
+  }
+
+  /** Take the clipboard away, the way a browser outside a secure context does. */
+  function withNoClipboard(): void {
+    Object.defineProperty(navigator, "clipboard", {
+      value: undefined,
+      configurable: true,
+    });
+  }
+
+  async function arrive(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+    act(() => FakeEventSource.last!.send("done", ""));
+    expect(await screen.findByText(/Pro costs \$15/)).toBeInTheDocument();
+  }
+
+  it("puts the whole report on the clipboard, as the server wrote it", async () => {
+    // **IDEA_ANALYSIS section 5**: we are not a worse chatbot, we are the evidence file a
+    // chatbot cannot assemble. The bytes are the server's - a copy of that renderer here
+    // would be a second opinion about what a source's standing is called.
+    const md = "Here is a public-evidence report...\n\n# basecamp.com\n";
+    ready(md);
+    const user = userEvent.setup();
+    await arrive(user);
+
+    await user.click(screen.getByRole("button", { name: /copy as context/i }));
+    expect(await screen.findByRole("button", { name: /^copied$/i })).toBeInTheDocument();
+    expect(await navigator.clipboard.readText()).toBe(md);
+  });
+
+  it("is not offered until there is a whole report to paste", async () => {
+    // Half a report handed to an assistant is answered from as confidently as all of it.
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    expect(
+      screen.queryByRole("button", { name: /copy as context/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("asks the server once, not once per failure", async () => {
+    // The document is already in hand when the clipboard refuses; asking again would be
+    // this button paying for its own error path.
+    const { asked } = ready("# basecamp.com\n");
+    const user = userEvent.setup();
+    await arrive(user);
+    withNoClipboard();
+
+    await user.click(screen.getByRole("button", { name: /copy as context/i }));
+    await screen.findByRole("alert");
+    expect(asked).toHaveLength(1);
+  });
+
+  it("hands over the text when the browser will not allow a clipboard", async () => {
+    // A button that silently does nothing is worse than one that admits it - and the reader
+    // still wanted the document, so they still get it.
+    const md = "# basecamp.com\n\n- Pro costs $15 [S1]\n";
+    ready(md);
+    const user = userEvent.setup();
+    await arrive(user);
+    withNoClipboard();
+
+    await user.click(screen.getByRole("button", { name: /copy as context/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/select it and copy/i);
+    expect(screen.getByLabelText(/the report as markdown/i)).toHaveValue(md);
+  });
+
+  it("says so when the report could not be assembled at all", async () => {
+    // Nothing to offer, so nothing is offered - and the reader is told rather than left
+    // looking at a button that did nothing.
+    stubEventSource();
+    const finished = {
+      ...queued(),
+      status: "complete" as const,
+      report: {
+        subject: "basecamp.com",
+        searched_as: "basecamp.com",
+        generated_at: "2026-08-05T00:00:00Z",
+        model_id: "test",
+        prompt_version: 1,
+        subjects: ["https://basecamp.com"],
+        sections: [
+          section("pricing", "Pricing & packaging", "Pro costs $15", "https://basecamp.com"),
+        ],
+        sources: [],
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string, init?: RequestInit) => {
+        if (String(url).endsWith("/context")) {
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+            json: () => Promise.resolve({ error: "Something went wrong." }),
+          } as Response);
+        }
+        return Promise.resolve({
+          ok: true,
+          status: init?.method === "POST" ? 201 : 200,
+          json: () => Promise.resolve(init?.method === "POST" ? queued() : finished),
+        } as Response);
+      }),
+    );
+    const user = userEvent.setup();
+    await arrive(user);
+
+    await user.click(screen.getByRole("button", { name: /copy as context/i }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/the report as markdown/i)).not.toBeInTheDocument();
+  });
+});

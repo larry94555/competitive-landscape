@@ -2306,6 +2306,44 @@ not let a second audience read it: a category with three values answers *what do
 
 ---
 
+## 62. A field that was fine everywhere it had ever been shown
+
+**Found:** by running the new feature against a real company and reading its output.
+
+`Report::model_id` is documented as the model, and `landscape-analyze` sets it to
+`llm.base()` — the inference server's address. That had been true for months and had never
+mattered, because nothing rendered it: the page types the field and does not draw it, and the
+API hands back the whole report to a client that ignores it.
+
+Then a feature was built whose entire purpose is that its output **leaves the building**. The
+first real run printed:
+
+```text
+- Produced by: Landscape, model `http://127.0.0.1:8080`, prompt version 1
+```
+
+On a laptop that is nothing. On the deployed box it is `LLAMA_URL`, an internal host, in a
+document written to be pasted into a third party's chat window.
+
+**Nothing was wrong with the field, the renderer, or any test.** What changed was the
+*audience*. A value that is safe in a database, safe in a JSON response nobody reads and safe on
+a page that never draws it is not thereby safe in a document designed to travel — and there is
+no test for "somewhere else" until somewhere else exists.
+
+The fix is small (the document does not carry it, and a test asserts no part of an address
+reaches it) and the underlying field is still wrong for every future consumer, so that was
+written up as its own piece of work rather than repaired in passing — a change that fixes two
+unrelated things is a change whose review has to hold two arguments at once.
+
+**Rule:** when a change gives existing data a **new destination**, walk every field it now
+carries and ask who reads it there — not whether it was correct, but whether it was ever meant
+for that audience. Export formats, webhooks, share links and copy buttons are all the same
+event: data that was internal by accident becomes external on purpose.
+
+> **Ask this:** *this value was fine where it was — who sees it now that did not before?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

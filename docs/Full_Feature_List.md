@@ -70,11 +70,11 @@ only you can do; they are listed at the bottom and are not counted anywhere.
 |---|---|---|---|---|---|
 | [**S1**](#s1--ready-for-a-guided-demo) | Ready for a guided demo | 39 | 39 | **0** | **100%** |
 | [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 20 | 19 | **1** | **95%** |
-| [**S3**](#s3--ready-for-use) | Friendly users find no issue | 26 | 1 | **25** | **4%** |
+| [**S3**](#s3--ready-for-use) | Friendly users find no issue | 26 | 2 | **24** | **8%** |
 | [**S4**](#s4--ready-for-general-use) | Promotable, word-of-mouth quality | 11 | 0 | **11** | **0%** |
 | [**S5**](#s5--general-use-free-mode) | Stable, email signup, community | 15 | 0 | **15** | **0%** |
 | [**S6**](#s6--general-use-full-mode) | Notifications and paid subscriptions | 21 | 0 | **21** | **0%** |
-| | **Total** | **132** | **59** | **73** | **45%** |
+| | **Total** | **132** | **60** | **72** | **45%** |
 | | *Getting it onto a host (not a state)* | *3* | *0* | *3* | *0%* |
 
 **The shape of that table is the answer to "how far are we".** **S1 is complete** — the guided
@@ -265,12 +265,20 @@ and the measurement that decided against a headless browser.
 | Rendering ladder tiers 2–4 — embedded state, then the rest | S3 | 2 | 1 | **1** | 50% |
 | Latency work — section-parallel generation, prompt-prefix stabilisation | S3 | 2 | 0 | **2** | 0% |
 | "What people are saying" — Hacker News and GitHub only, with named exclusions | S3 | 2 | 0 | **2** | 0% |
-| **Copy as context** — the whole report as clean Markdown, sized to paste elsewhere | S3 | 1 | 0 | **1** | 0% |
-| | | **26** | **1** | **25** | **4%** |
+| **Copy as context** — the whole report as clean Markdown, sized to paste elsewhere | S3 | 1 | **1** | 0 | **100%** |
+| | | **26** | **2** | **24** | **8%** |
 
-**Copy as context is the cheapest row on this page and worth pulling forward.** It is the feature
-that settles what the product *is*: not a worse chatbot, but the evidence file a chatbot cannot
-assemble.
+**Copy as context was the cheapest row on this page and it is done** —
+[BENCHMARKS.md](BENCHMARKS.md) Run 43. It was pulled forward because it settles what the product
+*is*: not a worse chatbot, but the evidence file a chatbot cannot assemble. A finished report
+hands its whole self to whatever assistant a reader already pays for, with a URL and a date
+against every sentence.
+
+**It was pulled forward for a second reason, and that one is about S2.** S2's last row cannot be
+closed from a keyboard — it needs a search engine actually answering, and off-site adapters wait
+on [B4](../PROJECT_STATUS.md#4-blockers), which is a reading job only the founder can do. Rather
+than leave a state that is 95% done blocking everything, the cheapest unblocked row in the next
+state moved.
 
 ---
 

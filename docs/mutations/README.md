@@ -16,6 +16,7 @@ python3 scripts/mutate.py docs/mutations/asking-whether-it-changed.json
 python3 scripts/mutate.py docs/mutations/where-the-roles-actually-live.json
 python3 scripts/mutate.py docs/mutations/the-set-is-editable.json
 python3 scripts/mutate.py docs/mutations/refused-is-not-slow.json
+python3 scripts/mutate.py docs/mutations/copy-as-context.json
 ```
 
 **Why these are committed when the register says to keep them in a scratchpad.** Most are
@@ -137,6 +138,13 @@ collapse one level further down: the per-query line said *"no answer"* beside a 
 had answered `408` to. Three more followed a round later, when *"a 200 we cannot parse"* turned out to be
 two events with opposite remedies. Six of the seventeen exist because a fix was too coarse in
 exactly the way the change was about — which is the file doing its job three rounds running.
+
+`copy-as-context.json` caught a **test** rather than the code. Its first entry takes the source
+label off every claim, and nothing failed — because the assertion looked for `[S1]`
+*somewhere* in the document, and the sources index at the bottom lists every label. The claims
+could all have gone out unlabelled. That is the same shape as the frontend test that looked for a
+company name on a page which repeats it, and it is the argument for writing the mutation before
+believing the test.
 
 **These files are also read backwards.** `scripts/no_live_mutations.py` takes every `new`
 payload as the shape of a defect this repository can recognise, and refuses a working tree that

@@ -180,6 +180,17 @@ endpoint by hand, so the rejection names the missing header rather than making y
   "remedy": "Add -H 'content-type: application/json' to the request." }
 ```
 
+### Take the report somewhere else
+
+```bash
+curl -s http://127.0.0.1:8787/api/analyses/<id>/context
+```
+
+The whole report as Markdown, with every source URL and date, to paste into whatever assistant
+you already use — [`IDEA_ANALYSIS.md` §5](docs/IDEA_ANALYSIS.md). `text/markdown`, so what comes
+back is the file rather than a file inside a quoted string. The browser has the same thing on a
+**Copy as context** button under any finished report.
+
 ---
 
 ## Test it

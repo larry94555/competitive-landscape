@@ -275,6 +275,20 @@ export async function getAnalysis(id: string): Promise<Analysis> {
 }
 
 /**
+ * The whole report as Markdown, for a reader to paste into their own assistant.
+ *
+ * **Fetched rather than built here.** The bytes come from `landscape_core::context`, which is
+ * also what `curl` gets — so the page, the terminal and whatever a reader pastes are one
+ * document. Rendering it in TypeScript would mean a second set of decisions about what a
+ * source's standing is called, which is a rule that agrees today.
+ */
+export async function getContext(id: string): Promise<string> {
+  const response = await fetch(`/api/analyses/${id}/context`);
+  if (!response.ok) return readError(response);
+  return await response.text();
+}
+
+/**
  * The analysis a URL is pointing at, if it is pointing at one.
  *
  * **A run with no URL cannot be shared, reopened or refreshed**, which is the single thing

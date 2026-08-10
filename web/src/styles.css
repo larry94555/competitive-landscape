@@ -169,6 +169,21 @@ button.choice strong { display: block; }
 .editable-set button.rerun:disabled { opacity: 0.6; }
 .editable-set .refused { color: var(--muted); font-size: 0.9rem; margin: 0.5rem 0 0; }
 
+/* The evidence file, on the clipboard. Quiet and last: it is what a reader does *after*
+   reading, not something competing with the report for attention. */
+.as-context { margin: 1.4rem 0 0.6rem; }
+.as-context button { margin: 0; padding: 0.35rem 0.8rem; }
+.as-context .hint { color: var(--muted); font-size: 0.9rem; margin: 0.4rem 0 0; }
+.as-context .refused { color: var(--muted); font-size: 0.9rem; margin: 0.5rem 0 0; }
+.as-context textarea {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  border: 1px solid var(--rule);
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+}
+
 /* The market's words, above the results. Quiet, because it is context rather than a finding —
    but never hidden, because everything below it was searched for in these words. */
 .interpreted { color: var(--ink); margin-bottom: 0.2rem; }

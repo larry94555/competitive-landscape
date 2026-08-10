@@ -2291,6 +2291,73 @@ That prints the page's size; the Markdown behind it keeps the headings and table
 
 ---
 
+## Part 8I — Hand the whole report to your own assistant
+
+**The last thing you do with a report is give it to something else.** `IDEA_ANALYSIS.md` §5:
+most readers evaluating an idea already pay for a frontier chatbot, and the honest response is
+to feed it rather than compete with it. We are not a worse chatbot; we are the evidence file a
+chatbot cannot assemble.
+
+Finish any analysis, then, under the report:
+
+```text
+(Copy as context)
+The whole report as Markdown, with every source URL and date — paste it into the
+assistant you already use.
+```
+
+One click puts the whole thing on the clipboard. **You do not need the browser** — the same
+bytes come out of the API:
+
+```bash
+curl -s localhost:8787/api/analyses/<id>/context
+```
+
+```text
+Here is a public-evidence report on an idea I am considering. Every claim below has a
+source and a date. Tell me what the evidence does not cover, and where you would want
+more before believing it.
+
+---
+
+# https://linear.app
+
+- Generated: 2026-08-10 09:38 UTC
+- Produced by: Landscape, prompt version 1
+- This report: `/a/ae306779-cd9e-4e8b-bfec-2520c2b5e504`
+```
+
+`content-type: text/markdown; charset=utf-8`, so what you get is the file rather than a file
+inside a quoted string.
+
+### Four things to check, because they are the reasons this is not a one-liner
+
+| Look for | Why |
+|---|---|
+| a `>` quote under every claim | the verbatim span it came from, on one line, with **no words removed and no ellipsis** — a shortened quote is not a verbatim quote |
+| `<https://...>` and a date against every source | an assistant that cannot check a claim is being asked to trust us, which is the thing this file exists not to ask |
+| *"Nothing was found in public sources"* with the list of what was checked | a negative nobody can repeat is not a finding, `FACT_CHECKING.md` §5.4 |
+| **no address of ours anywhere** | this is the one document written to be pasted somewhere else, and it carries what a reader can use rather than where we run |
+
+### And try it in a browser that says no
+
+`navigator.clipboard` does not exist outside a secure context and can be refused by policy. Turn
+it off and press the button:
+
+```js
+Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true });
+```
+
+```text
+This browser would not let us reach the clipboard. Here it is — select it and copy.
+[ the whole document, in a text box ]
+```
+
+**The reader still gets the document.** A button that silently does nothing looks exactly like
+one that worked. See [BENCHMARKS.md](BENCHMARKS.md) Run 43.
+
+---
+
 ## Part 9 — What the tests prove
 
 ```bash

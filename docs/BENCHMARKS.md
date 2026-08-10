@@ -33,6 +33,95 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 43 — the evidence file a chatbot cannot assemble
+
+**Date:** 2026-08-10 · **Where:** this laptop · **Model:** none. Every byte here is a field of
+a report that already exists.
+
+`Full_Feature_List.md` nominates its own next item, and has for four states:
+
+> **Copy as context is the cheapest row on this page and worth pulling forward.** It is the
+> feature that settles what the product *is*: not a worse chatbot, but the evidence file a
+> chatbot cannot assemble.
+
+`IDEA_ANALYSIS.md` §5 says why:
+
+> Most readers evaluating an idea already pay for a frontier chatbot, and the correct response
+> is to **feed it rather than compete with it.** … We are not a worse chatbot. We are the
+> **evidence file a chatbot cannot assemble**, and the reader's assistant is better with it
+> than without it.
+
+So a finished report now offers one button, and what it puts on the clipboard is the whole
+thing as Markdown — every claim with the span it came from, every source with a URL and a date.
+
+### It is Rust, and that is the whole point of putting it there
+
+The page already renders this data. A second renderer in TypeScript would be a second set of
+decisions about **what a disposition is called** and **when a company's name is worth
+printing** — register entry 51, *a copy of a rule is a rule that agrees today*, which has cost
+this project three rounds of review in other places. `Disposition::reader_description` writes
+those words once and this reads them, so `curl`, the button and the page cannot drift.
+
+```bash
+curl -s localhost:8787/api/analyses/<id>/context
+```
+
+`text/markdown; charset=utf-8`, so what comes back is the file rather than a file inside a
+quoted string.
+
+### What it will not do
+
+**Say anything the report does not.** Every line is a field, a label, or one of eight fixed
+headings. No summarising, no re-ordering by importance, no judgement about a publisher — the
+constraints `FACT_CHECKING.md` §3.2.5 puts on a report are not relaxed by changing the file
+extension.
+
+**Edit a quote.** Newlines inside a `>` block would end the quote, so whitespace collapses;
+nothing else changes and no ellipsis is added. **A verbatim span that has been shortened is not
+a verbatim span**, which is the only reason `Claim` carries one.
+
+**Stop halfway in silence.** `MAX_BYTES` is 256 KiB — eight times the largest report this
+pipeline can build, which measures **32 KiB** for six companies with every section full, and a
+test asserts that rather than the docstring claiming it. When the bound is reached the document
+says which sections are missing and where the rest of it is.
+
+**Point at sections that do not exist.** §5's opening line ends *"argue with the framing
+questions in sections 6 and 7"*. Those are Phase 4. Sending an assistant to read them would be
+the document lying about its own contents on line one, so that clause is gone and the part that
+matters is not: *tell me what the evidence does not cover*.
+
+### Running it found what no test would have
+
+Every unit test passed. Then the real thing, against a real company:
+
+```text
+- Produced by: Landscape, model `http://127.0.0.1:8080`, prompt version 1
+```
+
+`Report::model_id` is set to `llm.base()` — **the address of the inference server**. On a
+laptop that is harmless. On the deployed box it is `LLAMA_URL`, an internal host, and this is
+the one document in the product written to be pasted into somebody else's service.
+
+Nothing else renders that field, so nothing had ever exposed it. The provenance line now says
+the product and the prompt version, and a test asserts that no part of an address reaches the
+document. The underlying field is still wrong for every other consumer and is written up
+separately rather than fixed in passing.
+
+### And the first real browser refused the clipboard
+
+The fallback was written on the theory that `navigator.clipboard` is absent outside a secure
+context and refusable by policy. The first browser it was tried in **refused**, and the reader
+still got the document — the text appears on the page, selectable, with a sentence saying to
+copy it by hand. A button that silently does nothing would have looked exactly like a working
+one.
+
+| | Rust tests | frontend tests | catalogue |
+|---|---|---|---|
+| Run 42 | 968 | 74 | 17, all caught |
+| now | **983** | **79** | **15**, all caught |
+
+---
+
 ## Run 42 — an engine that refuses is not an engine that is slow
 
 **Date:** 2026-08-10 · **Where:** this laptop · **Model:** none. Every sentence here is

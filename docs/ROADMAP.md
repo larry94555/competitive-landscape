@@ -1164,10 +1164,22 @@ requested when the user asks for something that requires it.
   X, LinkedIn and Reddit disclosed by name with prefilled searches that open on each site
   under the reader's own account. Ships with the framing sections so the report's honesty
   about its own limits reads as one design.
-- **"Copy as context"** — the whole report as clean Markdown with every URL and date, sized
-  to paste into the reader's own AI assistant ([IDEA_ANALYSIS.md](IDEA_ANALYSIS.md) §5).
-  Near-free to build, and it settles the positioning: we are not a worse chatbot, we are the
-  evidence file a chatbot cannot assemble.
+- ~~**"Copy as context"** — the whole report as clean Markdown with every URL and date, sized
+  to paste into the reader's own AI assistant ([IDEA_ANALYSIS.md](IDEA_ANALYSIS.md) §5).~~
+  **Done, and pulled forward out of Phase 4** — [BENCHMARKS.md](BENCHMARKS.md) Run 43. It settles
+  the positioning, so it is worth having before the things it was scheduled behind: we are not a
+  worse chatbot, we are the evidence file a chatbot cannot assemble.
+  `GET /api/analyses/{id}/context` answers `text/markdown`, and the button puts the same bytes on
+  the clipboard. **Rendered in Rust rather than in the browser**, because the page already draws
+  this data and a second renderer would hold a second opinion about what a source's standing is
+  called — register entry 51, which has cost three rounds of review elsewhere.
+  §5's opening line is trimmed: it ends *"argue with the framing questions in sections 6 and 7"*
+  and those are still Phase 4, so pointing an assistant at them would be the document lying about
+  its own contents on line one.
+  **And it carries nothing about where we run.** `Report::model_id` holds `llm.base()` — the
+  inference server's address — which no other surface renders; a document written to be pasted
+  into somebody else's service is the wrong place to find that out, and running it is how it was
+  found.
 
 **Decision required before writing billing code: merchant of record, or not?**
 Stripe is a payment processor — VAT, GST, and US sales-tax registration, calculation, and

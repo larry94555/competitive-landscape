@@ -4,6 +4,7 @@ import {
   ApiError,
   createAnalysis,
   getAnalysis,
+  getContext,
   getExamples,
   isTerminal,
   pathFor,
@@ -507,6 +508,14 @@ function AnalysisView({
         <EditableSet companies={analysed} onRun={onPick} running={picking} />
       )}
 
+      {/*
+        **The evidence file, on the clipboard.** `IDEA_ANALYSIS.md` §5: most readers evaluating
+        an idea already pay for a frontier chatbot, and the honest response is to feed it rather
+        than compete with it. Only once the report is finished — half of it, pasted, is answered
+        from as confidently as all of it.
+      */}
+      {report && isTerminal(showing_status) && <CopyAsContext id={analysis.id} />}
+
       <p className="status">
         {describe(showing_status, analysis.failure, choices.length)}
       </p>
@@ -651,6 +660,92 @@ function AnalysisView({
  * the prop into state, or a `key`, would be a second answer to a question already answered, and a
  * second answer is a thing that can disagree.
  */
+/**
+ * The whole report as Markdown, on the clipboard in one click.
+ *
+ * **This is the product's argument for itself, as a button.** `IDEA_ANALYSIS.md` §5: we are not
+ * a worse chatbot, we are the evidence file a chatbot cannot assemble — so the last thing a
+ * reader does with a report is hand it to the assistant they already use, with a URL and a date
+ * against every sentence.
+ *
+ * **The bytes are the server's.** `getContext` fetches what `curl` would get, which is what
+ * `landscape_core::context` wrote. A copy of that renderer here would be a second opinion about
+ * what `Attributed` means.
+ *
+ * **And the clipboard is allowed to say no.** `navigator.clipboard` is absent outside a secure
+ * context and can be refused by permission policy, and a button that silently does nothing is
+ * worse than one that admits it — so a failure puts the text on the page, selected, with a
+ * sentence saying to copy it by hand.
+ */
+function CopyAsContext({ id }: { id: string }): React.JSX.Element {
+  const [state, setState] = useState<"idle" | "working" | "copied">("idle");
+  const [fallback, setFallback] = useState("");
+  const [failed, setFailed] = useState("");
+
+  // **Two failures, and they are not the same failure.** Fetching can fail, in which case
+  // there is nothing to offer; the clipboard can refuse, in which case we still have the
+  // document and the reader can have it. One request either way — asking the server twice for
+  // bytes already in hand would be this button paying for its own error path.
+  const copy = async (): Promise<void> => {
+    setState("working");
+    setFailed("");
+    setFallback("");
+
+    let markdown: string;
+    try {
+      markdown = await getContext(id);
+    } catch (whatever) {
+      setState("idle");
+      setFailed(
+        whatever instanceof ApiError
+          ? whatever.message
+          : "We could not put the report together. Try again in a moment.",
+      );
+      return;
+    }
+
+    try {
+      // Absent outside a secure context, and refusable by permission policy. A button that
+      // silently does nothing is worse than one that admits it.
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("no clipboard here");
+      }
+      await navigator.clipboard.writeText(markdown);
+      setState("copied");
+    } catch {
+      setState("idle");
+      setFallback(markdown);
+    }
+  };
+
+  return (
+    <section className="as-context" aria-label="Copy this report for an assistant">
+      <button type="button" onClick={() => void copy()} disabled={state === "working"}>
+        {state === "copied" ? "Copied" : "Copy as context"}
+      </button>
+      <p className="hint">
+        The whole report as Markdown, with every source URL and date — paste it into the
+        assistant you already use.
+      </p>
+
+      {failed !== "" && (
+        <p className="refused" role="alert">
+          {failed}
+        </p>
+      )}
+
+      {fallback !== "" && (
+        <>
+          <p className="refused" role="alert">
+            This browser would not let us reach the clipboard. Here it is — select it and copy.
+          </p>
+          <textarea readOnly aria-label="The report as Markdown" value={fallback} rows={12} />
+        </>
+      )}
+    </section>
+  );
+}
+
 /**
  * How this page shows a company, and therefore the only sameness it is entitled to judge.
  *
