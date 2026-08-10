@@ -33,6 +33,9 @@
 
 use std::fmt::Write as _;
 
+/// One line ending, named so a `format!` can carry it without a `writeln!`.
+const NEWLINE: &str = "\n";
+
 use crate::report::{Report, Section, SectionStatus};
 
 /// The most Markdown one report may produce.
@@ -59,74 +62,164 @@ pub const OPENING_LINE: &str = concat!(
     "more before believing it."
 );
 
+/// The most the closing note can cost, so room for it can be kept before it is written.
+///
+/// It is one heading, one sentence and three counts — all of this module's own words — plus the
+/// permalink, which the caller supplies and is therefore added on top rather than assumed.
+const CLOSING_NOTE_MAX: usize = 512;
+
+/// The document under construction, and what would not fit in it.
+///
+/// **Every push goes through here, which is what makes [`MAX_BYTES`] a bound rather than an
+/// intention.** The first version checked the size of section blocks and then appended the
+/// sources index, the heading and the closing note unconditionally — and titles, URLs and notes
+/// all come from pages we did not write, so a report could pass the check and leave by an
+/// arbitrary margin. Review measured 882 KiB against a documented 256 KiB.
+struct Paste<'a> {
+    out: String,
+    /// Kept for the closing note, so that the note itself always has somewhere to go.
+    reserve: usize,
+    permalink: Option<&'a str>,
+    dropped_sections: Vec<&'a str>,
+    dropped_lines: usize,
+    dropped_sources: usize,
+}
+
+impl<'a> Paste<'a> {
+    fn new(permalink: Option<&'a str>) -> Self {
+        Self {
+            out: String::with_capacity(4096),
+            reserve: CLOSING_NOTE_MAX + permalink.map_or(0, str::len),
+            permalink,
+            dropped_sections: Vec::new(),
+            dropped_lines: 0,
+            dropped_sources: 0,
+        }
+    }
+
+    /// Append a block if it fits beside what is still owed, and say whether it did.
+    fn take(&mut self, block: &str) -> bool {
+        if self.out.len() + block.len() + self.reserve > MAX_BYTES {
+            return false;
+        }
+        self.out.push_str(block);
+        true
+    }
+
+    /// A line of the heading. Counted when it does not fit, never shortened.
+    fn line(&mut self, block: &str) {
+        if !self.take(block) {
+            self.dropped_lines += 1;
+        }
+    }
+
+    /// **What is not in this file**, and where the whole of it is.
+    ///
+    /// Written last, from counts rather than from more of the report, because this is the one
+    /// paragraph that has to be guaranteed room. Section titles are named when they fit —
+    /// they are the useful version — and the fallback is counts alone, which cannot grow.
+    fn finish(mut self) -> String {
+        if self.dropped_sections.is_empty() && self.dropped_lines == 0 && self.dropped_sources == 0
+        {
+            return self.out;
+        }
+        self.reserve = 0;
+        let named = self.note(true);
+        if !self.take(&named) {
+            let counted = self.note(false);
+            let _ = self.take(&counted);
+        }
+        self.out
+    }
+
+    fn note(&self, name_them: bool) -> String {
+        let mut note = String::new();
+        let _ = writeln!(note, "## What is not in this file");
+        let _ = writeln!(note);
+        let _ = write!(
+            note,
+            "This report was too long to paste in one piece, so {} section(s)",
+            self.dropped_sections.len()
+        );
+        if name_them && !self.dropped_sections.is_empty() {
+            let _ = write!(note, " ({})", self.dropped_sections.join(", "));
+        }
+        let _ = writeln!(
+            note,
+            ", {} source(s) and {} other line(s) are missing here.",
+            self.dropped_sources, self.dropped_lines
+        );
+        if let Some(path) = self.permalink {
+            let _ = writeln!(note, "They are on the report itself, at `{path}`.");
+        }
+        let _ = writeln!(note);
+        note
+    }
+}
+
 /// The report as Markdown, and the permalink to say where the rest of it is.
 ///
 /// `permalink` is a path rather than a URL because this crate does not know the host it is
 /// being served from, and a guessed one on a document meant to travel is worse than none.
+///
+/// The result is **never longer than [`MAX_BYTES`]**, whatever the report contains, and never
+/// shorter without saying so.
 #[must_use]
 pub fn of(report: &Report, permalink: Option<&str>) -> String {
-    let mut out = String::with_capacity(4096);
-    heading(&mut out, report, permalink);
+    let mut paste = Paste::new(permalink);
+    heading(&mut paste, report, permalink);
 
     // **Sections in the report's own order**, which is the order the reader saw them in. Any
     // other order here would be this module having an opinion about importance.
-    let mut omitted: Vec<&str> = Vec::new();
     for section in &report.sections {
         let mut block = String::new();
         write_section(&mut block, report, section);
-        // The sources index and the closing note still have to fit, so the budget is checked
-        // against what this section would cost *plus* what is still owed.
-        if out.len() + block.len() > MAX_BYTES {
-            omitted.push(section.title.as_str());
-            continue;
+        if !paste.take(&block) {
+            paste.dropped_sections.push(section.title.as_str());
         }
-        out.push_str(&block);
     }
 
-    write_sources(&mut out, report);
-    write_what_is_missing(&mut out, &omitted, permalink);
-    out
+    write_sources(&mut paste, report);
+    paste.finish()
 }
 
-fn heading(out: &mut String, report: &Report, permalink: Option<&str>) {
-    let _ = writeln!(out, "{OPENING_LINE}");
-    let _ = writeln!(out);
-    let _ = writeln!(out, "---");
-    let _ = writeln!(out);
-    let _ = writeln!(out, "# {}", report.subject);
-    let _ = writeln!(out);
+fn heading(paste: &mut Paste<'_>, report: &Report, permalink: Option<&str>) {
+    // **Line by line, because a heading is external data too.** The subject is what a reader
+    // typed and the notes are built from pages we did not write; a single absurd one is
+    // dropped and counted rather than carrying the document past its bound.
+    paste.line(&format!(
+        "{OPENING_LINE}{NEWLINE}{NEWLINE}---{NEWLINE}{NEWLINE}"
+    ));
+    paste.line(&format!("# {}{NEWLINE}{NEWLINE}", report.subject));
 
     // **Provenance before findings.** A reader's assistant should be able to tell how old this
     // is and what produced it before it reads a single claim.
-    let _ = writeln!(
-        out,
-        "- Generated: {}",
+    paste.line(&format!(
+        "- Generated: {}{NEWLINE}",
         report.generated_at.format("%Y-%m-%d %H:%M UTC")
-    );
+    ));
     // **`Report::model_id` is deliberately not here, and running this is how that was
     // found.** The field holds whatever identifies the model *to us*, which today is
     // `llm.base()` — the address of the inference server. On a laptop that is
     // `http://127.0.0.1:8080` and harmless; on the deployed box it is `LLAMA_URL`, an
     // internal host. This is the one document written to be pasted into somebody else's
     // service, so it carries what a reader can use and nothing about where we run.
-    let _ = writeln!(
-        out,
-        "- Produced by: Landscape, prompt version {}",
+    paste.line(&format!(
+        "- Produced by: Landscape, prompt version {}{NEWLINE}",
         report.prompt_version
-    );
+    ));
     if let Some(path) = permalink {
-        let _ = writeln!(out, "- This report: `{path}`");
+        paste.line(&format!("- This report: `{path}`{NEWLINE}"));
     }
     if report.searched_as != report.subject && !report.searched_as.is_empty() {
-        let _ = writeln!(out, "- Searched as: {}", report.searched_as);
+        paste.line(&format!("- Searched as: {}{NEWLINE}", report.searched_as));
     }
     if let Some(interpreted) = &report.interpreted {
         // The substitution that decided every query. Shown here for the same reason it is
         // shown on the page: if the reading is wrong, everything under it is about another
         // market, and only the reader can tell.
-        let _ = writeln!(
-            out,
-            "- Interpreted as: **{}** ({} independent sites used that phrase{})",
+        paste.line(&format!(
+            "- Interpreted as: **{}** ({} independent sites used that phrase{}){NEWLINE}",
             interpreted.label,
             interpreted.hosts,
             if interpreted.also.is_empty() {
@@ -134,20 +227,22 @@ fn heading(out: &mut String, report: &Report, permalink: Option<&str>) {
             } else {
                 format!("; also seen: {}", interpreted.also.join(", "))
             }
-        );
+        ));
     }
     if !report.subjects.is_empty() {
-        let _ = writeln!(out, "- Companies compared: {}", report.subjects.join(", "));
+        paste.line(&format!(
+            "- Companies compared: {}{NEWLINE}",
+            report.subjects.join(", ")
+        ));
     }
-    let _ = writeln!(out);
+    paste.line(NEWLINE);
 
     if !report.notes.is_empty() {
-        let _ = writeln!(out, "## About this comparison");
-        let _ = writeln!(out);
+        paste.line(&format!("## About this comparison{NEWLINE}{NEWLINE}"));
         for note in &report.notes {
-            let _ = writeln!(out, "- {note}");
+            paste.line(&format!("- {note}{NEWLINE}"));
         }
-        let _ = writeln!(out);
+        paste.line(NEWLINE);
     }
 }
 
@@ -204,47 +299,32 @@ fn write_section(out: &mut String, report: &Report, section: &Section) {
     let _ = writeln!(out);
 }
 
-fn write_sources(out: &mut String, report: &Report) {
-    let _ = writeln!(out, "## Sources");
-    let _ = writeln!(out);
+fn write_sources(paste: &mut Paste<'_>, report: &Report) {
+    paste.line(&format!("## Sources{NEWLINE}{NEWLINE}"));
     if report.sources.is_empty() {
-        let _ = writeln!(out, "No page was read.");
-        let _ = writeln!(out);
+        paste.line(&format!("No page was read.{NEWLINE}{NEWLINE}"));
         return;
     }
     // **Every URL and every date**, which is §5's whole requirement: an assistant that cannot
     // check a claim is being asked to trust us, and that is the thing this file exists to
     // avoid asking.
+    //
+    // One line at a time, so a single page with a preposterous title costs its own line rather
+    // than the whole index — the rest of the evidence stays checkable.
     for source in &report.sources {
-        let _ = writeln!(
-            out,
-            "- **[{}]** {} — <{}> (read {}; {})",
+        let line = format!(
+            "- **[{}]** {} — <{}> (read {}; {}){NEWLINE}",
             source.label,
             source.title,
             source.url,
             source.fetched_at.format("%Y-%m-%d"),
             source.disposition.reader_description()
         );
+        if !paste.take(&line) {
+            paste.dropped_sources += 1;
+        }
     }
-    let _ = writeln!(out);
-}
-
-fn write_what_is_missing(out: &mut String, omitted: &[&str], permalink: Option<&str>) {
-    if omitted.is_empty() {
-        return;
-    }
-    let _ = writeln!(out, "## What is not in this file");
-    let _ = writeln!(out);
-    let _ = writeln!(
-        out,
-        "This report was too long to paste in one piece, so {} section(s) are missing here: {}.",
-        omitted.len(),
-        omitted.join(", ")
-    );
-    if let Some(path) = permalink {
-        let _ = writeln!(out, "They are on the report itself, at `{path}`.");
-    }
-    let _ = writeln!(out);
+    paste.line(NEWLINE);
 }
 
 /// A quote on one line, because a `>` block that contains newlines stops being a quote.
@@ -493,7 +573,11 @@ mod tests {
             });
         }
         let md = of(&report, Some("/a/abc"));
-        assert!(md.len() <= MAX_BYTES + 8192, "{} bytes", md.len());
+        assert!(
+            md.len() <= MAX_BYTES,
+            "{} bytes past a hard bound",
+            md.len()
+        );
         assert!(md.contains("What is not in this file"), "{}", &md[..400]);
         assert!(md.contains("/a/abc"), "where the rest of it is");
         // The sources index survives the cut, because it is what makes the rest checkable.
@@ -547,6 +631,148 @@ mod tests {
             md.len()
         );
         assert!(!md.contains("What is not in this file"), "nothing was cut");
+    }
+
+    #[test]
+    fn nothing_outside_the_sections_can_carry_the_file_past_its_bound() {
+        // **Review measured 882 KiB against a documented 256 KiB.** The first version checked
+        // section blocks and then appended the sources index, the heading and the closing note
+        // unconditionally - and titles, URLs, subjects and notes all come from pages we did not
+        // write. Each of those is its own oversized case here.
+        let huge = "x".repeat(300_000);
+
+        let mut sources = two_companies();
+        sources.sources = (0..40)
+            .map(|n| {
+                let mut src = source("S1", "https://a.example", Disposition::Primary);
+                src.title = "t".repeat(20_000);
+                src.url = format!("https://{}.example", "u".repeat(n * 100 + 1));
+                src
+            })
+            .collect();
+
+        let mut notes = two_companies();
+        notes.notes = vec![huge.clone(), huge.clone()];
+
+        let mut subject = two_companies();
+        subject.subject = huge.clone();
+        subject.searched_as = huge.clone();
+
+        let mut interpreted = two_companies();
+        interpreted.interpreted = Some(Interpreted {
+            label: huge.clone(),
+            also: vec![huge.clone()],
+            hosts: 3,
+        });
+
+        let mut named = two_companies();
+        named.subjects = vec![huge.clone(), huge];
+
+        for (what, report) in [
+            ("sources", sources),
+            ("report notes", notes),
+            ("the subject", subject),
+            ("the interpreted line", interpreted),
+            ("the company list", named),
+        ] {
+            let md = of(&report, Some("/a/abc"));
+            assert!(
+                md.len() <= MAX_BYTES,
+                "{what}: {} bytes past a hard bound",
+                md.len()
+            );
+            assert!(
+                md.contains("What is not in this file"),
+                "{what}: something was dropped and the file does not say so"
+            );
+        }
+    }
+
+    #[test]
+    fn a_source_too_long_to_print_costs_its_own_line_and_no_more() {
+        // One page with a preposterous title must not take the index with it: the rest of the
+        // evidence is what keeps the rest of the claims checkable.
+        let mut report = two_companies();
+        let mut absurd = source("S9", "https://absurd.example", Disposition::Primary);
+        absurd.title = "t".repeat(MAX_BYTES);
+        report.sources.push(absurd);
+
+        let md = of(&report, Some("/a/abc"));
+        assert!(md.len() <= MAX_BYTES, "{} bytes", md.len());
+        assert!(
+            md.contains("https://basecamp.com/pricing"),
+            "the others stay"
+        );
+        assert!(md.contains("https://linear.app/pricing"), "the others stay");
+        assert!(
+            md.contains("1 source(s)"),
+            "and the missing one is counted: {md}"
+        );
+    }
+
+    #[test]
+    fn a_document_packed_to_the_last_byte_still_has_room_to_say_what_is_missing() {
+        // **This is what the reserve is for, and coarse blocks hide it.** With sections of a
+        // few kilobytes the greedy fill happens to stop with kilobytes to spare, so the note
+        // fits whether or not room was kept for it. Small sections pack tight: the fill stops
+        // when the next one will not fit, which without a reserve is a handful of bytes short
+        // of the bound - and the note is longer than that.
+        let mut report = two_companies();
+        report.sections = (0..20_000)
+            .map(|n| Section {
+                key: format!("k{n}"),
+                title: format!("S{n}"),
+                status: SectionStatus::Populated,
+                claims: vec![claim("a claim", "https://basecamp.com", "S1", "a quote")],
+                checked: Vec::new(),
+                notes: Vec::new(),
+            })
+            .collect();
+
+        let md = of(&report, Some("/a/abc"));
+        assert!(md.len() <= MAX_BYTES, "{} bytes", md.len());
+        assert!(
+            md.contains("What is not in this file"),
+            "the file was cut and does not say so; the last {} bytes are: {}",
+            200.min(md.len()),
+            &md[md.len().saturating_sub(200)..]
+        );
+        assert!(md.contains("/a/abc"), "and where the rest of it is");
+    }
+
+    #[test]
+    fn the_closing_note_always_has_somewhere_to_go() {
+        // The note is the one paragraph that must fit, because it is what stops a truncated
+        // file from reading as a whole one. `CLOSING_NOTE_MAX` is reserved before anything
+        // else is written, and the caller's permalink is added on top rather than assumed.
+        let mut report = two_companies();
+        report.sections = (0..400)
+            .map(|n| Section {
+                key: format!("k{n}"),
+                title: format!("Section {n}"),
+                status: SectionStatus::Populated,
+                claims: vec![claim(
+                    &"c".repeat(4096),
+                    "https://basecamp.com",
+                    "S1",
+                    &"q".repeat(4096),
+                )],
+                checked: Vec::new(),
+                notes: Vec::new(),
+            })
+            .collect();
+
+        for permalink in [None, Some("/a/abc"), Some("/a/" as &str)] {
+            let md = of(&report, permalink);
+            assert!(md.len() <= MAX_BYTES, "{} bytes", md.len());
+            assert!(md.contains("What is not in this file"), "the note is there");
+            assert!(md.contains("section(s)"), "and it counts them");
+        }
+
+        // Even a permalink nobody would write cannot push the file past the bound.
+        let silly = "/a/".to_owned() + &"z".repeat(100_000);
+        let md = of(&report, Some(&silly));
+        assert!(md.len() <= MAX_BYTES, "{} bytes", md.len());
     }
 
     #[test]

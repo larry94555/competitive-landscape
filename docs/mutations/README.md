@@ -146,6 +146,14 @@ could all have gone out unlabelled. That is the same shape as the frontend test 
 company name on a page which repeats it, and it is the argument for writing the mutation before
 believing the test.
 
+It did it again after review. Three entries were added for the two defects review found, and one
+of them — *the size check ignores what is still owed* — came back `MISSED` against a suite
+that already had six assertions about the bound. Every one of them used section blocks of a few
+kilobytes, and a greedy fill with coarse blocks stops kilobytes short of its limit, so the
+reserved room for the closing note was never the thing keeping the file honest. Twenty thousand
+tiny sections pack tight enough to prove it. **A bound is only tested by the shape that reaches
+it exactly**, and nothing but the harness was going to say so.
+
 **These files are also read backwards.** `scripts/no_live_mutations.py` takes every `new`
 payload as the shape of a defect this repository can recognise, and refuses a working tree that
 contains one — because an interrupted run leaves the deliberate defect in place, and a

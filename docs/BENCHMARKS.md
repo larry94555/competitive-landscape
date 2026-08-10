@@ -85,6 +85,33 @@ pipeline can build, which measures **32 KiB** for six companies with every secti
 test asserts that rather than the docstring claiming it. When the bound is reached the document
 says which sections are missing and where the rest of it is.
 
+**And "bound" was a word rather than a fact.** The first version checked the size of section
+blocks and then appended the heading, the sources index and the closing note unconditionally.
+Titles, URLs, subjects and report notes all come from pages we did not write, so a report could
+pass the check and leave by any margin at all: review measured **882 KiB against a documented
+256 KiB**, and the regression I had written even permitted `MAX_BYTES + 8192`, which is the
+assertion bending to fit the implementation.
+
+Every push goes through one budgeted writer now — heading lines, section blocks and sources
+one at a time, so a single page with a preposterous title costs its own line rather than the
+whole index. Room for the closing note is **reserved before anything else is written**, because
+that note is what stops a truncated file from reading as a complete one; the caller's permalink
+is added to the reserve rather than assumed to be small. `md.len() <= MAX_BYTES` is asserted for
+an oversized subject, an oversized interpreted line, oversized notes, oversized sources, an
+absurd permalink, and a document packed to its last byte.
+
+**That last case is the one the harness had to teach me.** With section blocks a few kilobytes
+each, the greedy fill happens to stop kilobytes short of the bound, so the note fits whether or
+not room was kept for it — the mutation that removed the reserve survived. Twenty thousand
+tiny sections pack tight, the fill stops a handful of bytes short, and the note no longer fits.
+A bound is only tested by the shape that reaches it exactly.
+
+**Hand out half a report.** An analysis that is still running **has** a report — `save_progress`
+stores one while the status is `Running`, which is how a reader watches it fill in — so
+checking for its presence was never the same question as *is this finished*, and the endpoint
+was answering the wrong one. It requires `Complete` now. Review found it; the test that was
+supposed to cover it only ever tried a queued run with no report at all.
+
 **Point at sections that do not exist.** §5's opening line ends *"argue with the framing
 questions in sections 6 and 7"*. Those are Phase 4. Sending an assistant to read them would be
 the document lying about its own contents on line one, so that clause is gone and the part that
@@ -130,7 +157,7 @@ runnable two-step is in the walkthrough where a shell variable carries the value
 | | Rust tests | frontend tests | catalogue |
 |---|---|---|---|
 | Run 42 | 968 | 74 | 17, all caught |
-| now | **983** | **79** | **15**, all caught |
+| now | **988** | **79** | **18**, all caught |
 
 ---
 

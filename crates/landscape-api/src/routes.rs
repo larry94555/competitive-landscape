@@ -324,9 +324,12 @@ async fn get_analysis(
 /// pasteable: a reader who does not use our button can `curl` this, and what comes back is
 /// the file rather than a file inside a quoted string.
 ///
-/// An analysis with no report yet is a `404` rather than an empty document. A run that is
-/// still going has nothing to paste, and half a report handed to an assistant is answered
-/// from as confidently as a whole one.
+/// **Only a `Complete` analysis, and "has a report" was the wrong test for that.**
+/// `save_progress` deliberately stores a report while the status is still `Running` — that is
+/// how a reader watches one fill in — so checking for `Some(report)` handed out half a
+/// document with a `200`. Half a report is answered from as confidently as a whole one, and
+/// an assistant reading it has no way to tell. A `Failed` run is refused for the same reason:
+/// what it has is where the pipeline stopped, not a report.
 async fn get_context(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -338,6 +341,9 @@ async fn get_context(
         .map(AnalysisId)
         .map_err(|_| ApiError::NotFound)?;
     let analysis = state.store.get(id).await?;
+    if analysis.status != AnalysisStatus::Complete {
+        return Err(ApiError::NotFound);
+    }
     let report = analysis.report.as_ref().ok_or(ApiError::NotFound)?;
 
     let markdown = landscape_core::context::of(report, Some(&format!("/a/{}", id.0)));
@@ -494,6 +500,45 @@ mod tests {
             .expect("enqueued");
         let res = router(AppState::new(Arc::clone(&store)))
             .oneshot(get_context_request(&queued.id.0.to_string()))
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn a_run_still_going_has_nothing_to_paste_even_though_it_has_a_report() {
+        // **`save_progress` stores a report while the status is `Running`** - that is how a
+        // reader watches one fill in - so "has a report" was never the same question as
+        // "is finished", and this endpoint was answering the wrong one.
+        let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+        let a = store
+            .enqueue(&NewAnalysis::parse(IDEA).expect("a valid prompt"))
+            .await
+            .expect("enqueued");
+        store.claim_next().await.expect("claimable");
+        let half = landscape_core::Report {
+            subject: "basecamp.com".to_owned(),
+            searched_as: "basecamp.com".to_owned(),
+            generated_at: chrono::Utc::now(),
+            model_id: "test".to_owned(),
+            prompt_version: 1,
+            subjects: Vec::new(),
+            sections: Vec::new(),
+            sources: Vec::new(),
+            interpreted: None,
+            notes: Vec::new(),
+        };
+        store.save_progress(a.id, 1, &half).await.expect("saved");
+        let running = store.get(a.id).await.expect("read back");
+        assert_eq!(
+            running.status,
+            AnalysisStatus::Running,
+            "the fixture has to be the case under test"
+        );
+        assert!(running.report.is_some(), "and it has to carry a report");
+
+        let res = router(AppState::new(Arc::clone(&store)))
+            .oneshot(get_context_request(&a.id.0.to_string()))
             .await
             .expect("response");
         assert_eq!(res.status(), StatusCode::NOT_FOUND);
