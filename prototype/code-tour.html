@@ -80,91 +80,94 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    away: {
-      name: "three of four link away",
-      purpose: "Their roles are somewhere else.",
+    shown: {
+      name: "every reason, shown",
+      purpose: "Four PRs of derivation.",
       lines: [
-        ['s', '  linear.app/careers'],
-        ['s', '  front.com/jobs'],
-        ['s', '  helpscout.com/careers'],
+        ['s', '  basecamp.com  you named it'],
+        ['s', '  linear.app    3 of 3 searches'],
         ['c', ''],
-        ['f', '// All three: jobs.ashbyhq.com']
+        ['f', '// And nothing a reader could'],
+        ['f', '// do about any of it.']
       ]
     },
-    found: {
-      name: "found, never guessed",
-      purpose: "The whole safety argument.",
+    editable: {
+      name: "COMPETITIVE_DISCOVERY §5.5",
+      purpose: "The half that was missing.",
       lines: [
-        ['t', '  a link the company published'],
+        ['t', '  The set is directly editable:'],
+        ['t', '  remove, add, and re-run.'],
         ['c', ''],
-        ['f', '// A guessed slug that belongs to'],
-        ['f', '// somebody else puts their'],
-        ['f', '// vacancies on this report.']
+        ['f', '// Showing your working is not'],
+        ['f', '// the same as being answerable.']
       ]
     },
-    free: {
-      name: "and no extra request",
-      purpose: "Read from a body we have.",
+    manipulation: {
+      name: "§6.3, on why not a question",
+      purpose: "One glance, not an interview.",
       lines: [
-        ['t', '  boards_on(answers, &page.body)'],
+        ['t', '  Direct manipulation beats'],
+        ['t', '  interrogation.'],
         ['c', ''],
-        ['f', '// Only from the page whose'],
-        ['f', '// question it answers. A footer'],
-        ['f', '// is not evidence about hiring.']
+        ['f', '// Questions cost 90-180s of'],
+        ['f', '// free-tier compute to get wrong.']
       ]
     },
-    standing: {
-      name: "attributed, not primary",
-      purpose: "Somebody else's server.",
+    prompt: {
+      name: "it hands back a prompt",
+      purpose: "The same thing a chip sends.",
       lines: [
-        ['s', '  Primary sets a table value'],
-        ['t', '  Attributed does not'],
+        ['t', '  onRun(set.join(" "))'],
         ['c', ''],
-        ['f', '// Authorship is not in doubt.'],
-        ['f', '// The host is not ours.']
+        ['f', '// Something a reader could have'],
+        ['f', '// typed. Nothing new invented'],
+        ['f', '// on the way in.']
       ]
     },
-    slot: {
-      name: "and it cannot win a slot",
-      purpose: "Round one goes to the careers page.",
+    owner: {
+      name: "origins_in owns the rule",
+      purpose: "What counts as a company.",
       lines: [
-        ['s', '  linear.app  its own page lists'],
-        ['s', '  vercel.com  chrome, 0 roles'],
+        ['s', '  basecamp.com'],
+        ['s', '  www.basecamp.com'],
         ['c', ''],
-        ['f', '// Which is which is unknowable'],
-        ['f', '// before the page is read.']
+        ['f', '// One company, written twice.'],
+        ['f', '// A TypeScript copy would be'],
+        ['f', '// a rule that agrees today.']
       ]
     },
-    both: {
-      name: "so both are read",
-      purpose: "From whichever question has most.",
+    courtesy: {
+      name: "a courtesy, not a parser",
+      purpose: "And it says so out loud.",
       lines: [
-        ['t', '  a second pricing page is the'],
-        ['t', '  cheapest thing on the list'],
+        ['t', '  basecamp does not look like a'],
+        ['t', '  domain. Try example.com.'],
         ['c', ''],
-        ['f', '// ADR 0010, applied to itself.']
+        ['f', '// Refused out loud, never'],
+        ['f', '// swallowed. The run decides'],
+        ['f', '// on whatever survives.']
       ]
     },
-    heading: {
-      name: "Current openings at Vercel",
-      purpose: "An exact match missed it.",
+    guard: {
+      name: "not while it is still read",
+      purpose: "One guard, two jobs.",
       lines: [
-        ['t', '  phrase, or phrase + " at "'],
+        ['t', '  isTerminal(showing_status)'],
         ['c', ''],
-        ['f', '// Not starts_with: "open roles'],
-        ['f', '// are what we are proudest of"'],
-        ['f', '// announces nothing.']
+        ['f', '// Mid-run the set is what the'],
+        ['f', '// run is working through.']
       ]
     },
-    form: {
-      name: "and the list is counted",
-      purpose: "Not assumed.",
+    deleted: {
+      name: "so this was deleted",
+      purpose: "The harness emptied it. Nothing failed.",
       lines: [
-        ['s', '  board   roles in bullets'],
-        ['s', '  careers roles in plain lines'],
+        ['s', '  useEffect(() => setSet(companies))'],
+        ['s', '  key={analysed.join(" ")}'],
         ['c', ''],
-        ['f', '// Either assumption publishes'],
-        ['f', '// the other page’s furniture.']
+        ['f', '// A second answer to a settled'],
+        ['f', '// question. Two answers can'],
+        ['f', '// one day disagree.']
       ]
     }
   };
@@ -208,19 +211,19 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:away",     c: "Three of four careers pages link away." },
-    { kind: "means",       a: "file:found",    c: "So follow the link, and never guess one." },
+    { kind: "recognition", a: "file:shown",        c: "Four runs explained the set." },
+    { kind: "means",       a: "file:editable",     c: "Section 5.5 asked for one more thing." },
 
-    { kind: "turn",        a: "file:free",     c: "It costs no extra request to find." },
-    { kind: "result",      a: "file:standing", c: "And it is read as a stranger's page." },
+    { kind: "turn",        a: "file:manipulation", c: "A correction, not a fifth question." },
+    { kind: "result",      a: "file:prompt",       c: "The button hands back a whole prompt." },
 
-    { kind: "turn",        a: "file:slot",     c: "A board cannot win a slot on its own." },
-    { kind: "result",      a: "file:both",     c: "So both are read, and the reading decides." },
+    { kind: "turn",        a: "file:owner",        c: "So the client parses nothing." },
+    { kind: "result",      a: "file:courtesy",     c: "It only refuses what it is sure of." },
 
-    { kind: "result",      a: "file:heading",  c: "A board announces its list differently." },
-    { kind: "result",      a: "file:form",     c: "And writes it the other way round." },
+    { kind: "turn",        a: "file:guard",        c: "It is offered once the run is over." },
+    { kind: "result",      a: "file:deleted",      c: "Which made keeping them in step dead code." },
 
-    { kind: "close",       a: "hold",          c: "Where the roles actually live." }
+    { kind: "close",       a: "hold",              c: "The set is editable." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -243,7 +246,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("away");
+    show("shown");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -256,15 +259,15 @@
     }, TOTAL * 1000));
   }
 
-  show("away");
+  show("shown");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "Where the roles actually live",
-    blurb: "Three of four real careers pages keep their vacancies on somebody else’s applicant-tracking board, so a careers page that links away was a company whose list we were not reading. A board is followed only when the company’s own page links to it — never constructed from its name, because a guessed slug belonging to somebody else would put another company’s vacancies on this report — and it is read at Attributed rather than Primary, because the bytes are a stranger’s even when the authorship is not.",
+    title: "The set is editable",
+    blurb: "Four changes built the derivation of a competitive set and left the rest of the sentence unbuilt: COMPETITIVE_DISCOVERY §5.5 says the set is directly editable. A reader can now remove a company, add one, and run the corrected set — as a new analysis with its own permalink, so the report being corrected stays readable. The button hands back a whole prompt, exactly as a clarifying chip does, because origins_in already owns what counts as a company and a second copy of that rule in TypeScript would be a rule that agrees today. And keeping the reader’s edits in step with a changing report turned out to be dead code: the set is only offered once a run is over, and correcting it starts another one.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

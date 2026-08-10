@@ -494,6 +494,19 @@ function AnalysisView({
         </p>
       )}
 
+      {/*
+        **The set, correctable.** `COMPETITIVE_DISCOVERY.md` §5.5 and §6.3: a competitive set
+        presented without a way to correct it is an unfalsifiable editorial choice, and direct
+        manipulation beats interrogation — one glance confirms or corrects what was decided,
+        with no prompt literacy and no question spent.
+
+        Under the notes that say *why* each company is here, because a reader corrects the set
+        having read the reasons rather than before.
+      */}
+      {isTerminal(showing_status) && analysed.length > 0 && (
+        <EditableSet companies={analysed} onRun={onPick} running={picking} />
+      )}
+
       <p className="status">
         {describe(showing_status, analysis.failure, choices.length)}
       </p>
@@ -613,6 +626,122 @@ function AnalysisView({
  * finished looking when we have not.
  */
 /** An origin without its scheme, which is how a person names a company. */
+/**
+ * The companies in this report, with a way to change them and run it again.
+ *
+ * **The prompt is the whole answer**, exactly as a clarifying chip is: the button hands back a
+ * list of origins separated by spaces, which is what a reader could have typed, and the run
+ * treats it as a named set. Nothing new is invented on the way in.
+ *
+ * **No origin parsing happens here.** `landscape_analyze::subject::origins_in` owns what counts
+ * as a company and how two spellings of one are the same — a second copy in TypeScript would be
+ * a rule that agrees today. What this does is refuse to submit an empty set, and refuse to add
+ * something with no dot or a space in it, which is a courtesy to stop an obvious typo costing
+ * ninety seconds rather than a parser. Whatever survives that, the run decides on.
+ *
+ * **Nothing keeps the edits in step with a changing report, and nothing needs to.** The set is
+ * only offered once the run is over, and correcting it starts another one — so between the two
+ * reports the guard above unmounts this, and the second set is read fresh. A `useEffect` copying
+ * the prop into state, or a `key`, would be a second answer to a question already answered, and a
+ * second answer is a thing that can disagree.
+ */
+function EditableSet({
+  companies,
+  onRun,
+  running,
+}: {
+  companies: readonly string[];
+  /** Run this instead. A whole prompt, as the clarifying chips hand back. */
+  onRun: (prompt: string) => void;
+  /** A run is already starting; two clicks would spend two analyses on one question. */
+  running: boolean;
+}): React.JSX.Element {
+  const [set, setSet] = useState<readonly string[]>(companies);
+  const [typed, setTyped] = useState("");
+  const [refused, setRefused] = useState("");
+
+  const add = (): void => {
+    const wanted = typed.trim();
+    if (wanted === "") {
+      return;
+    }
+    if (!wanted.includes(".") || /\s/.test(wanted)) {
+      setRefused(`${wanted} does not look like a domain. Try example.com.`);
+      return;
+    }
+    setSet([...set, wanted]);
+    setTyped("");
+    setRefused("");
+  };
+
+  const changed =
+    set.length !== companies.length || set.some((c, i) => c !== companies[i]);
+
+  return (
+    <section className="editable-set" aria-label="The companies in this report">
+      <h3>Comparing</h3>
+      <ul className="set">
+        {set.map((company) => (
+          <li key={company}>
+            {withoutScheme(company)}
+            <button
+              type="button"
+              className="drop"
+              aria-label={`Remove ${withoutScheme(company)}`}
+              onClick={() => setSet(set.filter((kept) => kept !== company))}
+            >
+              ×
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <div className="add">
+        <label htmlFor="add-company">Add a company</label>
+        <input
+          id="add-company"
+          type="text"
+          value={typed}
+          placeholder="example.com"
+          onChange={(e) => setTyped(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add();
+            }
+          }}
+        />
+        <button type="button" onClick={add}>
+          Add
+        </button>
+      </div>
+
+      {refused !== "" && (
+        <p className="refused" role="alert">
+          {refused}
+        </p>
+      )}
+
+      {/*
+        **Disabled until something is different**, because re-running the set a reader is already
+        looking at spends ninety seconds to redraw the page they have. And disabled when the set
+        is empty: a comparison of nothing is not a report.
+      */}
+      <button
+        type="button"
+        className="rerun"
+        disabled={running || set.length === 0 || !changed}
+        onClick={() => onRun(set.join(" "))}
+      >
+        Run this set
+      </button>
+      {set.length === 0 && (
+        <p className="refused">Removing every company leaves nothing to compare.</p>
+      )}
+    </section>
+  );
+}
+
 function withoutScheme(origin: string): string {
   return origin.replace(/^https?:\/\//, "");
 }

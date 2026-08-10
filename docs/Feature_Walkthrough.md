@@ -1875,6 +1875,45 @@ work twice. See [BENCHMARKS.md](BENCHMARKS.md) Run 34.
 every clarifying question is skippable; skipping this one means guessing which company, and a
 report about the wrong Notion looks exactly like a report about the right one.
 
+### And you can disagree with the set
+
+Everything above explains the set. **This is the part where you change it.** In the browser, a
+finished report carries the companies it compared under the notes that say why each is there:
+
+```text
+Comparing
+  basecamp.com  ×    linear.app  ×    notion.so  ×
+
+  Add a company [ example.com ] (Add)
+
+  (Run this set)
+```
+
+Try all four things:
+
+| Do this | What should happen |
+|---|---|
+| click the `×` beside a company | the chip goes, and **Run this set** lights up |
+| type `notion.so` and press **Add** | it joins the row |
+| type `basecamp` (no dot) and press **Add** | *"basecamp does not look like a domain. Try example.com."* — refused **out loud**, not swallowed |
+| remove every company | the button greys out: *"Removing every company leaves nothing to compare."* |
+
+Then press **Run this set**. A **new analysis** starts, with its own permalink — the report you
+were reading stays where it was, and the corrected one is shareable on its own. The button is
+disabled until something is actually different, because ninety seconds to redraw the page you are
+already looking at buys nothing.
+
+**It is not offered while a report is still arriving.** Mid-run, the set is what the run is
+working through, so there is nothing to correct yet.
+
+Two things worth noticing about what this *does not* do. It sends a **whole prompt** — the same
+thing a clarifying chip sends and the same thing you could have typed — so nothing on the page
+decides what counts as a company; `origins_in` does, exactly as it does for typed input. And the
+dot check is a **courtesy, not a parser**: it exists to stop an obvious typo costing you ninety
+seconds, and anything that survives it is decided by the run. See
+[BENCHMARKS.md](BENCHMARKS.md) Run 41 and
+[COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) §5.5.
+
 ---
 
 ## Part 8E — Run the whole path against a real company

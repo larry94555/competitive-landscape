@@ -2162,6 +2162,50 @@ information needed to choose exists yet — if it does not, admit both rather th
 > **Ask this:** *have I actually seen this work, or only seen its parts pass? And am I ranking on
 > something I will not know until later?*
 
+## 60. A second answer to a question already answered — and a gate that checked everything except the row people read
+
+**Found:** by the mutation harness, twice, and by adding a table up by hand once.
+
+A component showed the set of companies a report was built from, and let a reader change it. The
+set can be replaced underneath — a corrected run finishes and the report is about somebody else —
+so the first version kept the two in step with a `useEffect` copying the prop into state. The
+harness emptied that effect and **nothing failed**. The reflex was to write the missing test; the
+second answer was to replace the effect with a `key`, which is the idiomatic version of the same
+idea. The harness broke that too, and again nothing failed.
+
+Both were dead. The set is only offered **once a run is over**, and correcting it **starts a new
+run** — so between the two reports the component is unmounted and the second set is read fresh.
+One guard already enforced the rule, and the sync was a second enforcement of it that no input
+could reach.
+
+**A `MISSED` on a rule that is genuinely enforced somewhere else is not a missing test.** It is a
+second answer to a settled question, and two answers can one day disagree — the effect and the
+guard would have had to keep agreeing about a case neither could produce. The catalogue entry was
+removed as a duplicate of the guard's, and the code with it. This is entry 46's shape arriving
+from the other direction: there, a seam nobody used; here, a rule stated twice.
+
+**And the same day, in the same change, the gate written one run earlier to stop numbers drifting
+was found not to check the numbers anybody reads.** `scripts/feature_totals.py` added up each
+state's feature rows against that state's totals row — correctly — and never looked at the
+**Summary table at the top of the page**, which is derived from those totals, is the first thing
+a reader sees, and is what every pull request quotes. It had been saying S2 was 78% for four
+changes while S2's own table said 89%.
+
+A gate that checks the derived numbers but not the number derived from *those* leaves the
+most-read row unchecked. The blind spot is not an oversight about regular expressions; it is that
+**a summary is data too**, and the reason it exists — that nobody wants to add the tables up — is
+exactly the reason nobody notices when it is wrong.
+
+**Rule:** when a mutation survives, ask *what else already enforces this* before asking *what test
+is missing* — and delete rather than pin, when the answer is "the thing above it". And when a gate
+checks a document's numbers, check every number in the document that is derived from another,
+starting with the one printed largest.
+
+> **Ask this:** *is this the only thing making the rule true, or the second? And which number on
+> this page would a reader quote — is that the one I am checking?*
+
+---
+
 ---
 
 ## Before a PR: two commands and eight questions

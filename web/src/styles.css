@@ -128,6 +128,47 @@ button.choice strong { display: block; }
 }
 .choice .what { display: block; color: var(--muted); font-size: 0.9rem; margin-top: 0.3rem; }
 
+/* The set, correctable. COMPETITIVE_DISCOVERY §5.5: a competitive set presented without a way
+   to correct it is an unfalsifiable editorial choice. Quiet enough that it does not compete
+   with the findings, and near enough the top that a wrong set is corrected before it is read. */
+.editable-set { margin: 1.2rem 0; padding: 0.9rem 1rem; border: 1px solid var(--rule); }
+.editable-set h3 { margin: 0 0 0.6rem; font-size: 0.95rem; }
+.editable-set ul.set {
+  list-style: none;
+  margin: 0 0 0.7rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.editable-set ul.set li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 0.25rem 0.5rem 0.25rem 0.7rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+}
+.editable-set button.drop {
+  margin: 0;
+  padding: 0 0.3rem;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+}
+.editable-set button.drop:hover { color: var(--ink); }
+.editable-set .add { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.editable-set .add label { font-size: 0.9rem; color: var(--muted); }
+.editable-set .add input { padding: 0.35rem 0.5rem; border: 1px solid var(--rule); }
+.editable-set .add button, .editable-set button.rerun { margin: 0; padding: 0.35rem 0.8rem; }
+.editable-set button.rerun { margin-top: 0.7rem; }
+.editable-set button.rerun:disabled { opacity: 0.6; }
+.editable-set .refused { color: var(--muted); font-size: 0.9rem; margin: 0.5rem 0 0; }
+
 /* The market's words, above the results. Quiet, because it is context rather than a finding —
    but never hidden, because everything below it was searched for in these words. */
 .interpreted { color: var(--ink); margin-bottom: 0.2rem; }

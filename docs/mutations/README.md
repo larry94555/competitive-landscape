@@ -14,6 +14,7 @@ python3 scripts/mutate.py docs/mutations/the-search-channel.json
 python3 scripts/mutate.py docs/mutations/the-second-reader.json
 python3 scripts/mutate.py docs/mutations/asking-whether-it-changed.json
 python3 scripts/mutate.py docs/mutations/where-the-roles-actually-live.json
+python3 scripts/mutate.py docs/mutations/the-set-is-editable.json
 ```
 
 **Why these are committed when the register says to keep them in a scratchpad.** Most are
@@ -109,6 +110,16 @@ unmarked. Nothing was testing it because the URL and its standing were two argum
 function, and a test can only assert a pair that exists. They are one value now, and the mutation
 that survived fails. That is entry 7 of the register — a value parted from its evidence — found
 by tooling rather than by review.
+
+`the-set-is-editable.json` did the third thing again, and this time the answer was to **delete
+code rather than test it.** Two of its eleven entries survived a first run, and one of the two
+never stopped surviving: the mutation emptied a `useEffect` that copied the report's set into the
+component's state, and the page carried on behaving. Both the effect and the `key` that replaced
+it were dead, because a corrected set starts a new run — and the set is only offered once a run is
+over, so the component is unmounted between the two reports and reads the second one fresh. The
+entry was **removed as a duplicate** of the guard that does the work, and the ten that remain are
+all caught. A `MISSED` on a rule that is genuinely enforced somewhere else is not a missing test;
+it is a second answer to a question already answered, and a second answer can disagree.
 
 **These files are also read backwards.** `scripts/no_live_mutations.py` takes every `new`
 payload as the shape of a defect this repository can recognise, and refuses a working tree that

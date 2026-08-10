@@ -812,6 +812,21 @@ the single most important phase; everything after it is commerce and polish.
   the gate refuses — and a report about the wrong Notion is indistinguishable from a right one.
   **Still open:** the other two triggers in §3 (buyer and intent), which need a router model
   rather than candidates we already have.
+  **And the set a report was built from is correctable** — [BENCHMARKS.md](BENCHMARKS.md) Run 41,
+  the third and last PR of the competitor-set row. Four runs built the derivation and left the
+  second half of [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) §5.5's sentence unbuilt: the
+  set is **directly editable**. A reader could read every reason and do nothing about any of them,
+  which is the difference between showing your working and being answerable for it.
+  §6.3 is why this is a correction rather than a fifth question — *"direct manipulation beats
+  interrogation … questions are reserved for cases where proceeding would waste 90–180 seconds of
+  free-tier compute on the wrong market"* — so the set sits **under** the notes that explain it,
+  and a reader corrects it having read them.
+  The button hands back a **whole prompt**, exactly as a clarifying chip does, and for the same
+  reason: `origins_in` owns what counts as a company and what makes two spellings one, and a
+  second copy of that rule in TypeScript would be a rule that agrees today. The page refuses only
+  what it can be sure of — an empty set, the set already on screen, and something with no dot in
+  it, the last of those **out loud** and documented as a courtesy rather than a parser. A re-run
+  is a **new analysis with its own permalink**, so the report being corrected stays readable.
 - **The market's words, not the reader's** — [BENCHMARKS.md](BENCHMARKS.md) Run 35, the first of
   the vocabulary row's two PRs. Somebody types *"a free competitive landscape research tool"* and
   we searched for exactly that, which finds blog posts about the idea; the market says
