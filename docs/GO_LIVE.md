@@ -1,0 +1,499 @@
+# Landscape — from an empty Oracle account to a working site
+
+**Follow this top to bottom and the last step ends with a URL you can use.** Every command is
+written out; every value you have to choose is named where you choose it, with what to put.
+Nothing here needs a search engine, a forum, or a decision you have not been given the
+information to make.
+
+> **What this is not.** [DEPLOY.md](DEPLOY.md) is the same deployment with the reasoning — why
+> the ports are open, why the artefacts stay root-owned, what each unit file is protecting
+> against. Read it when something surprises you. This file is the sequence.
+>
+> **None of it has been run.** There is no box reachable from this repository
+> ([PROJECT_STATUS.md](../PROJECT_STATUS.md) B5), so this is reasoned from our own code and from
+> Oracle's documented behaviour. **Correct it as you go.** Three steps are marked
+> **⚠ least certain** — those are the ones to expect trouble in.
+
+## What you will end up with
+
+| | |
+|---|---|
+| One Oracle Always Free ARM instance | 4 OCPU, 24 GB, Ubuntu |
+| Five things running on it | Postgres, the model server, the API, the worker, SearXNG |
+| Reachable at | `https://` your own domain |
+| Cost | £0/month for the instance. The domain is the only recurring cost |
+
+## What you need before you start
+
+| | |
+|---|---|
+| An Oracle Cloud account | Free tier is enough. Sign-up needs a card for identity; the Always Free shapes are not charged |
+| A terminal | macOS or Linux: the built-in one. Windows: PowerShell, which has `ssh` built in |
+| About 90 minutes | Most of it waiting: ~10 minutes building the app, ~25 building the model server, ~5 downloading the model |
+| Your domain name | And the ability to add a DNS record at whoever you registered it with. If you do not have one, [Appendix A](#appendix-a--running-without-a-domain) is the version without |
+
+---
+
+## Step 1 — Make an SSH key
+
+**On your own machine**, not on Oracle. Skip if `~/.ssh/id_ed25519.pub` already exists.
+
+```bash
+ssh-keygen -t ed25519 -C "landscape" -f ~/.ssh/id_ed25519 -N ""
+```
+
+Then print the public half. You will paste this into Oracle in the next step:
+
+```bash
+cat ~/.ssh/id_ed25519.pub
+```
+
+It is one line beginning `ssh-ed25519`. **Copy the whole line.**
+
+---
+
+## Step 2 — Create the instance
+
+In the Oracle Cloud console:
+
+1. Menu → **Compute** → **Instances** → **Create instance**.
+2. **Name**: `landscape`.
+3. **Image and shape** → **Edit**:
+   - **Change image** → **Canonical Ubuntu** → **24.04**. Confirm.
+   - **Change shape** → **Ampere** → **VM.Standard.A1.Flex** → set **4 OCPUs** and **24 GB**
+     memory. Confirm.
+4. **Networking**: leave the defaults. It creates a VCN and gives the instance a public IPv4
+   address, which is what you want.
+5. **Add SSH keys** → **Paste public keys** → paste the line from step 1.
+6. **Boot volume** → tick **Specify a custom boot volume size** → **50** GB.
+7. **Create**.
+
+Wait for the state to go from **PROVISIONING** to **RUNNING**, then copy the **Public IP
+address** from the instance page. Everything below calls it `YOUR_IP`.
+
+> **If you see "Out of host capacity"** — that is Oracle being full in your region, not a
+> mistake in your request. It clears; try again later, or create the instance in a different
+> availability domain from the same page.
+
+Connect:
+
+```bash
+ssh ubuntu@YOUR_IP
+```
+
+Answer `yes` to the fingerprint question.
+
+---
+
+## Step 3 — Point your domain at it, now
+
+**Do this before the long steps, not after them.** DNS takes minutes to hours to propagate, and
+doing it here means it is ready by the time you need it in step 11 rather than being the thing
+you wait on at the end.
+
+At whoever you registered the domain with, find **DNS**, **DNS records**, or **Manage DNS**, and
+add one record:
+
+| Type | Name | Value | TTL |
+|---|---|---|---|
+| `A` | `@` for the bare domain, or `landscape` for `landscape.your-domain` | `YOUR_IP` | leave the default |
+
+**Delete or edit any existing `A` record with the same name**, including the parking page most
+registrars add. Two `A` records for one name send visitors to both.
+
+Then check from **your own machine** — this may take a while, so carry on with step 4 and come
+back to it:
+
+```bash
+nslookup landscape.your-domain
+```
+
+It must eventually answer with `YOUR_IP`. **Do not start step 11 until it does**: certificate
+requests are rate-limited, and asking for one before DNS is ready spends a retry for nothing.
+
+From here on, `YOUR_DOMAIN` means whatever you just pointed at the box — `landscape.example.com`
+or `example.com`, whichever you chose.
+
+---
+
+## Step 4 — Open the two firewalls
+
+There are two, and a closed port looks exactly like a broken application.
+
+**a. Oracle's, in the console.** Networking → **Virtual Cloud Networks** → your VCN →
+**Security Lists** → **Default Security List** → **Add Ingress Rules**. Add two, one at a time:
+
+| Source CIDR | IP Protocol | Destination Port Range |
+|---|---|---|
+| `0.0.0.0/0` | TCP | `80` |
+| `0.0.0.0/0` | TCP | `443` |
+
+Leave everything else on those rules as it comes.
+
+**b. Ubuntu's, on the box.** Oracle's image drops everything except SSH, and the rules survive
+reboots.
+
+```bash
+sudo iptables -L INPUT --line-numbers
+```
+
+Find the line number of the final `REJECT` rule. Insert **before** it — if the `REJECT` is line
+6, these are right as written; if it is a different number, use that number:
+
+```bash
+sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
+sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
+sudo netfilter-persistent save
+```
+
+> **⚠ Least certain.** Inserting *after* the `REJECT` does nothing at all, and that failure
+> looks exactly like success. Run `sudo iptables -L INPUT --line-numbers` again and check both
+> `ACCEPT` lines are above the `REJECT`.
+
+Nothing needs opening for 8787, 8080 or 8888: those listen on `127.0.0.1` only.
+
+---
+
+## Step 5 — Install what the build needs
+
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential cmake git curl pkg-config libssl-dev postgresql
+```
+
+Rust:
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+source "$HOME/.cargo/env"
+```
+
+Node:
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+Check all three answer:
+
+```bash
+rustc --version && node --version && psql --version
+```
+
+---
+
+## Step 6 — Create the database
+
+**Choose a database password now** and use the same one here and in step 9. Anything long
+without quotes or `@` in it. Replace `PICK_A_PASSWORD` in both places:
+
+```bash
+sudo -u postgres psql <<'SQL'
+CREATE USER landscape WITH PASSWORD 'PICK_A_PASSWORD';
+CREATE DATABASE landscape OWNER landscape;
+SQL
+```
+
+There is no schema step. **The application applies its own migrations on boot**, so there is
+nothing to run and nothing to forget.
+
+---
+
+## Step 7 — Build the application
+
+```bash
+cd ~
+git clone https://github.com/larry94555/competitive-landscape.git
+cd competitive-landscape
+./scripts/build-release.sh
+```
+
+**About ten minutes.** It ends with a `dist/` directory. Install it:
+
+```bash
+sudo useradd --system --home /opt/landscape --shell /usr/sbin/nologin landscape || true
+sudo mkdir -p /opt/landscape/bin /opt/landscape/web /opt/landscape/models
+sudo cp dist/bin/landscape /opt/landscape/bin/
+sudo cp -r dist/web/dist /opt/landscape/web/dist
+sudo cp dist/MANIFEST /opt/landscape/
+sudo chown -R root:root /opt/landscape
+sudo chmod -R go-w /opt/landscape
+```
+
+Everything stays owned by `root`. The services only ever read these files, so a compromised
+service cannot replace the binary it runs from.
+
+---
+
+## Step 8 — Build the model server, and get the model
+
+`llama-server` has no package for ARM, so it is built here. **This is the slow step — about
+twenty-five minutes.**
+
+```bash
+cd ~
+git clone https://github.com/ggml-org/llama.cpp
+cd llama.cpp
+git checkout b10291
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release -j4
+sudo install -o root -g root -m 0755 build/bin/llama-server /opt/landscape/bin/
+```
+
+The revision is pinned on purpose: an inference build taken from a moving branch means the same
+application commit can behave differently on two deployments.
+
+Then the model — **Qwen3-4B Q4_K_M**, which is the one this project's quality numbers were
+measured against ([MODEL_BAKEOFF.md](MODEL_BAKEOFF.md)):
+
+```bash
+sudo curl -L --output /opt/landscape/models/Qwen3-4B-Q4_K_M.gguf \
+  https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/bc640142c66e1fdd12af0bd68f40445458f3869b/Qwen3-4B-Q4_K_M.gguf
+
+echo '7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5  /opt/landscape/models/Qwen3-4B-Q4_K_M.gguf' | sha256sum --check
+sudo chmod 0444 /opt/landscape/models/Qwen3-4B-Q4_K_M.gguf
+```
+
+The `sha256sum` line must print `OK`. **If it does not, stop and download it again** — a
+different model makes every quality figure this project publishes inapplicable to what you are
+running.
+
+Record what you used:
+
+```bash
+printf 'llama.cpp b10291\nmodel bc640142c66e1fdd12af0bd68f40445458f3869b\n' | sudo tee -a /opt/landscape/MANIFEST
+```
+
+---
+
+## Step 9 — Configure and start the three services
+
+```bash
+cd ~/competitive-landscape
+sudo mkdir -p /etc/landscape
+sudo cp deploy/landscape.env.example /etc/landscape/landscape.env
+sudo nano /etc/landscape/landscape.env
+```
+
+In that file, change exactly one thing: on the `DATABASE_URL` line, replace `CHANGE_ME` with
+the password from step 6. Save with `Ctrl+O`, `Enter`, then `Ctrl+X`.
+
+```bash
+sudo chmod 600 /etc/landscape/landscape.env
+sudo chown landscape:landscape /etc/landscape/landscape.env
+
+sudo cp deploy/*.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now llama-server landscape-api landscape-worker
+```
+
+Check. The model server takes a minute or two to load the model the first time:
+
+```bash
+systemctl is-active llama-server landscape-api landscape-worker
+curl -s http://127.0.0.1:8080/health
+curl -s http://127.0.0.1:8787/api/health
+```
+
+You want three `active` lines, then two JSON responses. The second one reads the queue out of
+Postgres, so a healthy answer also proves the application can reach the database.
+
+> **If a service is not active**, `journalctl -u landscape-api -n 50` says why. The usual cause
+> is the database password in `/etc/landscape/landscape.env` not matching step 5.
+
+---
+
+## Step 10 — Start the search engine
+
+**Without this the site works, and one whole half of it does not.** Typing a company's website
+produces a full report either way. Typing a *description* — "project management for a small
+design agency" — needs a search engine to find the companies, and without one the site says so
+rather than guessing.
+
+SearXNG is a metasearch front end you host. It has no account, no key and no quota.
+
+```bash
+curl -fsSL https://get.docker.com | sudo sh
+cd ~/competitive-landscape
+sudo docker compose --profile search up -d searxng
+```
+
+Wait about thirty seconds, then check it answers in the format the application asks for:
+
+```bash
+curl -s 'http://127.0.0.1:8888/search?q=test&format=json' | head -c 100
+```
+
+**You want JSON.** If you get HTML or nothing, the container has not finished starting — wait
+and try again. If it answers `403`, the settings file did not mount; `sudo docker compose
+--profile search logs searxng` will say so.
+
+Now tell the application about it:
+
+```bash
+echo 'SEARX_URL=http://127.0.0.1:8888' | sudo tee -a /etc/landscape/landscape.env
+sudo systemctl restart landscape-api landscape-worker
+```
+
+> **There is deliberately no default for `SEARX_URL`.** A fallback to somebody's public
+> instance would send everything strangers type into your box to a third party.
+
+---
+
+## Step 11 — HTTPS
+
+**Check DNS has arrived first.** On your own machine:
+
+```bash
+nslookup YOUR_DOMAIN
+```
+
+It must answer with `YOUR_IP`. If it does not, wait — asking for a certificate before the name
+resolves spends a rate-limited retry for nothing.
+
+### 11a. Find the address you browse from
+
+**On your own machine, not the box:**
+
+```bash
+curl -s https://ifconfig.me
+```
+
+Write down what it prints. If your home address changes from time to time, note that this is the
+one thing you may have to come back and edit.
+
+### 11b. Install Caddy and point it at your domain
+
+On the box:
+
+```bash
+sudo apt-get install -y caddy
+sudo cp ~/competitive-landscape/deploy/Caddyfile.example /etc/caddy/Caddyfile
+sudo nano /etc/caddy/Caddyfile
+```
+
+Change exactly two things in that file:
+
+| Find | Replace with |
+|---|---|
+| `landscape.example.com` | your domain |
+| `203.0.113.4` | the address `ifconfig.me` printed |
+
+Save with `Ctrl+O`, `Enter`, then `Ctrl+X`. Then:
+
+```bash
+sudo systemctl restart caddy
+sudo journalctl -u caddy -f
+```
+
+Watch until the log mentions a certificate being obtained for your domain — usually under a
+minute. `Ctrl+C` stops watching; the service keeps running.
+
+> **⚠ Least certain.** The allow-list refuses everybody but you, and the certificate authority is
+> not you. Caddy answers the validation request ahead of those routes, so it should issue — but
+> if the log shows a challenge failing, comment out the two `@allowed` lines and the `handle`
+> blocks around them, restart, let the certificate issue, then put them back.
+
+> **Why an allow-list at all:** a new certificate appears in public transparency logs within
+> minutes of being issued, and scanners read those logs. Four ARM cores are not something to hand
+> to the internet on day one. When you are ready for an audience, delete the `@allowed` matcher
+> and the `handle` block that 403s everyone else.
+
+---
+
+## Step 12 — You are done. Check it.
+
+**On your own machine, open `https://YOUR_DOMAIN`.**
+
+The padlock should be there. If the browser warns about the certificate, Caddy has not finished
+— `sudo journalctl -u caddy -n 30` on the box says where it got to.
+
+You should see **What is your idea?**, a text box, an **Analyse** button, and three example
+ideas underneath.
+
+Then run the one check that exercises everything:
+
+1. Click the example **project management for a small design agency**. It fills the box; it does
+   not submit.
+2. Press **Analyse**.
+3. The address bar changes to `/a/…` — that is the permalink, and it works on reload.
+4. Within about a minute the first section appears. **Recent public changes** usually fills
+   first: it needs no model at all.
+5. Between four and eight minutes later, **Done.** appears.
+
+**If every section says "Nothing found in public sources" but the changelog filled**, the model
+server is not answering — `systemctl status llama-server`. That is the one symptom that tells a
+model problem apart from a fetching problem, because the changelog is the section that needs no
+model.
+
+Now go to **[USING_THE_SITE.md](USING_THE_SITE.md)**, which walks every feature the site has
+from the browser.
+
+---
+
+## Keeping it running
+
+### Updating to a newer commit
+
+```bash
+cd ~/competitive-landscape && git pull && ./scripts/build-release.sh
+sudo systemctl stop landscape-api landscape-worker
+sudo cp dist/bin/landscape /opt/landscape/bin/
+sudo rm -rf /opt/landscape/web/dist && sudo cp -r dist/web/dist /opt/landscape/web/dist
+sudo cp dist/MANIFEST /opt/landscape/
+sudo cp deploy/*.service /etc/systemd/system/
+sudo chown -R root:root /opt/landscape && sudo chmod -R go-w /opt/landscape
+sudo systemctl daemon-reload
+sudo systemctl start landscape-api landscape-worker
+```
+
+Migrations apply on boot, so there is never a moment where the binary and the schema disagree.
+Stopping the worker mid-analysis is safe: the run returns to the queue and starts over, and the
+reader watches it restart rather than watching a lie.
+
+### When something is wrong
+
+| What you see | Where to look |
+|---|---|
+| The browser times out | Both firewalls — step 3, and the `iptables` rule numbering |
+| `502` from Caddy | `systemctl status landscape-api` |
+| The page loads but nothing works | The API is down; the page is being served by the fallback |
+| Analyses stay **Queued.** for ever | `systemctl status landscape-worker` |
+| Every section empty, changelog filled | `systemctl status llama-server` |
+| "no search engine is configured" on a report | Step 9 — `SEARX_URL` is missing or the container is down |
+
+[RUNBOOK.md](RUNBOOK.md) is the longer version of that table.
+
+### What it costs to run
+
+Nothing, on the Always Free shapes, as long as you keep to one instance of 4 OCPU and 24 GB.
+Your domain is the only recurring cost.
+
+---
+
+## Appendix A — running without a domain
+
+Only if you skipped step 3 and step 11. It works, and two things are worse:
+
+- everything typed and read crosses the internet in clear text
+- **"Copy as context" cannot reach the clipboard** — browsers only allow that on `https://`. The
+  button still works: it puts the report in a text box on the page and tells you to copy it by
+  hand
+
+Make the API listen on the public interface and open its port:
+
+```bash
+sudo sed -i 's|^BIND_ADDR=.*|BIND_ADDR=0.0.0.0:8787|' /etc/landscape/landscape.env
+sudo systemctl restart landscape-api
+sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 8787 -j ACCEPT
+sudo netfilter-persistent save
+```
+
+Add an ingress rule for TCP `8787` in the Oracle security list, exactly as in step 4a. The site
+is then at `http://YOUR_IP:8787`.
+
+**There is no allow-list in this version**, so anyone who finds the address can spend your four
+cores. The per-visitor cap does not apply either: it counts the address Caddy observed, and
+without Caddy there is no such header. Use it for an afternoon of your own testing and not for
+anything you send to anybody.

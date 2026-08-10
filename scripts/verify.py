@@ -108,6 +108,10 @@ def gates(web: bool) -> list[Gate]:
         # not. Same shape as the benchmark-count gate, and free, because the source of the
         # number is the document's own rows.
         Gate("feature totals", [sys.executable, "scripts/feature_totals.py"]),
+        # A table with no `|---|` renders as a wall of pipes, and only in a browser - the
+        # source looks fine in an editor and in every diff. These documents are read on
+        # GitHub, so that is the rendering that decides whether they are readable.
+        Gate("markdown tables", [sys.executable, "scripts/markdown_tables.py"]),
         Gate("fmt", ["cargo", "fmt", "--all", "--check"]),
         # `--all-features` and `--all-targets`, because CI uses both and a lint that only fires
         # on a test target is exactly the one a hurried local run misses.

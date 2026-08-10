@@ -186,13 +186,13 @@ reports, refuse new ones, and say so plainly.
 
 ## 6. Deployment
 
-The procedure is [DEPLOY.md](DEPLOY.md). This section is what to do when following it does not
+The procedure is [GO_LIVE.md](GO_LIVE.md), and the reasoning behind it is [DEPLOY.md](DEPLOY.md). This section is what to do when following it does not
 work — and **the first three are all the same mistake**, which is that a closed port and a
 broken application look identical from a browser.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Connection times out from your machine | The VCN security list has no ingress rule | Console, Networking, Security Lists. DEPLOY.md §4a |
+| Connection times out from your machine | The VCN security list has no ingress rule | Console, Networking, Security Lists. GO_LIVE.md step 4a |
 | Still times out with the rule in place | The instance's own iptables. Oracle's Ubuntu images drop everything but SSH and persist it | `sudo iptables -L INPUT --line-numbers` and insert **before** the final REJECT, then `netfilter-persistent save` |
 | Times out only on 443 | Caddy could not get a certificate, so nothing is listening | `journalctl -u caddy` — usually port 80 is closed, which Let's Encrypt needs |
 | `502 Bad Gateway` | `landscape-api` is down, or `BIND_ADDR` disagrees with the Caddyfile | `systemctl status landscape-api`; they must both say `127.0.0.1:8787` |

@@ -33,6 +33,79 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 44 — two documents somebody can follow, and a fifteenth gate
+
+**Date:** 2026-08-10 · **Where:** this laptop · **Model:** none. Nothing here runs.
+
+Two documents, written because the deployment is about to happen and the existing ones were
+written for somebody who already knew the answers.
+
+### The sequence, and the argument, are two documents now
+
+`DEPLOY.md` interleaved its commands with the reasoning for them, which makes it a good essay
+and a slow procedure — and the moment a second deployment document existed, the model pin, the
+checksum and the firewall rules would have had two homes. **Two copies of a command drift, and
+the copy that drifts is the one nobody runs.**
+
+So: [GO_LIVE.md](GO_LIVE.md) holds every command and nothing else, twelve numbered steps from an
+empty Oracle account to a URL. [DEPLOY.md](DEPLOY.md) keeps every argument and **no commands at
+all**, naming steps rather than repeating them.
+
+Three things the sequence needed that the essay did not have:
+
+| | |
+|---|---|
+| The Oracle console, click by click | Shape, image, boot volume, SSH key, and where the security list is |
+| DNS at step 3, not step 10 | It propagates during the twenty-five minutes of building `llama-server` rather than being waited on at the end |
+| **The search engine at all** | `SEARX_URL` was in no deploy document. A box built from the old one would have had no search channel, and a description would have produced the refusal that says so |
+
+That last one is the substantive gap. Everything else was ordering.
+
+### And a walkthrough with no terminal in it
+
+[USING_THE_SITE.md](USING_THE_SITE.md) walks the product from a browser: the examples, a report
+arriving, how to read a claim against its source, comparing two companies, editing the set,
+handing the whole thing to an assistant, describing an idea rather than naming companies, the
+clarifying chips, and each of the ways it says no. `Feature_Walkthrough.md` stays what it is —
+the terminal version, for the parts with no browser surface.
+
+It opens with the two things that interrupt somebody trying it: **an analysis takes four to
+eight minutes on four ARM cores**, and **the cap is two a day per visitor**, which a six-analysis
+tour hits immediately. The cap only counts requests that arrived through Caddy, which is exactly
+the case a deployed box is in.
+
+### The gate: a table with no separator is not a table
+
+Writing those documents produced a two-row table with no `|---|---|` under its header. It reads
+correctly in an editor, in a diff, and in every review that looks at the source — and renders on
+GitHub as a row of pipes. **These documents are read in a browser**, so that is the rendering
+that decides whether they are readable at all.
+
+A check over every Markdown file in the repository found **two**, and the second one is the more
+interesting:
+
+```text
+docs/ROADMAP.md:1935  | 7 (retention/scale) | €65 → €200 | | **$1,100–2,000** |
+```
+
+That table was not typed wrongly. A paragraph was inserted **into the middle of it**, splitting
+one table into two — and the second half has no separator of its own, so its last two rows had
+been rendering as text for as long as the paragraph had been there. Nobody edits a table by
+deleting its separator; they edit it by putting something where the separator's protection does
+not reach.
+
+`scripts/markdown_tables.py` is the fifteenth gate. It checks the one property that decides
+*table or not a table* and deliberately not column counts or alignment, because a row with the
+wrong number of cells still renders.
+
+| | |
+|---|---|
+| Markdown tables checked | **352** |
+| Broken when the check was first run | **2** |
+| Gates in `scripts/verify.py` | 14 → **15** |
+
+---
+
 ## Run 43 — the evidence file a chatbot cannot assemble
 
 **Date:** 2026-08-10 · **Where:** this laptop · **Model:** none. Every byte here is a field of
