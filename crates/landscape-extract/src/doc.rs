@@ -108,6 +108,20 @@ pub fn section_heading(lines: &[&str], start: usize, end: usize) -> Option<Strin
         .map(|l| l.trim().to_owned())
 }
 
+/// Whether a line is a bullet in a list.
+///
+/// **What makes a hosted board readable.** A board puts its roles in bullets and everything
+/// else — a search box, a job count, a department name — in the prose and headings between
+/// them, so *"read the list the page marked"* is the difference between reading vacancies and
+/// publishing *Create a Job Alert* as one. See `hiring::every_role`.
+#[must_use]
+pub fn is_list_item(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    ["- ", "* ", "+ "]
+        .iter()
+        .any(|marker| trimmed.starts_with(marker))
+}
+
 /// A heading with its `#`s and surrounding space removed.
 #[must_use]
 pub fn heading_text(line: &str) -> &str {

@@ -549,9 +549,17 @@ the single most important phase; everything after it is commerce and polish.
   The cap is spent **round-robin across the questions a page answers** rather than by
   confidence — [ADR 0010](decisions/0010-spend-the-cap-on-breadth.md) — because ranking by
   confidence fills the eight with five pricing pages and starves every other section.
-  **Still to come:** templated search (needs SearXNG), off-site adapters, and public ATS
-  boards. Probes are deterministic, free, and hit primary sources; search fills gaps
-  rather than leading (FACT_CHECKING §3.3).
+  **And public ATS boards are done** — [BENCHMARKS.md](BENCHMARKS.md) Run 40. Three of four real
+  careers pages keep their vacancies on somebody else's host, so a careers page that links out
+  was a company whose list we were not reading. A board is **found, never guessed**: only one the
+  company's own page linked to, read out of a body the run has already paid for, and never
+  constructed from the company's name — a guessed slug belonging to somebody else would put
+  another company's vacancies on this report. It is the one page admitted from off the subject's
+  domain, and it is read at **`Attributed`** rather than `Primary`, so the exception is to where
+  the bytes come from and not to what they are worth.
+  **Still to come:** templated search (needs SearXNG) and off-site adapters. Probes are
+  deterministic, free, and hit primary sources; search fills gaps rather than leading
+  (FACT_CHECKING §3.3).
 - Per-section coverage thresholds and computed evidence strength (FACT_CHECKING §3.5), so a
   thin report is shipped marked rather than silently guessed.
 - Polite fetch + extraction pipeline.

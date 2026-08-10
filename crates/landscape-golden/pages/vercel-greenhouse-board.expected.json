@@ -1,0 +1,92 @@
+{
+  "page": "vercel-greenhouse-board.md",
+  "from": "https://boards.greenhouse.io/vercel fetched 2026-08-09",
+  "why": "The first frozen page that is not on the subject's own domain: a Greenhouse board, reached because a careers page links to it and never because anybody guessed the slug. It is here to hold two rules honest. The page announces its list as 'Current openings at Vercel', which the exact-match rule missed until it learned the one possessive form a hosted board uses. And its roles are bullets while its furniture - Create a Job Alert, a count of 83 jobs, and a department heading per section - is prose and headings, which is the opposite way round from linear-careers.md and is why the list's form is now counted rather than assumed. Forty-four titles are found and twenty reported, so the cap is visible here too.",
+  "answers": "direction",
+  "openings": {
+    "roles": [
+      {
+        "title": "Account Executive, Commercial New Hybrid - London",
+        "quote": "- Account Executive, Commercial New Hybrid - London"
+      },
+      {
+        "title": "Account Executive, Majors Hybrid - London",
+        "quote": "- Account Executive, Majors Hybrid - London"
+      },
+      {
+        "title": "Account Executive, Majors (APAC) Hybrid - Sydney",
+        "quote": "- Account Executive, Majors (APAC) Hybrid - Sydney"
+      },
+      {
+        "title": "Account Executive, Majors- Install Base (APAC) Hybrid - Sydney",
+        "quote": "- Account Executive, Majors- Install Base (APAC) Hybrid - Sydney"
+      },
+      {
+        "title": "Account Executive- Startups, Greenfield Hybrid - San Francisco, New York City, Austin",
+        "quote": "- Account Executive- Startups, Greenfield Hybrid - San Francisco, New York City, Austin"
+      },
+      {
+        "title": "Account Executive-Startups, Greenfield (EMEA) Hybrid - London",
+        "quote": "- Account Executive-Startups, Greenfield (EMEA) Hybrid - London"
+      },
+      {
+        "title": "Commercial Account Executive, Greenfield Hybrid - San Francisco, New York City, Austin",
+        "quote": "- Commercial Account Executive, Greenfield Hybrid - San Francisco, New York City, Austin"
+      },
+      {
+        "title": "Director, Commercial Sales, EMEA Hybrid - London",
+        "quote": "- Director, Commercial Sales, EMEA Hybrid - London"
+      },
+      {
+        "title": "Director, Major Sales Hybrid - New York City",
+        "quote": "- Director, Major Sales Hybrid - New York City"
+      },
+      {
+        "title": "Enterprise Account Executive Hybrid - San Francisco, New York City, Austin",
+        "quote": "- Enterprise Account Executive Hybrid - San Francisco, New York City, Austin"
+      },
+      {
+        "title": "Enterprise Account Executive, Retail Hybrid - San Francisco, New York City, Austin",
+        "quote": "- Enterprise Account Executive, Retail Hybrid - San Francisco, New York City, Austin"
+      },
+      {
+        "title": "Head of Southern Europe, Enterprise / Majors Hybrid - London",
+        "quote": "- Head of Southern Europe, Enterprise / Majors Hybrid - London"
+      },
+      {
+        "title": "Senior Accountant (India) Remote - India",
+        "quote": "- Senior Accountant (India) Remote - India"
+      },
+      {
+        "title": "Senior Financial Systems Administrator New Remote - India",
+        "quote": "- Senior Financial Systems Administrator New Remote - India"
+      },
+      {
+        "title": "Senior Manager, Corporate Accounting Hybrid - San Francisco",
+        "quote": "- Senior Manager, Corporate Accounting Hybrid - San Francisco"
+      },
+      {
+        "title": "Senior Payroll Analyst Hybrid - San Francisco, New York City, Austin",
+        "quote": "- Senior Payroll Analyst Hybrid - San Francisco, New York City, Austin"
+      },
+      {
+        "title": "Sr. Manager, Accounting (India) Remote - India",
+        "quote": "- Sr. Manager, Accounting (India) Remote - India"
+      },
+      {
+        "title": "Senior Product Designer, Growth Hybrid - San Francisco, New York City",
+        "quote": "- Senior Product Designer, Growth Hybrid - San Francisco, New York City"
+      },
+      {
+        "title": "Site Engineer Remote - United States",
+        "quote": "- Site Engineer Remote - United States"
+      },
+      {
+        "title": "Visual Designer, Web Remote - United States",
+        "quote": "- Visual Designer, Web Remote - United States"
+      }
+    ],
+    "considered": 44,
+    "announced": true
+  }
+}

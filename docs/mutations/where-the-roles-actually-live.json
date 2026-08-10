@@ -1,0 +1,449 @@
+[
+  {
+    "name": "the applicant tracker's own marketing site is read as a board",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "    if slug.is_empty() {\n        return None;\n    }",
+    "new": "    if false {\n        return None;\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a page naming a hundred vacancies contributes a hundred boards",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "    found.truncate(MOST_BOARDS);",
+    "new": "    found.truncate(usize::MAX);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "any off-site page is admitted, not only a board",
+    "file": "crates/landscape-discover/src/lib.rs",
+    "old": "    candidate.via == Via::Board || same_site(host, &candidate.url)",
+    "new": "    true",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a board the site named is thrown away with every other off-site link",
+    "file": "crates/landscape-discover/src/lib.rs",
+    "old": "    candidate.via == Via::Board || same_site(host, &candidate.url)",
+    "new": "    same_site(host, &candidate.url)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "boards are looked for on every page rather than the one about hiring",
+    "file": "crates/landscape-discover/src/lib.rs",
+    "old": "    if answers != probes::Answers::Direction {\n        return Vec::new();\n    }",
+    "new": "    if false {\n        return Vec::new();\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a board is never looked for at all",
+    "file": "crates/landscape-discover/src/lib.rs",
+    "old": "    boards::named_by(body)",
+    "new": "    Vec::<String>::new()",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a hosted board's heading is not recognised as a list",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "        .any(|phrase| text == *phrase || text.starts_with(&format!(\"{phrase} at \")))",
+    "new": "        .any(|phrase| text == *phrase)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "any heading beginning with an announcement announces a list",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "        .any(|phrase| text == *phrase || text.starts_with(&format!(\"{phrase} at \")))",
+    "new": "        .any(|phrase| text.starts_with(phrase))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a board's furniture is published as vacancies",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "        if doc::is_list_item(line) != bulleted {\n            continue;\n        }",
+    "new": "        if false {\n            continue;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a careers page's bulleted footer is published as vacancies",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "        if doc::is_list_item(line) != bulleted {",
+    "new": "        if !doc::is_list_item(line) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "the list's form is assumed rather than counted",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "    bulleted > plain",
+    "new": "    bulleted > 0",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "furniture counts as much as a title when the form is decided",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "        if title_on(line).is_none() {\n            continue;\n        }",
+    "new": "        if false {\n            continue;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "an asterisk bullet is not a bullet",
+    "file": "crates/landscape-extract/src/doc.rs",
+    "old": "    [\"- \", \"* \", \"+ \"]",
+    "new": "    [\"- \"]",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a board is read as the company's own page",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "                landscape_discover::rank::Via::Board => Disposition::Attributed,",
+    "new": "                landscape_discover::rank::Via::Board => Disposition::Primary,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "every discovered page is downgraded, not only a board",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "                _ => Disposition::Primary,",
+    "new": "                _ => Disposition::Attributed,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a board never gets a slot, so it is found and never read",
+    "file": "crates/landscape-discover/src/rank.rs",
+    "old": "    room_for_a_board(&mut out, &by_question);",
+    "new": "    let _ = &by_question;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a board takes the slot of the page that named it",
+    "file": "crates/landscape-discover/src/rank.rs",
+    "old": "    let Some((&crowded, &most)) = counts.iter().max_by_key(|(_, &n)| n) else {",
+    "new": "    let Some((&crowded, &most)) = counts.iter().min_by_key(|(_, &n)| n) else {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a run with one page a question gives one of them up for a board",
+    "file": "crates/landscape-discover/src/rank.rs",
+    "old": "    if most < 2 {\n        return;\n    }",
+    "new": "    if false {\n        return;\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a board already admitted is admitted a second time",
+    "file": "crates/landscape-discover/src/rank.rs",
+    "old": "        .find(|c| c.via == Via::Board && !out.iter().any(|kept| kept.url == c.url))",
+    "new": "        .find(|c| c.via == Via::Board)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a board url nobody linked to is read as a link",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "        if !matches!(bytes[at - 1], b'\"' | b'\\'') {\n            continue;\n        }",
+    "new": "        if false {\n            continue;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a host that merely ends with a known one is that host",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "    if !BOARD_HOSTS.contains(&host) {",
+    "new": "    if !BOARD_HOSTS.iter().any(|known| host.ends_with(known)) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a vacancy link is followed instead of the board it is on",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "        .take_while(|c| !ENDS_A_PART.contains(c) && !c.is_whitespace())",
+    "new": "        .take_while(|c| !c.is_whitespace())",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "an escaped separator inside json is not understood",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "    rest.strip_prefix('/').or_else(|| rest.strip_prefix(r\"\\/\"))",
+    "new": "    rest.strip_prefix('/')",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a group heading votes for the form the list is written in",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "        } else if doc::heading_level(line).is_none() {",
+    "new": "        } else {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "any quoted url is read as a link",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "        if named_as_a_link(&html[..at - 1]) && after_scheme(&html[at..]).is_some() {",
+    "new": "        if after_scheme(&html[at..]).is_some() {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a widget's url field is read as this company's board",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "const JOB_URL_KEYS: [&str; 4] = [\"absolute_url\", \"jobUrl\", \"applyUrl\", \"jobPostingUrl\"];",
+    "new": "const JOB_URL_KEYS: [&str; 4] = [\"absolute_url\", \"jobUrl\", \"applyUrl\", \"url\"];",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a group heading is published as a vacancy",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "        if !bulleted && doc::heading_level(line).is_some() {\n            continue;\n        }",
+    "new": "        if false {\n            continue;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "an href is not read as a link",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "        return attribute_name(head.trim_end()).eq_ignore_ascii_case(\"href\");",
+    "new": "        return false;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a key nothing opened is read as a key",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "    let opens = inside.rfind('\"')?;\n    Some(&inside[opens + 1..])",
+    "new": "    Some(inside.rfind('\"').map_or(inside, |opens| &inside[opens + 1..]))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "an attribute name stops at a character somebody did not think of",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "            .take_while(|c| !c.is_whitespace() && !matches!(c, '<' | '>' | '/' | '=' | '\"' | '\\''))",
+    "new": "            .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | ':' | '.'))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "an attribute name runs past its delimiter",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "            .take_while(|c| !c.is_whitespace() && !matches!(c, '<' | '>' | '/' | '=' | '\"' | '\\''))",
+    "new": "            .take_while(|c| !matches!(c, '<' | '>' | '/' | '=' | '\"' | '\\''))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a json key is matched without regard to its case",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "    JOB_URL_KEYS.contains(&key)",
+    "new": "    JOB_URL_KEYS\n        .iter()\n        .any(|known| key.eq_ignore_ascii_case(known))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a key whose name merely ends in a known one counts",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "    let opens = inside.rfind('\"')?;",
+    "new": "    let opens = inside.len()\n        - inside\n            .chars()\n            .rev()\n            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')\n            .count();\n    let opens = opens.wrapping_sub(1);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  }
+]

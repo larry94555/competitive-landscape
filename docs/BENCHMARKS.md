@@ -33,6 +33,202 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 40 — where the roles actually live
+
+**Date:** 2026-08-09 · **Where:** this laptop · **Model:** none. Discovery and the hiring
+scanner are both deterministic; nothing here asks one.
+
+`ROADMAP.md` has listed **public ATS boards** among the structured probes since Phase 1 was
+written, and they were the last entry on that list still to come. Four real careers pages, read
+the day this was built:
+
+| | links to a board |
+|---|---|
+| `linear.app/careers` | `jobs.ashbyhq.com/Linear` |
+| `front.com/jobs` | `jobs.ashbyhq.com/frontcareers` |
+| `helpscout.com/company/careers/` | `jobs.ashbyhq.com/helpscout` |
+| `plausible.io/jobs` | — |
+
+**Three of four keep their vacancies somewhere else.** A careers page that links out is not a
+company with nothing to say about hiring; it is a company whose list we were not reading.
+
+### Found, never guessed
+
+**Every board is one the company's own page linked to.** Nothing constructs
+`jobs.ashbyhq.com/<the company's name>` and hopes, and that restraint is the whole safety
+argument: a guessed slug belonging to somebody else would put another company's vacancies on this
+company's report — cited, internally consistent, and wrong in the way `FACT_CHECKING.md` §3.1
+exists to prevent. A guess is also unnecessary. The link is there, or the company has not told us
+where its roles are.
+
+**No extra request to find one.** The board is read out of the careers page's own body, which the
+run has already paid for.
+
+**Review: a string is not a link.** The first version scanned the raw HTML for a known host, so
+any occurrence counted — prose, a tracking blob, a *"similar jobs at other companies"* widget, a
+redirect parameter. `jobs.ashbyhq.com/SomebodyElse` appearing anywhere admitted somebody else's
+board and published their vacancies under this company's name, which is the exact failure the
+*found, never guessed* rule exists to prevent, arriving through a string nobody linked.
+
+**A quoted string is not a link either**, which was review's next pass on the same rule: a
+`<script>` assigning `const competitor = "https://jobs.ashbyhq.com/SomebodyElse/role"` starts a
+quoted value, and so does a *"similar jobs at other companies"* widget. A URL now has to be the
+value of an HTML `href` or of one of four fields — `absolute_url`, `jobUrl`, `applyUrl`,
+`jobPostingUrl`, which are the exact keys the three real careers pages use. **`url` is
+deliberately absent**: it is what a widget listing somebody else's vacancies would use too, and a
+key that cannot tell the two apart is not evidence.
+
+**And the whole name, to its own boundary.** The first version of that check scanned back only
+over letters, so `data-href="…"` ended in `href` and `{"competitor-jobUrl":"…"}` ended in
+`jobUrl` — and a hyphen is exactly what a competitor widget's attribute or key would put in front
+of a name we trust. An attribute name now runs to its **delimiter** and a JSON key to the
+quote that opened it, so a key nothing opened is not a key.
+
+**A list of allowed characters is that mistake in a smaller costume**, and review found it twice:
+a hyphen was missing from the set, then an `@` was. HTML5 lets an attribute name hold anything
+except whitespace and `"`, `'`, `>`, `/`, `=`, so those are what ends one — and listing the
+*delimiters* cannot fail that way, because a character nobody thought of stays part of the name,
+which is the safe direction. A JSON key is compared **case-sensitively**, because it is
+case-sensitive: `joburl` is a field nobody has verified. An HTML attribute name is compared the
+other way round, because that one really is case-insensitive.
+
+A URL is also **parsed** — scheme, host, one path segment — and only where it *begins* a quoted
+value, which is what `href="…"` and `{"url":"…"}` look like and what `href="/out?to=https://…"`
+does not. Asked that way round rather than by pairing quotes across the document, because pairing
+goes out of phase the moment a page nests JSON inside JSON — and `vercel.com/careers` does exactly
+that, with its board inside `{"jobs":[{"absolute_url":"https://…"}]}` written as an escaped string
+within another string. **The first attempt at the fix paired quotes, passed every unit test, and
+found no board on any of the three real sites** — the lesson two sections down, arriving twice in
+one change.
+
+### A board is not the company's own server
+
+`Disposition::Attributed`, never `Primary`. The bytes come from a stranger's host, so nothing a
+board says may set a value in a comparison table — but the subject's own page is what named it,
+so authorship is not in doubt either. That is what `Attributed` is for, and it means the rule
+*"`Primary` is the company's own domain"* stays as it was rather than being widened to fit a
+feature into it.
+
+Discovery's off-site filter gains exactly one exception, and it is an exception to **where the
+bytes come from** rather than to **what they are worth**. The laundering that filter prevents is
+an off-site page arriving in the class that outranks everything, and a route whose class is fixed
+below `Primary` cannot do that.
+
+### Which hosts, and why six
+
+Only boards addressed as `<host>/<slug>`, so a vacancy link reduces to the board's root by taking
+one path segment: Ashby, Greenhouse (both hosts), Lever, Workable, SmartRecruiters. Hosts that
+put the company in a **subdomain** — `acme.recruitee.com` — are deliberately absent: every
+subdomain there is a different company, so a misread link is somebody else's board rather than a
+404.
+
+`boards.greenhouse.io` is a substring of `job-boards.greenhouse.io`, so a plain search finds one
+board twice under two names and spends two of a page's allowance on the same vacancies. The match
+is on a host boundary.
+
+### What a board turned out to need from the scanner
+
+Fetching a board and reading nothing off it would be a request to a stranger's server for no
+information, so the two rules it needed are here rather than in a later row.
+
+**An announcement it did not recognise.** `announces` is an exact match against ten phrases, and
+Greenhouse titles the page *"Current openings at Vercel"*. It now also accepts `<phrase> at …` —
+the one possessive form a hosted board uses, and deliberately not `starts_with(phrase)`, which
+would let *"open roles are what we are proudest of"* announce a list that is not there.
+
+**A group heading is structure, not an entry.** Review found what counting one costs: a board
+advertising a single vacancy is `### Account Executive` above `- Staff Product Engineer`, so the
+count ties at one apiece, the tie keeps the plain lines, and the group label is published as the
+opening while the job is discarded. A company with one vacancy is the most likely board there is.
+Neither page shape puts its roles in headings, so a heading votes for nothing — **and is not
+collected either**, which review had to say twice: excluding it from the vote left it in the
+extraction loop, where `title_on` strips the hashes and `### Account Executive` was reported as a
+vacancy beside the real one.
+
+**A list written the other way round.** A hosted board puts its roles in bullets and its
+furniture — *Create a Job Alert*, a count of 83 jobs, a department heading per section — in the
+prose and headings between them. A company's own careers page usually does the opposite: roles as
+plain lines, with a bulleted footer underneath. Neither *"prefer bullets"* nor *"ignore bullets"*
+is right; each publishes the other page's furniture as a vacancy, and three existing tests said
+so the moment the first version tried. **Whichever form carries more of the titles is the list**,
+counted rather than assumed, with a tie keeping the plain lines that were there before.
+
+```text
+boards.greenhouse.io/vercel   announced: true   titles found: 44   reported: 20 (the cap)
+```
+
+Every one of the twenty is a vacancy. Unscoped, the same page also published *Create a Job Alert*
+and two department names.
+
+### A board cannot win a slot on its own, and that is not a ranking bug
+
+Round one of the cap gives each question its best page, and for hiring that is the company's own
+careers page — which is how the board was found. So a board only ever competes for a **second**
+slot, and the questions that sort earlier take those. On all three companies above, the board was
+discovered and then dropped.
+
+Ranking a board higher is the obvious fix and it is wrong:
+
+| | its own careers page | its board |
+|---|---|---|
+| `linear.app` | lists its roles | Ashby, reads as nothing |
+| `vercel.com` | navigation chrome, no list | Greenhouse, 44 titles |
+
+**Which is which cannot be known before the page is read.** So both are admitted and the reading
+decides, and the slot comes from whichever question already has the most — which is
+[ADR 0010](decisions/0010-spend-the-cap-on-breadth.md)'s own argument applied to itself: a second
+pricing page is the cheapest thing on the list, and a board is the only place some companies'
+roles exist at all. A run that gave every question exactly one page gives nothing up.
+
+```text
+cargo run -p landscape -- discover https://vercel.com
+
+https://vercel.com/careers/vercel-development-represent…   direction    sitemap
+https://job-boards.greenhouse.io/vercel                    direction    board
+```
+
+All three companies now admit their board, measured today.
+
+### The first frozen page that is not the subject's own
+
+`vercel-greenhouse-board.md` joins the golden set, and it is the first fixture in it that lives
+on somebody else's host. It is there to hold both rules honest, and it is the opposite shape from
+`linear-careers.md` in exactly the way that matters — which is why the pair is worth having.
+
+### A fourteenth gate, because a percentage nobody adds up drifts
+
+`Full_Feature_List.md`'s S2 totals row read `18 / 16 / 2` while its own ten feature rows summed
+to `19 / 16 / 3`. The page has therefore been publishing **89% for a state that was 84%**, and
+every pull request that quoted it repeated the number — including the three before this one.
+Nothing was wrong on purpose: a row was added once and the total below it was not.
+
+`scripts/feature_totals.py` adds each table up against its own rows, checks that every row's
+`done + left` is its estimate, and checks the percentage against the sum. Six tables, no test run
+needed, so it costs nothing. It is the same shape as the benchmark-count gate: a number a
+document must hold, checked against the thing it is derived from rather than trusted.
+
+The corrected S2 arithmetic is **19 estimated, 17 done, 2 left — 89%**, which this row is what
+moves it to.
+
+### What this does not do
+
+**An Ashby board still reads as nothing.** Three of the four careers pages above point at Ashby,
+whose board keeps its vacancies in `window.__appData` rather than in the HTML — so the page is
+fetched, the scanner finds no list, and the report says *the page does not say where its open
+roles are listed*, which is the honest sentence rather than a silence. Reading it needs the
+embedded-state tier `landscape-extract` already has for prices, pointed at roles; that is the
+`Rendering ladder tiers 2–4` row of S3, and this run is the reason it now has a second customer.
+
+**No board is fetched for a company that links to none.** That is not a gap: a company with no
+public board has not published one.
+
+| | Rust tests | frontend tests |
+|---|---|---|
+| Run 39 | 928 | 62 |
+| now | **951** | **62** |
+
+---
+
 ## Run 39 — asking whether it changed
 
 **Date:** 2026-08-09 · **Where:** this laptop · **Model:** none. Neither half of this row asks a

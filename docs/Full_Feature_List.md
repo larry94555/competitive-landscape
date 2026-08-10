@@ -134,12 +134,22 @@ code change — the software does not become different.
 
 ## S2 — Ready for demonstration
 
-*Any business idea handled correctly, limited functionality, friendly users only.* **Nearly
-there.** Sixteen of eighteen PRs are done, and **eight of the ten rows are complete** — everything
-`landscape-fetch` owed is built. Two readers of one competitor share both the fetching and the
+*Any business idea handled correctly, limited functionality, friendly users only.* **Two PRs
+left.** Seventeen of nineteen are done, and **eight of the ten rows are complete** — everything
+`landscape-fetch` owed is built, and the first off-site source is reached without an engine at
+all: a company's own careers page names its applicant-tracking board, so three of four real
+companies now have their vacancies read instead of a page that links away. Two readers of one competitor share both the fetching and the
 reading; a page past its hour is asked about rather than downloaded again; and one reader's
-question has a bound on what it costs strangers. **Both remaining PRs are the search channel and
-the competitor set**, which is where the honest gap has been all along. Both inputs produce a comparison — a description and a
+question has a bound on what it costs strangers. **The two remaining PRs are the engine-backed half of the
+search channel** — which needs SearXNG actually run, and [B2](../PROJECT_STATUS.md#4-blockers)
+notes it never has been — **and the last of competitor-set derivation.** That is where the honest
+gap has been all along.
+
+**The totals row was wrong, and is corrected here.** It read `18 / 16 / 2` while its own columns
+summed to `19 / 16 / 3`, so this page has been publishing 89% for a state that was 84%. The
+arithmetic is now the columns': **19 estimated, 17 done, 2 left**. A percentage nobody adds up is
+a percentage that drifts, so `scripts/verify.py` now adds it up — see
+[BENCHMARKS.md](BENCHMARKS.md) Run 40. Both inputs produce a comparison — a description and a
 named company alike — a report that covers **one** company says which of four things happened to
 the others, and a run that produces **no** report now says which of five things happened rather
 than one. That last one is the same discipline reaching the surface a reader actually looks at:
@@ -148,7 +158,7 @@ them back into a single sentence.
 
 | Feature | State | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
-| **The search channel** — `landscape-search`, SearXNG or equivalent, off-site sources | S2 | 4 | 2 | **2** | 50% |
+| **The search channel** — `landscape-search`, SearXNG or equivalent, off-site sources | S2 | 4 | 3 | **1** | 75% |
 | Candidate generation — turn a search result set into scored candidates for the gate | S2 | 2 | 2 | 0 | 100% |
 | Competitor set derivation — one idea to several companies, with why each was chosen | S2 | 3 | 2 | **1** | 67% |
 | Vocabulary resolution — a reader's words to a category the pipeline can search | S2 | 2 | 2 | 0 | 100% |
@@ -158,7 +168,7 @@ them back into a single sentence.
 | Honest "no public information" at the level of a whole competitor set | S2 | 1 | 1 | 0 | 100% |
 | Fetch cache and per-source extraction cache — two readers of one competitor share work | S2 | 2 | 2 | 0 | 100% |
 | Conditional GET and a per-analysis fetch cap | S2 | 1 | 1 | 0 | 100% |
-| | | **18** | **16** | **2** | **89%** |
+| | | **19** | **17** | **2** | **89%** |
 
 **What the two clarifying-question PRs bought, and what §3 still describes.** The row is
 counted complete because what S2 needs is a run that cannot converge saying so in terms a reader

@@ -75,8 +75,8 @@
   {
     "name": "a button anywhere on the page is taken for the announcement",
     "file": "crates/landscape-extract/src/hiring.rs",
-    "old": "    ANNOUNCEMENTS.iter().any(|phrase| text == *phrase)",
-    "new": "    ANNOUNCEMENTS.iter().any(|phrase| text.contains(phrase))",
+    "old": "        .any(|phrase| text == *phrase || text.starts_with(&format!(\"{phrase} at \")))",
+    "new": "        .any(|phrase| text.contains(phrase))",
     "run": [
       "cargo",
       "nextest",

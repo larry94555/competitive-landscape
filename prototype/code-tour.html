@@ -80,94 +80,91 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    stored: {
-      name: "Page.etag, since the first fetch",
-      purpose: "Stored, and never sent.",
+    away: {
+      name: "three of four link away",
+      purpose: "Their roles are somewhere else.",
       lines: [
-        ['f', '  pub etag: Option<String>,'],
-        ['f', '  pub last_modified: Option<String>,'],
+        ['s', '  linear.app/careers'],
+        ['s', '  front.com/jobs'],
+        ['s', '  helpscout.com/careers'],
         ['c', ''],
-        ['t', '// A page past its hour cost a'],
-        ['t', '// whole download to learn nothing'],
-        ['t', '// about it had changed.']
+        ['f', '// All three: jobs.ashbyhq.com']
       ]
     },
-    ask: {
-      name: "so now we ask instead",
-      purpose: "If-None-Match, If-Modified-Since.",
+    found: {
+      name: "found, never guessed",
+      purpose: "The whole safety argument.",
       lines: [
-        ['s', '  304 Not Modified'],
+        ['t', '  a link the company published'],
         ['c', ''],
-        ['f', '// No body in either direction.'],
-        ['f', '// The bytes not sent are theirs.']
+        ['f', '// A guessed slug that belongs to'],
+        ['f', '// somebody else puts their'],
+        ['f', '// vacancies on this report.']
       ]
     },
-    asof: {
-      name: "and it is dated now",
-      purpose: "Because we asked, and they answered.",
+    free: {
+      name: "and no extra request",
+      purpose: "Read from a body we have.",
       lines: [
-        ['t', '  cache hit  -> when we read it'],
-        ['t', '  304        -> now'],
+        ['t', '  boards_on(answers, &page.body)'],
         ['c', ''],
-        ['f', '// Nobody asked about the first.'],
-        ['f', '// Saying "an hour ago" about the'],
-        ['f', '// second understates what we know.']
+        ['f', '// Only from the page whose'],
+        ['f', '// question it answers. A footer'],
+        ['f', '// is not evidence about hiring.']
       ]
     },
-    trap: {
-      name: "304 is a 3xx",
-      purpose: "A trap with a type for a fix.",
+    standing: {
+      name: "attributed, not primary",
+      purpose: "Somebody else's server.",
       lines: [
-        ['s', '  redirect with no location'],
+        ['s', '  Primary sets a table value'],
+        ['t', '  Attributed does not'],
         ['c', ''],
-        ['t', '  enum Answer {'],
-        ['t', '    NotModified, Redirect, Body'],
-        ['t', '  }'],
-        ['c', ''],
-        ['f', '// No wildcard arm.']
+        ['f', '// Authorship is not in doubt.'],
+        ['f', '// The host is not ours.']
       ]
     },
-    hop: {
-      name: "and only on the first hop",
-      purpose: "A validator names one URL.",
+    slot: {
+      name: "and it cannot win a slot",
+      purpose: "Round one goes to the careers page.",
       lines: [
-        ['t', '  conditional_on(hop, held)'],
+        ['s', '  linear.app  its own page lists'],
+        ['s', '  vercel.com  chrome, 0 roles'],
         ['c', ''],
-        ['f', '// Else a redirect answers 304 and'],
-        ['f', '// hands one page’s body back'],
-        ['f', '// under another page’s URL.']
+        ['f', '// Which is which is unknowable'],
+        ['f', '// before the page is read.']
       ]
     },
-    accident: {
-      name: "nothing bounded the run",
-      purpose: "Everything bounded one request.",
+    both: {
+      name: "so both are read",
+      purpose: "From whichever question has most.",
       lines: [
-        ['s', '  8 pages x 3 companies'],
+        ['t', '  a second pricing page is the'],
+        ['t', '  cheapest thing on the list'],
         ['c', ''],
-        ['f', '// An accident of arithmetic.'],
-        ['f', '// An accident is not a bound.']
+        ['f', '// ADR 0010, applied to itself.']
       ]
     },
-    cap: {
-      name: "64 requests, one question",
-      purpose: "Shared by all three passes.",
+    heading: {
+      name: "Current openings at Vercel",
+      purpose: "An exact match missed it.",
       lines: [
-        ['t', '  robots.txt        counts'],
-        ['t', '  every redirect    counts'],
-        ['t', '  a cache hit       does not'],
+        ['t', '  phrase, or phrase + " at "'],
         ['c', ''],
-        ['f', '// Nothing was sent.']
+        ['f', '// Not starts_with: "open roles'],
+        ['f', '// are what we are proudest of"'],
+        ['f', '// announces nothing.']
       ]
     },
-    ours: {
-      name: "running out is our doing",
-      purpose: "Never reported as theirs.",
+    form: {
+      name: "and the list is counted",
+      purpose: "Not assumed.",
       lines: [
-        ['s', '  robots.txt says no'],
-        ['t', '  not read - this run had already'],
-        ['t', '  made its 64 requests'],
+        ['s', '  board   roles in bullets'],
+        ['s', '  careers roles in plain lines'],
         ['c', ''],
-        ['f', '// A reader acts on the difference.']
+        ['f', '// Either assumption publishes'],
+        ['f', '// the other page’s furniture.']
       ]
     }
   };
@@ -211,18 +208,19 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:stored",   c: "We have stored the ETag since day one." },
-    { kind: "means",       a: "file:ask",      c: "And never once sent it back." },
+    { kind: "recognition", a: "file:away",     c: "Three of four careers pages link away." },
+    { kind: "means",       a: "file:found",    c: "So follow the link, and never guess one." },
 
-    { kind: "turn",        a: "file:asof",     c: "A page the origin confirms is dated now." },
-    { kind: "result",      a: "file:trap",     c: "304 is a 3xx, so the answer is a type." },
-    { kind: "result",      a: "file:hop",      c: "A validator belongs to one URL only." },
+    { kind: "turn",        a: "file:free",     c: "It costs no extra request to find." },
+    { kind: "result",      a: "file:standing", c: "And it is read as a stranger's page." },
 
-    { kind: "turn",        a: "file:accident", c: "And nothing at all bounded the run." },
-    { kind: "result",      a: "file:cap",      c: "Sixty-four requests for one question." },
-    { kind: "result",      a: "file:ours",     c: "Running out is our doing, never theirs." },
+    { kind: "turn",        a: "file:slot",     c: "A board cannot win a slot on its own." },
+    { kind: "result",      a: "file:both",     c: "So both are read, and the reading decides." },
 
-    { kind: "close",       a: "hold",          c: "Asking whether it changed." }
+    { kind: "result",      a: "file:heading",  c: "A board announces its list differently." },
+    { kind: "result",      a: "file:form",     c: "And writes it the other way round." },
+
+    { kind: "close",       a: "hold",          c: "Where the roles actually live." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -245,7 +243,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("stored");
+    show("away");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -258,15 +256,15 @@
     }, TOTAL * 1000));
   }
 
-  show("stored");
+  show("away");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "Asking whether it changed",
-    blurb: "`Page` has carried an ETag since the first fetch in this crate and nothing ever sent it back, so a page past its hour cost a whole download to learn that nothing about it had changed. It is asked about now, and a 304 carries no body in either direction — and a page the origin confirms is dated now rather than when we first read it. The other half of the row is a bound on the run: everything else in the crate bounds one request, and eight pages times three companies is an accident of arithmetic rather than a limit.",
+    title: "Where the roles actually live",
+    blurb: "Three of four real careers pages keep their vacancies on somebody else’s applicant-tracking board, so a careers page that links away was a company whose list we were not reading. A board is followed only when the company’s own page links to it — never constructed from its name, because a guessed slug belonging to somebody else would put another company’s vacancies on this report — and it is read at Attributed rather than Primary, because the bytes are a stranger’s even when the authorship is not.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;

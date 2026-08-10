@@ -357,6 +357,19 @@ being handed your bad afternoon for an hour.
 sends an `ETag`; the next run sends it back as `If-None-Match`, and a `304` comes back with no
 body at all. The bytes that are not sent are theirs.
 
+**And a careers page that links away is followed.** Three of four real careers pages keep their
+vacancies on an applicant-tracking board rather than on their own site. Try:
+
+```bash
+cargo run -p landscape -- discover https://vercel.com
+```
+
+A board appears in the list only if `vercel.com`'s own careers page links to it — nothing is ever
+constructed from a company's name, because a guessed slug belonging to somebody else would put
+another company's vacancies on this report. It is the one page admitted from off the subject's
+domain, and it is read at `Attributed` rather than `Primary`, so nothing it says can set a value
+in a comparison table.
+
 **24 of 64 is the bound on what one question costs strangers.** Everything else in
 `landscape-fetch` bounds a single request — the size cap, the per-host delay, `robots.txt` — and
 until this the run itself was bounded only by an accident of arithmetic. Ask about three
