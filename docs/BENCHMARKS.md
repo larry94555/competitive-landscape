@@ -69,14 +69,40 @@ report telling them to wait.
 | `TooFast` | `429` — it asked to be asked less often | trying again shortly should work |
 | `Silent` | it did not answer, or broke with a `5xx` | that is usually temporary — try again |
 
-**Did the engine answer at all?** Anything that came back is a decision, and the same decision
-comes back next time — a status, a body we cannot parse, a body past the size limit, a client
-that would not build. Only silence and the two answers that explicitly mean *later* are worth
-waiting on. Nothing in the enum is about SearXNG, so a second provider inherits it.
+**Did the engine answer with a decision about the request?** A decision comes back the same next
+time — a status, a body we cannot parse, a body past the size limit, a client that would not
+build. What does not is silence, and the answers that are *about the exchange rather than about
+the request*. Nothing in the enum is about SearXNG, so a second provider inherits it.
+
+**The first version of that rule said "did the engine answer at all", and review found the
+counterexample in one line.** `408 Request Timeout` is an answer, and it is the one status whose
+entire meaning is *that did not work, try it again* — so a timed-out request was stored as a
+refusal, the page said trying again would not help, and the terminal pointed at JSON
+configuration. **"Answered" was never the property that mattered; *decided* was**, and the coarse
+version of a rule is the version that reads as obviously correct.
 
 `Queried.failed` carries the reason beside the query now rather than the query alone, which is
 the same shape `admit::Found` already uses: **a value parted from its evidence** is register
 entry 7, and this was a third instance of it.
+
+### Three layers, because collapsing to two was the same mistake again
+
+Review found the second half of it: with only the coarse `Fault` stored, **every** refusal
+printed one remedy, and that remedy named the JSON opt-in. So an instance asking for credentials,
+a URL pointing at nothing, an oversized body and a client that would not build all sent an
+operator to edit `search.formats` — a file that was not the problem in four cases out of five.
+
+`Condition` is the middle layer, and each of the three has one audience:
+
+| | | |
+|---|---|---|
+| `SearchError` | the call | rich, carries bodies, cannot be stored |
+| `Condition` | the operator | what the engine did — `answered 401`, `unreadable body` |
+| `Fault` | the reader | the three-way answer, derived rather than stored beside it |
+
+`Failed` keeps the `Condition` and derives the `Fault`, so the two cannot drift into disagreeing
+about one status. Only the two conditions that genuinely **are** the JSON opt-in mention it — a
+`403`, and a `200` with a body we cannot parse, which is an instance serving HTML.
 
 ### Two audiences, two sentences, and neither is the other one leaked
 
@@ -141,7 +167,7 @@ pair kept together is only kept together if something reads both halves.
 | | Rust tests | frontend tests | catalogue |
 |---|---|---|---|
 | Run 41 | 951 | 73 | 11, all caught |
-| now | **961** | **74** | **11**, all caught |
+| now | **965** | **74** | **14**, all caught |
 
 **What this run does not claim.** SearXNG still has not been run against this — Docker was
 unavailable where this was built, which is the same limit Run 28 records. A `403` server and a

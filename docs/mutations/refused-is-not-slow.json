@@ -2,8 +2,8 @@
   {
     "name": "an engine that answers and refuses is reported as one that is slow",
     "file": "crates/landscape-search/src/provider.rs",
-    "old": "            Self::Status { status: 429 } => Fault::TooFast,\n            Self::Status { status } if status >= 500 => Fault::Silent,\n            Self::Status { .. }",
-    "new": "            Self::Status { status: 429 } => Fault::TooFast,\n            Self::Status { status } if status >= 400 => Fault::Silent,\n            Self::Status { .. }",
+    "old": "            Self::Answered(408 | 425) => Fault::Silent,\n            Self::Answered(status) if status >= 500 => Fault::Silent,",
+    "new": "            Self::Answered(status) if status >= 400 => Fault::Silent,",
     "run": [
       "cargo",
       "nextest",
@@ -17,8 +17,8 @@
   {
     "name": "a body we cannot parse is something to wait for",
     "file": "crates/landscape-search/src/provider.rs",
-    "old": "            Self::Status { .. }\n            | Self::Unreadable(_)\n            | Self::TooLarge { .. }\n            | Self::Unusable(_)\n            | Self::NotConfigured => Fault::Refused,\n            // It did not.\n            Self::Unreachable(_) => Fault::Silent,",
-    "new": "            Self::Status { .. }\n            | Self::TooLarge { .. }\n            | Self::Unusable(_)\n            | Self::NotConfigured => Fault::Refused,\n            // It did not.\n            Self::Unreachable(_) | Self::Unreadable(_) => Fault::Silent,",
+    "old": "            Self::Answered(_)\n            | Self::Unreadable\n            | Self::TooLarge\n            | Self::Unusable\n            | Self::NotConfigured => Fault::Refused,\n            Self::NoAnswer => Fault::Silent,",
+    "new": "            Self::Answered(_) | Self::TooLarge | Self::Unusable | Self::NotConfigured => {\n                Fault::Refused\n            }\n            Self::NoAnswer | Self::Unreadable => Fault::Silent,",
     "run": [
       "cargo",
       "nextest",
@@ -69,8 +69,8 @@
   {
     "name": "the reason a query failed is thrown away at the seam",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "                queried\n                    .failed\n                    .push(Failed::new(query.text.clone(), e.fault()));",
-    "new": "                queried\n                    .failed\n                    .push(Failed::new(query.text.clone(), crate::provider::Fault::Silent));",
+    "old": "                queried.failed.push(Failed::new(\n                    query.text.clone(),\n                    crate::provider::Condition::of(&e),\n                ));",
+    "new": "                queried.failed.push(Failed::new(\n                    query.text.clone(),\n                    crate::provider::Condition::NoAnswer,\n                ));",
     "run": [
       "cargo",
       "nextest",
@@ -142,5 +142,44 @@
       "run"
     ],
     "cwd": "web"
+  },
+  {
+    "name": "a request the engine timed out on is filed as a refusal",
+    "file": "crates/landscape-search/src/provider.rs",
+    "old": "            Self::Answered(408 | 425) => Fault::Silent,",
+    "new": "            Self::Answered(425) => Fault::Silent,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "every refusal is diagnosed as the JSON opt-in",
+    "file": "crates/landscape-search/src/provider.rs",
+    "old": "            Self::Answered(401) => format!(",
+    "new": "            Self::Answered(0) => format!(",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a query the engine answered is listed as one it did not",
+    "file": "crates/landscape-search/src/provider.rs",
+    "old": "            Self::Answered(status) => format!(\"answered {status}\"),",
+    "new": "            Self::Answered(_) => \"no answer\".to_owned(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
   }
 ]

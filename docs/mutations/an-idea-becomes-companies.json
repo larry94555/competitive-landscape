@@ -301,7 +301,7 @@
   {
     "name": "a failed query is recorded as one that answered",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "                queried\n                    .failed\n                    .push(Failed::new(query.text.clone(), e.fault()));",
+    "old": "                queried.failed.push(Failed::new(\n                    query.text.clone(),\n                    crate::provider::Condition::of(&e),\n                ));",
     "new": "                queried.completed.push(query.text.to_string());",
     "run": [
       "cargo",

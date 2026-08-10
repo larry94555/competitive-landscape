@@ -176,18 +176,28 @@ pub struct Queried {
 pub struct Failed {
     /// What was asked.
     pub query: String,
-    /// What a reader would do about it.
-    pub fault: crate::provider::Fault,
+    /// What the engine did. The coarse reading is [`Self::fault`], derived from this.
+    ///
+    /// **Kept at this resolution because the coarse one is not a diagnosis.** Review found a
+    /// `401` being explained as a `403`: every refusal printed the same remedy, and an operator
+    /// whose instance wanted credentials was sent to edit `search.formats`.
+    pub condition: crate::provider::Condition,
 }
 
 impl Failed {
-    /// One query that did not come back, and why.
+    /// One query that did not come back, and what the engine did about it.
     #[must_use]
-    pub fn new(query: impl Into<String>, fault: crate::provider::Fault) -> Self {
+    pub fn new(query: impl Into<String>, condition: crate::provider::Condition) -> Self {
         Self {
             query: query.into(),
-            fault,
+            condition,
         }
+    }
+
+    /// What a reader would do about it — derived, never stored beside the condition.
+    #[must_use]
+    pub const fn fault(&self) -> crate::provider::Fault {
+        self.condition.fault()
     }
 }
 
@@ -199,9 +209,24 @@ impl Queried {
     }
 
     /// The failure worth acting on, or [`None`] when nothing failed.
+    ///
+    /// **Most actionable first, and the earliest of those.** A run that saw one refusal and two
+    /// timeouts has an engine that refuses: the refusal is the fact somebody can do something
+    /// about, and telling them to wait when one query has already proved waiting useless is the
+    /// defect this whole seam exists to stop. `min_by_key` keeps the first minimum, so the
+    /// answer does not depend on how a tie is ordered.
+    #[must_use]
+    pub fn condition(&self) -> Option<crate::provider::Condition> {
+        self.failed
+            .iter()
+            .map(|f| f.condition)
+            .min_by_key(|c| c.fault())
+    }
+
+    /// The coarse reading of [`Self::condition`], or [`None`] when nothing failed.
     #[must_use]
     pub fn fault(&self) -> Option<crate::provider::Fault> {
-        crate::provider::Fault::worst_of(self.failed.iter().map(|f| f.fault))
+        self.condition().map(crate::provider::Condition::fault)
     }
 
     /// Both rounds of searching, as one run's evidence.
@@ -372,9 +397,10 @@ pub async fn ask(engine: &dyn SourceProvider, description: &str) -> (Vec<Vec<Hit
             }
             Err(e) => {
                 tracing::warn!(query = %query.text, error = %e, "a candidate search did not complete");
-                queried
-                    .failed
-                    .push(Failed::new(query.text.clone(), e.fault()));
+                queried.failed.push(Failed::new(
+                    query.text.clone(),
+                    crate::provider::Condition::of(&e),
+                ));
             }
         }
     }

@@ -538,7 +538,7 @@ where
                 tracing::warn!(query = %query.text, error = %e, "a rival search did not complete");
                 queried.failed.push(crate::candidates::Failed::new(
                     query.text.clone(),
-                    e.fault(),
+                    crate::provider::Condition::of(&e),
                 ));
             }
         }
@@ -1117,8 +1117,8 @@ mod tests {
                 &Queried {
                     completed: vec!["q1".to_owned()],
                     failed: vec![
-                        crate::candidates::Failed::new("q2", crate::provider::Fault::Silent),
-                        crate::candidates::Failed::new("q3", crate::provider::Fault::Silent)
+                        crate::candidates::Failed::new("q2", crate::provider::Condition::NoAnswer),
+                        crate::candidates::Failed::new("q3", crate::provider::Condition::NoAnswer)
                     ],
                 },
                 Sought::RivalsOfTheCompany,
@@ -1137,8 +1137,8 @@ mod tests {
         let outage = Queried {
             completed: vec!["q1".to_owned()],
             failed: vec![
-                crate::candidates::Failed::new("q2", crate::provider::Fault::Silent),
-                crate::candidates::Failed::new("q3", crate::provider::Fault::Silent),
+                crate::candidates::Failed::new("q2", crate::provider::Condition::NoAnswer),
+                crate::candidates::Failed::new("q3", crate::provider::Condition::NoAnswer),
             ],
         };
 
@@ -1257,16 +1257,16 @@ mod tests {
     #[test]
     fn an_engine_that_refuses_is_not_an_engine_that_is_slow() {
         use crate::candidates::Failed;
-        use crate::provider::Fault;
+        use crate::provider::Condition;
 
         // Three searches, all refused - which is what an unconfigured SearXNG does to every
         // query, for ever. The sentence used to end "that is usually temporary - try again".
         let refused = Queried {
             completed: Vec::new(),
             failed: vec![
-                Failed::new("q1", Fault::Refused),
-                Failed::new("q2", Fault::Refused),
-                Failed::new("q3", Fault::Refused),
+                Failed::new("q1", Condition::Answered(403)),
+                Failed::new("q2", Condition::Answered(403)),
+                Failed::new("q3", Condition::Answered(403)),
             ],
         };
         let why = alone_because(1, &refused, Sought::RivalsOfTheCompany, None)
@@ -1281,7 +1281,7 @@ mod tests {
         // The same shape, with the engine silent, keeps the sentence it always had.
         let silent = Queried {
             completed: Vec::new(),
-            failed: vec![Failed::new("q1", Fault::Silent)],
+            failed: vec![Failed::new("q1", Condition::NoAnswer)],
         };
         let waited = alone_because(1, &silent, Sought::RivalsOfTheCompany, None)
             .expect("one company and a failure is a report about one company");
@@ -1291,15 +1291,15 @@ mod tests {
     #[test]
     fn the_count_of_failures_is_the_same_fact_however_they_failed() {
         use crate::candidates::Failed;
-        use crate::provider::Fault;
+        use crate::provider::{Condition, Fault};
 
         // Only the advice changes. A reader is still told how much of the looking happened,
         // because that is what makes the thinness of the report checkable.
         let queried = Queried {
             completed: vec!["q1".to_owned()],
             failed: vec![
-                Failed::new("q2", Fault::Refused),
-                Failed::new("q3", Fault::Silent),
+                Failed::new("q2", Condition::Answered(403)),
+                Failed::new("q3", Condition::NoAnswer),
             ],
         };
         let why = alone_because(1, &queried, Sought::RivalsOfTheCompany, None).expect("alone");

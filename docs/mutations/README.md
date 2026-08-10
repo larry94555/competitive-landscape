@@ -131,6 +131,12 @@ sentences were pinned; the wire between them was not. A second entry came back `
 than `MISSED`, which is the harness saying *this mutation proves nothing* — it had made the match
 non-exhaustive — and that distinction is why the two words are separate.
 
+It kept earning it after review. Two more entries were added for what review found — a `408`
+filed as a refusal, and one remedy printed for every refusal — and a fourteenth caught the same
+collapse one level further down: the per-query line said *"no answer"* beside a query the engine
+had answered `408` to. Three of the fourteen exist because the first fix was too coarse in
+exactly the way the change was about.
+
 **These files are also read backwards.** `scripts/no_live_mutations.py` takes every `new`
 payload as the shape of a defect this repository can recognise, and refuses a working tree that
 contains one — because an interrupted run leaves the deliberate defect in place, and a

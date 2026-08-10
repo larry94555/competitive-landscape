@@ -388,52 +388,21 @@ Example:
 /// One line, and it exists so the two call sites cannot disagree about it: `Option<&Searx>` to
 /// `Option<&dyn SourceProvider>` is a coercion that has to be spelled out, and spelling it out
 /// twice is how one of them ends up passing `None` for ever without anybody noticing.
-/// What an **operator** is told about a search that did not come back.
-///
-/// **The other half of [`landscape_search::Fault`], and deliberately a different half.** The
-/// sentence on a report is for a stranger who cannot fix our engine, so it names nothing
-/// internal — `Fault::advice`. This is for whoever is holding the terminal, so it names the
-/// variable, the file and the number. Same event, two audiences, and neither sentence is the
-/// other one leaked: `migrations/0001_init.sql` draws that line for `failure_reason` and this
-/// is the same line drawn once more.
-///
-/// Written once here rather than at each of the three call sites, because three copies of a
-/// diagnostic drift into three different accounts of one condition.
-fn what_to_do_about(fault: landscape_search::Fault) -> String {
-    match fault {
-        // The one this is for. `deploy/searxng/settings.yml` exists because a SearXNG that
-        // has not opted into JSON answers 403 to every query for ever, and the sentence that
-        // used to be printed here told somebody to try again.
-        landscape_search::Fault::Refused => format!(
-            "The engine answered and refused. That is configuration rather than weather, and \
-             retrying will not change it: check that {} points at a SearXNG, and that its \
-             settings name `json` in `search.formats` - an instance that has not opted in \
-             answers 403 to every query. `deploy/searxng/settings.yml` is that opt-in.",
-            landscape_search::searx::URL_VAR
-        ),
-        landscape_search::Fault::TooFast => {
-            "The engine asked us to slow down. Waiting is the fix; if it keeps happening, the \
-             instance has a rate limiter in front of it that this application is hitting."
-                .to_owned()
-        }
-        landscape_search::Fault::Silent => format!(
-            "The engine did not answer at all. Check that it is running and that {} names the \
-             address it is actually listening on.",
-            landscape_search::searx::URL_VAR
-        ),
-    }
-}
-
-/// Every query that did not come back, with its reason, and one line saying what to do.
+/// Every query that did not come back, with its reason, and one line saying what to check.
 ///
 /// **The reason per query, because they need not agree.** One refusal among two timeouts is an
 /// engine that refuses; printing only the summary would hide which query proved it.
+///
+/// The sentence underneath comes from [`landscape_search::Condition`], not from the coarse
+/// [`landscape_search::Fault`]: review found a `401` being explained as a `403`, because every
+/// refusal shared one remedy and it named the JSON opt-in. What a *reader* is told still comes
+/// from the coarse one, and names none of this.
 fn print_failures(queried: &landscape_search::candidates::Queried) {
     for f in &queried.failed {
-        println!("  {}: {}", f.fault.word(), f.query);
+        println!("  {}: {}", f.condition.word(), f.query);
     }
-    if let Some(fault) = queried.fault() {
-        println!("{}", what_to_do_about(fault));
+    if let Some(condition) = queried.condition() {
+        println!("{}", condition.what_to_check());
     }
 }
 
@@ -507,12 +476,12 @@ Nothing to ask: a description with no words in it would send bare"
         landscape_search::vocabulary::Resolved::Incomplete {
             failed,
             sent,
-            fault,
+            condition,
         } => {
             println!("no vocabulary: {failed} of the {sent} searches did not complete,");
             println!("and nothing recurred without them. This is about us, not about");
             println!("the market.");
-            println!("{}", what_to_do_about(fault));
+            println!("{}", condition.what_to_check());
         }
         landscape_search::vocabulary::Resolved::TheirWords { titles, hosts } => {
             println!("no vocabulary: {titles} titles from {hosts} sites, and no phrase");
@@ -637,11 +606,11 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
         landscape_search::vocabulary::Resolved::Incomplete {
             failed,
             sent,
-            fault,
+            condition,
         } => {
             println!("interpreted as  your own words");
             println!("                {failed} of the {sent} searches did not complete");
-            println!("                {}", fault.word());
+            println!("                {}", condition.word());
         }
         landscape_search::vocabulary::Resolved::NoEngine => {
             unreachable!("an engine is configured; the branch above returned without one")
@@ -1034,7 +1003,7 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
                     .failed
                     .push(landscape_search::candidates::Failed::new(
                         query.text.clone(),
-                        e.fault(),
+                        landscape_search::Condition::of(&e),
                     ));
             }
         }
@@ -2177,7 +2146,7 @@ mod tests {
                 completed: vec!["q1".to_owned(), "q2".to_owned()],
                 failed: vec![landscape_search::candidates::Failed::new(
                     "q3",
-                    landscape_search::Fault::Silent,
+                    landscape_search::Condition::NoAnswer,
                 )],
             },
         );

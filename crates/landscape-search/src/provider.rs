@@ -50,10 +50,16 @@ pub use crate::queries::HITS_PER_QUERY;
 ///
 /// # The rule, which is HTTP's rather than a guess about SearXNG
 ///
-/// **Did the engine answer at all?** Anything that came back is a decision — the same decision
-/// will come back next time. Only silence, and the two answers that explicitly mean *later*,
-/// are worth waiting on. Written this way so a provider nobody has built yet inherits it: no
-/// variant of this enum is about SearXNG.
+/// **Did the engine answer with a decision about the request?** A decision comes back the same
+/// next time. What does not is silence, and the answers that are *about the exchange rather
+/// than about the request* — `408` gave up waiting for us, `429` asked to be asked less often,
+/// a `5xx` broke in the middle. Written this way so a provider nobody has built yet inherits
+/// it: no variant of this enum is about SearXNG.
+///
+/// **The first version said "did the engine answer at all", and review found the counterexample
+/// in one line.** `408 Request Timeout` is an answer, and it is the one status whose entire
+/// meaning is *that did not work, try it again* — so the coarse version filed a timeout under
+/// *do not bother*. "Answered" was never the property that mattered; *decided* was.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Fault {
     /// The engine answered, and what it said was no. Configuration; waiting changes nothing.
@@ -62,6 +68,158 @@ pub enum Fault {
     TooFast,
     /// The engine did not answer. The only one that is weather.
     Silent,
+}
+
+/// What the engine actually did, in the terms whoever is fixing it will be looking for.
+///
+/// **Three layers, because there are three audiences and they need different resolutions.**
+/// [`SearchError`] is the rich one: it carries a body, a client's own message, and cannot be
+/// stored — [`crate::candidates::Queried`] is cloned and compared. [`Fault`] is the coarse one:
+/// three values, for a reader who can only decide whether to ask again. This is the middle one,
+/// and it exists because review found the two ends were not enough.
+///
+/// **A `401` was being diagnosed as a `403`.** Every refusal printed the same remedy — *check
+/// that the instance names `json` in `search.formats`* — which is right for the one status that
+/// motivated the change and wrong for an instance asking for credentials, a URL pointing at
+/// nothing, or a body we could not parse. An operator was sent to edit a file that was not the
+/// problem. The coarse answer is right for a reader and is not a diagnosis.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Condition {
+    /// It answered with this status.
+    Answered(u16),
+    /// It answered `200` with something that is not the shape we parse.
+    Unreadable,
+    /// It answered `200` and kept answering. See [`crate::searx::MAX_RESPONSE_BYTES`].
+    TooLarge,
+    /// The engine is configured and a client could not be built from it.
+    Unusable,
+    /// Nothing came back.
+    NoAnswer,
+    /// No engine is configured at all.
+    NotConfigured,
+}
+
+impl Condition {
+    /// What happened, from the error the call returned.
+    #[must_use]
+    pub const fn of(error: &SearchError) -> Self {
+        match *error {
+            SearchError::Status { status } => Self::Answered(status),
+            SearchError::Unreadable(_) => Self::Unreadable,
+            SearchError::TooLarge { .. } => Self::TooLarge,
+            SearchError::Unusable(_) => Self::Unusable,
+            SearchError::Unreachable(_) => Self::NoAnswer,
+            SearchError::NotConfigured => Self::NotConfigured,
+        }
+    }
+
+    /// What a reader would do about it — the coarse answer, derived rather than stored.
+    #[must_use]
+    pub const fn fault(self) -> Fault {
+        match self {
+            // The statuses that are about the exchange rather than about the request. `408` is
+            // the one that made the earlier "did it answer at all" rule wrong: its whole
+            // meaning is *that did not work, try it again*.
+            Self::Answered(429) => Fault::TooFast,
+            Self::Answered(408 | 425) => Fault::Silent,
+            Self::Answered(status) if status >= 500 => Fault::Silent,
+            // A decision about the request. The same one comes back next time.
+            Self::Answered(_)
+            | Self::Unreadable
+            | Self::TooLarge
+            | Self::Unusable
+            | Self::NotConfigured => Fault::Refused,
+            Self::NoAnswer => Fault::Silent,
+        }
+    }
+
+    /// A few words for a per-query line, where a sentence does not fit.
+    ///
+    /// **On the condition rather than on [`Fault`], for the same reason as everything else
+    /// here.** The coarse version printed *"no answer"* beside a query the engine had answered
+    /// `408` to, which is a small lie in the one place an operator is reading closely.
+    #[must_use]
+    pub fn word(self) -> String {
+        match self {
+            Self::Answered(status) => format!("answered {status}"),
+            Self::Unreadable => "unreadable body".to_owned(),
+            Self::TooLarge => "oversized body".to_owned(),
+            Self::Unusable => "unusable engine".to_owned(),
+            Self::NoAnswer => "no answer".to_owned(),
+            Self::NotConfigured => "no engine".to_owned(),
+        }
+    }
+
+    /// What an **operator** is told: the actual condition, and the thing to check for it.
+    ///
+    /// The other half of [`Fault::advice`], and deliberately a different half. A reader cannot
+    /// fix a search engine and is shown no status code; whoever is holding the terminal can fix
+    /// it and is shown the file. `migrations/0001_init.sql` draws that line for `failure_reason`
+    /// and this is the same line drawn once more.
+    ///
+    /// **One remedy per condition, because a blanket one is a wrong one four times out of
+    /// five.** Only the two conditions that genuinely are the JSON opt-in mention it.
+    #[must_use]
+    pub fn what_to_check(self) -> String {
+        let var = crate::searx::URL_VAR;
+        match self {
+            Self::Answered(403) => concat!(
+                "The engine answered 403, which is what a SearXNG that has not opted into ",
+                "JSON answers to every query. Check that its settings name `json` in ",
+                "`search.formats`; `deploy/searxng/settings.yml` is that opt-in."
+            )
+            .to_owned(),
+            Self::Answered(401) => format!(
+                "The engine answered 401: it wants credentials. {var} points at an instance \
+                 that is not open to us, which is a different problem from the JSON format."
+            ),
+            Self::Answered(404) => format!(
+                "The engine answered 404: there is nothing to search at that address. {var} \
+                 should be the instance's root, not a search URL."
+            ),
+            Self::Answered(429) => {
+                "The engine asked us to slow down. Waiting is the fix; if it keeps happening, \
+                 something in front of the instance is rate-limiting this application."
+                    .to_owned()
+            }
+            Self::Answered(408 | 425) => {
+                "The engine gave up waiting for the request rather than refusing it. That is \
+                 the network between here and there, and it may well work next time."
+                    .to_owned()
+            }
+            Self::Answered(status) if status >= 500 => format!(
+                "The engine broke while answering ({status}). Its own log is where the reason \
+                 is; nothing here is misconfigured by that alone."
+            ),
+            Self::Answered(status) => format!(
+                "The engine answered {status}. That is a refusal this application has no \
+                 specific advice for - the engine's own log will say more than {var} can."
+            ),
+            // The other genuine JSON case: an instance serving HTML at 200.
+            Self::Unreadable => concat!(
+                "The engine answered 200 with a body this cannot parse, which is usually ",
+                "HTML rather than JSON. Check that its settings name `json` in ",
+                "`search.formats`; `deploy/searxng/settings.yml` is that opt-in."
+            )
+            .to_owned(),
+            Self::TooLarge => format!(
+                "The engine answered with more than {} bytes and was cut off. That is a \
+                 misbehaving instance rather than a setting.",
+                crate::searx::MAX_RESPONSE_BYTES
+            ),
+            Self::Unusable => format!(
+                "{var} is set and no client could be built from it. It is the value itself \
+                 that is wrong - a scheme and a host, with no path."
+            ),
+            Self::NoAnswer => format!(
+                "The engine did not answer at all. Check that it is running and that {var} \
+                 names the address it is actually listening on."
+            ),
+            Self::NotConfigured => {
+                format!("{var} is not set, so nothing was asked.")
+            }
+        }
+    }
 }
 
 impl Fault {
@@ -88,16 +246,6 @@ impl Fault {
     /// detail lives in `landscape search`'s output and in the log line, where somebody who can
     /// act on it is reading. That division is `migrations/0001_init.sql`'s rule about
     /// `failure_reason`, applied to the other half of the same event.
-    /// One word for a table or a log line, where a sentence does not fit.
-    #[must_use]
-    pub const fn word(self) -> &'static str {
-        match self {
-            Self::Refused => "refused",
-            Self::TooFast => "asked too fast",
-            Self::Silent => "no answer",
-        }
-    }
-
     #[must_use]
     pub const fn advice(self) -> &'static str {
         match self {
@@ -158,21 +306,12 @@ impl SearchError {
     /// [`Self::NotConfigured`] is a refusal by this reading, and it is the least interesting
     /// case: the paths that can say *"no engine"* decide that before any query goes out, and
     /// say it in their own words.
+    ///
+    /// Derived through [`Condition`] rather than matched here, so the coarse answer and the
+    /// diagnosis cannot drift into disagreeing about the same status.
     #[must_use]
     pub const fn fault(&self) -> Fault {
-        match *self {
-            // It answered. 429 is the one status that means *later* in so many words, and a
-            // 5xx is the engine breaking rather than declining.
-            Self::Status { status: 429 } => Fault::TooFast,
-            Self::Status { status } if status >= 500 => Fault::Silent,
-            Self::Status { .. }
-            | Self::Unreadable(_)
-            | Self::TooLarge { .. }
-            | Self::Unusable(_)
-            | Self::NotConfigured => Fault::Refused,
-            // It did not.
-            Self::Unreachable(_) => Fault::Silent,
-        }
+        Condition::of(self).fault()
     }
 }
 
@@ -233,43 +372,130 @@ mod tests {
     }
 
     #[test]
-    fn an_engine_that_answered_is_never_something_to_wait_for() {
-        // **The rule, stated as a test rather than as a comment.** Anything the engine said is
-        // a decision, and the same decision comes back next time - so every one of these is a
-        // refusal, whatever the wording of the error. A 403 is the documented first-run state
-        // of an unconfigured SearXNG, and it used to be reported as weather.
-        for answered in [
+    fn an_engine_that_decided_is_never_something_to_wait_for() {
+        // **The rule, stated as a test rather than as a comment.** Each of these is a decision
+        // about the request, and the same decision comes back next time. A 403 is the
+        // documented first-run state of an unconfigured SearXNG and used to read as weather.
+        for decided in [
             SearchError::Status { status: 403 },
             SearchError::Status { status: 401 },
             SearchError::Status { status: 404 },
             SearchError::Status { status: 400 },
+            SearchError::Status { status: 451 },
             SearchError::Unreadable("html, not json".to_owned()),
             SearchError::TooLarge { limit: 1 },
             SearchError::Unusable("bad base url".to_owned()),
             SearchError::NotConfigured,
         ] {
-            assert_eq!(answered.fault(), Fault::Refused, "{answered}");
+            assert_eq!(decided.fault(), Fault::Refused, "{decided}");
         }
     }
 
     #[test]
-    fn the_two_answers_that_mean_later_are_the_only_ones_worth_waiting_on() {
+    fn the_answers_that_are_about_the_exchange_are_worth_waiting_on() {
+        // **408 is why the rule is not "did it answer at all".** Review found it: a status
+        // whose entire meaning is *that did not work, try it again* was being filed under
+        // *do not bother*, so a timed-out request was stored as a refusal, the page said
+        // trying again would not help, and the terminal pointed at JSON configuration.
+        assert_eq!(
+            SearchError::Status { status: 408 }.fault(),
+            Fault::Silent,
+            "408 Request Timeout is the one answer that means exactly try again"
+        );
+        assert_eq!(
+            SearchError::Status { status: 425 }.fault(),
+            Fault::Silent,
+            "425 Too Early asks for the same request again"
+        );
         assert_eq!(
             SearchError::Status { status: 429 }.fault(),
             Fault::TooFast,
             "429 says later in so many words"
         );
-        for broke in [500u16, 502, 503] {
+        for broke in [500u16, 502, 503, 504] {
             assert_eq!(
                 SearchError::Status { status: broke }.fault(),
                 Fault::Silent,
-                "a {broke} is the engine breaking rather than declining"
+                "a {broke} is the engine breaking rather than deciding"
             );
         }
         assert_eq!(
             SearchError::Unreachable("no route to host".to_owned()).fault(),
             Fault::Silent
         );
+    }
+
+    #[test]
+    fn a_401_is_not_diagnosed_as_a_403() {
+        // **Every refusal used to print one remedy**, and it named the JSON opt-in - so an
+        // instance asking for credentials, a URL pointing at nothing, and an oversized body
+        // all sent an operator to edit `search.formats`. The coarse answer is right for a
+        // reader and is not a diagnosis.
+        let json_opt_in = "search.formats";
+
+        let unauthorised = Condition::Answered(401).what_to_check();
+        assert!(unauthorised.contains("401"), "{unauthorised}");
+        assert!(unauthorised.contains("credentials"), "{unauthorised}");
+        assert!(
+            !unauthorised.contains(json_opt_in),
+            "a 401 sent to the JSON opt-in: {unauthorised}"
+        );
+
+        let missing = Condition::Answered(404).what_to_check();
+        assert!(missing.contains("404"), "{missing}");
+        assert!(!missing.contains(json_opt_in), "{missing}");
+
+        let oversized = Condition::TooLarge.what_to_check();
+        assert!(!oversized.contains(json_opt_in), "{oversized}");
+
+        let unusable = Condition::Unusable.what_to_check();
+        assert!(!unusable.contains(json_opt_in), "{unusable}");
+
+        // The two that really are the JSON opt-in, and only those two.
+        for genuine in [Condition::Answered(403), Condition::Unreadable] {
+            assert!(
+                genuine.what_to_check().contains(json_opt_in),
+                "{genuine:?} is the JSON case and must say so"
+            );
+        }
+    }
+
+    #[test]
+    fn the_per_query_line_says_what_the_engine_did() {
+        // The line an operator reads first, one per failed query. The coarse version printed
+        // "no answer" beside a query the engine had answered `408` to.
+        assert_eq!(Condition::Answered(408).word(), "answered 408");
+        assert_eq!(Condition::Answered(403).word(), "answered 403");
+        assert_eq!(Condition::NoAnswer.word(), "no answer");
+        assert_eq!(Condition::Unreadable.word(), "unreadable body");
+        for answered in [408u16, 403, 500] {
+            assert_ne!(
+                Condition::Answered(answered).word(),
+                Condition::NoAnswer.word(),
+                "a {answered} is not silence"
+            );
+        }
+    }
+
+    #[test]
+    fn a_status_nobody_wrote_advice_for_still_says_what_happened() {
+        // No arm may quietly become a remedy for a status it was not written for.
+        let odd = Condition::Answered(418).what_to_check();
+        assert!(odd.contains("418"), "{odd}");
+        assert!(!odd.contains("search.formats"), "{odd}");
+    }
+
+    #[test]
+    fn the_coarse_answer_is_derived_from_the_condition_and_not_beside_it() {
+        // Two fields would be two facts, and one of them would go stale. `Failed` stores the
+        // condition; `fault()` reads it.
+        for error in [
+            SearchError::Status { status: 403 },
+            SearchError::Status { status: 408 },
+            SearchError::Unreachable("down".to_owned()),
+        ] {
+            assert_eq!(Condition::of(&error).fault(), error.fault());
+        }
     }
 
     #[test]

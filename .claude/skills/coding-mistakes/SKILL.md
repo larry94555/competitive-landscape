@@ -2265,13 +2265,33 @@ Anything that came back is a decision and the same decision comes back next time
 and the two answers that explicitly mean *later*, are worth waiting on. A rule shaped like HTTP
 rather than like SearXNG is one a second provider inherits without an edit.
 
+**And the fix repeated the defect one size smaller — twice, in the same review.** Three values
+were the right number for a reader and the wrong number for everybody else.
+
+`408 Request Timeout` was filed as a refusal, because the rule I wrote was *did the engine answer
+at all* and a `408` is an answer. Its entire meaning is *that did not work, try it again*. The
+property that mattered was never "answered" but **"decided"**, and the coarse version of a rule
+is the version that reads as obviously correct.
+
+And with only the coarse value stored, every refusal printed one remedy — the JSON opt-in — so a
+`401`, a `404`, an oversized body and an unbuildable client all sent an operator to edit a file
+that was not the problem. **A three-way answer written for a reader is not a diagnosis**, and
+using it as one is the same collapse the whole change was about.
+
+Three layers now, one per audience: the error at the call, the condition for whoever can fix it,
+the coarse answer for whoever can only decide whether to ask again — each derived from the one
+above rather than stored beside it.
+
 **Rule:** when one sentence ends a family of error paths, check it against the *most likely*
 member of that family rather than the one you were thinking of when you wrote it — and when a
 reason is available at the point of failure, carry it, because the sentence that needs it is
-always further away than it looks.
+always further away than it looks. And when a value is deliberately coarse for one audience, do
+not let a second audience read it: a category with three values answers *what do I do*, never
+*what happened*.
 
-> **Ask this:** *is this advice true of every case that reaches it? And which surface renders
-> from a kind rather than from the string I just fixed?*
+> **Ask this:** *is this advice true of every case that reaches it? Which surface renders from a
+> kind rather than from the string I just fixed? And is anything using my coarse category as
+> though it were a diagnosis?*
 
 ---
 

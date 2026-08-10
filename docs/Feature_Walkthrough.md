@@ -1512,9 +1512,20 @@ same decision comes back next time; only silence, and the two answers that expli
 
 | | the run says | a reader is told |
 |---|---|---|
-| it refused | `search_refused` | it is ours to fix, and asking again will not change it |
-| it asked us to slow down | `search_incomplete` | trying again shortly should work |
+| it refused (`401`, `403`, `404`, an unreadable body…) | `search_refused` | it is ours to fix, and asking again will not change it |
+| it asked us to slow down (`429`) | `search_incomplete` | trying again shortly should work |
+| it gave up waiting (`408`) or broke (`5xx`) | `search_incomplete` | that is usually temporary — try again |
 | it never answered | `search_incomplete` | that is usually temporary — try again |
+
+**Change the stand-in's status and the diagnosis changes with it.** A `401` is not sent to the
+JSON opt-in — it wants credentials, which is a different problem — and a `404` says the address
+has nothing to search at it:
+
+```text
+  answered 401: "basecamp.com" changelog OR "release notes"
+The engine answered 401: it wants credentials. SEARX_URL points at an instance that is not
+open to us, which is a different problem from the JSON format.
+```
 
 **What a reader never sees is the half above.** `SEARX_URL`, `403` and the name of a file are
 for whoever can act on them; the sentence on a report names none of them, and a test asserts

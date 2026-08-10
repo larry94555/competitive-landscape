@@ -163,13 +163,17 @@ pub enum Resolved {
         failed: usize,
         /// Queries sent.
         sent: usize,
-        /// What a reader would do about it. See [`crate::provider::Fault`].
+        /// What the engine did. See [`crate::provider::Condition`].
         ///
         /// **`decide` keeps an outage apart from an empty market because one is fixed by
         /// waiting**, which was written when every failure was assumed to be an outage. An
         /// engine that answers and refuses is a third thing, and it is not fixed by waiting
         /// either.
-        fault: crate::provider::Fault,
+        ///
+        /// The full condition rather than the coarse [`crate::provider::Fault`], because this
+        /// one is printed by `landscape vocabulary` to somebody who can fix it — and a coarse
+        /// answer there explained a `401` as a `403`.
+        condition: crate::provider::Condition,
     },
     /// No engine is configured. The laptop default, and not an error.
     NoEngine,
@@ -377,7 +381,9 @@ pub fn from_titles(results: &[Vec<Hit>], queried: &Queried) -> Resolved {
             failed: queried.failed.len(),
             sent: queried.sent(),
             // Non-empty above, so this is the worst of at least one.
-            fault: queried.fault().unwrap_or(crate::provider::Fault::Silent),
+            condition: queried
+                .condition()
+                .unwrap_or(crate::provider::Condition::NoAnswer),
         },
         None => Resolved::TheirWords {
             titles,
@@ -713,8 +719,8 @@ mod tests {
         let queried = Queried {
             completed: vec!["q1".to_owned()],
             failed: vec![
-                crate::candidates::Failed::new("q2", crate::provider::Fault::Silent),
-                crate::candidates::Failed::new("q3", crate::provider::Fault::Silent),
+                crate::candidates::Failed::new("q2", crate::provider::Condition::NoAnswer),
+                crate::candidates::Failed::new("q3", crate::provider::Condition::NoAnswer),
             ],
         };
         assert_eq!(
@@ -722,7 +728,7 @@ mod tests {
             Resolved::Incomplete {
                 failed: 2,
                 sent: 3,
-                fault: crate::provider::Fault::Silent,
+                condition: crate::provider::Condition::NoAnswer,
             }
         );
     }
@@ -735,7 +741,7 @@ mod tests {
             completed: vec!["q1".to_owned()],
             failed: vec![crate::candidates::Failed::new(
                 "q2",
-                crate::provider::Fault::Silent,
+                crate::provider::Condition::NoAnswer,
             )],
         };
         assert!(
@@ -940,7 +946,7 @@ mod tests {
             Resolved::Incomplete {
                 failed: 2,
                 sent: 3,
-                fault: crate::provider::Fault::Silent,
+                condition: crate::provider::Condition::NoAnswer,
             },
             Resolved::NoEngine,
             Resolved::Ambiguous {

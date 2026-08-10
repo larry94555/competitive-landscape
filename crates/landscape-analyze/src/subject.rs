@@ -660,8 +660,14 @@ mod deciding {
         let outage = Queried {
             completed: vec!["q1".to_owned()],
             failed: vec![
-                landscape_search::candidates::Failed::new("q2", landscape_search::Fault::Silent),
-                landscape_search::candidates::Failed::new("q3", landscape_search::Fault::Silent),
+                landscape_search::candidates::Failed::new(
+                    "q2",
+                    landscape_search::Condition::NoAnswer,
+                ),
+                landscape_search::candidates::Failed::new(
+                    "q3",
+                    landscape_search::Condition::NoAnswer,
+                ),
             ],
         };
         let cases: Vec<(&str, Decided, Failure)> = vec![
@@ -755,8 +761,14 @@ mod deciding {
         let outage = Queried {
             completed: vec!["q1".to_owned()],
             failed: vec![
-                landscape_search::candidates::Failed::new("q2", landscape_search::Fault::Silent),
-                landscape_search::candidates::Failed::new("q3", landscape_search::Fault::Silent),
+                landscape_search::candidates::Failed::new(
+                    "q2",
+                    landscape_search::Condition::NoAnswer,
+                ),
+                landscape_search::candidates::Failed::new(
+                    "q3",
+                    landscape_search::Condition::NoAnswer,
+                ),
             ],
         };
         let empty_market = decide(
@@ -882,15 +894,41 @@ mod deciding {
         // The counts are identical and the two are not the same event. This is the whole-run
         // outcome rather than a note on a report, so it is the one a reader meets first.
         use landscape_search::candidates::Failed;
-        use landscape_search::Fault;
-        for (fault, expected) in [
-            (Fault::Refused, landscape_core::Failure::SearchRefused),
-            (Fault::Silent, landscape_core::Failure::SearchIncomplete),
-            (Fault::TooFast, landscape_core::Failure::SearchIncomplete),
+        use landscape_search::Condition;
+        for (condition, expected) in [
+            (
+                Condition::Answered(403),
+                landscape_core::Failure::SearchRefused,
+            ),
+            (
+                Condition::Answered(401),
+                landscape_core::Failure::SearchRefused,
+            ),
+            (
+                Condition::Unreadable,
+                landscape_core::Failure::SearchRefused,
+            ),
+            (
+                Condition::NoAnswer,
+                landscape_core::Failure::SearchIncomplete,
+            ),
+            // The two that answered and still mean *later*.
+            (
+                Condition::Answered(408),
+                landscape_core::Failure::SearchIncomplete,
+            ),
+            (
+                Condition::Answered(429),
+                landscape_core::Failure::SearchIncomplete,
+            ),
+            (
+                Condition::Answered(503),
+                landscape_core::Failure::SearchIncomplete,
+            ),
         ] {
             let queried = Queried {
                 completed: Vec::new(),
-                failed: vec![Failed::new("q1", fault), Failed::new("q2", fault)],
+                failed: vec![Failed::new("q1", condition), Failed::new("q2", condition)],
             };
             let decided = decide(
                 derived(
@@ -905,7 +943,7 @@ mod deciding {
             let Decided::Refuse(refusal) = decided else {
                 panic!("no set and failed queries is a refusal");
             };
-            assert_eq!(refusal.kind, expected, "{fault:?}");
+            assert_eq!(refusal.kind, expected, "{condition:?}");
         }
     }
 
@@ -966,11 +1004,11 @@ mod deciding {
                 failed: vec![
                     landscape_search::candidates::Failed::new(
                         "q2",
-                        landscape_search::Fault::Silent,
+                        landscape_search::Condition::NoAnswer,
                     ),
                     landscape_search::candidates::Failed::new(
                         "q3",
-                        landscape_search::Fault::Silent,
+                        landscape_search::Condition::NoAnswer,
                     ),
                 ],
             },
@@ -1018,7 +1056,7 @@ mod deciding {
                 completed: vec!["q1".to_owned(), "q2".to_owned()],
                 failed: vec![landscape_search::candidates::Failed::new(
                     "q3",
-                    landscape_search::Fault::Silent,
+                    landscape_search::Condition::NoAnswer,
                 )],
             };
             let decided = decide(
@@ -1065,11 +1103,11 @@ mod deciding {
                 failed: vec![
                     landscape_search::candidates::Failed::new(
                         "q2",
-                        landscape_search::Fault::Silent,
+                        landscape_search::Condition::NoAnswer,
                     ),
                     landscape_search::candidates::Failed::new(
                         "q3",
-                        landscape_search::Fault::Silent,
+                        landscape_search::Condition::NoAnswer,
                     ),
                 ],
             },
@@ -1086,14 +1124,14 @@ mod deciding {
         // searched and found none"* - a conclusion about a market drawn from a conclusion about
         // nothing. It is retryable and it is about us.
         use landscape_search::candidates::Failed;
-        use landscape_search::Fault;
+        use landscape_search::Condition;
         for failed in [
             vec![
-                Failed::new("q1", Fault::Silent),
-                Failed::new("q2", Fault::Silent),
-                Failed::new("q3", Fault::Silent),
+                Failed::new("q1", Condition::NoAnswer),
+                Failed::new("q2", Condition::NoAnswer),
+                Failed::new("q3", Condition::NoAnswer),
             ],
-            vec![Failed::new("q3", Fault::Silent)],
+            vec![Failed::new("q3", Condition::NoAnswer)],
         ] {
             let queried = Queried {
                 completed: vec!["q1".to_owned(); 3 - failed.len()],
