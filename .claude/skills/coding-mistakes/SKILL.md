@@ -2145,8 +2145,17 @@ sites say so: `linear.app/careers` lists its roles and its board reads as nothin
 `vercel.com/careers` is navigation chrome and its roles are entirely on Greenhouse. **Which is
 which cannot be known before the page is read**, so both are admitted and the reading decides.
 
+**It happened again inside the fix.** Review pointed out that scanning raw HTML for a host is not
+the same as finding a link, which was right. The fix paired quotes across the document to find
+values — and paired quotes go out of phase the moment a page nests JSON inside JSON, which the
+very page it was built for does. Every unit test passed and **all three real sites went back to
+finding nothing**. Anchoring on the quote immediately before a URL needs no pairing at all.
+
+Twice in one change, the same shape: **a composition that only the real input exercises.** A
+parser tested on fragments is tested on fragments.
+
 **Rule:** before writing up a feature, run it end to end and look at the output with your own
-eyes. A test proves a unit does what you meant; only the real thing proves the units add up to a
+eyes — and run it again after every fix, including the ones review asked for. A test proves a unit does what you meant; only the real thing proves the units add up to a
 feature a reader sees. And when a ranking has to choose between two sources, check whether the
 information needed to choose exists yet — if it does not, admit both rather than guessing.
 

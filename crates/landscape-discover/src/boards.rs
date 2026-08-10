@@ -53,70 +53,114 @@ pub const BOARD_HOSTS: [&str; 6] = [
 /// page that names several genuinely different boards is a page we have misread.
 pub const MOST_BOARDS: usize = 2;
 
-/// Every board root the company's own page points at, in the order it points at them.
+/// Every board root the company's own page **links to**, in the order it links to them.
 ///
-/// The URLs are reduced to `https://<host>/<slug>`: a careers page links to individual
-/// vacancies, and each of `jobs.ashbyhq.com/Linear/069c…/application` and
-/// `jobs.ashbyhq.com/Linear/0c7c…` is the same board seen through a different door. Reading
-/// dozens of vacancy pages to learn what one board page lists is the impolite way to find out.
+/// The URLs are reduced to `https://<host>/<slug>`: a careers page links to individual vacancies,
+/// and each of `jobs.ashbyhq.com/Linear/069c…/application` and `jobs.ashbyhq.com/Linear/0c7c…` is
+/// the same board seen through a different door. Reading dozens of vacancy pages to learn what
+/// one board page lists is the impolite way to find out.
 #[must_use]
 pub fn named_by(html: &str) -> Vec<String> {
     let mut found: Vec<String> = Vec::new();
-    for host in BOARD_HOSTS {
-        let mut from = 0usize;
-        while let Some(at) = html[from..].find(host).map(|i| from + i) {
-            from = at + host.len();
-            if !starts_a_host(html, at) {
-                continue;
-            }
-            let Some(board) = root_of(host, &html[from..]) else {
-                continue;
-            };
-            if !found.contains(&board) {
-                found.push(board);
-            }
+    for at in url_starts(html) {
+        let Some(board) = board_root(&html[at..]) else {
+            continue;
+        };
+        if !found.contains(&board) {
+            found.push(board);
         }
     }
     found.truncate(MOST_BOARDS);
     found
 }
 
-/// Whether the match at `at` is a whole host rather than the tail of a longer one.
+/// Where in the page a URL **begins a quoted value**.
 ///
-/// **`boards.greenhouse.io` is a substring of `job-boards.greenhouse.io`**, and two of the six
-/// entries below are exactly that pair — so a plain search finds one board twice, under two
-/// names, and spends two of a page's allowance on the same vacancies. The same rule is what
-/// keeps `evil-jobs.lever.co` from being read as `jobs.lever.co`.
-fn starts_a_host(html: &str, at: usize) -> bool {
-    let Some(before) = html[..at].chars().next_back() else {
-        return true;
-    };
-    !(before.is_alphanumeric() || before == '-' || before == '.')
+/// **Review found the first version scanning the raw HTML for a host.** Any occurrence counted:
+/// prose, a tracking blob, a *"similar jobs at other companies"* widget, a redirect parameter —
+/// so `jobs.ashbyhq.com/SomebodyElse` appearing anywhere admitted somebody else's board and
+/// published their vacancies under this company's name. That is the exact failure the *found,
+/// never guessed* rule exists to prevent, arriving through a string nobody linked.
+///
+/// The test is that a quote comes **immediately** before the scheme, which is what `href="…"`
+/// and `{"url":"…"}` both look like and what `href="/out?to=https://…"` does not. Asked this way
+/// round rather than by pairing quotes across the document, because pairing goes out of phase
+/// the moment a page nests JSON inside JSON — and `vercel.com/careers` does exactly that, with
+/// its board links inside `{"jobs":[{"absolute_url":"https://…"}]}` written as an escaped string
+/// within another string.
+///
+/// **An unquoted attribute is not read.** HTML5 permits `href=https://…`, no applicant tracker
+/// emits one, and allowing `=` as an opener would let every `?to=` redirect back in.
+fn url_starts(html: &str) -> Vec<usize> {
+    let bytes = html.as_bytes();
+    let mut starts = Vec::new();
+    for (at, _) in html.char_indices() {
+        if at == 0 {
+            continue;
+        }
+        if !matches!(bytes[at - 1], b'"' | b'\'') {
+            continue;
+        }
+        if after_scheme(&html[at..]).is_some() {
+            starts.push(at);
+        }
+    }
+    starts
 }
 
-/// `<host>` plus one path segment, or `None` when what follows is not a board.
+/// The board a value points at, when the value **is** a URL to one.
 ///
-/// The segment ends at the first character that cannot be in a path: a quote or an angle bracket
-/// from the surrounding HTML, whitespace, a query or fragment — and a **backslash**, because a
-/// careers page built as a single-page application carries its links inside escaped JSON and
-/// `jobs.ashbyhq.com/Linear\` is what a naive reader takes away from one.
-fn root_of(host: &str, after: &str) -> Option<String> {
-    // `\/` as well as `/`: the separator itself is escaped inside a JSON blob.
-    let path = after
-        .strip_prefix('/')
-        .or_else(|| after.strip_prefix(r"\/"))?;
+/// Parsed rather than matched: scheme, then host, then one path segment, each checked in turn.
+/// A bare substring is what the first version used, and a host that merely appears inside a
+/// longer one — `jobs.lever.co.evil.test`, `evil-jobs.lever.co` — is not a board this page links
+/// to.
+///
+/// `\/` is accepted wherever `/` is: a careers page built as a single-page application carries
+/// its links inside escaped JSON, so `https:\/\/jobs.ashbyhq.com\/Linear` is the real shape on
+/// `linear.app/careers`.
+fn board_root(value: &str) -> Option<String> {
+    let rest = after_scheme(value)?;
+    let host_end = rest.find(ENDS_A_PART).unwrap_or(rest.len());
+    let host = &rest[..host_end];
+    if !BOARD_HOSTS.contains(&host) {
+        return None;
+    }
+    let path = separator(&rest[host_end..])?;
     let slug: String = path
         .chars()
-        .take_while(|c| {
-            !matches!(c, '/' | '?' | '#' | '"' | '\'' | '<' | '>' | '\\' | ' ')
-                && !c.is_whitespace()
-        })
+        .take_while(|c| !ENDS_A_PART.contains(c) && !c.is_whitespace())
         .collect();
-    // A bare host with no slug is the ATS's own marketing site, not a board.
+    // A bare host with no slug is the tracker's own marketing site, not a board.
     if slug.is_empty() {
         return None;
     }
     Some(format!("https://{host}/{slug}"))
+}
+
+/// Where one part of a URL stops: a separator, a query, a fragment, or the quote that ends the
+/// value it sits in.
+const ENDS_A_PART: [char; 6] = ['/', '\\', '?', '#', '"', '\''];
+
+/// What follows `https://`, `http://`, their escaped forms, or a protocol-relative `//`.
+fn after_scheme(value: &str) -> Option<&str> {
+    for prefix in [
+        "https://",
+        "http://",
+        r"https:\/\/",
+        r"http:\/\/",
+        "//",
+        r"\/\/",
+    ] {
+        if let Some(rest) = value.strip_prefix(prefix) {
+            return Some(rest);
+        }
+    }
+    None
+}
+
+/// The path after a separator, in either the plain or the escaped spelling.
+fn separator(rest: &str) -> Option<&str> {
+    rest.strip_prefix('/').or_else(|| rest.strip_prefix(r"\/"))
 }
 
 #[cfg(test)]
@@ -185,6 +229,46 @@ mod tests {
     }
 
     #[test]
+    fn a_board_url_the_page_did_not_link_to_is_not_a_link() {
+        // **Review found the first version scanning the raw HTML for a host**, so any occurrence
+        // counted — and `jobs.ashbyhq.com/SomebodyElse` appearing anywhere admitted somebody
+        // else's board and published their vacancies under this company's name. Every shape
+        // below is a real way that string turns up on a page nobody linked it from.
+        for html in [
+            // Prose.
+            "<p>We post our roles through jobs.ashbyhq.com/SomebodyElse these days.</p>",
+            // A redirect parameter: the value starts with the redirector, not with the board.
+            r#"<a href="/out?to=https://jobs.ashbyhq.com/SomebodyElse">Apply</a>"#,
+            r#"<a href="https://links.example.com/r?u=https://jobs.lever.co/SomebodyElse">go</a>"#,
+            // A tracking blob, unquoted, in a script.
+            "<script>track({dest: https://jobs.ashbyhq.com/SomebodyElse});</script>",
+            // A host that merely ends with one of ours.
+            r#"<a href="https://x-jobs.lever.co/SomebodyElse">Apply</a>"#,
+            r#"<a href="https://jobs.lever.co.evil.test/SomebodyElse">Apply</a>"#,
+        ] {
+            assert!(named_by(html).is_empty(), "{html}");
+        }
+    }
+
+    #[test]
+    fn a_link_is_read_however_the_page_spells_one() {
+        // The three spellings that appear on the real pages this was built against, plus the
+        // protocol-relative form a stylesheet-era template still emits.
+        for html in [
+            r#"<a href="https://jobs.ashbyhq.com/Linear/069c">Apply</a>"#,
+            r#"<a href='http://jobs.ashbyhq.com/Linear/069c'>Apply</a>"#,
+            r#"{"url":"https:\/\/jobs.ashbyhq.com\/Linear\/069c"}"#,
+            r#"<a href="//jobs.ashbyhq.com/Linear/069c">Apply</a>"#,
+        ] {
+            assert_eq!(
+                named_by(html),
+                vec!["https://jobs.ashbyhq.com/Linear"],
+                "{html}"
+            );
+        }
+    }
+
+    #[test]
     fn a_host_we_do_not_know_is_not_a_board() {
         // Not a shortcoming — a refusal. Admitting an arbitrary off-site link is how a page on
         // somebody else's site becomes evidence about this company, and the whole list exists to
@@ -197,14 +281,14 @@ mod tests {
     #[test]
     fn a_lookalike_host_is_not_the_board_it_looks_like() {
         // `jobs.lever.co.evil.test` contains `jobs.lever.co`, and a naive `contains` would hand
-        // a stranger the standing this list grants. The slug reader stops at the first `/`, so
-        // what comes out is the real host or nothing.
-        let html = r#"<a href="https://jobs.lever.co.evil.test/acme">Apply</a>"#;
-        let found = named_by(html);
-        assert!(
-            found.is_empty() || found[0] == "https://jobs.lever.co/.evil.test",
-            "{found:?}"
-        );
+        // a stranger the standing this list grants. The host is parsed to its end and compared
+        // whole, so a suffix or a prefix is a different host and not a board.
+        for html in [
+            r#"<a href="https://jobs.lever.co.evil.test/acme">Apply</a>"#,
+            r#"<a href="https://evil-jobs.lever.co/acme">Apply</a>"#,
+        ] {
+            assert!(named_by(html).is_empty(), "{html}");
+        }
     }
 
     #[test]

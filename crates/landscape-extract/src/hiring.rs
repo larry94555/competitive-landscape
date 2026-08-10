@@ -254,9 +254,17 @@ pub fn every_role(markdown: &str) -> Roles {
 /// Whether the list is written as bullets, decided by counting rather than by assuming.
 ///
 /// See the note in [`every_role`]. Only lines that would be titles are counted, so a footer of
-/// one-word links weighs nothing against a page of vacancies. A page with forty bulleted
-/// vacancies and forty bulleted footer links is not one this can tell apart; a page with forty
-/// of one and two of the other is.
+/// one-word links weighs nothing against a page of vacancies.
+///
+/// **A heading is structure, not an entry**, and review found what counting one costs: a board
+/// advertising a single vacancy is `### Account Executive` above `- Staff Product Engineer`, so
+/// the count ties at one apiece, the tie keeps the plain lines, and the group label is published
+/// as the opening while the job is discarded. Neither page shape puts its roles in headings —
+/// a board's are bullets and a company's own are plain lines under one — so a heading votes for
+/// nothing.
+///
+/// A page with forty bulleted vacancies and forty bulleted footer links is still not one this
+/// can tell apart; a page with forty of one and two of the other is.
 fn form_of_the_list(range: &[&str]) -> bool {
     let (mut bulleted, mut plain) = (0usize, 0usize);
     for line in range {
@@ -265,7 +273,7 @@ fn form_of_the_list(range: &[&str]) -> bool {
         }
         if doc::is_list_item(line) {
             bulleted += 1;
-        } else {
+        } else if doc::heading_level(line).is_none() {
             plain += 1;
         }
     }
@@ -543,6 +551,50 @@ Staff Engineer";
                 "Engineering Manager, Growth"
             ],
             "one bulleted footer link outvoted three vacancies"
+        );
+    }
+
+    #[test]
+    fn a_board_advertising_one_job_reports_the_job_and_not_its_group() {
+        // **Review found this.** One vacancy under one group label ties the count at one
+        // apiece, and a tie keeps the plain lines — so the label was published as the opening
+        // and the job discarded. A company with a single vacancy is the most likely board there
+        // is, and `Account Executive` is furniture the tests above already establish.
+        let one = "# Current openings at Acme
+### Account Executive
+- Staff Product Engineer";
+        assert_eq!(titles(one), ["Staff Product Engineer"]);
+
+        // Still true when the group label is the only other candidate on a longer board.
+        let few = concat!(
+            "# Current openings at Acme
+",
+            "### Account Executive
+",
+            "- Staff Product Engineer
+",
+            "### Design
+",
+            "- Senior Product Designer
+",
+        );
+        assert_eq!(
+            titles(few),
+            ["Staff Product Engineer", "Senior Product Designer"]
+        );
+    }
+
+    #[test]
+    fn a_careers_page_that_lists_under_a_heading_is_unaffected() {
+        // The other shape, unchanged: a company's own page puts its roles as plain lines under
+        // one announcement, and headings between them are still group labels rather than votes.
+        let page = "## Open roles
+### Engineering
+Product Engineer
+Mobile Product Designer";
+        assert_eq!(
+            titles(page),
+            ["Product Engineer", "Mobile Product Designer"]
         );
     }
 

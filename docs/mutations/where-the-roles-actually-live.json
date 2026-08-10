@@ -1,57 +1,5 @@
 [
   {
-    "name": "a board is guessed from the company name rather than found",
-    "file": "crates/landscape-discover/src/boards.rs",
-    "old": "            if !starts_a_host(html, at) {\n                continue;\n            }",
-    "new": "            if false {\n                continue;\n            }",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-discover"
-    ]
-  },
-  {
-    "name": "one board is read twice under two host names",
-    "file": "crates/landscape-discover/src/boards.rs",
-    "old": "    !(before.is_alphanumeric() || before == '-' || before == '.')",
-    "new": "    !(before.is_alphanumeric() || before == '.')",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-discover"
-    ]
-  },
-  {
-    "name": "a vacancy link is followed instead of the board it is on",
-    "file": "crates/landscape-discover/src/boards.rs",
-    "old": "        .take_while(|c| {\n            !matches!(c, '/' | '?' | '#' | '\"' | '\\'' | '<' | '>' | '\\\\' | ' ')\n                && !c.is_whitespace()\n        })\n        ",
-    "new": "        .take_while(|c| {\n            !matches!(c, '?' | '#' | '\"' | '\\'' | '<' | '>' | '\\\\' | ' ')\n                && !c.is_whitespace()\n        })\n        ",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-discover"
-    ]
-  },
-  {
-    "name": "a link inside escaped json asks for a board nobody has",
-    "file": "crates/landscape-discover/src/boards.rs",
-    "old": "        .take_while(|c| {\n            !matches!(c, '/' | '?' | '#' | '\"' | '\\'' | '<' | '>' | '\\\\' | ' ')\n                && !c.is_whitespace()\n        })\n        ",
-    "new": "        .take_while(|c| {\n            !matches!(c, '/' | '?' | '#' | '\"' | '\\'' | '<' | '>' | ' ')\n                && !c.is_whitespace()\n        })\n        ",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-discover"
-    ]
-  },
-  {
     "name": "the applicant tracker's own marketing site is read as a board",
     "file": "crates/landscape-discover/src/boards.rs",
     "old": "    if slug.is_empty() {\n        return None;\n    }",
@@ -69,19 +17,6 @@
     "file": "crates/landscape-discover/src/boards.rs",
     "old": "    found.truncate(MOST_BOARDS);",
     "new": "    found.truncate(usize::MAX);",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-discover"
-    ]
-  },
-  {
-    "name": "an escaped separator is not understood",
-    "file": "crates/landscape-discover/src/boards.rs",
-    "old": "        .or_else(|| after.strip_prefix(r\"\\/\"))?;",
-    "new": "        .ok_or(())\n        .map_err(|()| ())\n        .ok()?;",
     "run": [
       "cargo",
       "nextest",
@@ -323,6 +258,86 @@
       "run",
       "-p",
       "landscape-discover"
+    ]
+  },
+  {
+    "name": "a board url nobody linked to is read as a link",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "        if !matches!(bytes[at - 1], b'\"' | b'\\'') {\n            continue;\n        }",
+    "new": "        if false {\n            continue;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a redirect parameter is read as the link it carries",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "        if !matches!(bytes[at - 1], b'\"' | b'\\'') {",
+    "new": "        if !matches!(bytes[at - 1], b'\"' | b'\\'' | b'=') {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a host that merely ends with a known one is that host",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "    if !BOARD_HOSTS.contains(&host) {",
+    "new": "    if !BOARD_HOSTS.iter().any(|known| host.ends_with(known)) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a vacancy link is followed instead of the board it is on",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "        .take_while(|c| !ENDS_A_PART.contains(c) && !c.is_whitespace())",
+    "new": "        .take_while(|c| !c.is_whitespace())",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "an escaped separator inside json is not understood",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "    rest.strip_prefix('/').or_else(|| rest.strip_prefix(r\"\\/\"))",
+    "new": "    rest.strip_prefix('/')",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a group heading votes for the form the list is written in",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "        } else if doc::heading_level(line).is_none() {",
+    "new": "        } else {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
     ]
   }
 ]

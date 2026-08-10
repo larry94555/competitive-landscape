@@ -64,6 +64,21 @@ where its roles are.
 **No extra request to find one.** The board is read out of the careers page's own body, which the
 run has already paid for.
 
+**Review: a string is not a link.** The first version scanned the raw HTML for a known host, so
+any occurrence counted — prose, a tracking blob, a *"similar jobs at other companies"* widget, a
+redirect parameter. `jobs.ashbyhq.com/SomebodyElse` appearing anywhere admitted somebody else's
+board and published their vacancies under this company's name, which is the exact failure the
+*found, never guessed* rule exists to prevent, arriving through a string nobody linked.
+
+A URL is now **parsed** — scheme, host, one path segment — and only where it *begins* a quoted
+value, which is what `href="…"` and `{"url":"…"}` look like and what `href="/out?to=https://…"`
+does not. Asked that way round rather than by pairing quotes across the document, because pairing
+goes out of phase the moment a page nests JSON inside JSON — and `vercel.com/careers` does exactly
+that, with its board inside `{"jobs":[{"absolute_url":"https://…"}]}` written as an escaped string
+within another string. **The first attempt at the fix paired quotes, passed every unit test, and
+found no board on any of the three real sites** — the lesson two sections down, arriving twice in
+one change.
+
 ### A board is not the company's own server
 
 `Disposition::Attributed`, never `Primary`. The bytes come from a stranger's host, so nothing a
@@ -98,6 +113,12 @@ information, so the two rules it needed are here rather than in a later row.
 Greenhouse titles the page *"Current openings at Vercel"*. It now also accepts `<phrase> at …` —
 the one possessive form a hosted board uses, and deliberately not `starts_with(phrase)`, which
 would let *"open roles are what we are proudest of"* announce a list that is not there.
+
+**A group heading is structure, not an entry.** Review found what counting one costs: a board
+advertising a single vacancy is `### Account Executive` above `- Staff Product Engineer`, so the
+count ties at one apiece, the tie keeps the plain lines, and the group label is published as the
+opening while the job is discarded. A company with one vacancy is the most likely board there is.
+Neither page shape puts its roles in headings, so a heading votes for nothing.
 
 **A list written the other way round.** A hosted board puts its roles in bullets and its
 furniture — *Create a Job Alert*, a count of 83 jobs, a department heading per section — in the
@@ -179,7 +200,7 @@ public board has not published one.
 | | Rust tests | frontend tests |
 |---|---|---|
 | Run 39 | 928 | 62 |
-| now | **947** | **62** |
+| now | **951** | **62** |
 
 ---
 
