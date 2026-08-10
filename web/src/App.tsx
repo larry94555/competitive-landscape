@@ -825,9 +825,15 @@ function describe(
         case "nothing_found":
           return "We searched and found no company we could stand behind. Try naming a website, or describing the product in the words a vendor would use.";
         case "search_incomplete":
-          // The only one a reader fixes by doing nothing, so it is the only one that must not
-          // send them off to change their prompt.
+          // The one a reader fixes by doing nothing, so it is the one that must not send them
+          // off to change their prompt.
           return "The search did not finish, so we have not concluded anything. This is usually temporary — try again.";
+        case "search_refused":
+          // **Identical counts, opposite advice.** The engine answered and said no, and it
+          // will say no again — a misconfigured one refuses every query until somebody edits
+          // a file. Telling this reader to try again is telling them to wait for something
+          // that cannot happen, so they get the one route that skips the engine instead.
+          return "Our search engine is refusing us, so we have not concluded anything. That is ours to fix and trying again will not help — naming a website skips the search entirely.";
         default:
           return "This one did not finish. Nothing you did caused it.";
       }

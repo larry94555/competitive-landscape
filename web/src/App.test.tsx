@@ -1466,6 +1466,17 @@ describe("when it does not finish", () => {
     expect(screen.queryByText(/nothing you did caused it/i)).toBeNull();
   });
 
+  it("does not offer waiting when the engine has already answered", async () => {
+    // **The same counts, the opposite advice.** An engine that refuses will refuse again, so
+    // "try again" is an instruction to wait for something that cannot happen. This is the
+    // documented first-run state of the checked-in search profile, not an exotic case.
+    await shownFor("search_refused");
+    expect(await screen.findByText(/refusing us/i)).toBeInTheDocument();
+    expect(screen.queryByText(/try again/i)).toBeNull();
+    // And it still offers the one route that does not need the engine at all.
+    expect(screen.getByText(/naming a website skips the search/i)).toBeInTheDocument();
+  });
+
   it("takes the blame when the failure was ours", async () => {
     stubEventSource();
     vi.stubGlobal(

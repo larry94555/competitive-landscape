@@ -123,9 +123,22 @@ pub enum Failure {
     NothingFound,
     /// The searching did not finish, so nothing was concluded.
     ///
-    /// **The only retryable one.** Telling somebody to name a domain because an engine timed
-    /// out sends them to fix something that was never wrong.
+    /// **The retryable one.** Telling somebody to name a domain because an engine timed out
+    /// sends them to fix something that was never wrong.
     SearchIncomplete,
+    /// The searching reached an engine, and the engine refused.
+    ///
+    /// **Every count is identical to [`Self::SearchIncomplete`] and the advice is the
+    /// opposite.** An engine that answers with a refusal will answer the same way in a minute
+    /// and in a week — a misconfigured SearXNG answers `403` to every query until somebody
+    /// edits a file — so *"try again"* is an instruction to wait for something that cannot
+    /// happen. A reader can still do the one thing that skips the engine entirely, which is
+    /// name a domain, and that is what they are told.
+    ///
+    /// It is a separate kind rather than a longer sentence because the interface renders from
+    /// the kind: `PRODUCT_SPEC.md` §3's rule that a situation earns a value when a reader
+    /// would **do something different**, and here they would.
+    SearchRefused,
     /// Anything else. The reader can only try again.
     Internal,
 }
@@ -139,6 +152,7 @@ impl Failure {
             Self::Ambiguous => "ambiguous",
             Self::NothingFound => "nothing_found",
             Self::SearchIncomplete => "search_incomplete",
+            Self::SearchRefused => "search_refused",
             Self::Internal => "internal",
         }
     }
@@ -154,6 +168,7 @@ impl Failure {
             "ambiguous" => Self::Ambiguous,
             "nothing_found" => Self::NothingFound,
             "search_incomplete" => Self::SearchIncomplete,
+            "search_refused" => Self::SearchRefused,
             _ => Self::Internal,
         }
     }

@@ -2234,6 +2234,47 @@ time, ask what a **duplicate** would do to it.
 
 ---
 
+## 61. Advice that was true of one case, attached to all of them
+
+**Found:** by running the thing against a server that answers `403`, after every unit test passed.
+
+Every path that reported a failed search ended with the same sentence: *"that is usually
+temporary - try again."* It is true when an engine times out. The most likely first experience of
+a **configured** engine is not a timeout: `deploy/searxng/settings.yml` is checked in precisely
+because SearXNG serves HTML and answers `403` to `format=json` until an instance opts in, so a
+first run without that file refuses every query, for ever, and the report recommended waiting.
+
+The reason was known at the moment of failure and thrown away one line later — `Queried.failed`
+held the query text and not the error. **A value parted from its evidence**, which is register
+entry 7, arriving for the third time in a different crate.
+
+**The mutation harness found the gap that made it invisible.** Replacing the read of the error's
+kind with a constant broke nothing, because every test of the resulting sentence built its input
+by hand. The wording was pinned at both ends and the wire between them was not: a pair kept
+together is only kept together if something reads both halves of it.
+
+**And the surface that mattered most had no test at all.** With the notes and the report
+sentences fixed and the whole suite green, pointing the application at a refusing server showed
+the *whole-run refusal* — the first thing a reader meets — still saying *"this is usually
+temporary."* It renders from a `Failure` kind rather than from a sentence, so nothing in the
+sentence-level work could reach it. That is entry 59's rule paying off again: **run it, then
+believe it.**
+
+**The split that fixed it is not a taxonomy of one provider.** *Did the engine answer at all?*
+Anything that came back is a decision and the same decision comes back next time; only silence,
+and the two answers that explicitly mean *later*, are worth waiting on. A rule shaped like HTTP
+rather than like SearXNG is one a second provider inherits without an edit.
+
+**Rule:** when one sentence ends a family of error paths, check it against the *most likely*
+member of that family rather than the one you were thinking of when you wrote it — and when a
+reason is available at the point of failure, carry it, because the sentence that needs it is
+always further away than it looks.
+
+> **Ask this:** *is this advice true of every case that reaches it? And which surface renders
+> from a kind rather than from the string I just fixed?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

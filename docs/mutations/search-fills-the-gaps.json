@@ -28,8 +28,8 @@
   {
     "name": "an engine that is down is swallowed rather than reported",
     "file": "crates/landscape-analyze/src/lib.rs",
-    "old": "                failures += 1;",
-    "new": "                let _ = &mut failures;",
+    "old": "                faults.push(e.fault());",
+    "new": "                let _ = &mut faults;",
     "run": [
       "cargo",
       "nextest",

@@ -25,6 +25,7 @@ export type Failure =
   | "ambiguous"
   | "nothing_found"
   | "search_incomplete"
+  | "search_refused"
   | "internal";
 
 /**

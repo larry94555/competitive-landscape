@@ -162,7 +162,33 @@ pub struct Queried {
     /// Asked and answered. This is the checkable half of a negative.
     pub completed: Vec<String>,
     /// Asked and did not come back. Not evidence of anything except an engine.
-    pub failed: Vec<String>,
+    pub failed: Vec<Failed>,
+}
+
+/// A query that did not come back, **and why**.
+///
+/// **The query alone was half a fact.** Every caller that reported a failure counted these and
+/// said the same sentence — *"that is usually temporary - try again"* — which is right for a
+/// timeout and wrong for an engine that answered and refused. The reason was known at the call
+/// and thrown away one line later; this is the pair kept together, which is the shape
+/// `landscape_search::admit::Found` already uses for the same reason.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Failed {
+    /// What was asked.
+    pub query: String,
+    /// What a reader would do about it.
+    pub fault: crate::provider::Fault,
+}
+
+impl Failed {
+    /// One query that did not come back, and why.
+    #[must_use]
+    pub fn new(query: impl Into<String>, fault: crate::provider::Fault) -> Self {
+        Self {
+            query: query.into(),
+            fault,
+        }
+    }
 }
 
 impl Queried {
@@ -170,6 +196,12 @@ impl Queried {
     #[must_use]
     pub fn sent(&self) -> usize {
         self.completed.len() + self.failed.len()
+    }
+
+    /// The failure worth acting on, or [`None`] when nothing failed.
+    #[must_use]
+    pub fn fault(&self) -> Option<crate::provider::Fault> {
+        crate::provider::Fault::worst_of(self.failed.iter().map(|f| f.fault))
     }
 
     /// Both rounds of searching, as one run's evidence.
@@ -340,7 +372,9 @@ pub async fn ask(engine: &dyn SourceProvider, description: &str) -> (Vec<Vec<Hit
             }
             Err(e) => {
                 tracing::warn!(query = %query.text, error = %e, "a candidate search did not complete");
-                queried.failed.push(query.text.clone());
+                queried
+                    .failed
+                    .push(Failed::new(query.text.clone(), e.fault()));
             }
         }
     }
@@ -2106,6 +2140,41 @@ The second of two."
                 _ => Err(SearchError::Unreachable("no route to host".to_owned())),
             }
         }
+    }
+
+    /// A provider that answers every query with the status an unconfigured SearXNG gives.
+    struct Refusing;
+
+    #[async_trait::async_trait]
+    impl SourceProvider for Refusing {
+        fn name(&self) -> &str {
+            "refusing"
+        }
+        async fn search(&self, _query: &Query) -> Result<Vec<Hit>, SearchError> {
+            Err(SearchError::Status { status: 403 })
+        }
+    }
+
+    #[tokio::test]
+    async fn the_reason_a_query_failed_survives_the_loop_that_recorded_it() {
+        // **The mutation harness found this gap rather than a person.** Replacing `e.fault()`
+        // with a constant here broke nothing: every test of the wording built a `Queried` by
+        // hand, so the one line that reads the reason off the error was untested. A pair kept
+        // together is only kept together if something reads both halves of it.
+        let (results, queried) = ask(&Refusing, "privacy-first web analytics").await;
+        assert!(results.is_empty(), "a refused query returns no hits");
+        assert_eq!(queried.completed.len(), 0);
+        assert_eq!(queried.fault(), Some(crate::provider::Fault::Refused));
+
+        let (_, timed_out) = ask(
+            &Canned {
+                per_query: Vec::new(),
+                asked: std::sync::Mutex::new(Vec::new()),
+            },
+            "privacy-first web analytics",
+        )
+        .await;
+        assert_eq!(timed_out.fault(), Some(crate::provider::Fault::Silent));
     }
 
     /// A provider that answers by what was asked, so the two rounds can be told apart.

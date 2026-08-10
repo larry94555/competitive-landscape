@@ -33,6 +33,123 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 42 — an engine that refuses is not an engine that is slow
+
+**Date:** 2026-08-10 · **Where:** this laptop · **Model:** none. Every sentence here is
+deterministic; the only thing that varies is what an engine says back.
+
+S2's last row is the engine-backed half of the search channel, and its remaining item is one
+nobody can do from a keyboard: **SearXNG has never been run against this.** `PROJECT_STATUS.md`
+B2 has said so since the channel was built. What this run is about is the thing that made that
+first run uninterpretable in advance.
+
+### The sentence that was true of one case out of three
+
+Every path that reported a failed search said the same thing:
+
+```text
+We could not complete 3 of the 3 searches for companies it competes with, so this report
+is about one company. That is usually temporary - try again.
+```
+
+**It is usually temporary when an engine times out.** It is not temporary at all when the
+engine answered — and the most likely first experience of a configured SearXNG is exactly that.
+`deploy/searxng/settings.yml` is checked in for one reason, stated in its own first paragraph:
+SearXNG serves HTML and answers **403** to `format=json` until an instance opts in. So the first
+person to start the compose profile without that file gets every query refused, for ever, and a
+report telling them to wait.
+
+### The rule is HTTP's, not a guess about SearXNG
+
+`landscape_search::Fault` has three values because there are three things a reader would do:
+
+| | when | what they are told |
+|---|---|---|
+| `Refused` | the engine answered, and what it said was no | it will not change if you try again |
+| `TooFast` | `429` — it asked to be asked less often | trying again shortly should work |
+| `Silent` | it did not answer, or broke with a `5xx` | that is usually temporary — try again |
+
+**Did the engine answer at all?** Anything that came back is a decision, and the same decision
+comes back next time — a status, a body we cannot parse, a body past the size limit, a client
+that would not build. Only silence and the two answers that explicitly mean *later* are worth
+waiting on. Nothing in the enum is about SearXNG, so a second provider inherits it.
+
+`Queried.failed` carries the reason beside the query now rather than the query alone, which is
+the same shape `admit::Found` already uses: **a value parted from its evidence** is register
+entry 7, and this was a third instance of it.
+
+### Two audiences, two sentences, and neither is the other one leaked
+
+A stranger reading a report cannot fix our search engine and is not shown its status code:
+
+```text
+We could not complete 3 of the 3 searches for companies it competes with, so this report
+is about one company. Our search engine is refusing us, which is ours to fix - asking
+again will not change it.
+```
+
+Whoever is holding the terminal gets the other half, from the same event:
+
+```text
+3 of 3 queries did not complete, so this list is thinner than it would be - and anything
+below saying nothing was found is about us, not about the market:
+  refused: best privacy-first web analytics software
+  refused: privacy-first web analytics tools comparison
+  refused: privacy-first web analytics vendors
+The engine answered and refused. That is configuration rather than weather, and retrying
+will not change it: check that SEARX_URL points at a SearXNG, and that its settings name
+`json` in `search.formats` - an instance that has not opted in answers 403 to every query.
+`deploy/searxng/settings.yml` is that opt-in.
+```
+
+That division is `migrations/0001_init.sql`'s rule about `failure_reason` — the operator's
+column, never rendered verbatim — applied to the other half of the same event. A test asserts
+the reader's sentence contains no variable name, no status code and no product name, because
+that is the sort of rule that erodes one helpful edit at a time.
+
+### And running it found the surface the tests could not
+
+Every unit test passed with a whole surface untouched. Pointing `SEARX_URL` at a server that
+answers `403` to everything — which is what an unconfigured instance is — produced this:
+
+```text
+no report (search_incomplete): we could not complete 3 of the 3 searches needed to work out
+which company you mean ... This is usually temporary - try again, or name a domain to skip
+the search entirely.
+```
+
+The **whole-run refusal**, which is the first thing a reader meets and the one surface that was
+not a note on a report. It renders from `landscape_core::Failure`, so the fix is a new kind
+rather than a longer sentence: `SearchRefused` beside `SearchIncomplete`, identical in every
+count and opposite in what it advises. That is `PRODUCT_SPEC.md` §3's rule — a situation earns a
+value when a reader would **do something different** — and it is Run 33 applied one refusal
+further. Register entry 59 again: the only thing that finds this is running the thing.
+
+### Two gates earned their keep, and one of them twice
+
+**`no_lost_continuations.py`.** `cargo fmt` joined a `\` continuation in a new string and left
+the indentation inside the literal, so a reader would have been shown *"will not change
+if&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;you try again."* A wording assertion caught the first one
+and the gate caught the second, in a `println!` written minutes later — and its message already
+named the remedy this now uses, `concat!`.
+
+**The mutation harness found a coverage gap nobody would have.** Replacing `e.fault()` with a
+constant where a failure is recorded broke **nothing**: every test of the wording built a
+`Queried` by hand, so the one line that reads the reason off the error was never exercised. A
+pair kept together is only kept together if something reads both halves.
+
+| | Rust tests | frontend tests | catalogue |
+|---|---|---|---|
+| Run 41 | 951 | 73 | 11, all caught |
+| now | **961** | **74** | **11**, all caught |
+
+**What this run does not claim.** SearXNG still has not been run against this — Docker was
+unavailable where this was built, which is the same limit Run 28 records. A `403` server and a
+closed port stand in for the two cases, and they are stand-ins. What changed is that the first
+real run now explains itself instead of recommending a wait.
+
+---
+
 ## Run 41 — the set is editable
 
 **Date:** 2026-08-09 · **Where:** this laptop · **Model:** none. Nothing here asks one; it is a
