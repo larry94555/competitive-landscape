@@ -264,11 +264,21 @@ pub fn decide(
         //
         // A **non-empty** set still beats an outage: an answer we already have is worth more
         // than telling somebody to come back for it.
-        _ if set.is_empty() && !queried.failed.is_empty() => Decided::Refuse(Refusal {
-            why: search_incomplete(queried.failed.len(), queried.sent()),
-            kind: landscape_core::Failure::SearchIncomplete,
-            choices: Vec::new(),
-        }),
+        // **Which of the two depends on whether the engine spoke.** `fault()` is `Some`
+        // whenever anything failed, which the guard above has established; the fallback is
+        // unreachable and picks the retryable reading, which is the one that assumes least.
+        _ if set.is_empty() && !queried.failed.is_empty() => {
+            let fault = queried.fault().unwrap_or(landscape_search::Fault::Silent);
+            Decided::Refuse(Refusal {
+                why: search_incomplete(queried.failed.len(), queried.sent(), fault),
+                kind: if fault == landscape_search::Fault::Refused {
+                    landscape_core::Failure::SearchRefused
+                } else {
+                    landscape_core::Failure::SearchIncomplete
+                },
+                choices: Vec::new(),
+            })
+        }
         Resolution::NothingFound { .. } => Decided::Refuse(Refusal {
             why: NOTHING_RESOLVED.to_owned(),
             kind: landscape_core::Failure::NothingFound,
@@ -444,18 +454,27 @@ fn joined_with_and(items: &[String]) -> String {
     }
 }
 
-/// What a reader is told when the searching itself did not finish.
+/// What an **operator** is told when the searching itself did not finish.
 ///
 /// **Not the same as finding nobody, and review found the two collapsed.** With every query
 /// failing, the previous version said *"we searched and found none"* — a conclusion about a
-/// market, drawn from a conclusion about nothing. This one is about us, it is retryable, and it
-/// is the only refusal here that a reader fixes by waiting.
+/// market, drawn from a conclusion about nothing. This one is about us.
+///
+/// **And it is not always retryable, which this used to promise it was.** It ended *"this is
+/// usually temporary - try again"* whatever had happened, including when every query came back
+/// refused. The count is the same fact either way; the advice is not, and
+/// [`landscape_search::Fault`] is what tells them apart.
+///
+/// This string is `failure_reason` — the operator's column, never rendered verbatim
+/// (`migrations/0001_init.sql`). What a reader sees comes from the [`landscape_core::Failure`]
+/// beside it, which is why the two are chosen together at one call site.
 #[must_use]
-pub fn search_incomplete(failed: usize, sent: usize) -> String {
+pub fn search_incomplete(failed: usize, sent: usize, fault: landscape_search::Fault) -> String {
     format!(
         "we could not complete {failed} of the {sent} searches needed to work out which company \
-         you mean, so we have not concluded anything about who is out there. This is usually \
-         temporary - try again, or name a domain to skip the search entirely."
+         you mean, so we have not concluded anything about who is out there. {} Naming a domain \
+         skips the search entirely.",
+        fault.advice()
     )
 }
 
@@ -640,7 +659,16 @@ mod deciding {
 
         let outage = Queried {
             completed: vec!["q1".to_owned()],
-            failed: vec!["q2".to_owned(), "q3".to_owned()],
+            failed: vec![
+                landscape_search::candidates::Failed::new(
+                    "q2",
+                    landscape_search::Condition::NoAnswer,
+                ),
+                landscape_search::candidates::Failed::new(
+                    "q3",
+                    landscape_search::Condition::NoAnswer,
+                ),
+            ],
         };
         let cases: Vec<(&str, Decided, Failure)> = vec![
             (
@@ -732,7 +760,16 @@ mod deciding {
         // would offer a reader a button that changes nothing.
         let outage = Queried {
             completed: vec!["q1".to_owned()],
-            failed: vec!["q2".to_owned(), "q3".to_owned()],
+            failed: vec![
+                landscape_search::candidates::Failed::new(
+                    "q2",
+                    landscape_search::Condition::NoAnswer,
+                ),
+                landscape_search::candidates::Failed::new(
+                    "q3",
+                    landscape_search::Condition::NoAnswer,
+                ),
+            ],
         };
         let empty_market = decide(
             derived(
@@ -827,12 +864,15 @@ mod deciding {
     #[test]
     fn the_only_retryable_refusal_is_the_one_about_us() {
         // A reader fixes exactly one of these by doing nothing, so exactly one may say so.
+        // **`SearchRefused` is the newest and it is on the other side**: the engine answered,
+        // so waiting is waiting for a decision that has already been made.
         use landscape_core::Failure;
         for (kind, retryable) in [
             (Failure::NoSubject, false),
             (Failure::Ambiguous, false),
             (Failure::NothingFound, false),
             (Failure::SearchIncomplete, true),
+            (Failure::SearchRefused, false),
         ] {
             assert_eq!(
                 kind == Failure::SearchIncomplete,
@@ -840,9 +880,68 @@ mod deciding {
                 "{kind:?} changed sides"
             );
         }
-        assert!(search_incomplete(2, 3).contains("try again"));
+        assert!(search_incomplete(2, 3, landscape_search::Fault::Silent).contains("try again"));
+        assert!(
+            !search_incomplete(2, 3, landscape_search::Fault::Refused).contains("try again"),
+            "a refusal must not be offered as something waiting fixes"
+        );
         assert!(!NOTHING_RESOLVED.contains("try again"));
         assert!(!NO_SUBJECT.contains("try again"));
+    }
+
+    #[test]
+    fn an_engine_that_refused_is_a_different_refusal_from_one_that_never_answered() {
+        // The counts are identical and the two are not the same event. This is the whole-run
+        // outcome rather than a note on a report, so it is the one a reader meets first.
+        use landscape_search::candidates::Failed;
+        use landscape_search::Condition;
+        for (condition, expected) in [
+            (
+                Condition::Answered(403),
+                landscape_core::Failure::SearchRefused,
+            ),
+            (
+                Condition::Answered(401),
+                landscape_core::Failure::SearchRefused,
+            ),
+            (Condition::NotJson, landscape_core::Failure::SearchRefused),
+            (
+                Condition::NoAnswer,
+                landscape_core::Failure::SearchIncomplete,
+            ),
+            // The two that answered and still mean *later*.
+            (
+                Condition::Answered(408),
+                landscape_core::Failure::SearchIncomplete,
+            ),
+            (
+                Condition::Answered(429),
+                landscape_core::Failure::SearchIncomplete,
+            ),
+            (
+                Condition::Answered(503),
+                landscape_core::Failure::SearchIncomplete,
+            ),
+        ] {
+            let queried = Queried {
+                completed: Vec::new(),
+                failed: vec![Failed::new("q1", condition), Failed::new("q2", condition)],
+            };
+            let decided = decide(
+                derived(
+                    Resolution::NothingFound {
+                        checked: Vec::new(),
+                    },
+                    Set::default(),
+                    true,
+                ),
+                &queried,
+            );
+            let Decided::Refuse(refusal) = decided else {
+                panic!("no set and failed queries is a refusal");
+            };
+            assert_eq!(refusal.kind, expected, "{condition:?}");
+        }
     }
 
     #[test]
@@ -899,7 +998,16 @@ mod deciding {
             derived(tie(), two(), true),
             &Queried {
                 completed: vec!["q1".to_owned()],
-                failed: vec!["q2".to_owned(), "q3".to_owned()],
+                failed: vec![
+                    landscape_search::candidates::Failed::new(
+                        "q2",
+                        landscape_search::Condition::NoAnswer,
+                    ),
+                    landscape_search::candidates::Failed::new(
+                        "q3",
+                        landscape_search::Condition::NoAnswer,
+                    ),
+                ],
             },
         );
         assert!(
@@ -943,7 +1051,10 @@ mod deciding {
         ] {
             let queried = Queried {
                 completed: vec!["q1".to_owned(), "q2".to_owned()],
-                failed: vec!["q3".to_owned()],
+                failed: vec![landscape_search::candidates::Failed::new(
+                    "q3",
+                    landscape_search::Condition::NoAnswer,
+                )],
             };
             let decided = decide(
                 derived(
@@ -986,7 +1097,16 @@ mod deciding {
             ),
             &Queried {
                 completed: vec!["q1".to_owned()],
-                failed: vec!["q2".to_owned(), "q3".to_owned()],
+                failed: vec![
+                    landscape_search::candidates::Failed::new(
+                        "q2",
+                        landscape_search::Condition::NoAnswer,
+                    ),
+                    landscape_search::candidates::Failed::new(
+                        "q3",
+                        landscape_search::Condition::NoAnswer,
+                    ),
+                ],
             },
         );
         assert!(
@@ -1000,9 +1120,15 @@ mod deciding {
         // **Review found these collapsed.** With every query failing, the reader was told *"we
         // searched and found none"* - a conclusion about a market drawn from a conclusion about
         // nothing. It is retryable and it is about us.
+        use landscape_search::candidates::Failed;
+        use landscape_search::Condition;
         for failed in [
-            vec!["q1".to_owned(), "q2".to_owned(), "q3".to_owned()],
-            vec!["q3".to_owned()],
+            vec![
+                Failed::new("q1", Condition::NoAnswer),
+                Failed::new("q2", Condition::NoAnswer),
+                Failed::new("q3", Condition::NoAnswer),
+            ],
+            vec![Failed::new("q3", Condition::NoAnswer)],
         ] {
             let queried = Queried {
                 completed: vec!["q1".to_owned(); 3 - failed.len()],

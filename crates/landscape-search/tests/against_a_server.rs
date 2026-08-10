@@ -250,6 +250,53 @@ async fn a_declared_length_over_the_cap_is_refused_before_the_body() {
 }
 
 #[tokio::test]
+async fn a_body_that_stops_arriving_is_silence_rather_than_a_decision() {
+    // **A connection dropped mid-body decided nothing**, and it used to be filed with the
+    // instance serving HTML - so a reader was told that trying again would not help, and an
+    // operator was pointed at `search.formats`. The declared length is honest and under the
+    // cap; the server simply stops.
+    let body = r#"{"results":[{"url":"https://a.example","title":"a","content":"c"}]}"#;
+    let listener = TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("a loopback port");
+    let addr = listener.local_addr().expect("the bound address");
+    tokio::spawn(async move {
+        let (mut socket, _) = listener.accept().await.expect("a connection");
+        let mut buf = vec![0u8; 8192];
+        let _ = socket.read(&mut buf).await;
+        let headers = format!(
+            "HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: {}
+Connection: close
+
+",
+            body.len()
+        );
+        let _ = socket.write_all(headers.as_bytes()).await;
+        // Half of what was promised, then the socket goes.
+        let _ = socket.write_all(&body.as_bytes()[..body.len() / 2]).await;
+        let _ = socket.shutdown().await;
+    });
+
+    let query = a_query();
+    let err = landscape_search::Searx::new(&format!("http://{addr}"))
+        .expect("the client builds")
+        .search(&query)
+        .await
+        .expect_err("a truncated body is a failed search");
+    assert!(
+        matches!(err, landscape_search::SearchError::Unreachable(_)),
+        "{err:?} is a connection that went away, not a body we could read"
+    );
+    assert_eq!(
+        landscape_search::Condition::of(&err).fault(),
+        landscape_search::Fault::Silent,
+        "nothing was decided, so asking again may well work"
+    );
+}
+
+#[tokio::test]
 async fn a_redirect_from_the_engine_is_not_followed() {
     // SearXNG's own query language can turn a search into a redirect: `!!` goes to the first
     // result and an external bang leaves the instance. `queries` refuses those tokens at the

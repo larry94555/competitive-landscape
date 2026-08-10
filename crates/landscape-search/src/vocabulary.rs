@@ -163,6 +163,17 @@ pub enum Resolved {
         failed: usize,
         /// Queries sent.
         sent: usize,
+        /// What the engine did. See [`crate::provider::Condition`].
+        ///
+        /// **`decide` keeps an outage apart from an empty market because one is fixed by
+        /// waiting**, which was written when every failure was assumed to be an outage. An
+        /// engine that answers and refuses is a third thing, and it is not fixed by waiting
+        /// either.
+        ///
+        /// The full condition rather than the coarse [`crate::provider::Fault`], because this
+        /// one is printed by `landscape vocabulary` to somebody who can fix it — and a coarse
+        /// answer there explained a `401` as a `403`.
+        condition: crate::provider::Condition,
     },
     /// No engine is configured. The laptop default, and not an error.
     NoEngine,
@@ -369,6 +380,10 @@ pub fn from_titles(results: &[Vec<Hit>], queried: &Queried) -> Resolved {
         None if !queried.failed.is_empty() => Resolved::Incomplete {
             failed: queried.failed.len(),
             sent: queried.sent(),
+            // Non-empty above, so this is the worst of at least one.
+            condition: queried
+                .condition()
+                .unwrap_or(crate::provider::Condition::NoAnswer),
         },
         None => Resolved::TheirWords {
             titles,
@@ -703,11 +718,18 @@ mod tests {
         // the other at all, so they must not arrive as one sentence.
         let queried = Queried {
             completed: vec!["q1".to_owned()],
-            failed: vec!["q2".to_owned(), "q3".to_owned()],
+            failed: vec![
+                crate::candidates::Failed::new("q2", crate::provider::Condition::NoAnswer),
+                crate::candidates::Failed::new("q3", crate::provider::Condition::NoAnswer),
+            ],
         };
         assert_eq!(
             from_titles(&[], &queried),
-            Resolved::Incomplete { failed: 2, sent: 3 }
+            Resolved::Incomplete {
+                failed: 2,
+                sent: 3,
+                condition: crate::provider::Condition::NoAnswer,
+            }
         );
     }
 
@@ -717,7 +739,10 @@ mod tests {
         // of which `match` arm was written first.
         let queried = Queried {
             completed: vec!["q1".to_owned()],
-            failed: vec!["q2".to_owned()],
+            failed: vec![crate::candidates::Failed::new(
+                "q2",
+                crate::provider::Condition::NoAnswer,
+            )],
         };
         assert!(
             matches!(from_titles(&a_market(), &queried), Resolved::Market(_)),
@@ -918,7 +943,11 @@ mod tests {
                 titles: 4,
                 hosts: 4,
             },
-            Resolved::Incomplete { failed: 2, sent: 3 },
+            Resolved::Incomplete {
+                failed: 2,
+                sent: 3,
+                condition: crate::provider::Condition::NoAnswer,
+            },
             Resolved::NoEngine,
             Resolved::Ambiguous {
                 between: Vec::new(),

@@ -388,6 +388,24 @@ Example:
 /// One line, and it exists so the two call sites cannot disagree about it: `Option<&Searx>` to
 /// `Option<&dyn SourceProvider>` is a coercion that has to be spelled out, and spelling it out
 /// twice is how one of them ends up passing `None` for ever without anybody noticing.
+/// Every query that did not come back, with its reason, and one line saying what to check.
+///
+/// **The reason per query, because they need not agree.** One refusal among two timeouts is an
+/// engine that refuses; printing only the summary would hide which query proved it.
+///
+/// The sentence underneath comes from [`landscape_search::Condition`], not from the coarse
+/// [`landscape_search::Fault`]: review found a `401` being explained as a `403`, because every
+/// refusal shared one remedy and it named the JSON opt-in. What a *reader* is told still comes
+/// from the coarse one, and names none of this.
+fn print_failures(queried: &landscape_search::candidates::Queried) {
+    for f in &queried.failed {
+        println!("  {}: {}", f.condition.word(), f.query);
+    }
+    if let Some(condition) = queried.condition() {
+        println!("{}", condition.what_to_check());
+    }
+}
+
 fn searching(engine: &landscape_search::Searx) -> &dyn landscape_search::SourceProvider {
     engine
 }
@@ -444,9 +462,7 @@ Nothing to ask: a description with no words in it would send bare"
             queried.failed.len(),
             queried.sent()
         );
-        for q in &queried.failed {
-            println!("  did not complete: {q}");
-        }
+        print_failures(&queried);
     }
 
     println!();
@@ -457,10 +473,15 @@ Nothing to ask: a description with no words in it would send bare"
                 landscape_search::searx::URL_VAR
             );
         }
-        landscape_search::vocabulary::Resolved::Incomplete { failed, sent } => {
+        landscape_search::vocabulary::Resolved::Incomplete {
+            failed,
+            sent,
+            condition,
+        } => {
             println!("no vocabulary: {failed} of the {sent} searches did not complete,");
             println!("and nothing recurred without them. This is about us, not about");
-            println!("the market - try again.");
+            println!("the market.");
+            println!("{}", condition.what_to_check());
         }
         landscape_search::vocabulary::Resolved::TheirWords { titles, hosts } => {
             println!("no vocabulary: {titles} titles from {hosts} sites, and no phrase");
@@ -582,9 +603,14 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
             println!("interpreted as  your own words");
             println!("                {titles} titles from {hosts} sites, none recurring");
         }
-        landscape_search::vocabulary::Resolved::Incomplete { failed, sent } => {
+        landscape_search::vocabulary::Resolved::Incomplete {
+            failed,
+            sent,
+            condition,
+        } => {
             println!("interpreted as  your own words");
             println!("                {failed} of the {sent} searches did not complete");
+            println!("                {}", condition.word());
         }
         landscape_search::vocabulary::Resolved::NoEngine => {
             unreachable!("an engine is configured; the branch above returned without one")
@@ -640,9 +666,7 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
             queried.failed.len(),
             queried.sent()
         );
-        for q in &queried.failed {
-            println!("  did not complete: {q}");
-        }
+        print_failures(&queried);
     }
 
     // The names come from each company's own front page. An engine's title is the engine's.
@@ -868,9 +892,7 @@ async fn rivals_of_a_named_company(origin: &str) -> Result<()> {
             queried.failed.len(),
             queried.sent()
         );
-        for q in &queried.failed {
-            println!("  did not complete: {q}");
-        }
+        print_failures(&queried);
     }
 
     for line in set_as_printed(&set) {
@@ -962,13 +984,38 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
 
     use landscape_search::SourceProvider as _;
     let mut results = Vec::new();
+    let mut queried = landscape_search::candidates::Queried::default();
     for query in queries {
         match engine.search(&query).await {
-            Ok(hits) => results.push((query, hits)),
+            Ok(hits) => {
+                queried.completed.push(query.text.clone());
+                results.push((query, hits));
+            }
             // A search that fails is not an analysis that fails. The section keeps the
             // coverage note it already had, which is what the report says today anyway.
-            Err(e) => tracing::warn!(question = query.answers.name(), error = %e, "search failed"),
+            //
+            // **It is still printed rather than only logged.** This is the diagnostic somebody
+            // runs when the search channel is not working, and the failure it exists to show
+            // was going to a `tracing` line the default level does not print.
+            Err(e) => {
+                tracing::warn!(question = query.answers.name(), error = %e, "search failed");
+                queried
+                    .failed
+                    .push(landscape_search::candidates::Failed::new(
+                        query.text.clone(),
+                        landscape_search::Condition::of(&e),
+                    ));
+            }
         }
+    }
+    if !queried.failed.is_empty() {
+        println!(
+            "
+{} of {} queries did not complete, so there are fewer pages below:",
+            queried.failed.len(),
+            queried.sent()
+        );
+        print_failures(&queried);
     }
 
     let already: Vec<String> = found.sources.iter().map(|s| s.url.clone()).collect();
@@ -2097,7 +2144,10 @@ mod tests {
             },
             &landscape_search::candidates::Queried {
                 completed: vec!["q1".to_owned(), "q2".to_owned()],
-                failed: vec!["q3".to_owned()],
+                failed: vec![landscape_search::candidates::Failed::new(
+                    "q3",
+                    landscape_search::Condition::NoAnswer,
+                )],
             },
         );
         let landscape_analyze::subject::Decided::Refuse(refusal) = decided else {
@@ -2261,6 +2311,7 @@ mod tests {
                 failed: 2,
                 sent: 3,
                 sought: landscape_search::competitors::Sought::RivalsOfTheCompany,
+                fault: landscape_search::Fault::Silent,
             },
         ] {
             let said = set_as_printed(&lone(Some(why.clone()))).join("\n");

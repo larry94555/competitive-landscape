@@ -15,6 +15,7 @@ python3 scripts/mutate.py docs/mutations/the-second-reader.json
 python3 scripts/mutate.py docs/mutations/asking-whether-it-changed.json
 python3 scripts/mutate.py docs/mutations/where-the-roles-actually-live.json
 python3 scripts/mutate.py docs/mutations/the-set-is-editable.json
+python3 scripts/mutate.py docs/mutations/refused-is-not-slow.json
 ```
 
 **Why these are committed when the register says to keep them in a scratchpad.** Most are
@@ -121,6 +122,21 @@ entry was **removed as a duplicate** of the guard that does the work. Three more
 into that same cost the guard could not see: adding a company already in the set, adding it in the
 spelling the interface itself asks for, and two edits that cancel out. All thirteen are caught. A `MISSED` on a rule that is genuinely enforced somewhere else is not a missing test;
 it is a second answer to a question already answered, and a second answer can disagree.
+
+`refused-is-not-slow.json` is the clearest case yet of the harness finding what review would
+not. One of its eleven put a constant where a failed search's reason is read off the error, and
+**nothing failed** — because every test of the resulting sentence built its input by hand, so the
+single line that connects an engine's answer to what a reader is told had no test at all. The
+sentences were pinned; the wire between them was not. A second entry came back `BROKEN` rather
+than `MISSED`, which is the harness saying *this mutation proves nothing* — it had made the match
+non-exhaustive — and that distinction is why the two words are separate.
+
+It kept earning it after review. Two more entries were added for what review found — a `408`
+filed as a refusal, and one remedy printed for every refusal — and a fourteenth caught the same
+collapse one level further down: the per-query line said *"no answer"* beside a query the engine
+had answered `408` to. Three more followed a round later, when *"a 200 we cannot parse"* turned out to be
+two events with opposite remedies. Six of the seventeen exist because a fix was too coarse in
+exactly the way the change was about — which is the file doing its job three rounds running.
 
 **These files are also read backwards.** `scripts/no_live_mutations.py` takes every `new`
 payload as the shape of a defect this repository can recognise, and refuses a working tree that

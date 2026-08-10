@@ -235,11 +235,19 @@ pub enum NoRivals {
     /// [`Self::NobodyHeldUp`]: no engine was consulted, so nothing is being claimed about who
     /// is out there.
     NothingToCompare(NoVocabulary),
-    /// Some of the searches did not come back. Retryable, and about us.
+    /// Some of the searches did not come back. About us, and **not always retryable**.
+    ///
+    /// **The retryable part was an assumption, and it was wrong for the most likely case.**
+    /// This said *"that is usually temporary - try again"* whatever had happened, including
+    /// when the engine answered every query with a refusal — which is what an unconfigured
+    /// SearXNG does, permanently, and is the reason `deploy/searxng/settings.yml` is checked
+    /// in at all. A reader was being told to wait for something that would never change.
     SearchIncomplete {
         failed: usize,
         sent: usize,
         sought: Sought,
+        /// What a reader would do about it. See [`crate::provider::Fault`].
+        fault: crate::provider::Fault,
     },
     /// Every search ran, and nothing else that came back held up.
     ///
@@ -313,14 +321,20 @@ impl NoRivals {
                  judge one against. This says nothing about who else is out there.",
                 why.sentence()
             ),
+            // **The count is the same fact on all three; the last sentence is not.** What
+            // changed here is only what a reader should do next, which is the part they can
+            // act on — and the words never name a status code, a variable or a file, because
+            // the person reading a report cannot fix any of them.
             Self::SearchIncomplete {
                 failed,
                 sent,
                 sought,
+                fault,
             } => format!(
-                "We could not complete {failed} of the {sent} searches for {}, so this report is \
-                 about one company. That is usually temporary - try again.",
-                sought.phrase()
+                "We could not complete {failed} of the {sent} searches for {}, so this report \
+                 is about one company. {}",
+                sought.phrase(),
+                fault.advice()
             ),
             // **Not "none of what came back held up" on the description path**, where the one
             // company in the report is exactly what came back and did hold up.
@@ -358,11 +372,16 @@ pub fn alone_because(
     if let Some(why) = nothing_asked {
         return Some(why);
     }
-    if !queried.failed.is_empty() {
+    // `fault()` is `None` only when nothing failed, which the line above has ruled out — so
+    // the fallback is unreachable rather than a default being chosen. `Silent` is the one that
+    // says *try again*, which is the answer that assumes least about an engine nobody heard
+    // from at all.
+    if let Some(fault) = queried.fault() {
         return Some(NoRivals::SearchIncomplete {
             failed: queried.failed.len(),
             sent: queried.sent(),
             sought,
+            fault,
         });
     }
     Some(NoRivals::NobodyHeldUp { sought })
@@ -517,7 +536,10 @@ where
             }
             Err(e) => {
                 tracing::warn!(query = %query.text, error = %e, "a rival search did not complete");
-                queried.failed.push(query.text.clone());
+                queried.failed.push(crate::candidates::Failed::new(
+                    query.text.clone(),
+                    crate::provider::Condition::of(&e),
+                ));
             }
         }
     }
@@ -1094,7 +1116,10 @@ mod tests {
                 2,
                 &Queried {
                     completed: vec!["q1".to_owned()],
-                    failed: vec!["q2".to_owned(), "q3".to_owned()],
+                    failed: vec![
+                        crate::candidates::Failed::new("q2", crate::provider::Condition::NoAnswer),
+                        crate::candidates::Failed::new("q3", crate::provider::Condition::NoAnswer)
+                    ],
                 },
                 Sought::RivalsOfTheCompany,
                 None
@@ -1111,7 +1136,10 @@ mod tests {
         };
         let outage = Queried {
             completed: vec!["q1".to_owned()],
-            failed: vec!["q2".to_owned(), "q3".to_owned()],
+            failed: vec![
+                crate::candidates::Failed::new("q2", crate::provider::Condition::NoAnswer),
+                crate::candidates::Failed::new("q3", crate::provider::Condition::NoAnswer),
+            ],
         };
 
         // **Nothing was asked**, and the caller says which of the two ways that happened.
@@ -1143,7 +1171,8 @@ mod tests {
             Some(NoRivals::SearchIncomplete {
                 failed: 2,
                 sent: 3,
-                sought: Sought::RivalsOfTheCompany
+                sought: Sought::RivalsOfTheCompany,
+                fault: crate::provider::Fault::Silent,
             })
         );
         // Asked, all answered, nothing held up. The only one about the market.
@@ -1163,6 +1192,7 @@ mod tests {
                 failed: 2,
                 sent: 3,
                 sought: Sought::RivalsOfTheCompany,
+                fault: crate::provider::Fault::Silent,
             },
             NoRivals::NobodyHeldUp {
                 sought: Sought::RivalsOfTheCompany,
@@ -1218,8 +1248,77 @@ mod tests {
             Some(NoRivals::SearchIncomplete {
                 failed: 2,
                 sent: 3,
-                sought: Sought::RivalsOfTheCompany
+                sought: Sought::RivalsOfTheCompany,
+                fault: crate::provider::Fault::Silent,
             })
+        );
+    }
+
+    #[test]
+    fn an_engine_that_refuses_is_not_an_engine_that_is_slow() {
+        use crate::candidates::Failed;
+        use crate::provider::Condition;
+
+        // Three searches, all refused - which is what an unconfigured SearXNG does to every
+        // query, for ever. The sentence used to end "that is usually temporary - try again".
+        let refused = Queried {
+            completed: Vec::new(),
+            failed: vec![
+                Failed::new("q1", Condition::Answered(403)),
+                Failed::new("q2", Condition::Answered(403)),
+                Failed::new("q3", Condition::Answered(403)),
+            ],
+        };
+        let why = alone_because(1, &refused, Sought::RivalsOfTheCompany, None)
+            .expect("one company and three failures is a report about one company");
+        let said = why.sentence();
+        assert!(
+            said.contains("asking again will not change it"),
+            "a refusal must not be reported as weather: {said}"
+        );
+        assert!(!said.contains("usually temporary"), "{said}");
+
+        // The same shape, with the engine silent, keeps the sentence it always had.
+        let silent = Queried {
+            completed: Vec::new(),
+            failed: vec![Failed::new("q1", Condition::NoAnswer)],
+        };
+        let waited = alone_because(1, &silent, Sought::RivalsOfTheCompany, None)
+            .expect("one company and a failure is a report about one company");
+        assert!(waited.sentence().contains("usually temporary - try again"));
+    }
+
+    #[test]
+    fn the_count_of_failures_is_the_same_fact_however_they_failed() {
+        use crate::candidates::Failed;
+        use crate::provider::{Condition, Fault};
+
+        // Only the advice changes. A reader is still told how much of the looking happened,
+        // because that is what makes the thinness of the report checkable.
+        let queried = Queried {
+            completed: vec!["q1".to_owned()],
+            failed: vec![
+                Failed::new("q2", Condition::Answered(403)),
+                Failed::new("q3", Condition::NoAnswer),
+            ],
+        };
+        let why = alone_because(1, &queried, Sought::RivalsOfTheCompany, None).expect("alone");
+        assert!(
+            why.sentence()
+                .contains("could not complete 2 of the 3 searches"),
+            "{}",
+            why.sentence()
+        );
+        assert_eq!(
+            why,
+            NoRivals::SearchIncomplete {
+                failed: 2,
+                sent: 3,
+                sought: Sought::RivalsOfTheCompany,
+                // The refusal, not the timeout: one query has already proved that waiting
+                // will not help.
+                fault: Fault::Refused,
+            }
         );
     }
 

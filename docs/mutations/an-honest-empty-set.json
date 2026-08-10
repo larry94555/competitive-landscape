@@ -41,8 +41,8 @@
   {
     "name": "an outage is reported as a market with nobody in it",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "    if !queried.failed.is_empty() {\n        return Some(NoRivals::SearchIncomplete {",
-    "new": "    if false {\n        return Some(NoRivals::SearchIncomplete {",
+    "old": "    if let Some(fault) = queried.fault() {\n        return Some(NoRivals::SearchIncomplete {",
+    "new": "    if let Some(fault) = None::<crate::provider::Fault> {\n        return Some(NoRivals::SearchIncomplete {",
     "run": [
       "cargo",
       "nextest",

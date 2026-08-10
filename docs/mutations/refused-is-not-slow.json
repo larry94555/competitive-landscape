@@ -1,0 +1,224 @@
+[
+  {
+    "name": "an engine that answers and refuses is reported as one that is slow",
+    "file": "crates/landscape-search/src/provider.rs",
+    "old": "            Self::Answered(408 | 425) => Fault::Silent,\n            Self::Answered(status) if status >= 500 => Fault::Silent,",
+    "new": "            Self::Answered(status) if status >= 400 => Fault::Silent,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a body we cannot parse is something to wait for",
+    "file": "crates/landscape-search/src/provider.rs",
+    "old": "            Self::Answered(_)\n            | Self::NotJson\n            | Self::UnexpectedShape\n            | Self::TooLarge\n            | Self::Unusable\n            | Self::NotConfigured => Fault::Refused,\n            Self::NoAnswer => Fault::Silent,",
+    "new": "            Self::Answered(_)\n            | Self::UnexpectedShape\n            | Self::TooLarge\n            | Self::Unusable\n            | Self::NotConfigured => Fault::Refused,\n            Self::NoAnswer | Self::NotJson => Fault::Silent,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a refusal among timeouts loses to the timeouts",
+    "file": "crates/landscape-search/src/provider.rs",
+    "old": "        faults.into_iter().min()",
+    "new": "        faults.into_iter().max()",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "nothing failed is reported as a fault anyway",
+    "file": "crates/landscape-search/src/provider.rs",
+    "old": "    pub fn worst_of(faults: impl IntoIterator<Item = Self>) -> Option<Self> {\n        faults.into_iter().min()",
+    "new": "    pub fn worst_of(faults: impl IntoIterator<Item = Self>) -> Option<Self> {\n        Some(faults.into_iter().min().unwrap_or(Self::Silent))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a reader is shown the status code and the variable name",
+    "file": "crates/landscape-search/src/provider.rs",
+    "old": "            Self::Refused => concat!(\n                \"Our search engine is refusing us, which is ours to fix - \",\n                \"asking again will not change it.\"\n            ),",
+    "new": "            Self::Refused => concat!(\n                \"Our SearXNG answered 403; set SEARX_URL to an instance that has - \",\n                \"asking again will not change it.\"\n            ),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the reason a query failed is thrown away at the seam",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "                queried.failed.push(Failed::new(\n                    query.text.clone(),\n                    crate::provider::Condition::of(&e),\n                ));",
+    "new": "                queried.failed.push(Failed::new(\n                    query.text.clone(),\n                    crate::provider::Condition::NoAnswer,\n                ));",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a report about one company tells a reader to wait for a refusal",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "                sought.phrase(),\n                fault.advice()",
+    "new": "                sought.phrase(),\n                crate::provider::Fault::Silent.advice()",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a whole run that was refused is offered as one worth retrying",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "                kind: if fault == landscape_search::Fault::Refused {\n                    landscape_core::Failure::SearchRefused\n                } else {\n                    landscape_core::Failure::SearchIncomplete\n                },",
+    "new": "                kind: landscape_core::Failure::SearchIncomplete,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the coverage note on a searched section says the same thing however it failed",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "            \" {n} search(es) did not complete, so those questions were not searched for. {}\",\n            fault.advice()",
+    "new": "            \" {n} search(es) did not complete, so those questions were not searched for.{}\",\n            \"\"",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a refused run is never distinguished from a silent one at all",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "            fault: landscape_search::Fault::worst_of(faults),",
+    "new": "            fault: None,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the page tells a refused reader to try again",
+    "file": "web/src/App.tsx",
+    "old": "          return \"Our search engine is refusing us, so we have not concluded anything. That is ours to fix and trying again will not help — naming a website skips the search entirely.\";",
+    "new": "          return \"The search did not finish, so we have not concluded anything. This is usually temporary — try again.\";",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a request the engine timed out on is filed as a refusal",
+    "file": "crates/landscape-search/src/provider.rs",
+    "old": "            Self::Answered(408 | 425) => Fault::Silent,",
+    "new": "            Self::Answered(425) => Fault::Silent,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "every refusal is diagnosed as the JSON opt-in",
+    "file": "crates/landscape-search/src/provider.rs",
+    "old": "            Self::Answered(401) => format!(",
+    "new": "            Self::Answered(0) => format!(",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a query the engine answered is listed as one it did not",
+    "file": "crates/landscape-search/src/provider.rs",
+    "old": "            Self::Answered(status) => format!(\"answered {status}\"),",
+    "new": "            Self::Answered(_) => \"no answer\".to_owned(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "valid json in another shape is diagnosed as the json format being off",
+    "file": "crates/landscape-search/src/searx.rs",
+    "old": "        serde_json::error::Category::Data => SearchError::UnexpectedShape(e.to_string()),",
+    "new": "        serde_json::error::Category::Data => SearchError::Unreadable(e.to_string()),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the parser objection is dropped, so the log cannot say what it was",
+    "file": "crates/landscape-search/src/searx.rs",
+    "old": "        serde_json::error::Category::Data => SearchError::UnexpectedShape(e.to_string()),\n        _ => SearchError::Unreadable(e.to_string()),",
+    "new": "        serde_json::error::Category::Data => SearchError::UnexpectedShape(String::new()),\n        _ => SearchError::Unreadable(e.to_string()),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a body that stops arriving is reported as a decision",
+    "file": "crates/landscape-search/src/searx.rs",
+    "old": "        .chunk()\n        .await\n        .map_err(|e| SearchError::Unreachable(e.to_string()))?",
+    "new": "        .chunk()\n        .await\n        .map_err(|e| SearchError::Unreadable(e.to_string()))?",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  }
+]

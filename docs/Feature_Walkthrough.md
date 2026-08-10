@@ -1457,6 +1457,88 @@ which are the next two pieces. See [BENCHMARKS.md](BENCHMARKS.md) Run 27.
 
 ---
 
+## Part 8F1 — Break the search engine on purpose
+
+**Every command above assumes the engine works.** This is the ten minutes that says what happens
+when it does not, and it is worth doing before you ever start a real one — because the most
+likely first state of a SearXNG is *refusing every query*, and that used to read as weather.
+
+You need no engine and no Docker for this. Two stand-ins:
+
+```bash
+python3 -c "import http.server as h; s=h.HTTPServer(('127.0.0.1',8899), type('F',(h.BaseHTTPRequestHandler,),{'do_GET':lambda x:(x.send_response(403),x.send_header('Content-Length','0'),x.end_headers()),'log_message':lambda *a:None})); s.serve_forever()"
+```
+
+That is an instance that answers **403** to everything, which is exactly what SearXNG does until
+`deploy/searxng/settings.yml` opts it into JSON. Point the application at it:
+
+```bash
+SEARX_URL=http://127.0.0.1:8899 cargo run -p landscape -- candidates "privacy-first web analytics"
+```
+
+```text
+3 of 3 queries did not complete, so this list is thinner than it would be - and anything
+below saying nothing was found is about us, not about the market:
+  refused: best privacy-first web analytics software
+  refused: privacy-first web analytics tools comparison
+  refused: privacy-first web analytics vendors
+The engine answered and refused. That is configuration rather than weather, and retrying
+will not change it: check that SEARX_URL points at a SearXNG, and that its settings name
+`json` in `search.formats` - an instance that has not opted in answers 403 to every query.
+`deploy/searxng/settings.yml` is that opt-in.
+
+no report (search_refused): ... Our search engine is refusing us, which is ours to fix -
+asking again will not change it. Naming a domain skips the search entirely.
+```
+
+Now the other one — a port with nothing behind it:
+
+```bash
+SEARX_URL=http://127.0.0.1:9 cargo run -p landscape -- candidates "privacy-first web analytics"
+```
+
+```text
+The engine did not answer at all. Check that it is running and that SEARX_URL names the
+address it is actually listening on.
+
+no report (search_incomplete): ... That is usually temporary - try again. Naming a domain
+skips the search entirely.
+```
+
+**Same counts, different instruction, and only one of them says wait.** Three faults, split on
+one question — *did the engine answer at all?* Anything that came back is a decision and the
+same decision comes back next time; only silence, and the two answers that explicitly mean
+*later* (`429`, and a `5xx`), are worth waiting on.
+
+| | the run says | a reader is told |
+|---|---|---|
+| it refused (`401`, `403`, `404`, a body that is not JSON, JSON in another shape…) | `search_refused` | it is ours to fix, and asking again will not change it |
+| it asked us to slow down (`429`) | `search_incomplete` | trying again shortly should work |
+| it gave up waiting (`408`) or broke (`5xx`) | `search_incomplete` | that is usually temporary — try again |
+| it never answered | `search_incomplete` | that is usually temporary — try again |
+
+**Two `200`s are not one condition either.** A body that is not JSON is the format being off and
+says so; **valid JSON in another shape** means the format is already on and something else
+differs, and it deliberately does not mention `search.formats` — sending somebody to enable a
+setting that is enabled is the same wrong turn one level down.
+
+**Change the stand-in's status and the diagnosis changes with it.** A `401` is not sent to the
+JSON opt-in — it wants credentials, which is a different problem — and a `404` says the address
+has nothing to search at it:
+
+```text
+  answered 401: "basecamp.com" changelog OR "release notes"
+The engine answered 401: it wants credentials. SEARX_URL points at an instance that is not
+open to us, which is a different problem from the JSON format.
+```
+
+**What a reader never sees is the half above.** `SEARX_URL`, `403` and the name of a file are
+for whoever can act on them; the sentence on a report names none of them, and a test asserts
+that, because it is the sort of rule that erodes one helpful edit at a time. See
+[BENCHMARKS.md](BENCHMARKS.md) Run 42.
+
+---
+
 ## Part 8F2 — Ask what the market calls it
 
 The queries in Part 8G are built from the reader's own words, and **the market does not use

@@ -557,9 +557,19 @@ the single most important phase; everything after it is commerce and polish.
   another company's vacancies on this report. It is the one page admitted from off the subject's
   domain, and it is read at **`Attributed`** rather than `Primary`, so the exception is to where
   the bytes come from and not to what they are worth.
-  **Still to come:** templated search (needs SearXNG) and off-site adapters. Probes are
-  deterministic, free, and hit primary sources; search fills gaps rather than leading
+  **Still to come:** templated search actually run against a SearXNG, and off-site adapters.
+  Probes are deterministic, free, and hit primary sources; search fills gaps rather than leading
   (FACT_CHECKING §3.3).
+  **What a first run will say when it goes wrong is built** — [BENCHMARKS.md](BENCHMARKS.md)
+  Run 42. Every path that reported a failed search said *"that is usually temporary - try
+  again"*, which is right for a timeout and wrong for the state an unconfigured instance is
+  actually in: `deploy/searxng/settings.yml` exists because SearXNG answers **403** to
+  `format=json` until it is opted in, so the likeliest first experience was every query refused
+  and a report recommending a wait. Three faults now, split on **whether the engine answered at
+  all** — a rule that is HTTP's rather than a guess about one provider, so a second one inherits
+  it. A reader is told only whether asking again is worth anything; the variable, the file and
+  the status code go to whoever is holding the terminal, which is
+  `migrations/0001_init.sql`'s division applied to the other half of the same event.
 - Per-section coverage thresholds and computed evidence strength (FACT_CHECKING §3.5), so a
   thin report is shipped marked rather than silently guessed.
 - Polite fetch + extraction pipeline.

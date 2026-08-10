@@ -2234,6 +2234,78 @@ time, ask what a **duplicate** would do to it.
 
 ---
 
+## 61. Advice that was true of one case, attached to all of them
+
+**Found:** by running the thing against a server that answers `403`, after every unit test passed.
+
+Every path that reported a failed search ended with the same sentence: *"that is usually
+temporary - try again."* It is true when an engine times out. The most likely first experience of
+a **configured** engine is not a timeout: `deploy/searxng/settings.yml` is checked in precisely
+because SearXNG serves HTML and answers `403` to `format=json` until an instance opts in, so a
+first run without that file refuses every query, for ever, and the report recommended waiting.
+
+The reason was known at the moment of failure and thrown away one line later — `Queried.failed`
+held the query text and not the error. **A value parted from its evidence**, which is register
+entry 7, arriving for the third time in a different crate.
+
+**The mutation harness found the gap that made it invisible.** Replacing the read of the error's
+kind with a constant broke nothing, because every test of the resulting sentence built its input
+by hand. The wording was pinned at both ends and the wire between them was not: a pair kept
+together is only kept together if something reads both halves of it.
+
+**And the surface that mattered most had no test at all.** With the notes and the report
+sentences fixed and the whole suite green, pointing the application at a refusing server showed
+the *whole-run refusal* — the first thing a reader meets — still saying *"this is usually
+temporary."* It renders from a `Failure` kind rather than from a sentence, so nothing in the
+sentence-level work could reach it. That is entry 59's rule paying off again: **run it, then
+believe it.**
+
+**The split that fixed it is not a taxonomy of one provider.** *Did the engine answer at all?*
+Anything that came back is a decision and the same decision comes back next time; only silence,
+and the two answers that explicitly mean *later*, are worth waiting on. A rule shaped like HTTP
+rather than like SearXNG is one a second provider inherits without an edit.
+
+**And the fix repeated the defect one size smaller — twice, in the same review.** Three values
+were the right number for a reader and the wrong number for everybody else.
+
+`408 Request Timeout` was filed as a refusal, because the rule I wrote was *did the engine answer
+at all* and a `408` is an answer. Its entire meaning is *that did not work, try it again*. The
+property that mattered was never "answered" but **"decided"**, and the coarse version of a rule
+is the version that reads as obviously correct.
+
+And with only the coarse value stored, every refusal printed one remedy — the JSON opt-in — so a
+`401`, a `404`, an oversized body and an unbuildable client all sent an operator to edit a file
+that was not the problem. **A three-way answer written for a reader is not a diagnosis**, and
+using it as one is the same collapse the whole change was about.
+
+Three layers now, one per audience: the error at the call, the condition for whoever can fix it,
+the coarse answer for whoever can only decide whether to ask again — each derived from the one
+above rather than stored beside it.
+
+**And then review found it a third time, inside a single condition.** *"A `200` we cannot parse"*
+is two events: bytes that are not JSON, and JSON whose shape is not ours. The first is the format
+being off; the second happens on an instance where it is **on**, and both were being sent to the
+same setting. `serde_json` had the distinction the whole time — `Category::Data` against
+everything else — so the fix was to stop discarding what the parser already knew.
+
+**The pattern across all three rounds is one thing: a category is only as honest as its most
+awkward member.** Each round I checked the new rule against the case that motivated it, and each
+time review supplied a member of the same category the rule was wrong about — a `408` among
+statuses, a `401` among refusals, a schema mismatch among unparseable bodies.
+
+**Rule:** when one sentence ends a family of error paths, check it against the *most likely*
+member of that family rather than the one you were thinking of when you wrote it — and when a
+reason is available at the point of failure, carry it, because the sentence that needs it is
+always further away than it looks. And when a value is deliberately coarse for one audience, do
+not let a second audience read it: a category with three values answers *what do I do*, never
+*what happened*.
+
+> **Ask this:** *is this advice true of every case that reaches it? Which surface renders from a
+> kind rather than from the string I just fixed? And is anything using my coarse category as
+> though it were a diagnosis?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

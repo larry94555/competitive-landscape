@@ -706,7 +706,7 @@ async fn search_for_gaps(
     let queries = landscape_search::queries::for_questions(&target.host, gaps);
 
     let mut results = Vec::with_capacity(queries.len());
-    let mut failures = 0usize;
+    let mut faults: Vec<landscape_search::Fault> = Vec::new();
     for query in queries {
         match engine.search(&query).await {
             Ok(hits) => results.push((query, hits)),
@@ -714,7 +714,7 @@ async fn search_for_gaps(
                 // A search that fails is not an analysis that fails. The section keeps the
                 // coverage note it already had, and the count is reported rather than logged.
                 tracing::warn!(query = %query.text, error = %e, "a search did not complete");
-                failures += 1;
+                faults.push(e.fault());
             }
         }
     }
@@ -726,7 +726,13 @@ async fn search_for_gaps(
         engine.name(),
         PAGES_FROM_SEARCH,
     );
-    (admitted, Failures::Asked(failures))
+    (
+        admitted,
+        Failures::Asked {
+            failures: faults.len(),
+            fault: landscape_search::Fault::worst_of(faults),
+        },
+    )
 }
 
 /// A page search found, and what became of it.
@@ -759,7 +765,15 @@ fn searched_pages(admitted: &[landscape_search::Found]) -> Vec<(Answers, String)
 enum Failures {
     /// Nothing was asked, because nothing could be. Different from *asked and got nothing*.
     NoEngine,
-    Asked(usize),
+    /// Asked, and this many did not come back — with what a reader would do about it.
+    ///
+    /// **The count alone said the same thing about three different situations.** An engine
+    /// that answers and refuses produces the same number as one that timed out, and the note
+    /// a reader was left with pointed at neither.
+    Asked {
+        failures: usize,
+        fault: Option<landscape_search::Fault>,
+    },
 }
 
 /// What the report says about a search, in the words `FACT_CHECKING.md` §3.2.5 allows.
@@ -836,12 +850,17 @@ fn note_for(
             " {unread} further page(s) were found and not read."
         ));
     }
-    if let Failures::Asked(n) = failures {
-        if n > 0 {
-            said.push_str(&format!(
-                " {n} search(es) did not complete, so those questions were not searched for."
-            ));
-        }
+    if let Failures::Asked {
+        failures: n,
+        fault: Some(fault),
+    } = failures
+    {
+        // `fault` is `Some` exactly when something failed, so the count is never zero here —
+        // the two travel together rather than being checked apart.
+        said.push_str(&format!(
+            " {n} search(es) did not complete, so those questions were not searched for. {}",
+            fault.advice()
+        ));
     }
     Some(said)
 }
@@ -2825,6 +2844,7 @@ mod joining {
                     failed: 3,
                     sent: 3,
                     sought: landscape_search::competitors::Sought::RivalsOfTheCompany,
+                    fault: landscape_search::Fault::Silent,
                 },
                 "3 of the 3 searches",
                 "none of what came back held up",
@@ -2935,6 +2955,7 @@ mod joining {
                 failed: 2,
                 sent: 3,
                 sought: landscape_search::competitors::Sought::CompaniesMatchingTheDescription,
+                fault: landscape_search::Fault::Silent,
             }),
         };
         let many = unreachable(4);
@@ -3125,6 +3146,23 @@ mod filling_gaps {
         }
     }
 
+    /// A provider that answers every query with a refusal.
+    ///
+    /// **The other common real one, and the more likely of the two on a first run.** A SearXNG
+    /// that has not opted into JSON answers 403 to everything, for ever —
+    /// `deploy/searxng/settings.yml` is checked in for that reason alone.
+    struct Refusing;
+
+    #[async_trait::async_trait]
+    impl landscape_search::SourceProvider for Refusing {
+        fn name(&self) -> &str {
+            "refusing"
+        }
+        async fn search(&self, _query: &Query) -> Result<Vec<Hit>, SearchError> {
+            Err(SearchError::Status { status: 403 })
+        }
+    }
+
     /// A provider that always fails, which is the common real one: an engine that is down.
     struct Down;
     #[async_trait::async_trait]
@@ -3261,7 +3299,13 @@ mod filling_gaps {
         let (admitted, failures) =
             search_for_gaps(Some(&Down), "https://e.com", &[Answers::Changes], &[]).await;
         assert!(admitted.is_empty());
-        assert_eq!(failures, Failures::Asked(1));
+        assert_eq!(
+            failures,
+            Failures::Asked {
+                failures: 1,
+                fault: Some(landscape_search::Fault::Silent),
+            }
+        );
         let note = note_for(
             "https://e.com",
             &[Answers::Changes],
@@ -3271,6 +3315,44 @@ mod filling_gaps {
         )
         .expect("a failed search has to be reported");
         assert!(note.contains("did not complete"), "{note}");
+    }
+
+    #[tokio::test]
+    async fn an_engine_that_refuses_does_not_tell_a_reader_to_try_again() {
+        // Same count, same coverage note, **different last sentence** - because the run that
+        // produced this will produce it again, and "try again" is an instruction to wait for
+        // something that cannot happen.
+        let (admitted, failures) =
+            search_for_gaps(Some(&Refusing), "https://e.com", &[Answers::Changes], &[]).await;
+        assert!(admitted.is_empty());
+        assert_eq!(
+            failures,
+            Failures::Asked {
+                failures: 1,
+                fault: Some(landscape_search::Fault::Refused),
+            }
+        );
+        let note = note_for(
+            "https://e.com",
+            &[Answers::Changes],
+            &admitted,
+            &SoFar::default(),
+            failures,
+        )
+        .expect("a failed search has to be reported");
+        assert!(note.contains("did not complete"), "{note}");
+        assert!(
+            !note.contains("usually temporary"),
+            "a refusal reported as weather: {note}"
+        );
+        assert!(note.contains("will not change"), "{note}");
+        // And nothing a reader cannot act on reaches them.
+        for internal in ["403", "SEARX_URL", "SearXNG"] {
+            assert!(
+                !note.contains(internal),
+                "{internal} in a report note: {note}"
+            );
+        }
     }
 
     #[test]

@@ -80,94 +80,92 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    shown: {
-      name: "every reason, shown",
-      purpose: "Four PRs of derivation.",
+    same: {
+      name: "one sentence, every failure",
+      purpose: "True of a timeout.",
       lines: [
-        ['s', '  basecamp.com  you named it'],
-        ['s', '  linear.app    3 of 3 searches'],
+        ['s', '  We could not complete 3 of 3.'],
+        ['t', '  That is usually temporary -'],
+        ['t', '  try again.'],
         ['c', ''],
-        ['f', '// And nothing a reader could'],
-        ['f', '// do about any of it.']
+        ['f', '// And of nothing else.']
       ]
     },
-    editable: {
-      name: "COMPETITIVE_DISCOVERY §5.5",
-      purpose: "The half that was missing.",
+    optin: {
+      name: "settings.yml, first paragraph",
+      purpose: "Why the file is checked in.",
       lines: [
-        ['t', '  The set is directly editable:'],
-        ['t', '  remove, add, and re-run.'],
+        ['t', '  SearXNG answers 403 to'],
+        ['t', '  format=json until it opts in.'],
         ['c', ''],
-        ['f', '// Showing your working is not'],
-        ['f', '// the same as being answerable.']
+        ['f', '// So a first run refuses every'],
+        ['f', '// query. For ever.']
       ]
     },
-    manipulation: {
-      name: "§6.3, on why not a question",
-      purpose: "One glance, not an interview.",
+    rule: {
+      name: "did the engine answer?",
+      purpose: "HTTP's rule, not SearXNG's.",
       lines: [
-        ['t', '  Direct manipulation beats'],
-        ['t', '  interrogation.'],
+        ['s', '  refused    it said no'],
+        ['s', '  too fast   429, it said later'],
+        ['s', '  silent     it said nothing'],
         ['c', ''],
-        ['f', '// Questions cost 90-180s of'],
-        ['f', '// free-tier compute to get wrong.']
+        ['f', '// A second provider inherits it.']
       ]
     },
-    prompt: {
-      name: "it hands back a prompt",
-      purpose: "The same thing a chip sends.",
+    pair: {
+      name: "the query, and why",
+      purpose: "Known, then thrown away.",
       lines: [
-        ['t', '  onRun(set.join(" "))'],
+        ['t', '  Failed { query, fault }'],
         ['c', ''],
-        ['f', '// Something a reader could have'],
-        ['f', '// typed. Nothing new invented'],
-        ['f', '// on the way in.']
+        ['f', '// The reason was one line from'],
+        ['f', '// where it was needed, and did'],
+        ['f', '// not survive the trip.']
       ]
     },
-    owner: {
-      name: "origins_in owns the rule",
-      purpose: "What counts as a company.",
+    reader: {
+      name: "what a stranger is told",
+      purpose: "Only what is theirs.",
       lines: [
-        ['s', '  basecamp.com'],
-        ['s', '  www.basecamp.com'],
+        ['t', '  ours to fix - asking again'],
+        ['t', '  will not change it'],
         ['c', ''],
-        ['f', '// One company, written twice.'],
-        ['f', '// A TypeScript copy would be'],
-        ['f', '// a rule that agrees today.']
+        ['f', '// No variable. No status code.'],
+        ['f', '// A test asserts the absence.']
       ]
     },
-    courtesy: {
-      name: "a courtesy, not a parser",
-      purpose: "And it says so out loud.",
+    operator: {
+      name: "and what a terminal is told",
+      purpose: "Everything they can act on.",
       lines: [
-        ['t', '  basecamp does not look like a'],
-        ['t', '  domain. Try example.com.'],
+        ['t', '  check SEARX_URL, and that'],
+        ['t', '  settings name json'],
         ['c', ''],
-        ['f', '// Refused out loud, never'],
-        ['f', '// swallowed. The run decides'],
-        ['f', '// on whatever survives.']
+        ['f', '// Same event. Two audiences.'],
+        ['f', '// Neither is the other leaked.']
       ]
     },
-    guard: {
-      name: "not while it is still read",
-      purpose: "One guard, two jobs.",
+    ran: {
+      name: "then it was run",
+      purpose: "Every test already passed.",
       lines: [
-        ['t', '  isTerminal(showing_status)'],
+        ['s', '  no report (search_incomplete)'],
+        ['s', '  ...usually temporary'],
         ['c', ''],
-        ['f', '// Mid-run the set is what the'],
-        ['f', '// run is working through.']
+        ['f', '// The whole-run refusal. The'],
+        ['f', '// first thing a reader meets.']
       ]
     },
-    deleted: {
-      name: "so this was deleted",
-      purpose: "The harness emptied it. Nothing failed.",
+    kind: {
+      name: "so the kind carries it",
+      purpose: "The page renders from that.",
       lines: [
-        ['s', '  useEffect(() => setSet(companies))'],
-        ['s', '  key={analysed.join(" ")}'],
+        ['t', '  Failure::SearchRefused'],
         ['c', ''],
-        ['f', '// A second answer to a settled'],
-        ['f', '// question. Two answers can'],
-        ['f', '// one day disagree.']
+        ['f', '// Same counts, opposite advice.'],
+        ['f', '// A value earns its place when'],
+        ['f', '// a reader would act on it.']
       ]
     }
   };
@@ -211,19 +209,19 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:shown",        c: "Four runs explained the set." },
-    { kind: "means",       a: "file:editable",     c: "Section 5.5 asked for one more thing." },
+    { kind: "recognition", a: "file:same",     c: "One sentence ended every failed search." },
+    { kind: "means",       a: "file:optin",    c: "And the likeliest one is not temporary." },
 
-    { kind: "turn",        a: "file:manipulation", c: "A correction, not a fifth question." },
-    { kind: "result",      a: "file:prompt",       c: "The button hands back a whole prompt." },
+    { kind: "turn",        a: "file:rule",     c: "Did the engine answer at all?" },
+    { kind: "result",      a: "file:pair",     c: "The reason was known, and dropped." },
 
-    { kind: "turn",        a: "file:owner",        c: "So the client parses nothing." },
-    { kind: "result",      a: "file:courtesy",     c: "It only refuses what it is sure of." },
+    { kind: "turn",        a: "file:reader",   c: "A stranger is told only what is theirs." },
+    { kind: "result",      a: "file:operator", c: "The terminal gets the rest." },
 
-    { kind: "turn",        a: "file:guard",        c: "It is offered once the run is over." },
-    { kind: "result",      a: "file:deleted",      c: "Which made keeping them in step dead code." },
+    { kind: "turn",        a: "file:ran",      c: "Then it was run, and found the last one." },
+    { kind: "result",      a: "file:kind",     c: "Which renders from a kind, not a string." },
 
-    { kind: "close",       a: "hold",              c: "The set is editable." }
+    { kind: "close",       a: "hold",          c: "Refused is not slow." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -246,7 +244,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("shown");
+    show("same");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -259,15 +257,15 @@
     }, TOTAL * 1000));
   }
 
-  show("shown");
+  show("same");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "The set is editable",
-    blurb: "Four changes built the derivation of a competitive set and left the rest of the sentence unbuilt: COMPETITIVE_DISCOVERY §5.5 says the set is directly editable. A reader can now remove a company, add one, and run the corrected set — as a new analysis with its own permalink, so the report being corrected stays readable. The button hands back a whole prompt, exactly as a clarifying chip does, because origins_in already owns what counts as a company and a second copy of that rule in TypeScript would be a rule that agrees today. And keeping the reader’s edits in step with a changing report turned out to be dead code: the set is only offered once a run is over, and correcting it starts another one.",
+    title: "An engine that refuses is not an engine that is slow",
+    blurb: "Every path that reported a failed search ended with the same sentence \u2014 that is usually temporary, try again \u2014 which is true of a timeout and false of the most likely first experience of a configured engine: SearXNG answers 403 to every query until an instance opts into JSON, so a first run refuses everything, permanently, and the report recommended waiting. Three faults now, split on whether the engine answered at all, which is HTTP's rule rather than a guess about one provider. A reader is told only whether asking again is worth anything; the variable, the file and the status code go to whoever is holding the terminal. Running it against a refusing server found the surface no test reached: the whole-run refusal, which renders from a kind rather than a sentence.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;
