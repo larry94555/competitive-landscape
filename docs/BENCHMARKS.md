@@ -101,8 +101,23 @@ operator to edit `search.formats` — a file that was not the problem in four ca
 | `Fault` | the reader | the three-way answer, derived rather than stored beside it |
 
 `Failed` keeps the `Condition` and derives the `Fault`, so the two cannot drift into disagreeing
-about one status. Only the two conditions that genuinely **are** the JSON opt-in mention it — a
-`403`, and a `200` with a body we cannot parse, which is an instance serving HTML.
+about one status.
+
+**And then the same collapse turned up inside one of the conditions.** *"A `200` with a body we
+cannot parse"* covers two different events: a body that is **not JSON at all** — the HTML an
+instance serves when the format is off — and **valid JSON in a shape this does not parse**, which
+a result row without a `url` produces on an instance where JSON is plainly enabled. Both were
+telling an operator to go and enable a setting that, in the second case, was already on.
+
+`serde_json` already knows which is which, so nothing here guesses: `Category::Data` is JSON that
+parsed and did not fit, and everything else is bytes that are not JSON. The remedy for the second
+says the format is already enabled and names the log line that carries what the parser objected
+to; it does not mention `search.formats` at all.
+
+**One more was mis-filed in the same direction.** A body that stops arriving mid-transfer was an
+*unreadable body* — a decision — when a dropped connection decides nothing. It is silence now,
+which is retryable, and there is a socket-level test that truncates an honest `Content-Length`
+to prove it.
 
 ### Two audiences, two sentences, and neither is the other one leaked
 
@@ -167,7 +182,7 @@ pair kept together is only kept together if something reads both halves.
 | | Rust tests | frontend tests | catalogue |
 |---|---|---|---|
 | Run 41 | 951 | 73 | 11, all caught |
-| now | **965** | **74** | **14**, all caught |
+| now | **968** | **74** | **17**, all caught |
 
 **What this run does not claim.** SearXNG still has not been run against this — Docker was
 unavailable where this was built, which is the same limit Run 28 records. A `403` server and a

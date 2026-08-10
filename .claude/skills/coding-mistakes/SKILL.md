@@ -2282,6 +2282,17 @@ Three layers now, one per audience: the error at the call, the condition for who
 the coarse answer for whoever can only decide whether to ask again — each derived from the one
 above rather than stored beside it.
 
+**And then review found it a third time, inside a single condition.** *"A `200` we cannot parse"*
+is two events: bytes that are not JSON, and JSON whose shape is not ours. The first is the format
+being off; the second happens on an instance where it is **on**, and both were being sent to the
+same setting. `serde_json` had the distinction the whole time — `Category::Data` against
+everything else — so the fix was to stop discarding what the parser already knew.
+
+**The pattern across all three rounds is one thing: a category is only as honest as its most
+awkward member.** Each round I checked the new rule against the case that motivated it, and each
+time review supplied a member of the same category the rule was wrong about — a `408` among
+statuses, a `401` among refusals, a schema mismatch among unparseable bodies.
+
 **Rule:** when one sentence ends a family of error paths, check it against the *most likely*
 member of that family rather than the one you were thinking of when you wrote it — and when a
 reason is available at the point of failure, carry it, because the sentence that needs it is

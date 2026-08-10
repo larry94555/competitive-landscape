@@ -188,10 +188,13 @@ async fn read_capped(mut response: reqwest::Response) -> Result<String, SearchEr
     }
 
     let mut body: Vec<u8> = Vec::new();
+    // **A body that stops arriving is silence, not a decision.** This was an `Unreadable`,
+    // which put a dropped connection in the same class as an instance serving HTML — and
+    // therefore told a reader that trying again would not help. Nothing was decided here.
     while let Some(chunk) = response
         .chunk()
         .await
-        .map_err(|e| SearchError::Unreadable(e.to_string()))?
+        .map_err(|e| SearchError::Unreachable(e.to_string()))?
     {
         if body.len() + chunk.len() > MAX_RESPONSE_BYTES {
             return Err(SearchError::TooLarge {
@@ -211,8 +214,15 @@ async fn read_capped(mut response: reqwest::Response) -> Result<String, SearchEr
 /// # Errors
 /// [`SearchError::Unreadable`] if the body is not the documented shape.
 pub fn hits_from_json(body: &str) -> Result<Vec<Hit>, SearchError> {
-    let parsed: Body =
-        serde_json::from_str(body).map_err(|e| SearchError::Unreadable(e.to_string()))?;
+    // **`serde_json` already knows which of the two this is, so nothing here guesses.**
+    // `Syntax` and `Eof` mean the bytes are not JSON — the HTML an instance serves when the
+    // format is off. `Data` means they parsed and the shape is not ours, which is a different
+    // problem with a different remedy: review found a row missing `url` being reported as a
+    // disabled JSON format, on an instance where it was enabled.
+    let parsed: Body = serde_json::from_str(body).map_err(|e| match e.classify() {
+        serde_json::error::Category::Data => SearchError::UnexpectedShape(e.to_string()),
+        _ => SearchError::Unreadable(e.to_string()),
+    })?;
     Ok(parsed
         .results
         .into_iter()
@@ -336,6 +346,43 @@ mod tests {
         // An instance that found nothing answers 200 with a document that has no `results`.
         // That is "nothing found", which the report already knows how to say.
         assert!(hits_from_json(r#"{"query":"x"}"#).unwrap().is_empty());
+    }
+
+    #[test]
+    fn json_in_another_shape_is_not_the_json_format_being_off() {
+        // **The format is already on.** A result row without `url` parses as JSON and fails
+        // this crate's shape, and the two used to arrive as one error - so an operator whose
+        // instance had `json` enabled was told to go and enable it.
+        let err = hits_from_json(r#"{"results":[{"title":"x","content":"y"}]}"#).unwrap_err();
+        assert!(
+            matches!(err, SearchError::UnexpectedShape(_)),
+            "{err:?} is valid JSON in the wrong shape"
+        );
+        let said = crate::provider::Condition::of(&err).what_to_check();
+        assert!(
+            !said.contains("search.formats"),
+            "a schema mismatch sent to the JSON opt-in: {said}"
+        );
+        assert!(said.contains("already enabled"), "{said}");
+
+        // And the parser's own objection is still available to whoever is reading the log.
+        let SearchError::UnexpectedShape(detail) = err else {
+            unreachable!("matched above")
+        };
+        assert!(
+            detail.contains("url"),
+            "the detail names the field: {detail}"
+        );
+    }
+
+    #[test]
+    fn a_body_that_is_not_json_at_all_still_points_at_the_format() {
+        // The other half, and the one the setting is genuinely for.
+        let err = hits_from_json("<!DOCTYPE html><html><body>results</body></html>").unwrap_err();
+        assert!(matches!(err, SearchError::Unreadable(_)), "{err:?}");
+        assert!(crate::provider::Condition::of(&err)
+            .what_to_check()
+            .contains("search.formats"));
     }
 
     #[test]

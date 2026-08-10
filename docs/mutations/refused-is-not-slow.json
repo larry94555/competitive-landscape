@@ -17,8 +17,8 @@
   {
     "name": "a body we cannot parse is something to wait for",
     "file": "crates/landscape-search/src/provider.rs",
-    "old": "            Self::Answered(_)\n            | Self::Unreadable\n            | Self::TooLarge\n            | Self::Unusable\n            | Self::NotConfigured => Fault::Refused,\n            Self::NoAnswer => Fault::Silent,",
-    "new": "            Self::Answered(_) | Self::TooLarge | Self::Unusable | Self::NotConfigured => {\n                Fault::Refused\n            }\n            Self::NoAnswer | Self::Unreadable => Fault::Silent,",
+    "old": "            Self::Answered(_)\n            | Self::NotJson\n            | Self::UnexpectedShape\n            | Self::TooLarge\n            | Self::Unusable\n            | Self::NotConfigured => Fault::Refused,\n            Self::NoAnswer => Fault::Silent,",
+    "new": "            Self::Answered(_)\n            | Self::UnexpectedShape\n            | Self::TooLarge\n            | Self::Unusable\n            | Self::NotConfigured => Fault::Refused,\n            Self::NoAnswer | Self::NotJson => Fault::Silent,",
     "run": [
       "cargo",
       "nextest",
@@ -174,6 +174,45 @@
     "file": "crates/landscape-search/src/provider.rs",
     "old": "            Self::Answered(status) => format!(\"answered {status}\"),",
     "new": "            Self::Answered(_) => \"no answer\".to_owned(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "valid json in another shape is diagnosed as the json format being off",
+    "file": "crates/landscape-search/src/searx.rs",
+    "old": "        serde_json::error::Category::Data => SearchError::UnexpectedShape(e.to_string()),",
+    "new": "        serde_json::error::Category::Data => SearchError::Unreadable(e.to_string()),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the parser objection is dropped, so the log cannot say what it was",
+    "file": "crates/landscape-search/src/searx.rs",
+    "old": "        serde_json::error::Category::Data => SearchError::UnexpectedShape(e.to_string()),\n        _ => SearchError::Unreadable(e.to_string()),",
+    "new": "        serde_json::error::Category::Data => SearchError::UnexpectedShape(String::new()),\n        _ => SearchError::Unreadable(e.to_string()),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a body that stops arriving is reported as a decision",
+    "file": "crates/landscape-search/src/searx.rs",
+    "old": "        .chunk()\n        .await\n        .map_err(|e| SearchError::Unreachable(e.to_string()))?",
+    "new": "        .chunk()\n        .await\n        .map_err(|e| SearchError::Unreadable(e.to_string()))?",
     "run": [
       "cargo",
       "nextest",

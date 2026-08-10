@@ -134,8 +134,9 @@ non-exhaustive — and that distinction is why the two words are separate.
 It kept earning it after review. Two more entries were added for what review found — a `408`
 filed as a refusal, and one remedy printed for every refusal — and a fourteenth caught the same
 collapse one level further down: the per-query line said *"no answer"* beside a query the engine
-had answered `408` to. Three of the fourteen exist because the first fix was too coarse in
-exactly the way the change was about.
+had answered `408` to. Three more followed a round later, when *"a 200 we cannot parse"* turned out to be
+two events with opposite remedies. Six of the seventeen exist because a fix was too coarse in
+exactly the way the change was about — which is the file doing its job three rounds running.
 
 **These files are also read backwards.** `scripts/no_live_mutations.py` takes every `new`
 payload as the shape of a defect this repository can recognise, and refuses a working tree that

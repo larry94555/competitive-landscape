@@ -87,8 +87,10 @@ pub enum Fault {
 pub enum Condition {
     /// It answered with this status.
     Answered(u16),
-    /// It answered `200` with something that is not the shape we parse.
-    Unreadable,
+    /// It answered `200` with something that is not JSON at all — usually HTML.
+    NotJson,
+    /// It answered `200` with JSON in a shape this does not parse.
+    UnexpectedShape,
     /// It answered `200` and kept answering. See [`crate::searx::MAX_RESPONSE_BYTES`].
     TooLarge,
     /// The engine is configured and a client could not be built from it.
@@ -105,7 +107,8 @@ impl Condition {
     pub const fn of(error: &SearchError) -> Self {
         match *error {
             SearchError::Status { status } => Self::Answered(status),
-            SearchError::Unreadable(_) => Self::Unreadable,
+            SearchError::Unreadable(_) => Self::NotJson,
+            SearchError::UnexpectedShape(_) => Self::UnexpectedShape,
             SearchError::TooLarge { .. } => Self::TooLarge,
             SearchError::Unusable(_) => Self::Unusable,
             SearchError::Unreachable(_) => Self::NoAnswer,
@@ -125,7 +128,8 @@ impl Condition {
             Self::Answered(status) if status >= 500 => Fault::Silent,
             // A decision about the request. The same one comes back next time.
             Self::Answered(_)
-            | Self::Unreadable
+            | Self::NotJson
+            | Self::UnexpectedShape
             | Self::TooLarge
             | Self::Unusable
             | Self::NotConfigured => Fault::Refused,
@@ -142,7 +146,8 @@ impl Condition {
     pub fn word(self) -> String {
         match self {
             Self::Answered(status) => format!("answered {status}"),
-            Self::Unreadable => "unreadable body".to_owned(),
+            Self::NotJson => "body was not json".to_owned(),
+            Self::UnexpectedShape => "json in another shape".to_owned(),
             Self::TooLarge => "oversized body".to_owned(),
             Self::Unusable => "unusable engine".to_owned(),
             Self::NoAnswer => "no answer".to_owned(),
@@ -196,10 +201,20 @@ impl Condition {
                  specific advice for - the engine's own log will say more than {var} can."
             ),
             // The other genuine JSON case: an instance serving HTML at 200.
-            Self::Unreadable => concat!(
-                "The engine answered 200 with a body this cannot parse, which is usually ",
-                "HTML rather than JSON. Check that its settings name `json` in ",
-                "`search.formats`; `deploy/searxng/settings.yml` is that opt-in."
+            Self::NotJson => concat!(
+                "The engine answered 200 with a body that is not JSON, which is what an ",
+                "instance serving its default format returns. Check that its settings name ",
+                "`json` in `search.formats`; `deploy/searxng/settings.yml` is that opt-in."
+            )
+            .to_owned(),
+            // **And the one that is emphatically not that setting.** JSON came back; it is
+            // the rows that are not what this parses, so pointing at `search.formats` sends
+            // somebody to change a setting that is already right.
+            Self::UnexpectedShape => concat!(
+                "The engine answered 200 with JSON this does not recognise, so the format is ",
+                "already enabled and something else differs - a version whose result rows are ",
+                "shaped differently, a plugin, or something rewriting the body in between. ",
+                "The log line for the query carries what the parser objected to."
             )
             .to_owned(),
             Self::TooLarge => format!(
@@ -281,9 +296,21 @@ pub enum SearchError {
     /// It completed and said something other than 200.
     #[error("search engine answered {status}")]
     Status { status: u16 },
-    /// It answered 200 with something that is not the shape we parse.
-    #[error("search engine answered with an unreadable body: {0}")]
+    /// It answered 200 with something that is not JSON at all.
+    ///
+    /// **The HTML case**, which is what an instance serving the default format returns once it
+    /// stops `403`ing. Kept apart from [`Self::UnexpectedShape`] because only this one is
+    /// evidence that the JSON format is off.
+    #[error("search engine answered with a body that is not JSON: {0}")]
     Unreadable(String),
+    /// It answered 200 with JSON that is not the documented shape.
+    ///
+    /// **JSON is enabled and something else is wrong** — a version whose rows are shaped
+    /// differently, a plugin, a proxy rewriting the body. Review found the two collapsed: a
+    /// result row missing `url` was being diagnosed as a disabled JSON format, which is a
+    /// setting that is already correct.
+    #[error("search engine answered with JSON in an unexpected shape: {0}")]
+    UnexpectedShape(String),
     /// It answered 200 and kept answering. See [`crate::searx::MAX_RESPONSE_BYTES`].
     #[error("search engine answered with more than {limit} bytes")]
     TooLarge { limit: usize },
@@ -383,6 +410,7 @@ mod tests {
             SearchError::Status { status: 400 },
             SearchError::Status { status: 451 },
             SearchError::Unreadable("html, not json".to_owned()),
+            SearchError::UnexpectedShape("a row with no url".to_owned()),
             SearchError::TooLarge { limit: 1 },
             SearchError::Unusable("bad base url".to_owned()),
             SearchError::NotConfigured,
@@ -445,6 +473,15 @@ mod tests {
         assert!(missing.contains("404"), "{missing}");
         assert!(!missing.contains(json_opt_in), "{missing}");
 
+        // **Valid JSON in another shape is the case review found.** The format is already
+        // enabled, so naming it sends somebody to change a setting that is correct.
+        let wrong_shape = Condition::UnexpectedShape.what_to_check();
+        assert!(
+            !wrong_shape.contains(json_opt_in),
+            "a schema mismatch sent to the JSON opt-in: {wrong_shape}"
+        );
+        assert!(wrong_shape.contains("already enabled"), "{wrong_shape}");
+
         let oversized = Condition::TooLarge.what_to_check();
         assert!(!oversized.contains(json_opt_in), "{oversized}");
 
@@ -452,7 +489,7 @@ mod tests {
         assert!(!unusable.contains(json_opt_in), "{unusable}");
 
         // The two that really are the JSON opt-in, and only those two.
-        for genuine in [Condition::Answered(403), Condition::Unreadable] {
+        for genuine in [Condition::Answered(403), Condition::NotJson] {
             assert!(
                 genuine.what_to_check().contains(json_opt_in),
                 "{genuine:?} is the JSON case and must say so"
@@ -467,7 +504,8 @@ mod tests {
         assert_eq!(Condition::Answered(408).word(), "answered 408");
         assert_eq!(Condition::Answered(403).word(), "answered 403");
         assert_eq!(Condition::NoAnswer.word(), "no answer");
-        assert_eq!(Condition::Unreadable.word(), "unreadable body");
+        assert_eq!(Condition::NotJson.word(), "body was not json");
+        assert_eq!(Condition::UnexpectedShape.word(), "json in another shape");
         for answered in [408u16, 403, 500] {
             assert_ne!(
                 Condition::Answered(answered).word(),

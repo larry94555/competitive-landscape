@@ -904,10 +904,7 @@ mod deciding {
                 Condition::Answered(401),
                 landscape_core::Failure::SearchRefused,
             ),
-            (
-                Condition::Unreadable,
-                landscape_core::Failure::SearchRefused,
-            ),
+            (Condition::NotJson, landscape_core::Failure::SearchRefused),
             (
                 Condition::NoAnswer,
                 landscape_core::Failure::SearchIncomplete,

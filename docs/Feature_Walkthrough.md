@@ -1512,10 +1512,15 @@ same decision comes back next time; only silence, and the two answers that expli
 
 | | the run says | a reader is told |
 |---|---|---|
-| it refused (`401`, `403`, `404`, an unreadable body…) | `search_refused` | it is ours to fix, and asking again will not change it |
+| it refused (`401`, `403`, `404`, a body that is not JSON, JSON in another shape…) | `search_refused` | it is ours to fix, and asking again will not change it |
 | it asked us to slow down (`429`) | `search_incomplete` | trying again shortly should work |
 | it gave up waiting (`408`) or broke (`5xx`) | `search_incomplete` | that is usually temporary — try again |
 | it never answered | `search_incomplete` | that is usually temporary — try again |
+
+**Two `200`s are not one condition either.** A body that is not JSON is the format being off and
+says so; **valid JSON in another shape** means the format is already on and something else
+differs, and it deliberately does not mention `search.formats` — sending somebody to enable a
+setting that is enabled is the same wrong turn one level down.
 
 **Change the stand-in's status and the diagnosis changes with it.** A `401` is not sent to the
 JSON opt-in — it wants credentials, which is a different problem — and a `404` says the address
