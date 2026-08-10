@@ -557,7 +557,12 @@ the single most important phase; everything after it is commerce and polish.
   another company's vacancies on this report. It is the one page admitted from off the subject's
   domain, and it is read at **`Attributed`** rather than `Primary`, so the exception is to where
   the bytes come from and not to what they are worth.
-  **Still to come:** templated search actually run against a SearXNG, and off-site adapters.
+  **Still to come, and neither is a pull request:** templated search actually run against a
+  SearXNG, and off-site adapters — which wait on the source-terms audit, read in a browser.
+  Both sat inside S2's estimate until they were moved to
+  [Full_Feature_List.md](Full_Feature_List.md#what-only-you-can-do), where this project keeps
+  work that is not software: a state's percentage counts pull requests, and no amount of them
+  closes either of these.
   Probes are deterministic, free, and hit primary sources; search fills gaps rather than leading
   (FACT_CHECKING §3.3).
   **What a first run will say when it goes wrong is built** — [BENCHMARKS.md](BENCHMARKS.md)
