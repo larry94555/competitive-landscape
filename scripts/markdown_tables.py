@@ -1,4 +1,4 @@
-"""Every Markdown table in this repository, checked for the row that makes it a table.
+r"""Every Markdown table in this repository, checked for the row that makes it a table.
 
 **A table without its `|---|---|` line renders as a wall of pipes**, and only in a browser —
 the text looks fine in an editor, in a diff, and in every review that reads the source. GitHub
@@ -23,9 +23,16 @@ Two were found the day this was written, and neither was noticed by a person:
     | cell   | cell   |
 
 A run of two or more consecutive lines that begin and end with `|` must have a **GFM delimiter
-row** second — each cell `-`, `--`, `:---`, `---:` or `:---:`. The first version accepted any
-run of `-`, `:`, `|` and spaces, so `| : |` passed and was not a table; GFM requires at least
-one hyphen per cell and that is what is required here.
+row** second — each cell `-`, `--`, `:---`, `---:` or `:---:` — **with the same number of cells
+as the header above it**. Both halves decide whether a table is recognised at all:
+
+  * the first version accepted any run of `-`, `:`, `|` and spaces, so `| : |` passed and is
+    not a delimiter row: GFM wants at least one hyphen per cell.
+  * the second version ignored the cell count, so `| a | b |` over `|---|` passed — and GFM
+    renders that whole block as a paragraph, which is the exact defect this gate exists for.
+
+A `\|` inside a cell is an escaped pipe and does not divide one, which this counts correctly
+because `docs/RUNBOOK.md` has a shell pipeline inside a table cell.
 
 **Tables without outer pipes are valid GFM and this repository does not use them.** `A | B`
 over `--- | ---` renders perfectly well, and treating any line containing a pipe as a table row
@@ -45,6 +52,8 @@ import os
 import re
 import sys
 
+BT = chr(96)
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 
@@ -54,6 +63,23 @@ CELL = r':?-+:?'
 SEPARATOR = re.compile(rf'^\|(?:\s*{CELL}\s*\|)+$')
 # The same thing without outer pipes: valid GFM, not our convention, and unchecked.
 BARE_SEPARATOR = re.compile(rf'^\s*{CELL}\s*(?:\|\s*{CELL}\s*)+$')
+
+def cells(row):
+    """How many cells a table row has.
+
+    An escaped pipe is content rather than a divider, so it is taken out before splitting. A
+    pipe inside a code span *is* a divider — GFM splits cells before it parses inline
+    markup — so nothing special is done for those.
+    """
+    inner = row.strip().replace(chr(92) + '|', chr(1))
+    parts = inner.split('|')
+    # Outer pipes leave an empty string at each end.
+    if parts and not parts[0].strip():
+        parts = parts[1:]
+    if parts and not parts[-1].strip():
+        parts = parts[:-1]
+    return len(parts)
+
 
 SKIP = {'.git', 'node_modules', 'target', 'dist', '.venv'}
 
@@ -66,22 +92,31 @@ NOT_OURS = ('crates/landscape-golden/pages',)
 # ``` and ~~~, and the indented form. All three can hold a line full of pipes that is not a
 # table — a shell heredoc, a rendered example, a diff. The first version knew only about
 # three backticks at the start of a line.
-FENCE = re.compile(r'^\s{0,3}(`{3,}|~{3,})')
+FENCE = re.compile(r'^\s{0,3}((`{3,})|(~{3,}))\s*(\S*)')
 
 
 def without_code(lines):
-    """The lines, with fenced and indented code blocks blanked out."""
+    """The lines, with fenced and indented code blocks blanked out.
+
+    **A closing fence is the same character, at least as long, and carries nothing after it.**
+    The second version closed on any line starting with three of the character, so a four-tick
+    block was ended by a three-tick line inside it, and a ````rust` line inside a block ended it
+    too — both of which expose the pipes underneath as though they were a table.
+    """
     out = []
-    closing = None
+    fence = None
     for line in lines:
-        if closing is not None:
-            out.append('')
-            if line.strip().startswith(closing):
-                closing = None
-            continue
         opened = FENCE.match(line)
+        if fence is not None:
+            out.append('')
+            if opened:
+                mark, info = opened.group(1), opened.group(4)
+                same = mark[0] == fence[0]
+                if same and len(mark) >= len(fence) and not info:
+                    fence = None
+            continue
         if opened:
-            closing = opened.group(1)[0] * 3
+            fence = opened.group(1)
             out.append('')
             continue
         # An indented code block: four spaces or a tab, and this repository only ever indents
@@ -122,6 +157,12 @@ def wrong_in(lines):
         tables += 1
         if not SEPARATOR.match(run[1]):
             problems.append((at, run[0][:60], 'no separator row'))
+            continue
+        # **GFM: "the delimiter row must match the header row in the number of cells".** When
+        # it does not, the whole block renders as a paragraph - the same wall of pipes this
+        # gate exists to stop, arriving by a different route.
+        if cells(run[0]) != cells(run[1]):
+            problems.append((at, run[0][:60], 'header and separator have different widths'))
     for n, line in enumerate(clean, 1):
         if BARE_SEPARATOR.match(line.strip()):
             problems.append((n, line.strip()[:60], 'a table without outer pipes'))
@@ -161,6 +202,18 @@ FIXTURES = [
     ('a single pipe line is not a table', '| a | b |', []),
     ('a table without outer pipes is named rather than ignored',
      'a | b' + chr(10) + '--- | ---' + chr(10) + '1 | 2', ['a table without outer pipes']),
+    ('a separator narrower than its header', '| a | b |' + chr(10) + '|---|' + chr(10) + '| 1 |',
+     ['header and separator have different widths']),
+    ('a separator wider than its header', '| a |' + chr(10) + '|---|---|',
+     ['header and separator have different widths']),
+    ('an escaped pipe is content, not a cell divider',
+     '| a | b |' + chr(10) + '|---|---|' + chr(10) + '| x \\| y | z |', []),
+    ('a four-tick fence is not closed by three',
+     BT * 4 + chr(10) + '| a | b |' + chr(10) + BT * 3 + chr(10) + '| 1 | 2 |' + chr(10)
+     + BT * 4, []),
+    ('a fence with an info string does not close a block',
+     BT * 3 + chr(10) + '| a | b |' + chr(10) + BT * 3 + 'rust' + chr(10) + '| 1 | 2 |'
+     + chr(10) + BT * 3, []),
 ]
 
 

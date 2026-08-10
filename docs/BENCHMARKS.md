@@ -100,12 +100,30 @@ wrong number of cells still renders.
 
 ### What review found, and the gate was most of it
 
-**The gate did not know what a table is.** Three separate ways: it accepted `| : |` as a
+**The gate did not know what a table is.** Five ways, across two rounds of review. Three in the
+first: it accepted `| : |` as a
 separator, when GFM requires at least one hyphen per cell; it saw code fences only as three
 backticks at the start of a line, so a `~~~` block or an indented example full of pipes read as
 a broken table; and it silently ignored the GFM form written without outer pipes, which is a
 blind spot rather than a decision. It now has **eleven fixtures**, one per shape, and the first
 version of it failed three of them.
+
+And two more in the second, both about the shape that decides whether GFM recognises a table
+at all:
+
+**The delimiter row has to have the same number of cells as the header.** `| a | b |` over
+`|---|` renders the whole block as a paragraph — the same wall of pipes, arriving by a route the
+gate did not look at. Adding that check found one immediately, in this file: a five-column
+header over a six-column separator, which has been rendering as text for as long as it has been
+here.
+
+**And a closing fence is not "any line starting with three of the character".** A four-backtick
+block was being ended by a three-backtick line inside it, and a line like ````rust` inside a
+block ended it too — both of which expose the pipes underneath as a table. A closing fence is
+the same character, at least as long, and carries nothing after it.
+
+Sixteen fixtures now. **The gate has been wrong about five shapes and right about one real
+defect in each round**, which is the argument for fixtures over confidence.
 
 It also has one exclusion, which is a judgement rather than an oversight:
 `crates/landscape-golden/pages` holds pages captured from the live web so extraction can be
@@ -141,8 +159,8 @@ checked against the thing it is derived from.
 
 | | |
 |---|---|
-| Markdown tables checked | **343**, plus 11 fixtures |
-| Broken when the check was first run | **2** |
+| Markdown tables checked | **343**, plus 16 fixtures |
+| Broken when the check was first run | **2**, and a third once it learned cell counts |
 | Stale step references after renumbering | **7**, now links |
 | Gates in `scripts/verify.py` | 14 → **15** |
 
@@ -3819,7 +3837,7 @@ cargo run -p landscape -- examples
 ### What it found
 
 | Idea | Company | Sources | Discovery | Questions answered |
-|---|---|---|---:|---:|---|
+|---|---|---:|---:|---|
 | project management | basecamp.com | 6 | 16s | pricing, features, identity, trust, direction |
 | | linear.app | 8 | 20s | **all six** |
 | website analytics | usefathom.com | 8 | 18s | **all six** |

@@ -41,6 +41,7 @@ information to make.
 **macOS or Linux**, in a terminal:
 
 ```bash
+mkdir -p ~/.ssh && chmod 700 ~/.ssh
 ssh-keygen -t ed25519 -C "landscape" -f ~/.ssh/id_ed25519 -N ""
 cat ~/.ssh/id_ed25519.pub
 ```
@@ -49,9 +50,15 @@ cat ~/.ssh/id_ed25519.pub
 to PowerShell itself, so the path is written out:
 
 ```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.ssh" | Out-Null
 ssh-keygen -t ed25519 -C "landscape" -f "$env:USERPROFILE\.ssh\id_ed25519" -N '""'
 Get-Content "$env:USERPROFILE\.ssh\id_ed25519.pub"
 ```
+
+> **The first line is not optional on a machine that has never used SSH.** `ssh-keygen` writes
+> the key to the path you give it and does not create the directory above it: without `.ssh`
+> it exits with *"No such file or directory"*, which reads like a missing program rather than a
+> missing folder.
 
 Either way the last command prints one line beginning `ssh-ed25519`. **Copy the whole line** —
 you paste it into Oracle in the next step.
