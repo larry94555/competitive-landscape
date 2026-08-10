@@ -639,12 +639,34 @@ function AnalysisView({
  * something with no dot or a space in it, which is a courtesy to stop an obvious typo costing
  * ninety seconds rather than a parser. Whatever survives that, the run decides on.
  *
+ * **Sameness here is what the page renders, which is a question about this page.** Every
+ * comparison below goes through `asShown`, so two entries this component would draw as one chip
+ * are one company as far as it is concerned. That is not an opinion about origins; it is the
+ * opinion this page already published when it drew the chip, and holding it in one place is what
+ * stops the interface asking for a spelling it then treats as new.
+ *
  * **Nothing keeps the edits in step with a changing report, and nothing needs to.** The set is
  * only offered once the run is over, and correcting it starts another one — so between the two
  * reports the guard above unmounts this, and the second set is read fresh. A `useEffect` copying
  * the prop into state, or a `key`, would be a second answer to a question already answered, and a
  * second answer is a thing that can disagree.
  */
+/**
+ * How this page shows a company, and therefore the only sameness it is entitled to judge.
+ *
+ * **The interface asks for the schemeless form.** The chip reads `basecamp.com`, the box beside
+ * it says `example.com`, and a reader who types what is on screen was adding the company already
+ * there. Comparing the stored strings said otherwise, so the set grew, the button lit up, and the
+ * run put the two back together and returned the report being looked at.
+ *
+ * This makes no claim `origins_in` does not — it claims something smaller and about this file:
+ * **two things drawn identically are one thing.** Anything subtler than what the page renders is
+ * still the run's to decide, and the run still decides it.
+ */
+function asShown(origin: string): string {
+  return withoutScheme(origin.trim());
+}
+
 function EditableSet({
   companies,
   onRun,
@@ -671,12 +693,9 @@ function EditableSet({
     }
     // **A company added twice is the "already on screen" cost by another route.** The list gets
     // longer, so the button lights up, and the run puts the duplicate back together — ninety
-    // seconds to redraw the report being looked at. Exact equality is a thing this side can be
-    // sure of, which is why it is the rule here: two *spellings* of one company are `origins_in`'s
-    // to reconcile, and a second opinion about that would be the copy this component refuses to
-    // keep. A reader who writes the same string twice has not asked for anything.
-    if (set.includes(wanted)) {
-      setRefused(`${withoutScheme(wanted)} is already in this set.`);
+    // seconds to redraw the report being looked at.
+    if (shown.has(asShown(wanted))) {
+      setRefused(`${asShown(wanted)} is already in this set.`);
       return;
     }
     setSet([...set, wanted]);
@@ -684,8 +703,15 @@ function EditableSet({
     setRefused("");
   };
 
+  const shown = new Set(set.map(asShown));
+
+  // **Different, as this page shows it.** Comparing the stored strings in order made two edits
+  // that cancel out — remove a company, add it back the way its chip spells it — look like a new
+  // question, and the answer was the report already on screen. A competitive set is a set: the
+  // members decide whether it is a different question, and the run decides their order.
   const changed =
-    set.length !== companies.length || set.some((c, i) => c !== companies[i]);
+    set.length !== companies.length ||
+    companies.some((company) => !shown.has(asShown(company)));
 
   return (
     <section className="editable-set" aria-label="The companies in this report">

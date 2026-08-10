@@ -117,9 +117,9 @@ never stopped surviving: the mutation emptied a `useEffect` that copied the repo
 component's state, and the page carried on behaving. Both the effect and the `key` that replaced
 it were dead, because a corrected set starts a new run — and the set is only offered once a run is
 over, so the component is unmounted between the two reports and reads the second one fresh. The
-entry was **removed as a duplicate** of the guard that does the work. An eleventh was added after
-review, for the way into that same cost the guard could not see — adding a company already in the
-set — and all eleven are caught. A `MISSED` on a rule that is genuinely enforced somewhere else is not a missing test;
+entry was **removed as a duplicate** of the guard that does the work. Three more were added over two rounds of review, for the ways
+into that same cost the guard could not see: adding a company already in the set, adding it in the
+spelling the interface itself asks for, and two edits that cancel out. All thirteen are caught. A `MISSED` on a rule that is genuinely enforced somewhere else is not a missing test;
 it is a second answer to a question already answered, and a second answer can disagree.
 
 **These files are also read backwards.** `scripts/no_live_mutations.py` takes every `new`

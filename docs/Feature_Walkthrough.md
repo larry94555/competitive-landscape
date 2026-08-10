@@ -1896,7 +1896,8 @@ Try all four things:
 | click the `×` beside a company | the chip goes, and **Run this set** lights up |
 | type `notion.so` and press **Add** | it joins the row |
 | type `basecamp` (no dot) and press **Add** | *"basecamp does not look like a domain. Try example.com."* — refused **out loud**, not swallowed |
-| add a company that is already listed | *"basecamp.com is already in this set."* — the button stays grey, because the run would deduplicate it back to the set you are looking at |
+| add a company that is already listed, **spelled as its chip is** | *"basecamp.com is already in this set."* — the button stays grey, because the run would deduplicate it back to the set you are looking at |
+| remove a company and add it straight back | still grey: two edits that cancel out are not a different question |
 | remove every company | the button greys out: *"Removing every company leaves nothing to compare."* |
 
 Then press **Run this set**. A **new analysis** starts, with its own permalink — the report you

@@ -2208,6 +2208,16 @@ from the thing it was written to protect.
 The gate now breaks itself seven ways before it reads the real page, because the version that had
 this hole would still have exited 0 for ever.
 
+**And the first fix for the page was refused, correctly.** It compared the stored strings, and the
+defence written beside it was that two *spellings* of one company belong to the resolver and this
+side does not get an opinion. That is a good rule and it was quoted against the wrong case: the
+interface **asks for** the schemeless spelling — the chip renders it, the input box suggests it —
+so the normal way in was the way that slipped past. Comparing what the page *renders* is not a
+copy of the resolver's rule; it is the claim the page already published when it drew the chip, and
+holding it in one function turned up a second hole nothing had tested: two edits that cancel out
+left the button enabled. **A principle about not duplicating a rule is not a licence to compare
+in a representation the reader never sees.**
+
 **Rule:** when a mutation survives, ask *what else already enforces this* before asking *what test
 is missing* — and delete rather than pin, when the answer is "the thing above it". And when a gate
 checks a document's numbers, check every number in the document that is derived from another,
@@ -2216,8 +2226,9 @@ the ways in rather than the one that prompted it — and when a check compares t
 time, ask what a **duplicate** would do to it.
 
 > **Ask this:** *is this the only thing making the rule true, or the second? Which number on this
-> page would a reader quote — is that the one I am checking? And what does my one-at-a-time check
-> do when the same thing appears twice?*
+> page would a reader quote — is that the one I am checking? What does my one-at-a-time check do
+> when the same thing appears twice? And am I comparing in the form the interface asked for, or in
+> the form I happen to store?*
 
 ---
 

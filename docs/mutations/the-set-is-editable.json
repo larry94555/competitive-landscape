@@ -122,8 +122,32 @@
   {
     "name": "a company already in the set is added a second time",
     "file": "web/src/App.tsx",
-    "old": "    if (set.includes(wanted)) {",
+    "old": "    if (shown.has(asShown(wanted))) {",
     "new": "    if (false) {",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "sameness is the stored string rather than the one the page shows",
+    "file": "web/src/App.tsx",
+    "old": "  return withoutScheme(origin.trim());",
+    "new": "  return origin.trim();",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "two edits that cancel out count as a different question",
+    "file": "web/src/App.tsx",
+    "old": "  const changed =\n    set.length !== companies.length ||\n    companies.some((company) => !shown.has(asShown(company)));",
+    "new": "  const changed =\n    set.length !== companies.length || set.some((c, i) => c !== companies[i]);",
     "run": [
       "npx",
       "vitest",

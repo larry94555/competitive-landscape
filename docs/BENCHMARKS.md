@@ -128,9 +128,21 @@ redraw the page being looked at** — precisely the cost the *"already on screen
 refuse, reached by a route that guard could not see. It is refused out loud now, and the
 duplicate React key it also produced goes with it.
 
-The rule is **exact equality**, deliberately. Two *spellings* of one company are `origins_in`'s
-to reconcile and this side does not get an opinion about them; a reader who types the same string
-twice has not asked for anything, and that much needs no rule.
+The first fix compared the **stored strings**, on the argument that two spellings of one company
+are `origins_in`'s to reconcile and this side does not get an opinion about them. Review pointed
+out what that misses, and it is not an edge: **the interface asks for the spelling it then treats
+as new.** The report stores `https://basecamp.com`, the chip reads `basecamp.com`, and the box
+beside it says `example.com` — so a reader typing what is on screen was adding the company already
+there, and the byte comparison waved it through.
+
+The argument was wrong in one specific way. Comparing what the page **renders** is not a copy of
+`origins_in`; it is the page's own claim, already published the moment it drew the chip. **Two
+things drawn identically are one thing**, which is a question about this file and nothing else,
+and anything subtler than that is still the run's to decide. One function, `asShown`, now answers
+it in the one place, and the same comparison found a second way in that no test covered: removing
+a company and adding it back the way its chip spells it left the button **enabled**, and the
+answer to that ninety-second question was the report on screen. A competitive set is a set — the
+members decide whether it is a different question, and the run decides their order.
 
 **And the new gate had the same blind spot as the page it checks.** `feature_totals.py` compared
 each Summary row against its own state table and then the total against the sum of the rows — so
@@ -147,7 +159,7 @@ anything still exits 0. Removing either duplicate guard makes the script fail on
 | | Rust tests | frontend tests | catalogue |
 |---|---|---|---|
 | Run 40 | 951 | 62 | 33, all caught |
-| now | **951** | **71** | **11**, all caught |
+| now | **951** | **73** | **13**, all caught |
 
 ---
 

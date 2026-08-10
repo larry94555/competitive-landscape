@@ -1879,6 +1879,38 @@ describe("the set a report was built from", () => {
     expect(sent).toEqual([IDEA]);
   });
 
+  it("refuses the company in the spelling the page itself shows", async () => {
+    // The chip says `basecamp.com` and the box says `example.com`, so the schemeless form is
+    // the one the interface asks for — and it is the one that slipped past a byte comparison.
+    const sent = watchPosts(about("https://basecamp.com", "https://linear.app"));
+    const user = userEvent.setup();
+    await arrive(user);
+
+    await user.type(screen.getByLabelText(/add a company/i), "basecamp.com");
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/already in this set/i);
+    const set = screen.getByRole("region", { name: /companies in this report/i });
+    expect(within(set).getAllByText("basecamp.com")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /run this set/i })).toBeDisabled();
+    expect(sent).toEqual([IDEA]);
+  });
+
+  it("will not re-run a set that only looks different", async () => {
+    // Removing a company and putting it back in the spelling on the chip is the same set. The
+    // change check compared strings, so it said yes and spent ninety seconds on the same report.
+    const sent = watchPosts(about("https://basecamp.com", "https://linear.app"));
+    const user = userEvent.setup();
+    await arrive(user);
+
+    await user.click(screen.getByRole("button", { name: /remove linear\.app/i }));
+    await user.type(screen.getByLabelText(/add a company/i), "linear.app");
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
+
+    expect(screen.getByRole("button", { name: /run this set/i })).toBeDisabled();
+    expect(sent).toEqual([IDEA]);
+  });
+
   it("is not offered while the report is still being read", async () => {
     // Mid-run the set is what the run is working through, and correcting it would be
     // correcting something that has not happened yet.
