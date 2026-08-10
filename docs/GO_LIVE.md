@@ -36,19 +36,31 @@ information to make.
 
 ## Step 1 — Make an SSH key
 
-**On your own machine**, not on Oracle. Skip if `~/.ssh/id_ed25519.pub` already exists.
+**On your own machine**, not on Oracle.
+
+**macOS or Linux**, in a terminal:
 
 ```bash
 ssh-keygen -t ed25519 -C "landscape" -f ~/.ssh/id_ed25519 -N ""
-```
-
-Then print the public half. You will paste this into Oracle in the next step:
-
-```bash
 cat ~/.ssh/id_ed25519.pub
 ```
 
-It is one line beginning `ssh-ed25519`. **Copy the whole line.**
+**Windows**, in PowerShell — `~` is not expanded when it is handed to a program rather than
+to PowerShell itself, so the path is written out:
+
+```powershell
+ssh-keygen -t ed25519 -C "landscape" -f "$env:USERPROFILE\.ssh\id_ed25519" -N '""'
+Get-Content "$env:USERPROFILE\.ssh\id_ed25519.pub"
+```
+
+Either way the last command prints one line beginning `ssh-ed25519`. **Copy the whole line** —
+you paste it into Oracle in the next step.
+
+> If the key already exists, `ssh-keygen` asks whether to overwrite it. Answer `n` and just run
+> the second command.
+
+> **Everything from [step 5](#step-5--install-what-the-build-needs) onwards runs on the box**,
+> over SSH, where the shell is bash whatever you connected from.
 
 ---
 
@@ -64,7 +76,7 @@ In the Oracle Cloud console:
      memory. Confirm.
 4. **Networking**: leave the defaults. It creates a VCN and gives the instance a public IPv4
    address, which is what you want.
-5. **Add SSH keys** → **Paste public keys** → paste the line from step 1.
+5. **Add SSH keys** → **Paste public keys** → paste the line from [step 1](#step-1--make-an-ssh-key).
 6. **Boot volume** → tick **Specify a custom boot volume size** → **50** GB.
 7. **Create**.
 
@@ -88,7 +100,7 @@ Answer `yes` to the fingerprint question.
 ## Step 3 — Point your domain at it, now
 
 **Do this before the long steps, not after them.** DNS takes minutes to hours to propagate, and
-doing it here means it is ready by the time you need it in step 11 rather than being the thing
+doing it here means it is ready by the time you need it in [step 11](#step-11--https) rather than being the
 you wait on at the end.
 
 At whoever you registered the domain with, find **DNS**, **DNS records**, or **Manage DNS**, and
@@ -101,14 +113,14 @@ add one record:
 **Delete or edit any existing `A` record with the same name**, including the parking page most
 registrars add. Two `A` records for one name send visitors to both.
 
-Then check from **your own machine** — this may take a while, so carry on with step 4 and come
+Then check from **your own machine** — this may take a while, so carry on with [step 4](#step-4--open-the-two-firewalls) and come
 back to it:
 
 ```bash
 nslookup landscape.your-domain
 ```
 
-It must eventually answer with `YOUR_IP`. **Do not start step 11 until it does**: certificate
+It must eventually answer with `YOUR_IP`. **Do not start [step 11](#step-11--https) until it does**: certificate
 requests are rate-limited, and asking for one before DNS is ready spends a retry for nothing.
 
 From here on, `YOUR_DOMAIN` means whatever you just pointed at the box — `landscape.example.com`
@@ -150,7 +162,8 @@ sudo netfilter-persistent save
 > looks exactly like success. Run `sudo iptables -L INPUT --line-numbers` again and check both
 > `ACCEPT` lines are above the `REJECT`.
 
-Nothing needs opening for 8787, 8080 or 8888: those listen on `127.0.0.1` only.
+Nothing needs opening for 8787, 8080 or 8888: all three listen on `127.0.0.1` only, and
+[step 10](#step-10--start-the-search-engine) checks that rather than taking it on trust.
 
 ---
 
@@ -185,12 +198,24 @@ rustc --version && node --version && psql --version
 
 ## Step 6 — Create the database
 
-**Choose a database password now** and use the same one here and in step 9. Anything long
-without quotes or `@` in it. Replace `PICK_A_PASSWORD` in both places:
+**Generate the password rather than inventing one**, and write down what it prints — you need
+it again in [step 9](#step-9--configure-and-start-the-three-services):
+
+```bash
+openssl rand -hex 24
+```
+
+**Hexadecimal on purpose.** That password goes into three places with three different escaping
+rules: a SQL string, a URL (`postgres://landscape:PASSWORD@...`), and a systemd environment
+file. `/`, `?`, `#`, `%`, `@`, a space or a backslash changes how at least one of them parses —
+and the failure is a service that will not start, or worse, one that connects somewhere else.
+Letters and digits mean the same thing in all three.
+
+Then, with `PASTE_IT_HERE` replaced by what that printed:
 
 ```bash
 sudo -u postgres psql <<'SQL'
-CREATE USER landscape WITH PASSWORD 'PICK_A_PASSWORD';
+CREATE USER landscape WITH PASSWORD 'PASTE_IT_HERE';
 CREATE DATABASE landscape OWNER landscape;
 SQL
 ```
@@ -277,7 +302,7 @@ sudo nano /etc/landscape/landscape.env
 ```
 
 In that file, change exactly one thing: on the `DATABASE_URL` line, replace `CHANGE_ME` with
-the password from step 6. Save with `Ctrl+O`, `Enter`, then `Ctrl+X`.
+the password from [step 6](#step-6--create-the-database). Save with `Ctrl+O`, `Enter`, then `Ctrl+X`.
 
 ```bash
 sudo chmod 600 /etc/landscape/landscape.env
@@ -300,7 +325,7 @@ You want three `active` lines, then two JSON responses. The second one reads the
 Postgres, so a healthy answer also proves the application can reach the database.
 
 > **If a service is not active**, `journalctl -u landscape-api -n 50` says why. The usual cause
-> is the database password in `/etc/landscape/landscape.env` not matching step 5.
+> is the database password in `/etc/landscape/landscape.env` not matching [step 6](#step-6--create-the-database).
 
 ---
 
@@ -319,7 +344,9 @@ cd ~/competitive-landscape
 sudo docker compose --profile search up -d searxng
 ```
 
-Wait about thirty seconds, then check it answers in the format the application asks for:
+Wait about thirty seconds, then check three things.
+
+**It answers in the format the application asks for:**
 
 ```bash
 curl -s 'http://127.0.0.1:8888/search?q=test&format=json' | head -c 100
@@ -328,6 +355,24 @@ curl -s 'http://127.0.0.1:8888/search?q=test&format=json' | head -c 100
 **You want JSON.** If you get HTML or nothing, the container has not finished starting — wait
 and try again. If it answers `403`, the settings file did not mount; `sudo docker compose
 --profile search logs searxng` will say so.
+
+**It is not listening to the internet:**
+
+```bash
+sudo ss -ltnp | grep 8888
+```
+
+The address must be `127.0.0.1:8888`, not `0.0.0.0:8888` or `*:8888`. SearXNG has no
+authentication in front of it and nothing outside this box has any business reaching it.
+
+**And it comes back by itself:**
+
+```bash
+sudo docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' $(sudo docker compose --profile search ps -q searxng)
+```
+
+That must print `unless-stopped`. Without it the container stays down after the first reboot,
+and every description quietly loses its search channel.
 
 Now tell the application about it:
 
@@ -456,12 +501,12 @@ reader watches it restart rather than watching a lie.
 
 | What you see | Where to look |
 |---|---|
-| The browser times out | Both firewalls — step 3, and the `iptables` rule numbering |
+| The browser times out | Both firewalls — [step 4](#step-4--open-the-two-firewalls), and the `iptables` rule numbering |
 | `502` from Caddy | `systemctl status landscape-api` |
 | The page loads but nothing works | The API is down; the page is being served by the fallback |
 | Analyses stay **Queued.** for ever | `systemctl status landscape-worker` |
 | Every section empty, changelog filled | `systemctl status llama-server` |
-| "no search engine is configured" on a report | Step 9 — `SEARX_URL` is missing or the container is down |
+| "no search engine is configured" on a report | [Step 10](#step-10--start-the-search-engine) — `SEARX_URL` is missing or the container is down |
 
 [RUNBOOK.md](RUNBOOK.md) is the longer version of that table.
 
@@ -474,7 +519,7 @@ Your domain is the only recurring cost.
 
 ## Appendix A — running without a domain
 
-Only if you skipped step 3 and step 11. It works, and two things are worse:
+Only if you skipped [step 3](#step-3--point-your-domain-at-it-now) and [step 11](#step-11--https). It works, and two things are worse:
 
 - everything typed and read crosses the internet in clear text
 - **"Copy as context" cannot reach the clipboard** — browsers only allow that on `https://`. The
@@ -490,7 +535,7 @@ sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 8787 -j ACCEPT
 sudo netfilter-persistent save
 ```
 
-Add an ingress rule for TCP `8787` in the Oracle security list, exactly as in step 4a. The site
+Add an ingress rule for TCP `8787` in the Oracle security list, exactly as in [step 4a](#step-4--open-the-two-firewalls). The site
 is then at `http://YOUR_IP:8787`.
 
 **There is no allow-list in this version**, so anyone who finds the address can spend your four

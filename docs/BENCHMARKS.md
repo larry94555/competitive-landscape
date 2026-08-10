@@ -98,10 +98,52 @@ not reach.
 *table or not a table* and deliberately not column counts or alignment, because a row with the
 wrong number of cells still renders.
 
+### What review found, and the gate was most of it
+
+**The gate did not know what a table is.** Three separate ways: it accepted `| : |` as a
+separator, when GFM requires at least one hyphen per cell; it saw code fences only as three
+backticks at the start of a line, so a `~~~` block or an indented example full of pipes read as
+a broken table; and it silently ignored the GFM form written without outer pipes, which is a
+blind spot rather than a decision. It now has **eleven fixtures**, one per shape, and the first
+version of it failed three of them.
+
+It also has one exclusion, which is a judgement rather than an oversight:
+`crates/landscape-golden/pages` holds pages captured from the live web so extraction can be
+scored against them, and one of them contains a table written without outer pipes. **That is how
+that site wrote it.** Editing it to please a linter would be editing the evidence.
+
+**And the compose file did not keep the promise this guide makes.** `8888:8080` publishes
+SearXNG on every interface; the guide said all three internal ports listen on loopback only. A
+closed firewall is not the same as a service that is not listening, and it had no restart policy
+either — so the first reboot would have taken the search channel away silently. Both fixed in
+`docker-compose.yml`, and the guide now checks the listening address and the restart policy
+rather than asserting them.
+
+**Two more, both about a value crossing a boundary.** The database password went into a SQL
+string, a URL and a systemd environment file, and the guide said "nothing with quotes or `@`" —
+which still permits `/`, `?`, `#`, `%` and a space, each of which changes how at least one of
+those three parses. It is `openssl rand -hex 24` now: letters and digits mean the same thing
+everywhere. And the SSH key command used `~`, which PowerShell does not expand when it hands an
+argument to a program, so the Windows path the guide advertises would have created a literal
+`~` directory.
+
+### Numbers in prose are not checked by anything
+
+Renumbering the guide to put DNS at step 3 left **seven** references pointing at the wrong
+operation: the database password sent to the packages step, the firewall to DNS, the search
+engine to the services. Every one of them read plausibly.
+
+They are anchor links now — `[step 6](GO_LIVE.md#step-6--create-the-database)` — and
+`scripts/check_links.py` already resolves fragments against the headings of the file they point
+into. A step that moves breaks the build rather than misleading a reader, which is the same
+trade the benchmark-count gate and the feature-totals gate make: a number a document must hold,
+checked against the thing it is derived from.
+
 | | |
 |---|---|
-| Markdown tables checked | **352** |
+| Markdown tables checked | **343**, plus 11 fixtures |
 | Broken when the check was first run | **2** |
+| Stale step references after renumbering | **7**, now links |
 | Gates in `scripts/verify.py` | 14 → **15** |
 
 ---

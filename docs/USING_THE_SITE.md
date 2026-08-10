@@ -18,7 +18,7 @@ part 1 to part 6 in one sitting if you have an hour; parts 7 to 10 are independe
 
 **There is a cap of two analyses a day per visitor,** and this tour needs more than two. It only
 counts requests that arrived through Caddy, so it bites exactly when you have followed
-[GO_LIVE.md](GO_LIVE.md) step 10. Raise it for the afternoon:
+[step 11](GO_LIVE.md#step-11--https) of the deployment guide. Raise it for the afternoon:
 
 ```
 ANONYMOUS_DAILY_LIMIT=50
@@ -196,7 +196,7 @@ Check three things in what you pasted:
 
 ## 7. Describe an idea instead of naming companies
 
-**This part needs the search engine** — [GO_LIVE.md](GO_LIVE.md) step 9. Without it you will get
+**This part needs the search engine** — [step 10](GO_LIVE.md#step-10--start-the-search-engine) of the deployment guide. Without it you will get
 a refusal that says so, which is part 9.
 
 **Type a description with no company in it:**

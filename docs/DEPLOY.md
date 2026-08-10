@@ -60,7 +60,7 @@ figure can only be taken **from the client's side of a deployment**.
 
 ## The decisions, step by step
 
-### One instance, not four (GO_LIVE step 2)
+### One instance, not four [step 2](GO_LIVE.md#step-2--create-the-instance)
 
 Oracle's Always Free tier gives 4 OCPU and 24 GB of Ampere A1 across your instances. Take it as
 one: the model wants the memory and the extraction wants the cores, and splitting them helps
@@ -69,7 +69,7 @@ is large.
 
 *"Out of host capacity"* is a real and common Oracle condition, not a mistake in your request.
 
-### Two firewalls, and the allow-list is not in either (GO_LIVE step 3)
+### Two firewalls, and the allow-list is not in either [step 4](GO_LIVE.md#step-4--open-the-two-firewalls)
 
 **Ports 80 and 443 are open to the internet, deliberately.** The first version of this document
 restricted them to one address, and review pointed out that this made the whole procedure
@@ -85,18 +85,25 @@ model.
 **Nothing needs opening for 8787, 8080 or 8888.** The API binds to loopback and Caddy reaches it
 locally; the model server and the search engine never leave the machine.
 
+**That was a promise the compose file did not keep.** `8888:8080` publishes on every interface,
+not on loopback — so the search engine was one wrong security-list rule away from being a public,
+unauthenticated service, and this paragraph said otherwise. It is `127.0.0.1:8888:8080` now, and
+[GO_LIVE.md](GO_LIVE.md#step-10--start-the-search-engine) checks the listening address rather
+than assuming it. Review found it; a firewall that happens to be closed is not the same as a
+service that is not listening.
+
 > **⚠ The step I am least able to verify from here** is the `iptables` rule numbering. Oracle's
 > Ubuntu images ship rules that accept SSH and drop the rest, and the exact ruleset varies by
 > image. Inserting *after* the final `REJECT` does nothing, which is the failure that looks most
 > like success.
 
-### The schema applies itself (GO_LIVE step 5)
+### The schema applies itself [step 6](GO_LIVE.md#step-6--create-the-database)
 
 Every Postgres-backed role runs migrations on boot before it serves anything, so there is no
 separate migration step to forget and no window where the binary and the schema disagree.
 `landscape migrate` does exactly that and exits, if you want to watch it happen on its own.
 
-### The artefacts stay root-owned (GO_LIVE step 6)
+### The artefacts stay root-owned [step 7](GO_LIVE.md#step-7--build-the-application)
 
 The services read these files and never write them, so nothing needs to be handed over. The
 first version of this document chowned the lot to the service user, and review pointed out what
@@ -104,7 +111,7 @@ that buys an attacker: a compromised API or worker could replace the binary it r
 survive every restart afterwards. The units carry no writable path either, so `ProtectSystem=strict`
 leaves the whole filesystem read-only to them.
 
-### Both inference artefacts are pinned (GO_LIVE step 7)
+### Both inference artefacts are pinned [step 8](GO_LIVE.md#step-8--build-the-model-server-and-get-the-model)
 
 An inference build taken from a moving branch means the same application commit can be deployed
 twice and behave differently — and every quality number this project has would be about a build
@@ -119,7 +126,7 @@ this product cannot ship.
 **If the checksum disagrees, stop.** A model that is not the one the golden set scored makes
 every quality figure on this project inapplicable to what is running.
 
-### The search engine is a step, not a default (GO_LIVE step 9)
+### The search engine is a step, not a default [step 10](GO_LIVE.md#step-10--start-the-search-engine)
 
 `SEARX_URL` has **no default, deliberately**: a fallback to somebody's public instance would send
 everything strangers type into your box to a third party.
@@ -133,7 +140,7 @@ SearXNG serves HTML and answers `403` to `format=json` until an instance opts in
 and tested — [BENCHMARKS.md](BENCHMARKS.md) Run 42 — against stand-ins rather than against a real
 engine, because no engine has ever answered this application a query.
 
-### DNS before Caddy (GO_LIVE step 10)
+### DNS before Caddy [step 3](GO_LIVE.md#step-3--point-your-domain-at-it-now) and [step 11](GO_LIVE.md#step-11--https)
 
 Caddy asks for a certificate on the name in its config, and the authority resolves that name and
 connects to it — so with no record there is nothing to validate and no certificate. Failed
@@ -161,7 +168,7 @@ feature also degrades: browsers refuse the clipboard outside a secure context, s
 context** puts the document in a text box instead. That path is built and tested rather than
 assumed — it was the first thing a real browser did.
 
-### Updating, and rolling back (GO_LIVE, "Keeping it running")
+### Updating, and rolling back ([keeping it running](GO_LIVE.md#updating-to-a-newer-commit))
 
 **The unit files are part of the deploy.** The first draft of the update recipe copied only the
 binary, so a change to a memory cap or a startup gate would have sat in the repository for months
