@@ -100,6 +100,24 @@ is added to the reserve rather than assumed to be small. `md.len() <= MAX_BYTES`
 an oversized subject, an oversized interpreted line, oversized notes, oversized sources, an
 absurd permalink, and a document packed to its last byte.
 
+**And the fix for that produced the defect it was meant to prevent.** With the writer
+budgeting in document order, sections could take the whole allowance and the sources index be
+refused at the end — leaving a file full of claims citing `[S1]` with no `S1` anywhere in it.
+A citation that does not resolve is worse than no citation: it looks checkable and is not, which
+is the whole reason `Report::dangling_source_labels` exists, and this reproduced it by
+truncation.
+
+The index is chosen **first** now and the sections are written into what is left, so the thing
+that makes a claim checkable is never the thing that gets dropped. It may take at most half the
+budget, because the opposite failure is just as useless — an evidence index with no findings
+under it is not a report either — and a claim whose source did not survive is not printed at
+all, counted in the closing note instead. A section that loses every claim that way is dropped
+whole: a heading with nothing under it cannot be told from one where nothing was found, and that
+second thing is a finding.
+
+A test walks the rendered document and pairs every `[S1]` a claim cites against every `**[S1]**`
+the index resolves, which is the invariant stated rather than approximated.
+
 **That last case is the one the harness had to teach me.** With section blocks a few kilobytes
 each, the greedy fill happens to stop kilobytes short of the bound, so the note fits whether or
 not room was kept for it — the mutation that removed the reserve survived. Twenty thousand
@@ -157,7 +175,7 @@ runnable two-step is in the walkthrough where a shell variable carries the value
 | | Rust tests | frontend tests | catalogue |
 |---|---|---|---|
 | Run 42 | 968 | 74 | 17, all caught |
-| now | **988** | **79** | **18**, all caught |
+| now | **992** | **79** | **22**, all caught |
 
 ---
 

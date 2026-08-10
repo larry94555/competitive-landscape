@@ -154,6 +154,11 @@ reserved room for the closing note was never the thing keeping the file honest. 
 tiny sections pack tight enough to prove it. **A bound is only tested by the shape that reaches
 it exactly**, and nothing but the harness was going to say so.
 
+And once more after that: a twenty-second entry — *a section with every claim removed is
+printed as an empty heading* — survived a suite that already checked dangling citations from
+both directions. Dropping a claim and dropping its whole section are different edits, and only
+one of them had a shape to test against.
+
 **These files are also read backwards.** `scripts/no_live_mutations.py` takes every `new`
 payload as the shape of a defect this repository can recognise, and refuses a working tree that
 contains one — because an interrupted run leaves the deliberate defect in place, and a

@@ -62,6 +62,19 @@ pub const OPENING_LINE: &str = concat!(
     "more before believing it."
 );
 
+/// The most of the budget the sources index may take.
+///
+/// **The index is written into the budget before the sections that cite it**, because a claim
+/// whose `[S1]` resolves to nothing is worse than no claim: it looks checkable and is not, which
+/// is the whole reason `Report::dangling_source_labels` exists. Review found that sections could
+/// eat the budget and leave the index outside it, reproducing that defect by truncation.
+///
+/// Half rather than all of it, because the opposite failure is just as useless: an evidence
+/// index with no findings under it is not a report either. Whatever does not fit in the half is
+/// dropped, and every claim citing a dropped label goes with it — counted, and named in the
+/// closing note.
+const SOURCES_SHARE: usize = 2;
+
 /// The most the closing note can cost, so room for it can be kept before it is written.
 ///
 /// It is one heading, one sentence and three counts — all of this module's own words — plus the
@@ -83,6 +96,7 @@ struct Paste<'a> {
     dropped_sections: Vec<&'a str>,
     dropped_lines: usize,
     dropped_sources: usize,
+    dropped_claims: usize,
 }
 
 impl<'a> Paste<'a> {
@@ -94,6 +108,7 @@ impl<'a> Paste<'a> {
             dropped_sections: Vec::new(),
             dropped_lines: 0,
             dropped_sources: 0,
+            dropped_claims: 0,
         }
     }
 
@@ -119,7 +134,10 @@ impl<'a> Paste<'a> {
     /// paragraph that has to be guaranteed room. Section titles are named when they fit —
     /// they are the useful version — and the fallback is counts alone, which cannot grow.
     fn finish(mut self) -> String {
-        if self.dropped_sections.is_empty() && self.dropped_lines == 0 && self.dropped_sources == 0
+        if self.dropped_sections.is_empty()
+            && self.dropped_lines == 0
+            && self.dropped_sources == 0
+            && self.dropped_claims == 0
         {
             return self.out;
         }
@@ -146,8 +164,8 @@ impl<'a> Paste<'a> {
         }
         let _ = writeln!(
             note,
-            ", {} source(s) and {} other line(s) are missing here.",
-            self.dropped_sources, self.dropped_lines
+            ", {} claim(s), {} source(s) and {} other line(s) are missing here.",
+            self.dropped_claims, self.dropped_sources, self.dropped_lines
         );
         if let Some(path) = self.permalink {
             let _ = writeln!(note, "They are on the report itself, at `{path}`.");
@@ -167,20 +185,80 @@ impl<'a> Paste<'a> {
 #[must_use]
 pub fn of(report: &Report, permalink: Option<&str>) -> String {
     let mut paste = Paste::new(permalink);
+
+    // **The evidence index is chosen first, and the sections are then written into what is
+    // left.** It appears at the bottom of the document and is decided at the top of this
+    // function, because the alternative is a file whose claims cite labels it does not
+    // contain — checkable-looking and uncheckable, which is the one thing this document exists
+    // not to be.
+    let (sources, kept) = sources_that_fit(&mut paste, report);
+    paste.reserve += sources.len();
+
     heading(&mut paste, report, permalink);
 
     // **Sections in the report's own order**, which is the order the reader saw them in. Any
     // other order here would be this module having an opinion about importance.
     for section in &report.sections {
         let mut block = String::new();
-        write_section(&mut block, report, section);
-        if !paste.take(&block) {
+        let anything = write_section(
+            &mut block,
+            report,
+            section,
+            &kept,
+            &mut paste.dropped_claims,
+        );
+        // A heading with every claim removed under it is not a section, it is a puzzle.
+        if !anything || !paste.take(&block) {
             paste.dropped_sections.push(section.title.as_str());
         }
     }
 
-    write_sources(&mut paste, report);
+    // Written last and refused by nothing: the room was taken out of the budget above.
+    paste.reserve -= sources.len();
+    let _ = paste.take(&sources);
     paste.finish()
+}
+
+/// The sources index, trimmed to its share of the budget, and the labels that survived.
+///
+/// Greedy and in the report's own order, one line at a time, so a single page with a
+/// preposterous title costs its own line rather than the whole index.
+fn sources_that_fit<'a>(
+    paste: &mut Paste<'_>,
+    report: &'a Report,
+) -> (String, std::collections::HashSet<&'a str>) {
+    let mut out = String::new();
+    let mut kept = std::collections::HashSet::new();
+    let _ = writeln!(out, "## Sources");
+    let _ = writeln!(out);
+    if report.sources.is_empty() {
+        let _ = writeln!(out, "No page was read.");
+        let _ = writeln!(out);
+        return (out, kept);
+    }
+
+    let share = (MAX_BYTES.saturating_sub(paste.reserve)) / SOURCES_SHARE;
+    // **Every URL and every date**, which is §5's whole requirement: an assistant that cannot
+    // check a claim is being asked to trust us, and that is the thing this file exists to
+    // avoid asking.
+    for source in &report.sources {
+        let line = format!(
+            "- **[{}]** {} — <{}> (read {}; {}){NEWLINE}",
+            source.label,
+            source.title,
+            source.url,
+            source.fetched_at.format("%Y-%m-%d"),
+            source.disposition.reader_description()
+        );
+        if out.len() + line.len() > share {
+            paste.dropped_sources += 1;
+            continue;
+        }
+        out.push_str(&line);
+        kept.insert(source.label.as_str());
+    }
+    let _ = writeln!(out);
+    (out, kept)
 }
 
 fn heading(paste: &mut Paste<'_>, report: &Report, permalink: Option<&str>) {
@@ -246,7 +324,17 @@ fn heading(paste: &mut Paste<'_>, report: &Report, permalink: Option<&str>) {
     }
 }
 
-fn write_section(out: &mut String, report: &Report, section: &Section) {
+/// One section, and whether anything of it survived.
+///
+/// A claim whose source did not fit is not printed: the label would resolve to nothing, and a
+/// citation that looks checkable and is not is worse than a claim that was never made.
+fn write_section(
+    out: &mut String,
+    report: &Report,
+    section: &Section,
+    kept: &std::collections::HashSet<&str>,
+    dropped_claims: &mut usize,
+) -> bool {
     let _ = writeln!(out, "## {}", section.title);
     let _ = writeln!(out);
 
@@ -269,6 +357,10 @@ fn write_section(out: &mut String, report: &Report, section: &Section) {
                 let _ = writeln!(out);
             }
             for claim in &section.claims {
+                if !kept.contains(claim.source_label.as_str()) {
+                    *dropped_claims += 1;
+                    continue;
+                }
                 // The subject travels with the claim and is printed on the same terms the page
                 // prints it: only when the report covers more than one company, because on a
                 // single-company report every line would carry the same name.
@@ -297,34 +389,15 @@ fn write_section(out: &mut String, report: &Report, section: &Section) {
         }
     }
     let _ = writeln!(out);
-}
 
-fn write_sources(paste: &mut Paste<'_>, report: &Report) {
-    paste.line(&format!("## Sources{NEWLINE}{NEWLINE}"));
-    if report.sources.is_empty() {
-        paste.line(&format!("No page was read.{NEWLINE}{NEWLINE}"));
-        return;
-    }
-    // **Every URL and every date**, which is §5's whole requirement: an assistant that cannot
-    // check a claim is being asked to trust us, and that is the thing this file exists to
-    // avoid asking.
-    //
-    // One line at a time, so a single page with a preposterous title costs its own line rather
-    // than the whole index — the rest of the evidence stays checkable.
-    for source in &report.sources {
-        let line = format!(
-            "- **[{}]** {} — <{}> (read {}; {}){NEWLINE}",
-            source.label,
-            source.title,
-            source.url,
-            source.fetched_at.format("%Y-%m-%d"),
-            source.disposition.reader_description()
-        );
-        if !paste.take(&line) {
-            paste.dropped_sources += 1;
-        }
-    }
-    paste.line(NEWLINE);
+    // A section that found nothing is still a finding; one whose every claim lost its source
+    // is not.
+    section.status == SectionStatus::NotFoundInPublicSources
+        || section.claims.is_empty()
+        || section
+            .claims
+            .iter()
+            .any(|c| kept.contains(c.source_label.as_str()))
 }
 
 /// A quote on one line, because a `>` block that contains newlines stops being a quote.
@@ -738,6 +811,151 @@ mod tests {
             &md[md.len().saturating_sub(200)..]
         );
         assert!(md.contains("/a/abc"), "and where the rest of it is");
+    }
+
+    /// Every `[S1]` a claim cites, against every `**[S1]**` the index resolves.
+    ///
+    /// The rendered document rather than the report, because truncation is what breaks this
+    /// and truncation only exists here.
+    fn dangling_labels(md: &str) -> Vec<String> {
+        let resolved: std::collections::HashSet<String> = md
+            .lines()
+            .filter_map(|l| l.strip_prefix("- **["))
+            .filter_map(|l| l.split_once("]**"))
+            .map(|(label, _)| label.to_owned())
+            .collect();
+        md.lines()
+            .filter(|l| l.starts_with("- ") && !l.starts_with("- **["))
+            .filter_map(|l| l.rsplit_once(" ["))
+            .filter_map(|(_, rest)| rest.split_once(']'))
+            .map(|(label, _)| label.to_owned())
+            .filter(|label| !resolved.contains(label))
+            .collect()
+    }
+
+    #[test]
+    fn a_claim_that_survives_truncation_keeps_the_source_that_resolves_it() {
+        // **A citation that does not resolve is worse than no citation**: it looks checkable
+        // and is not, which is why `Report::dangling_source_labels` exists. Review found that
+        // sections could eat the budget and leave the index outside it, reproducing exactly
+        // that defect by truncation — claims citing `[S1]` in a file with no `S1` in it.
+        let mut report = two_companies();
+        report.sections = (0..20_000)
+            .map(|n| Section {
+                key: format!("k{n}"),
+                title: format!("S{n}"),
+                status: SectionStatus::Populated,
+                claims: vec![claim("a claim", "https://basecamp.com", "S1", "a quote")],
+                checked: Vec::new(),
+                notes: Vec::new(),
+            })
+            .collect();
+
+        let md = of(&report, Some("/a/abc"));
+        assert!(md.len() <= MAX_BYTES, "{} bytes", md.len());
+        assert!(
+            md.contains("**[S1]**"),
+            "the index survived: {}",
+            &md[..200]
+        );
+        assert_eq!(
+            dangling_labels(&md),
+            Vec::<String>::new(),
+            "a claim cites a label this file does not resolve"
+        );
+    }
+
+    #[test]
+    fn a_claim_whose_source_did_not_fit_is_not_printed_at_all() {
+        // The other side of the same rule. When the index itself has to be trimmed, the claims
+        // that cited what was trimmed go with it — counted, and named in the closing note,
+        // because a reader who cannot see them can still ask for them.
+        let mut report = two_companies();
+        // One source large enough to take the whole share on its own, so the second cannot fit.
+        // Wide margins on purpose: the first source is comfortably inside the share and the
+        // second is comfortably outside what is left of it, so this does not turn on the exact
+        // length of a line of prose.
+        report.sources[0].title = "t".repeat(MAX_BYTES / SOURCES_SHARE / 2);
+        report.sources[1].title = "t".repeat(MAX_BYTES / SOURCES_SHARE);
+
+        let md = of(&report, Some("/a/abc"));
+        assert!(md.len() <= MAX_BYTES, "{} bytes", md.len());
+        assert_eq!(
+            dangling_labels(&md),
+            Vec::<String>::new(),
+            "a claim cites a label this file does not resolve"
+        );
+        assert!(
+            md.contains("claim(s)"),
+            "the dropped claims are counted: {md}"
+        );
+    }
+
+    #[test]
+    fn a_section_that_loses_every_claim_is_not_left_as_an_empty_heading() {
+        // A heading with everything removed under it is not a section, it is a puzzle: a
+        // reader cannot tell it from one where nothing was ever found, and that is a finding.
+        let mut report = two_companies();
+        report.sections.push(Section {
+            key: "changes".to_owned(),
+            title: "Recent public changes".to_owned(),
+            status: SectionStatus::Populated,
+            claims: vec![claim(
+                "Shipped a thing",
+                "https://linear.app",
+                "S2",
+                "shipped",
+            )],
+            checked: Vec::new(),
+            notes: Vec::new(),
+        });
+        // S1 takes the whole share, so S2 and everything citing it go with it.
+        // Wide margins on purpose: the first source is comfortably inside the share and the
+        // second is comfortably outside what is left of it, so this does not turn on the exact
+        // length of a line of prose.
+        report.sources[0].title = "t".repeat(MAX_BYTES / SOURCES_SHARE / 2);
+        report.sources[1].title = "t".repeat(MAX_BYTES / SOURCES_SHARE);
+
+        let md = of(&report, Some("/a/abc"));
+        assert!(md.contains("**[S1]**"), "S1 survived");
+        assert!(!md.contains("**[S2]**"), "S2 did not");
+        assert!(
+            !md.contains("## Recent public changes"),
+            "a heading with nothing under it: {md}"
+        );
+        // The section that kept a claim is still there, and still whole.
+        assert!(md.contains("## Pricing & packaging"), "{md}");
+        assert!(md.contains("Pro costs $15 per user per month"), "{md}");
+        assert_eq!(dangling_labels(&md), Vec::<String>::new());
+    }
+
+    #[test]
+    fn the_index_may_not_take_the_whole_file_either() {
+        // **An evidence index with no findings under it is not a report.** The share is what
+        // stops the fix for one failure from becoming the other one.
+        let mut report = two_companies();
+        report.sources = (0..400)
+            .map(|n| {
+                let mut src = source("S1", "https://a.example", Disposition::Primary);
+                src.title = "t".repeat(4096);
+                src.url = format!("https://s{n}.example");
+                src
+            })
+            .collect();
+
+        let md = of(&report, Some("/a/abc"));
+        assert!(md.len() <= MAX_BYTES, "{} bytes", md.len());
+        assert!(
+            md.matches("- **[").count() > 0,
+            "some of the index survives"
+        );
+        assert!(md.contains("source(s)"), "and the rest of it is counted");
+        // The point of the share, stated as what it buys: the findings are still under it.
+        assert!(
+            md.contains("Pro costs $15 per user per month"),
+            "the index crowded out the report it is evidence for"
+        );
+        assert_eq!(dangling_labels(&md), Vec::<String>::new());
     }
 
     #[test]

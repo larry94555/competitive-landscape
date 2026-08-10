@@ -220,8 +220,60 @@
   {
     "name": "a source that will not fit takes the whole index with it",
     "file": "crates/landscape-core/src/context.rs",
-    "old": "        if !paste.take(&line) {\n            paste.dropped_sources += 1;\n        }",
-    "new": "        paste.out.push_str(&line);",
+    "old": "        if out.len() + line.len() > share {\n            paste.dropped_sources += 1;\n            continue;\n        }",
+    "new": "        if out.len() + line.len() > share {\n            break;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the sections are written before the index they cite",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "    paste.reserve += sources.len();",
+    "new": "    paste.reserve += 0;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a claim whose source did not fit is printed anyway",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "                if !kept.contains(claim.source_label.as_str()) {\n                    *dropped_claims += 1;\n                    continue;\n                }",
+    "new": "                if false {\n                    *dropped_claims += 1;\n                    continue;\n                }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the index may take the whole budget, leaving no findings under it",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "    let share = (MAX_BYTES.saturating_sub(paste.reserve)) / SOURCES_SHARE;",
+    "new": "    let share = MAX_BYTES.saturating_sub(paste.reserve);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a section with every claim removed is printed as an empty heading",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "        if !anything || !paste.take(&block) {",
+    "new": "        if !paste.take(&block) {",
     "run": [
       "cargo",
       "nextest",
