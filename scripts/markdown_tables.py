@@ -41,8 +41,12 @@ delimiter row that arrives *without* outer pipes is reported — not because it 
 because it is a table this gate cannot check, and a check with a silent blind spot is worse
 than one that names it.
 
-**It does not validate column counts or alignment.** A row with the wrong number of cells still
-renders as a table, and the distinction this exists for is *table or not a table*.
+**Body rows and alignment are not checked, and the header/delimiter count is.** The difference
+is what GFM does with each: a *body* row with too few cells is padded and one with too many is
+truncated, so it still renders — but a *delimiter* row whose width differs from the header
+means there is no table at all. The first is a tidiness question and is somebody else's; the
+second decides whether a reader sees a table or a paragraph of pipes, which is the whole of
+what this exists for.
 
     python3 scripts/markdown_tables.py
 """

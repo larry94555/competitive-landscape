@@ -94,9 +94,10 @@ been rendering as text for as long as the paragraph had been there. Nobody edits
 deleting its separator; they edit it by putting something where the separator's protection does
 not reach.
 
-`scripts/markdown_tables.py` is the fifteenth gate. It checks the one property that decides
-*table or not a table* and deliberately not column counts or alignment, because a row with the
-wrong number of cells still renders.
+`scripts/markdown_tables.py` is the fifteenth gate. It checks what decides *table or not a
+table* and nothing else: **a body row with the wrong number of cells is padded or truncated by
+GFM and still renders**, so that is a tidiness question and not this gate's. A delimiter row of
+the wrong width is a different matter, and the next section is about how that was learned.
 
 ### What review found, and the gate was most of it
 
@@ -105,8 +106,8 @@ first: it accepted `| : |` as a
 separator, when GFM requires at least one hyphen per cell; it saw code fences only as three
 backticks at the start of a line, so a `~~~` block or an indented example full of pipes read as
 a broken table; and it silently ignored the GFM form written without outer pipes, which is a
-blind spot rather than a decision. It now has **eleven fixtures**, one per shape, and the first
-version of it failed three of them.
+blind spot rather than a decision. That round added **eleven fixtures**, one per shape, and the
+version before it failed three of them.
 
 And two more in the second, both about the shape that decides whether GFM recognises a table
 at all:
