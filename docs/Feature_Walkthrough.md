@@ -2310,7 +2310,13 @@ One click puts the whole thing on the clipboard. **You do not need the browser**
 bytes come out of the API:
 
 ```bash
-curl -s localhost:8787/api/analyses/<id>/context
+ID=$(curl -sX POST localhost:8787/api/analyses -H 'content-type: application/json' -d '{"prompt":"https://linear.app"}' | grep -o '"id":"[^"]*' | cut -d'"' -f4)
+```
+
+Wait for it to finish, then:
+
+```bash
+curl -s "localhost:8787/api/analyses/$ID/context"
 ```
 
 ```text

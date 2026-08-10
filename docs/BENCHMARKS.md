@@ -115,6 +115,18 @@ still got the document — the text appears on the page, selectable, with a sent
 copy it by hand. A button that silently does nothing would have looked exactly like a working
 one.
 
+### And the README's own test caught the documentation
+
+The first push documented the endpoint as a fenced `curl -s .../analyses/<id>/context`.
+`every_documented_curl_actually_works` boots the binary and runs every fenced command in
+`README.md` **exactly as written** — and `<id>` is not a placeholder to a shell, it is a
+redirection from a file named `id`. The command never ran at all.
+
+That gate exists because two documented commands had previously been wrong in ways only a reader
+would have found, and it was right a third time. An endpoint that needs an id from a previous
+call cannot be a standalone fenced command, so the README names it in prose and says why, and the
+runnable two-step is in the walkthrough where a shell variable carries the value.
+
 | | Rust tests | frontend tests | catalogue |
 |---|---|---|---|
 | Run 42 | 968 | 74 | 17, all caught |

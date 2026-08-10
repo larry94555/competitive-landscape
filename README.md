@@ -182,14 +182,17 @@ endpoint by hand, so the rejection names the missing header rather than making y
 
 ### Take the report somewhere else
 
-```bash
-curl -s http://127.0.0.1:8787/api/analyses/<id>/context
-```
-
-The whole report as Markdown, with every source URL and date, to paste into whatever assistant
-you already use — [`IDEA_ANALYSIS.md` §5](docs/IDEA_ANALYSIS.md). `text/markdown`, so what comes
-back is the file rather than a file inside a quoted string. The browser has the same thing on a
+`GET /api/analyses/{id}/context` returns the whole report as Markdown, with every source URL and
+date, to paste into whatever assistant you already use —
+[`IDEA_ANALYSIS.md` §5](docs/IDEA_ANALYSIS.md). It answers `text/markdown`, so what comes back is
+the file rather than a file inside a quoted string, and the browser has the same bytes on a
 **Copy as context** button under any finished report.
+
+It is not shown as a command here because it needs an id from the call above, and every fenced
+command in this file is executed by
+[`the README actually works`](crates/landscape/tests/docs.rs) exactly as written — a placeholder
+in one would be a documented command that does not run.
+[`Feature_Walkthrough.md` Part 8I](docs/Feature_Walkthrough.md) has the runnable two-step.
 
 ---
 
