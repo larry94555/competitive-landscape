@@ -33,6 +33,136 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 41 — the set is editable
+
+**Date:** 2026-08-09 · **Where:** this laptop · **Model:** none. Nothing here asks one; it is a
+report a reader can correct.
+
+`COMPETITIVE_DISCOVERY.md` §5.5 has said since the plan was written:
+
+> **A competitive set presented without its derivation is an unfalsifiable editorial choice**, and
+> the reader has no way to tell a thoughtful selection from an arbitrary one. … The set is
+> **directly editable**: remove a competitor, add one by name or URL, and re-run.
+
+The derivation landed over four earlier runs — every company carries the countable reason it is
+in the report, every company found and left out carries the reason it is not, and a report
+covering one says which of four things happened to the others. **What was missing was the second
+half of that sentence.** A reader could read the reasoning and could do nothing about it.
+
+### Correcting beats being asked
+
+§6.3 is explicit about why this is the last piece rather than another question:
+
+> Direct manipulation beats interrogation. … One glance confirms or corrects it. This is faster
+> than a question, requires no prompt literacy, and is honest about what the system decided.
+> **Questions are reserved for cases where proceeding would waste 90–180 seconds of free-tier
+> compute on the wrong market.**
+
+So the set appears under the notes that explain it — a reader corrects it having read the reasons,
+not before — with one chip per company, a remove control on each, a box to add one, and a button.
+
+### The prompt is the whole answer, exactly as a chip is
+
+The button hands back a list of origins separated by spaces, which is something a reader could
+have typed, and the run treats it as a named set. **Nothing new is invented on the way in**: the
+same `createAnalysis` the clarifying chips use, the same `origins_in` that reads a typed prompt.
+A re-run is a new analysis with its own permalink rather than a mutation of the one on screen,
+which keeps the old report readable and the new one shareable.
+
+### No origin parsing on the client, and that is the point
+
+`landscape_analyze::subject::origins_in` owns what counts as a company and what makes two
+spellings the same one — `basecamp.com` and `www.basecamp.com` are one company written twice, and
+that rule already exists. **A second copy in TypeScript would be a rule that agrees today**, which
+is register entry 51 and has cost this project three rounds of review in other places.
+
+What the page does instead is refuse three things it can be sure of:
+
+| | |
+|---|---|
+| an empty set | *"Removing every company leaves nothing to compare."* The button is disabled. |
+| the set already on screen | disabled — ninety seconds to redraw a page a reader is looking at |
+| something with no dot, or a space in it | **refused out loud**, not swallowed: *"basecamp does not look like a domain. Try example.com."* |
+
+That last check is **a courtesy, not a parser**, and says so where it is written. It exists to stop
+an obvious typo costing ninety seconds of free-tier compute; anything that survives it is decided
+by the run, whose answer is the one that counts.
+
+### What it is not offered for, and the code that was deleted because of it
+
+**Not while the report is still being read.** Mid-run the set is what the run is working through,
+and correcting it would be correcting something that has not happened yet.
+
+That guard turned out to buy a second thing. The set the report was built from **changes
+underneath** — a corrected run finishing replaces the companies — and the first version answered
+that with a `useEffect` copying the prop into state. The mutation harness emptied that effect and
+**nothing failed**. Nor did anything fail when a `key` replaced it. Both were dead: correcting the
+set starts a new run, the set is only offered once a run is over, so between the two reports the
+component is put away and the second set is read fresh. Neither line was deleted because a test
+was missing — they were deleted because the rule was already enforced, and a second answer to a
+settled question is a thing that can one day disagree with the first.
+
+### One existing test had to become sharper
+
+`keeps the label when one of two companies says nothing` asserted that `basecamp.com` appeared on
+the page. It now appears twice — once as the claim's label, once as a chip in the set — and the
+old query would have passed with the label **gone**, which is the defect that test exists for. It
+looks inside the claim's own list item now.
+
+### And the gate that counts this page found the page it did not count
+
+`scripts/feature_totals.py` was written one run ago to add up `Full_Feature_List.md`, and it
+checked each state against its own feature rows. It did not check the **Summary at the top**,
+which is the table a reader sees first and the one every pull request quotes — and that table had
+been saying S2 was `18 / 14 / 4` and 78% for four runs while S2's own table said `19 / 17 / 2` and
+89%. The gate now checks the Summary against the per-state tables and the total against the
+Summary. **A gate that checks the derived numbers but not the number derived from those leaves
+the most-read row of the page unchecked.**
+
+### What review found, and it was the same defect on both sides
+
+**Adding a company already in the set.** Typing an origin that is already there appended a
+second copy: the list got longer, so *"has anything changed"* said yes, the button lit up, and
+the run put the duplicate back together and returned the report on screen. **Ninety seconds to
+redraw the page being looked at** — precisely the cost the *"already on screen"* guard exists to
+refuse, reached by a route that guard could not see. It is refused out loud now, and the
+duplicate React key it also produced goes with it.
+
+The first fix compared the **stored strings**, on the argument that two spellings of one company
+are `origins_in`'s to reconcile and this side does not get an opinion about them. Review pointed
+out what that misses, and it is not an edge: **the interface asks for the spelling it then treats
+as new.** The report stores `https://basecamp.com`, the chip reads `basecamp.com`, and the box
+beside it says `example.com` — so a reader typing what is on screen was adding the company already
+there, and the byte comparison waved it through.
+
+The argument was wrong in one specific way. Comparing what the page **renders** is not a copy of
+`origins_in`; it is the page's own claim, already published the moment it drew the chip. **Two
+things drawn identically are one thing**, which is a question about this file and nothing else,
+and anything subtler than that is still the run's to decide. One function, `asShown`, now answers
+it in the one place, and the same comparison found a second way in that no test covered: removing
+a company and adding it back the way its chip spells it left the button **enabled**, and the
+answer to that ninety-second question was the report on screen. A competitive set is a set — the
+members decide whether it is a different question, and the run decides their order.
+
+**And the new gate had the same blind spot as the page it checks.** `feature_totals.py` compared
+each Summary row against its own state table and then the total against the sum of the rows — so
+a Summary listing S2 **twice**, with the total inflated to match, passed every comparison the
+file made. Every number was individually right and the page said something false. A per-row check
+cannot see a duplicated row, which is the second time in one change that a check turned out not
+to cover the thing it was written for.
+
+It now refuses a state listed twice, and a state given two tables, **before** anything is added
+up. And it **breaks itself seven ways on every run** — the sound page with one defect put back
+each time, each complaint checked for — because a gate that has quietly stopped detecting
+anything still exits 0. Removing either duplicate guard makes the script fail on its own.
+
+| | Rust tests | frontend tests | catalogue |
+|---|---|---|---|
+| Run 40 | 951 | 62 | 33, all caught |
+| now | **951** | **73** | **13**, all caught |
+
+---
+
 ## Run 40 — where the roles actually live
 
 **Date:** 2026-08-09 · **Where:** this laptop · **Model:** none. Discovery and the hiring

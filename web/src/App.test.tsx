@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -834,7 +834,12 @@ describe("a report about several companies", () => {
     act(() => FakeEventSource.last!.send("done", ""));
 
     expect(await screen.findByText(/Pro costs \$15/)).toBeInTheDocument();
-    expect(screen.getByText("basecamp.com")).toBeInTheDocument();
+    // **The label on the claim**, not merely the name somewhere on the page: the editable set
+    // lists the same company above, and a query that finds either would pass with the label
+    // gone — which is the defect this test exists for.
+    const claim = screen.getByText(/Pro costs \$15/).closest("li");
+    expect(claim).not.toBeNull();
+    expect(within(claim!).getByText("basecamp.com")).toBeInTheDocument();
   });
 
   it("labels the first claim while the second company is still being read", async () => {
@@ -1653,5 +1658,271 @@ describe("after a reconnect", () => {
 
     expect(await screen.findByText("Done.")).toBeInTheDocument();
     expect(screen.queryByText(/Still reading|Reading the first pages/)).toBeNull();
+  });
+});
+
+describe("the set a report was built from", () => {
+  /** A finished report about two companies, which is what §5.5 says must be correctable. */
+  function about(...companies: string[]) {
+    return {
+      ...queued(),
+      status: "complete" as const,
+      report: {
+        subject: companies.join(", "),
+        searched_as: companies.join(", "),
+        generated_at: "2026-08-05T00:00:00Z",
+        model_id: "test",
+        prompt_version: 1,
+        subjects: companies,
+        sections: [
+          section("pricing", "Pricing & packaging", "Pro costs $15", companies[0]),
+        ],
+        sources: [],
+      },
+    };
+  }
+
+  /** Every POST body the page sent, in order. Re-running is a new analysis, not a mutation. */
+  function watchPosts(finished: ReturnType<typeof about>): string[] {
+    const sent: string[] = [];
+    stubEventSource();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) => {
+        if (init?.method === "POST") {
+          sent.push(JSON.parse(String(init.body)).prompt as string);
+        }
+        return Promise.resolve({
+          ok: true,
+          status: init?.method === "POST" ? 201 : 200,
+          json: () => Promise.resolve(init?.method === "POST" ? queued() : finished),
+        } as Response);
+      }),
+    );
+    return sent;
+  }
+
+  async function arrive(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+    act(() => FakeEventSource.last!.send("done", ""));
+    expect(await screen.findByText(/Pro costs \$15/)).toBeInTheDocument();
+  }
+
+  it("shows the companies it compared, so the choice can be checked", async () => {
+    // **A competitive set presented without its derivation is an unfalsifiable editorial
+    // choice** — COMPETITIVE_DISCOVERY §5.5. The notes above say *why* each one is here; this
+    // is the part a reader can act on.
+    watchPosts(about("https://basecamp.com", "https://linear.app"));
+    const user = userEvent.setup();
+    await arrive(user);
+
+    const set = screen.getByRole("region", { name: /companies in this report/i });
+    expect(within(set).getByText("basecamp.com")).toBeInTheDocument();
+    expect(within(set).getByText("linear.app")).toBeInTheDocument();
+  });
+
+  it("runs the corrected set rather than asking the reader to retype the idea", async () => {
+    // §6.3: direct manipulation beats interrogation. The button hands back a whole prompt, the
+    // same way a clarifying chip does, so correcting the set costs a click.
+    const sent = watchPosts(about("https://basecamp.com", "https://linear.app"));
+    const user = userEvent.setup();
+    await arrive(user);
+
+    await user.click(screen.getByRole("button", { name: /remove linear\.app/i }));
+    await user.type(screen.getByLabelText(/add a company/i), "notion.so");
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
+    await user.click(screen.getByRole("button", { name: /run this set/i }));
+
+    expect(sent).toEqual([IDEA, "https://basecamp.com notion.so"]);
+  });
+
+  it("will not re-run the set already on screen", async () => {
+    // Ninety seconds to redraw a page a reader is already looking at is a cost with nothing
+    // on the other side of it.
+    watchPosts(about("https://basecamp.com", "https://linear.app"));
+    const user = userEvent.setup();
+    await arrive(user);
+
+    expect(screen.getByRole("button", { name: /run this set/i })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: /remove linear\.app/i }));
+    expect(screen.getByRole("button", { name: /run this set/i })).toBeEnabled();
+  });
+
+  it("refuses an empty set and says what it would mean", async () => {
+    watchPosts(about("https://basecamp.com"));
+    const user = userEvent.setup();
+    await arrive(user);
+
+    await user.click(screen.getByRole("button", { name: /remove basecamp\.com/i }));
+    expect(screen.getByRole("button", { name: /run this set/i })).toBeDisabled();
+    expect(screen.getByText(/nothing to compare/i)).toBeInTheDocument();
+  });
+
+  it("says why a typo was not added rather than dropping it in silence", async () => {
+    // A courtesy rather than a parser — `origins_in` decides what a company is, and this only
+    // stops an obvious typo costing ninety seconds. What it must not do is swallow the input.
+    watchPosts(about("https://basecamp.com"));
+    const user = userEvent.setup();
+    await arrive(user);
+
+    await user.type(screen.getByLabelText(/add a company/i), "basecamp");
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/does not look like a domain/i);
+    const set = screen.getByRole("region", { name: /companies in this report/i });
+    expect(within(set).queryByText("basecamp")).not.toBeInTheDocument();
+  });
+
+  it("does not spend two analyses on two clicks", async () => {
+    // The same guard the clarifying chips carry, for the same reason: a run takes ninety
+    // seconds and a second click starts a second one before the first has said anything.
+    const finished = about("https://basecamp.com", "https://linear.app");
+    const sent: string[] = [];
+    stubEventSource();
+    let release: (() => void) | null = null;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) => {
+        if (init?.method === "POST") {
+          sent.push(JSON.parse(String(init.body)).prompt as string);
+          if (sent.length > 1) {
+            // The re-run: hold it open so the page is caught mid-start.
+            return new Promise<Response>((resolve) => {
+              release = () =>
+                resolve({
+                  ok: true,
+                  status: 201,
+                  json: () => Promise.resolve(queued()),
+                } as Response);
+            });
+          }
+        }
+        return Promise.resolve({
+          ok: true,
+          status: init?.method === "POST" ? 201 : 200,
+          json: () => Promise.resolve(init?.method === "POST" ? queued() : finished),
+        } as Response);
+      }),
+    );
+
+    const user = userEvent.setup();
+    await arrive(user);
+    await user.click(screen.getByRole("button", { name: /remove linear\.app/i }));
+    await user.click(screen.getByRole("button", { name: /run this set/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /run this set/i })).toBeDisabled(),
+    );
+    await user.click(screen.getByRole("button", { name: /run this set/i }));
+    expect(sent).toHaveLength(2);
+    act(() => release?.());
+  });
+
+  it("shows the set the report on screen was built from, not the one before it", async () => {
+    // The report's set is the truth and it changes underneath: a corrected run finishing
+    // replaces the companies, and edits to the previous report's set are not edits to this one.
+    // Which is the second thing the "still being read" guard buys — a correction restarts the
+    // run, so the set is put away and read again rather than carried across.
+    const first = about("https://basecamp.com", "https://linear.app");
+    const second = about("https://basecamp.com", "https://notion.so");
+    let serving = first;
+    stubEventSource();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init?: RequestInit) =>
+        Promise.resolve({
+          ok: true,
+          status: init?.method === "POST" ? 201 : 200,
+          json: () => Promise.resolve(init?.method === "POST" ? queued() : serving),
+        } as Response),
+      ),
+    );
+
+    const user = userEvent.setup();
+    await arrive(user);
+    await user.click(screen.getByRole("button", { name: /remove linear\.app/i }));
+
+    // The corrected run comes back covering somebody else entirely, which is the case that
+    // matters: the reader's edit belonged to the report before this one.
+    serving = second;
+    await user.click(screen.getByRole("button", { name: /run this set/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+    act(() => FakeEventSource.last!.send("done", ""));
+
+    const set = await screen.findByRole("region", {
+      name: /companies in this report/i,
+    });
+    await waitFor(() =>
+      expect(within(set).getByText("notion.so")).toBeInTheDocument(),
+    );
+    expect(within(set).getByText("basecamp.com")).toBeInTheDocument();
+  });
+
+  it("refuses a company that is already in the set rather than sending it twice", async () => {
+    // A second `https://basecamp.com` is a longer list, so the button lights up, and the run
+    // deduplicates it back to the set on screen — ninety seconds to redraw the same report,
+    // which is exactly what the "already on screen" guard exists to prevent.
+    const sent = watchPosts(about("https://basecamp.com", "https://linear.app"));
+    const user = userEvent.setup();
+    await arrive(user);
+
+    await user.type(screen.getByLabelText(/add a company/i), "https://basecamp.com");
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/already in this set/i);
+    const set = screen.getByRole("region", { name: /companies in this report/i });
+    expect(within(set).getAllByText("basecamp.com")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /run this set/i })).toBeDisabled();
+    expect(sent).toEqual([IDEA]);
+  });
+
+  it("refuses the company in the spelling the page itself shows", async () => {
+    // The chip says `basecamp.com` and the box says `example.com`, so the schemeless form is
+    // the one the interface asks for — and it is the one that slipped past a byte comparison.
+    const sent = watchPosts(about("https://basecamp.com", "https://linear.app"));
+    const user = userEvent.setup();
+    await arrive(user);
+
+    await user.type(screen.getByLabelText(/add a company/i), "basecamp.com");
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/already in this set/i);
+    const set = screen.getByRole("region", { name: /companies in this report/i });
+    expect(within(set).getAllByText("basecamp.com")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /run this set/i })).toBeDisabled();
+    expect(sent).toEqual([IDEA]);
+  });
+
+  it("will not re-run a set that only looks different", async () => {
+    // Removing a company and putting it back in the spelling on the chip is the same set. The
+    // change check compared strings, so it said yes and spent ninety seconds on the same report.
+    const sent = watchPosts(about("https://basecamp.com", "https://linear.app"));
+    const user = userEvent.setup();
+    await arrive(user);
+
+    await user.click(screen.getByRole("button", { name: /remove linear\.app/i }));
+    await user.type(screen.getByLabelText(/add a company/i), "linear.app");
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
+
+    expect(screen.getByRole("button", { name: /run this set/i })).toBeDisabled();
+    expect(sent).toEqual([IDEA]);
+  });
+
+  it("is not offered while the report is still being read", async () => {
+    // Mid-run the set is what the run is working through, and correcting it would be
+    // correcting something that has not happened yet.
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+
+    expect(
+      screen.queryByRole("button", { name: /run this set/i }),
+    ).not.toBeInTheDocument();
   });
 });

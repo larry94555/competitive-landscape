@@ -1,0 +1,158 @@
+[
+  {
+    "name": "the set a report was built from is never shown",
+    "file": "web/src/App.tsx",
+    "old": "      {isTerminal(showing_status) && analysed.length > 0 && (\n        <EditableSet companies={analysed} onRun={onPick} running={picking} />\n      )}",
+    "new": "      {false && (\n        <EditableSet companies={analysed} onRun={onPick} running={picking} />\n      )}",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a set is offered for correction while the run is still deciding it",
+    "file": "web/src/App.tsx",
+    "old": "      {isTerminal(showing_status) && analysed.length > 0 && (",
+    "new": "      {analysed.length >= 0 && (",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the corrected set is not what gets run",
+    "file": "web/src/App.tsx",
+    "old": "        onClick={() => onRun(set.join(\" \"))}",
+    "new": "        onClick={() => onRun(companies.join(\" \"))}",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "removing a company does nothing",
+    "file": "web/src/App.tsx",
+    "old": "              onClick={() => setSet(set.filter((kept) => kept !== company))}",
+    "new": "              onClick={() => setSet(set)}",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "an added company never reaches the set",
+    "file": "web/src/App.tsx",
+    "old": "    setSet([...set, wanted]);",
+    "new": "    setSet(set);",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a typo is dropped in silence rather than refused",
+    "file": "web/src/App.tsx",
+    "old": "      setRefused(`${wanted} does not look like a domain. Try example.com.`);\n      return;",
+    "new": "      return;",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a typo is added as though it were a company",
+    "file": "web/src/App.tsx",
+    "old": "    if (!wanted.includes(\".\") || /\\s/.test(wanted)) {",
+    "new": "    if (false) {",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "an empty set can be run, and a report of nothing asked for",
+    "file": "web/src/App.tsx",
+    "old": "        disabled={running || set.length === 0 || !changed}",
+    "new": "        disabled={running || !changed}",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the set on screen can be re-run for ninety seconds of the same page",
+    "file": "web/src/App.tsx",
+    "old": "        disabled={running || set.length === 0 || !changed}",
+    "new": "        disabled={running || set.length === 0}",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "two clicks spend two analyses on one question",
+    "file": "web/src/App.tsx",
+    "old": "        disabled={running || set.length === 0 || !changed}",
+    "new": "        disabled={set.length === 0 || !changed}",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a company already in the set is added a second time",
+    "file": "web/src/App.tsx",
+    "old": "    if (shown.has(asShown(wanted))) {",
+    "new": "    if (false) {",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "sameness is the stored string rather than the one the page shows",
+    "file": "web/src/App.tsx",
+    "old": "  return withoutScheme(origin.trim());",
+    "new": "  return origin.trim();",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "two edits that cancel out count as a different question",
+    "file": "web/src/App.tsx",
+    "old": "  const changed =\n    set.length !== companies.length ||\n    companies.some((company) => !shown.has(asShown(company)));",
+    "new": "  const changed =\n    set.length !== companies.length || set.some((c, i) => c !== companies[i]);",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  }
+]
