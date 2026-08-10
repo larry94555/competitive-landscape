@@ -11,6 +11,7 @@
 //! diverge; one generated copy cannot.
 
 pub mod analysis;
+pub mod context;
 pub mod coverage;
 pub mod examples;
 pub mod extract;

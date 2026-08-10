@@ -1,0 +1,285 @@
+[
+  {
+    "name": "a claim arrives without the label that resolves it",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "                    \"- {who}{} [{}] ({} confidence, as of {})\",\n                    claim.text,\n                    claim.source_label,",
+    "new": "                    \"- {who}{} {} ({} confidence, as of {})\",\n                    claim.text,\n                    \"\",",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the sources index loses its URLs, so nothing can be checked",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "            \"- **[{}]** {} — <{}> (read {}; {}){NEWLINE}\",\n            source.label,\n            source.title,\n            source.url,",
+    "new": "            \"- **[{}]** {} — <{}> (read {}; {}){NEWLINE}\",\n            source.label,\n            source.title,\n            \"\",",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a quote is shortened, so a verbatim span stops being one",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "    quote.split_whitespace().collect::<Vec<_>>().join(\" \")",
+    "new": "    quote.split_whitespace().take(3).collect::<Vec<_>>().join(\" \") + \"...\"",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the opening line goes, and a paste becomes a wall of text",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "    paste.line(&format!(\n        \"{OPENING_LINE}{NEWLINE}{NEWLINE}---{NEWLINE}{NEWLINE}\"\n    ));",
+    "new": "    paste.line(&format!(\"# Report{NEWLINE}{NEWLINE}\"));",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the address of our inference server travels with the document",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "        \"- Produced by: Landscape, prompt version {}{NEWLINE}\",\n        report.prompt_version",
+    "new": "        \"- Produced by: Landscape, model `{}`, prompt version {}{NEWLINE}\",\n        report.model_id,\n        report.prompt_version",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a section nothing was found for stops saying what was checked",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "            if !section.checked.is_empty() {\n                let _ = writeln!(out);\n                let _ = writeln!(out, \"Checked:\");",
+    "new": "            if false {\n                let _ = writeln!(out);\n                let _ = writeln!(out, \"Checked:\");",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a company's name is dropped, so two prices become unattributable",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "                let who = if report.subjects.len() > 1 && !claim.subject.is_empty() {",
+    "new": "                let who = if false && !claim.subject.is_empty() {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a report too long to paste is cut in silence",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "            paste.dropped_sections.push(section.title.as_str());",
+    "new": "            let _ = &section;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the substitution that decided every query is not disclosed",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "    if let Some(interpreted) = &report.interpreted {",
+    "new": "    if let Some(interpreted) = None::<&crate::report::Interpreted> {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a source's standing is described in this file's own words",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "            source.disposition.reader_description()",
+    "new": "            \"a page\"",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "an unfinished run hands out half a report",
+    "file": "crates/landscape-api/src/routes.rs",
+    "old": "    if analysis.status != AnalysisStatus::Complete {\n        return Err(ApiError::NotFound);\n    }",
+    "new": "    if false {\n        return Err(ApiError::NotFound);\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "the report is served as JSON, so a paste is a quoted string",
+    "file": "crates/landscape-api/src/routes.rs",
+    "old": "            \"text/markdown; charset=utf-8\",",
+    "new": "            \"application/json\",",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "the button is offered before there is a whole report to paste",
+    "file": "web/src/App.tsx",
+    "old": "      {report && isTerminal(showing_status) && <CopyAsContext id={analysis.id} />}",
+    "new": "      {<CopyAsContext id={analysis.id} />}",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a browser that refuses the clipboard leaves the reader with nothing",
+    "file": "web/src/App.tsx",
+    "old": "      setState(\"idle\");\n      setFallback(markdown);",
+    "new": "      setState(\"idle\");",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the server is asked a second time for bytes already in hand",
+    "file": "web/src/App.tsx",
+    "old": "      await navigator.clipboard.writeText(markdown);\n      setState(\"copied\");\n    } catch {\n      setState(\"idle\");\n      setFallback(markdown);",
+    "new": "      await navigator.clipboard.writeText(markdown);\n      setState(\"copied\");\n    } catch {\n      setState(\"idle\");\n      setFallback(await getContext(id));",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the size check ignores what is still owed, so the bound is not one",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "        if self.out.len() + block.len() + self.reserve > MAX_BYTES {",
+    "new": "        if self.out.len() + block.len() > MAX_BYTES {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the heading is written straight out, unbudgeted",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "    fn line(&mut self, block: &str) {\n        if !self.take(block) {\n            self.dropped_lines += 1;\n        }\n    }",
+    "new": "    fn line(&mut self, block: &str) {\n        self.out.push_str(block);\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a source that will not fit takes the whole index with it",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "        if out.len() + line.len() > share {\n            paste.dropped_sources += 1;\n            continue;\n        }",
+    "new": "        if out.len() + line.len() > share {\n            break;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the sections are written before the index they cite",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "    paste.reserve += sources.len();",
+    "new": "    paste.reserve += 0;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a claim whose source did not fit is printed anyway",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "                if !kept.contains(claim.source_label.as_str()) {\n                    *dropped_claims += 1;\n                    continue;\n                }",
+    "new": "                if false {\n                    *dropped_claims += 1;\n                    continue;\n                }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the index may take the whole budget, leaving no findings under it",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "    let share = (MAX_BYTES.saturating_sub(paste.reserve)) / SOURCES_SHARE;",
+    "new": "    let share = MAX_BYTES.saturating_sub(paste.reserve);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a section with every claim removed is printed as an empty heading",
+    "file": "crates/landscape-core/src/context.rs",
+    "old": "        if !anything || !paste.take(&block) {",
+    "new": "        if !paste.take(&block) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  }
+]

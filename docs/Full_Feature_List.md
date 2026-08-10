@@ -69,12 +69,12 @@ only you can do; they are listed at the bottom and are not counted anywhere.
 | State | What it means | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
 | [**S1**](#s1--ready-for-a-guided-demo) | Ready for a guided demo | 39 | 39 | **0** | **100%** |
-| [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 20 | 19 | **1** | **95%** |
-| [**S3**](#s3--ready-for-use) | Friendly users find no issue | 26 | 1 | **25** | **4%** |
+| [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 19 | 19 | **0** | **100%** |
+| [**S3**](#s3--ready-for-use) | Friendly users find no issue | 26 | 2 | **24** | **8%** |
 | [**S4**](#s4--ready-for-general-use) | Promotable, word-of-mouth quality | 11 | 0 | **11** | **0%** |
 | [**S5**](#s5--general-use-free-mode) | Stable, email signup, community | 15 | 0 | **15** | **0%** |
 | [**S6**](#s6--general-use-full-mode) | Notifications and paid subscriptions | 21 | 0 | **21** | **0%** |
-| | **Total** | **132** | **59** | **73** | **45%** |
+| | **Total** | **131** | **60** | **71** | **46%** |
 | | *Getting it onto a host (not a state)* | *3* | *0* | *3* | *0%* |
 
 **The shape of that table is the answer to "how far are we".** **S1 is complete** — the guided
@@ -158,7 +158,7 @@ them back into a single sentence.
 
 | Feature | State | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
-| **The search channel** — `landscape-search`, SearXNG or equivalent, off-site sources | S2 | **5** | **4** | **1** | 80% |
+| **The search channel** — `landscape-search`, SearXNG or equivalent, off-site sources | S2 | 4 | **4** | 0 | **100%** |
 | Candidate generation — turn a search result set into scored candidates for the gate | S2 | 2 | 2 | 0 | 100% |
 | Competitor set derivation — one idea to several companies, with why each was chosen | S2 | 3 | **3** | 0 | **100%** |
 | Vocabulary resolution — a reader's words to a category the pipeline can search | S2 | 2 | 2 | 0 | 100% |
@@ -168,7 +168,7 @@ them back into a single sentence.
 | Honest "no public information" at the level of a whole competitor set | S2 | 1 | 1 | 0 | 100% |
 | Fetch cache and per-source extraction cache — two readers of one competitor share work | S2 | 2 | 2 | 0 | 100% |
 | Conditional GET and a per-analysis fetch cap | S2 | 1 | 1 | 0 | 100% |
-| | | **20** | **19** | **1** | **95%** |
+| | | **19** | **19** | **0** | **100%** |
 
 **What the two clarifying-question PRs bought, and what §3 still describes.** The row is
 counted complete because what S2 needs is a run that cannot converge saying so in terms a reader
@@ -193,19 +193,21 @@ set: it is about the *first* reader coming back tomorrow rather than the second 
 and a page past its hour costs a question rather than a download. The per-analysis budget went
 with it, because everything else in that crate bounds one request and nothing bounded a run.
 
-**The search-channel row was estimated at four PRs and has taken five, which is recorded here
-rather than absorbed.** The fifth is [BENCHMARKS.md](BENCHMARKS.md) Run 42: every path that
-reported a failed search told a reader *"that is usually temporary - try again"*, which is true
-of a timeout and false of the most likely first experience of a configured engine — a SearXNG
-that has not opted into JSON refuses **every** query, for ever. A refusal, a rate limit and a
-silence are three different instructions now, and the whole-run refusal has its own kind rather
-than a longer sentence, because the interface renders from the kind.
+**The search-channel row closed, and the way it closed is worth stating.** Its last software
+PR is [BENCHMARKS.md](BENCHMARKS.md) Run 42: every path that reported a failed search told a
+reader *"that is usually temporary - try again"*, which is true of a timeout and false of the
+most likely first experience of a configured engine — a SearXNG that has not opted into JSON
+refuses **every** query, for ever. A refusal, a rate limit and a silence are three different
+instructions now.
 
-**What is left in that row is not code**, and that is why the row does not close. `SearXNG has
-never been run against this` — [B2](../PROJECT_STATUS.md#4-blockers) has said so since the
-channel was built, and Docker was unavailable where this was built. A `403` server and a closed
-port stand in for the two failure modes; they are stand-ins and Run 42 says so. **Off-site
-adapters are the other half of the row** and are also unbuilt.
+**Two things this row used to carry are not software and have moved to the bottom of this page.**
+`SearXNG has never been run against this` — [B2](../PROJECT_STATUS.md#4-blockers) has said so
+since the channel was built — and off-site adapters wait on the source-terms audit, which
+has to be read in a browser. Neither is a pull request. They sat inside the estimate for four
+changes, which meant S2 could not reach 100% however much was built, and a change that raised the
+estimate to match the work cancelled that work out of the number. **The rule this page opens
+with is that these are software PRs only**, and it now applies to S2 as it already did to the
+concierge interviews and to deployment.
 
 **The set derivation row closes with the half of §5.5 nobody could act on.** Four runs built the
 derivation — every company in the report carries the countable reason it is there, every company
@@ -265,12 +267,20 @@ and the measurement that decided against a headless browser.
 | Rendering ladder tiers 2–4 — embedded state, then the rest | S3 | 2 | 1 | **1** | 50% |
 | Latency work — section-parallel generation, prompt-prefix stabilisation | S3 | 2 | 0 | **2** | 0% |
 | "What people are saying" — Hacker News and GitHub only, with named exclusions | S3 | 2 | 0 | **2** | 0% |
-| **Copy as context** — the whole report as clean Markdown, sized to paste elsewhere | S3 | 1 | 0 | **1** | 0% |
-| | | **26** | **1** | **25** | **4%** |
+| **Copy as context** — the whole report as clean Markdown, sized to paste elsewhere | S3 | 1 | **1** | 0 | **100%** |
+| | | **26** | **2** | **24** | **8%** |
 
-**Copy as context is the cheapest row on this page and worth pulling forward.** It is the feature
-that settles what the product *is*: not a worse chatbot, but the evidence file a chatbot cannot
-assemble.
+**Copy as context was the cheapest row on this page and it is done** —
+[BENCHMARKS.md](BENCHMARKS.md) Run 43. It was pulled forward because it settles what the product
+*is*: not a worse chatbot, but the evidence file a chatbot cannot assemble. A finished report
+hands its whole self to whatever assistant a reader already pays for, with a URL and a date
+against every sentence.
+
+**It was pulled forward for a second reason, and that one is about S2.** S2's last row cannot be
+closed from a keyboard — it needs a search engine actually answering, and off-site adapters wait
+on [B4](../PROJECT_STATUS.md#4-blockers), which is a reading job only the founder can do. Rather
+than leave a state that is 95% done blocking everything, the cheapest unblocked row in the next
+state moved.
 
 ---
 
@@ -369,13 +379,16 @@ a code change, that is a defect to fix rather than a task to schedule, and it be
 
 ## What only you can do
 
-Neither of these is a pull request, and neither blocks a state:
+None of these is a pull request. They do not appear in any percentage above, because those
+count software and this is not software — but two of them stand between a finished state and a
+true one, and the table says which:
 
 | What | Why it matters |
 |---|---|
 | **The concierge five** | ≥5 hand-made reports delivered to real founders, reactions recorded. The highest-risk open item in the project: everything since Phase 0 rests on an unvalidated assumption about the report, the buyer and the price |
 | **Source-terms audit** | Reddit, X, YouTube, Stack Exchange, review-platform `robots.txt`. Two of these can invalidate a planned feature, and the discovery ranking is written against an assumption until they are read |
 | **Merchant-of-record decision** | Stripe leaves tax registration with you; Paddle absorbs it at a higher fee. Must be recorded before any billing code is written |
+| **Run the search engine once** | Every line of the search channel is built and tested against stand-ins, and no engine has ever answered this application a real query — [B2](../PROJECT_STATUS.md#4-blockers). `docker compose --profile search up -d searxng`, then `SEARX_URL=http://localhost:8888`. What a first run says when it goes wrong is built for exactly this ([BENCHMARKS.md](BENCHMARKS.md) Run 42); what it says when it works, nobody has seen |
 
 ---
 

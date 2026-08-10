@@ -33,6 +33,152 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 43 — the evidence file a chatbot cannot assemble
+
+**Date:** 2026-08-10 · **Where:** this laptop · **Model:** none. Every byte here is a field of
+a report that already exists.
+
+`Full_Feature_List.md` nominates its own next item, and has for four states:
+
+> **Copy as context is the cheapest row on this page and worth pulling forward.** It is the
+> feature that settles what the product *is*: not a worse chatbot, but the evidence file a
+> chatbot cannot assemble.
+
+`IDEA_ANALYSIS.md` §5 says why:
+
+> Most readers evaluating an idea already pay for a frontier chatbot, and the correct response
+> is to **feed it rather than compete with it.** … We are not a worse chatbot. We are the
+> **evidence file a chatbot cannot assemble**, and the reader's assistant is better with it
+> than without it.
+
+So a finished report now offers one button, and what it puts on the clipboard is the whole
+thing as Markdown — every claim with the span it came from, every source with a URL and a date.
+
+### It is Rust, and that is the whole point of putting it there
+
+The page already renders this data. A second renderer in TypeScript would be a second set of
+decisions about **what a disposition is called** and **when a company's name is worth
+printing** — register entry 51, *a copy of a rule is a rule that agrees today*, which has cost
+this project three rounds of review in other places. `Disposition::reader_description` writes
+those words once and this reads them, so `curl`, the button and the page cannot drift.
+
+```bash
+curl -s localhost:8787/api/analyses/<id>/context
+```
+
+`text/markdown; charset=utf-8`, so what comes back is the file rather than a file inside a
+quoted string.
+
+### What it will not do
+
+**Say anything the report does not.** Every line is a field, a label, or one of eight fixed
+headings. No summarising, no re-ordering by importance, no judgement about a publisher — the
+constraints `FACT_CHECKING.md` §3.2.5 puts on a report are not relaxed by changing the file
+extension.
+
+**Edit a quote.** Newlines inside a `>` block would end the quote, so whitespace collapses;
+nothing else changes and no ellipsis is added. **A verbatim span that has been shortened is not
+a verbatim span**, which is the only reason `Claim` carries one.
+
+**Stop halfway in silence.** `MAX_BYTES` is 256 KiB — eight times the largest report this
+pipeline can build, which measures **32 KiB** for six companies with every section full, and a
+test asserts that rather than the docstring claiming it. When the bound is reached the document
+says which sections are missing and where the rest of it is.
+
+**And "bound" was a word rather than a fact.** The first version checked the size of section
+blocks and then appended the heading, the sources index and the closing note unconditionally.
+Titles, URLs, subjects and report notes all come from pages we did not write, so a report could
+pass the check and leave by any margin at all: review measured **882 KiB against a documented
+256 KiB**, and the regression I had written even permitted `MAX_BYTES + 8192`, which is the
+assertion bending to fit the implementation.
+
+Every push goes through one budgeted writer now — heading lines, section blocks and sources
+one at a time, so a single page with a preposterous title costs its own line rather than the
+whole index. Room for the closing note is **reserved before anything else is written**, because
+that note is what stops a truncated file from reading as a complete one; the caller's permalink
+is added to the reserve rather than assumed to be small. `md.len() <= MAX_BYTES` is asserted for
+an oversized subject, an oversized interpreted line, oversized notes, oversized sources, an
+absurd permalink, and a document packed to its last byte.
+
+**And the fix for that produced the defect it was meant to prevent.** With the writer
+budgeting in document order, sections could take the whole allowance and the sources index be
+refused at the end — leaving a file full of claims citing `[S1]` with no `S1` anywhere in it.
+A citation that does not resolve is worse than no citation: it looks checkable and is not, which
+is the whole reason `Report::dangling_source_labels` exists, and this reproduced it by
+truncation.
+
+The index is chosen **first** now and the sections are written into what is left, so the thing
+that makes a claim checkable is never the thing that gets dropped. It may take at most half the
+budget, because the opposite failure is just as useless — an evidence index with no findings
+under it is not a report either — and a claim whose source did not survive is not printed at
+all, counted in the closing note instead. A section that loses every claim that way is dropped
+whole: a heading with nothing under it cannot be told from one where nothing was found, and that
+second thing is a finding.
+
+A test walks the rendered document and pairs every `[S1]` a claim cites against every `**[S1]**`
+the index resolves, which is the invariant stated rather than approximated.
+
+**That last case is the one the harness had to teach me.** With section blocks a few kilobytes
+each, the greedy fill happens to stop kilobytes short of the bound, so the note fits whether or
+not room was kept for it — the mutation that removed the reserve survived. Twenty thousand
+tiny sections pack tight, the fill stops a handful of bytes short, and the note no longer fits.
+A bound is only tested by the shape that reaches it exactly.
+
+**Hand out half a report.** An analysis that is still running **has** a report — `save_progress`
+stores one while the status is `Running`, which is how a reader watches it fill in — so
+checking for its presence was never the same question as *is this finished*, and the endpoint
+was answering the wrong one. It requires `Complete` now. Review found it; the test that was
+supposed to cover it only ever tried a queued run with no report at all.
+
+**Point at sections that do not exist.** §5's opening line ends *"argue with the framing
+questions in sections 6 and 7"*. Those are Phase 4. Sending an assistant to read them would be
+the document lying about its own contents on line one, so that clause is gone and the part that
+matters is not: *tell me what the evidence does not cover*.
+
+### Running it found what no test would have
+
+Every unit test passed. Then the real thing, against a real company:
+
+```text
+- Produced by: Landscape, model `http://127.0.0.1:8080`, prompt version 1
+```
+
+`Report::model_id` is set to `llm.base()` — **the address of the inference server**. On a
+laptop that is harmless. On the deployed box it is `LLAMA_URL`, an internal host, and this is
+the one document in the product written to be pasted into somebody else's service.
+
+Nothing else renders that field, so nothing had ever exposed it. The provenance line now says
+the product and the prompt version, and a test asserts that no part of an address reaches the
+document. The underlying field is still wrong for every other consumer and is written up
+separately rather than fixed in passing.
+
+### And the first real browser refused the clipboard
+
+The fallback was written on the theory that `navigator.clipboard` is absent outside a secure
+context and refusable by policy. The first browser it was tried in **refused**, and the reader
+still got the document — the text appears on the page, selectable, with a sentence saying to
+copy it by hand. A button that silently does nothing would have looked exactly like a working
+one.
+
+### And the README's own test caught the documentation
+
+The first push documented the endpoint as a fenced `curl -s .../analyses/<id>/context`.
+`every_documented_curl_actually_works` boots the binary and runs every fenced command in
+`README.md` **exactly as written** — and `<id>` is not a placeholder to a shell, it is a
+redirection from a file named `id`. The command never ran at all.
+
+That gate exists because two documented commands had previously been wrong in ways only a reader
+would have found, and it was right a third time. An endpoint that needs an id from a previous
+call cannot be a standalone fenced command, so the README names it in prose and says why, and the
+runnable two-step is in the walkthrough where a shell variable carries the value.
+
+| | Rust tests | frontend tests | catalogue |
+|---|---|---|---|
+| Run 42 | 968 | 74 | 17, all caught |
+| now | **992** | **79** | **22**, all caught |
+
+---
+
 ## Run 42 — an engine that refuses is not an engine that is slow
 
 **Date:** 2026-08-10 · **Where:** this laptop · **Model:** none. Every sentence here is

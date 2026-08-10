@@ -7,6 +7,7 @@ use std::sync::Arc;
 
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
+use axum::response::IntoResponse as _;
 use axum::routing::{any, get, post};
 use axum::{Json, Router};
 use landscape_core::{Analysis, AnalysisId, AnalysisStatus, NewAnalysis};
@@ -73,6 +74,11 @@ fn routes(state: AppState) -> Router {
         .route("/api/examples", get(list_examples))
         .route("/api/analyses", post(create_analysis))
         .route("/api/analyses/{id}", get(get_analysis))
+        // The same report as one Markdown file, for a reader to paste into whatever
+        // assistant they already pay for — `IDEA_ANALYSIS.md` §5. Served rather than built
+        // in the browser so the page, this, and `landscape context` cannot come to different
+        // views of what a source's standing is called.
+        .route("/api/analyses/{id}/context", get(get_context))
         // Server-sent events for one analysis. A reader watching a report fill in
         // is the difference between ninety seconds of spinner and twenty of
         // content — PRODUCT_SPEC.md §2.1A.
@@ -312,6 +318,45 @@ async fn get_analysis(
     Ok(Json(state.store.get(id).await?))
 }
 
+/// The finished report as Markdown, or a reason it is not available yet.
+///
+/// **`text/markdown` rather than JSON**, because the whole point is that the bytes are
+/// pasteable: a reader who does not use our button can `curl` this, and what comes back is
+/// the file rather than a file inside a quoted string.
+///
+/// **Only a `Complete` analysis, and "has a report" was the wrong test for that.**
+/// `save_progress` deliberately stores a report while the status is still `Running` — that is
+/// how a reader watches one fill in — so checking for `Some(report)` handed out half a
+/// document with a `200`. Half a report is answered from as confidently as a whole one, and
+/// an assistant reading it has no way to tell. A `Failed` run is refused for the same reason:
+/// what it has is where the pipeline stopped, not a report.
+async fn get_context(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<axum::response::Response, ApiError> {
+    // Same reading as `get_analysis`: a mistyped reference and a deleted one are one
+    // situation from the reader's side.
+    let id = id
+        .parse::<uuid::Uuid>()
+        .map(AnalysisId)
+        .map_err(|_| ApiError::NotFound)?;
+    let analysis = state.store.get(id).await?;
+    if analysis.status != AnalysisStatus::Complete {
+        return Err(ApiError::NotFound);
+    }
+    let report = analysis.report.as_ref().ok_or(ApiError::NotFound)?;
+
+    let markdown = landscape_core::context::of(report, Some(&format!("/a/{}", id.0)));
+    Ok((
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/markdown; charset=utf-8",
+        )],
+        markdown,
+    )
+        .into_response())
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 // Panicking IS how a test reports failure. The lints stay denied everywhere else.
@@ -347,6 +392,170 @@ mod tests {
 
     /// A prompt the API accepts, so a test about the cap is not also a test about parsing.
     const IDEA: &str = "an app that helps small farms sell to restaurants";
+
+    async fn text_body(res: axum::response::Response) -> String {
+        let bytes = axum::body::to_bytes(res.into_body(), 1 << 20)
+            .await
+            .expect("read body");
+        String::from_utf8(bytes.to_vec()).expect("body is utf-8")
+    }
+
+    /// An analysis with a finished report in it, so the context endpoint has something to
+    /// render. The report is deliberately minimal: what this endpoint owes is the *bytes*
+    /// `landscape_core::context` produced, and that module's own tests cover the rendering.
+    async fn a_finished_analysis(store: &Arc<dyn Store>) -> AnalysisId {
+        let analysis = store
+            .enqueue(&NewAnalysis::parse(IDEA).expect("a valid prompt"))
+            .await
+            .expect("enqueued");
+        let report = landscape_core::Report {
+            subject: "basecamp.com".to_owned(),
+            searched_as: "basecamp.com".to_owned(),
+            generated_at: chrono::Utc::now(),
+            model_id: "test".to_owned(),
+            prompt_version: 1,
+            subjects: Vec::new(),
+            sections: vec![landscape_core::report::Section {
+                key: "pricing".to_owned(),
+                title: "Pricing & packaging".to_owned(),
+                status: landscape_core::report::SectionStatus::Populated,
+                claims: vec![landscape_core::report::Claim {
+                    text: "Pro costs $15".to_owned(),
+                    subject: "https://basecamp.com".to_owned(),
+                    source_label: "S1".to_owned(),
+                    evidence_quote: "Pro $15 per user".to_owned(),
+                    confidence: landscape_core::report::Confidence::High,
+                    as_of: chrono::Utc::now(),
+                }],
+                checked: Vec::new(),
+                notes: Vec::new(),
+            }],
+            sources: vec![landscape_core::source::Source {
+                label: "S1".to_owned(),
+                url: "https://basecamp.com/pricing".to_owned(),
+                title: "Pricing".to_owned(),
+                disposition: landscape_core::source::Disposition::Primary,
+                fetched_at: chrono::Utc::now(),
+                independence_group: "basecamp.com".to_owned(),
+            }],
+            interpreted: None,
+            notes: Vec::new(),
+        };
+        // Claimed then completed, which is the path a worker takes - a report only reaches a
+        // reader through `complete`, and this endpoint must not find one any other way.
+        store.claim_next().await.expect("claimable");
+        store
+            .complete(analysis.id, 1, &report)
+            .await
+            .expect("completed");
+        analysis.id
+    }
+
+    fn get_context_request(id: &str) -> Request<Body> {
+        Request::builder()
+            .uri(format!("/api/analyses/{id}/context"))
+            .body(Body::empty())
+            .expect("build request")
+    }
+
+    #[tokio::test]
+    async fn the_report_comes_back_as_markdown_a_reader_can_paste() {
+        // **`text/markdown`, not JSON.** The whole point is that the bytes are pasteable: a
+        // reader who does not use the button can `curl` this and get the file rather than a
+        // file inside a quoted string.
+        let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+        let id = a_finished_analysis(&store).await;
+        let res = router(AppState::new(Arc::clone(&store)))
+            .oneshot(get_context_request(&id.0.to_string()))
+            .await
+            .expect("response");
+
+        assert_eq!(res.status(), StatusCode::OK);
+        assert_eq!(
+            res.headers()
+                .get("content-type")
+                .and_then(|v| v.to_str().ok()),
+            Some("text/markdown; charset=utf-8"),
+        );
+        let body = text_body(res).await;
+        assert!(
+            body.starts_with(landscape_core::context::OPENING_LINE),
+            "{body}"
+        );
+        assert!(body.contains("Pro costs $15"), "{body}");
+        assert!(body.contains("https://basecamp.com/pricing"), "{body}");
+        // The permalink is what the closing note points at when a report is too big to fit,
+        // and it is the only place this endpoint knows the id.
+        assert!(body.contains(&format!("/a/{}", id.0)), "{body}");
+    }
+
+    #[tokio::test]
+    async fn an_analysis_with_no_report_yet_has_nothing_to_paste() {
+        // Half a report handed to an assistant is answered from as confidently as a whole
+        // one, so a run still going is a `404` rather than a short document.
+        let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+        let queued = store
+            .enqueue(&NewAnalysis::parse(IDEA).expect("a valid prompt"))
+            .await
+            .expect("enqueued");
+        let res = router(AppState::new(Arc::clone(&store)))
+            .oneshot(get_context_request(&queued.id.0.to_string()))
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn a_run_still_going_has_nothing_to_paste_even_though_it_has_a_report() {
+        // **`save_progress` stores a report while the status is `Running`** - that is how a
+        // reader watches one fill in - so "has a report" was never the same question as
+        // "is finished", and this endpoint was answering the wrong one.
+        let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
+        let a = store
+            .enqueue(&NewAnalysis::parse(IDEA).expect("a valid prompt"))
+            .await
+            .expect("enqueued");
+        store.claim_next().await.expect("claimable");
+        let half = landscape_core::Report {
+            subject: "basecamp.com".to_owned(),
+            searched_as: "basecamp.com".to_owned(),
+            generated_at: chrono::Utc::now(),
+            model_id: "test".to_owned(),
+            prompt_version: 1,
+            subjects: Vec::new(),
+            sections: Vec::new(),
+            sources: Vec::new(),
+            interpreted: None,
+            notes: Vec::new(),
+        };
+        store.save_progress(a.id, 1, &half).await.expect("saved");
+        let running = store.get(a.id).await.expect("read back");
+        assert_eq!(
+            running.status,
+            AnalysisStatus::Running,
+            "the fixture has to be the case under test"
+        );
+        assert!(running.report.is_some(), "and it has to carry a report");
+
+        let res = router(AppState::new(Arc::clone(&store)))
+            .oneshot(get_context_request(&a.id.0.to_string()))
+            .await
+            .expect("response");
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn a_reference_that_is_not_ours_is_not_found_rather_than_explained() {
+        // The same reading `get_analysis` takes: telling a prober that their id was the
+        // wrong *shape* tells them what our ids look like.
+        for reference in ["not-a-uuid", "0195b0d0-0000-7000-8000-000000000000"] {
+            let res = app()
+                .oneshot(get_context_request(reference))
+                .await
+                .expect("response");
+            assert_eq!(res.status(), StatusCode::NOT_FOUND, "{reference}");
+        }
+    }
 
     #[tokio::test]
     async fn every_chip_a_reader_can_click_is_a_prompt_this_endpoint_accepts() {

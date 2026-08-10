@@ -16,6 +16,7 @@ python3 scripts/mutate.py docs/mutations/asking-whether-it-changed.json
 python3 scripts/mutate.py docs/mutations/where-the-roles-actually-live.json
 python3 scripts/mutate.py docs/mutations/the-set-is-editable.json
 python3 scripts/mutate.py docs/mutations/refused-is-not-slow.json
+python3 scripts/mutate.py docs/mutations/copy-as-context.json
 ```
 
 **Why these are committed when the register says to keep them in a scratchpad.** Most are
@@ -137,6 +138,26 @@ collapse one level further down: the per-query line said *"no answer"* beside a 
 had answered `408` to. Three more followed a round later, when *"a 200 we cannot parse"* turned out to be
 two events with opposite remedies. Six of the seventeen exist because a fix was too coarse in
 exactly the way the change was about — which is the file doing its job three rounds running.
+
+`copy-as-context.json` caught a **test** rather than the code. Its first entry takes the source
+label off every claim, and nothing failed — because the assertion looked for `[S1]`
+*somewhere* in the document, and the sources index at the bottom lists every label. The claims
+could all have gone out unlabelled. That is the same shape as the frontend test that looked for a
+company name on a page which repeats it, and it is the argument for writing the mutation before
+believing the test.
+
+It did it again after review. Three entries were added for the two defects review found, and one
+of them — *the size check ignores what is still owed* — came back `MISSED` against a suite
+that already had six assertions about the bound. Every one of them used section blocks of a few
+kilobytes, and a greedy fill with coarse blocks stops kilobytes short of its limit, so the
+reserved room for the closing note was never the thing keeping the file honest. Twenty thousand
+tiny sections pack tight enough to prove it. **A bound is only tested by the shape that reaches
+it exactly**, and nothing but the harness was going to say so.
+
+And once more after that: a twenty-second entry — *a section with every claim removed is
+printed as an empty heading* — survived a suite that already checked dangling citations from
+both directions. Dropping a claim and dropping its whole section are different edits, and only
+one of them had a shape to test against.
 
 **These files are also read backwards.** `scripts/no_live_mutations.py` takes every `new`
 payload as the shape of a defect this repository can recognise, and refuses a working tree that

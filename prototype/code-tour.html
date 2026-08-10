@@ -80,92 +80,93 @@
   // Real excerpts from the committed code. Kept short: a tour that shows whole files
   // shows nothing, because nobody reads a screen of code while being talked at.
   var FILES = {
-    same: {
-      name: "one sentence, every failure",
-      purpose: "True of a timeout.",
+    already: {
+      name: "they already pay for one",
+      purpose: "IDEA_ANALYSIS section 5.",
       lines: [
-        ['s', '  We could not complete 3 of 3.'],
-        ['t', '  That is usually temporary -'],
-        ['t', '  try again.'],
+        ['t', '  Feed it rather than compete'],
+        ['t', '  with it.'],
         ['c', ''],
-        ['f', '// And of nothing else.']
+        ['f', '// We are not a worse chatbot.']
       ]
     },
-    optin: {
-      name: "settings.yml, first paragraph",
-      purpose: "Why the file is checked in.",
+    file: {
+      name: "we are the evidence file",
+      purpose: "The part it cannot assemble.",
       lines: [
-        ['t', '  SearXNG answers 403 to'],
-        ['t', '  format=json until it opts in.'],
+        ['s', '  - Pro costs $15 [S1]'],
+        ['s', '    > Pro $15 per user'],
+        ['s', '  [S1] <basecamp.com/pricing>'],
         ['c', ''],
-        ['f', '// So a first run refuses every'],
-        ['f', '// query. For ever.']
+        ['f', '// A URL and a date on every'],
+        ['f', '// sentence.']
       ]
     },
-    rule: {
-      name: "did the engine answer?",
-      purpose: "HTTP's rule, not SearXNG's.",
+    rust: {
+      name: "rendered in Rust",
+      purpose: "The page draws this too.",
       lines: [
-        ['s', '  refused    it said no'],
-        ['s', '  too fast   429, it said later'],
-        ['s', '  silent     it said nothing'],
+        ['t', '  disposition.reader_description()'],
         ['c', ''],
-        ['f', '// A second provider inherits it.']
+        ['f', '// A second renderer would be a'],
+        ['f', '// second opinion about what'],
+        ['f', '// Attributed means.']
       ]
     },
-    pair: {
-      name: "the query, and why",
-      purpose: "Known, then thrown away.",
+    verbatim: {
+      name: "and it edits nothing",
+      purpose: "Whitespace only.",
       lines: [
-        ['t', '  Failed { query, fault }'],
+        ['t', '  split_whitespace().join(" ")'],
         ['c', ''],
-        ['f', '// The reason was one line from'],
-        ['f', '// where it was needed, and did'],
-        ['f', '// not survive the trip.']
+        ['f', '// A shortened quote is not a'],
+        ['f', '// verbatim quote, which is the'],
+        ['f', '// only reason we carry one.']
       ]
     },
-    reader: {
-      name: "what a stranger is told",
-      purpose: "Only what is theirs.",
+    bound: {
+      name: "256 KiB, and it is reachable",
+      purpose: "A full report is 32.",
       lines: [
-        ['t', '  ours to fix - asking again'],
-        ['t', '  will not change it'],
+        ['s', '  What is not in this file'],
+        ['s', '  2 section(s) are missing'],
         ['c', ''],
-        ['f', '// No variable. No status code.'],
-        ['f', '// A test asserts the absence.']
-      ]
-    },
-    operator: {
-      name: "and what a terminal is told",
-      purpose: "Everything they can act on.",
-      lines: [
-        ['t', '  check SEARX_URL, and that'],
-        ['t', '  settings name json'],
-        ['c', ''],
-        ['f', '// Same event. Two audiences.'],
-        ['f', '// Neither is the other leaked.']
+        ['f', '// A file that stops halfway is'],
+        ['f', '// answered from anyway.']
       ]
     },
     ran: {
       name: "then it was run",
-      purpose: "Every test already passed.",
+      purpose: "Every test had passed.",
       lines: [
-        ['s', '  no report (search_incomplete)'],
-        ['s', '  ...usually temporary'],
+        ['s', '  Produced by: Landscape,'],
+        ['s', '  model http://127.0.0.1:8080'],
         ['c', ''],
-        ['f', '// The whole-run refusal. The'],
-        ['f', '// first thing a reader meets.']
+        ['f', '// model_id is llm.base().'],
+        ['f', '// On the box, that is internal.']
       ]
     },
-    kind: {
-      name: "so the kind carries it",
-      purpose: "The page renders from that.",
+    audience: {
+      name: "nothing had ever drawn it",
+      purpose: "The field was always fine.",
       lines: [
-        ['t', '  Failure::SearchRefused'],
+        ['t', '  what changed was the audience'],
         ['c', ''],
-        ['f', '// Same counts, opposite advice.'],
-        ['f', '// A value earns its place when'],
-        ['f', '// a reader would act on it.']
+        ['f', '// Safe in a database. Safe in'],
+        ['f', '// a response nobody reads. Not'],
+        ['f', '// safe in a file that travels.']
+      ]
+    },
+    refused: {
+      name: "and the browser said no",
+      purpose: "The first one tried.",
+      lines: [
+        ['s', '  would not let us reach the'],
+        ['s', '  clipboard - select it and copy'],
+        ['c', ''],
+        ['f', '// A button that silently does'],
+        ['f', '// nothing looks like one that'],
+        ['f', '// worked.']
       ]
     }
   };
@@ -209,19 +210,19 @@
 
   // Same beat shape as the product films: kind drives timing, action drives the picture.
   var BEATS = [
-    { kind: "recognition", a: "file:same",     c: "One sentence ended every failed search." },
-    { kind: "means",       a: "file:optin",    c: "And the likeliest one is not temporary." },
+    { kind: "recognition", a: "file:already",  c: "The reader already pays for a chatbot." },
+    { kind: "means",       a: "file:file",     c: "So hand it the thing it cannot assemble." },
 
-    { kind: "turn",        a: "file:rule",     c: "Did the engine answer at all?" },
-    { kind: "result",      a: "file:pair",     c: "The reason was known, and dropped." },
+    { kind: "turn",        a: "file:rust",     c: "Rendered once, on the server." },
+    { kind: "result",      a: "file:verbatim", c: "And no quote is edited to fit." },
 
-    { kind: "turn",        a: "file:reader",   c: "A stranger is told only what is theirs." },
-    { kind: "result",      a: "file:operator", c: "The terminal gets the rest." },
+    { kind: "turn",        a: "file:bound",    c: "The bound says what it left out." },
+    { kind: "result",      a: "file:ran",      c: "Then running it found the real defect." },
 
-    { kind: "turn",        a: "file:ran",      c: "Then it was run, and found the last one." },
-    { kind: "result",      a: "file:kind",     c: "Which renders from a kind, not a string." },
+    { kind: "turn",        a: "file:audience", c: "A field nothing had ever drawn." },
+    { kind: "result",      a: "file:refused",  c: "And a browser that refused the clipboard." },
 
-    { kind: "close",       a: "hold",          c: "Refused is not slow." }
+    { kind: "close",       a: "hold",          c: "The evidence file, on the clipboard." }
   ];
 
   // Timings use the same rules as the product films. `prototype/build.py` holds the
@@ -244,7 +245,7 @@
     timers.forEach(clearTimeout); timers = [];
     clearSpot();
     $("capBar").classList.add("on");
-    show("same");
+    show("already");
     BEATS.forEach(function (b) {
       timers.push(setTimeout(function () {
         try { act(b.a); } catch (e) {}
@@ -257,15 +258,15 @@
     }, TOTAL * 1000));
   }
 
-  show("same");
+  show("already");
 
   // The same two globals the product prototype exposes, so record-demo.mjs and build.py
   // work against this page unchanged.
   window.__playDemo = playDemo;
   window.__chapters = [{
     id: "code", n: 1,
-    title: "An engine that refuses is not an engine that is slow",
-    blurb: "Every path that reported a failed search ended with the same sentence \u2014 that is usually temporary, try again \u2014 which is true of a timeout and false of the most likely first experience of a configured engine: SearXNG answers 403 to every query until an instance opts into JSON, so a first run refuses everything, permanently, and the report recommended waiting. Three faults now, split on whether the engine answered at all, which is HTTP's rule rather than a guess about one provider. A reader is told only whether asking again is worth anything; the variable, the file and the status code go to whoever is holding the terminal. Running it against a refusing server found the surface no test reached: the whole-run refusal, which renders from a kind rather than a sentence.",
+    title: "The evidence file a chatbot cannot assemble",
+    blurb: "Most readers evaluating an idea already pay for a frontier chatbot, and IDEA_ANALYSIS \u00a75 says the honest response is to feed it rather than compete with it. A finished report now hands its whole self over as Markdown \u2014 every claim with the verbatim span it came from, every source with a URL and a date. Rendered in Rust rather than in the browser, because the page already draws this data and a second renderer would hold a second opinion about what a source\u2019s standing is called. Quotes lose their line breaks and nothing else; the size bound names the sections it dropped rather than stopping halfway. Running it against a real company found what no test would have: the provenance line was printing the inference server\u2019s address, in the one document written to be pasted into somebody else\u2019s service.",
     seconds: TOTAL + 3
   }];
   window.__beats = BEATS;
