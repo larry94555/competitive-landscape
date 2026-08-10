@@ -145,22 +145,27 @@ fn named_as_a_link(before: &str) -> bool {
     let Some(key) = json_key(head.trim_end()) else {
         return false;
     };
-    JOB_URL_KEYS
-        .iter()
-        .any(|known| key.eq_ignore_ascii_case(known))
+    // **Exactly**, because a JSON key is case-sensitive and `joburl` is a field nobody has
+    // verified. The attribute above is compared the other way round for the same reason: HTML
+    // attribute names are case-insensitive, so `HREF` really is `href`.
+    JOB_URL_KEYS.contains(&key)
 }
 
-/// The attribute name ending here, to the start of the name rather than to the first character
-/// that happens not to be a letter.
+/// The attribute name ending here, read back to its **delimiter** rather than to the first
+/// character somebody thought a name could not contain.
 ///
-/// HTML attribute names take letters, digits, `-`, `_`, `:` and `.`, so all of those are part of
-/// the name: `data-href` is one name and not the word `href` after a hyphen.
+/// HTML5 lets an attribute name hold anything except whitespace and `"`, `'`, `>`, `/`, `=`, so
+/// those are what ends one. A hand-written set of *allowed* characters is the same mistake in a
+/// smaller costume: review's first pass found `data-href` reading as `href` because a hyphen was
+/// missing from it, and its second found `data@href` reading as `href` for the identical reason.
+/// **Listing the delimiters cannot go wrong that way** — a character nobody thought of stays part
+/// of the name, which is the safe direction.
 fn attribute_name(head: &str) -> &str {
     let from = head.len()
         - head
             .chars()
             .rev()
-            .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | ':' | '.'))
+            .take_while(|c| !c.is_whitespace() && !matches!(c, '<' | '>' | '/' | '=' | '"' | '\''))
             .map(char::len_utf8)
             .sum::<usize>();
     &head[from..]
@@ -322,6 +327,13 @@ mod tests {
             r#"<div data-href="https://jobs.ashbyhq.com/SomebodyElse/role">x</div>"#,
             r#"{"competitor-jobUrl":"https://jobs.ashbyhq.com/SomebodyElse/role"}"#,
             r#"{"x_absolute_url":"https://jobs.ashbyhq.com/SomebodyElse/role"}"#,
+            // A character nobody put in the allowed set. `data@href` is one attribute name, and
+            // reading it as `href` is the same defect as reading `data-href` that way.
+            r#"<div data@href="https://jobs.ashbyhq.com/SomebodyElse/role">x</div>"#,
+            r#"<div data.href="https://jobs.ashbyhq.com/SomebodyElse/role">x</div>"#,
+            // A JSON key is case-sensitive, so `joburl` is a field nobody has verified.
+            r#"{"joburl":"https://jobs.ashbyhq.com/SomebodyElse/role"}"#,
+            r#"{"ABSOLUTE_URL":"https://jobs.ashbyhq.com/SomebodyElse/role"}"#,
             r#"<a xlink:href="https://jobs.ashbyhq.com/SomebodyElse/role">x</a>"#,
             // A key nothing opened. Not JSON, and guessing where the name starts is the
             // mistake above.
@@ -348,6 +360,8 @@ mod tests {
         for html in [
             r#"<a href="https://jobs.ashbyhq.com/Linear/069c">Apply</a>"#,
             r#"<a href='http://jobs.ashbyhq.com/Linear/069c'>Apply</a>"#,
+            // An HTML attribute name *is* case-insensitive, unlike a JSON key.
+            r#"<a HREF="https://jobs.ashbyhq.com/Linear/069c">Apply</a>"#,
             r#"{"jobUrl":"https:\/\/jobs.ashbyhq.com\/Linear\/069c"}"#,
             r#"{"applyUrl":"https://jobs.ashbyhq.com/Linear/069c"}"#,
             r#"\"absolute_url\":\"https://jobs.ashbyhq.com/Linear/069c\""#,

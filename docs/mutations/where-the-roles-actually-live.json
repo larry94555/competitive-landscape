@@ -369,19 +369,6 @@
     ]
   },
   {
-    "name": "an attribute whose name merely ends in href counts as one",
-    "file": "crates/landscape-discover/src/boards.rs",
-    "old": "            .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | ':' | '.'))",
-    "new": "            .take_while(char::is_ascii_alphanumeric)",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-discover"
-    ]
-  },
-  {
     "name": "an href is not read as a link",
     "file": "crates/landscape-discover/src/boards.rs",
     "old": "        return attribute_name(head.trim_end()).eq_ignore_ascii_case(\"href\");",
@@ -395,10 +382,10 @@
     ]
   },
   {
-    "name": "a key whose name merely ends in a known one counts",
+    "name": "a key nothing opened is read as a key",
     "file": "crates/landscape-discover/src/boards.rs",
-    "old": "    let inside = head.strip_suffix('\"')?.trim_end_matches('\\\\');\n    let opens = inside.rfind('\"')?;\n    Some(&inside[opens + 1..])",
-    "new": "    let inside = head.strip_suffix('\"')?.trim_end_matches('\\\\');\n    let opens = inside.len()\n        - inside\n            .chars()\n            .rev()\n            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')\n            .count();\n    Some(&inside[opens..])",
+    "old": "    let opens = inside.rfind('\"')?;\n    Some(&inside[opens + 1..])",
+    "new": "    Some(inside.rfind('\"').map_or(inside, |opens| &inside[opens + 1..]))",
     "run": [
       "cargo",
       "nextest",
@@ -408,10 +395,49 @@
     ]
   },
   {
-    "name": "a key nothing opened is read as a key",
+    "name": "an attribute name stops at a character somebody did not think of",
     "file": "crates/landscape-discover/src/boards.rs",
-    "old": "    let opens = inside.rfind('\"')?;\n    Some(&inside[opens + 1..])",
-    "new": "    Some(inside.rfind('\"').map_or(inside, |opens| &inside[opens + 1..]))",
+    "old": "            .take_while(|c| !c.is_whitespace() && !matches!(c, '<' | '>' | '/' | '=' | '\"' | '\\''))",
+    "new": "            .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | ':' | '.'))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "an attribute name runs past its delimiter",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "            .take_while(|c| !c.is_whitespace() && !matches!(c, '<' | '>' | '/' | '=' | '\"' | '\\''))",
+    "new": "            .take_while(|c| !matches!(c, '<' | '>' | '/' | '=' | '\"' | '\\''))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a json key is matched without regard to its case",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "    JOB_URL_KEYS.contains(&key)",
+    "new": "    JOB_URL_KEYS\n        .iter()\n        .any(|known| key.eq_ignore_ascii_case(known))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a key whose name merely ends in a known one counts",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "    let opens = inside.rfind('\"')?;",
+    "new": "    let opens = inside.len()\n        - inside\n            .chars()\n            .rev()\n            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')\n            .count();\n    let opens = opens.wrapping_sub(1);",
     "run": [
       "cargo",
       "nextest",

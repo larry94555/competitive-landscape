@@ -81,8 +81,16 @@ key that cannot tell the two apart is not evidence.
 **And the whole name, to its own boundary.** The first version of that check scanned back only
 over letters, so `data-href="…"` ended in `href` and `{"competitor-jobUrl":"…"}` ended in
 `jobUrl` — and a hyphen is exactly what a competitor widget's attribute or key would put in front
-of a name we trust. An attribute name now runs to its own character set and a JSON key to the
+of a name we trust. An attribute name now runs to its **delimiter** and a JSON key to the
 quote that opened it, so a key nothing opened is not a key.
+
+**A list of allowed characters is that mistake in a smaller costume**, and review found it twice:
+a hyphen was missing from the set, then an `@` was. HTML5 lets an attribute name hold anything
+except whitespace and `"`, `'`, `>`, `/`, `=`, so those are what ends one — and listing the
+*delimiters* cannot fail that way, because a character nobody thought of stays part of the name,
+which is the safe direction. A JSON key is compared **case-sensitively**, because it is
+case-sensitive: `joburl` is a field nobody has verified. An HTML attribute name is compared the
+other way round, because that one really is case-insensitive.
 
 A URL is also **parsed** — scheme, host, one path segment — and only where it *begins* a quoted
 value, which is what `href="…"` and `{"url":"…"}` look like and what `href="/out?to=https://…"`
