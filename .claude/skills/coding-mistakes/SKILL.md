@@ -2122,6 +2122,39 @@ when a limit is scoped to a unit of work, name the unit at every place you const
 
 ---
 
+## 59. A feature that is built, admitted, and then never reached
+
+**Found:** by running the thing against three real sites before writing it up.
+
+Discovery learned to find the applicant-tracking board a company's careers page links to. Every
+part worked: the link was extracted, the URL reduced to the board's root, the candidate admitted
+past the off-site filter with its own standing. Then `landscape discover` was run against the
+three real companies it had been built for, and **not one of them showed a board**.
+
+The cap admits one page per question first and spends what is left in the same order. Hiring's
+first slot goes to the company's own careers page — which is *how the board was found* — so a
+board can only ever compete for a second slot, and the questions that sort earlier take those.
+The feature was complete and inert.
+
+Nothing about that is visible in a diff, in a unit test, or in a mutation catalogue: every piece
+was individually correct and the composition was not. **The only thing that finds it is running
+the feature the way a user gets it**, which for this project is one command against a real site.
+
+The tempting fix — rank a board above the page that named it — is also wrong, and the same three
+sites say so: `linear.app/careers` lists its roles and its board reads as nothing, while
+`vercel.com/careers` is navigation chrome and its roles are entirely on Greenhouse. **Which is
+which cannot be known before the page is read**, so both are admitted and the reading decides.
+
+**Rule:** before writing up a feature, run it end to end and look at the output with your own
+eyes. A test proves a unit does what you meant; only the real thing proves the units add up to a
+feature a reader sees. And when a ranking has to choose between two sources, check whether the
+information needed to choose exists yet — if it does not, admit both rather than guessing.
+
+> **Ask this:** *have I actually seen this work, or only seen its parts pass? And am I ranking on
+> something I will not know until later?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

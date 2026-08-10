@@ -2,8 +2,8 @@
   {
     "id": "code",
     "n": 1,
-    "title": "Asking whether it changed",
-    "blurb": "`Page` has carried an ETag since the first fetch in this crate and nothing ever sent it back, so a page past its hour cost a whole download to learn that nothing about it had changed. It is asked about now, and a 304 carries no body in either direction — and a page the origin confirms is dated now rather than when we first read it. The other half of the row is a bound on the run: everything else in the crate bounds one request, and eight pages times three companies is an accident of arithmetic rather than a limit.",
-    "seconds": 33.8
+    "title": "Where the roles actually live",
+    "blurb": "Three of four real careers pages keep their vacancies on somebody else’s applicant-tracking board, so a careers page that links away was a company whose list we were not reading. A board is followed only when the company’s own page links to it — never constructed from its name, because a guessed slug belonging to somebody else would put another company’s vacancies on this report — and it is read at Attributed rather than Primary, because the bytes are a stranger’s even when the authorship is not.",
+    "seconds": 34.7
   }
 ]

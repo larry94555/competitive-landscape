@@ -631,11 +631,21 @@ struct ToRead {
 }
 
 impl ToRead {
-    /// A page discovery reached on the subject's own domain. The company said it.
+    /// A page discovery reached, at the standing the route it was reached by earns.
+    ///
+    /// **Every route but one is the subject's own domain**, and a page the company serves is
+    /// `Primary` — the only class permitted to set a value in a comparison table. The exception
+    /// is an applicant-tracking board: the bytes come from a stranger's host, so it is not the
+    /// company's own page, but the company's own careers page is what named it, so authorship is
+    /// not in doubt either. That is `Attributed`, exactly — and reading it any higher would
+    /// widen what `Primary` means in order to fit a feature into it.
     fn probed(candidate: &landscape_discover::rank::Candidate) -> Self {
         Self {
             candidate: candidate.clone(),
-            disposition: Disposition::Primary,
+            disposition: match candidate.via {
+                landscape_discover::rank::Via::Board => Disposition::Attributed,
+                _ => Disposition::Primary,
+            },
         }
     }
 
@@ -1760,6 +1770,34 @@ mod joining {
             fetcher: Box::leak(Box::new(landscape_fetch::Fetcher::new())),
             llm: Box::leak(Box::new(llm())),
             memo: Box::leak(Box::new(memo::Extractions::new())),
+        }
+    }
+
+    #[test]
+    fn a_board_is_read_at_the_standing_a_stranger_s_server_earns() {
+        // **`Primary` means the company's own domain, and this feature does not widen it.**
+        // A board's bytes come from somebody else's host, so it cannot set a value in a
+        // comparison table — but the company's own careers page is what named it, so authorship
+        // is not in doubt either, and that is exactly what `Attributed` is for.
+        use landscape_discover::rank::{Candidate, Via};
+        let board = Candidate {
+            url: "https://jobs.ashbyhq.com/Linear".to_owned(),
+            answers: Answers::Direction,
+            via: Via::Board,
+        };
+        assert_eq!(ToRead::probed(&board).disposition, Disposition::Attributed);
+
+        for via in [Via::LlmsTxt, Via::Sitemap, Via::Probe] {
+            let own = Candidate {
+                url: "https://linear.app/careers".to_owned(),
+                answers: Answers::Direction,
+                via,
+            };
+            assert_eq!(
+                ToRead::probed(&own).disposition,
+                Disposition::Primary,
+                "{via:?}: a page the company serves is the company saying it"
+            );
         }
     }
 

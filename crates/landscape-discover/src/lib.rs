@@ -33,6 +33,7 @@
 //! [`Disposition::Primary`]: landscape_core::Disposition::Primary
 //! [`Disposition::may_set_a_table_value`]: landscape_core::Disposition::may_set_a_table_value
 
+pub mod boards;
 pub mod listings;
 pub mod locale;
 pub mod probes;
@@ -272,12 +273,15 @@ pub async fn discover(
         // landing page — is not evidence that it does. A refusal is not a failure of
         // discovery either: robots.txt saying no is the system working, and the URL stays in
         // `checked` with the reason so a reader can see it was tried.
-        if matches!(&response, Ok(page) if page.status == 200) {
-            found.push(Candidate {
-                url,
-                answers: probe.answers,
-                via: Via::Probe,
-            });
+        if let Ok(page) = &response {
+            if page.status == 200 {
+                found.extend(boards_on(probe.answers, &page.body));
+                found.push(Candidate {
+                    url,
+                    answers: probe.answers,
+                    via: Via::Probe,
+                });
+            }
         }
     }
 
@@ -290,14 +294,59 @@ pub async fn discover(
     //
     // Off-site links are not worthless; they are a different class of evidence, and admitting
     // them here would launder them into the class that outranks everything.
+    //
+    // **The one exception is a board the site itself named**, and it is an exception to the
+    // *location* rule rather than to the standing rule: it is admitted, and it is admitted as
+    // `Attributed` rather than `Primary`, so nothing it says can set a table value. The
+    // laundering this filter prevents is an off-site page arriving in the class that outranks
+    // everything, and that cannot happen through a route whose class is fixed below `Primary`.
     let host = host_of(&origin).to_owned();
-    found.retain(|c| same_site(&host, &c.url));
+    found.retain(|c| admissible(&host, c));
 
     Discovered {
         sources: rank::admit(found, rank::CAP_RUNG_0),
         checked,
         stopped_early,
     }
+}
+
+/// The boards a page names, when it is the page that would answer about hiring.
+///
+/// **Where a careers page says the roles actually are.** Three of the four real careers pages
+/// checked when this was written put nothing on their own page but a link to somebody else's
+/// board — see [`boards`]. Read off a body the run has already paid for rather than by a request
+/// of its own, and only from the page whose question it answers: a pricing page linking to the
+/// company's board is not evidence about hiring, it is a footer.
+///
+/// A function rather than a block inside [`discover`], which needs a network and therefore
+/// cannot be driven by a test at all.
+fn boards_on(answers: probes::Answers, body: &str) -> Vec<Candidate> {
+    if answers != probes::Answers::Direction {
+        return Vec::new();
+    }
+    boards::named_by(body)
+        .into_iter()
+        .map(|url| Candidate {
+            url,
+            answers: probes::Answers::Direction,
+            via: Via::Board,
+        })
+        .collect()
+}
+
+/// Whether a candidate may be read at all.
+///
+/// **On the subject's own site, or named by it.** The first is the rule this filter was written
+/// for; the second is an applicant-tracking board, and it is an exception to *where the bytes
+/// come from* rather than to *what they are worth* — a board is read at
+/// `Disposition::Attributed`, so nothing it says can set a value in a comparison table. The
+/// laundering this filter prevents is an off-site page arriving in the class that outranks
+/// everything, and a route whose class is fixed below `Primary` cannot do that.
+///
+/// A function rather than a closure inside [`discover`], which needs a network and therefore
+/// cannot be driven by a test at all.
+fn admissible(host: &str, candidate: &Candidate) -> bool {
+    candidate.via == Via::Board || same_site(host, &candidate.url)
 }
 
 /// The host part of an origin or URL, without `www.`.
@@ -543,6 +592,66 @@ mod tests {
             })),
             Outcome::Disallowed
         );
+    }
+
+    #[test]
+    fn a_board_is_taken_from_the_page_whose_question_it_answers() {
+        let html = r#"<a href="https://jobs.ashbyhq.com/Linear/069c4628">Engineer</a>"#;
+
+        let from_careers = boards_on(probes::Answers::Direction, html);
+        assert_eq!(from_careers.len(), 1);
+        assert_eq!(from_careers[0].url, "https://jobs.ashbyhq.com/Linear");
+        assert_eq!(from_careers[0].via, Via::Board);
+        assert_eq!(from_careers[0].answers, probes::Answers::Direction);
+
+        // **A footer is not evidence about hiring.** Most pages on a site link to the careers
+        // board somewhere near the bottom, and taking the link off every one of them would
+        // spend the page allowance on the same board five times over.
+        for elsewhere in [
+            probes::Answers::Pricing,
+            probes::Answers::Features,
+            probes::Answers::Changes,
+            probes::Answers::Identity,
+            probes::Answers::Trust,
+        ] {
+            assert!(boards_on(elsewhere, html).is_empty(), "{elsewhere:?}");
+        }
+
+        // And a careers page that names no board contributes none.
+        assert!(boards_on(probes::Answers::Direction, "<h1>Careers</h1>").is_empty());
+    }
+
+    #[test]
+    fn a_board_the_site_named_is_the_one_page_admitted_from_somebody_elses_host() {
+        // **The exception, and its exact size.** `llms.txt` can list anything — notion.com's
+        // lists a LinkedIn page — and admitting that would launder a stranger's page into the
+        // class that outranks everything. A board is admitted because the company's own careers
+        // page pointed at it, and it is read at `Attributed` rather than `Primary`, so the
+        // exception is to where the bytes come from and not to what they are worth.
+        let board = Candidate {
+            url: "https://jobs.ashbyhq.com/Linear".to_owned(),
+            answers: probes::Answers::Direction,
+            via: Via::Board,
+        };
+        assert!(admissible("linear.app", &board));
+
+        // Every other off-site route stays out, however the page was found.
+        for via in [Via::LlmsTxt, Via::Sitemap, Via::Probe, Via::Search] {
+            let elsewhere = Candidate {
+                url: "https://www.linkedin.com/company/linear".to_owned(),
+                answers: probes::Answers::Identity,
+                via,
+            };
+            assert!(!admissible("linear.app", &elsewhere), "{via:?}");
+        }
+
+        // And the subject's own pages are unaffected, subdomains included.
+        let own = Candidate {
+            url: "https://docs.linear.app/getting-started".to_owned(),
+            answers: probes::Answers::Features,
+            via: Via::Probe,
+        };
+        assert!(admissible("linear.app", &own));
     }
 
     #[test]

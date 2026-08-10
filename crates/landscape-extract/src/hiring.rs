@@ -211,9 +211,22 @@ pub fn every_role(markdown: &str) -> Roles {
         return Roles::default();
     };
 
+    // **Read the form the page wrote its list in.** A hosted board puts its roles in bullets
+    // and its furniture — *Create a Job Alert*, a job count, a department name — in the prose
+    // and headings between them; a company's own careers page usually does the opposite, with
+    // its roles as plain lines and a bulleted footer underneath. Neither *"prefer bullets"* nor
+    // *"ignore bullets"* is right, and each publishes the other page's furniture as a vacancy.
+    //
+    // Whichever form carries more of the titles is the list. A tie keeps the plain lines, which
+    // is what this did before a board was ever read.
+    let bulleted = form_of_the_list(&lines[from..to]);
+
     let mut roles: Vec<Role> = Vec::new();
     let mut seen: Vec<String> = Vec::new();
     for (at, line) in lines.iter().enumerate().take(to).skip(from) {
+        if doc::is_list_item(line) != bulleted {
+            continue;
+        }
         let Some(title) = title_on(line) else {
             continue;
         };
@@ -236,6 +249,27 @@ pub fn every_role(markdown: &str) -> Roles {
         considered,
         announced: true,
     }
+}
+
+/// Whether the list is written as bullets, decided by counting rather than by assuming.
+///
+/// See the note in [`every_role`]. Only lines that would be titles are counted, so a footer of
+/// one-word links weighs nothing against a page of vacancies. A page with forty bulleted
+/// vacancies and forty bulleted footer links is not one this can tell apart; a page with forty
+/// of one and two of the other is.
+fn form_of_the_list(range: &[&str]) -> bool {
+    let (mut bulleted, mut plain) = (0usize, 0usize);
+    for line in range {
+        if title_on(line).is_none() {
+            continue;
+        }
+        if doc::is_list_item(line) {
+            bulleted += 1;
+        } else {
+            plain += 1;
+        }
+    }
+    bulleted > plain
 }
 
 /// The half-open line range holding the list, or `None` when the page never says.
@@ -266,7 +300,13 @@ fn announces(heading: &str) -> bool {
         .trim_end_matches([':', '↓', '→', '\u{2060}'])
         .trim()
         .to_lowercase();
-    ANNOUNCEMENTS.iter().any(|phrase| text == *phrase)
+    // Equality, plus the one possessive form a hosted board uses: Greenhouse titles Vercel's
+    // page *Current openings at Vercel*. Deliberately not `starts_with(phrase)` on its own —
+    // that would let *"open roles are what we are proudest of"* announce a list that is not
+    // there, which is the whole reason this is an exact match in the first place.
+    ANNOUNCEMENTS
+        .iter()
+        .any(|phrase| text == *phrase || text.starts_with(&format!("{phrase} at ")))
 }
 
 /// The job title a line carries, if it is a listing rather than a sentence about one.
@@ -434,6 +474,123 @@ mod tests {
         // like `Engineering Operations`.
         let page = "## Open positions\nAll locations Chicago, IL Dublin, Ireland Paris, France Remote, Argentina San Francisco, CA All departments EPD Marketing Sales Engineering Manager\nStaff Data Engineer";
         assert_eq!(titles(page), ["Staff Data Engineer"]);
+    }
+
+    #[test]
+    fn a_hosted_boards_heading_announces_its_list_and_a_sentence_does_not() {
+        // Greenhouse titles Vercel's board *Current openings at Vercel*, which an exact match
+        // misses. Loosening it to `starts_with` would let the sentence below announce a list
+        // that is not there, so the one possessive form is all that was added.
+        let board = "# Current openings at Vercel
+- Staff Engineer, Runtime";
+        assert_eq!(titles(board), ["Staff Engineer, Runtime"]);
+
+        let prose = "## Open roles are what we are proudest of
+Meet the team
+Staff Engineer";
+        assert!(
+            titles(prose).is_empty(),
+            "a sentence beginning with an announcement announced a list"
+        );
+    }
+
+    #[test]
+    fn the_form_of_the_list_is_counted_rather_than_assumed() {
+        // **Two real pages, the opposite way round.** A hosted board puts its roles in bullets
+        // and its furniture in prose; a company's own careers page does the reverse. Whichever
+        // form carries more of the titles is the list.
+        let board = concat!(
+            "# Current openings at Acme
+",
+            "Create a Job Alert
+",
+            "### Account Executive
+",
+            "- Senior Product Engineer
+",
+            "- Staff Product Designer
+",
+            "- Engineering Manager, Growth
+",
+        );
+        assert_eq!(
+            titles(board),
+            [
+                "Senior Product Engineer",
+                "Staff Product Designer",
+                "Engineering Manager, Growth"
+            ],
+            "the board's furniture outvoted its vacancies"
+        );
+
+        let own_page = concat!(
+            "## Open roles
+",
+            "Senior Product Engineer
+",
+            "Staff Product Designer
+",
+            "Engineering Manager, Growth
+",
+            "- Support Engineer Handbook
+",
+        );
+        assert_eq!(
+            titles(own_page),
+            [
+                "Senior Product Engineer",
+                "Staff Product Designer",
+                "Engineering Manager, Growth"
+            ],
+            "one bulleted footer link outvoted three vacancies"
+        );
+    }
+
+    #[test]
+    fn only_lines_that_could_be_titles_decide_the_form() {
+        // Furniture is what a board has most of, and counting it would hand the decision to
+        // whichever form the page happened to write its scaffolding in.
+        let page = concat!(
+            "## Open roles
+",
+            "- Read our engineering blog.
+",
+            "- See the handbook.
+",
+            "- Browse by team.
+",
+            "- Sort by location.
+",
+            "Senior Product Engineer
+",
+            "Staff Product Designer
+",
+        );
+        assert_eq!(
+            titles(page),
+            ["Senior Product Engineer", "Staff Product Designer"],
+            "four bulleted sentences outvoted two vacancies"
+        );
+    }
+
+    #[test]
+    fn a_list_written_with_asterisks_is_still_a_list() {
+        // Markdown has three bullet markers and a converter picks whichever it likes. Knowing
+        // only `-` would read an asterisked board as prose and publish its furniture.
+        let page = concat!(
+            "# Current openings at Acme
+",
+            "### Account Executive
+",
+            "* Senior Product Engineer
+",
+            "* Staff Product Designer
+",
+        );
+        assert_eq!(
+            titles(page),
+            ["Senior Product Engineer", "Staff Product Designer"]
+        );
     }
 
     #[test]

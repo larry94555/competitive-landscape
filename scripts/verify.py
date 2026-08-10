@@ -101,6 +101,13 @@ def gates(web: bool) -> list[Gate]:
         # here - a CLI message, two test assertions, three model prompts - and every one was
         # found by eye, afterwards. Text matching, so it costs nothing.
         Gate("lost continuations", [sys.executable, "scripts/no_lost_continuations.py"]),
+        # **A percentage nobody adds up is a percentage that drifts.** `Full_Feature_List.md`'s
+        # S2 totals row read 18/16/2 while its own ten rows summed to 19/16/3, so the page
+        # published 89% for a state that was 84% — and every pull request quoting it repeated
+        # the number. Nothing was wrong on purpose: a row was added and the total below it was
+        # not. Same shape as the benchmark-count gate, and free, because the source of the
+        # number is the document's own rows.
+        Gate("feature totals", [sys.executable, "scripts/feature_totals.py"]),
         Gate("fmt", ["cargo", "fmt", "--all", "--check"]),
         # `--all-features` and `--all-targets`, because CI uses both and a lint that only fires
         # on a test target is exactly the one a hurried local run misses.

@@ -54,6 +54,14 @@ pub enum Via {
     /// half of that has been checked when the candidate is made, which is why a page reached
     /// both ways keeps the probe.
     Search,
+    /// An applicant-tracking board the subject's own page linked to.
+    ///
+    /// **Above search and below every on-domain route**, which is exactly where the evidence
+    /// puts it: the company said this is where its roles are, so it is not a third party's
+    /// opinion — but the bytes come from somebody else's server, so it is not the company's own
+    /// page either. See [`crate::boards`], and [`landscape_core::Disposition::Attributed`],
+    /// which is the standing it is read at.
+    Board,
     /// A path we guessed that answered.
     Probe,
     /// Listed in the site's own `sitemap.xml`.
@@ -67,6 +75,7 @@ impl Via {
     pub const fn name(self) -> &'static str {
         match self {
             Self::Search => "search",
+            Self::Board => "board",
             Self::Probe => "probe",
             Self::Sitemap => "sitemap",
             Self::LlmsTxt => "llms.txt",
@@ -143,7 +152,53 @@ pub fn admit(candidates: Vec<Candidate>, cap: usize) -> Vec<Candidate> {
         }
         round += 1;
     }
+    room_for_a_board(&mut out, &by_question);
     out
+}
+
+/// Make room for a board the round-robin left out, by taking a slot from whichever question has
+/// most.
+///
+/// **A board cannot win a slot on its own, and that is not a ranking bug.** Round one gives each
+/// question its best page, and for hiring that is the company's own careers page — which is how
+/// the board was found in the first place. So a board only ever competes for a *second* slot,
+/// and by then the questions that sort earlier have taken them.
+///
+/// Both orderings are wrong for one of two real companies. `linear.app/careers` lists its roles,
+/// so its board is worth less than its own page; `vercel.com/careers` is navigation chrome and
+/// its roles are entirely on Greenhouse. **Which is which cannot be known before the page is
+/// read**, so both are admitted rather than one guessed at, and the slot comes from the question
+/// that already has the most — which is [ADR 0010](../../../docs/decisions/0010-spend-the-cap-on-breadth.md)'s
+/// argument applied to itself: a second pricing page is the cheapest thing on the list, and a
+/// board is the only place some companies' roles exist at all.
+fn room_for_a_board(out: &mut Vec<Candidate>, by_question: &BTreeMap<Answers, Vec<Candidate>>) {
+    let Some(board) = by_question
+        .values()
+        .flatten()
+        .find(|c| c.via == Via::Board && !out.iter().any(|kept| kept.url == c.url))
+    else {
+        return;
+    };
+
+    // The question with the most slots, and only if it has one to spare. A run that gave every
+    // question exactly one page has nothing that is cheaper than a board.
+    let mut counts: BTreeMap<Answers, usize> = BTreeMap::new();
+    for c in out.iter() {
+        *counts.entry(c.answers).or_default() += 1;
+    }
+    let Some((&crowded, &most)) = counts.iter().max_by_key(|(_, &n)| n) else {
+        return;
+    };
+    if most < 2 {
+        return;
+    }
+
+    // `rposition` cannot be `None` here — `crowded` came from counting `out` — but saying so
+    // with `expect` would be a panic in a library over an invariant a reader has to reconstruct.
+    if let Some(last) = out.iter().rposition(|c| c.answers == crowded) {
+        out.remove(last);
+        out.push(board.clone());
+    }
 }
 
 /// Two URLs that differ only by a trailing slash or a `www.` are one page.
@@ -203,6 +258,83 @@ mod tests {
             answers,
             via,
         }
+    }
+
+    #[test]
+    fn a_board_takes_a_slot_from_whichever_question_has_most() {
+        // **Round one gives hiring the company's own careers page**, which is how the board was
+        // found, so a board only ever competes for a second slot — and the questions that sort
+        // earlier take those. Both orderings are wrong for one of two real companies, so both
+        // pages are admitted and the reading decides.
+        let mut candidates = vec![
+            c("https://e.com/pricing", Answers::Pricing, Via::Probe),
+            c("https://e.com/plans", Answers::Pricing, Via::Probe),
+            c("https://e.com/features", Answers::Features, Via::Probe),
+            c("https://e.com/careers", Answers::Direction, Via::Probe),
+            c("https://jobs.ashbyhq.com/e", Answers::Direction, Via::Board),
+        ];
+        candidates.reverse();
+
+        let admitted = admit(candidates, 4);
+        let urls: Vec<&str> = admitted.iter().map(|c| c.url.as_str()).collect();
+        assert!(
+            urls.contains(&"https://jobs.ashbyhq.com/e"),
+            "the board never got a slot: {urls:?}"
+        );
+        assert!(
+            urls.contains(&"https://e.com/careers"),
+            "the page that named the board was dropped for it: {urls:?}"
+        );
+        assert_eq!(admitted.len(), 4, "the cap moved: {urls:?}");
+        assert_eq!(
+            urls.iter()
+                .filter(|u| u.contains("pricing") || u.contains("plans"))
+                .count(),
+            1,
+            "the slot came from somewhere other than the crowded question: {urls:?}"
+        );
+    }
+
+    #[test]
+    fn a_run_with_one_page_a_question_keeps_them_all() {
+        // Nothing here is cheaper than a board, so nothing is given up for one. A cap spent
+        // one-per-question is already breadth, which is what ADR 0010 spends it on.
+        let candidates = vec![
+            c("https://e.com/pricing", Answers::Pricing, Via::Probe),
+            c("https://e.com/features", Answers::Features, Via::Probe),
+            c("https://e.com/careers", Answers::Direction, Via::Probe),
+            c("https://jobs.ashbyhq.com/e", Answers::Direction, Via::Board),
+        ];
+        let admitted = admit(candidates, 3);
+        let urls: Vec<&str> = admitted.iter().map(|c| c.url.as_str()).collect();
+        assert_eq!(urls.len(), 3);
+        assert!(!urls.contains(&"https://jobs.ashbyhq.com/e"), "{urls:?}");
+        assert!(urls.contains(&"https://e.com/pricing"), "{urls:?}");
+        assert!(urls.contains(&"https://e.com/features"), "{urls:?}");
+    }
+
+    #[test]
+    fn a_board_the_round_robin_already_took_is_not_taken_twice() {
+        // When the cap is generous enough for hiring to get two slots on its own, the board is
+        // already in. Making room again would spend a second slot on the page that is in it,
+        // and read the same board twice.
+        let candidates = vec![
+            c("https://e.com/pricing", Answers::Pricing, Via::Probe),
+            c("https://e.com/plans", Answers::Pricing, Via::Probe),
+            c("https://e.com/pricing-3", Answers::Pricing, Via::Sitemap),
+            c("https://e.com/careers", Answers::Direction, Via::Probe),
+            c("https://jobs.ashbyhq.com/e", Answers::Direction, Via::Board),
+        ];
+        let admitted = admit(candidates, 5);
+        let urls: Vec<&str> = admitted.iter().map(|c| c.url.as_str()).collect();
+        assert_eq!(
+            urls.iter()
+                .filter(|u| **u == "https://jobs.ashbyhq.com/e")
+                .count(),
+            1,
+            "the same board was admitted twice: {urls:?}"
+        );
+        assert_eq!(admitted.len(), 5, "{urls:?}");
     }
 
     #[test]
