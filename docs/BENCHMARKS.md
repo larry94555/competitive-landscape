@@ -78,6 +78,12 @@ value of an HTML `href` or of one of four fields — `absolute_url`, `jobUrl`, `
 deliberately absent**: it is what a widget listing somebody else's vacancies would use too, and a
 key that cannot tell the two apart is not evidence.
 
+**And the whole name, to its own boundary.** The first version of that check scanned back only
+over letters, so `data-href="…"` ended in `href` and `{"competitor-jobUrl":"…"}` ended in
+`jobUrl` — and a hyphen is exactly what a competitor widget's attribute or key would put in front
+of a name we trust. An attribute name now runs to its own character set and a JSON key to the
+quote that opened it, so a key nothing opened is not a key.
+
 A URL is also **parsed** — scheme, host, one path segment — and only where it *begins* a quoted
 value, which is what `href="…"` and `{"url":"…"}` look like and what `href="/out?to=https://…"`
 does not. Asked that way round rather than by pairing quotes across the document, because pairing

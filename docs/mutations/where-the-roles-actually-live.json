@@ -354,32 +354,6 @@
     ]
   },
   {
-    "name": "an href is not read as a link",
-    "file": "crates/landscape-discover/src/boards.rs",
-    "old": "        return name[from..].eq_ignore_ascii_case(\"href\");",
-    "new": "        return false;",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-discover"
-    ]
-  },
-  {
-    "name": "a field whose name merely ends in a known key counts",
-    "file": "crates/landscape-discover/src/boards.rs",
-    "old": "            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')",
-    "new": "            .take_while(|c| c.is_ascii_alphanumeric())",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-discover"
-    ]
-  },
-  {
     "name": "a group heading is published as a vacancy",
     "file": "crates/landscape-extract/src/hiring.rs",
     "old": "        if !bulleted && doc::heading_level(line).is_some() {\n            continue;\n        }",
@@ -392,6 +366,58 @@
       "landscape-extract",
       "-p",
       "landscape-golden"
+    ]
+  },
+  {
+    "name": "an attribute whose name merely ends in href counts as one",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "            .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | ':' | '.'))",
+    "new": "            .take_while(char::is_ascii_alphanumeric)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "an href is not read as a link",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "        return attribute_name(head.trim_end()).eq_ignore_ascii_case(\"href\");",
+    "new": "        return false;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a key whose name merely ends in a known one counts",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "    let inside = head.strip_suffix('\"')?.trim_end_matches('\\\\');\n    let opens = inside.rfind('\"')?;\n    Some(&inside[opens + 1..])",
+    "new": "    let inside = head.strip_suffix('\"')?.trim_end_matches('\\\\');\n    let opens = inside.len()\n        - inside\n            .chars()\n            .rev()\n            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')\n            .count();\n    Some(&inside[opens..])",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a key nothing opened is read as a key",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "    let opens = inside.rfind('\"')?;\n    Some(&inside[opens + 1..])",
+    "new": "    Some(inside.rfind('\"').map_or(inside, |opens| &inside[opens + 1..]))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
     ]
   }
 ]

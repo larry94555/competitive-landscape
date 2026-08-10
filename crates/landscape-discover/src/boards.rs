@@ -126,33 +126,54 @@ fn url_starts(html: &str) -> Vec<usize> {
 /// An `href=`, or a [`JOB_URL_KEYS`] field. Read backwards through whatever escaping the page
 /// applied: `href=` + quote, `\"jobUrl\":` + quote and `"absolute_url":` + quote are the same
 /// shape once the backslashes a nested JSON string carries are stepped over.
+///
+/// **The whole name, to its own boundary.** Review found the first version scanning back only
+/// over alphanumerics, so `data-href="…"` ended in `href` and `{"competitor-jobUrl":"…"}` ended
+/// in `jobUrl` — and a hyphen is exactly what a competitor widget's attribute or key would put
+/// in front of a name we trust. An attribute name runs to its own character set; a JSON key runs
+/// to the quote that opened it.
 fn named_as_a_link(before: &str) -> bool {
     let before = before.trim_end_matches('\\').trim_end();
 
     if let Some(head) = before.strip_suffix('=') {
-        let name = head.trim_end();
-        let from = name.len()
-            - name
-                .chars()
-                .rev()
-                .take_while(char::is_ascii_alphanumeric)
-                .count();
-        return name[from..].eq_ignore_ascii_case("href");
+        return attribute_name(head.trim_end()).eq_ignore_ascii_case("href");
     }
 
     let Some(head) = before.strip_suffix(':') else {
         return false;
     };
-    let head = head.trim_end().trim_end_matches('"').trim_end_matches('\\');
+    let Some(key) = json_key(head.trim_end()) else {
+        return false;
+    };
+    JOB_URL_KEYS
+        .iter()
+        .any(|known| key.eq_ignore_ascii_case(known))
+}
+
+/// The attribute name ending here, to the start of the name rather than to the first character
+/// that happens not to be a letter.
+///
+/// HTML attribute names take letters, digits, `-`, `_`, `:` and `.`, so all of those are part of
+/// the name: `data-href` is one name and not the word `href` after a hyphen.
+fn attribute_name(head: &str) -> &str {
     let from = head.len()
         - head
             .chars()
             .rev()
-            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
-            .count();
-    JOB_URL_KEYS
-        .iter()
-        .any(|key| head[from..].eq_ignore_ascii_case(key))
+            .take_while(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | ':' | '.'))
+            .map(char::len_utf8)
+            .sum::<usize>();
+    &head[from..]
+}
+
+/// The JSON key ending here, read from the quote that opened it.
+///
+/// `None` when nothing opened it — a bare `jobUrl:` is not JSON, and guessing where the name
+/// starts is how `competitor-jobUrl` became `jobUrl`.
+fn json_key(head: &str) -> Option<&str> {
+    let inside = head.strip_suffix('"')?.trim_end_matches('\\');
+    let opens = inside.rfind('"')?;
+    Some(&inside[opens + 1..])
 }
 
 /// The board a value points at, when the value **is** a URL to one.
@@ -295,6 +316,19 @@ mod tests {
             r#"<script>const competitor = "https://jobs.ashbyhq.com/SomebodyElse/role";</script>"#,
             r#"{"similar":[{"url":"https://jobs.ashbyhq.com/SomebodyElse/role"}]}"#,
             r#"{"company":"SomebodyElse","site":"https://jobs.lever.co/SomebodyElse"}"#,
+            // **A name that merely ends in one we trust.** A hyphen is exactly what a
+            // competitor widget would put in front of `href` or `jobUrl`, and scanning back
+            // only over letters made `data-href` and `competitor-jobUrl` into the real thing.
+            r#"<div data-href="https://jobs.ashbyhq.com/SomebodyElse/role">x</div>"#,
+            r#"{"competitor-jobUrl":"https://jobs.ashbyhq.com/SomebodyElse/role"}"#,
+            r#"{"x_absolute_url":"https://jobs.ashbyhq.com/SomebodyElse/role"}"#,
+            r#"<a xlink:href="https://jobs.ashbyhq.com/SomebodyElse/role">x</a>"#,
+            // A key nothing opened. Not JSON, and guessing where the name starts is the
+            // mistake above.
+            r#"{jobUrl:"https://jobs.ashbyhq.com/SomebodyElse/role"}"#,
+            // The same, with a closing quote and nothing that opened it — a fragment rather
+            // than a field, and the shape a reader that assumed where the name began accepts.
+            r#"jobUrl":"https://jobs.ashbyhq.com/SomebodyElse/role""#,
             // A value that is not quoted at all. Not valid JSON and not an attribute anybody
             // writes, but the key beside it is one we trust, so the quote is what says the URL
             // is the value rather than something that follows it.
