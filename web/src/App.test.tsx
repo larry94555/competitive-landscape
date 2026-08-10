@@ -1861,6 +1861,24 @@ describe("the set a report was built from", () => {
     expect(within(set).getByText("basecamp.com")).toBeInTheDocument();
   });
 
+  it("refuses a company that is already in the set rather than sending it twice", async () => {
+    // A second `https://basecamp.com` is a longer list, so the button lights up, and the run
+    // deduplicates it back to the set on screen — ninety seconds to redraw the same report,
+    // which is exactly what the "already on screen" guard exists to prevent.
+    const sent = watchPosts(about("https://basecamp.com", "https://linear.app"));
+    const user = userEvent.setup();
+    await arrive(user);
+
+    await user.type(screen.getByLabelText(/add a company/i), "https://basecamp.com");
+    await user.click(screen.getByRole("button", { name: /^add$/i }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/already in this set/i);
+    const set = screen.getByRole("region", { name: /companies in this report/i });
+    expect(within(set).getAllByText("basecamp.com")).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /run this set/i })).toBeDisabled();
+    expect(sent).toEqual([IDEA]);
+  });
+
   it("is not offered while the report is still being read", async () => {
     // Mid-run the set is what the run is working through, and correcting it would be
     // correcting something that has not happened yet.

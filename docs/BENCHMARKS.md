@@ -119,10 +119,35 @@ been saying S2 was `18 / 14 / 4` and 78% for four runs while S2's own table said
 Summary. **A gate that checks the derived numbers but not the number derived from those leaves
 the most-read row of the page unchecked.**
 
+### What review found, and it was the same defect on both sides
+
+**Adding a company already in the set.** Typing an origin that is already there appended a
+second copy: the list got longer, so *"has anything changed"* said yes, the button lit up, and
+the run put the duplicate back together and returned the report on screen. **Ninety seconds to
+redraw the page being looked at** — precisely the cost the *"already on screen"* guard exists to
+refuse, reached by a route that guard could not see. It is refused out loud now, and the
+duplicate React key it also produced goes with it.
+
+The rule is **exact equality**, deliberately. Two *spellings* of one company are `origins_in`'s
+to reconcile and this side does not get an opinion about them; a reader who types the same string
+twice has not asked for anything, and that much needs no rule.
+
+**And the new gate had the same blind spot as the page it checks.** `feature_totals.py` compared
+each Summary row against its own state table and then the total against the sum of the rows — so
+a Summary listing S2 **twice**, with the total inflated to match, passed every comparison the
+file made. Every number was individually right and the page said something false. A per-row check
+cannot see a duplicated row, which is the second time in one change that a check turned out not
+to cover the thing it was written for.
+
+It now refuses a state listed twice, and a state given two tables, **before** anything is added
+up. And it **breaks itself seven ways on every run** — the sound page with one defect put back
+each time, each complaint checked for — because a gate that has quietly stopped detecting
+anything still exits 0. Removing either duplicate guard makes the script fail on its own.
+
 | | Rust tests | frontend tests | catalogue |
 |---|---|---|---|
 | Run 40 | 951 | 62 | 33, all caught |
-| now | **951** | **70** | **10**, all caught |
+| now | **951** | **71** | **11**, all caught |
 
 ---
 

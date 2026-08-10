@@ -669,6 +669,16 @@ function EditableSet({
       setRefused(`${wanted} does not look like a domain. Try example.com.`);
       return;
     }
+    // **A company added twice is the "already on screen" cost by another route.** The list gets
+    // longer, so the button lights up, and the run puts the duplicate back together — ninety
+    // seconds to redraw the report being looked at. Exact equality is a thing this side can be
+    // sure of, which is why it is the rule here: two *spellings* of one company are `origins_in`'s
+    // to reconcile, and a second opinion about that would be the copy this component refuses to
+    // keep. A reader who writes the same string twice has not asked for anything.
+    if (set.includes(wanted)) {
+      setRefused(`${withoutScheme(wanted)} is already in this set.`);
+      return;
+    }
     setSet([...set, wanted]);
     setTyped("");
     setRefused("");

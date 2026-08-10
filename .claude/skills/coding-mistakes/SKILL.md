@@ -2196,13 +2196,28 @@ most-read row unchecked. The blind spot is not an oversight about regular expres
 **a summary is data too**, and the reason it exists — that nobody wants to add the tables up — is
 exactly the reason nobody notices when it is wrong.
 
+**And review found the same shape a third time, on both sides at once.** The page refused to
+re-run *"the set already on screen"* and did not refuse *adding a company already in the set* — a
+longer list, so the change check said yes, and the run put the duplicate back together and
+returned the same report. The guard was right and did not cover the way in. Meanwhile the gate
+checked each Summary row against its own table, and the total against the sum of the rows, so a
+state listed **twice** with the total inflated to match passed everything: every number right,
+the page false. **A per-row check cannot see a duplicated row**, and neither guard was reachable
+from the thing it was written to protect.
+
+The gate now breaks itself seven ways before it reads the real page, because the version that had
+this hole would still have exited 0 for ever.
+
 **Rule:** when a mutation survives, ask *what else already enforces this* before asking *what test
 is missing* — and delete rather than pin, when the answer is "the thing above it". And when a gate
 checks a document's numbers, check every number in the document that is derived from another,
-starting with the one printed largest.
+starting with the one printed largest. When a rule is stated as *"do not spend this twice"*, list
+the ways in rather than the one that prompted it — and when a check compares things one at a
+time, ask what a **duplicate** would do to it.
 
-> **Ask this:** *is this the only thing making the rule true, or the second? And which number on
-> this page would a reader quote — is that the one I am checking?*
+> **Ask this:** *is this the only thing making the rule true, or the second? Which number on this
+> page would a reader quote — is that the one I am checking? And what does my one-at-a-time check
+> do when the same thing appears twice?*
 
 ---
 

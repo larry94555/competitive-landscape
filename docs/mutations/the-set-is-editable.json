@@ -118,5 +118,17 @@
       "run"
     ],
     "cwd": "web"
+  },
+  {
+    "name": "a company already in the set is added a second time",
+    "file": "web/src/App.tsx",
+    "old": "    if (set.includes(wanted)) {",
+    "new": "    if (false) {",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
   }
 ]
