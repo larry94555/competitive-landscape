@@ -74,7 +74,20 @@ pub fn named_by(html: &str) -> Vec<String> {
     found
 }
 
-/// Where in the page a URL **begins a quoted value**.
+/// The fields whose value is *"the address of this job"*.
+///
+/// **A quoted string is not a link either**, which is review's second pass on the same rule: a
+/// `<script>` assigning `const competitor = "https://jobs.ashbyhq.com/SomebodyElse/role"` puts a
+/// board URL at the start of a quoted value, and so does a *"similar jobs at other companies"*
+/// widget. Neither is this company linking to its own board.
+///
+/// So a URL counts only as the value of an HTML `href`, or of one of these — the exact keys the
+/// three real careers pages use, and nothing wider. **`url` is deliberately absent**: it is what
+/// a widget listing somebody else's vacancies would use too, and a key that cannot tell the two
+/// apart is not evidence.
+const JOB_URL_KEYS: [&str; 4] = ["absolute_url", "jobUrl", "applyUrl", "jobPostingUrl"];
+
+/// Where in the page a URL **is the value of a link**.
 ///
 /// **Review found the first version scanning the raw HTML for a host.** Any occurrence counted:
 /// prose, a tracking blob, a *"similar jobs at other companies"* widget, a redirect parameter —
@@ -101,11 +114,45 @@ fn url_starts(html: &str) -> Vec<usize> {
         if !matches!(bytes[at - 1], b'"' | b'\'') {
             continue;
         }
-        if after_scheme(&html[at..]).is_some() {
+        if named_as_a_link(&html[..at - 1]) && after_scheme(&html[at..]).is_some() {
             starts.push(at);
         }
     }
     starts
+}
+
+/// Whether what comes before this value says it is a link to a job.
+///
+/// An `href=`, or a [`JOB_URL_KEYS`] field. Read backwards through whatever escaping the page
+/// applied: `href=` + quote, `\"jobUrl\":` + quote and `"absolute_url":` + quote are the same
+/// shape once the backslashes a nested JSON string carries are stepped over.
+fn named_as_a_link(before: &str) -> bool {
+    let before = before.trim_end_matches('\\').trim_end();
+
+    if let Some(head) = before.strip_suffix('=') {
+        let name = head.trim_end();
+        let from = name.len()
+            - name
+                .chars()
+                .rev()
+                .take_while(char::is_ascii_alphanumeric)
+                .count();
+        return name[from..].eq_ignore_ascii_case("href");
+    }
+
+    let Some(head) = before.strip_suffix(':') else {
+        return false;
+    };
+    let head = head.trim_end().trim_end_matches('"').trim_end_matches('\\');
+    let from = head.len()
+        - head
+            .chars()
+            .rev()
+            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')
+            .count();
+    JOB_URL_KEYS
+        .iter()
+        .any(|key| head[from..].eq_ignore_ascii_case(key))
 }
 
 /// The board a value points at, when the value **is** a URL to one.
@@ -184,7 +231,7 @@ mod tests {
         // `linear.app/careers` is a single-page application and carries its links inside a JSON
         // blob, so the raw HTML holds `jobs.ashbyhq.com/Linear\/069c…`. A reader that took the
         // backslash as part of the slug would ask for a board nobody has.
-        let html = r#"{"url":"https:\/\/jobs.ashbyhq.com\/Linear\/069c4628\/application"}"#;
+        let html = r#"{"jobUrl":"https:\/\/jobs.ashbyhq.com\/Linear\/069c4628\/application"}"#;
         assert_eq!(named_by(html), vec!["https://jobs.ashbyhq.com/Linear"]);
     }
 
@@ -242,6 +289,16 @@ mod tests {
             r#"<a href="https://links.example.com/r?u=https://jobs.lever.co/SomebodyElse">go</a>"#,
             // A tracking blob, unquoted, in a script.
             "<script>track({dest: https://jobs.ashbyhq.com/SomebodyElse});</script>",
+            // **A quoted string is not a link.** A script assigning a competitor's board to a
+            // variable, and a "similar jobs at other companies" widget, both put a board URL at
+            // the start of a quoted value — and neither is this company linking to its own.
+            r#"<script>const competitor = "https://jobs.ashbyhq.com/SomebodyElse/role";</script>"#,
+            r#"{"similar":[{"url":"https://jobs.ashbyhq.com/SomebodyElse/role"}]}"#,
+            r#"{"company":"SomebodyElse","site":"https://jobs.lever.co/SomebodyElse"}"#,
+            // A value that is not quoted at all. Not valid JSON and not an attribute anybody
+            // writes, but the key beside it is one we trust, so the quote is what says the URL
+            // is the value rather than something that follows it.
+            r#"{"absolute_url": https://jobs.ashbyhq.com/SomebodyElse/role}"#,
             // A host that merely ends with one of ours.
             r#"<a href="https://x-jobs.lever.co/SomebodyElse">Apply</a>"#,
             r#"<a href="https://jobs.lever.co.evil.test/SomebodyElse">Apply</a>"#,
@@ -257,7 +314,9 @@ mod tests {
         for html in [
             r#"<a href="https://jobs.ashbyhq.com/Linear/069c">Apply</a>"#,
             r#"<a href='http://jobs.ashbyhq.com/Linear/069c'>Apply</a>"#,
-            r#"{"url":"https:\/\/jobs.ashbyhq.com\/Linear\/069c"}"#,
+            r#"{"jobUrl":"https:\/\/jobs.ashbyhq.com\/Linear\/069c"}"#,
+            r#"{"applyUrl":"https://jobs.ashbyhq.com/Linear/069c"}"#,
+            r#"\"absolute_url\":\"https://jobs.ashbyhq.com/Linear/069c\""#,
             r#"<a href="//jobs.ashbyhq.com/Linear/069c">Apply</a>"#,
         ] {
             assert_eq!(

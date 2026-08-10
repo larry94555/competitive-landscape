@@ -274,19 +274,6 @@
     ]
   },
   {
-    "name": "a redirect parameter is read as the link it carries",
-    "file": "crates/landscape-discover/src/boards.rs",
-    "old": "        if !matches!(bytes[at - 1], b'\"' | b'\\'') {",
-    "new": "        if !matches!(bytes[at - 1], b'\"' | b'\\'' | b'=') {",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-discover"
-    ]
-  },
-  {
     "name": "a host that merely ends with a known one is that host",
     "file": "crates/landscape-discover/src/boards.rs",
     "old": "    if !BOARD_HOSTS.contains(&host) {",
@@ -330,6 +317,73 @@
     "file": "crates/landscape-extract/src/hiring.rs",
     "old": "        } else if doc::heading_level(line).is_none() {",
     "new": "        } else {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-extract",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "any quoted url is read as a link",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "        if named_as_a_link(&html[..at - 1]) && after_scheme(&html[at..]).is_some() {",
+    "new": "        if after_scheme(&html[at..]).is_some() {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a widget's url field is read as this company's board",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "const JOB_URL_KEYS: [&str; 4] = [\"absolute_url\", \"jobUrl\", \"applyUrl\", \"jobPostingUrl\"];",
+    "new": "const JOB_URL_KEYS: [&str; 4] = [\"absolute_url\", \"jobUrl\", \"applyUrl\", \"url\"];",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "an href is not read as a link",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "        return name[from..].eq_ignore_ascii_case(\"href\");",
+    "new": "        return false;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a field whose name merely ends in a known key counts",
+    "file": "crates/landscape-discover/src/boards.rs",
+    "old": "            .take_while(|c| c.is_ascii_alphanumeric() || *c == '_')",
+    "new": "            .take_while(|c| c.is_ascii_alphanumeric())",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-discover"
+    ]
+  },
+  {
+    "name": "a group heading is published as a vacancy",
+    "file": "crates/landscape-extract/src/hiring.rs",
+    "old": "        if !bulleted && doc::heading_level(line).is_some() {\n            continue;\n        }",
+    "new": "        if false {\n            continue;\n        }",
     "run": [
       "cargo",
       "nextest",

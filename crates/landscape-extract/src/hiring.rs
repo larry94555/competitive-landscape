@@ -227,6 +227,13 @@ pub fn every_role(markdown: &str) -> Roles {
         if doc::is_list_item(line) != bulleted {
             continue;
         }
+        // **A heading is structure, not an entry** — the same rule the form is counted by, and
+        // review found it applied only there: with the roles as plain lines, `### Account
+        // Executive` above them survived the filter above and `title_on` strips the hashes, so a
+        // group label was reported as a vacancy. It votes for nothing and it is nothing.
+        if !bulleted && doc::heading_level(line).is_some() {
+            continue;
+        }
         let Some(title) = title_on(line) else {
             continue;
         };
@@ -585,15 +592,22 @@ Staff Engineer";
     }
 
     #[test]
-    fn a_careers_page_that_lists_under_a_heading_is_unaffected() {
-        // The other shape, unchanged: a company's own page puts its roles as plain lines under
-        // one announcement, and headings between them are still group labels rather than votes.
-        let page = "## Open roles
+    fn a_group_heading_that_looks_like_a_title_is_still_a_heading() {
+        // **Review's second pass on the same rule.** Excluding headings from the *vote* was not
+        // enough: with the roles as plain lines the heading survives the form filter, and
+        // `title_on` strips hashes, so `### Account Executive` was reported as a vacancy beside
+        // the real one. `Engineering` is caught by the one-word rule and proves nothing here.
+        let titled = "## Open roles
+### Account Executive
+Staff Product Engineer";
+        assert_eq!(titles(titled), ["Staff Product Engineer"]);
+
+        let one_word = "## Open roles
 ### Engineering
 Product Engineer
 Mobile Product Designer";
         assert_eq!(
-            titles(page),
+            titles(one_word),
             ["Product Engineer", "Mobile Product Designer"]
         );
     }
@@ -632,7 +646,7 @@ Mobile Product Designer";
         let page = concat!(
             "# Current openings at Acme
 ",
-            "### Account Executive
+            "Account Executive
 ",
             "* Senior Product Engineer
 ",

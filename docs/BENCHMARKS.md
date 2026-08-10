@@ -70,7 +70,15 @@ redirect parameter. `jobs.ashbyhq.com/SomebodyElse` appearing anywhere admitted 
 board and published their vacancies under this company's name, which is the exact failure the
 *found, never guessed* rule exists to prevent, arriving through a string nobody linked.
 
-A URL is now **parsed** — scheme, host, one path segment — and only where it *begins* a quoted
+**A quoted string is not a link either**, which was review's next pass on the same rule: a
+`<script>` assigning `const competitor = "https://jobs.ashbyhq.com/SomebodyElse/role"` starts a
+quoted value, and so does a *"similar jobs at other companies"* widget. A URL now has to be the
+value of an HTML `href` or of one of four fields — `absolute_url`, `jobUrl`, `applyUrl`,
+`jobPostingUrl`, which are the exact keys the three real careers pages use. **`url` is
+deliberately absent**: it is what a widget listing somebody else's vacancies would use too, and a
+key that cannot tell the two apart is not evidence.
+
+A URL is also **parsed** — scheme, host, one path segment — and only where it *begins* a quoted
 value, which is what `href="…"` and `{"url":"…"}` look like and what `href="/out?to=https://…"`
 does not. Asked that way round rather than by pairing quotes across the document, because pairing
 goes out of phase the moment a page nests JSON inside JSON — and `vercel.com/careers` does exactly
@@ -118,7 +126,10 @@ would let *"open roles are what we are proudest of"* announce a list that is not
 advertising a single vacancy is `### Account Executive` above `- Staff Product Engineer`, so the
 count ties at one apiece, the tie keeps the plain lines, and the group label is published as the
 opening while the job is discarded. A company with one vacancy is the most likely board there is.
-Neither page shape puts its roles in headings, so a heading votes for nothing.
+Neither page shape puts its roles in headings, so a heading votes for nothing — **and is not
+collected either**, which review had to say twice: excluding it from the vote left it in the
+extraction loop, where `title_on` strips the hashes and `### Account Executive` was reported as a
+vacancy beside the real one.
 
 **A list written the other way round.** A hosted board puts its roles in bullets and its
 furniture — *Create a Job Alert*, a count of 83 jobs, a department heading per section — in the
