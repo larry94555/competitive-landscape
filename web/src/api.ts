@@ -328,6 +328,14 @@ export interface Progress {
    * than a number nobody computed. Treating `null` as `0` here would put the lie back.
    */
   readonly percent: number | null;
+  /**
+   * The percentage the page may estimate its way up to while discovery runs, and no further.
+   *
+   * **Computed by the server, because the server owns the arithmetic.** It is exactly where
+   * `percent` will land on the first counted tick, so an estimate that stops here and a count
+   * that starts here meet rather than collide. `null` once counting has begun.
+   */
+  readonly estimating_to: number | null;
   readonly companies: Counted;
   /** `null` until a reading plan exists. See `percent`. */
   readonly pages: Counted | null;
@@ -433,12 +441,12 @@ export function watchAnalysis(id: string, watcher: Watcher): () => void {
       // A percentage that is not a number is dropped rather than coerced: `Number(null)` is
       // `0`, and a bar that reports zero percent for "we do not know yet" is the one thing
       // this feature is written not to do.
-      const percent =
-        typeof parsed.percent === "number" && Number.isFinite(parsed.percent)
-          ? parsed.percent
-          : null;
+      const number = (value: unknown): number | null =>
+        typeof value === "number" && Number.isFinite(value) ? value : null;
+      const percent = number(parsed.percent);
+      const estimating_to = number(parsed.estimating_to);
       if (typeof parsed.saying === "string") {
-        watcher.onProgress({ ...parsed, percent });
+        watcher.onProgress({ ...parsed, percent, estimating_to });
       }
     } catch {
       // The bar keeps whatever it last had. A missed tick costs a reader nothing; a guessed

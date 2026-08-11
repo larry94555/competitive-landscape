@@ -1684,32 +1684,30 @@ describe("the estimate, where nothing has been counted yet", () => {
     new Date(started.getTime() + seconds * 1000);
 
   it("starts at nothing and climbs", () => {
-    expect(estimate(started, started, 1)).toBe(0);
-    expect(estimate(started, after(12), 1)).toBeGreaterThan(0);
-    expect(estimate(started, after(24), 1)).toBeGreaterThan(
-      estimate(started, after(12), 1),
+    expect(estimate(started, started, 17)).toBe(0);
+    expect(estimate(started, after(12), 17)).toBeGreaterThan(0);
+    expect(estimate(started, after(24), 17)).toBeGreaterThan(
+      estimate(started, after(12), 17),
     );
   });
 
-  it("never passes the share discovery was measured to take", () => {
-    // 17% of one company, from BENCHMARKS Run 23. A minute in, ten minutes in, an hour in -
-    // the estimate stops where counting begins, so the real percentage never has to come down
-    // to meet it.
+  it("never passes the ceiling the server sent", () => {
+    // The ceiling is where counting begins, computed by `landscape-core::progress`. A minute
+    // in, ten minutes in, an hour in - the estimate stops there, so the counted percentage
+    // never has to come down to meet it.
     for (const seconds of [30, 60, 600, 3600]) {
-      expect(estimate(started, after(seconds), 1)).toBeLessThanOrEqual(17);
+      expect(estimate(started, after(seconds), 17)).toBeLessThanOrEqual(17);
+      expect(estimate(started, after(seconds), 5)).toBeLessThanOrEqual(5);
     }
   });
 
-  it("claims less of the whole when there are more companies to get through", () => {
-    // Discovery of the first of three companies is a third of the share it would be if there
-    // were only one, because the other two are still ahead.
-    expect(estimate(started, after(600), 3)).toBeLessThan(
-      estimate(started, after(600), 1),
-    );
+  it("a clock that runs backwards does not produce a negative bar", () => {
+    expect(estimate(started, new Date(started.getTime() - 60_000), 17)).toBe(0);
   });
 
-  it("a clock that runs backwards does not produce a negative bar", () => {
-    expect(estimate(started, new Date(started.getTime() - 60_000), 1)).toBe(0);
+  it("a ceiling of nothing is nothing, not a negative", () => {
+    // What arrives before the first progress event: no ceiling known yet.
+    expect(estimate(started, after(600), 0)).toBe(0);
   });
 });
 
@@ -1742,6 +1740,7 @@ describe("how far through it is", () => {
           phase: "discovering",
           saying: "Finding the pages worth reading",
           percent: null,
+          estimating_to: 17,
           companies: { done: 0, of: 0 },
           pages: null,
         }),
@@ -1765,6 +1764,7 @@ describe("how far through it is", () => {
           phase: "discovering",
           saying: "Finding the pages worth reading",
           percent: null,
+          estimating_to: 17,
           companies: { done: 0, of: 1 },
           pages: null,
         }),
@@ -1779,6 +1779,7 @@ describe("how far through it is", () => {
           phase: "reading",
           saying: "Reading public web pages",
           percent: 40,
+          estimating_to: null,
           companies: { done: 0, of: 1 },
           pages: { done: 2, of: 5 },
         }),
@@ -1798,6 +1799,7 @@ describe("how far through it is", () => {
           phase: "reading",
           saying: "Reading public web pages",
           percent: 40,
+          estimating_to: null,
           companies: { done: 0, of: 1 },
           pages: { done: 2, of: 5 },
         }),
@@ -1819,6 +1821,7 @@ describe("how far through it is", () => {
           phase: "reading",
           saying: "Reading public web pages",
           percent: 50,
+          estimating_to: null,
           companies: { done: 1, of: 3 },
           pages: { done: 1, of: 4 },
         }),
@@ -1838,6 +1841,7 @@ describe("how far through it is", () => {
           phase: "reading",
           saying: "Reading public web pages",
           percent: 20,
+          estimating_to: null,
           companies: { done: 0, of: 1 },
           pages: { done: 1, of: 5 },
         }),
@@ -1858,6 +1862,7 @@ describe("how far through it is", () => {
           phase: "reading",
           saying: "Reading public web pages",
           percent: "lots",
+          estimating_to: 17,
           companies: { done: 0, of: 1 },
           pages: null,
         }),
@@ -1868,6 +1873,99 @@ describe("how far through it is", () => {
     // to the estimate, which carries a tilde and is therefore not the same claim.
     expect(await screen.findByText(/^~\d+%$/)).toBeInTheDocument();
     expect(screen.queryByText("0%")).toBeNull();
+  });
+
+  it("does not fall back to zero when the first counted tick arrives", async () => {
+    // **The seam, driven end to end.** The estimate climbs across discovery; the first counted
+    // tick after `order::plan` is `Reading, pages 0/N`, whose percentage used to be `0`. The
+    // bar therefore fell from its cap straight back to nothing - the one thing this feature
+    // promises it will not do, at the join neither side owned. The earlier test jumped from
+    // the estimate to 40% and never exercised the handoff at all.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "discovering",
+          saying: "Finding the pages worth reading",
+          percent: null,
+          estimating_to: 17,
+          companies: { done: 0, of: 1 },
+          pages: null,
+        }),
+      ),
+    );
+    const before = Number(
+      (await screen.findByText(/^~?\d+%$/)).textContent!.replace(/[~%]/g, ""),
+    );
+
+    // The real first tick: a plan exists, and nothing has been read from it yet.
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "reading",
+          saying: "Reading public web pages",
+          percent: 17,
+          estimating_to: null,
+          companies: { done: 0, of: 1 },
+          pages: { done: 0, of: 9 },
+        }),
+      ),
+    );
+
+    const after = Number(
+      (await screen.findByText(/^~?\d+%$/)).textContent!.replace(/[~%]/g, ""),
+    );
+    expect(after).toBeGreaterThanOrEqual(before);
+    expect(screen.queryByText("0%")).toBeNull();
+  });
+
+  it("does not offer a page ordinal when the plan is empty", async () => {
+    // A company discovery found nothing for is a real plan of zero pages, and it rendered
+    // "page 1 of 0" - an ordinal for a page that does not exist.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "reading",
+          saying: "Reading public web pages",
+          percent: 17,
+          estimating_to: null,
+          companies: { done: 0, of: 1 },
+          pages: { done: 0, of: 0 },
+        }),
+      ),
+    );
+    await screen.findByText(/Reading public web pages/);
+    expect(screen.queryByText(/page 1 of 0/)).toBeNull();
+    // No ordinal of any shape. `/page/` alone would match "Reading public web pages".
+    expect(screen.queryByText(/page \d+ of \d+/)).toBeNull();
+  });
+
+  it("does not count a page past the plan once searching starts", async () => {
+    // The finished plan is kept through the search phase, where `done === of` rendered
+    // "page N+1 of N" about pages that are deliberately outside the plan.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "searching",
+          saying: "Searching for what their own pages did not say",
+          percent: 90,
+          estimating_to: null,
+          companies: { done: 0, of: 1 },
+          pages: { done: 5, of: 5 },
+        }),
+      ),
+    );
+    expect(
+      await screen.findByText(/Searching for what their own pages did not say/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/page 6 of 5/)).toBeNull();
+    expect(screen.queryByText(/page \d+ of \d+/)).toBeNull();
   });
 
   it("a finished run is a different word and no bar, not a bar that stopped", async () => {
@@ -1882,6 +1980,7 @@ describe("how far through it is", () => {
           phase: "reading",
           saying: "Reading public web pages",
           percent: 60,
+          estimating_to: null,
           companies: { done: 0, of: 1 },
           pages: { done: 3, of: 5 },
         }),

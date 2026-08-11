@@ -39,6 +39,17 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Discovery's share of one company's wait, measured.
+///
+/// `BENCHMARKS.md` Run 23: discovery is **16-35 seconds a company** against about **two minutes**
+/// of model time, so it is roughly a sixth of the wait.
+///
+/// **This number is here and nowhere else.** The browser estimates its way across discovery and
+/// has to know where that band ends; it is told by [`Progress::estimating_to`] rather than
+/// holding its own copy, because a constant in two languages is a constant that will disagree
+/// with itself. That is the register's own rule, and it was written one pull request ago.
+pub const DISCOVERY_SHARE: f32 = 0.17;
+
 /// A count of finished things out of a known total.
 ///
 /// `of` is never invented. Every construction site has something that already knows the number.
@@ -168,9 +179,20 @@ impl Progress {
         // phase past `Reading` has finished those pages whatever the count says, so it counts
         // whole - otherwise the bar would stall through search and assembly, which is exactly
         // when a reader is most likely to think it has hung.
+        // **Discovery is work, and finishing it is progress.** The first version gave it
+        // nothing, so a company whose plan had just been made was `0.0` here - and the browser,
+        // which had been estimating its way across discovery, dropped from its cap straight back
+        // to zero the moment the first counted tick arrived. The guarantee this type exists to
+        // make, broken at the one seam neither side owned. Review found it.
+        //
+        // A plan existing *is* discovery finished, so reading starts from its measured share and
+        // the remaining share is what pages divide between them.
         let within = match self.phase {
             Phase::Discovering => 0.0,
-            Phase::Reading => self.pages.and_then(Counted::share).unwrap_or(0.0),
+            Phase::Reading => {
+                let read = self.pages.and_then(Counted::share).unwrap_or(0.0);
+                DISCOVERY_SHARE + (1.0 - DISCOVERY_SHARE) * read
+            }
             Phase::Searching | Phase::Assembling => 1.0,
         };
         #[allow(clippy::cast_precision_loss)]
@@ -185,6 +207,32 @@ impl Progress {
             0.0
         };
         Some(((done + carried) / total).clamp(0.0, 1.0))
+    }
+
+    /// The percentage the browser may estimate its way up to, and no further.
+    ///
+    /// **The handoff, expressed as one number by the side that owns the arithmetic.** While a
+    /// company is being discovered nothing has counted anything, so the browser interpolates
+    /// elapsed time across that band - and this is where the band ends, which is exactly where
+    /// [`Self::percent`] will be on the first counted tick. Estimate and count therefore meet
+    /// rather than collide.
+    ///
+    /// `None` once counting has started: there is nothing left to estimate.
+    #[must_use]
+    pub fn estimating_to(&self) -> Option<u8> {
+        if self.phase != Phase::Discovering {
+            return None;
+        }
+        let of = self.companies.of;
+        if of == 0 {
+            return None;
+        }
+        #[allow(clippy::cast_precision_loss)]
+        let done = self.companies.done.min(of) as f32;
+        #[allow(clippy::cast_precision_loss)]
+        let ceiling = (done + DISCOVERY_SHARE) / (of as f32);
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        Some((ceiling.clamp(0.0, 1.0) * 100.0).floor() as u8)
     }
 
     /// The percentage a reader is shown, rounded toward the honest side.
@@ -204,8 +252,8 @@ impl Progress {
 
 #[cfg(test)]
 mod tests {
-    #![allow(clippy::panic)]
-    // Panicking IS how a test reports failure. The lint stays denied everywhere else.
+    #![allow(clippy::expect_used, clippy::panic)]
+    // Panicking IS how a test reports failure. Both lints stay denied everywhere else.
 
     use super::*;
 
@@ -241,8 +289,59 @@ mod tests {
             companies: Counted::new(1, 2),
             pages: Some(Counted::new(2, 4)),
         };
-        // One of two companies done, and half of the second's pages.
-        assert_eq!(p.percent(), Some(75));
+        // One of two companies done, plus the second's finished discovery and half its pages:
+        // (1 + 0.17 + 0.83/2) / 2.
+        assert_eq!(p.percent(), Some(79));
+    }
+
+    #[test]
+    fn the_estimate_and_the_count_meet_rather_than_collide() {
+        // **The seam, asserted from the side that owns it.** The browser estimates its way
+        // across discovery up to `estimating_to`, and the first counted tick after a plan is
+        // made must be at least that. It was zero, and the bar fell off a cliff in front of
+        // whoever was watching.
+        for companies in 1..=4usize {
+            for done in 0..companies {
+                let discovering = Progress {
+                    phase: Phase::Discovering,
+                    companies: Counted::new(done, companies),
+                    pages: None,
+                };
+                let ceiling = discovering
+                    .estimating_to()
+                    .expect("a company being discovered has a ceiling");
+                for planned in [0usize, 1, 5, 9] {
+                    let counting = Progress {
+                        phase: Phase::Reading,
+                        companies: Counted::new(done, companies),
+                        pages: Some(Counted::new(0, planned)),
+                    };
+                    let first = counting.percent().expect("a counted tick has a percentage");
+                    assert!(
+                        first >= ceiling,
+                        concat!("the bar retreats from {} to {} at {} of {}, ", "plan of {}"),
+                        ceiling,
+                        first,
+                        done,
+                        companies,
+                        planned
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn nothing_is_estimated_once_something_is_counted() {
+        let reading = Progress {
+            phase: Phase::Reading,
+            companies: Counted::new(0, 1),
+            pages: Some(Counted::new(0, 4)),
+        };
+        assert_eq!(reading.estimating_to(), None);
+        assert_eq!(Progress::finished(2).estimating_to(), None);
+        // A run over no companies has no band to estimate across either.
+        assert_eq!(Progress::starting(0).estimating_to(), None);
     }
 
     #[test]
@@ -260,6 +359,13 @@ mod tests {
         };
         assert_eq!(reading.percent(), Some(50));
         assert_eq!(searching.percent(), Some(50));
+        // And a plan with every page read is the whole of that company's band, discovery
+        // included - otherwise the seam would open again at the other end.
+        assert_eq!(
+            reading.fraction(),
+            searching.fraction(),
+            "reading everything and having read everything are the same amount of done"
+        );
     }
 
     #[test]

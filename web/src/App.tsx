@@ -545,7 +545,6 @@ function AnalysisView({
         progress={progress}
         failure={analysis.failure}
         offered={choices.length}
-        started={analysis.created_at}
       />
 
       {/*
@@ -920,20 +919,12 @@ function stillArriving(
 /**
  * How long discovery takes, from `BENCHMARKS.md` Run 23: **16-35 seconds a company**.
  *
- * The middle of the measured range. This is the one number here that is not counted, and it is
- * the reason `estimate` exists rather than the bar sitting at nothing.
+ * The middle of the measured range, and the only number here that is not counted. **Where the
+ * estimate stops is not decided here** - the server sends that, because it is the same number
+ * as the first counted tick and a constant in two languages is a constant that will disagree
+ * with itself.
  */
 const DISCOVERY_MS = 25_000;
-
-/**
- * Discovery's share of one company's wait, from the same measurements.
- *
- * `BENCHMARKS.md` Run 23: discovery is 16-35 seconds a company and the model is about two
- * minutes, so discovery is roughly a sixth of it. The bar may move through this much of a
- * company before a real page count exists, and **not past it** - the cap is what stops an
- * estimate from overtaking the thing it is estimating.
- */
-const DISCOVERY_SHARE = 0.17;
 
 /**
  * A percentage for the stretch where nothing has counted anything yet.
@@ -943,22 +934,20 @@ const DISCOVERY_SHARE = 0.17;
  * tell is a guess. A progress bar is not an assertion about the world, it is an affordance, and
  * a reader who has waited forty seconds is owed something better than a dash.
  *
- * So: interpolate elapsed time against the measured length of discovery, cap it at discovery's
- * measured share of the wait, and **mark it with a tilde** so `~12%` and `40%` are visibly
- * different claims. The moment a real page count arrives it takes over and the tilde drops.
+ * So: interpolate elapsed time across discovery and stop at `ceiling`, which is where counting
+ * begins. **The two meet rather than collide** - the first version derived its own cap from a
+ * copy of the server's constant, and the first counted tick was `0%`, so the bar fell from its
+ * cap back to nothing in front of whoever was watching.
  *
- * @param started when the run was accepted
+ * @param started when the run began *running* - not when it was queued, which is time nobody
+ *   worked
  * @param now the clock, passed in so a test does not have to wait
- * @param companies how many companies the run covers, when that is known
+ * @param ceiling the percentage counting will start from, per the server
  */
-export function estimate(started: Date, now: Date, companies: number): number {
+export function estimate(started: Date, now: Date, ceiling: number): number {
   const elapsed = Math.max(0, now.getTime() - started.getTime());
-  // Never past discovery's share of the *first* company: everything after that point is
-  // counted rather than guessed, and an estimate that runs ahead of the count would have to
-  // come back down.
-  const ceiling = DISCOVERY_SHARE / Math.max(1, companies);
   const through = Math.min(1, elapsed / DISCOVERY_MS);
-  return Math.floor(through * ceiling * 100);
+  return Math.floor(through * Math.max(0, ceiling));
 }
 
 /**
@@ -993,14 +982,11 @@ function Waiting({
   progress,
   failure,
   offered,
-  started,
 }: {
   status: AnalysisStatus;
   progress: Progress | null;
   failure: Analysis["failure"];
   offered: number;
-  /** When the run was accepted. The estimate is measured from here. */
-  started: string;
 }): React.JSX.Element {
   const live = !isTerminal(status);
   const running = status === "running";
@@ -1014,14 +1000,34 @@ function Waiting({
     const tick = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(tick);
   }, [running]);
-  const estimated = estimate(new Date(started), now, progress?.companies.of ?? 1);
+
+  // **When the work started, not when it was accepted.** `created_at` includes time spent in
+  // the queue, and a job that waited thirty seconds for a worker would open at the estimate's
+  // ceiling having had nothing done to it. The first moment this page saw `running` is the
+  // closest thing it has to when a worker picked the job up.
+  const startedRunning = useRef<Date | null>(null);
+  if (running && startedRunning.current === null) startedRunning.current = new Date();
+  if (!running) startedRunning.current = null;
+  const estimated = estimate(
+    startedRunning.current ?? now,
+    now,
+    progress?.estimating_to ?? 0,
+  );
   // Only while running. A percentage beside `Done.` is a number about something that is over.
   const counted = running ? (progress?.percent ?? null) : null;
   // **A number always, and the reader can tell which kind it is.** Before anything has been
   // counted the bar shows an estimate from measured phase durations rather than a dash - see
-  // `estimate`. `counted` wins the moment it exists, and cannot be overtaken because the
-  // estimate is capped below where counting begins.
-  const percent = counted ?? (running ? estimated : null);
+  // `estimate`. `counted` wins the moment it exists, and meets the estimate rather than
+  // colliding with it, because the server sends the ceiling the estimate stops at.
+  const shown = counted ?? (running ? estimated : null);
+  // **And a floor, because "never goes backwards" is a promise to the reader, not to a
+  // module.** Both sides are monotonic on their own and the seam between them was not - which
+  // is how a bar that could not retreat retreated. This makes the guarantee a property of the
+  // thing that makes it.
+  const ceiling = useRef(0);
+  if (shown === null) ceiling.current = 0;
+  else ceiling.current = Math.max(ceiling.current, shown);
+  const percent = shown === null ? null : ceiling.current;
   const known = percent !== null;
   const guessed = counted === null && percent !== null;
 
@@ -1076,7 +1082,17 @@ function Waiting({
           {progress !== null && (
           <p className="doing">
             {progress.saying}
-            {progress.pages
+            {/*
+              **Only while there is a next planned page to be on.** An empty plan sends
+              `0 of 0` and rendered *"page 1 of 0"*; the plan is kept through the search phase,
+              where `done === of` rendered *"page N+1 of N"* about pages that are deliberately
+              outside it. Both are the same slip: an ordinal computed without asking whether
+              the thing it counts exists.
+            */}
+            {progress.phase === "reading" &&
+            progress.pages &&
+            progress.pages.of > 0 &&
+            progress.pages.done < progress.pages.of
               ? ` — page ${String(progress.pages.done + 1)} of ${String(progress.pages.of)}`
               : ""}
             {progress.companies.of > 1

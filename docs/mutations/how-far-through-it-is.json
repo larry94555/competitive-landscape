@@ -80,8 +80,8 @@
   {
     "name": "a company whose pages cannot be fetched reports nothing at all",
     "file": "crates/landscape-analyze/src/lib.rs",
-    "old": "        if on_progress(&announced) == Wanted::No {\n            stopped_early = true;\n        }",
-    "new": "        let _ = &announced;",
+    "old": "        if announce!(so_far, &notes) == Wanted::No {\n            stopped_early = true;\n        }",
+    "new": "        let _ = &notes;",
     "run": [
       "cargo",
       "nextest",
@@ -132,8 +132,8 @@
   {
     "name": "a counted percentage does not win over the estimate",
     "file": "web/src/App.tsx",
-    "old": "  const percent = counted ?? (running ? estimated : null);",
-    "new": "  const percent = running ? estimated : null;",
+    "old": "  const shown = counted ?? (running ? estimated : null);",
+    "new": "  const shown = running ? estimated : null;",
     "run": [
       "npx",
       "vitest",
@@ -143,8 +143,8 @@
   {
     "name": "a percentage that is not a number is coerced instead of dropped",
     "file": "web/src/api.ts",
-    "old": "        typeof parsed.percent === \"number\" && Number.isFinite(parsed.percent)\n          ? parsed.percent\n          : null;",
-    "new": "        Number(parsed.percent);",
+    "old": "      const number = (value: unknown): number | null =>\n        typeof value === \"number\" && Number.isFinite(value) ? value : null;",
+    "new": "      const number = (value: unknown): number | null => Number(value);",
     "run": [
       "npx",
       "vitest",
@@ -200,8 +200,8 @@
   {
     "name": "the estimate is not capped, so it overtakes the thing it estimates",
     "file": "web/src/App.tsx",
-    "old": "  const ceiling = DISCOVERY_SHARE / Math.max(1, companies);",
-    "new": "  const ceiling = 1;",
+    "old": "  return Math.floor(through * Math.max(0, ceiling));",
+    "new": "  return Math.floor(through * 100);",
     "run": [
       "npx",
       "vitest",
@@ -213,6 +213,56 @@
     "file": "web/src/App.tsx",
     "old": "              {known ? `${guessed ? \"~\" : \"\"}${String(percent)}%` : \"—\"}",
     "new": "              {known ? `${String(percent)}%` : \"—\"}",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ]
+  },
+  {
+    "name": "reading starts from nothing, so the estimate falls off a cliff",
+    "file": "crates/landscape-core/src/progress.rs",
+    "old": "                DISCOVERY_SHARE + (1.0 - DISCOVERY_SHARE) * read",
+    "new": "                read",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the browser is never told where its estimate should stop",
+    "file": "crates/landscape-api/src/events.rs",
+    "old": "        \"estimating_to\": reached.estimating_to(),",
+    "new": "        \"estimating_to\": serde_json::Value::Null,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "a company begins discovery without saying so",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "            if on_progress(&ahead) == Wanted::No {\n                break;\n            }",
+    "new": "            let _ = &ahead;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "an ordinal is offered for a page the plan does not hold",
+    "file": "web/src/App.tsx",
+    "old": "            {progress.phase === \"reading\" &&\n            progress.pages &&\n            progress.pages.of > 0 &&\n            progress.pages.done < progress.pages.of",
+    "new": "            {progress.pages",
     "run": [
       "npx",
       "vitest",

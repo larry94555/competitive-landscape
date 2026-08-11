@@ -235,6 +235,11 @@ fn progress_payload(reached: &landscape_core::Progress) -> String {
         "phase": reached.phase,
         "saying": reached.phase.wording(),
         "percent": reached.percent(),
+        // **Where the browser's estimate must stop.** It interpolates elapsed time across
+        // discovery, and this is the percentage the first counted tick will land on - computed
+        // by `landscape_core::progress`, which owns the arithmetic, rather than by a constant
+        // copied into TypeScript that would drift away from it. `null` once counting has begun.
+        "estimating_to": reached.estimating_to(),
         "companies": reached.companies,
         "pages": reached.pages,
     })
@@ -268,6 +273,35 @@ mod tests {
     }
 
     #[test]
+    fn the_wire_carries_where_the_estimate_must_stop() {
+        // One copy of the constant, in the language that owns the arithmetic. The browser is
+        // told the ceiling rather than computing it, so the estimate and the count meet.
+        let discovering = landscape_core::Progress::starting(2);
+        let payload = progress_payload(&discovering);
+        let read: serde_json::Value = serde_json::from_str(&payload).expect("valid JSON");
+        assert_eq!(
+            read["estimating_to"],
+            serde_json::json!(discovering.estimating_to())
+        );
+        assert!(
+            !read["estimating_to"].is_null(),
+            "a discovering run has a ceiling"
+        );
+
+        let reading = landscape_core::Progress {
+            phase: landscape_core::Phase::Reading,
+            companies: landscape_core::Counted::new(0, 2),
+            pages: Some(landscape_core::Counted::new(1, 4)),
+        };
+        let counting: serde_json::Value =
+            serde_json::from_str(&progress_payload(&reading)).expect("valid JSON");
+        assert!(
+            counting["estimating_to"].is_null(),
+            "nothing is left to estimate once something is counted"
+        );
+    }
+
+    #[test]
     fn a_run_with_nothing_countable_yet_sends_no_number_rather_than_zero() {
         // The window this event exists for: running, no report, nothing knows how big the job
         // is. `null` says so. A `0` here would be a claim that no work has been done, and the
@@ -291,7 +325,8 @@ mod tests {
         let payload = progress_payload(&reached);
         let read: serde_json::Value = serde_json::from_str(&payload).expect("valid JSON");
         assert_eq!(read["percent"], serde_json::json!(reached.percent()));
-        assert_eq!(read["percent"], 75);
+        // One of two companies, plus the second's finished discovery and half of its pages.
+        assert_eq!(read["percent"], 79);
         assert_eq!(read["pages"]["done"], 2);
         assert_eq!(read["pages"]["of"], 4);
     }

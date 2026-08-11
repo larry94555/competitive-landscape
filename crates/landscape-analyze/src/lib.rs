@@ -272,6 +272,31 @@ pub async fn analyze_many(
     let mut finished: Vec<Analysis> = Vec::with_capacity(origins.len());
 
     for origin in origins {
+        // **The gap between two companies is the longest silence left.** `analyze_with` cannot
+        // announce anything until discovery has finished, because until then there is no
+        // `found` to assemble a report from - so the next company's 16-35 seconds of discovery
+        // would go by with the last thing on screen saying *"putting the report together"*
+        // about the company before it. Said here instead, where the company count is known and
+        // the report so far already exists.
+        {
+            let mut ahead = joined(
+                &finished,
+                None,
+                origins,
+                notes.clone(),
+                llm,
+                now,
+                interpreted,
+            );
+            ahead.progress = Some(landscape_core::Progress {
+                phase: landscape_core::Phase::Discovering,
+                companies: landscape_core::Counted::new(finished.len(), origins.len()),
+                pages: None,
+            });
+            if on_progress(&ahead) == Wanted::No {
+                break;
+            }
+        }
         let stopped = {
             let so_far = &finished;
             let mut merge_and_report = |partial: &Report| {
@@ -528,6 +553,37 @@ pub async fn analyze_with(
     // no model goes first so the first thing on screen costs a fetch rather than a chain of
     // model calls, and each question is worth one page that does need one. The pages that are
     // left are named on the report rather than dropped in silence.
+    // **Every phase change and every count change is news.** The first version emitted only
+    // from inside a page that produced something, so a run whose pages all failed announced
+    // `0 of N` once and then sat there until it was suddenly Done - the exact no-content case
+    // this feature exists to explain, and review found it a second time after the first fix
+    // covered one boundary and not the rest.
+    //
+    // A closure rather than four copies of the same six lines: a boundary that is one line is a
+    // boundary somebody adds when they add the phase.
+    macro_rules! announce {
+        ($so_far:expr, $notes:expr) => {{
+            let reading = Reading {
+                found: &found,
+                origin,
+                llm,
+                budget,
+                memo,
+                now,
+                notes: $notes,
+            };
+            let (snapshot, _) = assemble(
+                &reading,
+                &$so_far.claims,
+                &$so_far.sources,
+                &$so_far.opened,
+                &$so_far.searched_evidence(),
+                $so_far.reached(),
+            );
+            on_progress(&snapshot)
+        }};
+    }
+
     let plan = order::plan(&found.sources);
     let mut notes: Vec<String> = plan.note().into_iter().collect();
 
@@ -552,21 +608,9 @@ pub async fn analyze_with(
             now,
             notes: &notes,
         };
-        // **Said once here, because a phase change is news even when no claim is.** Every other
-        // report on this path is emitted from inside a page that produced something, so a
-        // company whose pages cannot be fetched at all used to send a reader *nothing for the
-        // whole of it* - which is the silence this feature exists to end, arriving in the case
-        // where a reader most wants to know something is happening. It is also the moment the
-        // denominator starts existing: the plan is made, so `pages` stops being `None`.
-        let (announced, _) = assemble(
-            &reading,
-            &so_far.claims,
-            &so_far.sources,
-            &so_far.opened,
-            &so_far.searched_evidence(),
-            so_far.reached(),
-        );
-        if on_progress(&announced) == Wanted::No {
+        // The moment the denominator starts existing: the plan is made, so `pages` stops
+        // being `None` and the browser stops estimating.
+        if announce!(so_far, &notes) == Wanted::No {
             stopped_early = true;
         }
         for source in &plan.read {
@@ -590,7 +634,11 @@ pub async fn analyze_with(
             if let Some(plan) = so_far.plan.as_mut() {
                 plan.done += 1;
             }
-            if carry_on == Wanted::No {
+            // **Counted, then said.** `read_one` reports from inside itself only when a window
+            // produced something; a page that failed to fetch, or was too thin to open, or was
+            // read while the model was unreachable, returns having said nothing at all. Without
+            // this the count advanced in a variable nobody could see.
+            if announce!(so_far, &notes) == Wanted::No || carry_on == Wanted::No {
                 stopped_early = true;
                 break;
             }
@@ -611,6 +659,10 @@ pub async fn analyze_with(
         // denominator at this point would be a bar that retreats, which is the one thing
         // `landscape_core::progress` promises not to do.
         so_far.phase = landscape_core::Phase::Searching;
+        // **Before the await, not after it.** `search_for_gaps` is a network round trip per
+        // unanswered question, and a phase set but not published is a phase nobody is told
+        // about for the whole of the slowest thing it names.
+        let _ = announce!(so_far, &notes);
         let (admitted, failures) = search_for_gaps(search, origin, &gaps, &so_far.urls()).await;
         so_far.searched.extend(searched_pages(&admitted));
         {
@@ -651,6 +703,7 @@ pub async fn analyze_with(
 
     // Everything this company had to say has been said; what is left is putting it together.
     so_far.phase = landscape_core::Phase::Assembling;
+    let _ = announce!(so_far, &notes);
 
     let reading = Reading {
         found: &found,
@@ -2236,16 +2289,42 @@ mod joining {
                 step.companies.done < step.companies.of,
                 "a run still emitting progress called itself finished: {step:?}"
             );
-            // **The denominator exists by the time anything is reported.** Every emission on
-            // this path happens after `order::plan` has run, so `pages` being `None` here
-            // would mean the plan was made and never recorded - and a reader would sit in
-            // front of an indeterminate bar for a run whose size is known.
-            assert!(
+            // **A page count exists exactly when a plan does.** `Discovering` is the one phase
+            // that legitimately has none - it is the window the browser estimates across. Any
+            // later phase without one would mean the plan was made and never recorded, and a
+            // reader would sit in front of an estimate for a run whose size is known.
+            assert_eq!(
                 step.pages.is_some(),
-                "a plan was made and the page count was not recorded: {step:?}"
+                step.phase != landscape_core::Phase::Discovering,
+                "the page count disagrees with the phase: {step:?}"
             );
             highest = now;
         }
+
+        // **Which phases a reader was actually told about**, rather than only how many times
+        // something was said. Review asked for this: the first version counted emissions, and a
+        // count cannot tell a run that narrated itself from one that repeated a single line.
+        let phases: Vec<landscape_core::Phase> = seen.iter().map(|p| p.phase).collect();
+        for wanted in [
+            landscape_core::Phase::Discovering,
+            landscape_core::Phase::Reading,
+            landscape_core::Phase::Assembling,
+        ] {
+            assert!(
+                phases.contains(&wanted),
+                "a reader was never told the run reached {wanted:?}: {phases:?}"
+            );
+        }
+        // One announcement before each company is discovered, so the wait between two of them
+        // is not spent under the previous one's closing phase.
+        assert!(
+            phases
+                .iter()
+                .filter(|p| **p == landscape_core::Phase::Discovering)
+                .count()
+                >= origins.len(),
+            "a company began discovery without saying so: {phases:?}"
+        );
 
         // And the report that gets stored is not a snapshot of the middle of the run.
         assert_eq!(

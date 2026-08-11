@@ -112,6 +112,25 @@ changes**, not only when a claim appears — and the test asserts `seen.len() >=
 before it asserts anything about the values. The register calls the first version a check that
 cannot fail.
 
+### One guard this run could not test, named rather than left quiet
+
+Progress is announced after **every** page now, whatever that page produced — a fetch that
+failed, a page too thin to open, a model that was unreachable. The mutation that deletes that
+announcement **survives**, and the reason is the fixture rather than the guard: the offline
+harness drives `analyze_many` against `.invalid` origins, where discovery finds nothing, so
+`order::plan` returns an **empty plan** and the loop that announces per page never runs.
+
+Closing it needs a fetcher that can be seeded from a test, so discovery admits pages that then
+fail to read. `landscape-fetch` can serve from memory — that is how `serving_from_memory` works,
+and the loopback guard is what proves nothing went to a network — but the seam is private to
+that crate. Exposing it the way `landscape-db::conformance` is exposed is the fix, and it is
+its own piece of work rather than something to bolt onto this one.
+
+**The mutation is removed from the catalog rather than left reporting `MISSED` for ever**, so
+that a catalog run still means what it says. This paragraph is the record that the guard is
+thinner than the others: it rests on the phase assertions and on sharing one macro with the
+announcement that *is* covered.
+
 ### And a helper is not a feature
 
 The API sends the progress event from inside `if analysis.status == Running`. The harness
@@ -147,7 +166,7 @@ deployment ([ADR 0011](decisions/0011-no-experiments-on-production.md)).
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 45 | 992 | 79 | 22, all caught |
-| now | **1008** | **90** | **23**, all caught |
+| now | **1011** | **93** | **22**, all caught |
 
 ---
 
