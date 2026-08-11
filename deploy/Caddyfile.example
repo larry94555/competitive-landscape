@@ -13,8 +13,15 @@
 # inference on four cores.
 
 landscape.example.com {
-    # Your address. `curl -s https://ifconfig.me` on the machine you will browse from.
-    # A CIDR is fine: 203.0.113.0/24.
+    # Your address. `curl -4 -s https://ifconfig.me` on the machine you will browse from.
+    #
+    # **The `-4` matters.** Without it that command returns an IPv6 address whenever the client
+    # has one, while a domain with only an A record is reached over IPv4 - so the list would
+    # hold an address that never arrives and every request would be refused with the 403 below.
+    #
+    # Several values and CIDR ranges are allowed: `remote_ip 203.0.113.4 198.51.100.0/24`.
+    # If you are already seeing "Not open yet.", the address Caddy actually saw is in its log:
+    # `journalctl -u caddy --no-pager | grep -o '"remote_ip":"[^"]*"' | tail -5`
     @allowed remote_ip 203.0.113.4
 
     handle @allowed {

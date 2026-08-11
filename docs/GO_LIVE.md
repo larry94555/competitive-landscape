@@ -693,14 +693,24 @@ resolves spends a rate-limited retry for nothing.
 
 ### 11a. Find the address you browse from
 
-**On your own machine, not the box:**
+**On your own machine, not the box** — and forcing IPv4, which matters:
 
 ```bash
-curl -s https://ifconfig.me
+curl -4 -s https://ifconfig.me
 ```
 
+> **`-4` is not decoration.** Without it, that command returns your **IPv6** address whenever
+> your machine has one — and your domain has only an `A` record, so the browser reaches the box
+> over IPv4 and Caddy sees a different address entirely. The allow-list would then hold an
+> address that never arrives, and every request would be refused.
+>
+> Run it on **your** machine. On the box it returns the box's own public address, which is not
+> what is asked for.
+
 Write down what it prints. If your home address changes from time to time, note that this is the
-one thing you may have to come back and edit.
+one thing you may have to come back and edit — and
+[step 12](#step-12--you-are-done-check-it) says how to read the address Caddy actually saw,
+which beats guessing.
 
 ### 11b. Install Caddy and point it at your domain
 
@@ -772,6 +782,34 @@ minute. `Ctrl+C` stops watching; the service keeps running.
 
 The padlock should be there. If the browser warns about the certificate, Caddy has not finished
 — `sudo journalctl -u caddy -n 30` on the box says where it got to.
+
+| What the browser shows | What it means |
+|---|---|
+| **What is your idea?** | You are through. Carry on below |
+| **Not open yet.** | Caddy is working and you are not on its allow-list — see below |
+| A certificate warning | The certificate has not issued yet; watch `journalctl -u caddy -f` |
+| Nothing, or a timeout | Caddy is not running, or the security list is missing a rule. `systemctl status caddy` first |
+
+> **`Not open yet.` is this deployment's own words**, from the `handle` block in
+> `/etc/caddy/Caddyfile` that refuses everybody who is not in `@allowed`. Seeing it means the
+> domain resolves, the certificate works, Caddy is running, and the only thing wrong is which
+> address is on the list. **Read the address Caddy saw rather than guessing again:**
+>
+> ```bash
+> sudo journalctl -u caddy --no-pager | grep -o '"remote_ip":"[^"]*"' | tail -5
+> ```
+>
+> The last one is you. Put it on the `@allowed remote_ip` line, then:
+>
+> ```bash
+> sudo systemctl reload caddy
+> ```
+>
+> **Reload, not restart** — it re-reads the configuration without touching the certificate.
+>
+> The usual cause is [step 11a](#step-11--https) returning an IPv6 address while the browser
+> arrives over IPv4. A `remote_ip` matcher takes several values and CIDR ranges, so
+> `@allowed remote_ip 203.0.113.4 2001:db8::/32` is valid if you want both.
 
 You should see **What is your idea?**, a text box, an **Analyse** button, and three example
 ideas underneath.

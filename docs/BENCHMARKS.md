@@ -387,6 +387,41 @@ two, and names both messages as the same cause.
 box disagreed with what was written: an empty firewall chain, a cluster on 5433, and a package
 that does not exist. None was a hard problem. All three were invisible from here.
 
+### The deployment's own refusal, indistinguishable from a broken one
+
+Step 12 said what a working site looks like and nothing about what anything else means. The
+first walk got:
+
+```text
+Not open yet.
+```
+
+Those are **this deployment's own words** — the `handle` block in `Caddyfile.example` that
+refuses everybody outside the allow-list. Seeing it proves rather a lot: the domain resolves,
+the certificate issued, Caddy is running, the proxy is configured. The only thing wrong is which
+address is on a list. And it reads exactly like a site that does not work.
+
+**The address was wrong because the guide's own command produces the wrong one.**
+`curl -s https://ifconfig.me` returns an **IPv6** address whenever the client has one, and a
+domain with only an `A` record is reached over **IPv4** — so the list holds an address that never
+arrives. It is `curl -4` now, in the guide and in `Caddyfile.example`, with a sentence saying
+why the flag is there so nobody tidies it away.
+
+**And guessing is the wrong method anyway.** Caddy logs the address it saw:
+
+```bash
+sudo journalctl -u caddy --no-pager | grep -o '"remote_ip":"[^"]*"' | tail -5
+```
+
+That is the observed value rather than a second opinion about it, which is the same argument as
+every other check in this guide. Step 12 now carries a four-row table — the page, the refusal, a
+certificate warning, and nothing at all — each with what it means and what to do.
+
+**Three of the last four findings have the same shape**: a check or a message that was correct
+and had no remedy attached. A guide is not a list of commands; it is a list of commands **and
+what each of their answers means**, and the second half is the half that gets written only when
+somebody walks it.
+
 ### Numbers in prose are not checked by anything
 
 Renumbering the guide to put DNS at step 3 left **seven** references pointing at the wrong
