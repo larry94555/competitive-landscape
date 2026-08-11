@@ -199,9 +199,29 @@ sudo ufw status
 | What you get | What to do |
 |---|---|
 | `nft` prints nothing, or only chains that say `policy accept` with no rules | Nothing. This is the ordinary case |
-| `nft` shows an `input` chain containing `drop` or `reject` | The rules are real but not where `iptables -L` looks. Add yours with `sudo nft add rule inet filter input tcp dport {80, 443} accept`, then `sudo nft list ruleset` to confirm they are above the drop |
+| `nft` shows tables named `ip nat`, `ip filter` or `ip raw` full of rules mentioning `br-…`, `docker0` or `172.x.x.x` addresses | **Nothing.** Those are Docker's own, and they are protective rather than restrictive — see below |
+| `nft` shows an **`input`** chain containing `drop` or `reject` that is not about a container address | The rules are real but not where `iptables -L` looks. Add yours with `sudo nft add rule inet filter input tcp dport {80, 443} accept`, then `sudo nft list ruleset` to confirm they sit above the drop |
 | `ufw` says `Status: inactive`, or the command is not installed | Nothing |
 | `ufw` says `Status: active` | `sudo ufw allow 80/tcp && sudo ufw allow 443/tcp` |
+
+> **Docker's rules look alarming and are on your side.** Anything with Docker installed shows a
+> page of them, typically in `ip nat` and `ip raw`, and the ones that say `drop` read like a
+> firewall. They are not. Two shapes are common:
+>
+> ```text
+> iifname != "br-55b8…" ip daddr 172.18.0.3 counter drop
+> iifname != "lo" meta l4proto tcp ip daddr 127.0.0.1 tcp dport 5432 counter drop
+> ```
+>
+> The first stops anything reaching a container by routing straight to its private address
+> instead of coming through the bridge. The second makes a port published to `127.0.0.1`
+> genuinely loopback-only — the same property [step 10](#step-10--start-the-search-engine) has
+> you check for SearXNG. Neither mentions 80 or 443, both sit in `prerouting` rather than in an
+> `input` filter, and **neither is yours to change.**
+>
+> What they *do* tell you is that containers are already running here. If one of them publishes
+> **5432**, it will collide with the Postgres this guide installs —
+> [step 5](#step-5--install-what-the-build-needs) says how to find out.
 
 **If everything is empty, Oracle's security list from 4a is your only firewall.** That is
 genuinely enough for what this guide does — it is the boundary that decides what reaches the
@@ -247,6 +267,24 @@ Check all three answer:
 rustc --version && node --version && psql --version
 ```
 
+**And check the database *server* is running, which is a different question.** `psql --version`
+is the client program; the next step needs the server behind it:
+
+```bash
+systemctl is-active postgresql
+sudo -u postgres psql -c 'SELECT version();'
+```
+
+You want `active`, then a line naming a PostgreSQL version. Installing the package normally
+starts it, so this usually passes — but when it does not, [step 6](#step-6--create-the-database)
+fails with `could not connect to server`, which reads like a missing database rather than a
+stopped service.
+
+| If | Then |
+|---|---|
+| `systemctl is-active postgresql` says `inactive` or `failed` | `sudo systemctl start postgresql`, then `journalctl -u postgresql -n 30` if it will not |
+| the journal says the address is already in use | Something else holds port 5432. `sudo ss -ltnp \| grep 5432` names it, and `sudo docker ps` will show it if it is a container — this guide expects the native server on that port, so stop the other one or point it elsewhere |
+
 ---
 
 ## Step 6 — Create the database
@@ -273,8 +311,35 @@ CREATE DATABASE landscape OWNER landscape;
 SQL
 ```
 
+Two lines, and they are the whole of it: the first makes the **role** the application logs in
+as, the second makes the **database** it logs in to, owned by that role.
+
+**Now prove it works from the outside**, with the same password, over TCP, exactly as the
+services will:
+
+```bash
+psql "postgres://landscape:PASTE_IT_HERE@127.0.0.1:5432/landscape" -c '\conninfo'
+```
+
+```text
+You are connected to database "landscape" as user "landscape" on host "127.0.0.1" at port "5432".
+```
+
+**This is the check worth not skipping.** It proves four separate things at once — the server is
+up, the role exists, the password is right, and the URL parses the way you meant — and it is the
+string you are about to paste into `/etc/landscape/landscape.env` at
+[step 9](#step-9--configure-and-start-the-three-services). Finding out here costs a minute;
+finding out there costs a service that will not start and a journal line about authentication.
+
+| If it says | Then |
+|---|---|
+| `could not connect to server` | The server is not running — see the table at the end of [step 5](#step-5--install-what-the-build-needs) |
+| `password authentication failed` | The password here and the one in the `CREATE USER` line are not the same. `ALTER USER landscape WITH PASSWORD '...';` sets it again |
+| `database "landscape" does not exist` | The second SQL line did not run. Run it on its own |
+
 There is no schema step. **The application applies its own migrations on boot**, so there is
-nothing to run and nothing to forget.
+nothing to run and nothing to forget — the tables appear the first time
+[step 9](#step-9--configure-and-start-the-three-services) starts a service.
 
 ---
 

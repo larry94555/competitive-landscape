@@ -174,6 +174,37 @@ port. Review had already moved SearXNG's binding to `127.0.0.1` on the argument 
 firewall is not the same as a service that is not listening; a box with no firewall at all is
 that argument arriving in person.
 
+### Three questions from the first walk, and each one was a gap
+
+**"What does an empty chain mean?"** — answered above.
+
+**"Is Docker's ruleset something I have to act on?"** The decision table said to act when `nft`
+shows an `input` chain containing a `drop`. What anybody with Docker installed actually sees is
+a page of rules in `ip nat` and `ip raw`, several of them saying `drop`, and none of them theirs
+to change: they stop traffic reaching a container by routing past the bridge, and they make a
+port published to `127.0.0.1` genuinely loopback-only. That is the same property the guide asks
+to be checked for SearXNG two steps later — the guide relied on it and then failed to recognise
+it when it appeared. Named now, with both shapes quoted, and a note that their presence means
+containers are running, which matters for the next question.
+
+**"Doesn't step 6 assume a database exists?"** It creates the role and the database, and it
+assumed something it never checked: that the *server* is up. `psql --version` proves the client
+binary is installed and says nothing about the thing it connects to, so a stopped Postgres
+surfaced two steps later as `could not connect to server` — which reads like a missing database
+rather than a stopped service.
+
+Step 5 checks the server now, and step 6 ends with the check that was missing entirely:
+
+```bash
+psql "postgres://landscape:...@127.0.0.1:5432/landscape" -c '\conninfo'
+```
+
+**One command, four facts:** the server is up, the role exists, the password is right, and the
+URL parses the way it was meant. It is the exact string that goes into `landscape.env` three
+steps later, so the escaping question review raised about the password is answered here rather
+than by a service that will not start. And on this box it doubles as the port-collision check:
+a container already holding 5432 stops the native server, which is how the question arose.
+
 ### Numbers in prose are not checked by anything
 
 Renumbering the guide to put DNS at step 3 left **seven** references pointing at the wrong
