@@ -128,6 +128,18 @@ the new code was correct about what it published and wrong about what it did wit
 Both answers are read now, and the search predicate is asked a second time because the
 announcement can change it.
 
+**And the same defect was one level up, in that fix.** `analyze_many` announces the next company
+before discovering it; that announcement's `Wanted::No` only `break`s the loop, while
+`stopped_early` is read off the finished children — every one of which really did finish. So a
+run revoked *between* two companies came back saying it had completed on its own terms, at the
+one boundary with no child to speak for it. Review found it in the commit that fixed the other
+two.
+
+**Three boundaries, three fixes, each found a round apart.** That is the lesson rather than any
+one of them: when a signal has to be honored in several places, repairing the ones that were
+reported tells you nothing about how many there are. The register's rule is to enumerate the
+callback's call sites and check every one.
+
 ### A floor and a clock that outlived the worker they belonged to
 
 The browser's monotonic floor and the estimate's start time both live in refs, and a ref
@@ -195,7 +207,7 @@ deployment ([ADR 0011](decisions/0011-no-experiments-on-production.md)).
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 45 | 992 | 79 | 22, all caught |
-| now | **1012** | **94** | **25**, all caught |
+| now | **1013** | **94** | **26**, all caught |
 
 ---
 

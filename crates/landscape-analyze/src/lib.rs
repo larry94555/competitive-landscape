@@ -270,6 +270,12 @@ pub async fn analyze_many(
     let origins = analyzing;
 
     let mut finished: Vec<Analysis> = Vec::with_capacity(origins.len());
+    // **A run abandoned *between* companies leaves no child to say so.** `stopped_early` below
+    // is otherwise derived from the finished children alone, and each of those really did
+    // finish - so a revocation caught at the announcement before the next company produced an
+    // `Analysis` claiming the run had completed on its own terms. Same defect as the one at
+    // the `Assembling` boundary, one level up, and review found it in the fix for that one.
+    let mut stopped_between_companies = false;
 
     for origin in origins {
         // **The gap between two companies is the longest silence left.** `analyze_with` cannot
@@ -294,6 +300,7 @@ pub async fn analyze_many(
                 pages: None,
             });
             if on_progress(&ahead) == Wanted::No {
+                stopped_between_companies = true;
                 break;
             }
         }
@@ -337,7 +344,7 @@ pub async fn analyze_many(
         report,
         coverage: coverage_by_question(&finished),
         pages: finished.iter().flat_map(|a| a.pages.clone()).collect(),
-        stopped_early: finished.iter().any(|a| a.stopped_early),
+        stopped_early: stopped_between_companies || finished.iter().any(|a| a.stopped_early),
     }
 }
 
@@ -2390,6 +2397,52 @@ mod joining {
                 "a run revoked at {refuse_at:?} came back saying it finished on its own terms"
             );
         }
+    }
+
+    #[tokio::test]
+    async fn a_run_revoked_between_two_companies_stops_there() {
+        // **The boundary with no child to speak for it.** Every other cancellation path ends
+        // inside `analyze_with`, which returns an `Analysis` saying it stopped. This one is in
+        // `analyze_many`, between two of them - so the loop breaks with a `finished` list whose
+        // every member really did finish, and `stopped_early` read off those alone said the run
+        // had completed on its own terms.
+        let origins = unreachable(3);
+        let mut refused = false;
+        let outcome = analyze_many(
+            &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
+            &named(&origins),
+            &mut |report| {
+                let Some(reached) = report.progress else {
+                    return Wanted::Yes;
+                };
+                // The announcement before the *second* company: discovering, with one company
+                // already behind it. The first company's own ticks are accepted.
+                if reached.phase == landscape_core::Phase::Discovering
+                    && reached.companies.done == 1
+                    && reached.pages.is_none()
+                {
+                    refused = true;
+                    return Wanted::No;
+                }
+                Wanted::Yes
+            },
+        )
+        .await;
+
+        assert!(
+            refused,
+            "the run never announced a second company, so this asserts nothing"
+        );
+        assert_eq!(
+            outcome.report.subjects.len(),
+            origins.len(),
+            "the report should still cover every company it set out to"
+        );
+        assert!(
+            outcome.stopped_early,
+            "a run revoked between two companies came back saying it finished on its own terms"
+        );
     }
 
     #[tokio::test]

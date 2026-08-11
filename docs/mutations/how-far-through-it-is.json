@@ -248,7 +248,7 @@
   {
     "name": "a company begins discovery without saying so",
     "file": "crates/landscape-analyze/src/lib.rs",
-    "old": "            if on_progress(&ahead) == Wanted::No {\n                break;\n            }",
+    "old": "            if on_progress(&ahead) == Wanted::No {\n                stopped_between_companies = true;\n                break;\n            }",
     "new": "            let _ = &ahead;",
     "run": [
       "cargo",
@@ -304,6 +304,19 @@
       "npx",
       "vitest",
       "run"
+    ]
+  },
+  {
+    "name": "a run revoked between two companies says it finished on its own terms",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        stopped_early: stopped_between_companies || finished.iter().any(|a| a.stopped_early),",
+    "new": "        stopped_early: finished.iter().any(|a| a.stopped_early),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
     ]
   }
 ]

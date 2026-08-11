@@ -2566,9 +2566,21 @@ finished on its own terms. **A fix for one property reopened another**, which is
 reason this file exists: the new code was right about what it published and wrong about what it
 did with the reply.
 
+**And the same defect was one level up, in the fix itself.** `analyze_many` announces the next
+company before discovering it, and that announcement's `Wanted::No` only `break`s the loop —
+while `stopped_early` is computed from the finished children, every one of which really did
+finish. So a run revoked *between* companies came back saying it had completed on its own terms,
+which is the identical false signal, at the one boundary with no child to speak for it. Review
+found it in the very commit that fixed the inner two.
+
+**Three boundaries, three separate fixes, found one round apart each.** That is the shape: when
+a signal has to be honored at several places, fixing the ones you can see does not tell you how
+many there are. Enumerate the call sites of the callback and check every one, rather than fixing
+the failure that was reported.
+
 > **Ask this about any callback you add:** *what does its return value mean, and what am I doing
 > with it?* A discarded `Result` at least warns. A discarded domain answer looks like a
-> statement.
+> statement. **And then: where else is this called?**
 
 **Rule, the honest version:** ask *what does a wrong number here cost the reader?* Wrong about a
 competitor's price, they make a decision on a fiction. Wrong about how much is left, they wait a
