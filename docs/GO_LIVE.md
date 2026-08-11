@@ -6,11 +6,11 @@ Nothing here needs a search engine, a forum, or a decision you have not been giv
 information to make.
 
 > **What this is not.** [DEPLOY.md](DEPLOY.md) is the same deployment with the reasoning — why
-> the ports are open, why the artefacts stay root-owned, what each unit file is protecting
+> the ports are open, why the artifacts stay root-owned, what each unit file is protecting
 > against. Read it when something surprises you. This file is the sequence.
 >
 > **Being walked for the first time.** It was written from our own code and from Oracle's
-> documented behaviour rather than from a deployment that worked, so **correct it as you go**.
+> documented behavior rather than from a deployment that worked, so **correct it as you go**.
 > Two steps are still marked **⚠ least certain**; a third is not, because
 > [step 4b](#step-4--open-the-two-firewalls) has now met a real box and been rewritten around
 > what it found.
@@ -693,21 +693,86 @@ resolves spends a rate-limited retry for nothing.
 
 ### 11a. Find the address you browse from
 
-**On your own machine, not the box:**
+**On your own machine, not the box** — and forcing IPv4, which matters.
+
+**macOS or Linux:**
 
 ```bash
-curl -s https://ifconfig.me
+curl -4 -s https://ifconfig.me
 ```
 
+**Windows, in PowerShell** — `curl.exe`, with the extension, and it is not optional:
+
+```bash
+curl.exe -4 -s https://ifconfig.me
+```
+
+> **`curl` in Windows PowerShell is not curl.** It is an alias for `Invoke-WebRequest`, which
+> reads `-4` as the start of a parameter it does not have and fails before making a request:
+> *"Cannot find drive. A drive with the name 'https' does not exist."* Writing `curl.exe` runs
+> the real program, which Windows 10 and 11 both ship. The rest of this guide runs on the box,
+> where `curl` is curl; this one step runs on your own machine, which is why it is the only
+> place the difference matters.
+>
+> **`-4` is not decoration.** Without it, that command returns your **IPv6** address whenever
+> your machine has one — and your domain has only an `A` record, so the browser reaches the box
+> over IPv4 and Caddy sees a different address entirely. The allow-list would then hold an
+> address that never arrives, and every request would be refused.
+>
+> Run it on **your** machine. On the box it returns the box's own public address, which is not
+> what is asked for.
+
 Write down what it prints. If your home address changes from time to time, note that this is the
-one thing you may have to come back and edit.
+one thing you may have to come back and edit — and
+[step 12](#step-12--you-are-done-check-it) says how to read the address Caddy actually saw,
+which beats guessing.
 
 ### 11b. Install Caddy and point it at your domain
 
-On the box:
+On the box, from **Caddy's own repository** rather than Ubuntu's. This is
+[Caddy's documented install](https://caddyserver.com/docs/install#debian-ubuntu-raspbian) for
+Debian and Ubuntu, copied whole, and it carries an arm64 build:
 
 ```bash
+sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo chmod o+r /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+sudo chmod o+r /etc/apt/sources.list.d/caddy-stable.list
+sudo apt-get update
 sudo apt-get install -y caddy
+```
+
+> **The two `chmod` lines are part of the official sequence, not tidying.** `apt` fetches as the
+> unprivileged `_apt` user, so it has to be able to read the key and the source list. Leaving
+> them out works only if your umask happened to be permissive, and when it is not, `apt-get
+> update` cannot read what the two lines above just wrote — and re-running them, which is what
+> the remedy below says, writes the same unreadable files again.
+>
+> **Ubuntu 24.04 does have a `caddy` package**, in Universe. This guide does not use it: it is
+> older than upstream, and a deployment document that pins a web server should name the source
+> it was tested against. That is the reason, rather than the package being absent.
+
+Check it is there before going on — the second command also proves the directory the next step
+writes into exists:
+
+```bash
+caddy version
+ls /etc/caddy/Caddyfile
+```
+
+> **`E: Unable to locate package caddy`** means the repository lines above did not take —
+> most often because `apt-get update` could not read the key or the list, which is what the two
+> `chmod` lines prevent. Re-run all five, and watch `apt-get update` for an error mentioning
+> `dl.cloudsmith.io` or a permission denial.
+>
+> **`cp: cannot create regular file '/etc/caddy/Caddyfile': No such file or directory`** in the
+> next command is the same problem one step later: no package, so no directory. It reads like a
+> missing file and it is a missing program.
+
+Now the configuration. The package ships a default `Caddyfile`; you are replacing it:
+
+```bash
 sudo cp ~/competitive-landscape/deploy/Caddyfile.example /etc/caddy/Caddyfile
 sudo nano /etc/caddy/Caddyfile
 ```
@@ -748,14 +813,60 @@ minute. `Ctrl+C` stops watching; the service keeps running.
 The padlock should be there. If the browser warns about the certificate, Caddy has not finished
 — `sudo journalctl -u caddy -n 30` on the box says where it got to.
 
-You should see **What is your idea?**, a text box, an **Analyse** button, and three example
+| What the browser shows | What it means |
+|---|---|
+| **What is your idea?** | You are through. Carry on below |
+| **Not open yet.** | Caddy is working and you are not on its allow-list — see below |
+| A certificate warning | The certificate has not issued yet; watch `journalctl -u caddy -f` |
+| Nothing, or a timeout | Caddy is not running, or the security list is missing a rule. `systemctl status caddy` first |
+
+> **`Not open yet.` is this deployment's own words**, from the `handle` block in
+> `/etc/caddy/Caddyfile` that refuses everybody who is not in `@allowed`. Seeing it means the
+> domain resolves, the certificate works, Caddy is running, and the only thing wrong is which
+> address is on the list.
+>
+> **The page tells you which address it refused.** The refusal reads
+> `Not open yet. Seen from 203.0.113.99`, and that number is what Caddy compared against your
+> list — observed, rather than guessed by a second command on a different machine. Put it on
+> the `@allowed remote_ip` line and:
+>
+> ```bash
+> sudo systemctl reload caddy
+> ```
+>
+> **Reload, not restart** — it re-reads the configuration without touching the certificate.
+>
+> **If your refusal does not name an address**, your `Caddyfile` predates that — add it:
+>
+> ```bash
+> sudo sed -i 's|respond "Not open yet." 403|respond "Not open yet. Seen from {remote_host}" 403|' /etc/caddy/Caddyfile
+> sudo systemctl reload caddy
+> ```
+>
+> Four things commonly make the address differ from what [step 11a](#step-11--https) printed: a
+> browser using a VPN when `curl` did not, an **`AAAA` record** your registrar added, so the
+> browser arrives over IPv6 while you listed an IPv4 address, `curl` having been run on the box,
+> and an ISP that rotates the lease. A `remote_ip` matcher takes several values and CIDR
+> ranges, so `@allowed remote_ip 203.0.113.4 2001:db8:abcd:1234::/64` covers both families.
+>
+> ```bash
+> nslookup -type=AAAA YOUR_DOMAIN
+> ```
+>
+> Anything returned there is an **extra** record — the `A` record from
+> [step 3](#step-3--point-your-domain-at-it-now) is the right one and the only one this guide
+> asks for. Some registrars add an `AAAA` of their own, and if one exists and points at this
+> box, a browser will prefer it. If nothing is returned, IPv6 is not your explanation and the
+> address in the refusal is an IPv4 one.
+
+You should see **What is your idea?**, a text box, an **Analyze** button, and three example
 ideas underneath.
 
 Then run the one check that exercises everything:
 
 1. Click the example **project management for a small design agency**. It fills the box; it does
    not submit.
-2. Press **Analyse**.
+2. Press **Analyze**.
 3. The address bar changes to `/a/…` — that is the permalink, and it works on reload.
 4. Within about a minute the first section appears. **Recent public changes** usually fills
    first: it needs no model at all.

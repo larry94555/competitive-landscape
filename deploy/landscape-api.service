@@ -26,7 +26,7 @@ RestartSec=5s
 # **Nothing here writes to disk.** Logs go to the journal, reports go to Postgres. Review
 # pointed out that `ReadWritePaths=/opt/landscape` let a compromised process replace the very
 # binary and frontend it serves - so there is no writable path at all, and `ProtectSystem=strict`
-# with no exception means the whole filesystem is read-only to it. The artefacts are root-owned;
+# with no exception means the whole filesystem is read-only to it. The artifacts are root-owned;
 # this user only needs to read them.
 NoNewPrivileges=true
 PrivateTmp=true

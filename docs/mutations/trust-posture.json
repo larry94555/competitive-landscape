@@ -2,7 +2,7 @@
   {
     "name": "a roadmap item is reported the same way as a certification",
     "file": "crates/landscape-core/src/extract.rs",
-    "old": "            Self::Pursuing => \"says it is working towards\",",
+    "old": "            Self::Pursuing => \"says it is working toward\",",
     "new": "            Self::Pursuing => \"states\",",
     "run": [
       "cargo",
@@ -43,8 +43,8 @@
   {
     "name": "a standard named without a claim is dropped instead of reported",
     "file": "crates/landscape-core/src/extract.rs",
-    "old": "            let Some(name) = got.standard.as_deref().map(normalise) else {\n                continue;\n            };\n            if name.is_empty()\n                || assurances",
-    "new": "            let Some(name) = got.standard.as_deref().map(normalise) else {\n                continue;\n            };\n            if got.status.is_none()\n                || name.is_empty()\n                || assurances",
+    "old": "            let Some(name) = got.standard.as_deref().map(normalize) else {\n                continue;\n            };\n            if name.is_empty()\n                || assurances",
+    "new": "            let Some(name) = got.standard.as_deref().map(normalize) else {\n                continue;\n            };\n            if got.status.is_none()\n                || name.is_empty()\n                || assurances",
     "run": [
       "cargo",
       "nextest",
@@ -216,7 +216,7 @@
     ]
   },
   {
-    "name": "an answer about a neighbouring standard is published as a claim about this one",
+    "name": "an answer about a neighboring standard is published as a claim about this one",
     "file": "crates/landscape-analyze/src/stages.rs",
     "old": "            return Judged::EvidenceIsAboutAnother;",
     "new": "            let _ = named;",

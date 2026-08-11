@@ -198,7 +198,7 @@ impl Store for PgStore {
         report: &Report,
     ) -> Result<Applied> {
         let json = serde_json::to_value(report)
-            .map_err(|e| StoreError::Corrupt(format!("report will not serialise: {e}")))?;
+            .map_err(|e| StoreError::Corrupt(format!("report will not serialize: {e}")))?;
         // Both predicates, and they refuse different things. `status = 'running'` stops a late
         // write resurrecting a finished or failed row; `generation` stops a worker whose claim
         // was revoked writing over the run that replaced it, which `status` cannot see because
@@ -224,7 +224,7 @@ impl Store for PgStore {
 
     async fn complete(&self, id: AnalysisId, generation: u32, report: &Report) -> Result<Applied> {
         let json = serde_json::to_value(report)
-            .map_err(|e| StoreError::Corrupt(format!("report will not serialise: {e}")))?;
+            .map_err(|e| StoreError::Corrupt(format!("report will not serialize: {e}")))?;
         let done = sqlx::query(
             "UPDATE analyses SET status = $1, report = $2, finished_at = now()
              WHERE id = $3 AND generation = $4",
@@ -247,7 +247,7 @@ impl Store for PgStore {
         // previous attempt asked. A stale list would offer a reader companies this run never
         // considered.
         let choices = serde_json::to_value(refused.choices)
-            .map_err(|e| StoreError::Corrupt(format!("choices do not serialise: {e}")))?;
+            .map_err(|e| StoreError::Corrupt(format!("choices do not serialize: {e}")))?;
         let done = sqlx::query(
             "UPDATE analyses SET status = $1, failure_reason = $2, failure_kind = $3,
                     clarification = $4, finished_at = now()

@@ -55,7 +55,7 @@ Not an action to schedule. It is here so the decision is not a surprise.
 
 # Phases 3–8 — what will be asked of you
 
-Summarised rather than detailed, because a checklist written 20 weeks early is a checklist
+Summarized rather than detailed, because a checklist written 20 weeks early is a checklist
 written wrong. Each gets its own page when its phase starts.
 
 | Phase | What is yours | Roughly |

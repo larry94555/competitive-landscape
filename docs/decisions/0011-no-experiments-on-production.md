@@ -49,7 +49,7 @@ experiment on production.
 **The end-to-end latency criterion changes shape.** It is no longer *"measure the box"*; it is
 *"measure the wait"*, from a client, against whatever is deployed. That measurement belongs
 after a deployment exists, and it belongs to the same discipline as the rest of the product:
-what a user experiences is the only thing worth optimising.
+what a user experiences is the only thing worth optimizing.
 
 **`docs/A1_BAKEOFF.md` is gone**, replaced by [MODEL_BAKEOFF.md](../MODEL_BAKEOFF.md), which
 has been run end to end rather than written from a specification and hedged about.

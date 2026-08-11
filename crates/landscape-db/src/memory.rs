@@ -1,6 +1,6 @@
 //! An in-memory [`Store`](crate::Store).
 //!
-//! Not a mock: it is a complete implementation with the same observable behaviour as
+//! Not a mock: it is a complete implementation with the same observable behavior as
 //! Postgres, including FIFO claim ordering and single-claim guarantees. That is what lets
 //! the API's tests run with nothing installed while still testing the real request path.
 

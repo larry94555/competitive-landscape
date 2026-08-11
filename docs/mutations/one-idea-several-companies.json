@@ -210,7 +210,7 @@
   {
     "name": "the report names a company it never read",
     "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "        set.members.iter().take(analysing).collect();",
+    "old": "        set.members.iter().take(analyzing).collect();",
     "new": "        set.members.iter().collect();",
     "run": [
       "cargo",
@@ -223,8 +223,8 @@
   {
     "name": "the companies a report is about are mentioned last, under everything else",
     "file": "crates/landscape-analyze/src/lib.rs",
-    "old": "        for note in subject::found_for_you(set, analysing.len())\n            .into_iter()\n            .rev()\n        {\n            notes.insert(0, note);\n        }",
-    "new": "        notes.extend(subject::found_for_you(set, analysing.len()));",
+    "old": "        for note in subject::found_for_you(set, analyzing.len())\n            .into_iter()\n            .rev()\n        {\n            notes.insert(0, note);\n        }",
+    "new": "        notes.extend(subject::found_for_you(set, analyzing.len()));",
     "run": [
       "cargo",
       "nextest",
@@ -286,7 +286,7 @@
     ]
   },
   {
-    "name": "an empty set is analysed anyway",
+    "name": "an empty set is analyzed anyway",
     "file": "crates/landscape-analyze/src/subject.rs",
     "old": "        _ if set.is_empty() => Decided::Refuse(Refusal {\n            why: NOTHING_RESOLVED.to_owned(),\n            kind: landscape_core::Failure::NothingFound,\n            choices: Vec::new(),\n        }),",
     "new": "        _ if false => Decided::Refuse(Refusal {\n            why: NOTHING_RESOLVED.to_owned(),\n            kind: landscape_core::Failure::NothingFound,\n            choices: Vec::new(),\n        }),",

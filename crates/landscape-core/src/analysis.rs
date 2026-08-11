@@ -159,7 +159,7 @@ impl Failure {
 
     /// Parse a value read back from Postgres.
     ///
-    /// An unrecognised kind reads as [`Failure::Internal`] rather than nothing: a row written
+    /// An unrecognized kind reads as [`Failure::Internal`] rather than nothing: a row written
     /// by a newer version must not make an older one claim the analysis succeeded.
     #[must_use]
     pub fn from_db_str(s: &str) -> Self {
@@ -196,7 +196,7 @@ pub struct Choice {
     pub prompt: String,
 }
 
-/// A validated request to analyse something.
+/// A validated request to analyze something.
 ///
 /// The only way to build one is [`NewAnalysis::parse`], so an unvalidated prompt cannot
 /// reach the queue.

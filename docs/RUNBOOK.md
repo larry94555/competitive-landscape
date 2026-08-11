@@ -29,7 +29,7 @@ journalctl -u landscape-worker -n 100 --no-pager   # (unverified)
 
 ---
 
-## 1. Nothing is being analysed, but the API answers
+## 1. Nothing is being analyzed, but the API answers
 
 **Symptom.** Analyses accepted, `status` stays `queued` forever.
 
@@ -61,7 +61,7 @@ longer means the sweep is not running — check the worker is alive at all.
 
 ## 2. llama-server — the three failure modes
 
-The model is a separate process. It fails in ways the application cannot fix, so recognising
+The model is a separate process. It fails in ways the application cannot fix, so recognizing
 which one is happening matters more than any single command.
 
 ### 2.1 It is not listening
@@ -97,7 +97,7 @@ normal or better — and the reports contain nonsense, or prices that are not on
 they cite.
 
 **This is the failure mode that looks like health.** It has happened once already: a
-defective quantisation of Qwen3-1.7B was the *fastest* model on the bench and returned
+defective quantization of Qwen3-1.7B was the *fastest* model on the bench and returned
 schema-valid garbage. Constrained decoding guarantees the shape of an answer and nothing
 about its truth, so every monitor built around shape reports fine.
 
@@ -167,7 +167,7 @@ ran. **Do not hand-edit `_sqlx_migrations`.** Restore, then roll forward.
 When the machine cannot serve analyses but the site should not disappear: serve existing
 reports, refuse new ones, and say so plainly.
 
-> **Not yet implemented.** `PRODUCT_SPEC.md` §2A.4 specifies the behaviour; there is no flag
+> **Not yet implemented.** `PRODUCT_SPEC.md` §2A.4 specifies the behavior; there is no flag
 > for it yet. Until there is, the honest options are a maintenance page or nothing.
 
 ---

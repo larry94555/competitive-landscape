@@ -63,7 +63,7 @@ pub struct Probe {
     pub priority: u8,
 }
 
-/// The probe list, in the order `FACT_CHECKING.md` §3.3 gives them, prioritised.
+/// The probe list, in the order `FACT_CHECKING.md` §3.3 gives them, prioritized.
 ///
 /// Deliberately short. Every entry is a request against somebody else's server, and a list
 /// that tries forty paths on the chance one exists is not the polite crawler this project
@@ -166,9 +166,9 @@ pub fn guess(path: &str) -> Option<Answers> {
     // silently classify nothing rather than fail, which is the worst kind of wrong.
     let p = path.split(['?', '#']).next().unwrap_or("").to_lowercase();
     // The check is on path segments, not substrings — but a segment may be hyphenated,
-    // and that is where the judgement is. `release-notes` is a page name;
+    // and that is where the judgment is. `release-notes` is a page name;
     // `11.5-personify-your-product` is an article slug that happens to end in a word we
-    // recognise, and treating it as a product page put a book chapter in a real run.
+    // recognize, and treating it as a product page put a book chapter in a real run.
     //
     // So a hyphenated segment is split only when it is **short**. Page names are two or
     // three words; article slugs are five or more.
@@ -488,7 +488,7 @@ mod tests {
         assert_eq!(
             guess("/what_s_new"),
             None,
-            "not a segment we claim to recognise"
+            "not a segment we claim to recognize"
         );
     }
 }

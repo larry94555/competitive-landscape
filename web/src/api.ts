@@ -102,7 +102,7 @@ export interface Report {
   readonly sources: readonly unknown[];
   /** What the market calls this. Absent when the reader's own words were searched for. */
   readonly interpreted?: Interpreted | null;
-  /** Anything true of the whole report — today, companies named and not analysed. */
+  /** Anything true of the whole report — today, companies named and not analyzed. */
   readonly notes?: readonly string[];
 }
 
@@ -387,7 +387,7 @@ export function watchAnalysis(id: string, watcher: Watcher): () => void {
     try {
       const parsed: unknown = JSON.parse((e as MessageEvent<string>).data);
       // Anything else is dropped rather than guessed at. A malformed list would decide
-      // whether every claim on screen is labelled, and the finished report says so anyway.
+      // whether every claim on screen is labeled, and the finished report says so anyway.
       if (Array.isArray(parsed) && parsed.every((s) => typeof s === "string")) {
         watcher.onSubjects(parsed);
       }

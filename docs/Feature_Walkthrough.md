@@ -54,7 +54,7 @@ built first, so it never has to be retrofitted over a happy path.
 *disambiguation gate* — the code that decides whether we know which company a report is
 about, and refuses to continue when two candidates are too close — exists and is fully
 tested. **You cannot exercise it from the UI**, because nothing yet produces candidates for
-it to judge; that needs the fetching the gate exists to authorise. It is built first on
+it to judge; that needs the fetching the gate exists to authorize. It is built first on
 purpose, and the only thing you can run today is its tests:
 
 ```bash
@@ -153,9 +153,9 @@ cd web && npm run dev
 Open <http://localhost:5173>.
 
 **You should see** one heading — *What is your idea?* — one box, one button, and under them
-three ideas to start from. **Analyse** is greyed out until you type something.
+three ideas to start from. **Analyze** is grayed out until you type something.
 
-**Type:** `an app that helps small farms sell to local restaurants` and press **Analyse**.
+**Type:** `an app that helps small farms sell to local restaurants` and press **Analyze**.
 
 **You should see**, in order:
 
@@ -171,7 +171,7 @@ a report came back — with the page polling until it settled. The report is emp
 nothing fetches yet, but the *shape* is the real one.
 
 The box clearing is deliberate. Without an account you get **two analyses a day** — and an
-empty box is what says so, because a box still holding your words invites you to press Analyse
+empty box is what says so, because a box still holding your words invites you to press Analyze
 again and be refused.
 
 **You will not hit that limit here.** The cap counts the address a reverse proxy reports, and a
@@ -179,7 +179,7 @@ laptop has none in front of it — see Part 2D.
 
 ### Now break it
 
-**Type:** `a crm` and press **Analyse**.
+**Type:** `a crm` and press **Analyze**.
 
 **You should see:**
 
@@ -220,12 +220,12 @@ farms"* — name no website, so the run fails with a reason before anything is r
 That sentence comes from the server with the list, not from the page. It is a claim about the
 product, and a claim that lives only in a component is one nobody reviews.
 
-**Delete `vs simpleanalytics.com` from the box** and press **Analyse**: you get a report about
+**Delete `vs simpleanalytics.com` from the box** and press **Analyze**: you get a report about
 one company. Nothing is expanded behind you, so editing the sentence edits the run.
 
 ### Check the companies still answer
 
-The catalogue promises one thing about six websites nobody here controls: that discovery finds
+The catalog promises one thing about six websites nobody here controls: that discovery finds
 pages worth reading. That goes stale on somebody else's schedule.
 
 **Do this.**
@@ -623,11 +623,11 @@ Kelsey Weber , Engineering Manager
 
 Five words, no full stop, a job word on a word boundary. Every rule says yes, and it is a
 testimonial byline. Under the page's own *Open positions* heading it is scoped away; on a page
-with no recognised heading it used to become **`lists an open role: Kelsey Weber , Engineering
+with no recognized heading it used to become **`lists an open role: Kelsey Weber , Engineering
 Manager`** — a person who already works there, published as a vacancy at high confidence.
 
 So there is no page-wide fallback. **The cost is real and is stated:** a careers page whose
-heading this list does not recognise yields nothing, and genuine vacancies on it are lost. A
+heading this list does not recognize yields nothing, and genuine vacancies on it are lost. A
 missed vacancy is a thin section; an invented one is a false sentence about a named person.
 
 The run log tells the two silences apart, because they are different facts:
@@ -1048,7 +1048,7 @@ many hit a **transport error**, and how many parsed but had the **wrong contents
 **Those three are counted apart on purpose.** An earlier version lumped them together and
 reported a healthy server's timeouts as evidence that constrained decoding was broken. And
 the last one exists because a shape guarantee is not an accuracy guarantee: a defective
-quantisation of Qwen3-1.7B returned perfectly-formed JSON containing
+quantization of Qwen3-1.7B returned perfectly-formed JSON containing
 `"plan_name": "/:D!01:56:G>!#9*2-@1F-08@E5A0'"`. See `docs/BENCHMARKS.md`.
 
 ---
@@ -1120,7 +1120,7 @@ whatever model someone happens to have loaded.
 **So it is expected to be red against Qwen3-1.7B and green against Qwen3-4B.** That is the
 finding, not a broken test. When the 1.7B fails `contact-sales` it returns `$49` — the price
 of the plan directly above on the page — and quotes that line *verbatim*. It did not invent
-anything. It answered a neighbouring question well.
+anything. It answered a neighboring question well.
 
 That is the failure worth understanding before trusting any of this: a fabricated number
 often looks wrong, while a correctly-quoted number attached to the wrong plan looks exactly
@@ -1196,7 +1196,7 @@ about what resolved to what internally.
 
 ### And check that we are a good citizen
 
-Google's `robots.txt` disallows `/search`. We fetch the rules first, then honour them:
+Google's `robots.txt` disallows `/search`. We fetch the rules first, then honor them:
 
 ```bash
 cargo run -p landscape -- fetch https://www.google.com/search?q=test
@@ -1216,7 +1216,7 @@ cargo run -p landscape -- fetch https://www.google.com/robots.txt
 status  200
 ```
 
-**Why it matters.** `FACT_CHECKING.md` treats honouring `robots.txt` as an ethical
+**Why it matters.** `FACT_CHECKING.md` treats honoring `robots.txt` as an ethical
 commitment rather than a risk position, which decides the ambiguous cases: a **404 means
 allowed** (no rules exist), but a **500 or a 429 means disallowed** — we cannot read what the
 site wants, and the polite reading of "I am struggling" is not "carry on". There is no
@@ -1248,7 +1248,7 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 ```
 
 **It fetches 28 real pricing pages**, so it takes a minute or two and is polite about it —
-one request per host per second, `robots.txt` honoured, everything through the same guard as
+one request per host per second, `robots.txt` honored, everything through the same guard as
 Part 8B.
 
 **You should see** a table, then:
@@ -1338,7 +1338,7 @@ probes come first rather than merely being cheaper.
 negative nobody can check is not a finding, the same rule the report's "nothing found"
 sections follow.
 
-**Exact results will drift.** Sites reorganise. What should hold is that the sources are
+**Exact results will drift.** Sites reorganize. What should hold is that the sources are
 absolute URLs on that domain, none is listed twice, and the `answers` column shows more than
 one kind of thing.
 
@@ -1953,7 +1953,7 @@ chips on screen it says *"pick the one you meant"* rather than *"name the one yo
 website works"*, because telling somebody to type what is already a button asks them to do the
 work twice. See [BENCHMARKS.md](BENCHMARKS.md) Run 34.
 
-**There is no "skip, just analyse" on this one.** [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §3 promises
+**There is no "skip, just analyze" on this one.** [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §3 promises
 every clarifying question is skippable; skipping this one means guessing which company, and a
 report about the wrong Notion looks exactly like a report about the right one.
 
@@ -1978,9 +1978,9 @@ Try all four things:
 | click the `×` beside a company | the chip goes, and **Run this set** lights up |
 | type `notion.so` and press **Add** | it joins the row |
 | type `basecamp` (no dot) and press **Add** | *"basecamp does not look like a domain. Try example.com."* — refused **out loud**, not swallowed |
-| add a company that is already listed, **spelled as its chip is** | *"basecamp.com is already in this set."* — the button stays grey, because the run would deduplicate it back to the set you are looking at |
-| remove a company and add it straight back | still grey: two edits that cancel out are not a different question |
-| remove every company | the button greys out: *"Removing every company leaves nothing to compare."* |
+| add a company that is already listed, **spelled as its chip is** | *"basecamp.com is already in this set."* — the button stays gray, because the run would deduplicate it back to the set you are looking at |
+| remove a company and add it straight back | still gray: two edits that cancel out are not a different question |
+| remove every company | the button grays out: *"Removing every company leaves nothing to compare."* |
 
 Then press **Run this set**. A **new analysis** starts, with its own permalink — the report you
 were reading stays where it was, and the corrected one is shareable on its own. The button is
@@ -2167,7 +2167,7 @@ Type `compare plausible.io for me` and watch. The first section appears while it
 running, and **grows as more facts arrive** — then the finished report replaces it with the
 coverage notes for the questions that found nothing.
 
-Both of those behaviours came from watching this exact screen: the first section used to take
+Both of those behaviors came from watching this exact screen: the first section used to take
 four minutes, and then it used to freeze at one item.
 [BENCHMARKS.md](BENCHMARKS.md) Run 16 records what that looked like and why.
 
@@ -2374,7 +2374,7 @@ cargo test
 
 CI runs the same tests through `cargo nextest run`, which is faster and gives each test its
 own process — so a test that panics is reported as a failure instead of taking the run down
-with it. If you want CI's exact behaviour locally:
+with it. If you want CI's exact behavior locally:
 
 ```bash
 cargo install cargo-nextest --locked

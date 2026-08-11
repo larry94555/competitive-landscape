@@ -27,7 +27,7 @@ it, on the same prompt, every time.
 The cause is that `required` in JSON Schema is a **validation** concept. It lists the keys a
 document must contain to be accepted; a key not listed may simply be left out. `schemars`
 therefore, and correctly, omits `Option<T>` fields from `required` — an absent field and a
-`null` field both deserialise to `None`, so for validation they are interchangeable.
+`null` field both deserialize to `None`, so for validation they are interchangeable.
 
 For *generation* they are not interchangeable at all. The grammar is built from the schema,
 so "may be omitted" becomes a legal path through the grammar, and a model takes it: closing
@@ -54,7 +54,7 @@ object's `required` list, recursively, before sending it. This sits beside
 annotation.
 
 `required` governs the presence of the key, not the value behind it. `Option<T>` still
-serialises as `["string","null"]`, so `null` remains legal. The change does not force the
+serializes as `["string","null"]`, so `null` remains legal. The change does not force the
 model to produce a value; it forces it to produce a **decision** — write the key, then
 choose between a value and `null` — rather than declining to mention the field.
 
@@ -69,7 +69,7 @@ Measured on the golden set, prompt v1, same seed, same subjects:
 
 Nothing about the model changed. The 20 points were being thrown away by the harness.
 
-**We now depend on llama.cpp honouring `required` in its converter.** It does today, on
+**We now depend on llama.cpp honoring `required` in its converter.** It does today, on
 every property including those behind `anyOf` and `$ref`, verified by hand against both
 models. The signal that this has broken is the same one that exposed it: a field that is
 never populated on subjects where the golden set says it should be.
@@ -85,7 +85,7 @@ Requiring the key makes the model answer. It does not make the answer right, and
 things were measured and deliberately left alone:
 
 **Field order is a real lever and we are not pulling it yet.** The grammar walks properties
-in the order the schema serialises them, which is alphabetical, because `serde_json` maps are
+in the order the schema serializes them, which is alphabetical, because `serde_json` maps are
 sorted. llama.cpp respects the order it is given — verified by sending a hand-ordered schema
 — so `serde_json`'s `preserve_order` feature would hand us control. Whether the evidence
 quote should come first (read, then answer) or last (answer, then justify) is worth

@@ -197,7 +197,7 @@
   {
     "name": "a max-age we cannot read is taken as an hour",
     "file": "crates/landscape-fetch/src/cache.rs",
-    "old": "                let Ok(seconds) = value.trim().parse::<u64>() else {\n                    // A `max-age` we cannot read is not a licence to keep it for an hour.\n                    return Storable::No;\n                };",
+    "old": "                let Ok(seconds) = value.trim().parse::<u64>() else {\n                    // A `max-age` we cannot read is not a license to keep it for an hour.\n                    return Storable::No;\n                };",
     "new": "                let Ok(seconds) = value.trim().parse::<u64>() else {\n                    break;\n                };",
     "run": [
       "cargo",

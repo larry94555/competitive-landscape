@@ -101,7 +101,7 @@ struct Today {
     /// empty list and all pass a limit of two. Review reproduced exactly that: nine of twenty
     /// were accepted.
     ///
-    /// Per address rather than one lock for everybody, because the work being serialised
+    /// Per address rather than one lock for everybody, because the work being serialized
     /// includes store reads and one visitor should not wait behind another's.
     gates: HashMap<u64, Arc<tokio::sync::Mutex<()>>>,
 }
@@ -232,13 +232,13 @@ impl Cap {
     #[must_use]
     pub fn gate_for(&self, client: &str, today: NaiveDate) -> Arc<tokio::sync::Mutex<()>> {
         let Ok(mut state) = self.today.lock() else {
-            // A poisoned lock means another thread panicked holding it. A fresh gate serialises
+            // A poisoned lock means another thread panicked holding it. A fresh gate serializes
             // nothing, which is the same failing-open this type does everywhere else: a guard
             // rail that takes the site down is worse than one that lets a request past.
             return Arc::new(tokio::sync::Mutex::new(()));
         };
         if !state.on_day(today) {
-            // Yesterday's request, finishing late. A gate of its own serialises it against
+            // Yesterday's request, finishing late. A gate of its own serializes it against
             // nothing, which is right: there is nothing left of its day to protect.
             return Arc::new(tokio::sync::Mutex::new(()));
         }
@@ -429,7 +429,7 @@ mod tests {
 
     #[test]
     fn a_forged_header_lands_in_the_same_bucket_as_the_honest_one() {
-        // The same point, as the behaviour rather than the parse: both spellings of the same
+        // The same point, as the behavior rather than the parse: both spellings of the same
         // client have to be one address, or one machine has as many allowances as it likes.
         let cap = Cap::of(1);
         let honest = client_in(Some("198.51.100.7")).expect("an address");

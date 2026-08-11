@@ -191,7 +191,7 @@
     ]
   },
   {
-    "name": "the queries are compared with their capitalisation intact",
+    "name": "the queries are compared with their capitalization intact",
     "file": "crates/landscape-search/src/candidates.rs",
     "old": "            .map(|q| q.text.to_lowercase())",
     "new": "            .map(|q| q.text.clone())",

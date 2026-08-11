@@ -156,7 +156,7 @@ mod tests {
 
     #[test]
     fn script_contents_are_removed_not_merely_untagged() {
-        // The single most important behaviour in this file. A Next.js pricing page ships
+        // The single most important behavior in this file. A Next.js pricing page ships
         // its whole pricing model inside a <script>; counting that as visible text would
         // report the JS-rendering gap as zero, which is the exact wrong answer.
         let html = r#"<body><script>var data = {"price": "$49"}</script><p>Contact us</p></body>"#;

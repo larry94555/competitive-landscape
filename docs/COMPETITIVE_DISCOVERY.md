@@ -49,7 +49,7 @@ missing. **That design is wrong**, and it is worth saying why: it asks questions
 *wording* implies are needed, rather than questions the *world* actually requires.
 
 - *"a tool for tracking competitor pricing"* names no segment, no geography and no delivery
-  model — yet it maps to exactly one recognisable market. A checklist would ask three
+  model — yet it maps to exactly one recognizable market. A checklist would ask three
   pointless questions.
 - *"a CRM"* looks complete and is not. A solo-freelancer CRM and Salesforce are not in the
   same market, and comparing them produces a useless report.
@@ -172,7 +172,7 @@ round adds no new names that survive relevance filtering.
 #### 5.1.1 The access question this channel depends on — settle it in week 1
 
 Major review platforms commonly restrict automated access through `robots.txt`, bot detection
-and terms of use. **This plan honours `robots.txt` as a hard commitment**
+and terms of use. **This plan honors `robots.txt` as a hard commitment**
 ([FACT_CHECKING.md](FACT_CHECKING.md) §5.2), so the highest-yield discovery channel and part
 of the sentiment section may be unavailable *by our own rules*. The two positions can collide,
 and the plan must not discover that in week 8.
@@ -229,7 +229,7 @@ technical one, and getting it right is most of the value:
 | **Substitute** | Different category, solves the same job | **Named explicitly** — see below |
 | **Not relevant** | Fails category-language overlap | Listed in the disclosure with the reason |
 
-Classification is measurable, not judgemental: **category-language overlap** between the
+Classification is measurable, not judgmental: **category-language overlap** between the
 candidate's own homepage/meta language and the resolved vocabulary; **segment language**
 ("for enterprises" / "for freelancers"); **delivery model** from their own pricing and
 signup pages.
@@ -286,7 +286,7 @@ that is technically unanswered.
 | Segment language splits the set | "Who's the buyer?" | SMB / Mid-market / Enterprise / Consumer / Developers |
 | Delivery models mixed | "Is this a product people use themselves, or a service you deliver?" | Product / Service / API / Not sure |
 | Constraint is ambiguous | *"Free" as in a free tier, or open source?* | Free tier / Open source / Either |
-| 0–2 candidates survive | "I found very little in this space. Is it very new, or is there another name for it?" | Free text + "Analyse anyway" |
+| 0–2 candidates survive | "I found very little in this space. Is it very new, or is there another name for it?" | Free text + "Analyze anyway" |
 
 **When the category genuinely does not exist yet** — a real case for novel product ideas, and
 distinct from a failed search. If the user confirms the space is new, the report **changes
@@ -336,7 +336,7 @@ whether it is financially healthy.**
 | Self-stated founding year | About page | Primary, but self-reported |
 | Domain registration date | WHOIS / RDAP | Often privacy-proxied; a floor, not a fact |
 | First changelog or blog entry | Vendor's own site | Primary, precise |
-| GitHub organisation creation | GitHub API | Precise, for dev tools |
+| GitHub organization creation | GitHub API | Precise, for dev tools |
 | App-store listing date | Store listing | Precise where applicable |
 
 Reported as *"publicly visible since 2019 (first archive capture 2019-04); the company states
@@ -369,7 +369,7 @@ sourced. Absence is reported as absence — *"no public changelog found"* — ne
 | Announced funding rounds, amounts, dates, named investors (from company announcements and filings) | Valuations not disclosed in a filing |
 | Announced acquisitions, mergers, shutdowns | Employee counts scraped from professional networks (privacy posture — QUALITY_GUARDRAILS §6) |
 | Announced layoffs, and public regulatory notices where filed | Traffic, visitor and conversion estimates |
-| Published customer counts, where the company publishes them | Profitability, churn, CAC, or any modelled metric |
+| Published customer counts, where the company publishes them | Profitability, churn, CAC, or any modeled metric |
 
 **Anything a private company has not published, we do not estimate.** The report says so
 plainly rather than leaving a suggestive gap:
@@ -432,7 +432,7 @@ candidates with scores, channels, classification and reasons.
 > Interpreted as **competitive intelligence software** · free tier · comparing 3 · also found
 > 2 adjacent, 2 substitutes · 23 candidates considered [Show] · [Edit this set]
 
-**Note the meta-point:** this is the product analysing its own market, and it lands on the
+**Note the meta-point:** this is the product analyzing its own market, and it lands on the
 honest answer — the direct competitors are enterprise platforms at enterprise prices, the
 nearest free options are adjacent single-purpose tools, and the real substitute is a person
 with browser tabs. That is a more useful result than a list of five products, and it comes

@@ -46,7 +46,7 @@ def tracked_markdown() -> list[str]:
     `--others --exclude-standard` includes files that are new and not yet added. Without
     it a document is unchecked for exactly as long as it is newest — which is when its
     links are most likely to be wrong and when the author is still in a position to care.
-    `.gitignore` is still honoured, so scratch files and `node_modules` stay out.
+    `.gitignore` is still honored, so scratch files and `node_modules` stay out.
     """
     try:
         out = subprocess.run(

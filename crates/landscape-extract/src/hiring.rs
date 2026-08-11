@@ -55,7 +55,7 @@
 //! **Front's list is the last heading on the page**, so the scan runs through its footer, and
 //! the shape rules are the only thing between a navigation label and a vacancy. That is not
 //! theoretical: the first run over that page reported *"Become a Partner"* — a reseller
-//! programme — as an open role, and Linear's footer offers `Developers` for the same reason. A
+//! program — as an open role, and Linear's footer offers `Developers` for the same reason. A
 //! footer has no heading to stop at and no marker that says *footer*, so the rules that hold
 //! here are the ones about the shape of a job title: [`MIN_TITLE_WORDS`], the full stop, the
 //! word cap, and what [`TITLE_WORDS`] does **not** contain. Each is stated where it is enforced,
@@ -100,7 +100,7 @@ const MIN_TITLE_WORDS: usize = 2;
 ///
 /// **Three words are missing on purpose.** `partner`, `associate` and `lead` are job titles in
 /// some industries and ordinary marketing nouns in this one: running the scanner over
-/// front.com/jobs turned *"Become a Partner"* — a footer link to a reseller programme — into an
+/// front.com/jobs turned *"Become a Partner"* — a footer link to a reseller program — into an
 /// open vacancy. None of the three is needed by any role on the three frozen pages, because a
 /// real title carrying them carries another word too: *Lead/Principal Product Manager*.
 const TITLE_WORDS: [&str; 31] = [
@@ -206,7 +206,7 @@ pub fn every_role(markdown: &str) -> Roles {
         //
         // The shape rules were never strong enough to work unscoped. They were built to clean
         // up *inside* a list somebody had already pointed at, and using them as the only
-        // defence was reading a run-log line — *"the page named no list"* — as if it were a
+        // defense was reading a run-log line — *"the page named no list"* — as if it were a
         // safeguard. It is not: nothing carried it into the report.
         return Roles::default();
     };
@@ -415,7 +415,7 @@ mod tests {
     #[test]
     fn a_podcast_named_after_a_job_is_not_a_vacancy() {
         // linear.app/careers, verbatim, forty lines above `## Open roles`. A short line, a
-        // capitalised job word, no full stop — every shape rule says yes, and it is a podcast.
+        // capitalized job word, no full stop — every shape rule says yes, and it is a podcast.
         let page = "The Pragmatic Engineer\n## Open roles\nProduct Engineer\nNorth America";
         assert_eq!(titles(page), ["Product Engineer"]);
     }
@@ -691,14 +691,14 @@ Mobile Product Designer";
     #[test]
     fn the_same_title_written_two_ways_is_one_role() {
         // Cheap insurance rather than an observed page: a title in a heading and again in a
-        // list is one vacancy however either was capitalised, and reporting it twice would
+        // list is one vacancy however either was capitalized, and reporting it twice would
         // describe a company hiring two people.
         let page = "## Open roles\n### Staff Data Engineer\n- staff data engineer";
         assert_eq!(titles(page).len(), 1);
     }
 
     #[test]
-    fn a_reseller_programme_is_not_a_vacancy() {
+    fn a_reseller_program_is_not_a_vacancy() {
         // front.com/jobs, in the footer, inside the scan because that page's list is its last
         // heading. The first run over the real page reported this as an open role.
         let page =
@@ -746,7 +746,7 @@ Mobile Product Designer";
     #[test]
     fn a_real_vacancy_on_an_unannounced_page_is_lost_too_and_that_is_the_trade() {
         // Stated rather than hidden: the refusal costs real roles on a page whose heading this
-        // list does not recognise. A missed vacancy is a thin section; an invented one is a
+        // list does not recognize. A missed vacancy is a thin section; an invented one is a
         // sentence about a named person that is not true.
         let found = every_role("# Careers\nSenior Software Engineer\nRemote");
         assert!(found.roles.is_empty());

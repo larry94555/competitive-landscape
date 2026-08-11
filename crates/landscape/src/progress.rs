@@ -2,7 +2,7 @@
 //!
 //! # Why this is not four lines of `tokio::spawn`
 //!
-//! It was. `analyse_with` hands out the whole report after every window, the worker spawned a
+//! It was. `analyze_with` hands out the whole report after every window, the worker spawned a
 //! task per snapshot, and the reasoning written beside it was: *ordering is not a concern
 //! because each write is the whole report so far, not a delta.*
 //!

@@ -87,13 +87,13 @@ def gates(web: bool) -> list[Gate]:
         # file is the defect there. This one is the opposite: it exists to stop a deliberate
         # defect *reaching* a commit, so asking HEAD would only ever find it too late.
         Gate("no live mutations", [sys.executable, "scripts/no_live_mutations.py"]),
-        # **The other way a catalogue stops meaning anything.** That gate finds a mutation left
+        # **The other way a catalog stops meaning anything.** That gate finds a mutation left
         # *in* the tree; this one finds a mutation that can no longer be put there, because the
         # line it pins was reformatted or moved. `scripts/mutate.py` prints `NOT APPLIED` and
         # carries on, so the run ends `26 of 27` and reads like a coverage gap. Review found one
-        # that way; the check then found four more, rotting since earlier phases, in catalogues
+        # that way; the check then found four more, rotting since earlier phases, in catalogs
         # nobody had reason to re-run. Text matching only, so it costs nothing - running the
-        # catalogues themselves takes tens of minutes and is why they were never a gate.
+        # catalogs themselves takes tens of minutes and is why they were never a gate.
         Gate("mutation anchors", [sys.executable, "scripts/mutation_anchors.py"]),
         # **A defect no compiler and no test can see.** A `\` continuation in a Rust string
         # literal strips the newline *and* the indentation after it; lose the backslash and the
@@ -112,6 +112,16 @@ def gates(web: bool) -> list[Gate]:
         # source looks fine in an editor and in every diff. These documents are read on
         # GitHub, so that is the rendering that decides whether they are readable.
         Gate("markdown tables", [sys.executable, "scripts/markdown_tables.py"]),
+        # american-spelling: off
+        # **One dialect, and it is American.** Nobody had chosen one, so the repository grew
+        # both - `analyse` beside `analysis`, `catalogue` beside `catalog`, `normalise` beside
+        # `normalize` - and the first place it showed was the word on the busiest button in the
+        # product. Mixed spelling is not cosmetic: a reader cannot tell a house style from a
+        # typo, and `grep normalize` finds half the callers. Sweeping it fixed today; this is
+        # what stops tomorrow, because the next `analyse` is typed by somebody who never knew a
+        # decision was made.
+        # american-spelling: on
+        Gate("american spelling", [sys.executable, "scripts/american_spelling.py"]),
         Gate("fmt", ["cargo", "fmt", "--all", "--check"]),
         # `--all-features` and `--all-targets`, because CI uses both and a lint that only fires
         # on a test target is exactly the one a hurried local run misses.
@@ -157,9 +167,9 @@ COUNTS = {
     "web tests": ("frontend", r"Tests\s+(\d+) passed"),
 }
 
-#: Vitest colours its summary, so `Tests  51 passed` arrives with escape sequences sitting
+#: Vitest colors its summary, so `Tests  51 passed` arrives with escape sequences sitting
 #: between the words. Found by this gate refusing to read its own input on the first full run,
-#: which is the behaviour wanted: it could not find a number and said so.
+#: which is the behavior wanted: it could not find a number and said so.
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
@@ -223,7 +233,7 @@ def self_check() -> str | None:
     do the same thing here forever, silently, and this is the last gate anybody reads. So it is
     given counts that agree and counts that do not, on every run, and must tell them apart.
     """
-    # The frontend line is the coloured one vitest actually prints, escape sequences and all,
+    # The frontend line is the colored one vitest actually prints, escape sequences and all,
     # because the plain version is not what this gate is ever handed.
     summaries = {
         "tests": "2 tests run: 2 passed",

@@ -1,6 +1,6 @@
 //! Reading `robots.txt`, and erring toward not fetching.
 //!
-//! `FACT_CHECKING.md` treats honouring `robots.txt` as a **hard ethical commitment**, not a
+//! `FACT_CHECKING.md` treats honoring `robots.txt` as a **hard ethical commitment**, not a
 //! risk-management position. That framing decides every ambiguous case here: where the
 //! specification is unclear or our parsing is uncertain, the answer is *disallow*.
 //!
@@ -23,7 +23,7 @@ use std::time::{Duration, Instant};
 /// How long a fetched `robots.txt` is trusted before being re-read.
 ///
 /// Long enough that a report does not re-fetch it per page, short enough that a site
-/// tightening its rules is honoured the same day.
+/// tightening its rules is honored the same day.
 pub const CACHE_TTL: Duration = Duration::from_secs(6 * 60 * 60);
 
 /// How many hosts' rules may be remembered at once.
@@ -71,7 +71,7 @@ const HOST_OVERHEAD: usize = 256;
 pub struct Rules {
     /// `(path prefix, allowed)`, most specific first after construction.
     directives: Vec<(String, bool)>,
-    /// `Crawl-delay`, if the site names one. Not in RFC 9309, widely used, and honoured
+    /// `Crawl-delay`, if the site names one. Not in RFC 9309, widely used, and honored
     /// here because ignoring a site's stated wishes on a technicality is not the posture
     /// this product takes.
     crawl_delay: Option<Duration>,
@@ -658,7 +658,7 @@ mod tests {
     }
 
     #[test]
-    fn a_crawl_delay_is_honoured_but_bounded() {
+    fn a_crawl_delay_is_honored_but_bounded() {
         let r = Rules::parse("User-agent: *\nCrawl-delay: 2.5", UA);
         assert_eq!(r.crawl_delay(), Some(Duration::from_secs_f64(2.5)));
 

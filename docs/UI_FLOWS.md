@@ -17,7 +17,7 @@ Three requirements, in priority order, because they conflict and the order decid
 conflicts:
 
 1. **Trust before delight.** A first-time visitor must believe the output. Everything visual
-   serves that: citations that invite clicking, gaps that read as rigour, timestamps that
+   serves that: citations that invite clicking, gaps that read as rigor, timestamps that
    demonstrate freshness. A slick interface that produces unverifiable claims is worse than a
    plain one that shows its work.
 2. **Curiosity without commitment.** The visitor must want to try it *before* they trust it,
@@ -122,7 +122,7 @@ Two controls keep them cheap as a conversation grows:
   spans from the report's existing sources rather than replaying the whole conversation and
   every source. Otherwise prefill grows every turn — and prefill is the binding constraint on
   four ARM cores ([ARCHITECTURE.md](ARCHITECTURE.md) §4.4).
-- **Conversation history is summarised past a threshold** (roughly 6 turns), keeping the last
+- **Conversation history is summarized past a threshold** (roughly 6 turns), keeping the last
   turns verbatim and compressing earlier ones.
 
 ### 3.4 Follow-ups and the PDF
@@ -217,7 +217,7 @@ These are two different things and the plan needs both:
 | | **Channels** (this document) | **Knowledge base** ([SUPPORT_SYSTEM.md](SUPPORT_SYSTEM.md)) |
 |---|---|---|
 | Shape | Chronological conversation | Question → canonical answer |
-| Optimised for | Immediacy, community, low posting friction | **Search traffic** — a compounding acquisition channel |
+| Optimized for | Immediacy, community, low posting friction | **Search traffic** — a compounding acquisition channel |
 | Lifespan | Scrolls away | Permanent, curated, indexed |
 
 **The reconciliation:** channels are the **intake**; the KB is the **durable artifact**. When a

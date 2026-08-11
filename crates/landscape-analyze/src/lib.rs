@@ -137,7 +137,7 @@ pub const EXTRACTION_VERSION: u32 = 1;
 /// `now` and `today` are arguments rather than clock reads. A report states when it was
 /// generated and what fell inside a 90-day window, and neither can be tested against a
 /// function that asks the operating system.
-pub async fn analyse(
+pub async fn analyze(
     with: &With<'_>,
     budget: &landscape_fetch::Budget,
     origin: &str,
@@ -145,7 +145,7 @@ pub async fn analyse(
     today: NaiveDate,
     search: Option<&dyn landscape_search::SourceProvider>,
 ) -> Analysis {
-    analyse_with(with, budget, origin, now, today, search, &mut |_| {
+    analyze_with(with, budget, origin, now, today, search, &mut |_| {
         Wanted::Yes
     })
     .await
@@ -206,7 +206,7 @@ impl std::fmt::Debug for Asked<'_> {
 /// took the first site named in a prompt and dropped the rest, so `basecamp.com vs linear.app`
 /// produced a report about Basecamp with nothing on the page saying the other had been ignored.
 ///
-/// # Why this merges rather than generalising `analyse_with`
+/// # Why this merges rather than generalizing `analyze_with`
 ///
 /// One company is the unit that discovery, fetching and extraction are built around, and that
 /// path is the one with every test behind it. This runs it once per subject and joins the
@@ -222,7 +222,7 @@ impl std::fmt::Debug for Asked<'_> {
 ///
 /// Progress is reported after every window of every subject, over the *whole* report so far, so
 /// a reader watching sees the first company fill in while the second is still being read.
-pub async fn analyse_many(
+pub async fn analyze_many(
     with: &With<'_>,
     budget: &landscape_fetch::Budget,
     asked: &Asked<'_>,
@@ -240,17 +240,17 @@ pub async fn analyse_many(
     // The cap is applied here rather than in the parser, so what it costs can be said out
     // loud. Dropping the fourth company in silence would be the defect this feature exists to
     // remove, at a higher count.
-    let (analysing, dropped) = origins.split_at(origins.len().min(subject::MAX_SUBJECTS));
+    let (analyzing, dropped) = origins.split_at(origins.len().min(subject::MAX_SUBJECTS));
     let mut notes = if dropped.is_empty() {
         Vec::new()
     } else {
         vec![format!(
             // The runs of spaces this line used to carry were a lost `\` continuation, and a
             // reader saw them. Found while fixing the same slip one note below.
-            "Comparing the first {} sites named. Not analysed: {}. Each company is its own \
+            "Comparing the first {} sites named. Not analyzed: {}. Each company is its own \
              discovery, fetches and model calls, so more of them is a longer wait rather than a \
              bigger report - run them separately if you need all of these.",
-            analysing.len(),
+            analyzing.len(),
             dropped.join(", ")
         )]
     };
@@ -259,7 +259,7 @@ pub async fn analyse_many(
     // about*, which is the one thing a reader cannot check by reading further down the page.
     // They go first for that reason, and in this order: who, then why, then who is missing.
     if let Some(set) = set {
-        for note in subject::found_for_you(set, analysing.len())
+        for note in subject::found_for_you(set, analyzing.len())
             .into_iter()
             .rev()
         {
@@ -267,7 +267,7 @@ pub async fn analyse_many(
         }
     }
 
-    let origins = analysing;
+    let origins = analyzing;
 
     let mut finished: Vec<Analysis> = Vec::with_capacity(origins.len());
 
@@ -285,7 +285,7 @@ pub async fn analyse_many(
                     interpreted,
                 ))
             };
-            let one = analyse_with(
+            let one = analyze_with(
                 with,
                 budget,
                 origin,
@@ -476,7 +476,7 @@ fn joined(
 /// The partial report is **complete in shape from the first call** — all six sections exist,
 /// each carrying its coverage note until it has claims. A reader never sees a section appear
 /// out of nowhere; they see one fill in.
-pub async fn analyse_with(
+pub async fn analyze_with(
     with: &With<'_>,
     budget: &landscape_fetch::Budget,
     origin: &str,
@@ -779,12 +779,12 @@ enum Failures {
 /// What the report says about a search, in the words `FACT_CHECKING.md` §3.2.5 allows.
 ///
 /// The subject of every sentence is us: what we looked for, what we could read, and how far we
-/// got with it. Nothing here characterises a publisher.
+/// got with it. Nothing here characterizes a publisher.
 ///
 /// **Every count comes from `so_far`**, which is the record of what happened, rather than from
 /// the list of pages somebody meant to read.
 ///
-/// **And it names the company.** `analyse_many` merges each subject's notes into one report and
+/// **And it names the company.** `analyze_many` merges each subject's notes into one report and
 /// drops duplicates, so two companies with the same gaps would have collapsed into a single
 /// sentence saying *"this company"* — ambiguous where it matters most, and silently dropping one
 /// of the two.
@@ -834,7 +834,7 @@ fn note_for(
         if unverified > 0 {
             said.push_str(&format!(
                 "{} {unverified} elsewhere, which we were unable to attribute and which are \
-                 labelled unverified",
+                 labeled unverified",
                 if primary > 0 { "," } else { "" }
             ));
         }
@@ -877,7 +877,7 @@ fn named(questions: &[Answers]) -> String {
 /// What one company's read has accumulated.
 ///
 /// **Grouped so that a second reading pass appends to the same thing the first did.** The
-/// alternative — a search pass with its own copy of the labelling, the citing and the progress
+/// alternative — a search pass with its own copy of the labeling, the citing and the progress
 /// reporting — is the second source of truth this project keeps deleting, and it would drift on
 /// the first change to either.
 #[derive(Default)]
@@ -958,7 +958,7 @@ impl SoFar {
 ///
 /// **One path, two callers.** A probe's page and a search hit's page differ in exactly two
 /// things — where the URL came from, and what a claim from it may be used for — and both are
-/// arguments. Everything else, including the labelling, the citing and the per-window progress,
+/// arguments. Everything else, including the labeling, the citing and the per-window progress,
 /// happens once.
 /// Whether this page can be read yet, given what the run already knows about the model.
 ///
@@ -1417,7 +1417,7 @@ pub(crate) fn claims_from_trust(page: &landscape_core::PageTrust) -> Vec<Finding
                 },
                 quote: assurance.evidence_quote.clone().unwrap_or_default(),
                 // The name came from the page by construction - the scanner found it there -
-                // so the only judgement is the status, and that is a reading of a sentence.
+                // so the only judgment is the status, and that is a reading of a sentence.
                 confidence: Confidence::Medium,
                 as_of: None,
             }
@@ -1654,7 +1654,7 @@ mod trust_wording {
         let pursuing = super::claims_from_trust(&one("SOC 2", Some(Assurance::Pursuing)));
         let holds = super::claims_from_trust(&one("SOC 2", Some(Assurance::Holds)));
         assert!(
-            pursuing[0].text.contains("working towards"),
+            pursuing[0].text.contains("working toward"),
             "{}",
             pursuing[0].text
         );
@@ -1721,7 +1721,7 @@ mod trust_wording {
 mod joining {
     //! Merging several companies into one report.
     //!
-    //! `analyse_many` itself needs a fetcher and a model, so what is asserted here is the join
+    //! `analyze_many` itself needs a fetcher and a model, so what is asserted here is the join
     //! — which is where a bug would silently mislabel somebody's evidence.
 
     use super::*;
@@ -1733,7 +1733,7 @@ mod joining {
             .unwrap_or_default()
     }
 
-    /// A one-company report: one source labelled `S1`, one claim citing it.
+    /// A one-company report: one source labeled `S1`, one claim citing it.
     fn one_company(origin: &str, says: &str) -> Analysis {
         let report = Report {
             subject: origin.to_owned(),
@@ -2059,7 +2059,7 @@ mod joining {
 
     /// Origins in `.invalid`, which by RFC 2606 can never resolve.
     ///
-    /// Enough to drive `analyse_many` end to end without a model or a reachable page: every
+    /// Enough to drive `analyze_many` end to end without a model or a reachable page: every
     /// fetch fails fast, every subject produces an empty report, and what is being asserted is
     /// the *joining* — which is the part that has no other way of being reached.
     /// A run over companies the prompt named, with no engine.
@@ -2089,7 +2089,7 @@ mod joining {
             also: vec!["competitive intelligence".to_owned()],
             hosts: 3,
         };
-        let outcome = analyse_many(
+        let outcome = analyze_many(
             &offline(),
             &landscape_fetch::Budget::for_one_analysis(),
             &Asked {
@@ -2114,7 +2114,7 @@ mod joining {
         // about something else all along.
         //
         // Asserted on `joined` with an in-flight report, which is exactly the call
-        // `on_progress` makes — a test driving `analyse_many` cannot reach it without a network.
+        // `on_progress` makes — a test driving `analyze_many` cannot reach it without a network.
         let origins = vec!["https://a.com".to_owned()];
         let market = landscape_core::Interpreted {
             label: "competitive intelligence software".to_owned(),
@@ -2139,7 +2139,7 @@ mod joining {
         // Absence is the disclosure working. Repeating somebody's words back at them as an
         // "interpretation" is noise, and noise is what stops the real line being read.
         let origins = unreachable(1);
-        let outcome = analyse_many(
+        let outcome = analyze_many(
             &offline(),
             &landscape_fetch::Budget::for_one_analysis(),
             &named(&origins),
@@ -2153,12 +2153,12 @@ mod joining {
     }
 
     #[tokio::test]
-    async fn analyse_many_says_which_companies_it_left_out() {
+    async fn analyze_many_says_which_companies_it_left_out() {
         // Review's point: capping at three and dropping the fourth in silence is the same
         // defect as taking the first and dropping the second, one count higher. Asserted on
         // the real function rather than on a note handed to the joiner by a test.
         let origins = unreachable(subject::MAX_SUBJECTS + 1);
-        let outcome = analyse_many(
+        let outcome = analyze_many(
             &offline(),
             &landscape_fetch::Budget::for_one_analysis(),
             &named(&origins),
@@ -2221,7 +2221,7 @@ mod joining {
     async fn a_model_swapped_under_a_running_worker_does_not_answer_as_the_old_one() {
         // **Review's finding, through the real run.** The memo outlives `llama-server`, so that
         // server can restart with a different model at the same address — and a report would
-        // then carry the previous model's words labelled with this one's. The origins are
+        // then carry the previous model's words labeled with this one's. The origins are
         // `.invalid`, so nothing is fetched and no page is read: what is under test is that an
         // analysis finds out who is answering before it serves anybody from memory.
         let memo = memo::Extractions::new();
@@ -2248,7 +2248,7 @@ mod joining {
         );
 
         let llm = a_model_calling_itself("models/the-one-loaded-now.gguf").await;
-        analyse_with(
+        analyze_with(
             &With {
                 fetcher: &landscape_fetch::Fetcher::new(),
                 llm: &llm,
@@ -2283,7 +2283,7 @@ mod joining {
         // the model. Health must therefore never be asked, and this must return at once.
         let (stalling, holding) = a_model_that_never_answers().await;
         let started = std::time::Instant::now();
-        let outcome = analyse_many(
+        let outcome = analyze_many(
             &With {
                 fetcher: &landscape_fetch::Fetcher::new(),
                 llm: &stalling,
@@ -2308,12 +2308,12 @@ mod joining {
     }
 
     #[tokio::test]
-    async fn analyse_many_reports_one_coverage_record_per_question() {
+    async fn analyze_many_reports_one_coverage_record_per_question() {
         // `Analysis::render` zips sections with coverage. Two companies' worth concatenated
         // would leave the second company's negative evidence unreachable — and this asserts it
         // on the function the worker actually calls, not on the merge helper alone.
         let origins = unreachable(2);
-        let outcome = analyse_many(
+        let outcome = analyze_many(
             &offline(),
             &landscape_fetch::Budget::for_one_analysis(),
             &named(&origins),
@@ -2594,7 +2594,7 @@ mod joining {
         // have failed. The fourth origin is dropped by the subject cap, which writes the note
         // this one has to sit above.
         let many = unreachable(4);
-        let outcome = analyse_many(
+        let outcome = analyze_many(
             &offline(),
             &landscape_fetch::Budget::for_one_analysis(),
             &Asked {
@@ -2699,7 +2699,7 @@ mod joining {
             alone: None,
         };
         let many = unreachable(4);
-        let outcome = analyse_many(
+        let outcome = analyze_many(
             &offline(),
             &landscape_fetch::Budget::for_one_analysis(),
             &Asked {
@@ -2748,7 +2748,7 @@ mod joining {
             alone: None,
         };
         let many = unreachable(4);
-        let outcome = analyse_many(
+        let outcome = analyze_many(
             &offline(),
             &landscape_fetch::Budget::for_one_analysis(),
             &Asked {
@@ -2800,7 +2800,7 @@ mod joining {
             alone: None,
         };
         let many = unreachable(4);
-        let outcome = analyse_many(
+        let outcome = analyze_many(
             &offline(),
             &landscape_fetch::Budget::for_one_analysis(),
             &Asked {
@@ -2871,7 +2871,7 @@ mod joining {
                 alone: Some(why.clone()),
             };
             let many = unreachable(4);
-            let outcome = analyse_many(
+            let outcome = analyze_many(
                 &offline(),
                 &landscape_fetch::Budget::for_one_analysis(),
                 &Asked {
@@ -2913,7 +2913,7 @@ mod joining {
             }),
         };
         let many = unreachable(4);
-        let outcome = analyse_many(
+        let outcome = analyze_many(
             &offline(),
             &landscape_fetch::Budget::for_one_analysis(),
             &Asked {
@@ -2959,7 +2959,7 @@ mod joining {
             }),
         };
         let many = unreachable(4);
-        let outcome = analyse_many(
+        let outcome = analyze_many(
             &offline(),
             &landscape_fetch::Budget::for_one_analysis(),
             &Asked {
@@ -2993,7 +2993,7 @@ mod joining {
             alone: None,
         };
         let many = unreachable(4);
-        let outcome = analyse_many(
+        let outcome = analyze_many(
             &offline(),
             &landscape_fetch::Budget::for_one_analysis(),
             &Asked {
@@ -3028,7 +3028,7 @@ mod joining {
             alone: None,
         };
         let many = unreachable(4);
-        let outcome = analyse_many(
+        let outcome = analyze_many(
             &offline(),
             &landscape_fetch::Budget::for_one_analysis(),
             &Asked {
@@ -3050,7 +3050,7 @@ mod joining {
     async fn a_report_about_a_company_somebody_named_says_nothing_extra() {
         // The other half: a prompt that named a domain must not grow a sentence explaining a
         // choice nobody made.
-        let outcome = analyse_many(
+        let outcome = analyze_many(
             &offline(),
             &landscape_fetch::Budget::for_one_analysis(),
             &named(&unreachable(1)),
@@ -3282,7 +3282,7 @@ mod filling_gaps {
         assert!(note.starts_with("e.com:"), "{note}");
         assert!(note.contains("2 page(s) were read"), "{note}");
         assert!(note.contains("1 on this company's own site"), "{note}");
-        assert!(note.contains("labelled unverified"), "{note}");
+        assert!(note.contains("labeled unverified"), "{note}");
 
         // One query, and it names the company. A query that does not is a query about the
         // whole web, and one query per gap is what the wait can afford.
@@ -3395,7 +3395,7 @@ mod filling_gaps {
     #[tokio::test]
     async fn a_page_carries_what_it_may_be_used_for_wherever_it_came_from() {
         // **The pairing, asserted as a pairing.** This was two arguments to `read_one` and a
-        // mutation that labelled every search result `Primary` survived the whole suite: a
+        // mutation that labeled every search result `Primary` survived the whole suite: a
         // stranger's page would have been rendered as the company speaking, with no marking,
         // at whatever confidence the extractor gave it.
         let engine = Canned::holding(&["https://e.com/deep/pricing", "https://blog.example/e"]);
@@ -3624,7 +3624,7 @@ mod filling_gaps {
         // does — so discovery finds nothing, every question is a gap, and the one page search
         // admits fails to fetch. That is enough: coverage has to know the page existed.
         let engine = Canned::holding(&["https://found.invalid/trust"]);
-        let analysis = analyse_with(
+        let analysis = analyze_with(
             &crate::joining::offline(),
             &landscape_fetch::Budget::for_one_analysis(),
             "https://subject.invalid",
@@ -3657,7 +3657,7 @@ mod filling_gaps {
 
     #[test]
     fn each_company_s_search_note_says_which_company() {
-        // Review's third finding. `analyse_many` merges notes and drops duplicates, so two
+        // Review's third finding. `analyze_many` merges notes and drops duplicates, so two
         // companies with the same gaps collapsed into one sentence saying "this company".
         let gaps = [Answers::Trust];
         let first = note_for(

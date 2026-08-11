@@ -4,7 +4,7 @@
 >
 > [CODING_QUALITY.md](CODING_QUALITY.md) §9.5 sets the **policy** — when a demo is required,
 > what it must contain, and how it is published. This document is the **craft**: the rules for
-> writing the narration and building the artefact. Every rule here was learned by getting it
+> writing the narration and building the artifact. Every rule here was learned by getting it
 > wrong first, and the mistake is recorded alongside each one so nobody repeats it.
 >
 > **Companion:** [Video_Text_Best_Practices.md](Video_Text_Best_Practices.md) goes further on
@@ -186,7 +186,7 @@ has no audio track at all. Narration is a switch, not a requirement.
 
 ### 4.2 The voice owns the pacing
 
-**The mistake:** the first version spoke each caption when its cue appeared and cancelled it
+**The mistake:** the first version spoke each caption when its cue appeared and canceled it
 when the next arrived. Sentences were cut off mid-thought. It sounded broken, and it was.
 
 **The rule:** on each caption the video **pauses**, the line is spoken to completion, there is
@@ -244,7 +244,7 @@ finding the player's own control.
 be texture, too thin to be music. A silent video with good captions is better than a video
 with filler audio.
 
-If music is ever added, it should be composed or licensed, not synthesised as a nicety. The
+If music is ever added, it should be composed or licensed, not synthesized as a nicety. The
 bar is that a viewer would notice its absence.
 
 ---
@@ -399,5 +399,5 @@ Blocking, alongside the §10.3 checklist in [CODING_QUALITY.md](CODING_QUALITY.m
 - [ ] Subtitles render at the player's size, on by default.
 - [ ] Watched silent, start to finish, and it made sense.
 - [ ] Watched with narration, and no sentence was cut off.
-- [ ] Anything faked, stubbed or sped up is labelled on screen.
+- [ ] Anything faked, stubbed or sped up is labeled on screen.
 - [ ] Under the length cap.

@@ -23,14 +23,14 @@
 /// A hostname's last label, when it looks like a public suffix worth trusting.
 ///
 /// Deliberately short. It is not a public-suffix list and does not try to be: it is the
-/// difference between recognising `basecamp.com` in a sentence and treating every word with a
+/// difference between recognizing `basecamp.com` in a sentence and treating every word with a
 /// dot in it as a website.
 const KNOWN_SUFFIXES: [&str; 24] = [
     "com", "org", "net", "io", "co", "dev", "app", "ai", "so", "sh", "xyz", "cloud", "tech",
     "software", "tools", "systems", "uk", "de", "fr", "nl", "se", "eu", "ca", "us",
 ];
 
-/// The origin to analyse, if the prompt names one.
+/// The origin to analyze, if the prompt names one.
 ///
 /// Returns a scheme and host — `https://example.com` — because everything downstream fetches
 /// it and guessing the scheme for somebody is the kind of silent assumption this codebase
@@ -52,14 +52,14 @@ pub const MAX_SUBJECTS: usize = 3;
 
 /// Every site named in the prompt, in the order written, without repeats.
 ///
-/// `basecamp.com vs linear.app` used to analyse Basecamp alone: [`origin_in`] took the first
+/// `basecamp.com vs linear.app` used to analyze Basecamp alone: [`origin_in`] took the first
 /// domain and the rest were dropped in silence. Naming two companies and being given one is the
 /// kind of wrong answer that looks like a right answer, because nothing on the page says the
 /// second was ignored.
 ///
 /// **Uncapped on purpose.** [`MAX_SUBJECTS`] is a decision about how long a reader will wait,
 /// and applying it here would drop the fourth company as silently as the old code dropped the
-/// second. The caller takes as many as it will analyse and *says* what it left out.
+/// second. The caller takes as many as it will analyze and *says* what it left out.
 #[must_use]
 pub fn origins_in(prompt: &str) -> Vec<String> {
     let mut found: Vec<String> = Vec::new();
@@ -182,7 +182,7 @@ pub const NOTHING_RESOLVED: &str = "we searched for companies matching that desc
 #[derive(Debug, Clone, PartialEq)]
 pub enum Decided {
     /// The companies the report will compare, best first.
-    Analyse(Box<landscape_search::competitors::Set>),
+    Analyze(Box<landscape_search::competitors::Set>),
     /// No set worth writing a report about, and this is what a reader is told about why.
     ///
     /// **The situation travels with the sentence.** They are one decision: the code that picks
@@ -301,7 +301,7 @@ pub fn decide(
             kind: landscape_core::Failure::NothingFound,
             choices: Vec::new(),
         }),
-        _ => Decided::Analyse(Box::new(set)),
+        _ => Decided::Analyze(Box::new(set)),
     }
 }
 
@@ -336,13 +336,13 @@ pub fn none_of_them(
 /// scanning the top of a report should be able to stop after the first and still know what they
 /// are looking at.
 ///
-/// `analysing` is how many of the set the run will actually read — [`MAX_SUBJECTS`] is a
+/// `analyzing` is how many of the set the run will actually read — [`MAX_SUBJECTS`] is a
 /// decision about how long somebody waits, and naming five companies in a note while comparing
 /// three would be the silent-drop defect with better prose in front of it.
 #[must_use]
-pub fn found_for_you(set: &landscape_search::competitors::Set, analysing: usize) -> Vec<String> {
+pub fn found_for_you(set: &landscape_search::competitors::Set, analyzing: usize) -> Vec<String> {
     let compared: Vec<&landscape_search::competitors::Member> =
-        set.members.iter().take(analysing).collect();
+        set.members.iter().take(analyzing).collect();
     if compared.is_empty() {
         return Vec::new();
     }
@@ -949,7 +949,7 @@ mod deciding {
         // **The row this change is for.** Three companies every search returned score alike, so
         // the gate calls them tied - and for a description of a market, tied is the answer.
         let decided = decide(derived(tie(), two(), true), &all_answered());
-        let Decided::Analyse(set) = decided else {
+        let Decided::Analyze(set) = decided else {
             panic!("a market was refused instead of compared")
         };
         assert_eq!(
@@ -985,7 +985,7 @@ mod deciding {
             ),
             &all_answered(),
         );
-        let Decided::Analyse(set) = decided else {
+        let Decided::Analyze(set) = decided else {
             panic!("a resolved subject was refused")
         };
         assert_eq!(set.members.len(), 2);
@@ -1011,7 +1011,7 @@ mod deciding {
             },
         );
         assert!(
-            matches!(decided, Decided::Analyse(_)),
+            matches!(decided, Decided::Analyze(_)),
             "an answer was thrown away over an outage: {decided:?}"
         );
     }
@@ -1071,7 +1071,7 @@ mod deciding {
                 &queried,
             );
             let Decided::Refuse(Refusal { kind, why, .. }) = decided else {
-                panic!("an empty set was analysed")
+                panic!("an empty set was analyzed")
             };
             assert_eq!(
                 kind,
@@ -1110,7 +1110,7 @@ mod deciding {
             },
         );
         assert!(
-            matches!(decided, Decided::Analyse(_)),
+            matches!(decided, Decided::Analyze(_)),
             "an answer was thrown away over an outage: {decided:?}"
         );
     }
@@ -1223,7 +1223,7 @@ mod deciding {
 mod the_examples {
     //! The curated ideas, run through the parser that will really read them.
     //!
-    //! **This is the test the catalogue exists for.** A list of domains in a file is a promise;
+    //! **This is the test the catalog exists for.** A list of domains in a file is a promise;
     //! putting each prompt through `origins_in` - the function the worker calls, not a
     //! reimplementation of it - is the part that can fail. A wording change that breaks the
     //! parser's reading of a domain would otherwise be found by whoever clicked the chip.

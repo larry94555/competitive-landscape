@@ -49,7 +49,7 @@ impl std::fmt::Debug for AppState {
 ///
 /// Both observability layers are applied here rather than in the binary. Wiring them where
 /// the server is assembled would leave every test in this crate running without them, so
-/// the tests would pass while asserting the behaviour of a slightly different application
+/// the tests would pass while asserting the behavior of a slightly different application
 /// than the one that ships — and the first thing to break would be the error path, which
 /// is the part hardest to notice.
 ///

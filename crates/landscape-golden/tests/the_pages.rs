@@ -172,7 +172,7 @@ fn the_subjects_carved_from_real_pages_are_still_verbatim() {
     // subject a model keeps failing invites a small edit to the page text, and a subject
     // edited until it passes measures nothing. So the text has to still be *in* the page.
     //
-    // Whitespace is normalised because the window is joined from block elements and the JSON
+    // Whitespace is normalized because the window is joined from block elements and the JSON
     // carries it as `\n`; the words and the numbers are what must match.
     let pages: Vec<String> = pages::load()
         .expect("the page set loads")
@@ -213,7 +213,7 @@ fn squash(text: &str) -> String {
 
 #[test]
 fn a_known_wrong_expectation_says_what_would_be_right() {
-    // An expectation that freezes today's behaviour rather than the right answer is a
+    // An expectation that freezes today's behavior rather than the right answer is a
     // specification unless it argues otherwise. `known_wrong` is where that argument lives,
     // and an empty one would turn a defect into a decision.
     for expectation in pages::load().expect("the page set loads") {

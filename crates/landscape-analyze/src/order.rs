@@ -144,7 +144,7 @@ pub fn plan(sources: &[Candidate]) -> Plan {
 /// count rather than its content — not an estimate of the pipeline but the pipeline's own
 /// arithmetic, which is the only kind of prediction worth printing.
 ///
-/// **The quality gate is applied here too**, and review is the reason: `analyse_with` skips a
+/// **The quality gate is applied here too**, and review is the reason: `analyze_with` skips a
 /// page that is not [`worth_extracting`] before any extractor sees it, and a counter that did
 /// not would report a call for a two-line page whose only words are a plan name and a price —
 /// below `MIN_WORDS`, so the real run never opens it, while `every_plan` happily finds a window
@@ -370,7 +370,7 @@ mod tests {
 
     #[test]
     fn a_page_below_the_quality_floor_costs_what_the_run_will_spend_on_it() {
-        // Review found this. `analyse_with` skips a page that is not worth extracting before
+        // Review found this. `analyze_with` skips a page that is not worth extracting before
         // any extractor sees it, so the run makes no call — but the span finder, handed the
         // same markdown directly, still finds a priced-plan window. A counter that reports one
         // call there is predicting a different program.
@@ -452,7 +452,7 @@ Submit your resume and we will keep in touch when something opens up.";
     #[test]
     fn an_unreadable_careers_page_promises_nothing_either() {
         // The gate the other questions get, and review is the reason it is stated for this one
-        // too: `analyse_with` never opens a page below `MIN_WORDS`, so a prediction that
+        // too: `analyze_with` never opens a page below `MIN_WORDS`, so a prediction that
         // counted what a parser *would* have found on it is a prediction of a different
         // program.
         //

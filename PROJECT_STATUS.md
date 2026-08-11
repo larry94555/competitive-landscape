@@ -1,6 +1,6 @@
 # Project Status
 
-**As of 2026-08-09** · `main` at `be03f9b`, plus the branch this page is on.
+**As of 2026-08-11** · `main` at `be03f9b`, plus the branch this page is on.
 
 This page answers one question: **what can somebody actually do with this today, and what
 stands between here and each of the six states that matter.** It is deliberately separate from
@@ -79,7 +79,7 @@ laptop default. What is still missing for the "Searching the Public Web" milesto
 half: nothing turns a *description* into a company, so search fills gaps about a company you
 named rather than finding you one.
 
-**2. It analyses a company you name, or the one a description resolves to — and it still finds
+**2. It analyzes a company you name, or the one a description resolves to — and it still finds
 no *set*.** A description now becomes candidate companies, the gate picks one when the evidence
 is clear, and the run proceeds against it; the report says on its first line that the company was
 chosen rather than named. What is still missing is **competitor-set derivation**: one idea
@@ -345,7 +345,7 @@ version verbatim checks), and the single regeneration retry. Until it exists, "t
 the source" is guaranteed by *construction* in our own code but never *re-checked against the
 page*, and the citation-coverage and drop-rate gates (≥97% / ≤3%) cannot be measured.
 
-**Risk [K3](#5-risks):** a defective quantisation once passed every check in place at the time —
+**Risk [K3](#5-risks):** a defective quantization once passed every check in place at the time —
 fast, always parseable, schema-valid, and wrong. Shape guarantees are not accuracy guarantees.
 
 ---
@@ -410,7 +410,7 @@ hardware has nothing on it. The target is p50 ≤180s with first content ≤40s 
 ## 3. Phase milestones
 
 Percentages are **software only** — work an agent does in this repository — and exclude founder
-work such as the concierge interviews, the terms audit and the deployment. They are a judgement
+work such as the concierge interviews, the terms audit and the deployment. They are a judgment
 made by counting each phase's "Ship" and "Technical tasks" entries against what is in the tree,
 with the evidence beside them. Where a phase's remaining work is mostly *not* software, that is
 said rather than hidden in a number.
@@ -450,7 +450,7 @@ figure because there is no deployment to measure from a client's side, which is 
 
 **Closed on evidence, and worth keeping visible:** the model choice (Qwen3-4B Q4_K_M extracts;
 the 1.7B invented a price on `contact-sales` and is a router, not an extractor), `q8_0` KV
-quantisation, grammar-constrained round trip at 100/100, the observability decision, and every
+quantization, grammar-constrained round trip at 100/100, the observability decision, and every
 merge gate green on an empty repository.
 
 ### Phase 1 — past 50%, short of 80%
@@ -477,7 +477,7 @@ than reading one.
 |---|---|
 | `landscape-search` wired into an analysis | **The crate is built** — templated versioned queries for the questions probes left unanswered, a `SourceProvider` seam, a SearXNG adapter, host-based admission, 41 tests (34 unit, 7 over a socket). **Nothing calls it**, so an idea still cannot become a company. **The phase's defining gap**, now a join rather than an invention. |
 | Candidate generation for entity resolution | The disambiguation gate has nothing to disambiguate. |
-| Competitor *discovery* | Several companies can be analysed, but only ones the reader names. |
+| Competitor *discovery* | Several companies can be analyzed, but only ones the reader names. |
 | ~~One of six extractors (direction)~~ | **Built.** All six questions extract, and two of them need no model. The `no extractor yet` branch is deleted rather than left unreachable, so a seventh question is a build error. |
 | ~~Fetch cache~~ + per-source extraction cache | **The fetch half is built** — one `Fetcher` per process, bounded in bytes, and a page served again reports when it was actually read. The extraction half is not. |
 | ~~Anonymous rate limit (2/day)~~ | **Built.** Two a day per address, hashed, reset daily. |
@@ -535,7 +535,7 @@ Ordered by what they hold up.
 |---|---|---|---|---|
 | **K1** | **We are 20 weeks from a user and have not met one.** The report format, the buyer and the price are all assumptions. | High · Severe | Everything built since Phase 0 | The concierge track exists precisely for this and is [B8](#4-blockers), unstarted. **Not mitigated.** |
 | **K2** | **The headline input runs, and nothing says the answer is right.** "Type a business idea" is the product's promise; typing one now produces a comparison of several companies. Whether they are *the* companies is unmeasured. | Certain today · Severe | [F1](#f1--searching-for-competitive-information-on-a-product-idea) | [B2](#4-blockers) is closed. The risk **moved** rather than cleared: it was *"the promise does not run"* and is now *"the promise runs and its answer is unscored"*, which is harder to see and is [B1](#4-blockers). What is in place is that every company in the set carries the countable reason it is there, and every one left out carries the reason it is not — a reader can audit the answer even though we cannot yet score it. |
-| **K3** | **Shape is not truth.** Constrained decoding guarantees a valid type and nothing about the values. A defective quantisation once passed every check we had. | Medium · Severe | [F9](#f9--claims-you-can-check) | Golden set with abstain-required subjects: in place. `landscape-verify` re-checking quotes against sources: **not built.** |
+| **K3** | **Shape is not truth.** Constrained decoding guarantees a valid type and nothing about the values. A defective quantization once passed every check we had. | Medium · Severe | [F9](#f9--claims-you-can-check) | Golden set with abstain-required subjects: in place. `landscape-verify` re-checking quotes against sources: **not built.** |
 | **K4** | **Free-tier latency.** Four ARM cores cannot serve the 15–25s promise; prefill dominates. Users abandon mid-stream. | Certain at Rung 0 · High | [F14](#f14--the-wait) | Deterministic-first extraction and span pre-selection are built and working. Caching, section-parallel generation and read-ordering are not. Never measured on the target host ([B5](#4-blockers)). |
 | **K5** | **Distribution, not features, is the likely cause of death.** The plan's only answer is one launch window in Phase 6, and the weekly distribution workstream was meant to start at Phase 1. | High · Severe | Not visible in the repository at all | The workstream is written as a standing weekly commitment. **No evidence it has started.** |
 | **K6** | **The retention thesis may be wrong.** Subscriptions are justified by watches; nobody has been asked whether they want alerts. | Medium · High | [F7](#f7--notifications-for-changes-in-public-information) | Gate G3 (≥35% of users create a watch) exists and is unreachable for now. |
@@ -600,6 +600,11 @@ that is expensive to retrofit and cheap to keep:
 - **The documentation is executed.** Every fenced `bash` block in the README is run against a
   booted binary in CI, because two bugs once reached a reader through correct code and stale
   prose.
+- **Conventions are checked, not remembered.** Sixteen gates, and the ones added late are the
+  ones nobody would have thought to write: a Markdown table with no separator, a total that no
+  longer sums its own rows, a mutation whose anchor has drifted, a `\` continuation lost to
+  `cargo fmt` — and, since Run 45, a single dialect. Each exists because the thing it checks had
+  already gone wrong once, in a way no reviewer noticed.
 
 ---
 
@@ -614,6 +619,7 @@ that is expensive to retrofit and cheap to keep:
 | Closes or opens a blocker | [§4](#4-blockers), and any feature that referenced it |
 | Changes what a risk depends on | [§5](#5-risks) |
 | Makes a readiness state reachable | [§1](#1-the-headline-can-we-show-this-to-anyone) — and say so in the PR title |
+| Adds a gate | [§7](#7-what-is-genuinely-strong), and the run entry in `docs/BENCHMARKS.md` that says what it caught |
 
 **Two rules for the numbers.** A percentage moves only when something in the tree moves — not
 when a plan changes. And a rung is claimed only when it can be demonstrated: **R2 through R5

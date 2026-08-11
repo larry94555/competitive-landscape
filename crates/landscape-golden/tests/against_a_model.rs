@@ -31,7 +31,7 @@
 //! editing the test.
 //!
 //! Measured 2026-08-03 (see `docs/BENCHMARKS.md`): Qwen3-4B passes at zero. Qwen3-1.7B
-//! Q8_0 returns one — it answers about a neighbouring plan on the same page — so this test
+//! Q8_0 returns one — it answers about a neighboring plan on the same page — so this test
 //! is **expected to be red against the 1.7B**. That is the finding, not a broken test.
 
 #![allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]

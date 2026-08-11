@@ -404,7 +404,7 @@ fn conditional_on(hop: usize, held: Option<&crate::cache::Stale>) -> Option<&cra
 
 /// The headers that turn a request into *"only if it changed"*.
 ///
-/// **Both, when both exist.** `If-None-Match` is the one an origin ought to honour, and
+/// **Both, when both exist.** `If-None-Match` is the one an origin ought to honor, and
 /// `If-Modified-Since` is what an origin with no `ETag` has to offer — sending each we hold lets
 /// the origin use whichever it actually implements rather than making us guess.
 ///

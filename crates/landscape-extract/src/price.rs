@@ -16,7 +16,7 @@
 //! measurement decides whether a browser tier gets built, and over-reporting prices would
 //! hide the very gap it exists to size.
 
-/// Currency markers we recognise, symbol or code.
+/// Currency markers we recognize, symbol or code.
 const SYMBOLS: [char; 5] = ['$', '€', '£', '¥', '₹'];
 const CODES: [&str; 8] = ["usd", "eur", "gbp", "cad", "aud", "chf", "jpy", "inr"];
 

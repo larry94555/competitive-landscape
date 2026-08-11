@@ -2,7 +2,7 @@
 
 **A walkthrough of the working product, in order, with nothing but a browser.** No terminal, no
 `curl`, no commands. Each part says what to do, what you should see, and — briefly — why it
-behaves that way, because most of the behaviour here is a decision rather than an accident.
+behaves that way, because most of the behavior here is a decision rather than an accident.
 
 > **Deploy it first.** [GO_LIVE.md](GO_LIVE.md) takes an empty Oracle account to a running site.
 > If you are on your own machine instead, `cargo run -p landscape -- dev --store memory` and
@@ -37,7 +37,7 @@ You should see:
 
 - a heading, **What is your idea?**
 - one box, already focused
-- an **Analyse** button
+- an **Analyze** button
 - **Or start from one of these** — three ideas, each with two companies and a line saying why
   those two
 - a sentence saying the companies in the examples were chosen by hand, and that everything the
@@ -57,7 +57,7 @@ before anything is fetched.
 
 ## 2. Watch a report arrive
 
-**Press Analyse.**
+**Press Analyze.**
 
 | When | What you should see |
 |---|---|
@@ -118,7 +118,7 @@ many were found and not read, and whether any question went unsearched.
 basecamp.com vs linear.app
 ```
 
-**Press Analyse**, and wait.
+**Press Analyze**, and wait.
 
 In the finished report, claims in the same section now carry the company they came from, in
 bold, before the claim.
@@ -144,9 +144,9 @@ Try all five of these:
 | Type `notion.so` in **Add a company** and press **Add** | It joins the row |
 | Type `basecamp` (no dot) and press **Add** | *"basecamp does not look like a domain. Try example.com."* — refused **out loud** |
 | Add a company that is already in the row | *"… is already in this set."* — including when you type it the way the chip spells it |
-| Remove every company | The button greys out: *"Removing every company leaves nothing to compare."* |
+| Remove every company | The button grays out: *"Removing every company leaves nothing to compare."* |
 
-Now put the set back the way it was. **Run this set** greys out again — the set on screen is not
+Now put the set back the way it was. **Run this set** grays out again — the set on screen is not
 a different question, and re-running it would spend eight minutes redrawing a page you are
 looking at.
 
@@ -205,7 +205,7 @@ a refusal that says so, which is part 9.
 privacy-friendly website analytics
 ```
 
-**Press Analyse.** This one takes longer: it searches first, then reads.
+**Press Analyze.** This one takes longer: it searches first, then reads.
 
 In the finished report, look for:
 
@@ -237,7 +237,7 @@ others.
 
 **Click one.** It starts an analysis of that company. You did not have to retype anything.
 
-> There is deliberately no *"skip, just analyse"* here. Skipping means guessing between two
+> There is deliberately no *"skip, just analyze"* here. Skipping means guessing between two
 > companies that share a name, and a report about the wrong Notion looks exactly like a report
 > about the right one.
 

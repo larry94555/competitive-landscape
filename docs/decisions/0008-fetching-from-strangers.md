@@ -15,7 +15,7 @@ textbook SSRF target, and on the intended host — an Oracle A1 — the most val
 inside that network answers at `169.254.169.254` and hands out credentials to anything that
 asks.
 
-Alongside that, [FACT_CHECKING.md](../FACT_CHECKING.md) commits us to honouring `robots.txt`
+Alongside that, [FACT_CHECKING.md](../FACT_CHECKING.md) commits us to honoring `robots.txt`
 as an **ethical position, not a risk-management one**. That framing changes what "correct"
 means for ambiguous cases, and it is the reason several decisions below look
 over-cautious.
@@ -79,7 +79,7 @@ The status handling is where the ethical framing shows:
 The 404-vs-5xx distinction is the one most often got wrong, and getting it wrong turns a
 site's bad afternoon into our crawling it against its wishes.
 
-`Crawl-delay` is honoured though it is not in the RFC, because ignoring a site's stated
+`Crawl-delay` is honored though it is not in the RFC, because ignoring a site's stated
 wishes on a technicality is not this product's posture. It is bounded at 300 seconds: a site
 asking for a day is asking us not to crawl it, and an unbounded sleep is a hang wearing a
 politeness costume.

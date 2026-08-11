@@ -53,12 +53,12 @@ export default function App(): React.JSX.Element {
   const newest = useRef(0);
 
   useEffect(() => {
-    let cancelled = false;
+    let canceled = false;
     void getExamples().then((found) => {
-      if (!cancelled) setExamples(found);
+      if (!canceled) setExamples(found);
     });
     return () => {
-      cancelled = true;
+      canceled = true;
     };
   }, []);
 
@@ -120,7 +120,7 @@ export default function App(): React.JSX.Element {
       window.history.pushState({}, "", pathFor(started.id));
       // Clear only once it has been accepted. The empty box is what tells an
       // unregistered reader they have spent their one analysis — a box still holding
-      // their words invites them to press Analyse again and be refused.
+      // their words invites them to press Analyze again and be refused.
       //
       // On failure the text stays: they have to edit it, and retyping something they
       // just wrote is a worse punishment for a typo than the typo deserved.
@@ -165,7 +165,7 @@ export default function App(): React.JSX.Element {
           aria-label="What is your idea?"
         />
         <button type="submit" disabled={submitting || prompt.trim() === ""}>
-          {submitting ? "Starting…" : "Analyse"}
+          {submitting ? "Starting…" : "Analyze"}
         </button>
       </form>
 
@@ -323,21 +323,21 @@ function useReport(
   useEffect(() => {
     if (id === null || settled) return;
 
-    let cancelled = false;
+    let canceled = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
     const reconnect = (): void => {
-      if (cancelled) return;
+      if (canceled) return;
       retry = setTimeout(() => {
-        if (!cancelled) setAttempt((n) => n + 1);
+        if (!canceled) setAttempt((n) => n + 1);
       }, RECONNECT_MS);
     };
 
     const close = watchAnalysis(id, {
       onStatus: (next) => {
-        if (!cancelled) setStatus(next);
+        if (!canceled) setStatus(next);
       },
       onSection: (section) => {
-        if (cancelled) return;
+        if (canceled) return;
         // Arrival order, and the newest version of each. A section is sent again whenever it
         // changes: pinning the first copy left "What it does: 1 item" on screen for two
         // minutes while eight more were read, which reads as a section that is finished.
@@ -350,19 +350,19 @@ function useReport(
         });
       },
       onGeneration: (generation) => {
-        if (!cancelled) sawGeneration(generation);
+        if (!canceled) sawGeneration(generation);
       },
       onSubjects: (next) => {
         // Not cleared on a new generation: the replacement run is comparing the same
-        // companies, and a screen that stops labelling halfway through a restart is the
+        // companies, and a screen that stops labeling halfway through a restart is the
         // defect this exists to prevent, wearing a different hat.
-        if (!cancelled) setSubjects(next);
+        if (!canceled) setSubjects(next);
       },
       onDone: () => {
-        if (cancelled) return;
+        if (canceled) return;
         void getAnalysis(id)
           .then((latest) => {
-            if (cancelled) return;
+            if (canceled) return;
             // Before the analysis is replaced below, so the clearing acts on what the reader
             // is holding rather than on what has just arrived.
             sawGeneration(latest.generation);
@@ -384,7 +384,7 @@ function useReport(
     });
 
     return () => {
-      cancelled = true;
+      canceled = true;
       if (retry !== undefined) clearTimeout(retry);
       close();
     };
@@ -426,7 +426,7 @@ function AnalysisView({
   // Whether this report covers more than one company, which decides whether each claim has to
   // say whose it is.
   //
-  // **From the companies analysed, not from the ones that produced a claim.** Deriving it from
+  // **From the companies analyzed, not from the ones that produced a claim.** Deriving it from
   // the claims on screen looks reasonable and is wrong in the case that matters: ask about two
   // companies, have one of them say nothing, and the survivor's prices lose their label in a
   // report that is still a comparison.
@@ -435,7 +435,7 @@ function AnalysisView({
   // runs there is no report yet, so the stream says so directly. Leaving the live case to be
   // guessed from the claims is the same defect one surface later — it was, and review found it
   // there too.
-  const analysed = (report?.subjects?.length ?? 0) > 0 ? (report?.subjects ?? []) : subjects;
+  const analyzed = (report?.subjects?.length ?? 0) > 0 ? (report?.subjects ?? []) : subjects;
   // **Read from the failure, not only from the list.** A run that later succeeded can still be
   // holding the question an earlier attempt asked; offering it under a finished report would
   // invite a reader to re-run something they can already read. The server clears it for the
@@ -445,8 +445,8 @@ function AnalysisView({
       ? analysis.choices
       : [];
   const several =
-    analysed.length > 1 ||
-    // Only for reports stored before `subjects` existed, which deserialise without it.
+    analyzed.length > 1 ||
+    // Only for reports stored before `subjects` existed, which deserialize without it.
     new Set(
       showing
         .flatMap((s) => s.claims)
@@ -460,7 +460,7 @@ function AnalysisView({
 
       {/*
         Anything true of the whole report rather than one section — today, which companies were
-        named and not analysed. It sits above the sections because it changes what the sections
+        named and not analyzed. It sits above the sections because it changes what the sections
         below it mean.
       */}
       {report?.notes?.map((note) => (
@@ -504,8 +504,8 @@ function AnalysisView({
         Under the notes that say *why* each company is here, because a reader corrects the set
         having read the reasons rather than before.
       */}
-      {isTerminal(showing_status) && analysed.length > 0 && (
-        <EditableSet companies={analysed} onRun={onPick} running={picking} />
+      {isTerminal(showing_status) && analyzed.length > 0 && (
+        <EditableSet companies={analyzed} onRun={onPick} running={picking} />
       )}
 
       {/*

@@ -343,7 +343,7 @@ async fn features(
 /// with grounding alone, where a model asked to *"list the certifications"* invents one.
 ///
 /// What is left for the model is the part that is genuinely reading: whether the page says they
-/// **have** it or are **working towards** it. Both spellings contain the same words, and a
+/// **have** it or are **working toward** it. Both spellings contain the same words, and a
 /// report that treated them alike would be this project's characteristic wrong answer —
 /// correct-looking, fully cited, about a different fact.
 async fn trust(
@@ -397,7 +397,7 @@ async fn trust(
                             .push(landscape_core::AssuranceClaim::empty().about(&named.standard));
                     }
                     // The page does name this standard - the scanner found it - so the mention is
-                    // kept and the claim is not. Answering about a neighbour is the failure mode
+                    // kept and the claim is not. Answering about a neighbor is the failure mode
                     // of handing one window over twice.
                     Judged::EvidenceIsAboutAnother => {
                         mismatched += 1;
@@ -472,11 +472,11 @@ async fn trust(
 /// What to make of one claim, decided without a model in the room.
 ///
 /// **A pure function so the decision can be tested.** The rest of the stage cannot run without
-/// a `llama-server`, so a judgement made inline is a judgement nothing holds still.
+/// a `llama-server`, so a judgment made inline is a judgment nothing holds still.
 ///
 /// # The model cannot choose the name, and that was not enough
 ///
-/// Taking the standard from the scanner stopped the model *labelling* an answer. It did not
+/// Taking the standard from the scanner stopped the model *labeling* an answer. It did not
 /// stop it *answering about the wrong thing*: a window is three lines, and two standards often
 /// sit within three lines of each other — or on one line — so the same window is handed over
 /// twice, once per standard. A model asked about ISO 27001 can reply `holds` while quoting the
@@ -499,7 +499,7 @@ async fn trust(
 /// in a run log nobody reads standing in for a check.
 ///
 /// So an unsupported claim is dropped and the **mention is kept**, exactly as it is when the
-/// evidence turns out to be about a neighbouring standard. That the page names the standard is
+/// evidence turns out to be about a neighboring standard. That the page names the standard is
 /// the scanner's finding and stays true; that they hold it is the model's, and it goes when its
 /// evidence does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -563,7 +563,7 @@ fn assurance_prompt(url: &str, standard: &str, window: &Span) -> String {
          Rules:
          - status is holds when the section says they have it, are certified, are compliant, \
            or that a report or certificate exists.
-         - status is pursuing when the section says they are working towards it, it is in \
+         - status is pursuing when the section says they are working toward it, it is in \
            progress, planned, expected, or on a roadmap.
          - Leave status null when the section only mentions the standard without saying \
            either - a question, a link, or a contact address is not a claim.
@@ -821,7 +821,7 @@ Return the extraction as JSON."
     )
 }
 
-/// The capability prompt. Normalisation, which is all §5.4 asks a model for here.
+/// The capability prompt. Normalization, which is all §5.4 asks a model for here.
 ///
 /// **It carried a worked example once, and the model used it as a fact.** With *Message
 /// Boards* in the instructions, a page of Linear's documentation came back reporting Message
@@ -1631,10 +1631,10 @@ ISO 27001 is on our roadmap.";
     }
 
     #[test]
-    fn evidence_about_a_neighbouring_standard_is_not_a_claim_about_this_one() {
+    fn evidence_about_a_neighboring_standard_is_not_a_claim_about_this_one() {
         // **The failure review found in the regression written to prove the class was closed.**
         // The window holds both standards, so the same three lines are handed over twice. An
-        // answer about SOC 2, relabelled ISO 27001, published a certification claim on evidence
+        // answer about SOC 2, relabeled ISO 27001, published a certification claim on evidence
         // about a different certification - and the quote was verbatim, and the name was the
         // scanner's, so every check passed.
         assert_eq!(

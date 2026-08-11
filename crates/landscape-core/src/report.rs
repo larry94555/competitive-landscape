@@ -127,8 +127,8 @@ pub struct Report {
     ///
     /// **Not derived from the claims.** Asking "did more than one company produce a fact" is a
     /// different question from "is this a comparison", and they come apart in the case that
-    /// matters: two companies analysed, one of them silent. Reading the subjects off the claims
-    /// then makes the surviving company's prices look unlabelled and unambiguous when they are
+    /// matters: two companies analyzed, one of them silent. Reading the subjects off the claims
+    /// then makes the surviving company's prices look unlabeled and unambiguous when they are
     /// neither.
     ///
     /// Empty on a report about one company, which is every report the single-subject path
@@ -152,7 +152,7 @@ pub struct Report {
     pub interpreted: Option<Interpreted>,
     /// Anything true of the whole report rather than of one section.
     ///
-    /// Today that is one thing: **which companies were named and not analysed.** Dropping a
+    /// Today that is one thing: **which companies were named and not analyzed.** Dropping a
     /// subject in silence is the defect multi-company support exists to remove, and doing it at
     /// a higher count would be the same defect wearing a bigger number.
     #[serde(default)]
@@ -281,7 +281,7 @@ mod tests {
         // The frontend types and the decoding grammar are both built from this. If it
         // stops generating, both drift silently, so it is worth a test of its own.
         let schema = schemars::schema_for!(Report);
-        let json = serde_json::to_value(&schema).expect("schema serialises");
+        let json = serde_json::to_value(&schema).expect("schema serializes");
         assert!(json.get("properties").is_some(), "schema has properties");
     }
 }

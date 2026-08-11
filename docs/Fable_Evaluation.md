@@ -5,12 +5,12 @@
 > completeness, missing details, and recommendations.
 >
 > **Method and honesty note.** This evaluation applies the plan's own standard to itself:
-> judgments are labelled as judgments, probabilities are calibrated estimates rather than
+> judgments are labeled as judgments, probabilities are calibrated estimates rather than
 > measurements, and the evaluator (the same model that wrote most of the documents) has an
 > obvious authorship bias toward finding the plan good. The mitigation is the same one the
 > plan uses everywhere else: be specific enough to be checkable, and prefer identifying
-> defects over defending choices. Where this document criticises the plan, the criticism
-> stands even though the author wrote the thing being criticised.
+> defects over defending choices. Where this document criticizes the plan, the criticism
+> stands even though the author wrote the thing being criticized.
 >
 > Scope caveat from the question as posed: probabilities assume the plan proceeds as written,
 > documentation stays current, execution meets the current state of the market, and
@@ -232,7 +232,7 @@ the SEO surface, the problem is positioning, and more features will not fix it.
 COMPETITIVE_DISCOVERY names review-site category pages as the **highest-yield discovery
 channel**, and the sentiment section leans on review platforms. But major review platforms
 aggressively restrict automated access — restrictive robots.txt, bot-detection, and terms
-that prohibit scraping. **The plan honours robots.txt as a hard ethical commitment
+that prohibit scraping. **The plan honors robots.txt as a hard ethical commitment
 (FACT_CHECKING, QUALITY_GUARDRAILS).** These two positions may directly collide: the
 discovery channel ranked #1 and one of nine report sections may be substantially unavailable
 *by the plan's own rules*.
@@ -295,7 +295,7 @@ Ranked by expected impact per unit of effort.
    the well-known free alternatives and publish the results with screenshots. It is cheap,
    newsworthy, demonstrates the differentiator in ten seconds, and — because the product's
    architecture is the only one in the comparison that *structurally cannot* fail the test —
-   it is a marketing asset competitors cannot neutralise without rebuilding.
+   it is a marketing asset competitors cannot neutralize without rebuilding.
 5. **Elevate watch creation into the first-run flow.** The plan already believes watches are
    the retention hinge (Phase 7 expects to confirm it). Don't wait: make "watch these pages"
    part of the first report's completion moment, not a separate later discovery. One-shot

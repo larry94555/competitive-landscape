@@ -64,7 +64,7 @@ ten could not see, and losing one of them is the more interesting half.
 `Searx::new` ended `.build().unwrap_or_default()`, so the one failure path silently replaced a
 client carrying an eight-second timeout with one carrying none. The fix made the constructor
 fallible — and the mutation that puts `unwrap_or_default()` back reports `MISSED`, because
-`reqwest`'s builder only fails on a TLS backend that will not initialise and no test can make
+`reqwest`'s builder only fails on a TLS backend that will not initialize and no test can make
 that happen. The guarantee now is the **signature**: there is no path that produces a `Searx`
 without a timeout, which is a property of the type rather than a branch. Same disposition as
 *"a prompt that was refused costs nothing"* above — the fix stays, the mutation goes, and this
@@ -106,7 +106,7 @@ a navigation label by the plural rule rather than by the length floor. Either gu
 been removed in silence.
 
 **And a third answer: change the code so the guard can be asserted at all.**
-`search-fills-the-gaps.json` labelled every page a search engine returned as the company's own
+`search-fills-the-gaps.json` labeled every page a search engine returned as the company's own
 and the whole suite passed — a stranger's page would have been rendered as the company speaking,
 unmarked. Nothing was testing it because the URL and its standing were two arguments to one
 function, and a test can only assert a pair that exists. They are one value now, and the mutation
@@ -142,7 +142,7 @@ exactly the way the change was about — which is the file doing its job three r
 `copy-as-context.json` caught a **test** rather than the code. Its first entry takes the source
 label off every claim, and nothing failed — because the assertion looked for `[S1]`
 *somewhere* in the document, and the sources index at the bottom lists every label. The claims
-could all have gone out unlabelled. That is the same shape as the frontend test that looked for a
+could all have gone out unlabeled. That is the same shape as the frontend test that looked for a
 company name on a page which repeats it, and it is the argument for writing the mutation before
 believing the test.
 
@@ -160,7 +160,7 @@ both directions. Dropping a claim and dropping its whole section are different e
 one of them had a shape to test against.
 
 **These files are also read backwards.** `scripts/no_live_mutations.py` takes every `new`
-payload as the shape of a defect this repository can recognise, and refuses a working tree that
+payload as the shape of a defect this repository can recognize, and refuses a working tree that
 contains one — because an interrupted run leaves the deliberate defect in place, and a
 `git add -A` will commit it. That has happened; entry 28 of the register is the account. It is
 the first gate `verify.py` runs, and the only one that looks at the working tree rather than at

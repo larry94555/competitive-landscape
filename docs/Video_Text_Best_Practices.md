@@ -121,7 +121,7 @@ Specificity *is* credibility. A real number is worth three adjectives.
 
 | Abstract | Concrete |
 |---|---|
-| "Customer reviews are analysed for unmet needs." | "Six people wanted per-restaurant pricing. Nobody sells it." |
+| "Customer reviews are analyzed for unmet needs." | "Six people wanted per-restaurant pricing. Nobody sells it." |
 | "It surfaces competitors you may not know." | "Three competitors you would never have found." |
 | "Sources are timestamped and verifiable." | "The page, the sentence, the date." |
 
@@ -176,7 +176,7 @@ Spoken lines have a shape, and a run of same-length sentences flattens into nois
 
 ## 11. Structure across the film
 
-- **Open on the problem, not the product.** The first line should make someone recognise
+- **Open on the problem, not the product.** The first line should make someone recognize
   their own situation. *"Who else is already doing what you're about to build?"*
 - **First value inside 20 seconds.** Something useful has to happen before the viewer decides
   this is a tour.

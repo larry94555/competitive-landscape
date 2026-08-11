@@ -13,8 +13,19 @@
 # inference on four cores.
 
 landscape.example.com {
-    # Your address. `curl -s https://ifconfig.me` on the machine you will browse from.
-    # A CIDR is fine: 203.0.113.0/24.
+    # Your address. `curl -4 -s https://ifconfig.me` on the machine you will browse from.
+    #
+    # **The `-4` matters.** Without it that command returns an IPv6 address whenever the client
+    # has one, while a domain with only an A record is reached over IPv4 - so the list would
+    # hold an address that never arrives and every request would be refused with the 403 below.
+    #
+    # Several values and CIDR ranges are allowed, and both families can be listed at once:
+    # `remote_ip 203.0.113.4 2001:db8:abcd:1234::/64`. An AAAA record on the domain means a
+    # browser will prefer IPv6, so an IPv4-only list refuses it.
+    #
+    # If you are seeing "Not open yet.", the refusal below names the address it refused. Do not
+    # go looking in the log for it: Caddy writes no access log unless a site asks for one with
+    # a `log` directive, so there is nothing there to find.
     @allowed remote_ip 203.0.113.4
 
     handle @allowed {
@@ -29,7 +40,16 @@ landscape.example.com {
 
     # Everybody else, including whoever finds the domain in a certificate transparency log
     # minutes after it is issued.
+    #
+    # **It names the address it is refusing.** `{remote_host}` is what Caddy compared against
+    # the list above, and a refused visitor is the one person who cannot read the server's
+    # logs - so the answer goes where they are already looking. It tells them nothing they did
+    # not know: it is their own address, and nobody else's.
+    #
+    # This is the whole diagnosis when the allow-list is wrong, which it will be at least once:
+    # `curl` reports a different address than a browser behind a VPN, an IPv6 client reaches a
+    # domain that has an AAAA record, an ISP rotates a lease.
     handle {
-        respond "Not open yet." 403
+        respond "Not open yet. Seen from {remote_host}" 403
     }
 }

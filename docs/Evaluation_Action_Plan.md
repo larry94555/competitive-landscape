@@ -56,7 +56,7 @@ process gaps, not design defects.
 | ID | Issue | Change made? | Impact |
 |---|---|:--:|---|
 | **F8** | Validation gate missing | **Yes** | See F4. |
-| **F9** | Pre-launch assets (waitlist) not planned | **Yes** | Phase 0 Track B. ~1 day. Domain begins ageing and the list begins growing in week 1. |
+| **F9** | Pre-launch assets (waitlist) not planned | **Yes** | Phase 0 Track B. ~1 day. Domain begins aging and the list begins growing in week 1. |
 | **F10** | Name / trademark check never scheduled | **Yes** | Phase 0 Track B, week 1. Hours of work; renaming after launch costs weeks. |
 | **F11** | `RUNBOOK.md` promised by R7, never scheduled | **Yes** | Started in Phase 0, grows with the system. |
 | **F12** | No app-wide accessibility standard | **Yes** | `CODING_QUALITY.md` §7.2: `jsx-a11y` + `axe-core` in Playwright flows, with `prefers-reduced-motion` called out for the 90–180s streaming report. Adds CI checks, not phases. |
@@ -133,7 +133,7 @@ work and the distribution hour conflict, distribution wins" exists because that 
 always the one that *feels* deferrable.
 
 **During implementation:** protect the hour. The compounding channels — comparison pages, the
-KB, shared reports — are the ones worth prioritising, and none requires the app to be
+KB, shared reports — are the ones worth prioritizing, and none requires the app to be
 publicly launched, so they can begin accumulating months before Phase 6.
 
 ### 3.3 Why F3 (timeline) required action, and why it is not a scope problem
@@ -155,7 +155,7 @@ months. Writing the gates now, before any ego is attached to the answers, is the
 The pivot ladder matters because of a property the plan already has but never exploited:
 **the engine is subject-agnostic.** Discovery, fetching, verification, reporting and
 monitoring do not care whether the subject is a SaaS competitor, a procurement vendor, or a
-grant funder. So a failed positioning is a relabelling exercise, not a rebuild — which is
+grant funder. So a failed positioning is a relabeling exercise, not a rebuild — which is
 precisely why no finding in the evaluation is fatal, and why the answer to "what if the
 niche is wrong" is "try the next one" rather than "start over."
 
@@ -199,7 +199,7 @@ The rendered example is the artifact an implementer — human or agent — will 
 copy most literally. Leaving a seven-section example in place while specifying nine sections
 does not merely mislead; it actively instructs the wrong thing. The new example carries the
 source classes, the five matrix states, a not-used source, an auditable negative, and the
-interpretation labelling, so the honesty mechanisms are demonstrated rather than described.
+interpretation labeling, so the honesty mechanisms are demonstrated rather than described.
 
 ### 3.8 Why F19/F20 (mobile, returning states) required action
 

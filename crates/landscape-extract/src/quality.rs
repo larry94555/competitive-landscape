@@ -138,7 +138,7 @@ mod tests {
     fn a_real_pricing_page_is_good() {
         let md =
             "# Pricing\n\n| Plan | Price |\n|---|---|\n| Starter | $19 |\n| Grower | $49 |\n\n\
-                  All plans are billed monthly in US dollars and can be cancelled at any time. \
+                  All plans are billed monthly in US dollars and can be canceled at any time. \
                   There is no setup fee on any plan, and annual billing is available on request.";
         let a = assess(md);
         assert_eq!(a.quality, Quality::Good, "{a:?}");

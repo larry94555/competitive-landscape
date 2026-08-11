@@ -78,6 +78,6 @@ llama.cpp's converter by giving it better input, rather than replacing it.
 against Qwen3-1.7B Q8_0 — **6/20 unparseable before, 0/20 after**. Numbers in
 [BENCHMARKS.md](../BENCHMARKS.md).
 
-**This becomes the wrong choice if** llama.cpp starts honouring `format` itself, at which
+**This becomes the wrong choice if** llama.cpp starts honoring `format` itself, at which
 point this becomes redundant rather than harmful — or if a report type needs a bound the
 format cannot express, which is what `#[schemars(range(...))]` remains available for.

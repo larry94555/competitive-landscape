@@ -51,7 +51,7 @@ direction is itself a reading: the D items were sized before the pipeline undern
 this well tested, and a feature built on parts that already work is smaller than one that has to
 prove them.
 
-**The estimates are a judgement, and their reliability falls off sharply with distance.** S1 is
+**The estimates are a judgment, and their reliability falls off sharply with distance.** S1 is
 estimated against 35 PRs of actual history in this repository — that is the only part calibrated
 against evidence. S2 is estimated against a design that exists on paper. S5 and S6 are estimated
 against features nobody has designed in detail, and I would not be surprised by ±50% on them.
@@ -93,7 +93,7 @@ with `cargo run -p landscape -- dev`, a `llama-server` beside it, and a browser.
 | Feature | State | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|---|
 | Foundations — workspace, quality gates from commit one, CI, aarch64 cross-compile | S1 | 4 | 4 | 0 | 100% |
-| Model selection — bake-off, benchmark harness, licence review, `q8_0` validation | S1 | 3 | 3 | 0 | 100% |
+| Model selection — bake-off, benchmark harness, license review, `q8_0` validation | S1 | 3 | 3 | 0 | 100% |
 | Constrained decoding — Rust type → JSON Schema → GBNF → parsed back | S1 | 2 | 2 | 0 | 100% |
 | Polite fetching — SSRF guard, robots.txt, per-host rate limiting | S1 | 1 | 1 | 0 | 100% |
 | Source discovery on one domain — probes, sitemap, `llms.txt`, locale, top eight | S1 | 2 | 2 | 0 | 100% |
@@ -205,7 +205,7 @@ instructions now.
 since the channel was built — and off-site adapters wait on the source-terms audit, which
 has to be read in a browser. Neither is a pull request. They sat inside the estimate for four
 changes, which meant S2 could not reach 100% however much was built, and a change that raised the
-estimate to match the work cancelled that work out of the number. **The rule this page opens
+estimate to match the work canceled that work out of the number. **The rule this page opens
 with is that these are software PRs only**, and it now applies to S2 as it already did to the
 concierge interviews and to deployment.
 
@@ -265,7 +265,7 @@ and the measurement that decided against a headless browser.
 | Golden set to 50 subjects, with matrix and chart-data assertions | S3 | 2 | 0 | **2** | 0% |
 | Automated eval suite with CI gates — citation coverage ≥97%, drop rate ≤3% | S3 | 2 | 0 | **2** | 0% |
 | Rendering ladder tiers 2–4 — embedded state, then the rest | S3 | 2 | 1 | **1** | 50% |
-| Latency work — section-parallel generation, prompt-prefix stabilisation | S3 | 2 | 0 | **2** | 0% |
+| Latency work — section-parallel generation, prompt-prefix stabilization | S3 | 2 | 0 | **2** | 0% |
 | "What people are saying" — Hacker News and GitHub only, with named exclusions | S3 | 2 | 0 | **2** | 0% |
 | **Copy as context** — the whole report as clean Markdown, sized to paste elsewhere | S3 | 1 | **1** | 0 | **100%** |
 | | | **26** | **2** | **24** | **8%** |
@@ -349,7 +349,7 @@ software rather than **what it can do**, and the states above are complete witho
 
 | Feature | Est. PRs | Done | Left | Complete |
 |---|---|---|---|---|
-| **D3** A deployable artefact — aarch64 build, `web/dist` beside it, service units, [DEPLOY.md](DEPLOY.md) and a RUNBOOK section | 1 | 1 | 0 | 100% |
+| **D3** A deployable artifact — aarch64 build, `web/dist` beside it, service units, [DEPLOY.md](DEPLOY.md) and a RUNBOOK section | 1 | 1 | 0 | 100% |
 | **D6** A cap on anonymous runs — two a day per address, counted where a run starts | 1 | 1 | 0 | 100% |
 | | **2** | **2** | **0** | **100%** |
 
@@ -363,7 +363,7 @@ can see the software rather than what it does. What has *not* happened is a depl
 procedure and the cap are written and reviewed, and no box has run either.
 
 **D3 is done in the sense this table counts and not in the sense that matters most.** The
-artefact, the units and the procedure exist and are reviewable; **no box has run them.** The
+artifact, the units and the procedure exist and are reviewable; **no box has run them.** The
 first deployment is where this stops being a plan, and the procedure says so at the top rather
 than pretending otherwise.
 

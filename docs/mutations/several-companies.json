@@ -39,7 +39,7 @@
     ]
   },
   {
-    "name": "a company named and not analysed is dropped in silence",
+    "name": "a company named and not analyzed is dropped in silence",
     "file": "crates/landscape-analyze/src/lib.rs",
     "old": "    let mut notes = if dropped.is_empty() {",
     "new": "    let mut notes = if true {",
@@ -64,7 +64,7 @@
     "cwd": "web"
   },
   {
-    "name": "comparison mode is read off the claims instead of the subjects analysed",
+    "name": "comparison mode is read off the claims instead of the subjects analyzed",
     "file": "crates/landscape-analyze/src/render.rs",
     "old": "        let several = report.subjects.len() > 1;",
     "new": "        let several = report.sections.iter().flat_map(|s| s.claims.iter()).filter(|c| !c.subject.is_empty()).map(|c| c.subject.clone()).collect::<std::collections::BTreeSet<_>>().len() > 1;",
@@ -103,10 +103,10 @@
     ]
   },
   {
-    "name": "the finished report's companies are ignored in favour of the claims on screen",
+    "name": "the finished report's companies are ignored in favor of the claims on screen",
     "file": "web/src/App.tsx",
-    "old": "  const analysed = (report?.subjects?.length ?? 0) > 0 ? (report?.subjects ?? []) : subjects;",
-    "new": "  const analysed: readonly string[] = [];",
+    "old": "  const analyzed = (report?.subjects?.length ?? 0) > 0 ? (report?.subjects ?? []) : subjects;",
+    "new": "  const analyzed: readonly string[] = [];",
     "run": [
       "npx",
       "vitest",
@@ -156,8 +156,8 @@
   {
     "name": "the live stream falls back to guessing the label from the claims on screen",
     "file": "web/src/App.tsx",
-    "old": "  const analysed = (report?.subjects?.length ?? 0) > 0 ? (report?.subjects ?? []) : subjects;",
-    "new": "  const analysed = report?.subjects ?? [];",
+    "old": "  const analyzed = (report?.subjects?.length ?? 0) > 0 ? (report?.subjects ?? []) : subjects;",
+    "new": "  const analyzed = report?.subjects ?? [];",
     "run": [
       "npx",
       "vitest",

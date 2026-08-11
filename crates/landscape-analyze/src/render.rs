@@ -5,7 +5,7 @@
 //! the same weight as a section with facts in it, because **the absence is a finding**.
 //!
 //! Rendering lives beside the analysis rather than in the CLI so that the report a reader is
-//! shown and the report the API will serialise are assembled from one set of words.
+//! shown and the report the API will serialize are assembled from one set of words.
 
 use std::fmt::Write as _;
 
@@ -22,7 +22,7 @@ impl Analysis {
         // Whether this report covers more than one company, which decides whether each claim
         // has to say whose it is.
         //
-        // **From the companies analysed, not from the companies that produced a claim.** Those
+        // **From the companies analyzed, not from the companies that produced a claim.** Those
         // are different questions and they come apart in the case that matters: two companies
         // asked about, one of them silent, and the survivor's prices rendered without a label
         // in a report that is still a comparison. Review found it.

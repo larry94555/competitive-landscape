@@ -15,14 +15,14 @@ By the end of Phase 0 the answer to the second question had changed. What was ac
 | Check | Catches |
 |---|---|
 | `clippy -D warnings`, with `unwrap`/`expect`/`panic`/`todo` **denied** | Correctness and panic-safety, stricter than most Sonar Rust rules |
-| `cargo-deny` (advisories, licences, bans, sources) | Vulnerable, unlicensed and duplicated dependencies |
+| `cargo-deny` (advisories, licenses, bans, sources) | Vulnerable, unlicensed and duplicated dependencies |
 | `gitleaks`, full history | Committed secrets |
 | `cargo-llvm-cov` | Coverage, reported on every push |
 | `tsc --strict` + ESLint type-checked rules | The TypeScript half, where Sonar's analysis is strongest |
 | `scripts/lint_instructions.py` | Commands in prose that would fail if pasted |
 | `scripts/check_links.py` | Dead links and dead heading anchors across 31 documents |
 | `crates/landscape/tests/docs.rs` | The README, **executed** against the real binary |
-| `landscape-golden` | Whether the model's answers are *true* — which no static analyser can see |
+| `landscape-golden` | Whether the model's answers are *true* — which no static analyzer can see |
 | aarch64 cross-compile | Target-architecture breakage before it reaches the target |
 
 §7.3 claimed three things Sonar provides that per-language linters do not: the clean-as-you-code
@@ -46,7 +46,7 @@ what is now in place:
 **No SonarCloud.** §7.3 is removed, and it is removed from the merge-gate list in §10.4 and
 from the Phase 0 toolchain in the roadmap.
 
-The cost side matters on a bootstrapped budget and it is not the licence fee, which is zero
+The cost side matters on a bootstrapped budget and it is not the license fee, which is zero
 for public repositories. It is a further external account to hold, a further integration to
 keep working, and a further gate that can go red for reasons unrelated to the change under
 review. This project has already learned what that costs: a check that fails for a reason

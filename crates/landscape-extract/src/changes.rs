@@ -43,7 +43,7 @@ pub const CHANGES_VERSION: u32 = 1;
 /// The most entries taken from one changelog.
 ///
 /// A busy changelog has hundreds and a report shows a quarter's worth. This is a bound on the
-/// work, not a judgement about the page, and the number passed over is reported alongside —
+/// work, not a judgment about the page, and the number passed over is reported alongside —
 /// `PRODUCT_SPEC.md` §4's coverage note exists so that a short list is never mistaken for a
 /// quiet quarter.
 pub const MAX_ENTRIES: usize = 40;
@@ -286,7 +286,7 @@ fn month_number(word: &str) -> Option<u32> {
 
 /// A date a changelog could plausibly carry.
 ///
-/// The range is a sanity check rather than a calendar: `31/13/2026` is a parse artefact, and
+/// The range is a sanity check rather than a calendar: `31/13/2026` is a parse artifact, and
 /// a change dated 1970 is a timestamp that lost its formatting.
 fn valid(year: i32, month: u32, day: u32) -> bool {
     (2000..=2100).contains(&year) && (1..=12).contains(&month) && (1..=31).contains(&day)

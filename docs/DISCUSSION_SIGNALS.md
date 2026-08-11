@@ -50,7 +50,7 @@ This single rule is what separates a useful negative from a misleading one. "Not
 Hacker News" is *meaningless* for a farm-to-restaurant ordering app and *highly meaningful*
 for a developer tool. Reporting both identically would be dishonest.
 
-So every venue carries a **relevance judgement for this subject**, made before the search
+So every venue carries a **relevance judgment for this subject**, made before the search
 runs, and a negative is only published from venues that pass it:
 
 | Venue passes when | Example |
@@ -62,7 +62,7 @@ runs, and a negative is only published from venues that pass it:
 If a venue fails, it does not appear in the report at all — neither as a finding nor as a
 negative. **We never pad the absence list with venues where absence means nothing.** A report
 saying "not found on Hacker News, Reddit, Lobsters, Stack Overflow, Product Hunt" for a
-catering app is filler wearing the costume of rigour.
+catering app is filler wearing the costume of rigor.
 
 ### 2.1 What a silence does and does not mean
 
@@ -146,7 +146,7 @@ the wrong ones:
 
 A project is reported as active on **commit and contributor evidence**, with stars shown
 beside it as context and never as the sort key. Archived and read-only repositories are
-labelled as such rather than dropped — "someone built this and stopped" is a genuine finding.
+labeled as such rather than dropped — "someone built this and stopped" is a genuine finding.
 
 **Show HN / launch posts — attempts.** What was tried, when, and what the response was. An
 idea that was launched twice and died twice is important information.
@@ -183,7 +183,7 @@ Search endpoints are more restrictive and are documented separately — that spe
 must be confirmed against the endpoint docs during Phase 0 rather than assumed here.
 
 Ample for our volume. Code and repository metadata are public and the API exists to be used
-this way. Repository content carries its own licence, so we link and quote minimally rather
+this way. Repository content carries its own license, so we link and quote minimally rather
 than reproducing README text at length.
 
 ### 4.3 Reddit — restricted, and this needs a decision before any code is written
@@ -359,7 +359,7 @@ reader who knows what we did *not* look at can trust what we did.
 
 ### 4.5 The robots.txt commitment applies here too
 
-[FACT_CHECKING.md](FACT_CHECKING.md) commits to honouring robots.txt. Discussion venues are
+[FACT_CHECKING.md](FACT_CHECKING.md) commits to honoring robots.txt. Discussion venues are
 no exception, and several are aggressive about crawlers. Where an API exists we use the API;
 where robots.txt forbids fetching we do not fetch, and the venue is listed as **R — Not read**
 with a link, exactly as any other source would be.
@@ -506,7 +506,7 @@ interface Project {
   commits_in_window: number; contributors_in_window: number;
   last_commit: string; last_release?: string;
   archived: boolean; stars: number;   // context only, never the sort key
-  licence: string;
+  license: string;
 }
 ```
 
@@ -525,7 +525,7 @@ The mitigations are the ones the architecture already uses:
 
 - **Deterministic filtering first.** Recency, engagement thresholds, and keyword gates are
   code, not inference. Most candidate posts never reach a model.
-- **Span pre-selection.** Only the matching paragraph and its neighbours go to the extractor,
+- **Span pre-selection.** Only the matching paragraph and its neighbors go to the extractor,
   never a whole thread.
 - **The 1.7B router decides relevance**; the 4B extractor only sees what survives.
 - **Cache by post ID.** Discussion posts are immutable in a way company pages are not — a
@@ -549,8 +549,8 @@ Stated plainly, because this section invites over-reading more than any other:
 - **We do not treat silence as opportunity.** See §2.1.
 - **We do not identify or profile individuals.** Posts are quoted and linked, never
   aggregated into a picture of a person.
-- **We do not reproduce more than a short attributed quote**, and we honour each venue's
-  licence — CC BY-SA where it applies, link-only where terms require it.
+- **We do not reproduce more than a short attributed quote**, and we honor each venue's
+  license — CC BY-SA where it applies, link-only where terms require it.
 
 ---
 
@@ -572,7 +572,7 @@ first would be shipping the liability without the control.
 
 ## 12. Open questions
 
-Recorded rather than resolved, because they need the founder's judgement or a primary source:
+Recorded rather than resolved, because they need the founder's judgment or a primary source:
 
 1. **Reddit terms** — §4.3, blocking, Phase 0.
 2. **Does the absence panel belong in the free tier?** It is the most expensive block to

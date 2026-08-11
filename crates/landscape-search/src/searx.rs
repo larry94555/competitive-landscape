@@ -9,7 +9,7 @@
 //!
 //! # Why this does not go through [`landscape_fetch`]
 //!
-//! That crate is for **reading strangers' websites**: it honours `robots.txt`, waits a
+//! That crate is for **reading strangers' websites**: it honors `robots.txt`, waits a
 //! second per host, and refuses private address ranges. Every one of those is wrong here.
 //! SearXNG ships a `robots.txt` that disallows everything — correctly, it does not want to
 //! be crawled — so the polite fetcher would refuse our own service. It runs on
@@ -61,7 +61,7 @@ pub struct Searx {
 impl Searx {
     /// Point at an instance.
     ///
-    /// The trailing slash is normalised here rather than being a rule people have to
+    /// The trailing slash is normalized here rather than being a rule people have to
     /// remember when they set the variable.
     ///
     /// # Errors
@@ -158,7 +158,7 @@ struct Row {
 ///
 /// **[`crate::queries::HITS_PER_QUERY`] does not bound anything on its own**, which review
 /// found and the doc comment beside it had claimed the opposite of: `.take(5)` runs *after*
-/// the whole body has been read into a `String` and *after* `serde` has materialised every
+/// the whole body has been read into a `String` and *after* `serde` has materialized every
 /// row in it. A misconfigured or compromised instance answering with a gigabyte would have
 /// been read into memory and parsed in full, and the test asserting the cap used a
 /// hundred-row body — small enough that it proved the truncation and nothing about the cost

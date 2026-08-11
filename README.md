@@ -264,7 +264,7 @@ dozen releases that read as having no dates at all. See
 
 ### Running it as one process
 
-The binary serves the built web app, so a deployment is one artefact rather than a server and a
+The binary serves the built web app, so a deployment is one artifact rather than a server and a
 dev server:
 
 ```bash
@@ -290,9 +290,9 @@ nothing says so rather than rendering an empty box.
 python3 scripts/verify.py
 ```
 
-Every gate — fmt, clippy, tests, doctests, the frontend, links, the instruction linter, a refusal
-to run at all while a deliberate mutation is still in the tree — each judged by its **own** exit
-code, with the file-reading checks run against a clean checkout of `HEAD` rather than the working
+Every gate — fmt, clippy, tests, doctests, the frontend, links, the instruction linter, American
+spelling, a refusal to run at all while a deliberate mutation is still in the tree — each judged
+by its **own** exit code, with the file-reading checks run against a clean checkout of `HEAD` rather than the working
 tree. Both of those are lessons rather than preferences: a link once resolved locally only
 because of an untracked file, and a `| tail && echo OK` once printed success over a broken build.
 
@@ -375,7 +375,7 @@ cd web && npm run typecheck && npm run build
 
 `cargo test` still works and is what the rest of this README documents — **`nextest` is a
 faster runner for the same tests**, not a different suite. Install it with
-`cargo install cargo-nextest --locked` if you want CI's exact behaviour locally.
+`cargo install cargo-nextest --locked` if you want CI's exact behavior locally.
 
 **The `--doc` line is not optional.** `nextest` does not run doctests, so replacing
 `cargo test` with it silently stops checking them. That is the classic way a test suite
@@ -472,7 +472,7 @@ a suite built from runs that complete cannot reach the states a run only enters 
 goes wrong.
 
 **Constrained decoding guarantees shape, never truth.** A model is forced to return the
-right *type*; nothing about that makes the values in it correct. A defective quantisation
+right *type*; nothing about that makes the values in it correct. A defective quantization
 once passed every check we had — fast, always parseable, schema-valid throughout, and
 wrong. `landscape-golden` is the other half: fifteen subjects with known answers, four of
 which publish no price at all, because the failure that would sink this product is a
@@ -519,6 +519,6 @@ The code implements a specification written first. Start with
 
 ---
 
-## Licence
+## License
 
 MIT.

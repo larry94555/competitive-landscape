@@ -1,10 +1,7 @@
-# cargo-deny: licences, advisories, and duplicate dependencies.
+# cargo-deny: licenses, advisories, and duplicate dependencies.
 #
-# Note the section below is [licenses], American-spelled: that is cargo-deny’s key, not a
-# choice. Prose here uses British spelling like the rest of the repository.
-#
-# Licence checking matters here beyond the usual: this product runs an open-weights model
-# commercially, and `docs/ROADMAP.md` requires licence review *before* benchmarking a
+# License checking matters here beyond the usual: this product runs an open-weights model
+# commercially, and `docs/ROADMAP.md` requires license review *before* benchmarking a
 # candidate — a model or crate we cannot use commercially is not a candidate. The same
 # discipline applies to the dependency tree.
 

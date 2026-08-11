@@ -12,7 +12,7 @@
 
 ---
 
-## 1. The problem catalogue
+## 1. The problem catalog
 
 Every problem is numbered so §9 can map each to its mitigation. **P1–P9** were raised in
 review; **P10–P23** are ones this design has to solve regardless.
@@ -44,7 +44,7 @@ review; **P10–P23** are ones this design has to solve regardless.
 | **P16** | **Entity ambiguity.** Wrong entity resolution produces a report that is wrong throughout yet internally consistent and fully cited. Rebrands, acquisitions, subsidiaries and shared names all cause it. |
 | **P17** | **Extraction fidelity ≠ truth.** A claim can be perfectly grounded in text we extracted *badly*. If the parser mangled a pricing table, every verification layer passes on a wrong number. **Our verification proves fidelity to the extracted text, not to the page.** |
 | **P18** | **Geographic and currency variance.** Pricing pages vary by IP geolocation, currency, and whether tax is included. Our fetcher sits in one region. |
-| **P19** | **A/B tests and personalisation.** The page we fetched may not be the page the reader sees. |
+| **P19** | **A/B tests and personalization.** The page we fetched may not be the page the reader sees. |
 | **P20** | **Negative claims are the hardest to audit.** "Not found in public sources" is unfalsifiable to a reader unless we show exactly what was searched. |
 | **P21** | **Robots-blocked sources create systematic bias.** A competitor who blocks crawlers appears less documented, not less capable — and a naive report reads that as a weakness. |
 | **P22** | **The user's framing can bias the analysis.** "Why is X better than Y" must not steer retrieval or synthesis toward confirming the premise. |
@@ -76,7 +76,7 @@ which product is actually faster.
 Nothing is fetched until the subject is pinned down, because every downstream error inherits
 from getting this wrong.
 
-1. **Normalise the input** — URL, brand name, or free description.
+1. **Normalize the input** — URL, brand name, or free description.
 2. **Candidate generation** — search, plus the domain if a URL was given.
 3. **Canonical domain selection** — the domain that the candidate's own pages, its social
    profiles, and its documentation agree on. Disagreement is a signal, not noise.
@@ -124,7 +124,7 @@ trustworthiness depends on what you are asking it.** So every source carries two
 ### 3.2.1 The five source dispositions
 
 Every source is placed by **objective, checkable signals** — never by a model's opinion of a
-publisher, and never as a judgement about the publisher at all.
+publisher, and never as a judgment about the publisher at all.
 
 **The framing rule that governs this entire section:** a disposition records *what we were able
 to confirm*, not what a site is or lacks. The subject of every sentence is us. We do not say a
@@ -133,15 +133,15 @@ and where we found information we could not reconcile. See §3.2.5 for the exact
 
 **The governing principle for what to show:** *if we have information, we pass it on.* Holding
 back something we found — because we could not fully vouch for it, or could not read it —
-serves nobody. The reader is better served by everything we found, each labelled with how far
+serves nobody. The reader is better served by everything we found, each labeled with how far
 we got, than by a shorter list we felt more comfortable publishing.
 
 | Disposition | What it records | Where it appears |
 |---|---|---|
 | **P — Primary** | The subject's own pages, or a regulator's | Sets the authoritative values |
-| **S — Supplementary** | An established reference or data service, reasonably reliable but not the company itself | Report body, labelled, with the service named and linked |
-| **A — Attributed** | An independent page where we confirmed authorship, dating, publisher and sourcing | Report body, labelled |
-| **U — Unverified** | A page we could read that shows nothing troubling, but which we could not fully attribute | **Report body, labelled as unverified, with why and a link** |
+| **S — Supplementary** | An established reference or data service, reasonably reliable but not the company itself | Report body, labeled, with the service named and linked |
+| **A — Attributed** | An independent page where we confirmed authorship, dating, publisher and sourcing | Report body, labeled |
+| **U — Unverified** | A page we could read that shows nothing troubling, but which we could not fully attribute | **Report body, labeled as unverified, with why and a link** |
 | **N — Not reconciled** | It states something the subject's own current page contradicts | Shown separately, both values, neither adjudicated |
 | **R — Not read** | We were not able or permitted to read it | **Listed with a link, so the reader can read it themselves** |
 
@@ -209,7 +209,7 @@ which:
 | "This site does not allow automated reading" | `robots.txt` disallows the path |
 | "This page needs a login" | Behind authentication or a paywall |
 | "We could not reach it" | Fetch failed or timed out |
-| **"This site's terms do not allow us to repeat what it holds, so we point to it instead"** | A service whose licence restricts republishing its data (§3.2.1b) |
+| **"This site's terms do not allow us to repeat what it holds, so we point to it instead"** | A service whose license restricts republishing its data (§3.2.1b) |
 
 Withholding a URL we found would be withholding information for no benefit.
 
@@ -233,7 +233,7 @@ reading it. Two clean routes, neither of which touches the site:
 - **A search result.** A search naming the company and the service returns a result, which
   tells us a page exists without our having fetched it.
 - **A cross-reference in an open dataset.** Wikidata carries identifiers for many such
-  services, under an open licence. If Wikidata records an identifier for this company, the
+  services, under an open license. If Wikidata records an identifier for this company, the
   profile exists and we can construct the link from the identifier.
 
 **The rule that stops this becoming boilerplate:** *only list a place where we have evidence
@@ -266,8 +266,8 @@ One rule is genuinely new, and it governs *negatives* rather than sources:
 
 "Not found on Hacker News" is strong evidence for a developer tool and near-worthless for a
 catering business. Publishing both in the same format would be dishonest in the specific way
-§5.4 exists to prevent — it dresses a null result in the costume of rigour. So each venue
-carries a fit judgement made *before* the search runs, negatives are published only from
+§5.4 exists to prevent — it dresses a null result in the costume of rigor. So each venue
+carries a fit judgment made *before* the search runs, negatives are published only from
 venues that pass, and a venue with poor fit is **excluded from the report entirely** rather
 than padded into the absence list.
 
@@ -289,9 +289,9 @@ than an unverified page and less authoritative than the company's own statement.
 
 | Service | Gives | Cost | Notes |
 |---|---|---|---|
-| **Wikipedia / Wikidata** | Founding year, headquarters, parent company, industry, acquisitions | Free, open licence | Wikidata is structured and machine-readable; both carry edit histories, so a claim can be traced to when and by whom it was added |
+| **Wikipedia / Wikidata** | Founding year, headquarters, parent company, industry, acquisitions | Free, open license | Wikidata is structured and machine-readable; both carry edit histories, so a claim can be traced to when and by whom it was added |
 | **Wikipedia pageviews** | Public interest over time | Free API | A genuine relative signal for companies notable enough to have an article |
-| **Cloudflare Radar / Tranco** | Domain popularity ranking | Free | **Ranking, not visitor counts.** Ranks are measured; visitor numbers are modelled |
+| **Cloudflare Radar / Tranco** | Domain popularity ranking | Free | **Ranking, not visitor counts.** Ranks are measured; visitor numbers are modeled |
 | **Public company registers** (Companies House, SEC/EDGAR, GLEIF) | Filed accounts, officers, legal entity | Free | For UK and US entities these are *primary*, not supplementary |
 | **App stores** | Ratings, review counts, update history | Free | Publisher-controlled, so treat as the company's own page |
 | Commercial data services (Crunchbase, Similarweb and similar) | Funding, traffic estimates | **Paid, and their terms restrict republishing their data** | Not used while the product is free to run; the licensing question matters more than the price (ARCHITECTURE_EXPLANATION §10) |
@@ -302,7 +302,7 @@ than an unverified page and less authoritative than the company's own statement.
    company has a given traffic rank; we are reporting *what Cloudflare Radar says its rank was
    on a given day*. That is attribution framing (§2) applied to data rather than to prose.
 2. **Rankings, not visitor counts.** Domain rankings are measured from real traffic. Visitor
-   *estimates* are modelled, vary wildly between vendors, and lend borrowed precision. Report
+   *estimates* are modeled, vary wildly between vendors, and lend borrowed precision. Report
    the first; do not report the second.
 3. **Supplementary values never override the company's own.** If Wikipedia says a company was
    founded in 2014 and the company's own about page says 2015, the report shows both and says
@@ -311,7 +311,7 @@ than an unverified page and less authoritative than the company's own statement.
 ### 3.2.2 Nothing we found is hidden
 
 Everything found appears somewhere. Pages we could read but could not verify are in the body,
-labelled (§3.2.1). Pages we could not read are in Sources with a link. The only collapsed group
+labeled (§3.2.1). Pages we could not read are in Sources with a link. The only collapsed group
 is the one where we found something we could not reconcile:
 
 > **1 page states something the company's own page contradicts.** [Show both]
@@ -346,7 +346,7 @@ One setting, three values, per account with a per-analysis override:
 | Setting | Includes | For |
 |---|---|---|
 | **Only what companies publish themselves** | P | Due diligence; anything going into a decision or a document |
-| **Everything we found, labelled** ← *default* | P, S, A, U | Everyday use |
+| **Everything we found, labeled** ← *default* | P, S, A, U | Everyday use |
 
 There are only two settings now, and the default is the inclusive one. An earlier draft had a
 third, stricter middle setting that excluded unverified pages — which meant the reader was not
@@ -359,7 +359,7 @@ information the reader should have. N shows both values side by side without adj
 R lists the page with a link so the reader can open what we could not.
 
 The setting is **recorded on the analysis and printed on the report and the PDF** — *"Sources:
-everything we found, labelled"* — so a shared report is reproducible and a reader knows which
+everything we found, labeled"* — so a shared report is reproducible and a reader knows which
 lens produced it. Evidence strength (§3.5) recomputes per setting, so a permissive report does not
 inherit a strictness it did not earn.
 
@@ -392,7 +392,7 @@ These are **review-blocking** ([CODING_QUALITY.md](CODING_QUALITY.md) §10.3) an
 surface: report body, exclusion notices, hover cards, PDF endnotes, emails, and the KB.
 
 **The rule in one line: the subject of the sentence is us, not them.** We report the limits of
-our own verification. We never characterise a publisher.
+our own verification. We never characterize a publisher.
 
 | Never write | Write instead |
 |---|---|
@@ -420,7 +420,7 @@ Four supporting rules:
 interfaces: `attribution_signals_confirmed`, `not_used_reason`, `sources_not_used` — not
 `criteria_failed`, `excluded`, or `blocklist`. The domain memo of hosts where attribution
 could not previously be confirmed is a **cache of our own past determinations**, not a
-judgement list, and is named and treated as such.
+judgment list, and is named and treated as such.
 
 ### 3.3 The gathering pipeline (P1, P2)
 
@@ -450,13 +450,13 @@ query set is versioned like a prompt and recorded on the analysis, so a retrieva
 is attributable.
 
 **Fetching discipline** (unchanged from [ARCHITECTURE.md](ARCHITECTURE.md) §5.2): robots.txt
-honoured and cached, honest user-agent with a public bot page, ≥1s per host, conditional
+honored and cached, honest user-agent with a public bot page, ≥1s per host, conditional
 requests, 8s timeout, 2MB cap, SSRF guard on every URL including redirects, no paywall or
 login circumvention.
 
 ### 3.4 Discovering the competitive set — the market-research step (P3)
 
-> Summarised here; the full design — input classes, category vocabulary resolution, seed
+> Summarized here; the full design — input classes, category vocabulary resolution, seed
 > channels, relevance classification, and when clarifying questions fire — is in
 > [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md).
 
@@ -540,7 +540,7 @@ A page must earn the right to be cited. Rejected before extraction:
   binary — a low confirmation score places the source in U or N and keeps it away from
   authoritative values.
 - **Hosts where we have not previously been able to confirm attribution** — a cache of our own
-  past determinations, grown from the daily review queue, not a judgement about those hosts.
+  past determinations, grown from the daily review queue, not a judgment about those hosts.
 - **Extraction quality below threshold** — nav-heavy, near-empty, or JS-shell pages.
 - **Syndication detection**: byline-free copy of a press release is collapsed into the
   originating release (§6).
@@ -587,7 +587,7 @@ Countermeasures:
 
 Unchanged; see [QUALITY_GUARDRAILS.md](QUALITY_GUARDRAILS.md) §2. In summary: every claim
 carries a verbatim `evidence_quote` and `source_label`; Rust checks the quote actually occurs
-in the extracted text (exact → normalised → fuzzy); unmatched claims are **deleted, not
+in the extracted text (exact → normalized → fuzzy); unmatched claims are **deleted, not
 flagged**; prices, dates and versions are independently re-validated; and confidence,
 tier, timestamps and gaps are shown to the reader.
 
@@ -601,7 +601,7 @@ persuaded.
 Corroboration is counted in **independence groups**, never in URLs. Two sources join a group
 when any of:
 
-- Near-duplicate content (SimHash below threshold on normalised text).
+- Near-duplicate content (SimHash below threshold on normalized text).
 - A shared verbatim span above ~25 words — the classic press-release-copy signature.
 - Explicit attribution to the same origin ("according to the company's announcement").
 - Publication timestamps clustered within 48h of an identifiable origin release.
@@ -617,14 +617,14 @@ the difference between corroboration and echo.
 |---|---|
 | Vendor comparison page about a rival | Rendered as *"per <vendor>'s own comparison page"*; **never** counts toward corroboration; never sources a pricing or feature cell |
 | Marketing superlatives ("the only", "the fastest") | Permitted **only** as attributed self-description; the modifier is stripped otherwise |
-| Review platforms | Rating always shown **with review count and platform**; recency distribution noted; incentivised-review disclosure surfaced where the platform publishes one; no synthesised composite score, ever |
+| Review platforms | Rating always shown **with review count and platform**; recency distribution noted; incentivised-review disclosure surfaced where the platform publishes one; no synthesized composite score, ever |
 | Rating patterns we cannot treat as a representative sample | Distribution shape and submission timing that we cannot treat as representative lower that platform's weight for the subject, and the volume caveat says so — we do not assert that reviews were manipulated |
-| Press releases | Labelled `company_announcement`, not `news`; one independence group |
+| Press releases | Labeled `company_announcement`, not `news`; one independence group |
 | Pages where attribution could not be confirmed | Classified U or N per §3.2.1; never set authoritative values |
 
 ### L8 — Temporal validity (P13)
 
-Every fact type carries a **shelf life**, and a fact past it is re-fetched or labelled stale:
+Every fact type carries a **shelf life**, and a fact past it is re-fetched or labeled stale:
 
 | Fact type | Shelf life |
 |---|---|
@@ -709,7 +709,7 @@ what was actually attempted:
 
 The reader can repeat those exact steps in two minutes. Showing the negative space is the
 strongest available evidence that the system is not guessing — and it converts our biggest
-weakness into a demonstration of rigour.
+weakness into a demonstration of rigor.
 
 **Two extensions govern negatives about discussion venues** (§3.2.1c): the venue must be one
 where presence would be expected, and the search must span **at least three query
@@ -742,7 +742,7 @@ URL, fetch timestamp, short content hash, trust tier, independence group, and th
   entities*, never from the user's phrasing, so "why is X better than Y" retrieves the same
   sources as "X vs Y". The synthesis prompt receives the entity list and the intent category,
   not the raw question. Evaluative framing in the input is acknowledged in the UI —
-  *"Analysing X and Y on equal terms"* — rather than silently obeyed.
+  *"Analyzing X and Y on equal terms"* — rather than silently obeyed.
 - **Presentation symmetry.** Every competitor gets the same sections in the same order with
   the same treatment. No "winner" is declared (§9).
 
@@ -761,9 +761,9 @@ committing the error it exists to prevent.
 3. **Absence is bounded by what we checked** (§5.4) — never by what exists.
 4. **Prices vary by region, currency and tax treatment** (P18). We record our request region
    and say so; a price you see may differ.
-5. **Pages are A/B tested and personalised** (P19). We captured one variant at one moment.
+5. **Pages are A/B tested and personalized** (P19). We captured one variant at one moment.
 6. **Review data is not a representative sample** (P12).
-7. **We do not predict or forecast.** We do make **labelled estimates** where the inputs
+7. **We do not predict or forecast.** We do make **labeled estimates** where the inputs
    exist — always a range, always with the assumptions printed and the arithmetic one click
    away, never in a shared PDF ([Off-The-Napkin-Estimates.md](Off-The-Napkin-Estimates.md)).
    The line is between a number you can take apart and one you cannot.
@@ -786,7 +786,7 @@ Publishing wrong claims about real companies is a liability, not just a defect.
   `/methodology#corrections`. Contested claims are re-verified against the cited source; if
   the source no longer supports them, they are removed. If the source *does* support them, the
   claim stays with attribution — and their statement is added.
-- **Exclusion requests** from site owners are honoured within 5 business days and recorded in
+- **Exclusion requests** from site owners are honored within 5 business days and recorded in
   a public exclusion list.
 - **Every confirmed error becomes a golden-set regression case**, so the corpus improves from
   each mistake rather than merely absorbing it.
@@ -810,7 +810,7 @@ Publishing wrong claims about real companies is a liability, not just a defect.
 | **P8** | Disinformation | §2 attribution framing; L7 interested-party weighting; comparison pages never set fact cells; rating patterns we cannot treat as representative lower that platform's weight, stated as our limitation |
 | **P9** | Independent confirmation | §5 — full footnotes, text-fragment deep links, stored snapshots, content hashes, Internet Archive captures, PDF endnotes; plus §3.2.2 disclosure of what was found and not used, in our own terms |
 | **P10** | Vendor bias about itself | §3.2 two-axis trust: authoritative for *claims*, weak for *truth*; attribution framing throughout |
-| **P11** | Comparison pages | Labelled as the rival's own claim; not counted toward corroboration; never set a fact cell |
+| **P11** | Comparison pages | Labeled as the rival's own claim; not counted toward corroboration; never set a fact cell |
 | **P12** | Gamed reviews | Ratings always with counts and platform; no composite score; distribution anomalies noted; themes preferred over stars |
 | **P13** | Staleness | L8 per-type shelf lives; `as_of` on every claim; read-time re-check; "last checked N days ago" |
 | **P14** | Circularity | L6 independence groups via SimHash, shared-span detection, timing clusters, publisher map; report states group count |
@@ -818,7 +818,7 @@ Publishing wrong claims about real companies is a liability, not just a defect.
 | **P16** | Entity ambiguity | §3.1 resolution before fetching; disambiguation gate asks the user; rebrand/acquisition noted in header; Wikipedia for disambiguation only |
 | **P17** | Extraction ≠ truth | L2 deterministic parsing, number round-trip against raw bytes, structural sanity, quality gating, golden fixtures — **and the limitation stated openly in §7** |
 | **P18** | Region/currency | Request region recorded and displayed; currency and tax treatment captured verbatim; stated as a limit |
-| **P19** | A/B and personalisation | Snapshot + hash + timestamp so the reader sees which variant we got; stated as a limit |
+| **P19** | A/B and personalization | Snapshot + hash + timestamp so the reader sees which variant we got; stated as a limit |
 | **P20** | Auditable negatives | §5.4 — every negative lists pages checked, queries run, and time attempted |
 | **P21** | Blocked-source bias | Blocked sources named in-section; per-competitor evidence strength; explicit uneven-coverage note |
 | **P22** | User framing bias | Templated queries from resolved entities, not user phrasing; intent category only reaches synthesis; symmetric presentation |
@@ -841,7 +841,7 @@ ARM cores ([ARCHITECTURE.md](ARCHITECTURE.md) §4.4):
 | Entity disambiguation | One 1.7B router call (~50 tokens) |
 | Competitive-set ranking | Deterministic co-occurrence counting; **no model call** |
 
-**Rigour here is nearly free, and it partly pays for itself**: preferring primary sources means
+**Rigor here is nearly free, and it partly pays for itself**: preferring primary sources means
 fetching fewer, better pages, which reduces prefill — the scarce resource. Source
 classification is heuristics over page structure and metadata, with **no model call**. The
 product's central quality mechanism is also one of its cheapest.

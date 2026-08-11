@@ -28,7 +28,7 @@
 //! Politeness is one request per host per second, so **discovery is dominated by its own
 //! rate limit**: fourteen probes plus a sitemap is fifteen-odd seconds before a single page
 //! has been read for content. Against a 90–180s budget that is a real share, and it is why
-//! [`probes::in_order`] is prioritised and why [`Discovered::stopped_early`] exists.
+//! [`probes::in_order`] is prioritized and why [`Discovered::stopped_early`] exists.
 //!
 //! [`Disposition::Primary`]: landscape_core::Disposition::Primary
 //! [`Disposition::may_set_a_table_value`]: landscape_core::Disposition::may_set_a_table_value

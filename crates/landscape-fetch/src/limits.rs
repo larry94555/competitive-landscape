@@ -52,7 +52,7 @@ impl Pacer {
     pub fn record(&mut self, host: impl Into<String>, delay: Duration) {
         // **Hosts whose wait has already elapsed are forgotten.** An entry in the past answers
         // the same question as no entry at all — [`Self::wait_for`] returns zero either way — so
-        // dropping it cannot change behaviour, only memory.
+        // dropping it cannot change behavior, only memory.
         //
         // It became worth doing when a `Fetcher` started living as long as the process: review
         // pointed out that a worker crossing a thousand companies otherwise kept a thousand
@@ -114,7 +114,7 @@ mod tests {
 
     #[test]
     fn one_slow_host_does_not_hold_up_another() {
-        // The reason this is per-host. A report reading ten sites should not serialise
+        // The reason this is per-host. A report reading ten sites should not serialize
         // because one of them asked for a long delay.
         let mut p = Pacer::new();
         p.record("slow.example", Duration::from_secs(60));

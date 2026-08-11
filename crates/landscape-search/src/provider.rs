@@ -211,7 +211,7 @@ impl Condition {
             // the rows that are not what this parses, so pointing at `search.formats` sends
             // somebody to change a setting that is already right.
             Self::UnexpectedShape => concat!(
-                "The engine answered 200 with JSON this does not recognise, so the format is ",
+                "The engine answered 200 with JSON this does not recognize, so the format is ",
                 "already enabled and something else differs - a version whose result rows are ",
                 "shaped differently, a plugin, or something rewriting the body in between. ",
                 "The log line for the query carries what the parser objected to."
@@ -244,7 +244,7 @@ impl Fault {
     /// one refusal and two timeouts has an engine that refuses — the refusal is the fact a
     /// person can do something about, and the timeouts may well be the same engine declining
     /// more slowly. Telling somebody to wait when one query proved waiting is useless is the
-    /// defect this type exists to stop, so the tie is broken towards the actionable answer.
+    /// defect this type exists to stop, so the tie is broken toward the actionable answer.
     ///
     /// [`None`] when nothing failed, which is not the same as *nothing is wrong*: a caller
     /// with no failures has nothing to report and this says so rather than inventing a calm.
@@ -317,7 +317,7 @@ pub enum SearchError {
     /// The engine is configured and could not be built. Distinct from [`Self::NotConfigured`]
     /// on purpose: *"you set the variable and it did not work"* and *"you did not set the
     /// variable"* send a reader to different places.
-    #[error("search engine could not be initialised: {0}")]
+    #[error("search engine could not be initialized: {0}")]
     Unusable(String),
 }
 
@@ -461,12 +461,12 @@ mod tests {
         // reader and is not a diagnosis.
         let json_opt_in = "search.formats";
 
-        let unauthorised = Condition::Answered(401).what_to_check();
-        assert!(unauthorised.contains("401"), "{unauthorised}");
-        assert!(unauthorised.contains("credentials"), "{unauthorised}");
+        let unauthorized = Condition::Answered(401).what_to_check();
+        assert!(unauthorized.contains("401"), "{unauthorized}");
+        assert!(unauthorized.contains("credentials"), "{unauthorized}");
         assert!(
-            !unauthorised.contains(json_opt_in),
-            "a 401 sent to the JSON opt-in: {unauthorised}"
+            !unauthorized.contains(json_opt_in),
+            "a 401 sent to the JSON opt-in: {unauthorized}"
         );
 
         let missing = Condition::Answered(404).what_to_check();

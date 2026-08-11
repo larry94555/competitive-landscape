@@ -182,7 +182,7 @@ fn status_event(status: AnalysisStatus) -> Event {
 
 /// What a reader is sent for one section, and what is compared against next time.
 ///
-/// A section that will not serialise is a bug in the report type rather than something a
+/// A section that will not serialize is a bug in the report type rather than something a
 /// reader can act on, so the stream sends its key and carries on.
 fn payload_of(section: &Section) -> String {
     serde_json::to_string(section).unwrap_or_else(|_| section.key.clone())
@@ -190,7 +190,7 @@ fn payload_of(section: &Section) -> String {
 
 /// The companies being compared, as a JSON array.
 ///
-/// A list that will not serialise is a bug in the report type rather than something a reader can
+/// A list that will not serialize is a bug in the report type rather than something a reader can
 /// act on; an empty array is read by the client as "one company", which is the safe reading —
 /// the label is left off rather than put on the wrong thing.
 fn subjects_payload(subjects: &[String]) -> String {
@@ -250,7 +250,7 @@ mod tests {
     }
 
     #[test]
-    fn a_populated_section_serialises_into_its_payload() {
+    fn a_populated_section_serializes_into_its_payload() {
         let payload = payload_of(&section("pricing", vec![claim()]));
         assert!(payload.contains("Pro costs $15"), "{payload}");
     }
@@ -283,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    fn an_empty_section_is_recognisable_as_not_ready() {
+    fn an_empty_section_is_recognizable_as_not_ready() {
         // The condition the stream filters on. A section with no claims and a "not found"
         // status is a question still being read, and sending it would tell a reader we had
         // finished looking.

@@ -331,7 +331,7 @@ a new failure mode usually loses.
 > reasons than the original.
 
 - **What it is** — Eight fixed chart types emitted as static, themed SVG by a Rust crate
-  (`landscape-charts`) from the report data, plus `resvg` to rasterise to PNG for email.
+  (`landscape-charts`) from the report data, plus `resvg` to rasterize to PNG for email.
 - **Alternatives** — **Recharts**, **Chart.js**, **visx**, **Nivo**, **D3** on the client;
   **plotters** (the mature Rust plotting crate, with an SVG backend) on the server;
   **Vega-Lite** specs rendered headlessly; server-side rendering of a JS library via a Node
@@ -343,12 +343,12 @@ a new failure mode usually loses.
   (§1.14). It breaks **replay determinism** (CODING_QUALITY §9.2), because client-side charts
   with animation and layout-dependent sizing do not re-render byte-identically. And it ships a
   general plotting engine to draw fixed, non-interactive SVG.
-- **Why hand-rolled emitters rather than `plotters`** — The catalogue is eight fixed layouts,
+- **Why hand-rolled emitters rather than `plotters`** — The catalog is eight fixed layouts,
   not a general plotting problem. `plotters` is built for arbitrary charts with generic axes,
   scales and legends, most of which we would fight to match Typst's typography. Per §2.17's
   own rule — *no dependency > 50 lines of our code > a small focused crate* — roughly 400–600
   lines of SVG emitters buys complete control at zero adaptation cost.
-- **Trade-off** — We own the rendering code, including axis maths, label collision and
+- **Trade-off** — We own the rendering code, including axis math, label collision and
   responsive sizing, which a library would have solved. If a **ninth** chart type is needed,
   or axis/scale logic starts being duplicated across emitters, adopt `plotters` then — that is
   the rule of three (CODING_QUALITY §3.3) applied honestly, not a hedge. We also give up
@@ -494,7 +494,7 @@ a new failure mode usually loses.
   Used here for rate-limit counters, anonymous quota tracking, and hot cache metadata.
 - **Alternatives** — Doing it in Postgres (one fewer service); an in-process cache such as
   **`moka`** (fastest, but not shared across processes); **Valkey** (the open-source Redis
-  fork after Redis's 2024 licence change); **Memcached**.
+  fork after Redis's 2024 license change); **Memcached**.
 - **Why this choice** — Rate limiting requires cheap atomic increments with TTLs at higher
   frequency than the rest of the workload, and pushing that into Postgres means write
   amplification on the database that also serves the job queue and search. Redis is the
@@ -719,7 +719,7 @@ a new failure mode usually loses.
 | `tokio::sync::Semaphore` | A counting permit system; only *N* tasks may hold a permit at once | Channel-based worker pool, unbounded spawning | This is how inference concurrency is capped to the number of llama.cpp slots (§3.6). The single most important line of resource control in the backend. |
 | `tokio::sync::broadcast` | A multi-producer, multi-consumer channel where every receiver sees every message | `watch` channel (latest value only), per-client queues | Correct primitive for SSE fan-out: one analysis, potentially several connected tabs. Bounded capacity means a slow client can lag; hence the replay ring buffer. |
 | `FuturesUnordered` | Runs many futures concurrently and yields results as they complete | `join_all` (waits for all), spawning a task per item | Lets per-source extractions complete in whatever order they finish, which is what drives sources appearing live in the UI. |
-| `cargo audit` / `cargo deny` | Scan dependencies for known vulnerabilities; enforce licence and duplicate-dependency policy | Dependabot alone, manual review | Two CI checks that catch supply-chain problems and accidental GPL ingestion. Occasional false-positive noise from unmaintained transitive crates. |
+| `cargo audit` / `cargo deny` | Scan dependencies for known vulnerabilities; enforce license and duplicate-dependency policy | Dependabot alone, manual review | Two CI checks that catch supply-chain problems and accidental GPL ingestion. Occasional false-positive noise from unmaintained transitive crates. |
 
 ---
 
@@ -810,10 +810,10 @@ a new failure mode usually loses.
   licensed. **Llama 3.x** (Meta) is the most widely deployed. **Gemma 3** (Google) is strong
   at small sizes with good multilingual coverage. **Mistral Small 3.x** is a well-regarded
   ~24B Apache-2.0 model.
-- **Why this choice** — Three criteria, applied in this order. **Licence first**: Apache-2.0
+- **Why this choice** — Three criteria, applied in this order. **License first**: Apache-2.0
   (Qwen3, Mistral Small) imposes no use restrictions on a commercial SaaS, whereas Llama's
-  community licence and Gemma's use policy carry conditions that need legal reading before
-  they can be built on — so the licence review precedes the benchmark, not the reverse.
+  community license and Gemma's use policy carry conditions that need legal reading before
+  they can be built on — so the license review precedes the benchmark, not the reverse.
   **Long-context faithfulness over benchmark scores**: the job is "read eight pages and do not
   invent," which correlates poorly with MMLU and is only measurable on our own golden set.
   **Size for the rung**: 4B for high-volume extraction, 8B on CPU or 14B on GPU for synthesis.
@@ -885,7 +885,7 @@ a new failure mode usually loses.
   a parsed `$8/user/mo` carries an exact source offset and cannot be off by a digit, and
   pricing is the most-read and most-quoted section in the product. **Latency:** on 4 ARM
   cores prefill dominates, and pricing pages plus changelogs are the largest documents; not
-  sending them is worth more than any other optimisation available.
+  sending them is worth more than any other optimization available.
 - **Trade-off** — Parsers are brittle where models are flexible. A pricing page with an
   unusual layout yields nothing, where a model might have inferred correctly. The product
   already has the right answer for that case — "no public pricing found, here is what we
@@ -909,7 +909,7 @@ a new failure mode usually loses.
   expert weights between GPU and system RAM, which is the same idea one tier up the memory
   hierarchy and becomes relevant at Rung 2.
 - **The general lesson, worth stating** — memory-capacity tricks are attractive precisely
-  when memory is the constraint. Confirm which resource actually binds before optimising for
+  when memory is the constraint. Confirm which resource actually binds before optimizing for
   it; here it is prefill throughput, and no amount of clever weight paging improves that.
 
 ### 3.6d Bring-your-own-key: hosted providers as an opt-in override
@@ -1203,7 +1203,7 @@ a new failure mode usually loses.
   scarcest asset is the runway to be wrong for a while, and a free tier that never expires
   is exactly that runway.
 - **Why Hetzner for the later rungs** — Dedicated CPU is a requirement, not a preference: on
-  shared vCPU, inference latency varies with neighbouring tenants, making a latency SLO
+  shared vCPU, inference latency varies with neighboring tenants, making a latency SLO
   meaningless and a benchmark unrepeatable. Hetzner has the price-performance, and GEX44 at
   ~€180/month is a known, bookable next step rather than a hyperscaler bill. Costs: no
   managed services, no meaningful SLA, single-region, manual setup, and 90–150ms latency to
@@ -1243,7 +1243,7 @@ a new failure mode usually loses.
 | **Argon2id** | Memory-hard password hashing; winner of the Password Hashing Competition | bcrypt (fine, less memory-hard), scrypt, PBKDF2 (weakest of the four), plain SHA (unacceptable) | Current recommended default, resistant to GPU cracking and side channels. Only relevant if optional passwords are ever added — magic links are primary. Parameters must be tuned to the host or verification becomes a denial-of-service vector against yourself. |
 | **Single-use magic links, 15-minute TTL, constant-time comparison** | Login tokens that expire quickly, work once, and are compared without leaking timing information | Long-lived links; naive `==` comparison | Short TTL limits the window if an inbox is compromised; single use defeats replay; constant-time comparison defeats timing attacks. Trade-off: corporate email scanners that pre-fetch links will consume the token, so a clear "link already used, request another" path is mandatory. |
 | **`HttpOnly`, `Secure`, `SameSite=Lax` cookies** | Session cookies unreadable by JavaScript, sent only over HTTPS, and not sent on cross-site requests | `localStorage` tokens; `SameSite=None` | `HttpOnly` means an XSS bug cannot exfiltrate the session — the reason cookies beat `localStorage` for auth. `Lax` blocks CSRF on unsafe methods while still allowing normal inbound navigation. |
-| **CSRF tokens** | A per-session secret required on state-changing form submissions | Relying on `SameSite` alone | Defence in depth; `SameSite` support and browser behaviour vary enough that it should not be the only control. Cost: a token to thread through forms. |
+| **CSRF tokens** | A per-session secret required on state-changing form submissions | Relying on `SameSite` alone | Defense in depth; `SameSite` support and browser behavior vary enough that it should not be the only control. Cost: a token to thread through forms. |
 | **Content Security Policy** | An HTTP header restricting which scripts, styles, and connections the page may load | No CSP | Sharply limits the damage of an injection bug — relevant because the KB renders user-submitted Markdown. Cost: it must be maintained as the frontend changes, and a wrong CSP breaks the app loudly. |
 | **SSRF protection** | Blocking user-supplied URLs that resolve to private, link-local, or cloud-metadata addresses, re-checking after DNS resolution to defeat rebinding | Trusting user input; a naive string blocklist | **The highest-severity risk in this codebase**, because the core feature is "fetch a URL a stranger typed." Without it, a user can make the server read its own metadata endpoint or internal services. Resolve-then-verify is required; checking the hostname alone is defeated by DNS rebinding. Cost: a small amount of care on every outbound fetch, and occasional false positives on legitimately unusual hosts. |
 | **Parameterized queries** (via `sqlx`) | Query parameters sent separately from SQL text, so input cannot alter query structure | String concatenation | Eliminates SQL injection structurally. Free — it is simply how `sqlx` works. |
@@ -1285,7 +1285,7 @@ The choices most worth challenging, with the conditions that should force a re-t
 | **Launching on Oracle Always Free rather than paying €60/mo from day one** (§8.3) | Rung 1 would give 45–70s reports instead of 90–180s, and might be the difference between converting and not | If Phase 6 shows users converting but naming latency as the blocker (ROADMAP R12) |
 | **Three small models rather than one larger one** (§4.2) | One 14B is simpler to operate than a 1.7B + 4B + 8B trio | If Phase 0 shows the routing/extraction split does not pay for its complexity |
 | **Deterministic extraction rather than model extraction** (§3.6b) | Parsers are brittle where models are flexible, and every site layout is per-site maintenance | If parser maintenance exceeds the quality it buys on the golden set |
-| **Hand-rolled SVG chart emitters rather than `plotters`** (§1.15) | We own axis maths, label collision and responsive sizing that a library already solved | A ninth chart type, or duplicated axis logic across emitters |
+| **Hand-rolled SVG chart emitters rather than `plotters`** (§1.15) | We own axis math, label collision and responsive sizing that a library already solved | A ninth chart type, or duplicated axis logic across emitters |
 | **Offering BYOK at all** (§3.6d) | It adds credential custody (the riskiest data we'd hold), punches a hole in the privacy claim, and could cannibalise subscriptions | If BYOK users convert materially worse — though the first response is to move the tier boundaries, not restrict BYOK |
 | **TanStack Router rather than React Router** (§1.4) | React Router is the incumbent with far more support material | At the first sign of type-inference friction; it is a day of work to switch |
 | **`sqlx` rather than Diesel** (§2.4) | A composable query DSL and stronger migration tooling | If the offline-metadata workflow becomes a persistent CI annoyance |

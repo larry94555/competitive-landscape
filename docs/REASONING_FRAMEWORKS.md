@@ -12,7 +12,7 @@
 
 ## 1. Why this works — and what it does not fix
 
-A quantised 8B model asked *"apply Crossing the Chasm to this idea"* produces a hazy,
+A quantized 8B model asked *"apply Crossing the Chasm to this idea"* produces a hazy,
 half-remembered rendition of a book it absorbed thinly. The weakness is **recall fidelity**,
 not logic. It cannot reliably reconstruct a framework it only partly encoded, and it will
 state the reconstruction confidently.
@@ -282,7 +282,7 @@ Consistent with the existing architecture: grammar-constrained, schema-fixed, ev
    pages — so this step costs almost no prefill.
 2. **Only fired rubrics proceed.** A typical idea fires one or two of six.
 3. **Question emission is grammar-constrained** to the rubric's own question list, lightly
-   contextualised with the subject's specifics. The model **cannot invent a question that is
+   contextualized with the subject's specifics. The model **cannot invent a question that is
    not in the rubric**, which is what makes the output auditable.
 4. **Every question carries the source labels** of the signals that fired it.
 
@@ -317,7 +317,7 @@ Worth answering before you build:
   · What does the product do for user number one, before any network exists?
 
 These questions come from Andrew Chen's The Cold Start Problem (2021),
-which is written about exactly this situation. We have not summarised it —
+which is written about exactly this situation. We have not summarized it —
 if this is your situation, read it. His essays at andrewchen.com are free.
 
 A starting point if this is new to you; a checklist if it is not. Not advice.

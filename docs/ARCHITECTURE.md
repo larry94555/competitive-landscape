@@ -11,7 +11,7 @@
 >
 > **What the product actually outputs** is specified in
 > [COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md) — report sections, the chart
-> catalogue, and what is deliberately excluded. **Where the information comes from and how it
+> catalog, and what is deliberately excluded. **Where the information comes from and how it
 > is checked** is in [FACT_CHECKING.md](FACT_CHECKING.md).
 >
 > Status: **proposed design, not yet implemented.** Every performance number in this
@@ -701,7 +701,7 @@ call → global Semaphore(2–3 in-flight, all servers) → per-server slot
 - Reserve one permit for interactive traffic so watch-checking never starves a live user
   analysis. Watch jobs run at low priority and off-peak.
 - Deadlines (Rung 0): router 5s, extraction 20s, section synthesis 60s. On expiry the call is
-  cancelled and that section degrades to "could not be completed within the time budget"
+  canceled and that section degrades to "could not be completed within the time budget"
   rather than blocking the report. Deadlines tighten by rung.
 
 **Two operational rules that are non-negotiable on Oracle Free:**
@@ -891,7 +891,7 @@ place at every rung.
 | Tier names and per-tier limits | **Code** — table row/column structure | Structure is already in the markup; re-deriving it through a model discards information. |
 | Changelog entries, release dates, version numbers | **Code** — heading + `<time>` + date regex | Dates are the most common LLM fabrication in "recent changes" and are trivially verifiable. |
 | Feature lists on structured pages | **Code first**, model for normalization only | Bullet lists parse cleanly; the model only harmonizes wording across competitors. |
-| Compliance standards a page names | **Code** — a closed list of standard names, longest spelling first | A company does not invent a standard, so the name can come from the page by construction. The model is asked one thing about each: held, or being worked towards. |
+| Compliance standards a page names | **Code** — a closed list of standard names, longest spelling first | A company does not invent a standard, so the name can come from the page by construction. The model is asked one thing about each: held, or being worked toward. |
 | Open roles on a careers page | **Code** — the page's own *Open roles* heading, then title-shaped lines | A job title is a line somebody wrote down on purpose. The titles are reported as written and **not sorted into functions**: three real pages file roles under labels a keyword gets wrong. **A page that does not announce its list is not read** — the shape rules clean up inside a list, they do not find one, and a testimonial byline satisfies every one of them. |
 | Positioning, category language, differentiators | **Model** | Genuinely requires language understanding. |
 | Review/sentiment themes | **Model** | Genuinely requires language understanding. |

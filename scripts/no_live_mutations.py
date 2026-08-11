@@ -37,11 +37,11 @@ ROOT = Path(__file__).resolve().parent.parent
 def live_mutations() -> list[tuple[str, str, str]]:
     """Every recorded mutation whose replacement is in the tree and whose original is not."""
     found: list[tuple[str, str, str]] = []
-    for catalogue in sorted(glob.glob(str(ROOT / "docs" / "mutations" / "*.json"))):
+    for catalog in sorted(glob.glob(str(ROOT / "docs" / "mutations" / "*.json"))):
         try:
-            entries = json.loads(io.open(catalogue, encoding="utf-8").read())
+            entries = json.loads(io.open(catalog, encoding="utf-8").read())
         except json.JSONDecodeError as broken:
-            print(f"{os.path.basename(catalogue)}: not readable as JSON - {broken}")
+            print(f"{os.path.basename(catalog)}: not readable as JSON - {broken}")
             continue
         for entry in entries:
             target = ROOT / entry["file"]
@@ -52,7 +52,7 @@ def live_mutations() -> list[tuple[str, str, str]]:
             # Both halves matter. A replacement that happens to look like ordinary code is not
             # a finding while the original is still there - only the swap is.
             if replacement and replacement in source and original not in source:
-                found.append((entry["file"], entry["name"], os.path.basename(catalogue)))
+                found.append((entry["file"], entry["name"], os.path.basename(catalog)))
     return found
 
 
@@ -62,7 +62,7 @@ def abandoned_backups() -> list[str]:
     **An exact signal, where the comparison above has a hole.** `live_mutations` matches the
     recorded `new` character for character, and a formatter run over an applied mutation defeats
     that: a `cargo fmt --all` reflowed a mutated `const TEMPLATES` onto one line — dropping the
-    trailing comma as well as the newlines — so the swap was live and unrecognisable, and this
+    trailing comma as well as the newlines — so the swap was live and unrecognizable, and this
     gate reported a clean tree.
 
     A backup file is left behind by exactly two things, and both mean the tree is not to be
@@ -85,7 +85,7 @@ def main() -> int:
             "\nThat file is the original. Compare it against the source beside it and put the\n"
             "right one back — `mutate.py` kept it rather than clobber an edit, or died holding\n"
             "it. Until it is gone nothing here can say whether a defect is live: a formatter\n"
-            "run over an applied mutation makes the swap unrecognisable to the check below."
+            "run over an applied mutation makes the swap unrecognizable to the check below."
         )
         return 1
 
@@ -95,8 +95,8 @@ def main() -> int:
         return 0
 
     print("A deliberate defect is in the source:\n")
-    for path, name, catalogue in found:
-        print(f"  {path}\n    {name}   [{catalogue}]")
+    for path, name, catalog in found:
+        print(f"  {path}\n    {name}   [{catalog}]")
     print(
         "\nThis is what an interrupted `scripts/mutate.py` leaves behind. Put the original\n"
         "back before committing - `git diff` will show it."

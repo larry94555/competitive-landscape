@@ -22,8 +22,8 @@
 //! # What it will not do
 //!
 //! **Say anything the report does not.** Every line below is a field, a label or one of this
-//! module's own fixed headings. There is no summarising, no re-ordering by importance and no
-//! judgement about a publisher — the constraints `FACT_CHECKING.md` §3.2.5 puts on the report
+//! module's own fixed headings. There is no summarizing, no re-ordering by importance and no
+//! judgment about a publisher — the constraints `FACT_CHECKING.md` §3.2.5 puts on the report
 //! are not relaxed by changing the file extension.
 //!
 //! **Drop anything in silence.** [`MAX_BYTES`] is a bound and a bound has to be reachable, so
@@ -519,7 +519,7 @@ mod tests {
         let md = of(&report, Some("/a/abc"));
         for claim in report.sections.iter().flat_map(|s| s.claims.iter()) {
             // **On the claim's own line.** Asserting the label appears *somewhere* passes
-            // with every claim unlabelled, because the sources index below lists them all —
+            // with every claim unlabeled, because the sources index below lists them all —
             // the harness found that, and it is the same defect as looking for a company
             // name on a page that repeats it.
             let line = md

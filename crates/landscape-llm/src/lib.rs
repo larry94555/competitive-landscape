@@ -320,7 +320,7 @@ fn tighten_integer_bounds(value: &mut serde_json::Value) {
 /// `Option<T>` fields out of `required`, which is exactly right for checking a document and
 /// exactly wrong for generating one.
 ///
-/// When the grammar permits omitting a key, a model omits it — and `serde` deserialises a
+/// When the grammar permits omitting a key, a model omits it — and `serde` deserializes a
 /// missing key into `None`, the same value an explicit `null` produces. The two are
 /// indistinguishable after parsing, so a model that simply stopped writing looks identical
 /// to one that read the page and found nothing there.
@@ -335,7 +335,7 @@ fn tighten_integer_bounds(value: &mut serde_json::Value) {
 /// Scored naively that is two correct answers and two honest abstentions. It is neither.
 /// With every property required, the same models on the same prompt answer all four.
 ///
-/// This does not force a value: `Option<T>` still serialises as `["string","null"]`, so
+/// This does not force a value: `Option<T>` still serializes as `["string","null"]`, so
 /// `null` remains available. It forces a *decision* — the model must write the key and then
 /// choose between a value and `null`, rather than declining to mention it. Which is the
 /// whole design of [`landscape_core::PricingExtraction`]: a gap has to be stated to be
@@ -429,7 +429,7 @@ mod tests {
 
     #[test]
     fn the_schema_derives_from_the_type() {
-        let schema = serde_json::to_value(schemars::schema_for!(Tiny)).expect("serialise");
+        let schema = serde_json::to_value(schemars::schema_for!(Tiny)).expect("serialize");
         let props = schema
             .get("properties")
             .and_then(|p| p.as_object())

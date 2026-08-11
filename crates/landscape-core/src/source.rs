@@ -1,7 +1,7 @@
 //! Source dispositions — the five-way classification from `docs/FACT_CHECKING.md` §3.2.1.
 //!
 //! The governing rule from that document, encoded here so it cannot drift: **a disposition
-//! records what we were able to confirm, not a judgement about the publisher.** Every
+//! records what we were able to confirm, not a judgment about the publisher.** Every
 //! description below is written with us as the subject.
 
 use schemars::JsonSchema;
@@ -23,7 +23,7 @@ pub enum Disposition {
     /// An independent page where we confirmed authorship, dating, publisher and sourcing.
     Attributed,
     /// A page we could read that shows nothing troubling, but which we could not fully
-    /// attribute. Included by default and labelled — see FACT_CHECKING.md §3.2.1.
+    /// attribute. Included by default and labeled — see FACT_CHECKING.md §3.2.1.
     Unverified,
     /// It states something the subject's own current page contradicts. Both are shown,
     /// neither is adjudicated.
@@ -154,9 +154,9 @@ mod tests {
 
     #[test]
     fn dispositions_round_trip_as_snake_case() {
-        let json = serde_json::to_string(&Disposition::NotReconciled).expect("serialise");
+        let json = serde_json::to_string(&Disposition::NotReconciled).expect("serialize");
         assert_eq!(json, "\"not_reconciled\"");
-        let back: Disposition = serde_json::from_str(&json).expect("deserialise");
+        let back: Disposition = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(back, Disposition::NotReconciled);
     }
 }

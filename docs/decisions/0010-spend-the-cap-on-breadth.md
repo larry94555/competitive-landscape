@@ -56,7 +56,7 @@ value so that changing it fails loudly rather than silently invalidating a publi
 
 **Discovery is dominated by its own rate limit.** Fourteen probes plus a sitemap is fifteen
 requests at one per second before a single page has been read for *content*. Against 90–180
-seconds that is a real share, which is why the probe list is prioritised, why it stays short,
+seconds that is a real share, which is why the probe list is prioritized, why it stays short,
 and why `Discovered::stopped_early` exists. If a real deployment makes the budget tighter than
 expected, cutting probes is the first lever — and the priority ordering means the cut lands
 on the least valuable ones automatically.

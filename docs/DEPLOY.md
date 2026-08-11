@@ -12,7 +12,7 @@ surprises you.
 
 > **None of it has been run.** There is no box reachable from this repository
 > ([PROJECT_STATUS.md](../PROJECT_STATUS.md) B5), so all of it is reasoned from our own code and
-> from Oracle's documented behaviour rather than from a deployment that worked. The first person
+> from Oracle's documented behavior rather than from a deployment that worked. The first person
 > through is the one who finds out where it is wrong.
 
 **Deploying changes nothing but secrets.** Everything environmental is already an environment
@@ -102,7 +102,7 @@ service that is not listening.
 > `ufw` as well, because `iptables -L` only shows what iptables manages. The consequence worth
 > carrying forward: on an image with no host firewall at all, **`BIND_ADDR` on loopback and the
 > loopback binding of SearXNG are the only things keeping the API and the search engine off the
-> internet.** That was defence in depth when it was written and is now the depth.
+> internet.** That was defense in depth when it was written and is now the depth.
 
 ### The schema applies itself [step 6](GO_LIVE.md#step-6--create-the-database)
 
@@ -110,7 +110,7 @@ Every Postgres-backed role runs migrations on boot before it serves anything, so
 separate migration step to forget and no window where the binary and the schema disagree.
 `landscape migrate` does exactly that and exits, if you want to watch it happen on its own.
 
-### The artefacts stay root-owned [step 7](GO_LIVE.md#step-7--build-the-application)
+### The artifacts stay root-owned [step 7](GO_LIVE.md#step-7--build-the-application)
 
 The services read these files and never write them, so nothing needs to be handed over. The
 first version of this document chowned the lot to the service user, and review pointed out what
@@ -118,7 +118,7 @@ that buys an attacker: a compromised API or worker could replace the binary it r
 survive every restart afterwards. The units carry no writable path either, so `ProtectSystem=strict`
 leaves the whole filesystem read-only to them.
 
-### Both inference artefacts are pinned [step 8](GO_LIVE.md#step-8--build-the-model-server-and-get-the-model)
+### Both inference artifacts are pinned [step 8](GO_LIVE.md#step-8--build-the-model-server-and-get-the-model)
 
 An inference build taken from a moving branch means the same application commit can be deployed
 twice and behave differently — and every quality number this project has would be about a build
@@ -126,7 +126,7 @@ nobody can reproduce. So `llama.cpp` is pinned to a revision, and the model to a
 revision with a checksum.
 
 The model is **Qwen3-4B Q4_K_M**, which is the one the golden set is scored against
-([MODEL_BAKEOFF.md](MODEL_BAKEOFF.md), [ADR 0007](decisions/0007-model-licences.md)). The 1.7B is
+([MODEL_BAKEOFF.md](MODEL_BAKEOFF.md), [ADR 0007](decisions/0007-model-licenses.md)). The 1.7B is
 a router, not an extractor: it invented a price on a contact-sales page, which is the one failure
 this product cannot ship.
 
@@ -219,6 +219,6 @@ discovery, which is about 20 of those 23 seconds.
 [GO_LIVE.md](GO_LIVE.md) ends with the short table. [RUNBOOK.md](RUNBOOK.md) §6 is the long one:
 a service that will not start, a page that never arrives, a queue that never moves.
 
-The one worth memorising: **every section empty but the changelog filled means the model server
+The one worth memorizing: **every section empty but the changelog filled means the model server
 is down.** Changes is the section that needs no model, so it is what tells an inference problem
 apart from a fetching one.
