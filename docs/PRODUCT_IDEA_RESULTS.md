@@ -109,17 +109,27 @@ discussions"* is a finding, and a missing clause is an ambiguity. `PRODUCT_SPEC.
 
 Three blocks with identical mechanics and different contents.
 
-| | Holds up to | Shows at first |
+| Heading | Holds up to | Shows at first |
 |---|---|---|
-| **Here are the companies** | 25 | 5 |
-| **Here are the open source projects** | 25 | 5 |
-| **Here are the discussions that I found** | 25 | 5 |
+| **Companies** | 25 | 5 |
+| **Open source projects** | 25 | 5 |
+| **Discussions** | 25 | 5 |
+
+**The heading is the noun and nothing else.** *"Here are the…"* three times running is the same
+three words asking to be read three times, and once the heading carries real weight the noun
+does the work on its own. The count sits at the other end of the header rule as a chip, because
+it is a fact about the list rather than part of its name.
 
 Each block with more than five items ends with **`…more`**. Clicking it reveals the rest, up to
 the cap of 25. There is no pagination beyond that: 25 is the whole of what this page will ever
 show, and anything past it belongs in the full report.
 
 **A block with nothing in it says so** and does not render an empty list.
+
+**Each heading is a rule, not a line of prose** — set large, closed off from its rows by an
+accent rule, with the count at the far end. The three lists are what a reader scans for, so
+finding them must not require reading them. See
+[`prototype/results-mockup.html`](../prototype/results-mockup.html).
 
 #### Ordering
 
@@ -135,7 +145,9 @@ scored order from `landscape-search::candidates`, best-supported first.
    are the five most recent from the most authoritative venue that has any.
 
 **Tier is a property of the venue, not of the post.** What defines a tier is not yet decided —
-see [§4](#4-dependencies).
+see [§4](#4-dependencies). The rule itself is stated under the discussions heading, in a line a
+reader can check the list against: *"Most authoritative venues first, most recent within
+each."*
 
 ---
 

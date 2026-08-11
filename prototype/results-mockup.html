@@ -96,27 +96,60 @@
   .count b { font-weight: 700; }
 
   /* 4. The three lists --------------------------------------------------- */
-  section { margin-bottom: 2.5rem; }
-  section > h2 {
-    font-size: 1.05rem;
-    margin: 0 0 0.75rem;
+  /*
+     **The headings are the page's furniture, so they are built like it.** In the first version
+     they were 1.05rem and sat in the same visual register as the rows underneath - a reader
+     scanning for "where are the projects" had to read to find out. Three things fix that and
+     none of them is color alone: size, a rule that closes the header off from its list, and
+     the count moved to the right where the eye already goes at the end of a line.
+  */
+  section { margin-bottom: 3.25rem; }
+  section > header {
     display: flex;
-    align-items: baseline;
-    gap: 0.6rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.55rem;
+    border-bottom: 2px solid var(--accent);
+    margin-bottom: 0.35rem;
   }
-  section > h2 .of {
-    font-weight: 400;
-    font-size: 0.85rem;
+  section h2 {
+    font-size: 1.45rem;
+    line-height: 1.25;
+    font-weight: 700;
+    letter-spacing: -0.012em;
+    margin: 0;
+  }
+  /* The count, as a chip rather than a trailing phrase. It is a fact about the list, so it
+     sits at the list's edge instead of trailing off the title like an afterthought. */
+  .of {
+    flex: none;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
+    white-space: nowrap;
+  }
+  /* Anything that is not the title or the count. The ordering rule for discussions lives
+     here rather than inside the heading, which was making one line do two jobs. */
+  .note {
     color: var(--muted);
+    font-size: 0.85rem;
+    margin: 0 0 0.6rem;
   }
   ul { list-style: none; margin: 0; padding: 0; }
   li {
-    padding: 0.7rem 0;
+    padding: 0.78rem 0;
     border-bottom: 1px solid var(--rule);
     display: flex;
     gap: 0.9rem;
     align-items: baseline;
   }
+  li:last-child { border-bottom: 0; }
   li .name { font-weight: 600; }
   li .where {
     color: var(--muted);
@@ -196,7 +229,10 @@
 
   <!-- 4a --------------------------------------------------------------- -->
   <section>
-    <h2>Here are the companies <span class="of">12 found</span></h2>
+    <header>
+      <h2>Companies</h2>
+      <span class="of">12 found</span>
+    </header>
     <ul id="companies">
       <li><span class="name">Local Line</span><span class="where">localline.ca</span></li>
       <li><span class="name">GrazeCart</span><span class="where">grazecart.com</span></li>
@@ -216,7 +252,10 @@
 
   <!-- 4b --------------------------------------------------------------- -->
   <section>
-    <h2>Here are the open source projects <span class="of">7 found</span></h2>
+    <header>
+      <h2>Open source projects</h2>
+      <span class="of">7 found</span>
+    </header>
     <ul id="projects">
       <li><span class="name">openfoodnetwork</span><span class="where">github.com/openfoodfoundation</span><span class="meta">Ruby · 1.4k ★</span></li>
       <li><span class="name">foodcoop-suite</span><span class="where">github.com/foodcoopshop</span><span class="meta">PHP · 310 ★</span></li>
@@ -231,7 +270,11 @@
 
   <!-- 4c --------------------------------------------------------------- -->
   <section>
-    <h2>Here are the discussions that I found <span class="of">31 found · most recent first, most authoritative venues first</span></h2>
+    <header>
+      <h2>Discussions</h2>
+      <span class="of">31 found</span>
+    </header>
+    <p class="note">Most authoritative venues first, most recent within each.</p>
     <ul id="discussions">
       <li><span class="tier">A</span><span class="name">Why farm-to-table software keeps failing</span><span class="where">news.ycombinator.com</span><span class="meta">2026-07-28</span></li>
       <li><span class="tier">A</span><span class="name">Anyone building wholesale ordering for growers?</span><span class="where">news.ycombinator.com</span><span class="meta">2026-06-14</span></li>
