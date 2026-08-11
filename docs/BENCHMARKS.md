@@ -258,6 +258,39 @@ authentication failed for user "landscape"* means the server on TCP 5432 **has**
 container answering instead of the native server would have said *role does not exist*. The
 check found the thing it was written for by failing for a different reason.
 
+### A collision this project ships, and which fails by succeeding
+
+Setting the password and then checking it failed **the same way twice**, which is the shape of
+something other than a typo:
+
+```text
+FATAL:  password authentication failed for user "landscape"
+```
+
+`sudo -u postgres psql` goes over the Unix socket and always reaches the native PostgreSQL. A
+`postgres://…@127.0.0.1:5432/…` URL goes over TCP, to whatever holds the port. `ALTER USER`
+changed the password on one server; the check authenticated against the other.
+
+**And this repository is what puts the other one there.** `docker-compose.yml`'s `db` service
+ships `POSTGRES_USER: landscape`, `POSTGRES_DB: landscape`, `POSTGRES_PASSWORD: landscape`, on
+`5432`. Every name matches the native server the guide builds, so a collision does not announce
+itself — `CREATE USER` says *already exists*, `CREATE DATABASE` says *already exists*, and a
+connection succeeds against the wrong database if the password happens to be `landscape`. It is
+the failure that hides inside four plausible successes.
+
+Three changes:
+
+| | |
+|---|---|
+| `db` publishes on `127.0.0.1` | Same fix review made for SearXNG, for the same reason — and this one ships a database whose password is its own name |
+| Step 5 checks **who holds 5432** before anything depends on the answer | `postgres`, `docker-proxy`, or nothing, each with what it means |
+| Step 6 names the symptom | *password authentication failed* right after setting the password is this, and the wording is the tell: a server with no such role says so |
+
+**The wording of the error is what makes it diagnosable at all.** *"password authentication
+failed for user landscape"* means the server that answered **has** that role; a machine without
+one says *role does not exist*. Two servers both having it is what makes this confusing, and
+knowing which sentence means what is the difference between five minutes and an afternoon.
+
 ### Numbers in prose are not checked by anything
 
 Renumbering the guide to put DNS at step 3 left **seven** references pointing at the wrong

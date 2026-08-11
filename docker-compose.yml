@@ -16,7 +16,17 @@ services:
       POSTGRES_PASSWORD: landscape
       POSTGRES_DB: landscape
     ports:
-      - "5432:5432"
+      # **Loopback, for the same reason SearXNG is.** `5432:5432` publishes on every interface,
+      # and this container ships a role named `landscape` whose password is `landscape` - fine
+      # for a laptop, and a database open to the internet on any box whose firewall is not what
+      # somebody assumed.
+      #
+      # It also collides with the native PostgreSQL that `docs/GO_LIVE.md` installs, which is
+      # how it was found: `sudo -u postgres psql` reaches the native server over the socket
+      # while a `postgres://...@127.0.0.1:5432/...` URL reaches whichever of the two holds the
+      # port. Two servers, both with a `landscape` database, and an authentication failure that
+      # makes no sense from either side.
+      - "127.0.0.1:5432:5432"
     volumes:
       - landscape-pgdata:/var/lib/postgresql/data
     healthcheck:

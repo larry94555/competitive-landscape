@@ -283,7 +283,36 @@ stopped service.
 | If | Then |
 |---|---|
 | `systemctl is-active postgresql` says `inactive` or `failed` | `sudo systemctl start postgresql`, then `journalctl -u postgresql -n 30` if it will not |
-| the journal says the address is already in use | Something else holds port 5432. `sudo ss -ltnp \| grep 5432` names it, and `sudo docker ps` will show it if it is a container — this guide expects the native server on that port, so stop the other one or point it elsewhere |
+| the journal says the address is already in use | Something else holds port 5432 — see below |
+
+**Then check who holds the port, before anything depends on the answer:**
+
+```bash
+sudo ss -ltnp | grep 5432
+```
+
+| What it names | What it means |
+|---|---|
+| `postgres` | The native server. This is what the guide expects — carry on |
+| `docker-proxy` | **A container has it.** Everything after this step will edit one database and connect to another |
+| nothing at all | Postgres is not listening on TCP. `sudo systemctl status postgresql` |
+
+> **This project's own `docker-compose.yml` is the likeliest container**, and it is built to
+> catch you out: its `db` service ships a role called `landscape`, a database called
+> `landscape`, and the password `landscape`. So a collision does not fail loudly — it succeeds
+> against the wrong server.
+>
+> ```bash
+> cd ~/competitive-landscape && sudo docker compose down
+> sudo systemctl restart postgresql
+> ```
+>
+> That stops the whole compose project. [Step 10](#step-10--start-the-search-engine) brings back
+> only what is wanted, with `--profile search up -d searxng`.
+>
+> **The compose file publishes on `127.0.0.1` now** rather than every interface, so a container
+> and the native server can no longer both look reachable from outside. They still cannot share
+> the port.
 
 ---
 
@@ -366,24 +395,26 @@ finding out there costs a service that will not start and a journal line about a
 | `password authentication failed` | The role exists and its password is not `$PGPASS` — which is what happens when the role predates this attempt. The `ALTER USER` line above sets it, and then this command passes |
 | `database "landscape" does not exist` | The second SQL line did not run. Run it on its own |
 
-> **These two commands do not necessarily reach the same server, and on a box with containers
-> they may not.** `sudo -u postgres psql` goes over the Unix socket, which is always the native
-> PostgreSQL; a `postgres://…@127.0.0.1:5432/…` URL goes over TCP, to **whatever holds that
-> port**. If a container has published 5432, the role you just created is on one server and the
-> application will connect to the other — two databases with the same name, and an
-> authentication failure at [step 9](#step-9--configure-and-start-the-three-services) that makes
-> no sense given what you typed here.
+> **`password authentication failed` right after you set the password is the collision from
+> [step 5](#step-5--install-what-the-build-needs).** `sudo -u postgres psql` goes over the Unix
+> socket and always reaches the native PostgreSQL; the URL goes over TCP, to whatever holds the
+> port. `ALTER USER` changed the password on one server and this command authenticated against
+> the other.
+>
+> The tell is the wording: *password authentication failed for user "landscape"* means the
+> server that answered **has** that role. A machine with no `landscape` role would have said so.
+> Both servers having one is what makes this confusing, and this project's own compose file is
+> why — its `db` service ships that exact role, database and the password `landscape`.
 >
 > ```bash
 > sudo ss -ltnp | grep 5432
+> psql "postgres://landscape:landscape@127.0.0.1:5432/landscape" -c '\conninfo'
 > ```
 >
-> | What it names | What it means |
-> |---|---|
-> | `postgres` | The native server holds the port. Everything is consistent |
-> | `docker-proxy` | A container holds it. `sudo docker ps` finds it; stop it and restart `postgresql`, or this bites two steps later |
+> If the second one succeeds, you are talking to that container. Stop it and restart the native
+> server as [step 5](#step-5--install-what-the-build-needs) describes, then run the check again.
 >
-> **The `\conninfo` check above is what catches this**, because it is the only command in this
+> **The `\conninfo` check is what catches this at all**, because it is the only command in this
 > step that takes the same route the services will.
 
 There is no schema step. **The application applies its own migrations on boot**, so there is
