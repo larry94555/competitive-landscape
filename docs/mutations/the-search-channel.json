@@ -41,7 +41,7 @@
   {
     "name": "a page discovery already found takes a second slot through search",
     "file": "crates/landscape-search/src/admit.rs",
-    "old": "            if known.contains(&rank::normalise(&hit.url)) {",
+    "old": "            if known.contains(&rank::normalize(&hit.url)) {",
     "new": "            if false {",
     "run": [
       "cargo",
@@ -145,7 +145,7 @@
     ]
   },
   {
-    "name": "the same URL found for two questions is labelled with the wrong one",
+    "name": "the same URL found for two questions is labeled with the wrong one",
     "file": "crates/landscape-search/src/admit.rs",
     "old": "            if let std::collections::hash_map::Entry::Vacant(slot) = by_url.entry(hit.url.clone()) {\n                slot.insert(found.clone());",
     "new": "            if by_url.insert(hit.url.clone(), found.clone()).is_none() {\n                let _ = &found;",

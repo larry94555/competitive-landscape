@@ -59,7 +59,7 @@ fn every_subject_says_why_it_exists() {
 fn every_expected_answer_is_actually_on_the_page() {
     // The one that matters most. A reference answer not present in the source is asking a
     // model to invent the right thing, and a set that does that punishes exactly the
-    // behaviour we are trying to reward.
+    // behavior we are trying to reward.
     for s in subjects() {
         if let Some(name) = &s.expect.plan_name {
             assert!(
@@ -91,10 +91,10 @@ fn every_expected_billing_period_is_stated_on_the_page() {
     // it is easiest to get wrong. Review caught the Linear Free subject expecting `monthly`
     // from a window that says only `$0` and "Free for everyone" — the cadence belonged to the
     // plan *below* it. An expectation like that marks the honest null answer wrong and
-    // rewards copying a neighbouring plan's period, which is a real failure mode: the
+    // rewards copying a neighboring plan's period, which is a real failure mode: the
     // scorecard's own history has models reporting `monthly` for plans with no published
     // price at all.
-    // Checking the whole page would not have caught it — the subject carries the neighbouring
+    // Checking the whole page would not have caught it — the subject carries the neighboring
     // plan on purpose, so `per user/month` *is* somewhere in the source. The cadence has to be
     // in the section belonging to the plan being asked about.
     for s in subjects() {
@@ -111,7 +111,7 @@ fn every_expected_billing_period_is_stated_on_the_page() {
             words.iter().any(|w| section.contains(w)),
             "subject `{}` expects billing_period {period:?}, which the part of its page about \
              {:?} never states. Either the honest answer is null, or the subject is quoting a \
-             neighbouring plan's cadence.",
+             neighboring plan's cadence.",
             s.id,
             s.ask
         );

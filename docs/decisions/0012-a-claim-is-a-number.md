@@ -19,7 +19,7 @@ got whichever report that was, with nothing anywhere recording that two had been
 
 The same gap has a second face on the reader's side. `BENCHMARKS.md` Runs 17 and 18 chased it
 twice: a dead worker's sections stayed on screen after its run was taken away, and each fix was
-a server-side judgement — *the report went away*, *this connection has already sent something* —
+a server-side judgment — *the report went away*, *this connection has already sent something* —
 which is a statement about the **connection**. A reader's sections deliberately survive a
 reconnect, and a fresh connection remembers nothing, so both fixes were correct until the reader
 reconnected and wrong immediately after.
@@ -76,7 +76,7 @@ mistake by far.
 **It does not stop the replaced worker working.** It finds out at its next write, which for a
 progress write is within a page and for `complete` is at the very end. A run that has been
 replaced still spends its remaining prefill on a report that will be discarded. Stopping it
-needs cancellation threaded into `analyse_with`, which is a change to the pipeline's shape
+needs cancellation threaded into `analyze_with`, which is a change to the pipeline's shape
 rather than to the queue's, and is worth doing on its own.
 
 **It does not decide who is right.** The replacement wins because it holds the current number,

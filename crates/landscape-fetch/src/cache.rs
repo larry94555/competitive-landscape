@@ -11,7 +11,7 @@
 //! The bandwidth we save is ours; the requests we do not send are **theirs**. A cache is the
 //! only thing in this crate that reduces the number of times a stranger's server is asked for
 //! the same bytes, and that sits beside `robots.txt` and the per-host delay as part of the same
-//! commitment rather than as an optimisation next to them.
+//! commitment rather than as an optimization next to them.
 //!
 //! # A hit performs no network I/O, which is what makes it safe to serve
 //!
@@ -234,7 +234,7 @@ pub fn storable(status: u16, headers: Freshness<'_>, now: DateTime<Utc>) -> Stor
                 .find_map(|d| d.strip_prefix(name)?.strip_prefix('='))
             {
                 let Ok(seconds) = value.trim().parse::<u64>() else {
-                    // A `max-age` we cannot read is not a licence to keep it for an hour.
+                    // A `max-age` we cannot read is not a license to keep it for an hour.
                     return Storable::No;
                 };
                 // **Less the age, not from now.** `max-age` is measured from the origin's
@@ -447,7 +447,7 @@ impl Cache {
     /// opposite of what asking politely is for.
     ///
     /// So the stored lifetime is the default and the `304`'s own headers override it. What the
-    /// `304` *does* say is honoured in full — including a `no-store` that arrives on it, which
+    /// `304` *does* say is honored in full — including a `no-store` that arrives on it, which
     /// drops what we hold rather than leaving a copy the origin has just forbidden.
     pub fn insert_revalidated(
         &mut self,
@@ -1133,7 +1133,7 @@ mod tests {
     }
 
     #[test]
-    fn what_a_304_does_say_is_honoured_in_both_directions() {
+    fn what_a_304_does_say_is_honored_in_both_directions() {
         let now = at("2026-08-09T00:00:00Z");
         let stored = Policy::of(said("max-age=30"));
 
@@ -1428,7 +1428,7 @@ mod tests {
         //
         // Asserted against `OVERHEAD` rather than against zero: a bodyless entry still holds its
         // key, so `bytes() > 0` passes while counting nothing but strings — which is the hole
-        // itself, spelt slightly differently.
+        // itself, spelled slightly differently.
         let mut cache = Cache::new();
         cache.insert(
             "https://a.example/".to_owned(),

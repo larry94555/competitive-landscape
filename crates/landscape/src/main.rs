@@ -9,7 +9,7 @@
 //! landscape migrate   applies migrations and exits
 //! ```
 //!
-//! One binary rather than three keeps deployment to a single artefact on a machine with
+//! One binary rather than three keeps deployment to a single artifact on a machine with
 //! 24GB of shared memory, and means the roles cannot drift out of version with each other.
 //!
 //! `--store memory` runs the whole thing with no database at all. That is what makes
@@ -92,7 +92,7 @@ enum Role {
     Vocabulary,
     /// Check that the demo's curated ideas still have pages worth reading.
     ///
-    /// The catalogue in `landscape-core` promises one thing about each domain: that discovery
+    /// The catalog in `landscape-core` promises one thing about each domain: that discovery
     /// finds pages for the six questions. **A promise about the live web goes stale on
     /// somebody else's schedule** — a site drops its sitemap, moves pricing behind an anchor,
     /// or starts refusing our user agent — and the place that would be discovered is the demo.
@@ -147,7 +147,7 @@ async fn main() -> Result<()> {
         // data. `fmt()` defaults to stdout, which would mean a future `landscape schema`
         // printing JSON with log lines spliced through it.
         .with_writer(std::io::stderr)
-        // Colour codes are for a terminal. Anything reading this output through a pipe -
+        // Color codes are for a terminal. Anything reading this output through a pipe -
         // a log collector, or the test that parses the bound port - gets plain text.
         .with_ansi(std::io::IsTerminal::is_terminal(&std::io::stderr()))
         .init();
@@ -380,7 +380,7 @@ Example:
 ///    is allowed to be used for.
 ///
 /// The name searched for defaults to the host, and `--name` overrides it. **That default is a
-/// placeholder and is labelled as one**: turning *"an app that helps small farms sell to local
+/// placeholder and is labeled as one**: turning *"an app that helps small farms sell to local
 /// restaurants"* into a company's name is entity resolution, which is the next piece of work
 /// and not this one. `landscape-core::subject` already holds the gate it will feed.
 /// A configured engine, as the thing an analysis takes.
@@ -620,7 +620,7 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
     // Everything below is about these words, whoever chose them.
     let words = landscape_search::vocabulary::search_with(&interpreted, description);
     // **The same predicate `for_market` uses.** Comparing the two strings is what review found
-    // wrong: `for_idea` normalises before interpolating, so a trailing `!` or a capital letter
+    // wrong: `for_idea` normalizes before interpolating, so a trailing `!` or a capital letter
     // is the same search and asking again buys three requests and nothing else.
     let substituted = landscape_search::candidates::substitutes(description, words);
     println!("searched for    {words}");
@@ -724,7 +724,7 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
         },
         &queried,
     ) {
-        landscape_analyze::subject::Decided::Analyse(set) => {
+        landscape_analyze::subject::Decided::Analyze(set) => {
             for line in set_as_printed(&set) {
                 println!("{line}");
             }
@@ -1269,13 +1269,13 @@ Example:
     let mut first_content: Option<std::time::Duration> = None;
     // **The same engine `landscape search` uses, or none.** Without `SEARX_URL` the run reads
     // exactly the pages discovery planned and the report says so, which is the laptop default
-    // and the behaviour every test in this repository runs against.
+    // and the behavior every test in this repository runs against.
     let engine = landscape_search::Searx::from_env()?;
     // One command, one process: nothing here is served from a previous run. `landscape read`
     // prints what it holds at the end, which is the number a second `read` of the same company
     // in a long-lived worker would start from.
     let memo = landscape_analyze::memo::Extractions::new();
-    let analysis = landscape_analyze::analyse_with(
+    let analysis = landscape_analyze::analyze_with(
         &landscape_analyze::With {
             fetcher: &fetcher,
             llm: &llm,
@@ -1472,7 +1472,7 @@ async fn worker(store: Arc<dyn Store>) -> Result<()> {
     // again to extract from it.
     //
     // Holding it across analyses is what turns that into the thing `ROADMAP.md` asks for —
-    // *two users analysing the same competitor share work* — because the second reader arrives
+    // *two users analyzing the same competitor share work* — because the second reader arrives
     // after the first has finished.
     let fetcher = Arc::new(landscape_fetch::Fetcher::new());
     // **And the expensive half of the same idea.** The fetch cache stopped the second reader
@@ -1646,7 +1646,7 @@ fn ambiguous_market(between: &[landscape_search::vocabulary::Market]) -> String 
 /// The companies a named one competes with, and why there are none when there are none.
 ///
 /// **Always a set, never `None`.** It used to return `None` when no engine was configured, and
-/// the caller quietly analysed the one company — a perfectly good answer to what a reader typed,
+/// the caller quietly analyzed the one company — a perfectly good answer to what a reader typed,
 /// with nothing on the page saying we had not looked. Saying so is
 /// [`landscape_search::competitors::NoRivals`], and it is the row this function was left
 /// half-done for: four different reasons a report covers one company, and a reader acts on each
@@ -1778,7 +1778,7 @@ async fn run_analysis(
                 resolve_from_description(searching, fetcher, &budget, &analysis.prompt).await;
             interpreted = read.interpreted;
             match read.decided {
-                landscape_analyze::subject::Decided::Analyse(set) => {
+                landscape_analyze::subject::Decided::Analyze(set) => {
                     let origins = set.origins();
                     tracing::info!(
                         id = %analysis.id,
@@ -1820,7 +1820,7 @@ async fn run_analysis(
     };
 
     let Some(first) = origins.first().cloned() else {
-        // Unreachable: `Decided::Analyse` always carries at least one member and a named
+        // Unreachable: `Decided::Analyze` always carries at least one member and a named
         // prompt is non-empty.
         // Kept as a refusal rather than an `expect`, because a panic in a worker takes the
         // process down and a reader's run with it.
@@ -1861,7 +1861,7 @@ async fn run_analysis(
     let now = chrono::Utc::now();
 
     let progress = progress::Progress::new(Arc::clone(store), analysis.id, analysis.generation);
-    let outcome = landscape_analyze::analyse_many(
+    let outcome = landscape_analyze::analyze_many(
         &landscape_analyze::With {
             fetcher,
             llm: &llm,
@@ -2073,7 +2073,7 @@ mod tests {
         )
         .await;
         let landscape_analyze::subject::Decided::Refuse(refusal) = read.decided else {
-            panic!("a run with no engine analysed something")
+            panic!("a run with no engine analyzed something")
         };
         assert_eq!(refusal.kind, landscape_core::Failure::NoSubject);
         let why = &refusal.why;
@@ -2151,7 +2151,7 @@ mod tests {
             },
         );
         let landscape_analyze::subject::Decided::Refuse(refusal) = decided else {
-            panic!("an empty set was analysed")
+            panic!("an empty set was analyzed")
         };
 
         let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
@@ -2177,7 +2177,7 @@ mod tests {
     async fn the_question_reaches_the_client_and_not_only_the_situation() {
         // The whole chain for a chip: `decide` refuses to choose between two companies,
         // `refuse` records both, and the client reads back the domains it can offer as
-        // buttons. **`kind` travelling without `choices` is the defect this pins** - a client
+        // buttons. **`kind` traveling without `choices` is the defect this pins** - a client
         // told a name matched several companies, and not told which, has to ask the reader to
         // work out what we would not.
         let decided = landscape_analyze::subject::decide(

@@ -6,7 +6,7 @@
 //! - `sitemap.xml` — what exists. Often the only way to find a pricing page that lives at
 //!   `/en-gb/plans-and-pricing`.
 //! - `llms.txt` — a newer convention: a short markdown file naming the pages a site would
-//!   like an automated reader to read. Rare, and worth honouring where present, because a
+//!   like an automated reader to read. Rare, and worth honoring where present, because a
 //!   site that publishes one has told us what it considers important.
 //!
 //! # Bounded on purpose
@@ -21,7 +21,7 @@ use crate::probes::{self, Answers};
 /// The most URLs taken from one sitemap.
 ///
 /// Far more than a subject needs, far less than a large site publishes. Anything past this
-/// is a catalogue rather than a set of pages about the company, and reading further would
+/// is a catalog rather than a set of pages about the company, and reading further would
 /// spend the analysis budget on product listings.
 pub const MAX_URLS: usize = 200;
 
@@ -213,7 +213,7 @@ mod tests {
     }
 
     #[test]
-    fn a_sitemap_index_is_recognised_and_a_plain_sitemap_is_not() {
+    fn a_sitemap_index_is_recognized_and_a_plain_sitemap_is_not() {
         let index = r"<sitemapindex><sitemap><loc>https://e.com/sitemap-1.xml</loc></sitemap></sitemapindex>";
         assert_eq!(nested_sitemaps(index).len(), 1);
         assert!(

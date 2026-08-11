@@ -25,7 +25,7 @@ use sqlx::postgres::PgPoolOptions;
 /// rows — and the conformance body, which asserts on exact counts and claim order, failed
 /// with an id it had never enqueued.
 ///
-/// Isolating by schema rather than serialising keeps the tests parallel and, more
+/// Isolating by schema rather than serializing keeps the tests parallel and, more
 /// importantly, keeps them independent: a test that only passes when it runs alone is a
 /// test that will fail again the moment a third one is added.
 async fn fresh_store() -> Option<(PgStore, String)> {

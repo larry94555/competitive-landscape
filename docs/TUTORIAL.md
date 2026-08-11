@@ -45,7 +45,7 @@ In a second terminal:
 cd web && npm install && npm run dev
 ```
 
-Open <http://localhost:5173>, type an idea, press Analyse.
+Open <http://localhost:5173>, type an idea, press Analyze.
 
 **You will get an empty report.** That is not a bug and it is worth understanding before
 anything else — see §3.
@@ -204,7 +204,7 @@ from the benchmark, for the opposite reason: this runs under `cargo test`, and a
 that fails on a laptop with no model is a test suite people stop running.
 
 **You need both, and the second is the one that is usually missing.** A defective
-quantisation of Qwen3-1.7B once passed every check we had: fastest in the table, never failed
+quantization of Qwen3-1.7B once passed every check we had: fastest in the table, never failed
 to parse, schema-valid throughout, and completely wrong. Constrained decoding guarantees the
 *shape* of an answer and says nothing about its truth. The golden set scores that model at
 10% against 87% for the correct build of the same model.

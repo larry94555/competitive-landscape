@@ -606,7 +606,7 @@ mod tests {
     async fn two_models_at_one_address_do_not_share_answers() {
         // **Review found this too.** The worker outlives `llama-server`, so that server can
         // restart with a different model at the same `LLAMA_URL` — and the report would then
-        // carry one model's words labelled with the other's address.
+        // carry one model's words labeled with the other's address.
         let memo = Extractions::new();
         let key = read("https://a.example/pricing", "# Pricing\nPro $10");
 

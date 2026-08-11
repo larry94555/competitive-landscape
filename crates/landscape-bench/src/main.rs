@@ -2,7 +2,7 @@
 //!
 //! `docs/ROADMAP.md` Phase 0: *"Benchmark harness, run on the actual A1 instance — laptop
 //! numbers are worthless here."* This is that harness. It runs on a laptop too; the results
-//! are simply labelled as what they are.
+//! are simply labeled as what they are.
 //!
 //! ```text
 //! landscape-bench                          the default sweep against LLAMA_URL
@@ -42,7 +42,7 @@ enum BillingPeriod {
 
 /// The shapes of work the product actually does.
 ///
-/// Named rather than parameterised by token count, because the point is to measure the
+/// Named rather than parameterized by token count, because the point is to measure the
 /// two cases the architecture is built around, not to draw a curve.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Shape {
@@ -192,7 +192,7 @@ async fn main() -> Result<()> {
         .as_deref()
         .map_or(Ok(30), str::parse)
         .context("--runs takes a number")?;
-    let label = arg(&args, "--label").unwrap_or_else(|| "unlabelled run".to_owned());
+    let label = arg(&args, "--label").unwrap_or_else(|| "unlabeled run".to_owned());
 
     let shapes: Vec<Shape> = match arg(&args, "--shape") {
         None => vec![Shape::Sentence, Shape::Span],

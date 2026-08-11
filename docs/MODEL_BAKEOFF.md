@@ -33,7 +33,7 @@ somebody waits.
 
 ## The candidates
 
-**Licence-cleared only** — see [ADR 0007](decisions/0007-model-licences.md). Qwen3 is
+**License-cleared only** — see [ADR 0007](decisions/0007-model-licenses.md). Qwen3 is
 Apache-2.0 throughout.
 
 | Port | Model | Why it is in the run |

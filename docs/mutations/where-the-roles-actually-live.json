@@ -78,7 +78,7 @@
     ]
   },
   {
-    "name": "a hosted board's heading is not recognised as a list",
+    "name": "a hosted board's heading is not recognized as a list",
     "file": "crates/landscape-extract/src/hiring.rs",
     "old": "        .any(|phrase| text == *phrase || text.starts_with(&format!(\"{phrase} at \")))",
     "new": "        .any(|phrase| text == *phrase)",

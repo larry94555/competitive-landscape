@@ -1,4 +1,4 @@
-//! What a trust page says it holds — and what it says it is only working towards.
+//! What a trust page says it holds — and what it says it is only working toward.
 //!
 //! The fifth question kind, and the first whose vocabulary is **closed**. A capability can be
 //! called anything; a price can be any number. But a company does not invent a compliance
@@ -19,9 +19,9 @@
 //!
 //! So the scanner locates every standard the page names — deterministically, from the list
 //! below — and the model is asked one small question about each: *is this something they have,
-//! or something they are working towards?*
+//! or something they are working toward?*
 //!
-//! # Why a closed list rather than "any capitalised acronym"
+//! # Why a closed list rather than "any capitalized acronym"
 //!
 //! Because the alternative fabricates. A model asked to *"list the certifications on this
 //! page"* will happily return SOC 2 for a page that never mentions it, and the grounding check
@@ -49,11 +49,11 @@ pub const ASSURANCE_VERSION: u32 = 1;
 /// a wrong list, which is the same rule the capability cap follows.
 pub const MAX_ASSURANCES: usize = 8;
 
-/// The standards this product recognises, longest spelling first.
+/// The standards this product recognizes, longest spelling first.
 ///
 /// **Order matters.** `ISO 27001` must be tried before `ISO 27` would be, and `SOC 2 Type II`
 /// before `SOC 2`, or the shorter name wins and the report loses the part a reader cares about.
-/// Every entry is a name an organisation publishes about itself; none is a marketing word.
+/// Every entry is a name an organization publishes about itself; none is a marketing word.
 const STANDARDS: [&str; 18] = [
     "SOC 2 Type II",
     "SOC 2 Type 2",
@@ -81,7 +81,7 @@ pub struct Named {
     /// Exactly as the page spells it, taken from the page rather than from the list — so
     /// `iso 27001` in running text is reported the way it was written.
     pub standard: String,
-    /// The sentence it appears in, with its neighbours.
+    /// The sentence it appears in, with its neighbors.
     pub span: Span,
 }
 
@@ -184,7 +184,7 @@ fn subsumes(a: &str, b: &str) -> bool {
 /// page that used both forms and let the evidence check discard a correct quote for using the
 /// other. Review found it.
 ///
-/// The page's own spelling is what a report shows; this exists so two of them can be recognised
+/// The page's own spelling is what a report shows; this exists so two of them can be recognized
 /// as the same thing. Roman first, or `ii` would be rewritten a numeral at a time.
 fn canonical(standard: &str) -> String {
     standard
@@ -438,7 +438,7 @@ Our SOC 2 Type II report is available.";
     }
 
     #[test]
-    fn two_spellings_of_one_standard_are_recognised_as_the_same() {
+    fn two_spellings_of_one_standard_are_recognized_as_the_same() {
         assert!(same_standard("SOC 2", "SOC 2 Type II"));
         assert!(same_standard("gdpr", "GDPR"));
         assert!(!same_standard("SOC 2", "SOC 3"));

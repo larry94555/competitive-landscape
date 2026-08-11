@@ -74,7 +74,7 @@ not a style preference.
 | **Defensive code for impossible states** | Every branch is a claim that the state is reachable. Unreachable branches are lies that make real branches harder to find. | Make illegal states unrepresentable (§4.2). If it truly cannot happen, `unreachable!()` with a reason. |
 | **Comments that restate code** — `// increment the counter` | Adds tokens, no information; goes stale and becomes actively wrong | Comment *why*, never *what*. If *what* needs a comment, rename things. |
 | **Copy-paste variants** — three near-identical functions differing by a literal | Fixes get applied to one of three. Divergence is silent. | Parameterize on the third occurrence, not the second (§3.3). |
-| **Mock-everything tests** | Assert that the code calls the functions it calls. Pass while the product is broken. | Test behaviour through real seams; fake only what you don't own (§6.3). |
+| **Mock-everything tests** | Assert that the code calls the functions it calls. Pass while the product is broken. | Test behavior through real seams; fake only what you don't own (§6.3). |
 | **Swallowed errors** — `let _ = ...`, `catch {}`, `.unwrap_or_default()` on a fallible operation | Converts a loud failure into a silent wrong answer, which is this product's worst failure mode | Handle, propagate, or explicitly document why discarding is correct (§5). |
 | **Grab-bag modules** — `utils.rs`, `helpers.ts`, `common/` | Become write-only. Nobody knows what is in them or dares delete anything. | Put the function next to its only caller until there are three. |
 | **Long functions doing several things** | Cannot be named, tested, or reviewed as a unit | Extract until each function has one nameable job (§3.2 budgets). |
@@ -84,7 +84,7 @@ not a style preference.
 
 **The agent-specific failure mode**, called out because it is the most likely one here:
 agents are excellent at producing *plausible* structure. A `TraitFactoryBuilder` that
-compiles, passes tests and does nothing useful is the characteristic artefact. The
+compiles, passes tests and does nothing useful is the characteristic artifact. The
 counter-measure is §3.3 and a reviewer who asks "what would break if this layer were
 deleted?" — and deletes it when the answer is nothing.
 
@@ -165,7 +165,7 @@ just call the thing directly," delete it.
 
 ### 3.4 Dependencies
 
-**[CI]** `cargo-deny` (licences, advisories, duplicates) and `knip` / `cargo-machete`
+**[CI]** `cargo-deny` (licenses, advisories, duplicates) and `knip` / `cargo-machete`
 (unused). **[REVIEW]** A new dependency requires a one-line justification in the PR body
 answering: what it does, what it would cost to write ourselves, its maintenance status, and
 its transitive footprint.
@@ -209,7 +209,7 @@ impl Report<Verified> { fn render(&self) -> Html; fn to_pdf(&self) -> Pdf; }
 ```
 
 Apply to: verification state, authentication state, quota-checked requests, and any
-`Option<T>` that is "always `Some` after initialisation."
+`Option<T>` that is "always `Some` after initialization."
 
 ### 4.3 Patterns we do not use
 
@@ -262,12 +262,12 @@ The pyramid is wrong for this codebase. The shape follows the risk.
 
 | Layer | Scope | Speed | What it protects |
 |---|---|---|---|
-| **Unit** | One function/module, no I/O | ms | Parsers, verifiers, normalisers, budget arithmetic — the pure logic where bugs are silent |
+| **Unit** | One function/module, no I/O | ms | Parsers, verifiers, normalizers, budget arithmetic — the pure logic where bugs are silent |
 | **Golden / snapshot** | Fixture in → structure out | ms | Extraction and rendering. Frozen HTML → expected parse. **The regression backbone.** |
 | **Integration** | Real Postgres, real HTTP via `wiremock`, fake LLM | 100s of ms | Job queue semantics, transactions, auth, quota, webhook idempotency |
 | **Eval (golden set)** | Real models, frozen source fixtures | minutes | Report quality — see [QUALITY_GUARDRAILS.md](QUALITY_GUARDRAILS.md) §3 |
 | **E2E (Playwright)** | Browser → stack | seconds | Exactly three flows: first analysis → PDF; signup → upgrade; watch → alert |
-| **Property** | Invariants over generated input | ms | Verification layer, SSRF guard, diff/SimHash normalisation, quota arithmetic |
+| **Property** | Invariants over generated input | ms | Verification layer, SSRF guard, diff/SimHash normalization, quota arithmetic |
 
 **Property tests are mandatory for the SSRF guard and the claim verifier.** Both are
 security- or truth-critical, both have adversarial input, and both have invariants that are
@@ -291,7 +291,7 @@ easy to state and hard to satisfy by example: *no input resolves to a non-public
 These are reviewed as carefully as production code, because bad tests are worse than none —
 they cost maintenance and provide false confidence.
 
-- **Test behaviour, not implementation.** If an internal rename breaks a test, the test was
+- **Test behavior, not implementation.** If an internal rename breaks a test, the test was
   wrong.
 - **Do not mock what you own.** Use the real module. Fake only process boundaries: HTTP
   (`wiremock`), clock, LLM, email, Stripe.
@@ -352,7 +352,7 @@ removing the escape hatch removes the debate.
 assertions in the Playwright flows. The bar: keyboard-reachable and operable without a mouse;
 visible focus; correct roles and labels on every Radix primitive; **`prefers-reduced-motion`
 respected by the streaming report**, which animates for 90–180 seconds and is the one surface
-where motion sensitivity genuinely matters; colour never the sole encoding (already required
+where motion sensitivity genuinely matters; color never the sole encoding (already required
 for charts, extended to the app); and a text alternative for every chart
 ([COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md) §7.3).
 
@@ -435,6 +435,21 @@ every decision made before code existed. The ADR process continues it.
 - **Comment why, never what.** A comment explaining *what* is a rename waiting to happen.
 - **Constants carry provenance**: where the number came from, or that it is a tuned parameter
   with a link to the tuning result.
+
+### 8.2a American spelling, everywhere **[CI]**
+
+**One dialect, and it is American** — in prose, comments, identifiers, test names, commit
+messages and product copy alike. `scripts/american_spelling.py` checks 240 words on every run.
+
+This was not a preference until it was written down. Nobody had chosen a dialect, so the
+repository grew both, and the first place it showed was the product's busiest button. Mixed
+spelling is not cosmetic: `grep normalize` finds half the callers, and a reader cannot tell a
+house style from a typo.
+
+Words that are the same in both dialects are not in the list and must not be changed —
+`analysis`, `analyst`, `cancellation`, `optimistic`, `emphasis`. Neither is `aria-labelledby`,
+which is HTML rather than English. A passage that has to quote the other dialect to make its
+point brackets itself with `american-spelling: off` and `american-spelling: on`.
 
 ### 8.3 The tutorial — `docs/TUTORIAL.md`
 
@@ -575,7 +590,7 @@ convey what the captions already convey. (If narration is wanted later for marke
 | Job | Tool | Note |
 |---|---|---|
 | Record the UI | **Playwright** `recordVideo` | Already in the stack for E2E (§6.1). WebM, 1280×720. |
-| Render the code walkthrough | **A static HTML deck driven by Playwright** | One step per concept: syntax-highlighted diff, changed lines emphasised, scroll/highlight in CSS. Reuses the recorder we already have instead of adding a screen-capture tool. |
+| Render the code walkthrough | **A static HTML deck driven by Playwright** | One step per concept: syntax-highlighted diff, changed lines emphasized, scroll/highlight in CSS. Reuses the recorder we already have instead of adding a screen-capture tool. |
 | CLI demos (`landscape replay`, migrations) | **VHS** (charmbracelet) | Scripted `.tape` files → MP4. The right tool for terminal-native output. |
 | Concat, title cards, captions, encode | **ffmpeg** | WebM → H.264 MP4 (`-pix_fmt yuv420p -movflags +faststart`); two-pass palette for the GIF. |
 | Write the walkthrough script and captions | **Claude** | See below — this is the part that genuinely needs a model. |
@@ -745,8 +760,8 @@ Every PR. A reviewer who cannot answer yes to all of these does not approve.
 - [ ] Something was deleted, or the PR explains why nothing could be.
 
 **Tests**
-- [ ] Tests fail if the behaviour regresses — verified by breaking it locally, not assumed.
-- [ ] Behaviour, not implementation. No mocking of code we own.
+- [ ] Tests fail if the behavior regresses — verified by breaking it locally, not assumed.
+- [ ] Behavior, not implementation. No mocking of code we own.
 - [ ] Every fixed bug has a regression test in this PR.
 
 **Documentation**
@@ -772,15 +787,15 @@ Every PR. A reviewer who cannot answer yes to all of these does not approve.
 **Security** (blocking; escalate to hot-zone review if any is unclear)
 - [ ] No secret can reach a log, an error body, or a response.
 - [ ] User-supplied URLs go through the SSRF guard, including redirects.
-- [ ] Queries parameterised; user content sanitised at render.
-- [ ] No new endpoint without authentication, authorisation, and a rate limit.
+- [ ] Queries parameterized; user content sanitized at render.
+- [ ] No new endpoint without authentication, authorization, and a rate limit.
 
 ### 10.4 Merge gates **[CI]**
 
 `fmt` · `clippy -D warnings` · `tsc` · `eslint` · unit + integration tests · `cargo deny` ·
-`cargo audit` · `gitleaks` · budget report · tutorial link check · **demo video for
-user-visible changes** (§9.5) · **golden-set eval for anything touching the analysis
-pipeline**.
+`cargo audit` · `gitleaks` · budget report · tutorial link check · American spelling (§8.2a) ·
+**demo video for user-visible changes** (§9.5) · **golden-set eval for anything touching the
+analysis pipeline**.
 
 **Coverage is reported here, not gated.** This list previously said "new-code coverage ≥ 80%"
 alongside the Sonar gate that would have enforced it; both are gone. The reason is §6.2's
@@ -798,7 +813,7 @@ Merges are **squash-only**, with a message explaining *why*. The commit log is d
 
 ## 11. Working with coding agents
 
-The codebase is optimised for agents as first-class contributors, which mostly means being
+The codebase is optimized for agents as first-class contributors, which mostly means being
 ruthlessly explicit about things a human would infer.
 
 ### 11.1 `AGENTS.md` / `CLAUDE.md` at the repository root
@@ -827,7 +842,7 @@ and the type system are what make agent contributions safe to accept**: they are
 reviewers that never get tired and never assume good intent.
 
 Corollary worth stating: **the highest-leverage work the founder does is not writing code.**
-It is writing the schema, the evals, the thresholds, and the ADRs — the artefacts that define
+It is writing the schema, the evals, the thresholds, and the ADRs — the artifacts that define
 what correct means. Everything downstream of those can be delegated. Nothing upstream can.
 
 ---
@@ -838,7 +853,7 @@ what correct means. Everything downstream of those can be delegated. Nothing ups
   reported by CI alongside budget annotations. Rising counts are the early-warning signal.
 - **The boy-scout rule, bounded**: leave the file better, but unrelated refactors go in a
   separate PR. Mixed PRs cannot be reviewed properly and are where regressions hide.
-- **A refactor PR changes no behaviour** and says so in its title. Its tests must be unchanged
+- **A refactor PR changes no behavior** and says so in its title. Its tests must be unchanged
   — if they had to change, it was not a refactor.
 - **Quarterly**: review the budget-annotation and debt counts, the [NORM] rules (promote or
   delete), the dependency tree, and this document. **A quality standard nobody has read in

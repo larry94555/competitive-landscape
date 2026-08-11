@@ -24,7 +24,7 @@ Two were found the day this was written, and neither was noticed by a person:
 
 A run of two or more consecutive lines that begin and end with `|` must have a **GFM delimiter
 row** second — each cell `-`, `--`, `:---`, `---:` or `:---:` — **with the same number of cells
-as the header above it**. Both halves decide whether a table is recognised at all:
+as the header above it**. Both halves decide whether a table is recognized at all:
 
   * the first version accepted any run of `-`, `:`, `|` and spaces, so `| : |` passed and is
     not a delimiter row: GFM wants at least one hyphen per cell.
@@ -235,7 +235,7 @@ def self_test():
 def main():
     failures = self_test()
     if failures:
-        print('This gate no longer recognises what it is for:' + chr(10))
+        print('This gate no longer recognizes what it is for:' + chr(10))
         for failure in failures:
             print('  ' + failure)
         return 1

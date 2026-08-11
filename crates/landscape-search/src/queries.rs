@@ -118,7 +118,7 @@ pub fn for_questions(name: &str, unanswered: &[Answers]) -> Vec<Query> {
 /// the company. The quotes are the difference between a query about a company and a query
 /// about two English words.
 ///
-/// # The quotes are not a defence, and this is the important part
+/// # The quotes are not a defense, and this is the important part
 ///
 /// The first version of this stripped `"` and control characters and called the job done.
 /// **Review found that reasoning backwards.** SearXNG does not parse `q` as a search engine
@@ -166,7 +166,7 @@ fn quote(name: &str) -> String {
 /// **One grammar, two uses, one place.** [`quote`] wraps a company name in `"` because a name is
 /// a phrase an engine must keep together. A reader's description is not a phrase — quoting
 /// *"privacy-friendly website analytics"* asks for pages containing that exact string, which is
-/// almost none of them — but it arrives from the same text box and needs the same defence: the
+/// almost none of them — but it arrives from the same text box and needs the same defense: the
 /// tokens SearXNG reads as its own control language before anything is searched for. Two copies
 /// of this would leave one to be forgotten, and it would be this one, because a description is
 /// the freest text this system accepts.
@@ -310,7 +310,7 @@ mod tests {
         // **Written as exact expected output rather than as a rule.** The first version of
         // this test recomputed the grammar to decide what should survive, which restates the
         // production rule in the test — so a change to the rule would change both, and the
-        // test would keep passing while asserting the new behaviour is the new behaviour.
+        // test would keep passing while asserting the new behavior is the new behavior.
         // (It also made the production line a non-unique mutation anchor, which is how it
         // was noticed.)
         for (name, expected) in [
@@ -321,7 +321,7 @@ mod tests {
             ("linear.app", "\"linear.app\" pricing plans"),
             ("C++ Builder", "\"C++ Builder\" pricing plans"),
             // The comma is not in the grammar, so it becomes a space and the words stay
-            // apart. A reader would still recognise the company.
+            // apart. A reader would still recognize the company.
             ("Notion Labs, Inc", "\"Notion Labs Inc\" pricing plans"),
         ] {
             assert_eq!(

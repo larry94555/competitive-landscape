@@ -30,8 +30,8 @@ That second row is uncomfortable and it is the most important sentence in this d
 Every framework the user cited — *Crossing the Chasm*, *The Cold Start Problem*, *The
 Tipping Point*, *The Innovator's Dilemma* — is deeply internalised by every frontier model.
 "Does the Cold Start Problem apply to my idea?" is close to an ideal chatbot prompt. If we
-emit confident strategic prose from a quantised 8B model, we ship something *worse than free*
-under a brand built entirely on rigour, and we contaminate trust in levels 4, 5 and 8, where
+emit confident strategic prose from a quantized 8B model, we ship something *worse than free*
+under a brand built entirely on rigor, and we contaminate trust in levels 4, 5 and 8, where
 we are genuinely strong.
 
 **So the rule:**
@@ -340,7 +340,7 @@ part of the reasoning task retrieval genuinely improves.
 ## 7. The honest limits
 
 - **We do not score ideas.** No composite, no rating, no verdict. Eight levels of evidence and
-  a set of questions; the judgement is the founder's. A score would be the most-clicked and
+  a set of questions; the judgment is the founder's. A score would be the most-clicked and
   least-defensible thing on the page.
 - **We do not answer levels 6 and 7.** By design, permanently, for the reason in §1.
 - **Three named venues are commercially closed to us.** X discontinued its free tier and

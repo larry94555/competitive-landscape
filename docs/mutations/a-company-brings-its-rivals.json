@@ -52,7 +52,7 @@
     ]
   },
   {
-    "name": "a company written with www is not recognised as itself",
+    "name": "a company written with www is not recognized as itself",
     "file": "crates/landscape-search/src/competitors.rs",
     "old": "            .trim_start_matches(\"www.\")",
     "new": "            .trim_start_matches(\"never.\")",
@@ -65,7 +65,7 @@
     ]
   },
   {
-    "name": "a company written in capitals is not recognised as itself",
+    "name": "a company written in capitals is not recognized as itself",
     "file": "crates/landscape-search/src/competitors.rs",
     "old": "    bare(host).eq_ignore_ascii_case(bare(seed_domain))",
     "new": "    bare(host) == bare(seed_domain)",

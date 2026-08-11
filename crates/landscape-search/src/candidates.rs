@@ -36,7 +36,7 @@
 //! a reader then chooses from, and a reader can see that and pick differently. A biased query
 //! against a resolved company puts a biased *fact* in a report, and nobody can see it.
 //!
-//! # Why the score is arithmetic and not a judgement
+//! # Why the score is arithmetic and not a judgment
 //!
 //! [`landscape_core::subject::AMBIGUITY_MARGIN`] compares two scores and decides whether to ask
 //! a reader. A score somebody cannot explain makes that decision unaccountable, so every input
@@ -472,7 +472,7 @@ pub fn from_results(results: &[Vec<Hit>], asked: usize) -> Vec<Found> {
 /// little, because a front page is what a company puts at `/` and an article about a company is
 /// several levels into somebody else's site.
 ///
-/// The weights are a starting point and are labelled as one, exactly as
+/// The weights are a starting point and are labeled as one, exactly as
 /// [`landscape_core::subject::AMBIGUITY_MARGIN`] is. What matters more than their values is that
 /// both inputs are countable from a URL, so a reader asking *why is this first* gets an answer
 /// rather than a shrug.
@@ -931,7 +931,7 @@ fn naming(host: &str, markdown: &str) -> (String, String) {
 /// `psl::domain_str("127.0.0.1")` is `Some("0.1")` — and so is `psl::domain_str("10.0.0.1")`, so
 /// two unrelated addresses forge the same agreement the private suffixes did. Review found it;
 /// the previous version of this comment claimed an IP address was "returned unchanged", which
-/// was true of IPv6 and false of the case that matters. Addresses are recognised before the list
+/// was true of IPv6 and false of the case that matters. Addresses are recognized before the list
 /// is consulted now, and [`is_not_a_company`] keeps them off a reader's list entirely.
 ///
 /// A host the list cannot place at all — `localhost`, a bare label — is returned lowercased and
@@ -1139,7 +1139,7 @@ mod tests {
 
     #[test]
     fn every_company_found_survives_the_scoring() {
-        // **Review found the opposite behaviour and the reason it was wrong.** This used to
+        // **Review found the opposite behavior and the reason it was wrong.** This used to
         // assert the list was truncated to five, which is a fine rule for a list a reader picks
         // one company from and a silent drop for a set: the sixth was neither compared nor
         // reported as excluded. The budget still exists - it is `NAMED`, and it applies to
@@ -2292,7 +2292,7 @@ The second of two."
 
     #[tokio::test]
     async fn nothing_is_asked_twice_when_the_market_agrees_with_the_reader() {
-        // **Three spellings of one search.** `for_idea` normalises before interpolating and an
+        // **Three spellings of one search.** `for_idea` normalizes before interpolating and an
         // engine ignores case, so all three of these produce the identical queries — and review
         // found the raw string comparison sending three more requests for a trailing `!`, and
         // telling a reader their own words had been *"interpreted as"* themselves.

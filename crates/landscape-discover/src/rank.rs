@@ -91,7 +91,7 @@ impl Via {
 pub fn admit(candidates: Vec<Candidate>, cap: usize) -> Vec<Candidate> {
     let mut best_by_url: BTreeMap<String, Candidate> = BTreeMap::new();
     for c in candidates {
-        let key = normalise(&c.url);
+        let key = normalize(&c.url);
         best_by_url
             .entry(key)
             .and_modify(|existing| {
@@ -217,7 +217,7 @@ fn room_for_a_board(out: &mut Vec<Candidate>, by_question: &BTreeMap<Answers, Ve
 /// when the function became the shared answer for two channels: search would have dropped a
 /// page as *"discovery already has it"* when discovery had a different page.
 #[must_use]
-pub fn normalise(url: &str) -> String {
+pub fn normalize(url: &str) -> String {
     let trimmed_input = url.trim();
     // Split at the end of the authority: the first `/`, `?` or `#` after `://`. Everything
     // before it is case-insensitive, everything after it is not.
@@ -479,12 +479,12 @@ mod tests {
         // already have this?"*, that merge became a page silently dropped as a duplicate of
         // a page it is not. Paths and queries are case-sensitive on plenty of servers.
         assert_ne!(
-            normalise("https://e.com/Docs"),
-            normalise("https://e.com/docs")
+            normalize("https://e.com/Docs"),
+            normalize("https://e.com/docs")
         );
         assert_ne!(
-            normalise("https://e.com/p?Plan=Free"),
-            normalise("https://e.com/p?plan=free")
+            normalize("https://e.com/p?Plan=Free"),
+            normalize("https://e.com/p?plan=free")
         );
         // Two pages, not one, through the whole admission path.
         let candidates = vec![
@@ -499,24 +499,24 @@ mod tests {
         // The half that must not regress while fixing the half above: a host is
         // case-insensitive by specification, so these are one page and always were.
         assert_eq!(
-            normalise("HTTPS://WWW.Example.com/Pricing"),
-            normalise("https://example.com/Pricing")
+            normalize("HTTPS://WWW.Example.com/Pricing"),
+            normalize("https://example.com/Pricing")
         );
         // And the path's case survived that, rather than being lowercased on the way.
         assert!(
-            normalise("HTTPS://WWW.Example.com/Pricing").ends_with("/Pricing"),
+            normalize("HTTPS://WWW.Example.com/Pricing").ends_with("/Pricing"),
             "{}",
-            normalise("HTTPS://WWW.Example.com/Pricing")
+            normalize("HTTPS://WWW.Example.com/Pricing")
         );
     }
 
     #[test]
     fn a_locale_is_still_stripped_from_a_mixed_case_path() {
         // `locale::is_locale` lowercases its own segment, so this keeps working — asserted
-        // rather than assumed, because the normaliser no longer hands it lowercase input.
+        // rather than assumed, because the normalizer no longer hands it lowercase input.
         assert_eq!(
-            normalise("https://e.com/DE/Preise"),
-            normalise("https://e.com/Preise")
+            normalize("https://e.com/DE/Preise"),
+            normalize("https://e.com/Preise")
         );
     }
 

@@ -348,7 +348,7 @@ describe("a run has a URL", () => {
     render(<App />);
 
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
 
     await waitFor(() =>
       expect(window.location.pathname).toBe("/a/abc"),
@@ -481,7 +481,7 @@ describe("a run has a URL", () => {
     // request still looked current when it answered.
     //
     // `main.tsx` renders under `<StrictMode>`, so this is the production arrangement rather
-    // than a testing artefact.
+    // than a testing artifact.
     const deferred = stubDeferredGet();
     openAt("/a/abc");
     render(
@@ -513,7 +513,7 @@ describe("a run has a URL", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(window.location.pathname).toBe("/a/abc"));
 
     act(() => {
@@ -537,7 +537,7 @@ describe("submitting an idea", () => {
     await user.type(box(), IDEA);
     expect(box().value).toBe(IDEA);
 
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
 
     await waitFor(() => {
       expect(box().value).toBe("");
@@ -552,7 +552,7 @@ describe("submitting an idea", () => {
     render(<App />);
 
     await user.type(box(), "a crm");
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       /at least 8 characters/,
@@ -568,7 +568,7 @@ describe("submitting an idea", () => {
     render(<App />);
 
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("9f2c11ab7d04");
@@ -581,7 +581,7 @@ describe("submitting an idea", () => {
     render(<App />);
 
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
 
     await screen.findByRole("alert");
     expect(box().value).toBe(IDEA);
@@ -590,7 +590,7 @@ describe("submitting an idea", () => {
   it("will not submit an empty box", async () => {
     stubAccepting();
     render(<App />);
-    expect(screen.getByRole("button", { name: /analyse/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /analyze/i })).toBeDisabled();
   });
 
   it("shows the analysis after it is accepted", async () => {
@@ -599,7 +599,7 @@ describe("submitting an idea", () => {
     render(<App />);
 
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
 
     // The submitted idea is still visible even though the box is empty — clearing the
     // input must not mean losing sight of what was asked.
@@ -609,7 +609,7 @@ describe("submitting an idea", () => {
 
 
 describe("the ideas offered on the first screen", () => {
-  const CATALOGUE = {
+  const CATALOG = {
     note: "The companies in these examples were chosen by hand. Everything the report says about them is fetched, quoted and cited when you click - nothing here is stored or written in advance.",
     examples: [
       {
@@ -623,8 +623,8 @@ describe("the ideas offered on the first screen", () => {
     ],
   };
 
-  /** A `fetch` that serves the catalogue and accepts a POST. */
-  function stubWithExamples(catalogue: unknown = CATALOGUE): void {
+  /** A `fetch` that serves the catalog and accepts a POST. */
+  function stubWithExamples(catalog: unknown = CATALOG): void {
     stubEventSource();
     vi.stubGlobal(
       "fetch",
@@ -635,7 +635,7 @@ describe("the ideas offered on the first screen", () => {
           json: () =>
             Promise.resolve(
               String(url).includes("/api/examples")
-                ? catalogue
+                ? catalog
                 : init?.method === "POST"
                   ? queued()
                   : { ...queued(), status: "complete" },
@@ -665,7 +665,7 @@ describe("the ideas offered on the first screen", () => {
 
   it("does not start the run when a chip is clicked", async () => {
     // Four minutes of somebody else's electricity, started by a click meant to read a label.
-    // The reader looks at the sentence and presses Analyse themselves.
+    // The reader looks at the sentence and presses Analyze themselves.
     stubWithExamples();
     const user = userEvent.setup();
     render(<App />);
@@ -699,7 +699,7 @@ describe("the ideas offered on the first screen", () => {
     render(<App />);
 
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
 
     expect(await screen.findByText(IDEA)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).toBeNull();
@@ -709,7 +709,7 @@ describe("the ideas offered on the first screen", () => {
     // The rule the API enforces on its side: the note travels with the list. Chips rendered
     // without it would let a reader assume the reports were written in advance too — so the
     // honest degradation is no chips, not chips with the qualification quietly dropped.
-    stubWithExamples({ examples: CATALOGUE.examples });
+    stubWithExamples({ examples: CATALOG.examples });
     const user = userEvent.setup();
     render(<App />);
 
@@ -726,10 +726,10 @@ describe("the ideas offered on the first screen", () => {
     // `companies.join(" vs ")` and threw while the first screen was drawing itself — the one
     // path that is supposed to degrade in silence. A bad row costs the reader that row.
     stubWithExamples({
-      note: CATALOGUE.note,
+      note: CATALOG.note,
       examples: [
-        { ...CATALOGUE.examples[0], id: "broken", idea: "a broken one", companies: null },
-        CATALOGUE.examples[0],
+        { ...CATALOG.examples[0], id: "broken", idea: "a broken one", companies: null },
+        CATALOG.examples[0],
       ],
     });
     render(<App />);
@@ -755,7 +755,7 @@ describe("the ideas offered on the first screen", () => {
     await user.click(
       await screen.findByRole("button", { name: /project management/i }),
     );
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
 
     // The analysis is on screen — that is what `IDEA` is, the prompt the stub reports back.
     expect(await screen.findByText(IDEA)).toBeInTheDocument();
@@ -774,7 +774,7 @@ describe("a report about several companies", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     const stream = FakeEventSource.last!;
@@ -829,7 +829,7 @@ describe("a report about several companies", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     act(() => FakeEventSource.last!.send("done", ""));
 
@@ -852,7 +852,7 @@ describe("a report about several companies", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     const stream = FakeEventSource.last!;
@@ -883,7 +883,7 @@ describe("a report about several companies", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     const stream = FakeEventSource.last!;
@@ -913,7 +913,7 @@ describe("a report about several companies", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     act(() =>
@@ -939,7 +939,7 @@ describe("watching a report being written", () => {
     render(<App />);
 
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     const stream = FakeEventSource.last!;
@@ -960,7 +960,7 @@ describe("watching a report being written", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
 
     expect(await screen.findByText(/Reading the first pages/)).toBeInTheDocument();
   });
@@ -972,7 +972,7 @@ describe("watching a report being written", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     const first = section("pricing", "Pricing & packaging", "Pro costs $15");
@@ -1006,7 +1006,7 @@ describe("watching a report being written", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     const stream = FakeEventSource.last!;
@@ -1045,7 +1045,7 @@ describe("watching a report being written", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     const stream = FakeEventSource.last!;
@@ -1080,7 +1080,7 @@ describe("watching a report being written", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     act(() => FakeEventSource.last!.send("done", ""));
@@ -1096,7 +1096,7 @@ describe("watching a report being written", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     act(() => FakeEventSource.last!.send(
@@ -1145,7 +1145,7 @@ describe("what the market calls it", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     act(() => FakeEventSource.last!.send("done", ""));
   }
@@ -1206,7 +1206,7 @@ describe("when it does not finish", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     act(() => FakeEventSource.last!.send("done", ""));
@@ -1241,7 +1241,7 @@ describe("when it does not finish", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     act(() => FakeEventSource.last!.send("done", ""));
   }
@@ -1328,7 +1328,7 @@ describe("when it does not finish", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     act(() => FakeEventSource.last!.send("done", ""));
 
@@ -1377,7 +1377,7 @@ describe("when it does not finish", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     act(() => FakeEventSource.last!.send("done", ""));
 
@@ -1439,7 +1439,7 @@ describe("when it does not finish", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     act(() => FakeEventSource.last!.send("done", ""));
 
@@ -1497,7 +1497,7 @@ describe("when it does not finish", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     act(() => FakeEventSource.last!.send("done", ""));
@@ -1517,7 +1517,7 @@ describe("when the stream drops before the run is over", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     const dropped = FakeEventSource.last!;
@@ -1537,7 +1537,7 @@ describe("when the stream drops before the run is over", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     act(() => FakeEventSource.last!.send("done", ""));
@@ -1553,7 +1553,7 @@ describe("when the stream drops before the run is over", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     const finished = FakeEventSource.last!;
@@ -1580,7 +1580,7 @@ describe("after a reconnect", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     const dropped = FakeEventSource.last!;
@@ -1616,7 +1616,7 @@ describe("after a reconnect", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     const dropped = FakeEventSource.last!;
@@ -1642,7 +1642,7 @@ describe("after a reconnect", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     act(() => FakeEventSource.last!.onerror?.());
@@ -1659,7 +1659,7 @@ describe("after a reconnect", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     act(() => FakeEventSource.last!.send("status", "running"));
@@ -1716,7 +1716,7 @@ describe("the set a report was built from", () => {
   async function arrive(user: ReturnType<typeof userEvent.setup>): Promise<void> {
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     act(() => FakeEventSource.last!.send("done", ""));
     expect(await screen.findByText(/Pro costs \$15/)).toBeInTheDocument();
@@ -1929,7 +1929,7 @@ describe("the set a report was built from", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     expect(
@@ -1997,7 +1997,7 @@ describe("the report as something to paste", () => {
   async function arrive(user: ReturnType<typeof userEvent.setup>): Promise<void> {
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     act(() => FakeEventSource.last!.send("done", ""));
     expect(await screen.findByText(/Pro costs \$15/)).toBeInTheDocument();
@@ -2023,7 +2023,7 @@ describe("the report as something to paste", () => {
     const user = userEvent.setup();
     render(<App />);
     await user.type(box(), IDEA);
-    await user.click(screen.getByRole("button", { name: /analyse/i }));
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     expect(

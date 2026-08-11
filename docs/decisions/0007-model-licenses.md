@@ -14,17 +14,17 @@ The bake-off list is Qwen3 1.7B/4B/8B/14B, plus Gemma 3 4B/12B and Llama 3.2 3B 
 alternates. Benchmarking a model we cannot ship would waste the scarce thing here, which is
 time on the deployment host.
 
-Read from the primary sources on 2026-08-03 — the model cards and the licence texts
+Read from the primary sources on 2026-08-03 — the model cards and the license texts
 themselves, not summaries.
 
-## What the licences actually say
+## What the licenses actually say
 
 ### Qwen3 — Apache-2.0
 
 Every size, and the GGUF repositories we actually pull (`Qwen/Qwen3-1.7B-GGUF` is tagged
 `apache-2.0`, matching its base model).
 
-Obligations: attribution, include the licence, state changes. Nothing else. No acceptance
+Obligations: attribution, include the license, state changes. Nothing else. No acceptance
 click, no use-restriction policy to pass on, no user threshold, no geographic carve-out, and
 **nobody who can switch it off**.
 
@@ -43,7 +43,7 @@ means."* So it is usable. The obligations are the problem:
   Services that Google reasonably believes are in violation of this Agreement."**
 
 That last one is the finding. [ARCHITECTURE.md](../ARCHITECTURE.md) runs models locally
-partly so that no third party sits between us and our own analysis path. **A licence under
+partly so that no third party sits between us and our own analysis path. **A license under
 which a third party can remotely restrict our use reintroduces exactly the dependency the
 local-model decision was taken to avoid** — differently shaped than an API key, and with the
 same failure mode: someone else can stop the product working.
@@ -52,7 +52,7 @@ same failure mode: someone else can stop the product working.
 
 - **"Built with Llama" must be prominently displayed** on the website, UI, or documentation.
 - Derivative models must be **named beginning with "Llama"**.
-- Above **700 million monthly active users**, a separate licence must be requested from Meta.
+- Above **700 million monthly active users**, a separate license must be requested from Meta.
   Not a live concern, and worth recording so nobody re-derives it.
 - **The multimodal models are not licensed to companies whose principal place of business is
   in the European Union.** Text-only Llama 3.2 models are unaffected, and this project needs
@@ -62,7 +62,7 @@ same failure mode: someone else can stop the product working.
 
 ## Decision
 
-**All three families are usable. Qwen3 is preferred, and the preference is now a licence
+**All three families are usable. Qwen3 is preferred, and the preference is now a license
 argument as well as a benchmark one.**
 
 - **Qwen3** — benchmark all four sizes. No conditions to meet.
@@ -77,7 +77,7 @@ argument as well as a benchmark one.**
 
 **The bake-off is no longer "measure and pick the fastest".** Two of the three families cost
 something to adopt beyond RAM and latency, and those costs are invisible to
-`landscape-bench`. The comparison table in `BENCHMARKS.md` gains a licence column so the
+`landscape-bench`. The comparison table in `BENCHMARKS.md` gains a license column so the
 trade is visible at the point of decision.
 
 **Qwen3 winning would be the cheapest outcome**, and on the evidence so far it is also the
@@ -91,4 +91,4 @@ product whose credibility rests on saying where things came from — probably ye
 even on-brand, but it is a positioning call rather than a legal one.
 
 **Re-read on any model bump.** These are not stable documents; Meta and Google have both
-revised theirs. A model version bump is a licence review, not just a download.
+revised theirs. A model version bump is a license review, not just a download.

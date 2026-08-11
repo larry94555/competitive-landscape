@@ -35,7 +35,7 @@ that actually enforces the grammar; a second converter here could disagree with 
 the enforcing. A grammar that differs from the sampler's understanding fails *silently and
 intermittently*, which is the worst available failure mode — worse than no constraint, which
 at least fails loudly. It is also a non-trivial piece of code to own and keep in step with
-upstream for no behavioural gain.
+upstream for no behavioral gain.
 
 **Retry-and-validate without constraints.** Rejected. It converts a structural guarantee into
 a probabilistic one, and burns prefill on retries — which is the binding resource on the

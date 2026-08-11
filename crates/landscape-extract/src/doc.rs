@@ -94,7 +94,7 @@ pub fn heading_level(line: &str) -> Option<usize> {
 /// sentence.
 #[must_use]
 pub fn section_heading(lines: &[&str], start: usize, end: usize) -> Option<String> {
-    /// The same reach [`sections`] uses to recognise the pair.
+    /// The same reach [`sections`] uses to recognize the pair.
     const PAIR: usize = 4;
 
     lines[start..=end.min(start.saturating_add(PAIR))]

@@ -18,11 +18,11 @@
 //! # Ranking and standing are different questions
 //!
 //! It is tempting to treat the first result as the best source. It is not a source at all
-//! until it is fetched, and its rank was decided by an engine optimising for a search user,
+//! until it is fetched, and its rank was decided by an engine optimizing for a search user,
 //! not for a competitive analyst. So [`disposition_for`] looks only at the host: the
 //! subject's own domain is [`Disposition::Primary`] — the company saying it, exactly as a
 //! probe would have found — and everything else is [`Disposition::Unverified`], which
-//! `FACT_CHECKING.md` §3.2.1 defines as *included by default and labelled*.
+//! `FACT_CHECKING.md` §3.2.1 defines as *included by default and labeled*.
 //!
 //! **This is what search is for, and what it is not for.** Only a primary source may set a
 //! value in a comparison table ([`Disposition::may_set_a_table_value`]). Search buys pages
@@ -107,7 +107,7 @@ pub fn disposition_for(subject_host: &str, url: &str) -> Disposition {
 /// handed to whoever registers the right name.
 ///
 /// **An empty subject needs no guard of its own, and does not have one.** The first draft
-/// had an `is_empty` early return; mutating it away changed no test and no behaviour,
+/// had an `is_empty` early return; mutating it away changed no test and no behavior,
 /// because `host == ""` is false for every host [`Target::parse`] admits and no host
 /// survives [`strip_www`] ending in a dot. Per `docs/mutations/README.md`, a guard nothing
 /// needs is deleted rather than given a test that keeps it for ever — the mutation was
@@ -139,7 +139,7 @@ pub fn admit(
     engine: &str,
     cap: usize,
 ) -> Vec<Found> {
-    let known: Vec<String> = already.iter().map(|u| rank::normalise(u)).collect();
+    let known: Vec<String> = already.iter().map(|u| rank::normalize(u)).collect();
 
     let mut by_url: HashMap<String, Found> = HashMap::new();
     let mut candidates = Vec::new();
@@ -150,7 +150,7 @@ pub fn admit(
                 tracing::debug!(url = %hit.url, "a search result was not a URL we fetch");
                 continue;
             }
-            if known.contains(&rank::normalise(&hit.url)) {
+            if known.contains(&rank::normalize(&hit.url)) {
                 continue;
             }
             let found = Found {
@@ -166,7 +166,7 @@ pub fn admit(
             // occurrence and then let every later one *overwrite the entry it was paired
             // with*. The same URL returned for pricing and then for trust left a candidate
             // ranked as pricing and a `Found` claiming trust, so a page came out of here
-            // labelled with a question it was not found for, and quoting the wrong query.
+            // labeled with a question it was not found for, and quoting the wrong query.
             //
             // Review found it. The test that should have — the one named for exactly this —
             // used two different URLs, so nothing in it could ever collide. Entry 7 of the
@@ -378,7 +378,7 @@ mod tests {
         // are they" — so this is the ordinary case rather than a contrived one.
         //
         // The defect it replaces: the candidate was built from the first occurrence and the
-        // `Found` from the last, so the page came out ranked as pricing and labelled trust,
+        // `Found` from the last, so the page came out ranked as pricing and labeled trust,
         // quoting a query that did not find it.
         let url = "https://linear.app/security";
         let mut all = results(Answers::Pricing, &[url]);
@@ -393,7 +393,7 @@ mod tests {
             .clone();
         assert_eq!(
             only.query, expected,
-            "the page is labelled {:?} and quotes a query for something else",
+            "the page is labeled {:?} and quotes a query for something else",
             only.answers
         );
         // And it is the first occurrence that survived, which is what was ranked.

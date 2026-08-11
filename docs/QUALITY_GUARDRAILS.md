@@ -51,7 +51,7 @@ Layer 5  Presentation honesty  — confidence, tier, timestamps, and gaps shown 
 - If a section has zero qualifying sources, the section is **not generated at all**. It
   renders as `not_found_in_public_sources` with the list of what was checked. The model is
   never given the chance to fill a gap.
-- Source text is labelled inline (`[S3] linear.app/pricing — fetched 2026-07-31T14:21Z`),
+- Source text is labeled inline (`[S3] linear.app/pricing — fetched 2026-07-31T14:21Z`),
   which is what makes labels attributable at verification time.
 
 ### Layer 2 — Constrained decoding
@@ -113,7 +113,7 @@ Free-form text passes Layer 3 easily; *numbers* are where damage happens.
   source is the company's own site *and* the claim is framed as a company statement
   ("Linear describes itself as…"). Otherwise the modifier is stripped.
 - **Competitor attribution**: in comparison reports, a claim about product B sourced from
-  product A's comparison page is retagged `tier3` and labelled *"per competitor's own
+  product A's comparison page is retagged `tier3` and labeled *"per competitor's own
   comparison page"* — vendor comparison pages are systematically unreliable and must never
   be presented as neutral.
 
@@ -126,7 +126,7 @@ Trust is set by what the interface shows, not by what the copy promises:
   corroboration count — **not** from anything the model self-reports. Model-reported
   confidence is discarded; self-assessed confidence is uncalibrated in small models.
 - Report-level `evidence_strength: strong | moderate | thin`, always visible, in the PDF too.
-- The SWOT section — the one place inference is permitted — is visually distinct and labelled
+- The SWOT section — the one place inference is permitted — is visually distinct and labeled
   *interpretation*, with each item citing the observed facts it rests on.
 - Timestamps everywhere, in UTC, on screen and in the PDF.
 - The permanent disclaimer line (calm, not a modal):
@@ -210,8 +210,8 @@ alternatives, and score:
 **The trap subjects are the most revealing test and cost nothing.** A tool that generates
 confident detail for a product that does not exist has disclosed its architecture. Expect to
 win decisively on precision, citation validity and honest gaps; expect to lose on time and
-possibly on coverage. **Both halves get published** — a benchmark that only reports favourable
-dimensions is the marketing behaviour this product exists to be an alternative to.
+possibly on coverage. **Both halves get published** — a benchmark that only reports favorable
+dimensions is the marketing behavior this product exists to be an alternative to.
 
 Re-run at each rung change and before any public accuracy claim.
 
@@ -343,7 +343,7 @@ Ordered by leverage, cheapest first:
 
 ---
 
-## 7. Maximising quality on free-tier hardware
+## 7. Maximizing quality on free-tier hardware
 
 The launch host is Oracle Always Free — 4 Ampere cores, 24 GB, no GPU
 ([ARCHITECTURE.md](ARCHITECTURE.md) §4.4). The synthesizer is an 8B model, not a 70B. This

@@ -71,7 +71,7 @@ def tables(lines):
     return out
 
 
-def summarised(lines):
+def summarized(lines):
     """The Summary's per-state rows and its Total row, by line number."""
     states = []
     grand = None
@@ -138,7 +138,7 @@ def wrong(lines):
 
     # **And the Summary, which is the row anybody actually quotes.** It is derived from the
     # tables above and is not allowed to have its own opinion of them.
-    states, grand = summarised(lines)
+    states, grand = summarized(lines)
     if not states:
         return problems + ['the Summary table has no per-state rows at all']
     # **Duplicates first, because everything below is a comparison and a comparison cannot see
@@ -283,7 +283,7 @@ def main():
         return 1
     lines = io.open(PAGE, encoding='utf-8').read().split(chr(10))
     tables_found = len(tables(lines))
-    states, _ = summarised(lines)
+    states, _ = summarized(lines)
     print(f'{len(BROKEN)} defects put back and caught. '
           f'{tables_found} feature tables: every total is the sum of its rows, and the '
           f'Summary has {len(states)} states, and its total is the sum of those.')

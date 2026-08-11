@@ -31,7 +31,7 @@ conversation with a founder that I was not part of.
 | **[Phase 0](PHASE_0.md)** — foundations & model bake-off | **6 open.** One is 90 minutes and closes two exit criteria | **Current** |
 | **[Phase 1](PHASE_1.md)** — the vertical slice | 2 open, and one of them is the phase's exit gate | Started |
 | **[Phase 2](PHASE_2.md)** — verification, PDF & quality | 1 open, needs 10 people | Not started |
-| Phases 3–8 | Summarised at the end of [Phase 2](PHASE_2.md) | Far off |
+| Phases 3–8 | Summarized at the end of [Phase 2](PHASE_2.md) | Far off |
 
 ---
 

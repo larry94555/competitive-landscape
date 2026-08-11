@@ -76,7 +76,7 @@ Two constraints on whatever fills those blanks:
 | 6 | **Shared reports as artifacts** | Free — a product feature | **Yes** | Phase 1 |
 | 7 | **The trap-subject benchmark** (§6) | ~2 days | No, but high-signal | Phase 6 |
 
-**Channels 1, 2 and 6 are the only ones that appreciate.** They should be prioritised
+**Channels 1, 2 and 6 are the only ones that appreciate.** They should be prioritized
 accordingly, and none of them requires the product to be publicly launched — comparison pages
 and KB articles can be published as static content months before the app is.
 
@@ -116,8 +116,8 @@ neutralise it without rebuilding.
 Two conditions, both non-negotiable and both derived from the product's own rules
 ([FACT_CHECKING.md](FACT_CHECKING.md) §3.2.5): **publish the dimensions where we lose too**
 (time to result, and possibly coverage), and **describe what each tool did, never what each
-company is**. A benchmark that only reports favourable dimensions is exactly the marketing
-behaviour this product exists to be an alternative to.
+company is**. A benchmark that only reports favorable dimensions is exactly the marketing
+behavior this product exists to be an alternative to.
 
 ---
 

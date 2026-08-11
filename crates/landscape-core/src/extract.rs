@@ -76,7 +76,7 @@ impl PricingExtraction {
 
     /// Whether the quote, if there is one, really appears in the source.
     ///
-    /// Whitespace is normalised first because an extracted span crosses line breaks that
+    /// Whitespace is normalized first because an extracted span crosses line breaks that
     /// the original wraps differently, and rejecting a correct quote over a newline would
     /// train us to ignore this check.
     #[must_use]
@@ -112,8 +112,8 @@ pub struct PagePricing {
 impl PagePricing {
     /// Assemble the per-span extractions into what the page says.
     ///
-    /// Two things are dropped, and both are artefacts of segmenting a page rather than
-    /// judgements about it:
+    /// Two things are dropped, and both are artifacts of segmenting a page rather than
+    /// judgments about it:
     ///
     /// - **Extractions that found nothing.** A span that scored as a plan and yielded neither
     ///   a name nor a price was a bad window, not a plan with no facts.
@@ -131,11 +131,11 @@ impl PagePricing {
             if got.plan_name.is_none() && got.price_usd.is_none() {
                 continue;
             }
-            let key = got.plan_name.as_deref().map(normalise);
+            let key = got.plan_name.as_deref().map(normalize);
             let existing = key.as_ref().and_then(|k| {
                 plans
                     .iter()
-                    .position(|p| p.plan_name.as_deref().map(normalise).as_ref() == Some(k))
+                    .position(|p| p.plan_name.as_deref().map(normalize).as_ref() == Some(k))
             });
             match existing {
                 Some(i) if plans[i].price_usd.is_none() && got.price_usd.is_some() => {
@@ -321,7 +321,7 @@ impl PageIdentity {
     /// Merge per-window extractions into what the page says.
     ///
     /// Each value keeps the quote from the extraction it arrived in, **and only if the quote
-    /// contains it**. The model picked a neighbouring sentence more than once — a page's
+    /// contains it**. The model picked a neighboring sentence more than once — a page's
     /// headquarters was rendered under a sentence about web analytics drifting from its
     /// purpose — and a quote that does not contain the fact is not evidence for it. Losing the
     /// quote is the smaller loss: the value was already checked against the whole window.
@@ -509,7 +509,7 @@ impl FeatureExtraction {
     /// Whether every word of the name appears in the section it was taken from.
     ///
     /// **A capability is the one field that cannot be checked verbatim** — naming is the
-    /// normalisation the model is there to do, so the answer is a paraphrase by design. This
+    /// normalization the model is there to do, so the answer is a paraphrase by design. This
     /// is the weaker check that still holds: the words have to come from the page.
     ///
     /// It exists because of two real answers. A 4B model handed a section it could not name
@@ -558,7 +558,7 @@ impl PageFeatures {
     ) -> Self {
         let mut features: Vec<FeatureExtraction> = Vec::new();
         for got in extractions {
-            let Some(name) = got.capability.as_deref().map(normalise) else {
+            let Some(name) = got.capability.as_deref().map(normalize) else {
                 continue;
             };
             if name.is_empty() || features.iter().any(|f| named_the_same(f, &name)) {
@@ -581,7 +581,7 @@ impl PageFeatures {
 
 /// Whether an already-kept feature carries this name.
 fn named_the_same(kept: &FeatureExtraction, name: &str) -> bool {
-    kept.capability.as_deref().map(normalise).as_deref() == Some(name)
+    kept.capability.as_deref().map(normalize).as_deref() == Some(name)
 }
 
 /// Collapse every run of whitespace to one space.
@@ -613,7 +613,7 @@ fn states_words(haystack: &str, phrase: &str) -> bool {
 /// `Pro` and `PRO ` and `Pro plan` are one plan on one page. The suffix goes because pages
 /// are inconsistent about it between a plan card and a comparison table — which is exactly
 /// where the duplicates come from.
-fn normalise(name: &str) -> String {
+fn normalize(name: &str) -> String {
     let lower = name.to_lowercase();
     let trimmed = lower.trim();
     let base = trimmed
@@ -623,7 +623,7 @@ fn normalise(name: &str) -> String {
     squash(base)
 }
 
-/// Whether a page says it **holds** an assurance, or that it is **working towards** one.
+/// Whether a page says it **holds** an assurance, or that it is **working toward** one.
 ///
 /// **This distinction is the entire extractor.** A security page that says *"SOC 2 Type II
 /// report available on request"* and one that says *"SOC 2 is on our roadmap for 2027"* both
@@ -635,7 +635,7 @@ fn normalise(name: &str) -> String {
 pub enum Assurance {
     /// The page states it as something they have.
     Holds,
-    /// The page states it as something they are working towards — in progress, planned,
+    /// The page states it as something they are working toward — in progress, planned,
     /// pursuing, "expected".
     Pursuing,
 }
@@ -646,7 +646,7 @@ impl Assurance {
     pub const fn wording(self) -> &'static str {
         match self {
             Self::Holds => "states",
-            Self::Pursuing => "says it is working towards",
+            Self::Pursuing => "says it is working toward",
         }
     }
 }
@@ -660,11 +660,11 @@ impl Assurance {
 /// rule.
 ///
 /// So the question put to the model is the part it is actually for — *does this section say
-/// they have it, or that they are working towards it?* — and the standard is carried through
+/// they have it, or that they are working toward it?* — and the standard is carried through
 /// from the scanner by construction. A whole class of wrong answer stops being expressible.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct AssuranceClaim {
-    /// Whether they say they have it or are working towards it.
+    /// Whether they say they have it or are working toward it.
     ///
     /// `None` when the section names the standard without saying which — *"questions about SOC
     /// 2? contact us"* names it and claims nothing.
@@ -715,7 +715,7 @@ pub struct TrustExtraction {
     /// window turned out to be about something else.
     pub standard: Option<String>,
 
-    /// Whether they say they have it or are working towards it.
+    /// Whether they say they have it or are working toward it.
     ///
     /// `None` when the page names the standard without saying which — *"questions about SOC 2?
     /// contact us"* names it and claims nothing, and a report that turned that into a ✓ would
@@ -776,13 +776,13 @@ impl PageTrust {
     ) -> Self {
         let mut assurances: Vec<TrustExtraction> = Vec::new();
         for got in extractions {
-            let Some(name) = got.standard.as_deref().map(normalise) else {
+            let Some(name) = got.standard.as_deref().map(normalize) else {
                 continue;
             };
             if name.is_empty()
                 || assurances
                     .iter()
-                    .any(|kept| kept.standard.as_deref().map(normalise).as_deref() == Some(&name))
+                    .any(|kept| kept.standard.as_deref().map(normalize).as_deref() == Some(&name))
             {
                 continue;
             }
@@ -950,7 +950,7 @@ mod trust_tests {
         // The entire extractor. If these two ever read the same, a roadmap item becomes a
         // certification and a buyer chooses on it.
         assert_ne!(Assurance::Holds.wording(), Assurance::Pursuing.wording());
-        assert!(Assurance::Pursuing.wording().contains("working towards"));
+        assert!(Assurance::Pursuing.wording().contains("working toward"));
     }
 
     #[test]
@@ -1257,7 +1257,7 @@ mod tests {
 
     #[test]
     fn a_quote_that_does_not_contain_the_fact_is_not_evidence_for_it() {
-        // The model picks a neighbouring sentence out of the window it was given. The value
+        // The model picks a neighboring sentence out of the window it was given. The value
         // survives — it was checked against the whole window — and the quote does not.
         let got = IdentityExtraction {
             evidence_quote: Some("We built it because analytics had drifted".to_owned()),
@@ -1312,7 +1312,7 @@ mod tests {
 
     #[test]
     fn a_capability_named_twice_is_one_capability() {
-        // Pages summarise a feature and then describe it. That is one fact.
+        // Pages summarize a feature and then describe it. That is one fact.
         let page = PageFeatures::assembled(
             [capability("Message Boards"), capability("message boards ")],
             2,
@@ -1364,7 +1364,7 @@ Get notified when an SLA is close to breaching.";
 
     #[test]
     fn a_shortened_name_is_still_from_the_section() {
-        // The normalisation the model is there for: the words must come from the page, but
+        // The normalization the model is there for: the words must come from the page, but
         // they need not be contiguous or in order.
         let section = "## Message Boards for announcements and discussions
 They replace email.";

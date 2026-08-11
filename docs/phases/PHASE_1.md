@@ -35,7 +35,7 @@ happen, and what actually happened. I do not need a diagnosis.
 
 ## Step 2 — Decide whether it is good enough to show a stranger
 
-**This is Phase 1's exit criterion and it is a judgement, not a measurement.** The roadmap
+**This is Phase 1's exit criterion and it is a judgment, not a measurement.** The roadmap
 states it exactly as: *"The founder would show it to a stranger without apologizing."*
 
 | | |

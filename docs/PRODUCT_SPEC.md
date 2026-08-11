@@ -184,7 +184,7 @@ than tens of minutes — the shape stays the same, the numbers shrink.
 the composer is used on desktop. The spec therefore differs by surface rather than duplicating:
 
 - **Composer on mobile:** the textarea and example chips, full width, keyboard-aware. Nothing
-  else above the fold. Identical behaviour, not a reduced feature set.
+  else above the fold. Identical behavior, not a reduced feature set.
 - **Report on mobile:** sections stack; the **feature matrix scrolls horizontally inside its own
   container** with the competitor column pinned (the page body never scrolls sideways); charts
   reflow to full width; citation chips open a sheet rather than a hover card, because hover
@@ -201,7 +201,7 @@ the composer is used on desktop. The spec therefore differs by surface rather th
 | Has history | Composer, with recent analyses beneath it |
 | Analysis still running | Composer, with the in-flight analysis pinned at the top and resumable |
 | Pass 2 pending | Same, with the "completing" marker — revisiting is how anonymous users collect the finished report |
-| Watches firing | A single line above history: *"3 changes across your watches this week"* — not a badge, not a notification centre |
+| Watches firing | A single line above history: *"3 changes across your watches this week"* — not a badge, not a notification center |
 
 ---
 
@@ -235,7 +235,7 @@ the answer is remembered for the session so a follow-up analysis doesn't re-ask.
 ## 4. The report schema (fixed, every time)
 
 > **Scope note.** This section specifies the *schema*. What the report should **contain** —
-> the nine sections, the chart catalogue, the evidence classes, and what is deliberately
+> the nine sections, the chart catalog, the evidence classes, and what is deliberately
 > excluded — is specified in
 > [COMPETITIVE_ANALYSIS_REPORT.md](COMPETITIVE_ANALYSIS_REPORT.md). The schema below covers
 > seven sections and must be expanded to nine (adding **Feature comparison matrix** and
@@ -303,7 +303,7 @@ Section payloads:
 | **Recent public changes** | `changes: { date, headline, detail, kind: release\|pricing\|positioning\|funding\|personnel\|policy, evidence: Claim }[]`, `lookback_window_days`, `coverage_note` |
 | **Review & sentiment themes** | `themes: { theme, valence: positive\|negative\|mixed, frequency: 'often'\|'sometimes'\|'rarely', representative_quotes: Claim[] }[]`, `platforms_covered[]`, `volume_caveat` — **no numeric ratings are synthesized**, only reported with a source |
 | **What folks are talking about** | `window_days`, `venues_considered: VenueAssessment[]`, `asking_for/complaining/attempts: Signal[]` (≤5 each), `building: Project[]` (≤5). Every venue records `fit: expected\|plausible\|poor`, whether it was searched, the **queries used**, and a `caveat` that is *mandatory* whenever fit is not `expected`. Absence is only published from venues where presence would be expected; no sentiment, momentum or trend is computed. Full schema and the source-by-source access position in [DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) |
-| **SWOT-style summary** | `strengths/weaknesses/opportunities/threats: Claim[]` (2–4 each). Opportunities/Threats are **explicitly labelled `interpretation`** and must each cite the observed facts they rest on. This is the one place inference is allowed, and it is visually marked as such. |
+| **SWOT-style summary** | `strengths/weaknesses/opportunities/threats: Claim[]` (2–4 each). Opportunities/Threats are **explicitly labeled `interpretation`** and must each cite the observed facts they rest on. This is the one place inference is allowed, and it is visually marked as such. |
 | **Sources** | `sources: { label, url, title, host, source_class: P\|A\|U, attribution_signals_confirmed[], independence_group, fetched_at, content_hash, extraction_quality, status: ok\|blocked_by_robots\|unreachable\|paywalled }[]`, `sources_not_used: { url, host, not_used_reason: unverified_by_our_criteria\|could_not_reconcile, signals_confirmed[], what_it_stated, primary_value_and_date }[]`, `strictness_setting` |
 
 ### 4.2 Rendered example — the full nine-section output (abridged)
@@ -344,7 +344,7 @@ Enterprise pricing: contact sales for all three [S2][S5][S8].
 
   [Cost-at-scale curve — DERIVED]
   Monthly cost vs seats (1/5/10/25/50/100), step-shaped at tier boundaries.
-  Contact-sales tiers appear as a labelled gap, never an estimate.
+  Contact-sales tiers appear as a labeled gap, never an estimate.
 
 > Reported elsewhere, unconfirmed: a third-party article (Feb 2026) states Shortcut
 > Business at $16/user/mo. We were unable to confirm this on Shortcut's own site, so it
@@ -581,7 +581,7 @@ checkbox, and the copy says exactly why you would want to:
 > [ ] Remember this key so my **watch alerts** also use it.
 >     Stored encrypted. We never show it again, and you can delete it in one click.
 
-Most users need only the session behaviour. Only background jobs require persistence, and
+Most users need only the session behavior. Only background jobs require persistence, and
 saying so lets people choose the smaller risk.
 
 ### 5A.4 On the report

@@ -67,7 +67,7 @@ Phase 3.
 | Source | The question | Why it matters |
 |---|---|---|
 | **[Reddit Data API Terms](https://www.redditinc.com/policies/data-api-terms)** | Does commercial use require prior approval and a monthly minimum? | **Do this one first.** Our entire "Reddit is unusable" assumption rests on *vendor blogs who sell Reddit data access* — an interested party under our own trust model. Reddit's own pages refuse automated fetching, so a human has to look |
-| **[Review platforms' robots.txt](https://www.g2.com/robots.txt)** and terms | Are we permitted to read category pages? | **Closes exit criterion 7.** `COMPETITIVE_DISCOVERY.md` ranks these as the *highest-yield* discovery channel, and we honour robots.txt as a hard commitment. Those two positions may collide, and it is better to know by decision than by discovery in week 8 |
+| **[Review platforms' robots.txt](https://www.g2.com/robots.txt)** and terms | Are we permitted to read category pages? | **Closes exit criterion 7.** `COMPETITIVE_DISCOVERY.md` ranks these as the *highest-yield* discovery channel, and we honor robots.txt as a hard commitment. Those two positions may collide, and it is better to know by decision than by discovery in week 8 |
 | **[X / Twitter API pricing](https://developer.x.com/en/products/x-api)** | Confirm the per-post read pricing | We believe it is disqualifying rather than merely expensive — 200 posts ≈ $1, which is the whole monthly subscription for one report section |
 | **[YouTube Data API quota](https://developers.google.com/youtube/v3/getting-started#quota)** | Confirm the **data-storage** limits in the terms | The 100 `search.list`/day figure is confirmed. The storage rules are stricter than our normal caching and we have not read them |
 | **[Stack Exchange terms](https://stackoverflow.com/legal/terms-of-service/public)** | What does CC BY-SA oblige the surrounding report to do? | Quoting may impose obligations on the whole document, not just the quote |
@@ -85,7 +85,7 @@ Phase 3.
 | **Done when** | The domain resolves and the page loads |
 | **I confirm by** | **Automatically.** Tell me the domain and I fetch it — `landscape fetch https://yourdomain/` runs it through the real fetcher, and I check it resolves, returns 200, and has a working capture form. Then I record it in `ROADMAP.md` |
 
-**Why it is on the list now rather than at launch:** the domain starts ageing from the day it
+**Why it is on the list now rather than at launch:** the domain starts aging from the day it
 is registered, and the list starts growing. Both are cheap to start and impossible to
 backdate.
 

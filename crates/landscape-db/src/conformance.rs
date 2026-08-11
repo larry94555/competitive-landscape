@@ -1,6 +1,6 @@
 //! One test body, run against every [`Store`] implementation.
 //!
-//! Two implementations of the same trait drift. Writing the behaviour once and running it
+//! Two implementations of the same trait drift. Writing the behavior once and running it
 //! against both is the cheapest way to keep the in-memory store honest — if it stops
 //! matching Postgres, the API's fast tests stop meaning anything.
 //!

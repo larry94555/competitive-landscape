@@ -39,7 +39,7 @@ them broke another, reported `MISSED`, and very nearly had a covered case writte
 entry 17. **A non-unique anchor is refused here rather than applied.**
 
 **A restored file that cargo thinks is unchanged.** `shutil.move` preserves mtime, so putting the
-original back can leave the build cache holding the mutated artefact and the *next* run measuring
+original back can leave the build cache holding the mutated artifact and the *next* run measuring
 the wrong code. Every file is touched after restoring.
 
 ## MISSED is an exit code, not a line of output
@@ -68,7 +68,7 @@ class SourceChanged(Exception):
 
     **Raised rather than printed, because a warning here is not enough.** The first version of
     this check printed `CHANGED` and carried on: the entry could still report `caught`, `main`
-    kept going, and a catalogue could end `all 17 caught` and exit 0 having announced that every
+    kept going, and a catalog could end `all 17 caught` and exit 0 having announced that every
     result after that point was about a file it did not control. A later mutation of the same
     file would then copy over the preserved backup and the original would be gone for good.
 
@@ -84,7 +84,7 @@ def restore(path, backup, mutated: str) -> bool:
     caller must stop: what is at `path` was written by something other than this run, and moving
     the backup over it would delete that work.
 
-    **The check is what is on disk**, not what should be there. A catalogue takes tens of
+    **The check is what is on disk**, not what should be there. A catalog takes tens of
     minutes, and anything writing to a source file in that window - an editor, a formatter,
     somebody adding a test - is silently undone when the backup goes back. It happened: two
     tests written during a run vanished, and the only signal was a mutation reporting `MISSED`
@@ -93,7 +93,7 @@ def restore(path, backup, mutated: str) -> bool:
     if io.open(path, encoding="utf-8").read() != mutated:
         return False
     shutil.move(str(backup), path)
-    # Restoring preserves mtime, which leaves cargo holding the mutated artefact. Touch it,
+    # Restoring preserves mtime, which leaves cargo holding the mutated artifact. Touch it,
     # or the next run measures code nobody is looking at.
     os.utime(path, None)
     return True
@@ -267,7 +267,7 @@ def already_mutated() -> int:
 
     That is not hypothetical twice over. `scripts/no_live_mutations.py` opens by saying *"this
     exists because it happened"* — a cut-short run once left an inverted rule in the source. It
-    happened again, from a run killed by a timeout shorter than the catalogue takes, and the only
+    happened again, from a run killed by a timeout shorter than the catalog takes, and the only
     signal was one entry reporting `NOT APPLIED` because the kill had eaten its anchor.
 
     That guard is `scripts/verify.py`'s first gate, which runs long after every result here has
@@ -280,8 +280,8 @@ def already_mutated() -> int:
     if not live:
         return 0
     print("Refusing to run: a recorded mutation is already live in the working tree.\n")
-    for path, name, catalogue in live:
-        print(f"  {path}\n    {name}   [{catalogue}]")
+    for path, name, catalog in live:
+        print(f"  {path}\n    {name}   [{catalog}]")
     print(
         "\nA previous run was interrupted before it could put the original back. Restore it -\n"
         "`git diff` shows the hunk - because every mutation below would otherwise be measured\n"

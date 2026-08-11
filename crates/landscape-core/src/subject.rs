@@ -14,7 +14,7 @@
 //!
 //! It is the **gate**: given candidates that something else produced, decide whether we know
 //! who we are talking about. It does not generate candidates — that is discovery, and it
-//! needs the fetching that this gate exists to authorise.
+//! needs the fetching that this gate exists to authorize.
 //!
 //! Building the gate first is deliberate. Written afterwards it would be a check bolted onto
 //! a pipeline that already runs without it, and every code path that predates the check is a
@@ -140,7 +140,7 @@ pub fn resolve(subject: &str, mut candidates: Vec<Candidate>, checked: Vec<Strin
 ///
 /// Built here rather than in the frontend so the wording has one home and can be tested.
 /// It quotes the reader's own words back: `PRODUCT_SPEC.md` §3 shows *"Which Notion do you
-/// mean?"*, and the point of the quotation is that the reader recognises the ambiguity as
+/// mean?"*, and the point of the quotation is that the reader recognizes the ambiguity as
 /// belonging to what they typed rather than to our confusion.
 #[must_use]
 pub fn question_for(subject: &str) -> String {
@@ -342,16 +342,16 @@ mod tests {
 
     #[test]
     fn a_resolution_round_trips_as_tagged_json() {
-        // The frontend switches on `kind`. An untagged enum would serialise the three cases
+        // The frontend switches on `kind`. An untagged enum would serialize the three cases
         // to shapes that are only distinguishable by which fields happen to be present.
         let r = resolve(
             "Notion",
             vec![candidate("Notion", "notion.so", 0.9)],
             vec![],
         );
-        let json = serde_json::to_value(&r).expect("serialise");
+        let json = serde_json::to_value(&r).expect("serialize");
         assert_eq!(json["kind"], "resolved");
-        let back: Resolution = serde_json::from_value(json).expect("deserialise");
+        let back: Resolution = serde_json::from_value(json).expect("deserialize");
         assert_eq!(back, r);
     }
 }

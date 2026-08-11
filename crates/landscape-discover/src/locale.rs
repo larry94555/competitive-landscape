@@ -1,4 +1,4 @@
-//! Recognising the same page published in another language.
+//! Recognizing the same page published in another language.
 //!
 //! `BENCHMARKS.md` Run 7 read `todoist.com/cs/pricing` and `todoist.com/da/pricing` — Czech
 //! and Danish — and never read the English page at all. Run 8 added `notion.com/es-es/pricing`
@@ -10,7 +10,7 @@
 //!
 //! # Why this is not a filter
 //!
-//! Dropping localised URLs outright would be wrong: some sites publish *only* localised paths,
+//! Dropping localized URLs outright would be wrong: some sites publish *only* localized paths,
 //! and `/de/preise` may be the only pricing page there is. So a locale is treated as what it
 //! is — **a variant of a page, not a different page** — and variants collapse into one
 //! candidate the same way `/pricing` and `/pricing/` already do.
@@ -120,7 +120,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_locales_run_7_and_8_actually_read_are_recognised() {
+    fn the_locales_run_7_and_8_actually_read_are_recognized() {
         assert_eq!(leading("/cs/pricing"), Some("cs"));
         assert_eq!(leading("/da/pricing"), Some("da"));
         assert_eq!(leading("/es-es/pricing"), Some("es-es"));

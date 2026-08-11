@@ -329,7 +329,7 @@ mod tests {
     }
 
     #[test]
-    fn a_long_list_of_attempts_is_summarised_rather_than_dumped() {
+    fn a_long_list_of_attempts_is_summarized_rather_than_dumped() {
         let attempts: Vec<Attempt> = (0..12).map(|n| attempt(&format!("/p{n}"), "404")).collect();
         let note = empty("trust", attempts, vec![]).note();
         assert!(note.contains("and 6 more"), "{note}");

@@ -6,11 +6,11 @@ Nothing here needs a search engine, a forum, or a decision you have not been giv
 information to make.
 
 > **What this is not.** [DEPLOY.md](DEPLOY.md) is the same deployment with the reasoning — why
-> the ports are open, why the artefacts stay root-owned, what each unit file is protecting
+> the ports are open, why the artifacts stay root-owned, what each unit file is protecting
 > against. Read it when something surprises you. This file is the sequence.
 >
 > **Being walked for the first time.** It was written from our own code and from Oracle's
-> documented behaviour rather than from a deployment that worked, so **correct it as you go**.
+> documented behavior rather than from a deployment that worked, so **correct it as you go**.
 > Two steps are still marked **⚠ least certain**; a third is not, because
 > [step 4b](#step-4--open-the-two-firewalls) has now met a real box and been rewritten around
 > what it found.
@@ -829,14 +829,14 @@ The padlock should be there. If the browser warns about the certificate, Caddy h
 > box, a browser will prefer it. If nothing is returned, IPv6 is not your explanation and the
 > address in the refusal is an IPv4 one.
 
-You should see **What is your idea?**, a text box, an **Analyse** button, and three example
+You should see **What is your idea?**, a text box, an **Analyze** button, and three example
 ideas underneath.
 
 Then run the one check that exercises everything:
 
 1. Click the example **project management for a small design agency**. It fills the box; it does
    not submit.
-2. Press **Analyse**.
+2. Press **Analyze**.
 3. The address bar changes to `/a/…` — that is the permalink, and it works on reload.
 4. Within about a minute the first section appears. **Recent public changes** usually fills
    first: it needs no model at all.

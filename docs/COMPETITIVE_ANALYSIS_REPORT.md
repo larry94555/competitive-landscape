@@ -1,7 +1,7 @@
 # Landscape — The Competitive Analysis Report
 
 > What a state-of-the-art competitive analysis contains, what Landscape can honestly produce
-> from public data, and how it should be visualised.
+> from public data, and how it should be visualized.
 >
 > This document specifies **report content**. [PRODUCT_SPEC.md](PRODUCT_SPEC.md) §4 specifies
 > the schema that encodes it; the schema must be expanded to match this document (§9).
@@ -51,8 +51,8 @@ the visual treatment**:
 | Class | Definition | Example | Treatment |
 |---|---|---|---|
 | **Observed** | Stated on a public page; quotable | "Basic is $8/user/month" | Normal. Cited `[S2]`. |
-| **Derived** | Arithmetic or counting over observed facts; no judgement | "At 25 seats that is $200/month"; "6 changelog entries in 90 days" | Normal. Cites the inputs, and the operation is stated. |
-| **Interpreted** | Requires judgement not present in any source | "They are moving upmarket" | **Visually distinct, labelled *interpretation*,** and must cite the observed facts it rests on. |
+| **Derived** | Arithmetic or counting over observed facts; no judgment | "At 25 seats that is $200/month"; "6 changelog entries in 90 days" | Normal. Cites the inputs, and the operation is stated. |
+| **Interpreted** | Requires judgment not present in any source | "They are moving upmarket" | **Visually distinct, labeled *interpretation*,** and must cite the observed facts it rests on. |
 | **Estimated** | Arithmetic over assumed inputs as well as observed ones | "Roughly $4M–$19M a year" | **Always a range, never a point.** Assumptions on the face of it, full working one click away, never in the executive PDF. See [Off-The-Napkin-Estimates.md](Off-The-Napkin-Estimates.md). |
 
 This mirrors the existing SWOT treatment ([PRODUCT_SPEC.md](PRODUCT_SPEC.md) §4.1) and extends
@@ -154,7 +154,7 @@ full candidate list ([COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) §5.5)
 
 ### Section 7 — SWOT-style summary
 Unchanged. Strengths and Weaknesses cite observed facts; Opportunities and Threats are
-explicitly labelled interpretation.
+explicitly labeled interpretation.
 
 ### Section 7A — Operating signals *(where evidence exists)*
 - **Content:** per competitor, dated public activity — release cadence, last public update,
@@ -170,7 +170,7 @@ explicitly labelled interpretation.
   named service records, not what is true, and never lets a supplementary value override what
   the company publishes about itself.
 - **Rankings, not visitor counts.** A domain rank is measured from real traffic; a visitor
-  estimate is modelled and differs wildly between vendors. Report the first, never the second.
+  estimate is modeled and differs wildly between vendors. Report the first, never the second.
 - **No composite health score.** Combining non-comparable signals into one number would be
   interpretation dressed as measurement. See
   [COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) §7.
@@ -211,7 +211,7 @@ status — plus an **exclusions list** with reasons (robots-disallowed, unreacha
 
 ---
 
-## 4. The chart catalogue
+## 4. The chart catalog
 
 Each entry states what it shows, what data it needs, its evidence class, and how it renders.
 **Every chart carries the same citation obligations as prose.**
@@ -224,7 +224,7 @@ citation; `? Not found` expands to what was checked.
 ### 4.2 Cost-at-scale curve — *derived*
 Monthly cost (Y) against seat count (X: 1, 5, 10, 25, 50, 100), one line per competitor,
 step-shaped where tiers change. Only plotted where per-seat pricing is public; competitors
-with "contact sales" appear as a labelled gap, not an estimate.
+with "contact sales" appear as a labeled gap, not an estimate.
 **Why it matters:** headline per-seat prices routinely invert at scale because of tier
 minimums and included-seat bundles. This is pure arithmetic over published numbers — the
 highest-value, lowest-risk chart in the product.
@@ -235,7 +235,7 @@ Competitors without a public changelog are shown as an explicit "no public chang
 never as zero, which would read as "they ship nothing."
 
 ### 4.4 Event timeline — *observed*
-Horizontal timeline of dated public events, colour-coded by kind, one lane per competitor.
+Horizontal timeline of dated public events, color-coded by kind, one lane per competitor.
 
 ### 4.5 Theme sentiment — *derived*
 Diverging stacked bars: one row per theme, negative left, positive right, width proportional
@@ -267,7 +267,7 @@ Stacked bars of open roles by function over time. Aggregate counts only.
 |---|---|
 | **Radar / spider** | The most-requested and least defensible CI chart. Enclosed area scales with the *square* of the values, the shape changes entirely with arbitrary axis ordering, and more than three overlaid series is unreadable. The value curve (§4.8) shows the same data honestly. |
 | **Market-share pie** | We have no reliable public market share. A pie implies a measured denominator we do not have. |
-| **Traffic / visitor estimates** | Third-party estimates are paid, modelled, and frequently wrong. Plotting them lends borrowed precision. |
+| **Traffic / visitor estimates** | Third-party estimates are paid, modeled, and frequently wrong. Plotting them lends borrowed precision. |
 | **Word clouds** | Near-zero information density; size encodes frequency badly and encodes nothing else. |
 | **Trend lines, forecasts, regressions** | Extrapolation is invention. The product does not predict. |
 | **Dual-axis charts** | Two Y-scales let any two series be made to look correlated. |
@@ -288,7 +288,7 @@ documentation and status pages · robots/accessibility status of every source.
 **Derived:** cost at seat counts · shipping cadence · theme frequency · marketing emphasis ·
 tier-over-tier price deltas · time since last public change.
 
-**Interpreted (labelled):** SWOT opportunities and threats · positioning-map placement ·
+**Interpreted (labeled):** SWOT opportunities and threats · positioning-map placement ·
 strategic implications of observed changes.
 
 ### Not included, and why
@@ -297,14 +297,14 @@ strategic implications of observed changes.
 |---|---|
 | Market share | Needs both a numerator and a denominator we do not have |
 | **Hidden estimates of any kind** | A number with no visible derivation, sitting beside verified facts as though it had the same standing. **Estimates with their working shown are a different object and are permitted** — see [Off-The-Napkin-Estimates.md](Off-The-Napkin-Estimates.md) §1 for why the distinction holds |
-| Unlabelled visitor counts | Ranks are measured; visit counts are inferred from them. Both are reported, but a visit figure appears **only as a labelled range with its method shown** (Off-The-Napkin-Estimates §4.4) |
+| Unlabeled visitor counts | Ranks are measured; visit counts are inferred from them. Both are reported, but a visit figure appears **only as a labeled range with its method shown** (Off-The-Napkin-Estimates §4.4) |
 | Profitability, burn, margins, churn, CAC, LTV | No public input exists at any decomposition — there is nothing to estimate *from* |
 | Private-company revenue **as a stated figure** | Estimable only to an order of magnitude, only from two independent paths, and deliberately restricted: never in a shared report or PDF (Off-The-Napkin-Estimates §4.3) |
 | Traffic, visitor counts, conversion rates | Third-party estimates only |
 | Customer counts and named logos beyond what is published | Frequently stale or promotional |
 | Win/loss data | Internal by definition |
 | NPS or satisfaction scores not published by the vendor | Would have to be invented |
-| Individual employees, org charts, LinkedIn profiles | Public-company-behaviour analysis, not people-tracking ([QUALITY_GUARDRAILS.md](QUALITY_GUARDRAILS.md) §6) |
+| Individual employees, org charts, LinkedIn profiles | Public-company-behavior analysis, not people-tracking ([QUALITY_GUARDRAILS.md](QUALITY_GUARDRAILS.md) §6) |
 | Anything behind a login, paywall, or robots-disallowed path | Public data only |
 | Roadmaps and unannounced plans | Speculation |
 | Forecasts, predictions, "likely to" | The product does not predict. Scenario arithmetic on stated assumptions is a different object and is permitted (Off-The-Napkin-Estimates §4.2) |
@@ -336,7 +336,7 @@ The original decision ([ARCHITECTURE.md](ARCHITECTURE.md) §2.1) was *"Charts: n
 Reports are text + tables. Do not add a chart library to look serious."*
 
 **The reasoning was sound; the conclusion was wrong.** It correctly rejected decorative charts,
-then over-generalised to reject all visualisation — in a product whose entire category
+then over-generalized to reject all visualisation — in a product whose entire category
 communicates through matrices and comparisons. A competitive analysis tool without a feature
 matrix and a pricing comparison is not competitive analysis. The decision is reversed.
 
@@ -374,7 +374,7 @@ report data (schema) ──> landscape-charts ──> SVG string
 **Why SVG:** vector-crisp in print and on retina, styleable by CSS to match the report,
 text stays selectable and searchable, small, and trivially deterministic.
 
-**Hand-rolled emitters, not a plotting crate.** The catalogue is **eight fixed chart types**
+**Hand-rolled emitters, not a plotting crate.** The catalog is **eight fixed chart types**
 with fixed layouts, not a general plotting problem. `plotters` (the mature Rust option, with
 an SVG backend) is built for arbitrary charts with generic axes, scales and legends — most of
 which we would fight to get the typography and theming to match Typst. Per
@@ -396,8 +396,8 @@ Every chart ships with:
   ("Linear costs less than Jira above 25 seats", not "line chart of pricing").
 - **A data table containing the same numbers**, visually hidden on the web and printed in the
   full PDF. The chart is a faster path to the data, never the only path.
-- Colour that is not the sole encoding — line style and direct labels carry it too, so the
-  charts survive greyscale printing and colour-vision deficiency.
+- Color that is not the sole encoding — line style and direct labels carry it too, so the
+  charts survive grayscale printing and color-vision deficiency.
 - Citations on every plotted series, exactly as for prose.
 
 ### 7.4 Cost on free-tier hardware — charts are *cheaper* than prose
@@ -423,7 +423,7 @@ These are review-blocking:
 2. **Source class is visible on every plotted series** — primary solid, attributed dashed,
    unattributed never plotted ([FACT_CHECKING.md](FACT_CHECKING.md) §3.2.4).
 3. **Sample size is printed** wherever a chart aggregates counts or ratings.
-4. **Missing data is drawn as missing** — a labelled gap, never zero, never interpolated.
+4. **Missing data is drawn as missing** — a labeled gap, never zero, never interpolated.
 5. **Interpreted charts look interpreted** — same visual treatment as the SWOT section, with
    the method printed on the chart.
 6. **Every series carries its citation.**

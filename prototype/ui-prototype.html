@@ -204,7 +204,7 @@
   body.clean .chips, body.clean #advWrap, body.clean .nav, body.clean .seg,
   body.clean .quota, body.clean .hero .sub, body.clean .disclaimer,
   body.clean #playDemo { display:none !important; }
-  /* Hidden, not removed: the hint is what pushes Analyse to the right. */
+  /* Hidden, not removed: the hint is what pushes Analyze to the right. */
   body.clean #hint { visibility:hidden; }
   body.clean .lede { font-size:clamp(1.5rem,1.1rem + 2vw,2.4rem); margin-bottom:1.4rem; }
   /* Film 12 reveals the advanced options without bringing the rest of the chrome back. */
@@ -216,7 +216,7 @@
      correct by construction, whatever the page is doing. */
   /* Outline only, no full-screen dim. A fixed overlay cannot be escaped by an element
      nested inside a stacking context, so dimming left the thing being pointed at as
-     grey as everything else. An outline needs no stacking games and cannot land in
+     gray as everything else. An outline needs no stacking games and cannot land in
      the wrong place. */
   .spotted { outline:3px solid var(--accent) !important; outline-offset:4px;
     border-radius:2px; box-shadow:0 0 0 5px var(--accent-soft), 0 10px 30px rgba(6,10,9,.16); }
@@ -380,7 +380,7 @@
   <div class="head-inner">
     <div class="brand"><span class="brand-mark"></span>Landscape</div>
     <nav class="nav" id="nav">
-      <button data-v="composer" aria-current="true">analyse</button>
+      <button data-v="composer" aria-current="true">analyze</button>
       <button data-v="notify">alerts</button>
       <button data-v="community">community</button>
       <button data-v="admin">admin</button>
@@ -411,7 +411,7 @@
         <textarea id="prompt" rows="3" placeholder="Name a product, list competitors, paste a URL, or just describe what you're building…"></textarea>
         <div class="composer-foot">
           <span class="composer-hint" id="hint"></span>
-          <button class="btn" id="go">Analyse</button>
+          <button class="btn" id="go">Analyze</button>
         </div>
       </div>
       <div class="chips">
@@ -689,7 +689,7 @@
       '<div class="tbl-wrap"><table><thead><tr><th>&nbsp;</th><th>Croptally</th><th>Barnwise</th><th>Freshroute</th><th>Note</th></tr></thead><tbody>' +
       '<tr><td>Restaurants order online</td><td class="cell-y">&#10003;</td><td class="cell-y">&#10003;</td><td class="cell-y">&#10003;</td><td></td></tr>' +
       '<tr><td>Repeating weekly orders</td><td class="cell-y">&#10003;</td><td class="cell-p">&#9680;</td><td class="cell-y">&#10003;</td><td>Barnwise: set up by hand each week</td></tr>' +
-      '<tr><td>Plans your delivery route</td><td class="cell-u" title="We looked and found nothing said either way. Looked at: features page, help centre, price page.">?</td><td class="cell-n">&#10007;</td><td class="cell-y">&#10003;</td><td>Barnwise says it does not do this</td></tr>' +
+      '<tr><td>Plans your delivery route</td><td class="cell-u" title="We looked and found nothing said either way. Looked at: features page, help center, price page.">?</td><td class="cell-n">&#10007;</td><td class="cell-y">&#10003;</td><td>Barnwise says it does not do this</td></tr>' +
       '<tr><td>Sends invoices</td><td class="cell-y">&#10003;</td><td class="cell-y">&#10003;</td><td class="cell-y">&#10003;</td><td></td></tr>' +
       '<tr><td>A different price list per restaurant</td><td class="cell-y">&#10003;</td><td class="cell-u" title="We looked and found nothing said either way.">?</td><td class="cell-c" title="Croptally comparison page claims this. Freshroute does not say it themselves.">&#9650;</td><td>Only a rival claims this one</td></tr>' +
       '</tbody></table></div>' +
@@ -757,7 +757,7 @@
       '<li>What is the smallest patch &mdash; one town, one market &mdash; where this already works?</li>' +
       '<li>What does it do for the very first person, before anyone else has joined?</li>' +
       '</ul>' +
-      '<span class="book">These come from Andrew Chen&rsquo;s <em>The Cold Start Problem</em>, which is about exactly this. We have not summarised it. If this is your situation, read it &mdash; his essays are free.</span>' +
+      '<span class="book">These come from Andrew Chen&rsquo;s <em>The Cold Start Problem</em>, which is about exactly this. We have not summarized it. If this is your situation, read it &mdash; his essays are free.</span>' +
       '</div>' +
       '<p style="font-size:var(--step--1);color:var(--muted);margin-top:.8rem">A starting point if this is new to you, a checklist if it is not. Not advice.</p></section>' },
     { t:112, html:
@@ -1087,7 +1087,7 @@
       { t:3.2, d:3.7, kind:"turn", a:"hold", c:"Landscape looks for companies already doing it." },
       { t:6.9, d:2.7, kind:"point", a:"hold", c:"There is one box and one question." },
       { t:9.6, d:2.9, kind:"action", a:"type", c:"You type the idea in ordinary words." },
-      { t:12.5, d:3.3, kind:"action", a:"go", c:"Then press Analyse. That is the only step." },
+      { t:12.5, d:3.3, kind:"action", a:"go", c:"Then press Analyze. That is the only step." },
       { t:15.8, d:3.8, kind:"result", a:"spot:#interpLine", c:"First it settles on what to search for." },
       { t:19.6, d:4.5, kind:"means", a:"hold", c:"Ordering software for small farms, taken from your wording." },
       { t:24.1, d:4.3, kind:"result", a:"spot:#interpLine .edit", c:"If that is not your market, change reopens it." },
@@ -1167,7 +1167,7 @@
       { t:21.9, d:4.6, kind:"result", a:"spot:#sec-traj .ask ul", c:"Three questions about starting a two-sided service." },
       { t:26.5, d:5.0, kind:"means", a:"hold", c:"Which side first, the smallest workable patch, and the first user." },
       { t:31.5, d:4.4, kind:"point", a:"spot:#sec-traj .why", c:"Above them, what prompted the questions, linked." },
-      { t:35.9, d:4.2, kind:"point", a:"spot:#sec-traj .book", c:"Below, the book they came from, unsummarised." },
+      { t:35.9, d:4.2, kind:"point", a:"spot:#sec-traj .book", c:"Below, the book they came from, unsummarized." },
       { t:40.1, d:2.3, kind:"next", a:"hold", c:"Checking the report is next." },
     ] },
     { id:"checking", n:8, title:"Where did each fact come from?", blurb:"Citations that open onto the sentence, the source list, and the page that could not be read.", seconds:28.2, beats:[

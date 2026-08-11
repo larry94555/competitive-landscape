@@ -17,7 +17,7 @@
 //! That distinction is the whole honesty of the feature, so [`Example::prompt`] puts the
 //! companies **into the text the reader sees and can edit**. Nothing is expanded behind their
 //! back: clicking a chip types a sentence they could have typed themselves, and deleting a
-//! company from it analyses one company.
+//! company from it analyzes one company.
 //!
 //! # Why this is data in `landscape-core` rather than a list in the web app
 //!
@@ -31,7 +31,7 @@
 //! Two companies each, not three. Each company is its own discovery, fetches and model calls —
 //! about two minutes a company on the laptop this was measured on, so an example is about four.
 //! Three companies would be six, which is past what `PRODUCT_SPEC.md` §2.1A asks for and well
-//! past what somebody clicking a link will sit through. Three is what the analyser *allows*;
+//! past what somebody clicking a link will sit through. Three is what the analyzer *allows*;
 //! two is what a demo can spend.
 
 use serde::{Deserialize, Serialize};
@@ -183,7 +183,7 @@ mod tests {
 
     #[test]
     fn no_company_appears_in_two_examples() {
-        // Not a correctness rule - a demo rule. Clicking the second chip and recognising the
+        // Not a correctness rule - a demo rule. Clicking the second chip and recognizing the
         // first one's companies makes three examples look like one.
         let all: Vec<String> = examples().into_iter().flat_map(|e| e.companies).collect();
         let mut sorted = all.clone();

@@ -18,7 +18,7 @@
 //! order cannot be got wrong by accident: [`queries::for_questions`] takes the questions
 //! discovery **failed** to answer and emits nothing for the ones it answered. A company
 //! whose probes found everything costs zero searches, and that is the common case rather
-//! than an optimisation — probes reached 200 on six of six demo companies' pricing pages.
+//! than an optimization — probes reached 200 on six of six demo companies' pricing pages.
 //!
 //! # Nothing here is trusted, and the type system is where that is said
 //!
@@ -53,7 +53,7 @@
 //!
 //! It does not fetch, and it is not wired into the orchestrator. `landscape search <name>`
 //! runs it by hand, which is what makes this slice demonstrable; turning a set of admitted
-//! URLs into candidates the analyser reads is the next piece of work, and joining it to
+//! URLs into candidates the analyzer reads is the next piece of work, and joining it to
 //! entity resolution the one after that.
 //!
 //! [`Disposition`]: landscape_core::Disposition

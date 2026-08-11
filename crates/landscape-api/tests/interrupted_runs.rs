@@ -1,6 +1,6 @@
 //! What a reader watching sees when the run behind them does not go to plan.
 //!
-//! Every stream test until now checked a *helper* — does this section serialise, is a
+//! Every stream test until now checked a *helper* — does this section serialize, is a
 //! correction a different payload. The loop itself, which is where all four of `BENCHMARKS.md`
 //! Run 16's defects lived, was never driven by anything.
 //!
@@ -213,7 +213,7 @@ async fn a_reader_is_told_which_companies_are_being_compared_before_the_run_ends
         events[at]
     );
     // Before the claim it decides the rendering of. A label that arrives after the price it
-    // belongs to is a price a reader has already read unlabelled.
+    // belongs to is a price a reader has already read unlabeled.
     let claim_at = events
         .iter()
         .position(|e| e.contains("Pro costs $15"))
@@ -453,7 +453,7 @@ async fn a_stream_that_opens_after_the_reclaim_says_which_run_it_is_watching() {
     driving.await.expect("the driver finished");
 
     // The connection that saw `$15` is gone, so this one cannot know what the reader holds —
-    // which is exactly why the number goes on the wire instead of a server-side judgement
+    // which is exactly why the number goes on the wire instead of a server-side judgment
     // about it. The row's generation is announced, the reader compares, and the sections from
     // the run before the reclaim are the ones that do not match.
     let seen = generations(&events);

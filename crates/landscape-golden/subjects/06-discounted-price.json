@@ -1,7 +1,7 @@
 {
   "id": "discounted-price",
   "why": "An old price and a current price sit side by side, and the old one is written first. What a competitor charges today is the current price; the struck-through figure is marketing. Getting this backwards inflates a competitor's price in our report, which is the direction of error most likely to flatter whoever is reading.",
-  "source": "Harvest Plan\n\nWas $89 per month. Now $59 per month.\n\nWe lowered the price in March after moving off a per-seat licence for our mapping provider, and we passed the saving on rather than keeping it. The plan has not changed: multi-site inventory, same-day route changes, and a dedicated account manager are all still included.\n\nExisting customers were moved to the new price automatically and did not need to ask.",
+  "source": "Harvest Plan\n\nWas $89 per month. Now $59 per month.\n\nWe lowered the price in March after moving off a per-seat license for our mapping provider, and we passed the saving on rather than keeping it. The plan has not changed: multi-site inventory, same-day route changes, and a dedicated account manager are all still included.\n\nExisting customers were moved to the new price automatically and did not need to ask.",
   "ask": "Harvest Plan",
   "expect": {
     "plan_name": "Harvest Plan",

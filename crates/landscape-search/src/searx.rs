@@ -9,7 +9,7 @@
 //!
 //! # Why this does not go through [`landscape_fetch`]
 //!
-//! That crate is for **reading strangers' websites**: it honours `robots.txt`, waits a
+//! That crate is for **reading strangers' websites**: it honors `robots.txt`, waits a
 //! second per host, and refuses private address ranges. Every one of those is wrong here.
 //! SearXNG ships a `robots.txt` that disallows everything — correctly, it does not want to
 //! be crawled — so the polite fetcher would refuse our own service. It runs on
@@ -61,7 +61,7 @@ pub struct Searx {
 impl Searx {
     /// Point at an instance.
     ///
-    /// The trailing slash is normalised here rather than being a rule people have to
+    /// The trailing slash is normalized here rather than being a rule people have to
     /// remember when they set the variable.
     ///
     /// # Errors

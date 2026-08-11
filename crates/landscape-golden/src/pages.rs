@@ -38,7 +38,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// A pricing page run through the capability extractor produces windows for its FAQ headings.
 /// Nothing runs that combination — discovery labels each page and `landscape-analyze` reads the
-/// label — so asserting it would freeze behaviour nobody depends on and break tests for
+/// label — so asserting it would freeze behavior nobody depends on and break tests for
 /// improvements nobody asked for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -533,7 +533,7 @@ mod tests {
 
     #[test]
     fn every_page_asserts_the_extractor_for_the_question_it_answers() {
-        // A page labelled `pricing` with no `plan_windows` is an expectation that checks
+        // A page labeled `pricing` with no `plan_windows` is an expectation that checks
         // nothing at all, which is worse than not having the page: it looks like coverage.
         for e in load().expect("the page set loads") {
             let asserted = match e.answers {

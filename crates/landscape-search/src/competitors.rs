@@ -10,7 +10,7 @@
 //! Three companies that all three differently-worded searches returned score identically —
 //! `0.8 × 3/3 + 0.2 = 1.0` each. [`landscape_core::subject::resolve`] compares them against
 //! [`landscape_core::subject::AMBIGUITY_MARGIN`], finds them tied, and asks the reader to pick
-//! one. **That is the correct behaviour for the question it was asked.** Three products sharing
+//! one. **That is the correct behavior for the question it was asked.** Three products sharing
 //! a name is exactly the situation `PRODUCT_SPEC.md` §3 wants a chip for, and one chip click
 //! really does prevent an entire wrong report.
 //!
@@ -53,7 +53,7 @@ use crate::candidates::{Described, NoVocabulary, Queried, Seed, Vocabulary, CORR
 /// the ambiguity the gate exists for. Two or more is somebody describing what they want, and
 /// several companies matching *that* is the answer rather than the problem.
 ///
-/// The number is a starting value and labelled as one, exactly as
+/// The number is a starting value and labeled as one, exactly as
 /// [`landscape_core::subject::AMBIGUITY_MARGIN`] is. It is the input most likely to be wrong
 /// here, and the thing that replaces it is a chip, not a bigger number.
 pub const DESCRIBES_A_MARKET: usize = 2;
@@ -838,7 +838,7 @@ mod tests {
     }
 
     #[test]
-    fn a_company_is_recognised_however_its_domain_is_written() {
+    fn a_company_is_recognized_however_its_domain_is_written() {
         assert!(same_company("basecamp.com", "basecamp.com"));
         assert!(same_company("www.basecamp.com", "basecamp.com"));
         assert!(same_company("BASECAMP.COM", "https://basecamp.com/"));

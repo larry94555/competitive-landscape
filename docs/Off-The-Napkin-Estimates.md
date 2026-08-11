@@ -45,8 +45,8 @@ This adds a fourth, with its own treatment:
 | Class | Definition | Treatment |
 |---|---|---|
 | **Observed** | Stated on a public page | Normal, cited |
-| **Derived** | Arithmetic over observed facts, no judgement | Normal, operation stated |
-| **Interpreted** | Judgement not present in any source | Visually distinct, labelled |
+| **Derived** | Arithmetic over observed facts, no judgment | Normal, operation stated |
+| **Interpreted** | Judgment not present in any source | Visually distinct, labeled |
 | **Estimated** ← new | Arithmetic over *assumed* inputs as well as observed ones | **Visually distinct, always a range, assumptions on the face of it, full working one click away** |
 
 An estimate is never rendered in the same style as a fact. It carries a range, a confidence,
@@ -105,7 +105,7 @@ thing to obtain from public data:
 Five samples is not a small sample. It is a usable one, and knowing that is worth more than
 most statistics.
 
-### 3.4 Estimation by analogy (nearest neighbour)
+### 3.4 Estimation by analogy (nearest neighbor)
 
 Find a comparable business where the quantity **is** public, compute a ratio, and apply it.
 
@@ -243,8 +243,8 @@ curve, and interpolate. Report the result as a band, never a number.
 the target.
 
 **Note the change of position.** Earlier drafts excluded visitor estimates outright, on the
-grounds that they are modelled while ranks are measured. That reasoning was right about
-*unlabelled* estimates and wrong as a blanket rule. With the method shown and the range wide,
+grounds that they are modeled while ranks are measured. That reasoning was right about
+*unlabeled* estimates and wrong as a blanket rule. With the method shown and the range wide,
 the reader can judge it — which is the standard everything else in this product is held to.
 
 ### 4.5 Number of customers — *often possible, with wide bounds*
@@ -379,7 +379,7 @@ Applied to every estimate before it is shown. These belong in the golden set
 | Gate | Requirement |
 |---|---|
 | **Never a point** | Every estimate is a range. No exceptions. |
-| **Every input accounted** | Observed and cited, from a public statistic and cited, or an assumption and labelled. No silent inputs. |
+| **Every input accounted** | Observed and cited, from a public statistic and cited, or an assumption and labeled. No silent inputs. |
 | **Assumptions visible** | On the report itself, not only in the working |
 | **Two paths where possible** | And divergence reported rather than averaged away |
 | **Sanity checks run** | And failures reported alongside the number |

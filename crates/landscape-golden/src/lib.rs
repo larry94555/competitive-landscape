@@ -29,7 +29,7 @@
 //!
 //! Quote fidelity is worth its own column because it needs no reference answer: a quote
 //! that is not in the source is fabricated evidence, and that is decidable by `contains`.
-//! It generalises to pages nobody has hand-labelled, which is what makes it the check we
+//! It generalises to pages nobody has hand-labeled, which is what makes it the check we
 //! can afford to run on everything later.
 //!
 //! # Running it
@@ -355,11 +355,11 @@ fn same_price(a: f64, b: f64) -> bool {
 /// as three different answers would measure string formatting instead of reading. The
 /// price field carries the precision; this one carries the identification.
 fn same_name(a: &str, b: &str) -> bool {
-    let (a, b) = (normalise(a), normalise(b));
+    let (a, b) = (normalize(a), normalize(b));
     !a.is_empty() && !b.is_empty() && (a.contains(&b) || b.contains(&a))
 }
 
-fn normalise(s: &str) -> String {
+fn normalize(s: &str) -> String {
     s.to_lowercase()
         .split_whitespace()
         .collect::<Vec<_>>()

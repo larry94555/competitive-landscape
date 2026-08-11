@@ -9,7 +9,7 @@
 > a downloaded model and a set of assumptions behind in the thing customers depend on. What a
 > laptop cannot answer — how long somebody waits — is answered from the client's side of a
 > deployment, not from inside the box. These are
-> laptop numbers and are labelled as such.
+> laptop numbers and are labeled as such.
 
 Two harnesses, measuring different things. Timings come from the first; whether the answers
 are *true* comes from the second, and nothing in the first can tell you.
@@ -30,6 +30,108 @@ lives, which decides whether a headless browser is ever built:
 ```bash
 cargo run -p landscape -- gap docs/js-gap-sample.txt
 ```
+
+---
+
+<!-- american-spelling: off -->
+
+## Run 45 — one dialect, and a sixteenth gate
+
+**Date:** 2026-08-11 · **Where:** this laptop · **Model:** none. Nothing here runs.
+
+**The button said `Analyse`.** A reader deploying the product pressed it and asked why it was
+misspelled. It was not misspelled; it was British, and so were 837 other words scattered through
+128 files — `analyse` beside `analysis`, `catalogue` beside `catalog`, `labelled` beside
+`labeled`, `normalise` beside `normalize`, `quantisation` beside the American form of the same
+word two paragraphs later.
+
+Nobody had ever chosen a dialect, so the repository had grown both. That is the shape worth
+recording: no commit is at fault, no review would have flagged any single instance, and the
+result is not one mistake but a slow spread that only shows up when somebody reads the whole
+thing — or presses the button.
+
+**It is not a cosmetic problem.** `grep normalize` found half the callers. A reader cannot tell a
+house style from a typo. And the first place it surfaced was the one word a visitor reads before
+they click.
+
+### The sweep, and what was left alone
+
+Everything is American now, including identifiers: `rank::normalise` is `rank::normalize`,
+`const analysed` is `const analyzed`, `docs/decisions/0007-model-licences.md` is
+`0007-model-licenses.md`.
+
+Four things were deliberately not touched:
+
+| | |
+|---|---|
+| `analysis`, `analyses`, `analyst`, `cancellation`, `optimistic`, `emphasis` | Same word in both dialects. Changing them would be the error, not the fix |
+| `aria-labelledby` | An HTML attribute. Renaming it breaks a screen reader |
+| `crates/landscape-golden/pages/` | Other people's frozen HTML. A word changed in one makes the golden set a record of what we wish a page had said |
+| The `analyses` table and `/api/analyses/` | The American plural, and a migration nobody needs to write |
+
+### The gate, because a sweep is a snapshot
+
+`scripts/american_spelling.py` is the sixteenth. 240 words, checked over every tracked file on
+every run, because the next `analyse` will be typed by somebody who has no idea a decision was
+ever made. **A convention with no check is a preference.**
+
+**`analyses` is the one thing it cannot decide, and it says so.** The word is the American plural
+of *analysis* (`two analyses a day`) and the British third-person verb (`it analyses`), and no
+word list separates them. Three verb uses were fixed by hand against roughly two hundred
+plurals; a fourth typed later is what this will not catch, and the docstring says that rather
+than leaving it to be discovered.
+
+**Passages that have to write the British forms bracket themselves** — register entry 63, this
+run, and the comment above the gate in `verify.py` — with a pair of marker comments that are
+invisible in every rendered format. **An unclosed marker fails the gate**, because that is the
+only way a marker turns into a silent hole, and everything skipped is printed on a passing run,
+because a check that does not mention its blind spots reads, on every green run, like a check
+that has none.
+
+### The gate did not know what it was for. Three times
+
+All three are the same failure at different scales, and all three are in the register as 63.
+
+**A flag doing the opposite of what it reads.** Matching is `(?<![A-Za-z])word(?![a-z])` rather
+than `\bword\b`, so it reaches `normalise_text` and `normaliseText` while sparing
+`aria-labelledby`: the `b` after `labelled` is a lowercase letter, and refusing that is the
+trailing guard's whole job. Except the pattern carries `re.IGNORECASE`, under which `[a-z]`
+matches `N` as well as `n` — so the guard refused **every** following letter and no camelCase
+identifier was reachable at all. The fixture written for exactly that case failed on the first
+run.
+
+**A noise filter tuned on prose, applied to code.** The prototype pages embed video and captions
+as base64, and a long enough blob contains every short word there is: `greYTK`, `kErb`,
+`oMOuldq` are all real matches from one. The first filter skipped any whitespace-delimited run
+over 60 characters, which is true of blobs and **also true of a line of Rust**:
+
+```text
+            normalise("HTTPS://WWW.Example.com/Pricing").ends_with("/Pricing"),
+```
+
+Sixty-nine characters, no space, a real call site — skipped by the gate, and found by `cargo
+test` instead, along with three more like it. What separates data from code is punctuation, not
+length: a base64 run has none. The filter measures an unbroken run of the base64 alphabet now,
+and that line is a fixture.
+
+**And the third the gate found itself**, one commit later. `CODING_QUALITY.md` §8.2a describes
+how to bracket a passage, and describing it means naming **both** markers in one sentence —
+which the first version read as a mute that is never closed, and reported, on the first run after
+the sentence existed. A line that mentions both is writing about them and changes nothing. That
+is the check working, which is why it is a paragraph here rather than a fourth entry.
+
+### What this run does not measure
+
+Nothing was benchmarked. No test was added on the Rust or frontend side, no catalog was run, and
+the counts below are Run 44's, restated because the row is what the `benchmark counts` gate
+compares against.
+
+| | Rust tests | frontend tests | catalog |
+|---|---|---|---|
+| Run 44 | 992 | 79 | 22, all caught |
+| now | **992** | **79** | **22**, all caught |
+
+<!-- american-spelling: on -->
 
 ---
 
@@ -109,7 +211,7 @@ a broken table; and it silently ignored the GFM form written without outer pipes
 blind spot rather than a decision. That round added **eleven fixtures**, one per shape, and the
 version before it failed three of them.
 
-And two more in the second, both about the shape that decides whether GFM recognises a table
+And two more in the second, both about the shape that decides whether GFM recognizes a table
 at all:
 
 **The delimiter row has to have the same number of cells as the header.** `| a | b |` over
@@ -126,7 +228,7 @@ the same character, at least as long, and carries nothing after it.
 Sixteen fixtures now. **The gate has been wrong about five shapes and right about one real
 defect in each round**, which is the argument for fixtures over confidence.
 
-It also has one exclusion, which is a judgement rather than an oversight:
+It also has one exclusion, which is a judgment rather than an oversight:
 `crates/landscape-golden/pages` holds pages captured from the live web so extraction can be
 scored against them, and one of them contains a table written without outer pipes. **That is how
 that site wrote it.** Editing it to please a linter would be editing the evidence.
@@ -168,7 +270,7 @@ ruleset`, because Ubuntu's iptables is a shim over nftables and a native rule in
 does not appear, and `ufw status`.
 
 **The consequence is the part worth carrying forward.** On an image with no host firewall,
-`BIND_ADDR` on loopback and SearXNG's loopback binding are not defence in depth — they are the
+`BIND_ADDR` on loopback and SearXNG's loopback binding are not defense in depth — they are the
 depth. Anything bound to `0.0.0.0` is on the internet as soon as a security-list rule allows its
 port. Review had already moved SearXNG's binding to `127.0.0.1` on the argument that a closed
 firewall is not the same as a service that is not listening; a box with no firewall at all is
@@ -183,7 +285,7 @@ shows an `input` chain containing a `drop`. What anybody with Docker installed a
 a page of rules in `ip nat` and `ip raw`, several of them saying `drop`, and none of them theirs
 to change: they stop traffic reaching a container by routing past the bridge, and they make a
 port published to `127.0.0.1` genuinely loopback-only. That is the same property the guide asks
-to be checked for SearXNG two steps later — the guide relied on it and then failed to recognise
+to be checked for SearXNG two steps later — the guide relied on it and then failed to recognize
 it when it appeared. Named now, with both shapes quoted, and a note that their presence means
 containers are running, which matters for the next question.
 
@@ -500,7 +602,7 @@ quoted string.
 ### What it will not do
 
 **Say anything the report does not.** Every line is a field, a label, or one of eight fixed
-headings. No summarising, no re-ordering by importance, no judgement about a publisher — the
+headings. No summarizing, no re-ordering by importance, no judgment about a publisher — the
 constraints `FACT_CHECKING.md` §3.2.5 puts on a report are not relaxed by changing the file
 extension.
 
@@ -600,7 +702,7 @@ would have found, and it was right a third time. An endpoint that needs an id fr
 call cannot be a standalone fenced command, so the README names it in prose and says why, and the
 runnable two-step is in the walkthrough where a shell variable carries the value.
 
-| | Rust tests | frontend tests | catalogue |
+| | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 42 | 968 | 74 | 17, all caught |
 | now | **992** | **79** | **22**, all caught |
@@ -753,7 +855,7 @@ constant where a failure is recorded broke **nothing**: every test of the wordin
 `Queried` by hand, so the one line that reads the reason off the error was never exercised. A
 pair kept together is only kept together if something reads both halves.
 
-| | Rust tests | frontend tests | catalogue |
+| | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 41 | 951 | 73 | 11, all caught |
 | now | **968** | **74** | **17**, all caught |
@@ -888,7 +990,7 @@ up. And it **breaks itself seven ways on every run** — the sound page with one
 each time, each complaint checked for — because a gate that has quietly stopped detecting
 anything still exits 0. Removing either duplicate guard makes the script fail on its own.
 
-| | Rust tests | frontend tests | catalogue |
+| | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 40 | 951 | 62 | 33, all caught |
 | now | **951** | **73** | **13**, all caught |
@@ -993,7 +1095,7 @@ is on a host boundary.
 Fetching a board and reading nothing off it would be a request to a stranger's server for no
 information, so the two rules it needed are here rather than in a later row.
 
-**An announcement it did not recognise.** `announces` is an exact match against ten phrases, and
+**An announcement it did not recognize.** `announces` is an exact match against ten phrases, and
 Greenhouse titles the page *"Current openings at Vercel"*. It now also accepts `<phrase> at …` —
 the one possessive form a hosted board uses, and deliberately not `starts_with(phrase)`, which
 would let *"open roles are what we are proudest of"* announce a list that is not there.
@@ -1481,7 +1583,7 @@ take `&Fetcher` rather than making one.
 
 The bandwidth saved is ours; **the requests not sent are somebody else's**. That puts this
 beside `robots.txt` and the per-host delay as part of one commitment about how often a
-stranger's machine is asked for the same bytes, rather than as an optimisation standing next to
+stranger's machine is asked for the same bytes, rather than as an optimization standing next to
 them.
 
 ### A hit performs no network I/O, which is what makes it safe to serve
@@ -1507,7 +1609,7 @@ origin ever being asked whether it had recovered.**
 
 The value that decides this was already in the room twice. `Page::status` was on the struct being
 stored, unread. And one module away, `robots::Rules::from_status` already encodes this exact
-judgement in this repository's own words: a `429` or a `5xx` means *"the site is unwell — assume
+judgment in this repository's own words: a `429` or a `5xx` means *"the site is unwell — assume
 disallowed. The polite reading of 'I am struggling' is not 'carry on'."* The cache took that same
 afternoon and wrote it down.
 
@@ -1594,7 +1696,7 @@ anything, which is the one state in which the bug is absent.
 
 The robots cache is now bounded the same way the page cache is — expiry, **plus** a live-entry
 cap of 1,024, **plus** a 4 MiB budget over the retained directives, oldest evicted first. The two
-new regressions insert past each cap **without ageing anything**.
+new regressions insert past each cap **without aging anything**.
 
 Forgetting a *live* rule set is safe, and that is what makes eviction available here at all: the
 next request for that host re-fetches `robots.txt`. The cost is one extra request. What is never
@@ -1648,7 +1750,7 @@ count as well. **Both**, because each alone has a hole shaped exactly like the o
 
 The test that went with the fix asserted `bytes() > 0`, which the mutation harness then walked
 through: a bodyless entry still holds its key, so that assertion passes while counting nothing
-but strings — the hole again, spelt differently. It asserts `>= OVERHEAD` now.
+but strings — the hole again, spelled differently. It asserts `>= OVERHEAD` now.
 
 ### Review: the header a publisher states the commitment in
 
@@ -1687,7 +1789,7 @@ run, a leak when it lasts the process. A worker crossing a thousand companies ke
 rule sets and a thousand elapsed instants, none of which meant anything.
 
 Both prune on insert, which is the rare path — a host not seen before — rather than on every
-request. Neither can change behaviour: an expired rule set was already ignored, and an elapsed
+request. Neither can change behavior: an expired rule set was already ignored, and an elapsed
 wait already returns zero.
 
 ### Bounded in the unit it claims to be bounded in
@@ -1728,7 +1830,7 @@ What is asserted instead:
 - that `Cache::insert_allowed` refuses a `no-store` and keeps a `max-age=30` for thirty seconds
   rather than for our hour — **the reason that function exists** rather than a branch in
   `Fetcher::get`, which is on the far side of the same guard;
-- that a `max-age` arriving with an `Age` or an old `Date` is honoured to the origin's deadline
+- that a `max-age` arriving with an `Age` or an old `Date` is honored to the origin's deadline
   rather than restarted, that a response already past it is not kept, and that `Expires` is
   **not** age-adjusted twice;
 - that the robots cache evicts live entries past its host cap and past its byte budget, with
@@ -1743,8 +1845,8 @@ What is asserted instead:
 **One mutation was dropped rather than kept as a pin nobody can satisfy.** *"Remember the page
 under where the redirect landed rather than under what was asked for"* is a real defect and the
 insert path is only reachable through a completed fetch, which loopback forbids — so it came
-back `MISSED` for the same reason there is no socket test. A catalogue entry that cannot fail is
-worse than none: it reads as coverage. The behaviour is stated in the module doc instead.
+back `MISSED` for the same reason there is no socket test. A catalog entry that cannot fail is
+worse than none: it reads as coverage. The behavior is stated in the module doc instead.
 
 `landscape read <origin>` prints what is held, so a person running it against a real site can see
 the number this cannot.
@@ -1878,7 +1980,7 @@ may be.
 
 ### Review: one search written three ways, treated as three
 
-`for_market` decided *"did the words change"* by comparing two raw strings. `for_idea` normalises
+`for_market` decided *"did the words change"* by comparing two raw strings. `for_idea` normalizes
 through `safe_words` before interpolating, and search engines ignore case — so these are **one
 search**:
 
@@ -2033,7 +2135,7 @@ every category that contains one. Two hosts using either title would have promot
 does not exist to a market label.
 
 **A whole word made of digits is a separator; a digit inside a word is part of it.** `10` is the
-first; `b2b` and `3d` are the second. Both behaviours now have their own test, because fixing
+first; `b2b` and `3d` are the second. Both behaviors now have their own test, because fixing
 one at the cost of the other is the obvious way to get this wrong.
 
 ### The most specific term that still recurs widely
@@ -2453,14 +2555,14 @@ were about, so it was closed in the same change rather than found later.
 
 ### A guard that compares text, and a formatter that rewrites it
 
-Running `cargo fmt --all` while a catalogue held a file open stopped that catalogue and kept its
+Running `cargo fmt --all` while a catalog held a file open stopped that catalog and kept its
 backup, exactly as Run 31's review intended. What it left behind was the mutated file **after
 `rustfmt` reflowed it** — and `scripts/no_live_mutations.py` reported a clean tree, because the
 swap was no longer the recorded string character for character.
 
 The obvious fix is wrong in an instructive way: collapsing runs of whitespace before comparing
 would **not** have caught this one, because `rustfmt` drops the trailing comma when it joins
-lines as well as removing the newlines. A normalisation is a claim about what the other tool
+lines as well as removing the newlines. A normalization is a claim about what the other tool
 does, and that one was a guess — its own self-check is what said so.
 
 What closes it needs no guess. A `*.mutate-backup` on disk means exactly two things, both of them
@@ -2567,7 +2669,7 @@ complies with P22 without an argument attached.
 
 **The third row is a decision, not an omission.** `basecamp.com vs linear.app` is somebody
 saying which comparison they want; adding a third company we happened to find would be overruling
-them. That rule is `subject::subjects_in` — a function with a name, because it is a judgement
+them. That rule is `subject::subjects_in` — a function with a name, because it is a judgment
 about what somebody meant and worth being able to assert. Four tests, three mutations.
 
 ### The seed is dropped from its own results
@@ -2640,10 +2742,10 @@ every test is a canned provider over the real code path.
 
 ### And the harness put a file back over two of those tests
 
-Writing them took one command; only one of the two survived. A **different** catalogue was still
+Writing them took one command; only one of the two survived. A **different** catalog was still
 running, `mutate.py` had copied `candidates.rs` before mutating it, and the `finally` that puts
 the copy back predated the edit. The sibling test in `competitors.rs` lived, because that file
-was not in the catalogue that was running — so one of two tests written together disappeared,
+was not in the catalog that was running — so one of two tests written together disappeared,
 which looks like nothing at all. `cargo nextest` passed: a test that does not exist does not fail.
 
 **The only thing that noticed was the mutation the test had been written for.** The harness,
@@ -2693,7 +2795,7 @@ list is short.
 ### Review: a warning is not an abort
 
 The concurrent-edit guard above printed `CHANGED` and carried on. Execution reached the normal
-result handling, `main` kept going, and a catalogue could finish `all 17 caught` and **exit 0**
+result handling, `main` kept going, and a catalog could finish `all 17 caught` and **exit 0**
 having announced that every result after that point was uncontrolled — and a later mutation of
 the same file would have copied over the preserved backup.
 
@@ -3017,7 +3119,7 @@ what went wrong the first time.
 
 ### And a harness result that was about code nobody wrote
 
-Confirming the fix nearly produced a worse mistake than the fix. The catalogue takes longer than
+Confirming the fix nearly produced a worse mistake than the fix. The catalog takes longer than
 ten minutes; a foreground run with a ten-minute timeout was killed mid-mutation, and
 `mutate.py`'s restore is a `finally` that a `SIGTERM` does not always reach. The mutated line was
 left in the tree.
@@ -3036,16 +3138,16 @@ recording, one level up.
 
 ### Five regression pins that had come loose
 
-Review then found the other way a catalogue stops meaning anything: `cargo fmt` had collapsed a
-`subject::resolve(...)` call onto one line, so the mutation pinning the ambiguity behaviour could
+Review then found the other way a catalog stops meaning anything: `cargo fmt` had collapsed a
+`subject::resolve(...)` call onto one line, so the mutation pinning the ambiguity behavior could
 no longer be applied. The harness prints `NOT APPLIED` and carries on; the run ends *26 of 27*,
 which reads like a coverage gap rather than a pin that came loose.
 
-**Running every catalogue after every change is not the fix** — it takes tens of minutes, which
+**Running every catalog after every change is not the fix** — it takes tens of minutes, which
 is why `verify.py` never ran them at all. Checking that each `old` still appears in its file
 exactly once takes a moment. That is `scripts/mutation_anchors.py`, now the **second** gate, and
 what it found on its first clean run is the point — not one loose pin, **five**, across four
-catalogues:
+catalogs:
 
 | Pin | Loosened by |
 |---|---|
@@ -3055,7 +3157,7 @@ catalogues:
 | a company dropped in silence | `let notes` becoming `let mut notes` |
 | a trust page reaching its extractor | the dispatch moving to another file entirely |
 
-Each of those catalogues reported *"all caught"* on the day it was written and had been proving
+Each of those catalogs reported *"all caught"* on the day it was written and had been proving
 less ever since. **A suite of regression pins decays exactly like a suite of tests, except that
 nothing fails when it does.**
 
@@ -3130,7 +3232,7 @@ truth this codebase keeps deleting. It is read once and passed to both.
 
 ### And clippy found the shape before a reader did
 
-`analyse_many` reached **eight positional arguments**, four of them `Option`s or timestamps.
+`analyze_many` reached **eight positional arguments**, four of them `Option`s or timestamps.
 The lint was right, and the codebase already had the answer: `Reading` exists because *"threading
 seven arguments through each of those is how a caller ends up passing the right value in the
 wrong position"*. The new `Asked` is that, for the same reason, rather than an `#[allow]`.
@@ -3300,11 +3402,11 @@ That is why this is a dependency. **A thirty-entry sample cannot be completed by
 because the failure is not knowing what is missing** — which is exactly what a maintained list is
 for. `psl` embeds the Public Suffix List **including its private section**, which is what knows
 that `github.io` is a suffix and `github.com` is a company. It is offline, needs no data file at
-runtime, and clears `cargo deny` on advisories, licences and sources.
+runtime, and clears `cargo deny` on advisories, licenses and sources.
 
 **And the list will pretend an address is a domain.** `psl::domain_str("127.0.0.1")` is
 `Some("0.1")` — and so is `psl::domain_str("10.0.0.1")`, so two unrelated addresses forged the
-same agreement the private suffixes did. Addresses are recognised before the list is consulted
+same agreement the private suffixes did. Addresses are recognized before the list is consulted
 now, and never reach a reader's list at all: nobody publishes a company at `93.184.216.34`, and
 offering one as a choice between five names is offering nonsense. Keeping them out at that step
 rather than at the grouping step also means the home-page URL never has to decide whether an IPv6
@@ -3332,7 +3434,7 @@ required: below two agreeing queries the score is **derived from the gate's own 
 than chosen to look low, so the two cannot drift apart in silence.
 
 **The test for that last one asserted `confidence < 0.5`** and passed the whole time, because
-0.47 is less than 0.5 and also more than 0.35. A number instead of the behaviour, which is the
+0.47 is less than 0.5 and also more than 0.35. A number instead of the behavior, which is the
 register's own rule about asserting on the surface — the regression runs
 `suggest → describe → resolve` and asserts the *verdict* now.
 
@@ -3423,7 +3525,7 @@ Three things had to be impossible, and each is one place rather than a rule to r
 * **A run nobody is waiting for spends nothing more.** `worth_searching` refuses both a run the
   reader abandoned and a run with no gaps, in one function, for two stated reasons.
 * **A page cannot be parted from its standing.** The URL and its disposition were two arguments
-  to the reading function until the mutation harness labelled every search result `Primary` and
+  to the reading function until the mutation harness labeled every search result `Primary` and
   the whole suite passed. They travel as one value now — entry 7 of the register, found by
   tooling rather than by review.
 
@@ -3460,7 +3562,7 @@ That surfaced one more, a branch over and older than this change: *"N page(s) fo
 named a count and no pages. Every other silence in that function says what was checked. It does
 too now.
 
-**And a note that says "this company" cannot survive a merge.** `analyse_many` joins each
+**And a note that says "this company" cannot survive a merge.** `analyze_many` joins each
 subject's notes and drops duplicates, so two companies with the same gaps collapsed into one
 ambiguous sentence and the other was silently discarded. Every search note names its company.
 
@@ -3577,7 +3679,7 @@ how the two implementations drift the first time either learns something.
 ### The guard that was deleted rather than tested
 
 The first draft refused an empty subject explicitly. Mutating that guard away changed no test and
-no behaviour: `host == ""` is false for every host `Target::parse` admits, and no host survives
+no behavior: `host == ""` is false for every host `Target::parse` admits, and no host survives
 `strip_www` ending in a dot. Per `docs/mutations/README.md`, **a guard nothing needs is deleted
 rather than given a test that keeps it for ever** — so it was, and the mutation was inverted. It
 now puts the *wrong* rule in (`subject.is_empty() ||` …, making every page on the web primary)
@@ -3617,7 +3719,7 @@ a bypass goes quiet.
 
 **A value separated from its evidence, in the function that was written to keep them together.**
 The same URL returned for two questions overwrote its `Found` while the ranked `Candidate` kept
-the first question, so a page came out labelled with a question it was not found for, quoting a
+the first question, so a page came out labeled with a question it was not found for, quoting a
 query that did not find it. The test named for this used two different URLs and could never
 collide. Entry 7 of the register.
 
@@ -3631,7 +3733,7 @@ bytes arrive, and the test drives a server that will not stop sending.
 competitive analysis has a use for"* was three configured and the rest still running. Now
 `use_default_settings.engines.keep_only`.
 
-**A normaliser that lowercased paths.** Pre-existing in discovery and harmless while it had one
+**A normalizer that lowercased paths.** Pre-existing in discovery and harmless while it had one
 caller; making it the shared answer for two channels made it a page silently dropped as
 *"discovery already has it"* when `/Docs` and `/docs` are different resources. Only the scheme
 and host are case-insensitive.
@@ -3744,13 +3846,13 @@ Hiring Process"*, which explains what a hiring manager does.
 
 **Front's list is the last heading on its page**, so there the scan reaches the footer and only
 the shape rules stand between a navigation label and a job. The first run over it reported
-*"Become a Partner"* — a reseller programme — as an open role. `partner`, `associate` and `lead`
+*"Become a Partner"* — a reseller program — as an open role. `partner`, `associate` and `lead`
 left the word list; no title on any of the three pages needs them, because a real title carrying
 one carries another word too: *Lead/Principal Product Manager*.
 
 ### And a page that never says where its list is, is not read at all
 
-Review found what the unscoped path published. When no recognised heading is present the scan
+Review found what the unscoped path published. When no recognized heading is present the scan
 used to fall back to the whole page and let the shape rules decide — and every shape rule says
 yes to `Kelsey Weber , Engineering Manager`: five words, no full stop, a job word on a word
 boundary. Off front.com's *Open positions* heading that line is scoped away. Off a page with no
@@ -3761,9 +3863,9 @@ Manager`**, at high confidence, about a person who already works there.
 same mistake as Run 24's: a line nobody reads standing in where a check belongs.
 
 So the fallback is a refusal. The shape rules clean up *inside* a list somebody has pointed at;
-they were never strong enough to find one, and using them as the only defence was reading a
+they were never strong enough to find one, and using them as the only defense was reading a
 diagnostic as a safeguard. **The cost is stated rather than hidden**: a careers page whose
-heading this list does not recognise now yields nothing, and real vacancies on it are lost. A
+heading this list does not recognize now yields nothing, and real vacancies on it are lost. A
 missed vacancy is a thin section; an invented one is a false sentence about a named person.
 
 The two silences no longer read alike, which is what `Coverage` exists for:
@@ -3816,7 +3918,7 @@ invent a compliance standard.** It names one of a few dozen that already exist, 
 the way the auditors do.
 
 So the scanner finds the mention deterministically, from a named list, and the model is asked
-one small question about each: *do they say they have it, or that they are working towards it?*
+one small question about each: *do they say they have it, or that they are working toward it?*
 
 ```text
 SOC 2 Type II                          found by the scanner, no model
@@ -3912,7 +4014,7 @@ The model is no longer asked for the name. `AssuranceClaim` carries a status and
 **has no name field**; the scanner's standard is attached afterwards.
 
 **And that was not enough, which review found in the regression written to prove it was.** Taking
-the name away stopped the model *labelling* an answer; it did not stop it *answering about the
+the name away stopped the model *labeling* an answer; it did not stop it *answering about the
 wrong thing*. A window is three lines and two standards often sit within three lines of each
 other — or on one line — so the same window is handed over twice, once per standard. A model
 asked about ISO 27001 can reply `holds` while quoting the sentence about SOC 2, and every check
@@ -3920,7 +4022,7 @@ passed: the quote is verbatim in the section, and the name is the scanner's. The
 *"states ISO 27001"* on evidence about a different certification.
 
 So the evidence is checked against the standard it is supposed to be about: a quote naming a
-recognised standard that is **not** this one keeps the mention and drops the claim, and the run
+recognized standard that is **not** this one keeps the mention and drops the claim, and the run
 log says how many. A quote naming no standard at all — *"We are certified and audited
 annually."* — is the ordinary honest case and is kept.
 
@@ -3931,9 +4033,9 @@ is deleted"*. This counted such a quote and **published the status anyway**, on 
 the standard was real so the finding was worth keeping. What that ships is *"states ISO 27001"*
 against a page whose only sentence is *"Questions about ISO 27001? Contact us."* — an unsupported
 compliance claim, with a line in a run log nobody reads standing in for a check. Review found it,
-and my test had locked the behaviour in.
+and my test had locked the behavior in.
 
-An unsupported claim now takes the same path as one whose evidence is about a neighbour: the
+An unsupported claim now takes the same path as one whose evidence is about a neighbor: the
 mention survives, the claim does not. **A status with no quote at all takes it too** — "there is
 no quote to check" had been reading as "the quote is fine".
 
@@ -4055,7 +4157,7 @@ Per example — two companies each — that is 26, 30 and 32 calls, against 38, 
 
 ### The dependency this removes, which review found still in place
 
-`analyse_with` used to ask `llm.is_ready()` **before it built the plan and before it fetched
+`analyze_with` used to ask `llm.is_ready()` **before it built the plan and before it fetched
 anything.** That health request runs on the same client as everything else, and that client
 waits 180 seconds — the whole report budget — because prefill on four ARM cores is slow.
 
@@ -4100,7 +4202,7 @@ this change would have made it the ordinary case.
 | a page the run would skip for its quality is counted as a model call | **yes** |
 | a whole first page is counted as the wait before content, not one call | **yes** |
 
-**And `cost` was counting a page the run would not open.** `analyse_with` skips a page below the
+**And `cost` was counting a page the run would not open.** `analyze_with` skips a page below the
 quality floor before any extractor sees it; the counter handed the same markdown straight to the
 span finders, so a two-line page with a plan name and a price reported one call where the real
 run makes none. The quality gate is inside the shared counting function now — a prediction of the
@@ -4160,7 +4262,7 @@ this laptop, from Run 21, which no part of this run changes.
 | 3 | ~6 min |
 
 `MAX_SUBJECTS` allows three. Every example ships **two**, and the difference between those two
-numbers is the whole argument: three is what the analyser will do, two is what somebody who
+numbers is the whole argument: three is what the analyzer will do, two is what somebody who
 clicked a link will sit through. `PRODUCT_SPEC.md` §2.1A asks for ninety to a hundred and
 eighty seconds and neither number is inside it — which is the standing item Phase D's risk
 section names, and no part of this feature pretends otherwise.
@@ -4168,7 +4270,7 @@ section names, and no part of this feature pretends otherwise.
 ### What was curated, and what a test can hold
 
 Only the choice of companies. Every claim is fetched, quoted and cited when somebody clicks;
-nothing in the catalogue is an answer, a cached report, or text that reaches a claim.
+nothing in the catalog is an answer, a cached report, or text that reaches a claim.
 
 That distinction is enforced rather than promised: `Example::prompt` puts the companies **into
 the sentence the reader sees and can edit**, and the test that matters runs each prompt through
@@ -4183,7 +4285,7 @@ the sentence the reader sees and can edit**, and the test that matters runs each
 | the list is served without the sentence that qualifies it | **yes** |
 | the interface says nothing about what is curated | **yes** |
 | clicking an idea starts four minutes of work nobody asked for | **yes** |
-| a malformed catalogue takes the first screen down with it | **yes** |
+| a malformed catalog takes the first screen down with it | **yes** |
 | the ideas stay under the report and invite a click that throws it away | **yes** |
 | the entries inside a well-formed list are trusted rather than checked | **yes** |
 | an entry's companies are taken on trust once the other fields look right | **yes** |
@@ -4251,7 +4353,7 @@ Sections merge by question, so *What it costs* holds every company's prices. Tha
 the output a comparison rather than several reports stapled together, and it is the shape the
 feature matrix will eventually be built from.
 
-The pipeline for one company is untouched. `analyse_many` runs the existing, well-tested path
+The pipeline for one company is untouched. `analyze_many` runs the existing, well-tested path
 once per subject and joins the results — a bug in the joining cannot reach into the reading.
 
 ### The defect the join could most easily have introduced
@@ -4311,20 +4413,20 @@ honest-negative treatment failing exactly where it matters most.
 | coverage is concatenated rather than merged | **yes** |
 | a dropped company is not mentioned | **yes** |
 
-The last two are asserted against `analyse_many` itself rather than its helpers, by pointing it
+The last two are asserted against `analyze_many` itself rather than its helpers, by pointing it
 at origins in `.invalid` — which by RFC 2606 can never resolve, so every fetch fails fast and
 what is left is the joining. It costs about six seconds of the suite, and it is the only way
 those two call sites can be reached without a model.
 
 ### What is still not right
 
-**Nothing discovers a competitor.** This analyses the companies a reader names. Turning an idea
+**Nothing discovers a competitor.** This analyzes the companies a reader names. Turning an idea
 into a set is `landscape-search`, and it is still the largest unbuilt thing in the project.
 
 **Three companies is six minutes**, per the table above. The wait is now the binding constraint
 on this feature rather than a background worry.
 
-**The report is labelled, not grouped.** Each claim names its company, which is enough to read;
+**The report is labeled, not grouped.** Each claim names its company, which is enough to read;
 a matrix that puts them side by side is `landscape-charts`, in S3.
 
 ---
@@ -4351,7 +4453,7 @@ The progress callback returns an answer now:
 pub enum Wanted { Yes, No }
 ```
 
-`Wanted::No` breaks the loop — the page loop in `analyse_with`, and the window loop in each of
+`Wanted::No` breaks the loop — the page loop in `analyze_with`, and the window loop in each of
 the three model-backed stages. **The callback is the right place for it because the answer is
 already there**: a worker learns its claim is gone *by writing*, and the progress callback is
 the write.
@@ -4422,7 +4524,7 @@ every number above, and would quietly turn every report into its first window.
 
 ### Why the stub, and not the pipeline
 
-`analyse_with` needs a `Fetcher`, whose SSRF guard refuses loopback **on purpose** — so a local
+`analyze_with` needs a `Fetcher`, whose SSRF guard refuses loopback **on purpose** — so a local
 page server is unreachable by design, and the whole-pipeline version of this test cannot be
 written without a seam that does not exist. `stages::extract` takes the Markdown directly, which
 is where every model call is made, so that is where the counting happens.
@@ -4430,7 +4532,7 @@ is where every model call is made, so that is where the counting happens.
 ### What is still not right
 
 **The page-loop break has no test.** Four of the five mutations above are caught; the fifth
-thing — `analyse_with` breaking *between pages* rather than between windows — is one line, and
+thing — `analyze_with` breaking *between pages* rather than between windows — is one line, and
 nothing exercises it, for the reason in the paragraph above. It is subsumed in practice (a
 revoked claim stops the window loop first) but that is an argument, not a test.
 
@@ -4455,7 +4557,7 @@ analysis and `status` says `running` for both. Whichever finished last won, and 
 whichever report that was, with nothing anywhere recording that two had been produced.
 
 The reader's side is the same gap: Runs 17 and 18 chased a dead worker's sections off the screen
-twice, and each fix was a server-side judgement about **the connection** — *the report went
+twice, and each fix was a server-side judgment about **the connection** — *the report went
 away*, *this connection has already sent something*. A reader's sections survive a reconnect on
 purpose, and a fresh connection remembers nothing, so both were correct until the reader
 reconnected and wrong immediately after.
@@ -4523,13 +4625,13 @@ scenario asserted against a better signal.
 
 **A replaced worker keeps working.** It finds out at its next write — within a page for progress,
 at the very end for `complete` — and until then it is spending prefill on a report that will be
-discarded. Stopping it needs cancellation threaded into `analyse_with`, which changes the
+discarded. Stopping it needs cancellation threaded into `analyze_with`, which changes the
 pipeline's shape rather than the queue's and is worth doing on its own.
 
 **Postgres was not exercised here.** Docker would not start on this machine, so the `generation`
 column, the four `WHERE generation = $n` predicates and the two-query failure path are verified
 by CI's `rust (against postgres)` job rather than by me. The in-memory store and the Postgres
-store share one conformance body, which is what makes that a reasonable division of labour, but
+store share one conformance body, which is what makes that a reasonable division of labor, but
 it is not the same as having run it.
 
 **The replacement wins because it holds the current number, not because its report is better.**
@@ -4667,7 +4769,7 @@ The first row is the one worth pausing on. A reclaimed run goes `running` → **
 that ended on "not running any more" would tell a reader the report was finished when a second
 worker was about to start it — and a reader who has been told it finished does not reconnect.
 
-Until now the stream's tests all checked *helpers*: does this section serialise, is a correction
+Until now the stream's tests all checked *helpers*: does this section serialize, is a correction
 a different payload. The loop itself — where all four of Run 16's defects lived — was driven by
 nothing. It now runs against the real router with the store being mutated underneath it.
 
@@ -4703,7 +4805,7 @@ laptop · **Model:** none, and that is the point.
 
 Runs 5 to 16 found sixteen defects. Every one was found the same way — point the pipeline at a
 real company, read the output, notice something wrong — and **not one of them is asserted
-anywhere.** The pipeline could regress to its Run 5 behaviour today and 437 tests would pass.
+anywhere.** The pipeline could regress to its Run 5 behavior today and 437 tests would pass.
 
 The half of that method which needs no GPU is now a test. Ten real pages are frozen as
 Markdown in `crates/landscape-golden/pages/` (222 KB with their expectations), each beside a
@@ -4777,7 +4879,7 @@ first version could not have caught: shrinking a window does not change which he
 Review found a second thing in the subjects — the Linear Free subject expected
 `billing_period: monthly` from a window that states only `$0` and *"Free for everyone"*. The
 cadence belonged to the plan **below** it. That expectation would have marked the honest null
-answer wrong and rewarded a model for copying a neighbour's period, which is not a hypothetical
+answer wrong and rewarded a model for copying a neighbor's period, which is not a hypothetical
 failure: Run 3's scorecard has a model reporting `monthly` for plans with no published price at
 all. The subject expects `null` now, and a new check asserts every expected period is stated in
 **the part of the page about the plan being asked**, not merely somewhere on it.
@@ -5092,7 +5194,7 @@ that fills a table a reader will check.
 
 `unsloth/Qwen3-1.7B-Q4_K_M` scored **10%, 0/10, three invented prices** — the same numbers as
 Run 3, on a harness that has changed a great deal since. An instrument that still separates a
-defective quantisation from a good one is an instrument the other two rows can be believed
+defective quantization from a good one is an instrument the other two rows can be believed
 from.
 
 ### `q8_0` KV cache — exit criterion 5
@@ -5178,7 +5280,7 @@ old arrangement unrepresentable.
 
 **And then: a quote that does not contain its fact.** With the pairing fixed, the headquarters
 claim still cited a sentence that does not mention the EU — the model had picked a
-neighbouring line out of the window it was given. The quote is now kept only if it contains
+neighboring line out of the window it was given. The quote is now kept only if it contains
 the value. The fact survives, because it was checked against the whole window; **the quote is
 the smaller loss**.
 
@@ -5262,7 +5364,7 @@ three it states because of it. Fields are cleared individually now, and the coun
 Plausible **in** December 2018"* — a name sits between the verb and the preposition. The
 window went elsewhere, the model answered 2018 from somewhere it had not been shown, and the
 grounding check dropped a year the page states plainly. Both halves were wrong and they
-cancelled out to look like one right answer.
+canceled out to look like one right answer.
 
 ### And a source that was not ours
 
@@ -5527,7 +5629,7 @@ every run since Run 5.
 Run 7 read `todoist.com/cs/pricing` and `/da/pricing` — Czech and Danish — and never read the
 English page. Run 8 added `notion.com/es-es/pricing`.
 
-**The filter that would have been wrong** is dropping localised URLs: some sites publish only
+**The filter that would have been wrong** is dropping localized URLs: some sites publish only
 `/de/preise`, and that is then the pricing page. So variants collapse into one candidate the
 way `/pricing` and `/pricing/` already did, and which one wins is a preference — no locale,
 then English, then whatever the site listed.
@@ -5631,7 +5733,7 @@ source of facts**, and it is one with no URL, no fetch date, and nothing to cite
 
 ### Which is why a name is checked, not trusted
 
-A price can be checked verbatim. A capability name **cannot** — naming is the normalisation the
+A price can be checked verbatim. A capability name **cannot** — naming is the normalization the
 model is there to do, so the answer is a paraphrase by design. The check that still holds is
 weaker and cheap: `FeatureExtraction::name_is_from` requires every word of the name to appear
 in the section.
@@ -5654,7 +5756,7 @@ the HTML converter turned that page into **one 2,167-word line**. A `#` is text 
 parser, and there were no block tags to break lines on.
 
 Nothing downstream could find a section in it, so the page reported nothing and looked exactly
-like a page that had nothing on it. `markdown::from_body` now recognises a Markdown body.
+like a page that had nothing on it. `markdown::from_body` now recognizes a Markdown body.
 
 ### What is still wrong
 
@@ -5889,7 +5991,7 @@ relevant ~400-token window rather than the page. It was already in the plan on t
 that prefill dominates on 4 ARM cores. It now has a second and stronger argument: **without
 it, extraction on real pages does not work at all.**
 
-That reframes it from an optimisation to a correctness requirement, which changes where it
+That reframes it from an optimization to a correctness requirement, which changes where it
 belongs in the order of work.
 
 **And the golden set needs real pages.** `ROADMAP.md` takes it to 25 subjects in Phase 1;
@@ -5974,11 +6076,11 @@ produced byte-identical verdict tables, differing only in latency.
 
 ### The result this was built for
 
-**Run 2 gave the defective quantisation a clean bill of health on every measure it had:**
+**Run 2 gave the defective quantization a clean bill of health on every measure it had:**
 0/20 unparseable, and the *fastest* median in the table. Only a hand-written note recorded
 that its output was garbage.
 
-The golden set scores it at **10%**, against 87% for the official quantisation of the same
+The golden set scores it at **10%**, against 87% for the official quantization of the same
 model at the same size and the same speed. That gap is now a number a test can fail on
 rather than a comment somebody has to read.
 
@@ -5996,7 +6098,7 @@ is worth reading:
 | `contact-sales`, plan `Enterprise` | no price | **$49 / monthly** |
 
 $49 is the price of *Grower*, the plan directly above it on the page, and the model quoted
-that line verbatim. It did not hallucinate — it answered a neighbouring question and
+that line verbatim. It did not hallucinate — it answered a neighboring question and
 supported the answer honestly. Every fact in the output is true of *something* on the page.
 
 That failure mode matters more than a hallucination would. A fabricated number often looks
@@ -6079,7 +6181,7 @@ exactly why the *ratio* is the transferable part and the seconds are not.**
 
 ### Two findings that cost more than the timings
 
-**A defective quantisation produces schema-valid garbage.** The `unsloth` Q4_K_M build of
+**A defective quantization produces schema-valid garbage.** The `unsloth` Q4_K_M build of
 Qwen3-1.7B returned things like:
 
 ```json
@@ -6087,7 +6189,7 @@ Qwen3-1.7B returned things like:
 ```
 
 Perfectly shaped. Entirely wrong. **Constrained decoding guarantees shape, never content** —
-so a broken model or quantisation sails straight through the one mechanism that looks like it
+so a broken model or quantization sails straight through the one mechanism that looks like it
 should catch it. The official Q8_0 of the *same model* was flawless.
 
 The practical consequence: **a model swap needs an accuracy check, not just a latency
@@ -6147,7 +6249,7 @@ question about the deployment host.
 - [ ] Prefill and generation tok/s separately, rather than end-to-end latency
 - [ ] `Q4_K_M` **and** `Q4_0` — the repacking question is a property of the format and the
       CPU's instructions, and an ARM laptop or a cheap ARM VM answers it as well as anything
-- [ ] Qwen3 1.7B / 4B / 8B / 14B, Gemma 3 4B/12B, Llama 3.2 3B. **Licence review first**
+- [ ] Qwen3 1.7B / 4B / 8B / 14B, Gemma 3 4B/12B, Llama 3.2 3B. **License review first**
 - [ ] Aggregate throughput at `--parallel 1/2/4/8`
 - [ ] Time-to-first-token
 - [ ] Resident RAM for three models against the ~17 GB budget
@@ -6166,7 +6268,7 @@ question about the deployment host.
 Run 3 adds two of its own:
 
 - [ ] **Field order as a lever.** llama.cpp walks properties in the order the schema
-      serialises them, and `serde_json`'s sorted maps currently pick that order for us.
+      serializes them, and `serde_json`'s sorted maps currently pick that order for us.
       `preserve_order` would hand it back. Quote-first (read, then answer) against
       quote-last (answer, then justify) is a measurable question, and a hand probe showed
       quote-first spends the whole token budget quoting — so it needs a `maxLength` too

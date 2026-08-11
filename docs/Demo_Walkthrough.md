@@ -141,7 +141,7 @@ Each row is one beat. `kind` drives the timing; `action` drives the picture.
 | `hold` | Nothing changes. The frame stays still |
 | `clean` | Demo dress (§4), empty box |
 | `type` | The example idea types into the box |
-| `go` | Analyse pressed; the simulated run starts |
+| `go` | Analyze pressed; the simulated run starts |
 | `report` | A finished report appears instantly, for films starting mid-story |
 | `to:<sel>` | Scroll that element into view |
 | `spot:<sel>` | Scroll it in **and outline it**, dimming everything else |
@@ -167,7 +167,7 @@ Each row is one beat. `kind` drives the timing; `action` drives the picture.
 | turn | `hold` | Landscape looks for companies already doing it. |
 | point | `hold` | There is one box and one question. |
 | action | `type` | You type the idea in ordinary words. |
-| action | `go` | Then press Analyse. That is the only step. |
+| action | `go` | Then press Analyze. That is the only step. |
 | result | `spot:#interpLine` | First it settles on what to search for. |
 | means | `hold` | Ordering software for small farms, taken from your wording. |
 | result | `spot:#interpLine .edit` | If that is not your market, change reopens it. |
@@ -296,7 +296,7 @@ correction follows. Leading with the correction would suggest otherwise.*
 | result | `spot:#sec-traj .ask ul` | Three questions about starting a two-sided service. |
 | means | `hold` | Which side first, the smallest workable patch, and the first user. |
 | point | `spot:#sec-traj .why` | Above them, what prompted the questions, linked. |
-| point | `spot:#sec-traj .book` | Below, the book they came from, unsummarised. |
+| point | `spot:#sec-traj .book` | Below, the book they came from, unsummarized. |
 | next | `hold` | Checking the report is next. |
 
 ---

@@ -82,7 +82,7 @@ same length. The count was unchanged, so the correction was suppressed.
 Nothing covered "a section is corrected", because we had not thought of correction as a case.
 
 **Rule:** **compare what you are about to send, not a cheap summary of it** — unless the summary
-provably covers every field that can change. Serialising the payload and comparing strings costs
+provably covers every field that can change. Serializing the payload and comparing strings costs
 nothing at this scale and cannot drift from the thing it guards.
 
 > **Ask this:** *name a change this comparison cannot see. If naming one takes under a minute, it
@@ -203,7 +203,7 @@ example has no URL and nothing to cite.
 **What a person saw:** nothing — for a page that says *"Uku Taht **started** Plausible **in**
 December 2018"*. A name sits between the verb and the preposition, so the window went elsewhere,
 the model answered from somewhere it had not been shown, and the grounding check dropped a year
-the page states plainly. **Two failures cancelling into one plausible silence.**
+the page states plainly. **Two failures canceling into one plausible silence.**
 
 **Rule:** phrase matching over prose is a heuristic; test it against the sentence a real page
 writes, not the sentence you would write.
@@ -311,7 +311,7 @@ other than a name for the run. The third attempt gave it one — a `generation` 
 by both the claim and the sweep, sent to the client so the client can compare
 ([ADR 0012](../../../docs/decisions/0012-a-claim-is-a-number.md)). Keep the entries: the two
 wrong answers are the useful part, and the shape they share — *a condition about the connection,
-protecting something that outlives connections* — is the thing to recognise next time.
+protecting something that outlives connections* — is the thing to recognize next time.
 
 ## 15. A state that two things can be in at once
 
@@ -337,7 +337,7 @@ and it never happened. A generation is a *value*, so a client that reconnected, 
 finds it different from the one it holds. That is what finally settled 13 and 14.
 
 > **Ask this:** *can two different actors be in this state at the same time? If so, what does
-> this condition actually authorise?*
+> this condition actually authorize?*
 
 ## 16. A check that read the working tree instead of the commit
 
@@ -493,7 +493,7 @@ it — `assert!(!claim.text.contains("a.com"))` beside the check that the subjec
 
 **Written:** merge functions with thorough tests, called from a function nothing could reach.
 
-**What a person saw:** nothing, and that is the point. Mutating `analyse_many` to concatenate
+**What a person saw:** nothing, and that is the point. Mutating `analyze_many` to concatenate
 coverage instead of merging it, and to drop the truncation notice, left every test green —
 because the tests called the merge helpers directly with hand-built inputs.
 
@@ -655,7 +655,7 @@ and I did not notice that I had spent the property that made it correct.
 
 **Rule:** check-then-act across an `await` is check-then-act across a gap somebody else fits
 through. When a fix turns a synchronous decision into an asynchronous one, ask what was true
-because it was synchronous. Serialise the whole sequence — per key, so one caller does not wait
+because it was synchronous. Serialize the whole sequence — per key, so one caller does not wait
 behind another's store reads.
 
 > **Ask this:** *between reading and acting, does anything yield — and what happens if a second
@@ -677,7 +677,7 @@ three.
 
 ### And the third round: the clock the decision carries
 
-Serialising the sequence was still not the end. Each request captures the date **before** it
+Serializing the sequence was still not the end. Each request captures the date **before** it
 waits for its gate and for the store, so one admitted a second before midnight finishes a second
 after it — and a rollover written as *"reset whenever the date differs"* let that request wind
 the day **backwards** and clear what the new day had already recorded. The next request rolled
@@ -737,7 +737,7 @@ check the others. A second file had it too.
 - **A verdict needs positive evidence that the thing ran.** `mutate.py` now requires a test
   runner's summary line before it will report anything at all; without one it says `BROKEN`.
 - **Never `git add -A` while a harness is editing the tree.** The mutation files are a list of
-  defects this repository can recognise, so `scripts/no_live_mutations.py` reads them the other
+  defects this repository can recognize, so `scripts/no_live_mutations.py` reads them the other
   way round and refuses a tree containing one. It is the first gate in `verify.py`, and the only
   one that runs against the **working tree** rather than a clean checkout — because its job is
   to stop something reaching a commit, not to notice afterwards.
@@ -799,10 +799,10 @@ Removing the model's ability to *name* the standard was written up — by me, in
 `BENCHMARKS.md`, and in a reply — as making the failure **unrepresentable**. Review then found
 the failure still live, *inside the regression I had written to prove it was closed*.
 
-Taking the name away stopped the model **labelling** an answer. It did not stop it **answering
+Taking the name away stopped the model **labeling** an answer. It did not stop it **answering
 about the wrong thing**: a window is three lines, two standards often sit within three lines of
 each other, so the same window is handed over twice and an answer about the first can be
-relabelled as the second. Every check passed — the quote was verbatim, the name was the
+relabeled as the second. Every check passed — the quote was verbatim, the name was the
 scanner's — and the report published a certification claim on evidence about a different
 certification.
 
@@ -876,7 +876,7 @@ Reaching for a test first is how a rule nothing needs acquires a test that keeps
 
 **Written:** by me, in `landscape-extract::hiring`, in the same file, in the same pull request.
 
-**What a reviewer saw:** a careers page with no recognised *Open roles* heading published
+**What a reviewer saw:** a careers page with no recognized *Open roles* heading published
 `lists an open role: Kelsey Weber , Engineering Manager` — a testimonial byline — as a
 **high-confidence** claim about a company hiring a person who already works there.
 
@@ -913,7 +913,7 @@ surface of the same habit.
 * A question whose only page came from search reported *"nothing was checked - our gap, not
   theirs"*, because `Coverage` is built from what discovery admitted and search was the first
   thing ever to add a page discovery had not.
-* Both note branches said *"this company"*, and `analyse_many` merges every subject's notes and
+* Both note branches said *"this company"*, and `analyze_many` merges every subject's notes and
   drops duplicates — so two companies with the same gaps collapsed into one ambiguous sentence
   and the other was thrown away.
 
@@ -929,7 +929,7 @@ of the change, not a caller of it. And a note that will be merged with somebody 
 name whose it is, because deduplication cannot ask.
 
 > **Ask this:** *is this number counted from what happened, or from what I asked for — and if I
-> add a second source of these, does everything that summarises them know?*
+> add a second source of these, does everything that summarizes them know?*
 
 ### The sequel, and it is the older rule failing
 
@@ -1022,7 +1022,7 @@ survive being written down beside its own exceptions.
 assert_eq!(notes.iter().position(|n| n.contains("You described")), Some(0));
 ```
 
-**Why it could not fail:** the fixture analysed **one** company, so `notes` held exactly one
+**Why it could not fail:** the fixture analyzed **one** company, so `notes` held exactly one
 note. `insert(0, ..)` and `insert(len(), ..)` put it in the same place, and the mutation that
 moved the sentence to the bottom of the report passed the whole suite. The assertion named a
 position and the fixture had no positions.
@@ -1090,7 +1090,7 @@ over a number the moment two callers want to divide by different halves of it.
 
 ## 38. A `MISSED` that meant "the wrong suite ran", not "nothing tested this"
 
-**Written:** by me, cataloguing the mutations for competitor-set derivation.
+**Written:** by me, cataloging the mutations for competitor-set derivation.
 
 ```json
 {
@@ -1103,7 +1103,7 @@ over a number the moment two callers want to divide by different halves of it.
 
 `MISSED`. The obvious reading is *there is no test for this*, and the obvious response is to
 write one — which would have added a second test for a property already covered, and left the
-catalogue entry still lying.
+catalog entry still lying.
 
 **What had actually happened:** the mutated code is in `landscape-search`; the test that catches
 it is in `landscape-search`; the `run` said `landscape-analyze`. That suite compiles the mutated
@@ -1112,21 +1112,21 @@ crate, passes, and reports nothing wrong — because nothing in it exercises the
 **Why this is worse than `NOT APPLIED`.** A wrong `file` or a stale anchor is *loud*: the harness
 says the anchor is not there and you go and look. A wrong `run` is **silent and looks exactly
 like a real finding**, and the natural response to it — write another test — makes the suite
-bigger, makes the catalogue *stay* wrong, and produces a green run that proves less than it did
+bigger, makes the catalog *stay* wrong, and produces a green run that proves less than it did
 before. This is entry 17's sibling: there the mutation had been applied to a different copy of
 the code; here it was applied to the right code and checked by the wrong suite.
 
 **The check is one question and it costs nothing:** for every `MISSED`, before writing a test,
 grep the crate the mutation lives in for a test that names the property. If one exists, the
-catalogue is wrong, not the code. Two of this catalogue's four `MISSED`/`NOT APPLIED` reports on
-the first run were catalogue errors rather than coverage gaps.
+catalog is wrong, not the code. Two of this catalog's four `MISSED`/`NOT APPLIED` reports on
+the first run were catalog errors rather than coverage gaps.
 
 **Rule:** a mutation's `run` is part of the mutation, not a convenience. Default it to the crate
 the `file` is in, and only widen it when the *caller* in another crate is what you are testing —
-in which case say so in the name, because a reader of the catalogue cannot see the difference
+in which case say so in the name, because a reader of the catalog cannot see the difference
 either.
 
-> **Ask this:** *is this `MISSED` telling me about my code, or about my catalogue entry?*
+> **Ask this:** *is this `MISSED` telling me about my code, or about my catalog entry?*
 
 ---
 
@@ -1226,7 +1226,7 @@ manufactured out of a coincidence of spelling.**
 The justification described a cost that the rejected alternative does not have. It was written
 from the shape of the idea rather than from trying it, and then it sat there being persuasive:
 the test underneath it was named `sharing_is_not_case_sensitive_and_reads_inside_a_word`, so the
-wrong behaviour had a test asserting it was intended.
+wrong behavior had a test asserting it was intended.
 
 This is [entry 34](#34-a-sentence-written-from-the-plan-not-from-the-run)'s failure aimed at a
 rationale instead of at output. A confident *"X would not work because Y"* is a claim about Y,
@@ -1245,7 +1245,7 @@ other one would"*.
 
 **Found:** while answering the review round above, by noticing a `git diff` hunk I had not written.
 
-The catalogue takes longer than ten minutes, and I ran it in the foreground with a ten-minute
+The catalog takes longer than ten minutes, and I ran it in the foreground with a ten-minute
 timeout. It was killed mid-mutation. `mutate.py` restores the file in a `finally`, and a
 `SIGTERM` at the wrong moment does not run it — so the tree was left holding the mutated line:
 
@@ -1256,7 +1256,7 @@ let choices: Vec<Candidate> = named.into_iter().filter(Described::was_requested)
 let choices: Vec<Candidate> = named.into_iter().map(|d| d.candidate).collect();
 ```
 
-**Then I re-ran the catalogue, and that is where it got dangerous.** Every mutation copies the
+**Then I re-ran the catalog, and that is where it got dangerous.** Every mutation copies the
 current file as its backup and restores it afterwards, so the second run's baseline *was the
 mutated code*. Thirty-eight entries were measured against a tree with the defect in it. The
 thirty-ninth — the one whose anchor the kill had eaten — reported `NOT APPLIED`, which reads like
@@ -1275,11 +1275,11 @@ been read and believed. A `git diff` before re-running would also have shown a h
 write, and that is what eventually found it — several steps later than it should have.
 
 **The mechanical fix, not the resolution to be careful:** `mutate.py` now refuses to start while
-any catalogued mutation is live in the tree, and says which one and how to restore it. A harness
+any cataloged mutation is live in the tree, and says which one and how to restore it. A harness
 whose correctness depends on remembering to check something by hand is the same defect this file
 keeps recording, one level up.
 
-**Rule:** run the catalogue in the background or with a timeout longer than it takes — never with
+**Rule:** run the catalog in the background or with a timeout longer than it takes — never with
 one that can kill it. And treat *any* interrupted run as having poisoned the tree: `git diff`
 before doing anything else, because the next thing that reads those files will believe them.
 
@@ -1287,7 +1287,7 @@ before doing anything else, because the next thing that reads those files will b
 
 ---
 
-## 42. A regression pin that came loose, in a catalogue nobody had reason to re-run
+## 42. A regression pin that came loose, in a catalog nobody had reason to re-run
 
 **Found:** by review, at `a084775`.
 
@@ -1297,22 +1297,22 @@ before doing anything else, because the next thing that reads those files will b
 ```
 
 `cargo fmt` had collapsed a `subject::resolve(...)` call onto one line two commits earlier. The
-mutation pinning the ambiguity behaviour still expected the multi-line form, so the harness could
+mutation pinning the ambiguity behavior still expected the multi-line form, so the harness could
 not apply it — and printed `NOT APPLIED`, which reads like a stale anchor and is *also* the thing
 that stops a real property from being covered.
 
-**The process failure is the interesting part.** I re-ran the catalogue I was working on, saw all
+**The process failure is the interesting part.** I re-ran the catalog I was working on, saw all
 39 caught, and never ran the other five. There was no reason to think a change in
 `landscape-search` could loosen a pin in `read-order.json` — and it can, because `cargo fmt`
 reflows whatever it touches and a mutation's anchor is a *verbatim string*.
 
-**Running every catalogue is not the fix**, because it takes tens of minutes and that is exactly
+**Running every catalog is not the fix**, because it takes tens of minutes and that is exactly
 why `scripts/verify.py` never ran them at all. Reading each `old` out of the JSON and checking it
 appears in its file **exactly once** takes a moment and catches the whole class:
 `scripts/mutation_anchors.py`, now the second gate.
 
 **What it found on its first run is the point.** Not one loose pin — **five**, across four
-catalogues, rotting since earlier phases:
+catalogs, rotting since earlier phases:
 
 | Pin | Loosened by |
 |---|---|
@@ -1322,7 +1322,7 @@ catalogues, rotting since earlier phases:
 | a company dropped in silence | `let notes` becoming `let mut notes` |
 | a trust page reaching its extractor | the dispatch moving to another file entirely |
 
-Every one of those catalogues had reported *"all caught"* on the day it was written and had been
+Every one of those catalogs had reported *"all caught"* on the day it was written and had been
 quietly proving less ever since. **A suite of regression pins decays exactly like a suite of
 tests, except that nothing fails when it does** — the harness prints a line and returns 1, and
 nobody runs it.
@@ -1331,14 +1331,14 @@ nobody runs it.
 the finding. The pins had been loose long enough that the properties underneath had quietly lost
 their coverage: nothing asserted that a changelog is read while the model is down (the gate sits
 behind a fetch the test fetcher refuses), and nothing asserted that a trust page reaches its
-extractor at all (the catalogue pinned what the extractor *finds*, never that the dispatch still
+extractor at all (the catalog pinned what the extractor *finds*, never that the dispatch still
 arrives there). Both are now tested. This is entry 38's question — *is this `MISSED` about my
-code or my catalogue?* — coming out the other way for once.
+code or my catalog?* — coming out the other way for once.
 
-**Rule:** any artefact that pins code by *quoting* it — mutation anchors, golden-file excerpts,
+**Rule:** any artifact that pins code by *quoting* it — mutation anchors, golden-file excerpts,
 documentation snippets, `expect_test` blocks — needs a cheap mechanical check that the quote is
 still there, and that check has to run every time, not when somebody suspects something. If
-verifying the artefact properly is slow, verify that it is still *applicable* quickly. And when
+verifying the artifact properly is slow, verify that it is still *applicable* quickly. And when
 a loose pin is retightened, **run it** — a pin nobody could apply is a pin nobody was covering.
 
 > **Ask this:** *this pin quotes code. What tells me it still quotes code that exists?*
@@ -1350,20 +1350,20 @@ a loose pin is retightened, **run it** — a pin nobody could apply is a pin nob
 **Found:** by the harness, one run later.
 
 Two mutations came back `MISSED`. Both were real gaps, so I wrote the tests, watched 780 pass,
-and re-ran the catalogue. One of the two was still `MISSED`.
+and re-ran the catalog. One of the two was still `MISSED`.
 
 ```bash
 $ grep -c a_named_company_takes_its_name crates/landscape-search/src/candidates.rs
 0
 ```
 
-**The test was gone.** A *different* catalogue was still running in the background when I wrote
+**The test was gone.** A *different* catalog was still running in the background when I wrote
 it. `scripts/mutate.py` copies each file before mutating it and moves the copy back in a
 `finally` — and the copy it held for `candidates.rs` predated my edit. The restore was correct
 by its own lights and silently deleted work.
 
 **Two things made it nearly invisible.** The sibling edit to `competitors.rs` survived, because
-that file was not in the catalogue that was running — so *one of two tests written in one command
+that file was not in the catalog that was running — so *one of two tests written in one command
 disappeared*, which looks like nothing at all. And `cargo nextest` passed: a test that does not
 exist does not fail.
 
@@ -1441,10 +1441,10 @@ wrong, because it is the one wording nobody thinks of as data.
 
 ## 45. A guard that compares text, and a formatter that rewrites it
 
-**Found:** by running `cargo fmt --all` while a mutation catalogue held a file open — the fourth
+**Found:** by running `cargo fmt --all` while a mutation catalog held a file open — the fourth
 finding about that same window, after 41, 42 and 43.
 
-The catalogue stopped and kept its backup, exactly as entry 43's fix intended. What it left in
+The catalog stopped and kept its backup, exactly as entry 43's fix intended. What it left in
 the tree was the mutated file **after `rustfmt` had reflowed it**:
 
 ```rust
@@ -1464,20 +1464,20 @@ could not see the defect sitting in front of it.
 **My first fix was wrong in an instructive way.** I collapsed runs of whitespace before
 comparing, which reads like the obvious answer and would not have caught this one: `rustfmt` also
 removes the trailing comma when it joins lines, so the two strings still differ after every space
-is normalised. I only found that out because the self-check I wrote alongside it failed. **A
-normalisation is a claim about what the other tool does**, and mine was a guess.
+is normalized. I only found that out because the self-check I wrote alongside it failed. **A
+normalization is a claim about what the other tool does**, and mine was a guess.
 
 **What actually closes it needs no guess.** A `*.mutate-backup` on disk means exactly two things,
 both of them *"this tree is not what it looks like"*: a run died holding a file, or the harness
 refused to restore over somebody's edit. Neither depends on what the mutated text looks like
 afterwards, so the check is sound rather than usually right, and it is one `glob`.
 
-**Rule:** a guard that recognises code by its exact text is defeated by anything allowed to
+**Rule:** a guard that recognizes code by its exact text is defeated by anything allowed to
 rewrite that text — a formatter, a linter's autofix, an IDE on save. Before hardening the
 comparison, look for a signal that is not the code at all: a lock file, a marker, a leftover
-artefact. If the only available check is textual, say in the docstring what it cannot see.
+artifact. If the only available check is textual, say in the docstring what it cannot see.
 
-> **Ask this:** *what else is allowed to edit this file, and would my check still recognise it?*
+> **Ask this:** *what else is allowed to edit this file, and would my check still recognize it?*
 
 ---
 
@@ -1498,7 +1498,7 @@ the third silently discardable.
 **The obvious fix was to write a test, and it would have been a bad test.** That arm needs a live
 search engine to reach with a non-empty list; `Searx::from_env()` is read inside `run_analysis`
 and is not injectable. Anything I wrote to make that mutation fail would have had to reach around
-the code under test — which is a test of the mutation, not of the behaviour, and it leaves the
+the code under test — which is a test of the mutation, not of the behavior, and it leaves the
 same defect available at the next call site somebody adds.
 
 **So the seam went away instead.** `Decided::Refuse(Refusal { why, kind, choices })`, and
@@ -1532,7 +1532,7 @@ POST /api/analyses  {"prompt":"box.com"}
 ```
 
 `notion.so` is nine characters. `notionenergy.com` is sixteen. **Every fixture I wrote happened
-to clear a bar I had not noticed existed**, so nine tests and a mutation catalogue all passed
+to clear a bar I had not noticed existed**, so nine tests and a mutation catalog all passed
 over a button that rendered for `box.com`, `wix.com` and `hey.com` and answered the click with an
 error — about a company we had resolved ourselves and put in front of the reader.
 
@@ -1608,7 +1608,7 @@ furniture trim removes `top` from every phrase anyway, so the assertion passes w
 whole defect.
 
 The rule is *no phrase may contain a word that is all digits*, and it does not care what the
-neighbouring words are.
+neighboring words are.
 
 **Writing this entry did not stop me making the same mistake eight hours later**, which is worth
 recording as plainly as the mistake: a negative assertion aimed at a *word* is the reflex, and
@@ -1723,7 +1723,7 @@ failure entry 47 exists to prevent, now for every non-ASCII market name. And it 
 
 **The same PR did it again, in a different shape.** Whether the market's words differed from the
 reader's was decided by `words == description` — comparing two raw strings, when the thing that
-decides is `for_idea`, which normalises through `safe_words` first and produces queries an engine
+decides is `for_idea`, which normalizes through `safe_words` first and produces queries an engine
 reads case-insensitively. A trailing `!` therefore counted as a change and bought three
 redundant requests, while an exact match reused the hits *and still* told the reader their own
 words had been "interpreted as" themselves.
@@ -1789,7 +1789,7 @@ with no decision in it.
 ### And the assertion that agreed with the defect
 
 The test written beside the byte fix asserted `cache.bytes() > 0`. A bodyless entry still holds
-its key, so that passes while counting nothing but strings — *the defect itself*, spelt
+its key, so that passes while counting nothing but strings — *the defect itself*, spelled
 differently. It asserts `>= OVERHEAD` now: the entry costs at least what an entry costs.
 
 **Rule:** put a rule where something can call it, and prefer moving the rule to writing a test
@@ -1824,7 +1824,7 @@ what has expired", so the test aged everything to make things expire — which i
 in which the bug cannot appear. A test built out of the mechanism can only confirm the mechanism.
 
 The bound is now the same shape as the page cache's: expiry, *plus* a live-entry cap, *plus* a
-byte cap, with oldest-first eviction. The new regressions insert past each cap **without ageing
+byte cap, with oldest-first eviction. The new regressions insert past each cap **without aging
 anything**.
 
 ### A lifetime is not a deadline
@@ -1911,7 +1911,7 @@ silence, because it discourages the next reader from checking. And when an API o
 
 ---
 
-## 55. A judgement this codebase already makes, not consulted by the new code
+## 55. A judgment this codebase already makes, not consulted by the new code
 
 **Found:** by review, in the same cache, fourth round.
 
@@ -1922,7 +1922,7 @@ reader — **without the origin ever being asked whether it had recovered.**
 The value that decides this was already in the room, twice over:
 
 - `Page::status` was on the very struct being stored, unread.
-- One module away, `robots::Rules::from_status` already encodes this exact judgement, in this
+- One module away, `robots::Rules::from_status` already encodes this exact judgment, in this
   repository's own words: a `429` or a `5xx` means *"the site is unwell — assume disallowed. The
   polite reading of 'I am struggling' is not 'carry on'."*
 
@@ -1984,7 +1984,7 @@ inside the miss closure: a hit now makes no request of any kind, and a miss that
 returns "not asked" rather than an answer, so nothing is remembered.
 
 **Rule:** a cache key must identify **the function as well as the argument** — version the
-behaviour, not only the input, and if part of the behaviour is a live external thing, scope the
+behavior, not only the input, and if part of the behavior is a live external thing, scope the
 cache to its identity rather than keying on it. And a memory that exists to survive an outage
 must be consulted **before** anything that the outage can fail.
 
@@ -2099,7 +2099,7 @@ gives two hours.
 
 **Merging is a field-level operation, and a derived value has already thrown the fields away.**
 Keep the fields, overlay what arrived, recompute. And the same round found the same shape in a
-neighbour: the validators. A `304` may supply a new `ETag`, and keeping the one we asked with
+neighbor: the validators. A `304` may supply a new `ETag`, and keeping the one we asked with
 would make every later revalidation ask about a version nobody has.
 
 **And keeping fields means paying for them.** The policy went into the entry and not into the
@@ -2136,7 +2136,7 @@ first slot goes to the company's own careers page — which is *how the board wa
 board can only ever compete for a second slot, and the questions that sort earlier take those.
 The feature was complete and inert.
 
-Nothing about that is visible in a diff, in a unit test, or in a mutation catalogue: every piece
+Nothing about that is visible in a diff, in a unit test, or in a mutation catalog: every piece
 was individually correct and the composition was not. **The only thing that finds it is running
 the feature the way a user gets it**, which for this project is one command against a real site.
 
@@ -2180,7 +2180,7 @@ could reach.
 
 **A `MISSED` on a rule that is genuinely enforced somewhere else is not a missing test.** It is a
 second answer to a settled question, and two answers can one day disagree — the effect and the
-guard would have had to keep agreeing about a case neither could produce. The catalogue entry was
+guard would have had to keep agreeing about a case neither could produce. The catalog entry was
 removed as a duplicate of the guard's, and the code with it. This is entry 46's shape arriving
 from the other direction: there, a seam nobody used; here, a rule stated twice.
 
@@ -2209,13 +2209,13 @@ The gate now breaks itself seven ways before it reads the real page, because the
 this hole would still have exited 0 for ever.
 
 **And the first fix for the page was refused, correctly.** It compared the stored strings, and the
-defence written beside it was that two *spellings* of one company belong to the resolver and this
+defense written beside it was that two *spellings* of one company belong to the resolver and this
 side does not get an opinion. That is a good rule and it was quoted against the wrong case: the
 interface **asks for** the schemeless spelling — the chip renders it, the input box suggests it —
 so the normal way in was the way that slipped past. Comparing what the page *renders* is not a
 copy of the resolver's rule; it is the claim the page already published when it drew the chip, and
 holding it in one function turned up a second hole nothing had tested: two edits that cancel out
-left the button enabled. **A principle about not duplicating a rule is not a licence to compare
+left the button enabled. **A principle about not duplicating a rule is not a license to compare
 in a representation the reader never sees.**
 
 **Rule:** when a mutation survives, ask *what else already enforces this* before asking *what test
@@ -2341,6 +2341,95 @@ for that audience. Export formats, webhooks, share links and copy buttons are al
 event: data that was internal by accident becomes external on purpose.
 
 > **Ask this:** *this value was fine where it was — who sees it now that did not before?*
+
+---
+
+<!-- american-spelling: off -->
+
+## 63. A convention nobody had chosen, so everybody followed a different one
+
+**Found:** by a reader pressing the button.
+
+`Analyse`. On the busiest control in the product, seen by every visitor, for months. Nobody had
+ever decided which dialect this repository writes, so it had quietly grown both: `analyse`
+beside `analysis`, `catalogue` beside `catalog`, `labelled` beside `labeled`, `normalise` beside
+`normalize`, `quantisation` beside the American form of the same word two paragraphs later.
+**837 replacements across 128 files.**
+
+Nothing was wrong on purpose and no single commit is at fault, which is the shape worth
+recording. A convention that was never decided cannot be followed, and the failure it produces
+is not one large mistake but a slow spread no reviewer flags, because each instance is
+defensible on its own.
+
+**It is not cosmetic.** `grep normalize` found half the callers. A reader cannot tell a house
+style from a typo, so every instance costs a fraction of a second and buys nothing. And the
+first place it surfaced was not a comment or a document — it was the one word a customer reads
+before they click.
+
+**Sweeping it fixes today.** The gate is the point: `scripts/american_spelling.py` is the
+sixteenth, and it exists because the next `analyse` will be typed by somebody who has no idea a
+decision was ever made. A convention with no check is a preference.
+
+**Two things the gate had to be honest about, and one it could not.**
+
+*Words that are the same in both dialects are not in the list* — `analysis`, `analyst`,
+`cancellation`, `optimistic`, `emphasis`, `advice`, `service`. Each is tempting to a rule
+written from the shape of a word rather than from what it means, and each would flag correct
+text hundreds of times, which is how a gate gets switched off.
+
+*`analyses` is unresolvable and is excluded.* It is the American plural of *analysis* and the
+British third-person verb, and no word list separates them. There were three verb uses here and
+roughly two hundred plurals; the three were fixed by hand, and the gate's own docstring says
+that a fourth typed later is what it will not catch. **A blind spot that is named is a different
+thing from one that is not.**
+
+**And the gate did not know what it was for. Twice, in the two ways this file keeps recording.**
+
+*A flag doing the opposite of what it reads.* Matching used `(?<![A-Za-z])word(?![a-z])` rather
+than `\bword\b`, so it would reach `normalise_text` and `normaliseText` while sparing
+`aria-labelledby` — the `b` after `labelled` is a lowercase letter, and refusing that is the
+trailing guard's whole job. Except the pattern carried `re.IGNORECASE`, under which `[a-z]`
+matches `N` as well as `n`, so the guard rejected **every** following letter and no camelCase
+identifier was reachable at all. The fixture written for exactly that case failed on the first
+run. `(?-i:(?![a-z]))` turns the flag off for the guard alone.
+
+*And a rule tuned on prose, applied to code.* The prototype pages embed video as base64, and a
+long enough blob contains every short word there is — `greYTK`, `kErb`, `oMOuldq` are all real
+matches from one. The first guard against that skipped any whitespace-delimited run over 60
+characters, which is true of blobs and **also true of a line of Rust**:
+
+```text
+            normalise("HTTPS://WWW.Example.com/Pricing").ends_with("/Pricing"),
+```
+
+Sixty-nine characters, no space, a real call site — skipped by the gate and found by the
+compiler instead, along with three more like it. What separates data from code is punctuation,
+not length: a base64 run has none. The rule measures an unbroken run of the base64 alphabet now,
+and the line above is a fixture.
+
+**Passages that have to write the British forms bracket themselves**, rather than whole files
+being skipped quietly — this entry is one, and so is the run that describes it in
+`BENCHMARKS.md`. An unclosed marker fails the gate, because that is the only way a marker turns
+into a silent hole. Everything skipped is printed on a passing run, because a check that does
+not mention its blind spots reads, on every green run, like a check that has none.
+
+*And the third defect was found by the gate itself*, one commit later: the coding standard's
+sentence describing how to bracket a passage names **both** markers on one line, which the
+first version read as an unclosed mute. A line that mentions both is writing *about* them and
+changes nothing. That is the gate doing its job on the first run after the sentence existed,
+which is the only reason it is a footnote here rather than an entry of its own.
+
+**Rule:** a repository-wide convention that lives only in the existing text is not a convention,
+it is an average — and averages drift. Decide it, sweep it once, and land the check in the same
+commit, because the sweep is a snapshot and the check is the rule. When the check is text
+matching, write a fixture for the case you are *most* confident about — that is where a flag you
+forgot is doing the opposite of what you read — and check what your noise filter costs you,
+because a filter tuned on one kind of file is a blind spot in every other kind.
+
+> **Ask this:** *am I following this convention because it is written down somewhere a check can
+> read, or because the file I happened to open does it that way?*
+
+<!-- american-spelling: on -->
 
 ---
 
