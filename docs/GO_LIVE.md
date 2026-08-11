@@ -823,7 +823,11 @@ The padlock should be there. If the browser warns about the certificate, Caddy h
 > nslookup -type=AAAA YOUR_DOMAIN
 > ```
 >
-> Anything returned there means your browser is probably reaching the box over IPv6.
+> Anything returned there is an **extra** record — the `A` record from
+> [step 3](#step-3--point-your-domain-at-it-now) is the right one and the only one this guide
+> asks for. Some registrars add an `AAAA` of their own, and if one exists and points at this
+> box, a browser will prefer it. If nothing is returned, IPv6 is not your explanation and the
+> address in the refusal is an IPv4 one.
 
 You should see **What is your idea?**, a text box, an **Analyse** button, and three example
 ideas underneath.
