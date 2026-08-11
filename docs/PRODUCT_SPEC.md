@@ -381,7 +381,7 @@ Unmet needs (from 2-3 star reviews):
   Offline mode — 4 reviewers [S9]
 
 Platforms covered: G2, Reddit r/ProductManagement. Volume caveat: 31 reviews sampled.
-Ratings reported with source and count only; no composite score is synthesised.
+Ratings reported with source and count only; no composite score is synthesized.
 
 ## 6. Market emphasis (strategy canvas)
   [Value curve — DERIVED, presented as interpretation]

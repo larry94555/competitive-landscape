@@ -44,7 +44,7 @@ review; **P10–P23** are ones this design has to solve regardless.
 | **P16** | **Entity ambiguity.** Wrong entity resolution produces a report that is wrong throughout yet internally consistent and fully cited. Rebrands, acquisitions, subsidiaries and shared names all cause it. |
 | **P17** | **Extraction fidelity ≠ truth.** A claim can be perfectly grounded in text we extracted *badly*. If the parser mangled a pricing table, every verification layer passes on a wrong number. **Our verification proves fidelity to the extracted text, not to the page.** |
 | **P18** | **Geographic and currency variance.** Pricing pages vary by IP geolocation, currency, and whether tax is included. Our fetcher sits in one region. |
-| **P19** | **A/B tests and personalisation.** The page we fetched may not be the page the reader sees. |
+| **P19** | **A/B tests and personalization.** The page we fetched may not be the page the reader sees. |
 | **P20** | **Negative claims are the hardest to audit.** "Not found in public sources" is unfalsifiable to a reader unless we show exactly what was searched. |
 | **P21** | **Robots-blocked sources create systematic bias.** A competitor who blocks crawlers appears less documented, not less capable — and a naive report reads that as a weakness. |
 | **P22** | **The user's framing can bias the analysis.** "Why is X better than Y" must not steer retrieval or synthesis toward confirming the premise. |
@@ -617,7 +617,7 @@ the difference between corroboration and echo.
 |---|---|
 | Vendor comparison page about a rival | Rendered as *"per <vendor>'s own comparison page"*; **never** counts toward corroboration; never sources a pricing or feature cell |
 | Marketing superlatives ("the only", "the fastest") | Permitted **only** as attributed self-description; the modifier is stripped otherwise |
-| Review platforms | Rating always shown **with review count and platform**; recency distribution noted; incentivised-review disclosure surfaced where the platform publishes one; no synthesised composite score, ever |
+| Review platforms | Rating always shown **with review count and platform**; recency distribution noted; incentivised-review disclosure surfaced where the platform publishes one; no synthesized composite score, ever |
 | Rating patterns we cannot treat as a representative sample | Distribution shape and submission timing that we cannot treat as representative lower that platform's weight for the subject, and the volume caveat says so — we do not assert that reviews were manipulated |
 | Press releases | Labeled `company_announcement`, not `news`; one independence group |
 | Pages where attribution could not be confirmed | Classified U or N per §3.2.1; never set authoritative values |
@@ -761,7 +761,7 @@ committing the error it exists to prevent.
 3. **Absence is bounded by what we checked** (§5.4) — never by what exists.
 4. **Prices vary by region, currency and tax treatment** (P18). We record our request region
    and say so; a price you see may differ.
-5. **Pages are A/B tested and personalised** (P19). We captured one variant at one moment.
+5. **Pages are A/B tested and personalized** (P19). We captured one variant at one moment.
 6. **Review data is not a representative sample** (P12).
 7. **We do not predict or forecast.** We do make **labeled estimates** where the inputs
    exist — always a range, always with the assumptions printed and the arithmetic one click
@@ -818,7 +818,7 @@ Publishing wrong claims about real companies is a liability, not just a defect.
 | **P16** | Entity ambiguity | §3.1 resolution before fetching; disambiguation gate asks the user; rebrand/acquisition noted in header; Wikipedia for disambiguation only |
 | **P17** | Extraction ≠ truth | L2 deterministic parsing, number round-trip against raw bytes, structural sanity, quality gating, golden fixtures — **and the limitation stated openly in §7** |
 | **P18** | Region/currency | Request region recorded and displayed; currency and tax treatment captured verbatim; stated as a limit |
-| **P19** | A/B and personalisation | Snapshot + hash + timestamp so the reader sees which variant we got; stated as a limit |
+| **P19** | A/B and personalization | Snapshot + hash + timestamp so the reader sees which variant we got; stated as a limit |
 | **P20** | Auditable negatives | §5.4 — every negative lists pages checked, queries run, and time attempted |
 | **P21** | Blocked-source bias | Blocked sources named in-section; per-competitor evidence strength; explicit uneven-coverage note |
 | **P22** | User framing bias | Templated queries from resolved entities, not user phrasing; intent category only reaches synthesis; symmetric presentation |

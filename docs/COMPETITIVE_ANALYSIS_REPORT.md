@@ -127,7 +127,7 @@ full candidate list ([COMPETITIVE_DISCOVERY.md](COMPETITIVE_DISCOVERY.md) §5.5)
 - **Content:** recurring themes with valence and frequency, representative quotes, platforms
   covered, and an explicit volume caveat.
 - **Visuals:** *Theme sentiment bars* (derived) and *Rating comparison* (observed) — §4.5, §4.6.
-- **Never:** a synthesised numeric score. Ratings are reported with their source or not at all.
+- **Never:** a synthesized numeric score. Ratings are reported with their source or not at all.
 - **Unmet-need mining — the highest-value part of this section.** Mine **2–3 star reviews
   specifically** for recurring *"I wish it did X"* / *"the only thing missing is…"* patterns.
   Unlike 1-star reviews (often support incidents) and 5-star reviews (often marketing), the
@@ -336,7 +336,7 @@ The original decision ([ARCHITECTURE.md](ARCHITECTURE.md) §2.1) was *"Charts: n
 Reports are text + tables. Do not add a chart library to look serious."*
 
 **The reasoning was sound; the conclusion was wrong.** It correctly rejected decorative charts,
-then over-generalized to reject all visualisation — in a product whose entire category
+then over-generalized to reject all visualization — in a product whose entire category
 communicates through matrices and comparisons. A competitive analysis tool without a feature
 matrix and a pricing comparison is not competitive analysis. The decision is reversed.
 
@@ -386,7 +386,7 @@ adaptation cost.
 needed, or if axis/scale logic starts being duplicated across emitters, adopt `plotters` then.
 That is a real trigger, not a hedge.
 
-**`resvg`** (Rust, MIT) rasterises SVG → PNG for email. One small crate, one job.
+**`resvg`** (Rust, MIT) rasterizes SVG → PNG for email. One small crate, one job.
 
 ### 7.3 Accessibility and text parity — required, not optional
 
@@ -442,7 +442,7 @@ ADR-worthy change ([CODING_QUALITY.md](CODING_QUALITY.md) §8.1):
 - **Report schema** ([PRODUCT_SPEC.md](PRODUCT_SPEC.md) §4) gains `FeatureMatrix`,
   `MarketEmphasis`, and a `Chart` payload per section. Since one schema drives the API, the UI
   types and the decoding grammar, this is the highest-impact change in this document.
-- **New crate** `landscape-charts`, plus `resvg` for email rasterisation.
+- **New crate** `landscape-charts`, plus `resvg` for email rasterization.
 - **Extraction** must parse capability lists and per-tier limits structurally, not just prose —
   the feature matrix is only as good as the parser (ARCHITECTURE §5.4).
 - **Typst templates** gain chart embedding; the executive one-pager is redesigned around the

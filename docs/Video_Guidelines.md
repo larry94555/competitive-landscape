@@ -244,7 +244,7 @@ finding the player's own control.
 be texture, too thin to be music. A silent video with good captions is better than a video
 with filler audio.
 
-If music is ever added, it should be composed or licensed, not synthesised as a nicety. The
+If music is ever added, it should be composed or licensed, not synthesized as a nicety. The
 bar is that a viewer would notice its absence.
 
 ---

@@ -88,6 +88,33 @@ only way a marker turns into a silent hole, and everything skipped is printed on
 because a check that does not mention its blind spots reads, on every green run, like a check
 that has none.
 
+### And review found the largest hole: the list was a list
+
+`generalise` and `generalised` were in the map; `generalises` and `generalising` were not. Nor
+were `characterises`, `criticises`, `canonicalisation`, `synthesised`, `personalisation`,
+`rasterises` — **31 British spellings across 21 files**, in a tree this gate had just called
+clean, one of them in a module written the same afternoon by the person who wrote the gate.
+
+One verb has eight forms and a person writing them out by hand gets five. The regular families
+are generated from a stem now — `-ise`, `-yse`, `-our`, doubled `-l` — so adding a verb is one
+entry and every inflection comes with it. What stays hand-written is the short list of words the
+generators get **wrong**: `analyses`, `vaporise`, `cancellation`. That list is auditable; the
+other one never was.
+
+**And completeness made it slow enough to matter.** 240 words became 1271, and the matcher was
+one alternation of all of them — O(text x words) at every position, which went from a hundred
+seconds to not finishing. Review measured it: a seven-million-character line in
+`prototype/demo-idea.html`, three candidate matches, fifteen seconds spent walking the same
+base64 blob three times. Two fixes, and the second is the one that matters:
+
+| | |
+|---|---|
+| Mask data runs once per line | Substituting spaces of equal length keeps every offset and line number, and turns a per-match walk into one pass |
+| Stop asking *"does any of these 1271 words appear"* | Ask *"here is a word; is it British?"* — one character class to find a token, one dict lookup to judge it. The cost stops depending on the list |
+
+Eight seconds now, and the token pattern splits `camelCase` structurally rather than by a
+lookahead somebody has to get right.
+
 ### The gate did not know what it was for. Three times
 
 All three are the same failure at different scales, and all three are in the register as 63.
@@ -3728,7 +3755,7 @@ query that did not find it. The test named for this used two different URLs and 
 collide. Entry 7 of the register.
 
 **A cap that capped the wrong thing.** `HITS_PER_QUERY` truncates *after* the body is read and
-`serde` has materialised every row, so the comment claiming it stopped a hostile engine deciding
+`serde` has materialized every row, so the comment claiming it stopped a hostile engine deciding
 this process's workload was the opposite of true. `MAX_RESPONSE_BYTES` now refuses while the
 bytes arrive, and the test drives a server that will not stop sending.
 

@@ -203,7 +203,7 @@ fn room_for_a_board(out: &mut Vec<Candidate>, by_question: &BTreeMap<Answers, Ve
 
 /// Two URLs that differ only by a trailing slash or a `www.` are one page.
 ///
-/// Not a full canonicalisation — query strings and fragments are left alone, because on
+/// Not a full canonicalization — query strings and fragments are left alone, because on
 /// some sites they genuinely select a different plan. This handles the duplicates the
 /// probe list itself creates: `/pricing` and `/pricing/` are both in it.
 ///

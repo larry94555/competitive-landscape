@@ -331,7 +331,7 @@ a new failure mode usually loses.
 > reasons than the original.
 
 - **What it is** — Eight fixed chart types emitted as static, themed SVG by a Rust crate
-  (`landscape-charts`) from the report data, plus `resvg` to rasterise to PNG for email.
+  (`landscape-charts`) from the report data, plus `resvg` to rasterize to PNG for email.
 - **Alternatives** — **Recharts**, **Chart.js**, **visx**, **Nivo**, **D3** on the client;
   **plotters** (the mature Rust plotting crate, with an SVG backend) on the server;
   **Vega-Lite** specs rendered headlessly; server-side rendering of a JS library via a Node

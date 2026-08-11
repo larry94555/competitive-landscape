@@ -206,7 +206,7 @@ impl std::fmt::Debug for Asked<'_> {
 /// took the first site named in a prompt and dropped the rest, so `basecamp.com vs linear.app`
 /// produced a report about Basecamp with nothing on the page saying the other had been ignored.
 ///
-/// # Why this merges rather than generalising `analyze_with`
+/// # Why this merges rather than generalizing `analyze_with`
 ///
 /// One company is the unit that discovery, fetching and extraction are built around, and that
 /// path is the one with every test behind it. This runs it once per subject and joins the
@@ -779,7 +779,7 @@ enum Failures {
 /// What the report says about a search, in the words `FACT_CHECKING.md` §3.2.5 allows.
 ///
 /// The subject of every sentence is us: what we looked for, what we could read, and how far we
-/// got with it. Nothing here characterises a publisher.
+/// got with it. Nothing here characterizes a publisher.
 ///
 /// **Every count comes from `so_far`**, which is the record of what happened, rather than from
 /// the list of pages somebody meant to read.

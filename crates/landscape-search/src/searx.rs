@@ -158,7 +158,7 @@ struct Row {
 ///
 /// **[`crate::queries::HITS_PER_QUERY`] does not bound anything on its own**, which review
 /// found and the doc comment beside it had claimed the opposite of: `.take(5)` runs *after*
-/// the whole body has been read into a `String` and *after* `serde` has materialised every
+/// the whole body has been read into a `String` and *after* `serde` has materialized every
 /// row in it. A misconfigured or compromised instance answering with a gigabyte would have
 /// been read into memory and parsed in full, and the test asserting the cap used a
 /// hundred-row body — small enough that it proved the truncation and nothing about the cost

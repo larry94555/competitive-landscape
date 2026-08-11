@@ -265,7 +265,7 @@ and the measurement that decided against a headless browser.
 | Golden set to 50 subjects, with matrix and chart-data assertions | S3 | 2 | 0 | **2** | 0% |
 | Automated eval suite with CI gates — citation coverage ≥97%, drop rate ≤3% | S3 | 2 | 0 | **2** | 0% |
 | Rendering ladder tiers 2–4 — embedded state, then the rest | S3 | 2 | 1 | **1** | 50% |
-| Latency work — section-parallel generation, prompt-prefix stabilisation | S3 | 2 | 0 | **2** | 0% |
+| Latency work — section-parallel generation, prompt-prefix stabilization | S3 | 2 | 0 | **2** | 0% |
 | "What people are saying" — Hacker News and GitHub only, with named exclusions | S3 | 2 | 0 | **2** | 0% |
 | **Copy as context** — the whole report as clean Markdown, sized to paste elsewhere | S3 | 1 | **1** | 0 | **100%** |
 | | | **26** | **2** | **24** | **8%** |

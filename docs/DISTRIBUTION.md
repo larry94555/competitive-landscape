@@ -111,7 +111,7 @@ results with screenshots, methodology, and the dates.
 Why it works: it is cheap, reproducible by anyone, demonstrates the differentiator in about
 ten seconds, and **the architecture is the only one in the comparison that structurally cannot
 fail it** — a retrieval-gated pipeline has nothing to invent from. Competitors cannot
-neutralise it without rebuilding.
+neutralize it without rebuilding.
 
 Two conditions, both non-negotiable and both derived from the product's own rules
 ([FACT_CHECKING.md](FACT_CHECKING.md) §3.2.5): **publish the dimensions where we lose too**

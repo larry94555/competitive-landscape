@@ -219,6 +219,6 @@ discovery, which is about 20 of those 23 seconds.
 [GO_LIVE.md](GO_LIVE.md) ends with the short table. [RUNBOOK.md](RUNBOOK.md) §6 is the long one:
 a service that will not start, a page that never arrives, a queue that never moves.
 
-The one worth memorising: **every section empty but the changelog filled means the model server
+The one worth memorizing: **every section empty but the changelog filled means the model server
 is down.** Changes is the section that needs no model, so it is what tells an inference problem
 apart from a fetching one.

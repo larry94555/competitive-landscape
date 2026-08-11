@@ -282,7 +282,7 @@ Consistent with the existing architecture: grammar-constrained, schema-fixed, ev
    pages — so this step costs almost no prefill.
 2. **Only fired rubrics proceed.** A typical idea fires one or two of six.
 3. **Question emission is grammar-constrained** to the rubric's own question list, lightly
-   contextualised with the subject's specifics. The model **cannot invent a question that is
+   contextualized with the subject's specifics. The model **cannot invent a question that is
    not in the rubric**, which is what makes the output auditable.
 4. **Every question carries the source labels** of the signals that fired it.
 

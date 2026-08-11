@@ -125,7 +125,7 @@ duplicated once, and a pacing change silently left one film at the old timing.
 | The marketing sub-heading | The question is the message |
 | *(kept)* The prototype banner | Honesty about it being a prototype is non-negotiable |
 
-The rule generalises: **the screen shows what the current beat is about and as little else as
+The rule generalizes: **the screen shows what the current beat is about and as little else as
 can be managed.** Everything hidden here returns in a later film, as the subject.
 
 ---

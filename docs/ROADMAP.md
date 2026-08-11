@@ -1885,7 +1885,7 @@ a hard constraint, not a preference.
 ### 6.1 The two rules
 
 1. **Infrastructure ≤ 20% of MRR.** Below that, upgrading is premature; above it, the
-   business is subsidising its own hosting out of a founder's pocket.
+   business is subsidizing its own hosting out of a founder's pocket.
 2. **Hold three months of the next rung's cost in cash before climbing.** A rung you cannot
    sustain through one bad month is a rung you cannot afford. Downgrading after a migration
    is far more disruptive than waiting.

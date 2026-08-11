@@ -22,16 +22,31 @@ better than a check that silently declines to look.
 `analyst`, `cancellation` (double `l` in both), `optimistic`, `emphasis`, `advice`, `service`,
 `device`, `axes`. Adding any of them would flag correct text.
 
+# The list is derived, because a hand-written one is always short
+
+The first version listed every inflection by hand and **certified this repository American
+while it was not**: review found `generalises`, `generalising`, `characterises`, `criticises`,
+`canonicalisation` and `synthesised` still in the tree, green. The map held `generalise` and
+`generalised`. One verb has eight forms and a person writing them out gets five.
+
+The regular families are generated from a stem now - `_ise`, `_yse`, `_our`, `_double_l` - so
+adding a verb is one entry and every form comes with it. Adding the derivation found **31 more
+British spellings** in a tree the previous version had just called clean.
+
+Words the generators produce that are wrong are removed by name below the map, which is a short
+list somebody can audit: `analyses`, `vaporise`, `cancellation`.
+
 # How a word is matched
 
-`(?<![A-Za-z])word(?![a-z])` rather than `\bword\b`, for two reasons:
+**One word at a time, looked up.** The scanner finds *a word* with a single character class and
+asks a dict whether that word is British, so the cost does not depend on how long the list is.
+The first version was one alternation of every word, which is O(text x words) - fine at 240
+words, and at 1271 it did not finish.
 
-  * **it reaches identifiers.** `normalise_text` and `normaliseText` are the same mistake as
-    the prose, and `\b` would not see either, because `_` and `T` are not word boundaries in
-    the way needed here.
-  * **it spares `aria-labelledby`.** The `b` that follows `labelled` is a lowercase letter, so
-    the trailing guard refuses the match. That attribute is HTML, not English, and renaming it
-    would break a screen reader.
+The word pattern splits `camelCase` as well as `snake_case`, which is what the old lookarounds
+were for: `normaliseText` gives `normalise` and `Text`. **`aria-labelledby` gives `labelledby`**,
+one token that is not in the map, so that attribute is spared structurally rather than by a
+lookahead somebody has to get right.
 
 # What is skipped, and how to skip something
 
@@ -164,13 +179,139 @@ BRITISH = {
     'humour': 'humor', 'armour': 'armor', 'speciality': 'specialty',
 }
 
-# `(?-i:...)` turns the ignore-case flag *off* for the trailing guard alone. Without it the
-# whole pattern is case-insensitive, `[a-z]` matches `N` as well as `n`, and `analyseNow` is
-# missed - which is one of the two shapes this is here to reach.
-RX = re.compile(
-    '(?<![A-Za-z])(' + '|'.join(sorted(BRITISH, key=len, reverse=True)) + ')(?-i:(?![a-z]))',
-    re.IGNORECASE,
+
+# ---------------------------------------------------------------- the regular families
+#
+# **A hand-written list of inflections certified this repository American while it was not.**
+# Review found `generalises`, `generalising`, `characterises`, `criticises`,
+# `canonicalisation` and `synthesised` still in the tree with the gate green - because the map
+# held `generalise` and `generalised` and neither the third person nor the gerund. One verb has
+# eight forms, and somebody writing them out by hand gets five.
+#
+# So the regular families are **generated from a stem**. Adding a verb is one entry and every
+# form arrives with it, which is the difference between a rule and a list.
+
+
+def _ise(stems):
+    """`-ise` verbs and everything that grows off them.
+
+    `general` gives generalise, generalises, generalised, generalising, generalisation,
+    generalisations, generaliser, generalisers. Some of those are not words - `rasterisation`
+    is, `synthesisation` is not - and an entry nothing ever matches costs nothing, where
+    deciding case by case which forms a person might type costs exactly what this is fixing.
+    """
+    out = {}
+    for stem in stems:
+        for british, american in (
+            ('ise', 'ize'), ('ises', 'izes'), ('ised', 'ized'), ('ising', 'izing'),
+            ('isation', 'ization'), ('isations', 'izations'),
+            ('iser', 'izer'), ('isers', 'izers'),
+        ):
+            out[stem + british] = stem + american
+    return out
+
+
+def _yse(stems):
+    """`-yse` verbs. The plural-ambiguous forms are removed below."""
+    out = {}
+    for stem in stems:
+        for british, american in (
+            ('yse', 'yze'), ('ysed', 'yzed'), ('ysing', 'yzing'),
+            ('yses', 'yzes'), ('yser', 'yzer'), ('ysers', 'yzers'),
+        ):
+            out[stem + british] = stem + american
+    return out
+
+
+def _our(words):
+    """`-our` nouns and what hangs off them."""
+    out = {}
+    for word in words:
+        stem = word[: -len('our')]
+        for british, american in (
+            ('our', 'or'), ('ours', 'ors'), ('oured', 'ored'), ('ouring', 'oring'),
+            ('ourful', 'orful'), ('ourless', 'orless'), ('ourable', 'orable'),
+            ('ourite', 'orite'), ('ourites', 'orites'),
+        ):
+            out[stem + british] = stem + american
+    return out
+
+
+def _double_l(stems):
+    """British doubles the `l` before a suffix where American does not."""
+    out = {}
+    for stem in stems:
+        for british, american in (
+            ('lled', 'led'), ('lling', 'ling'), ('ller', 'ler'), ('llers', 'lers'),
+        ):
+            out[stem + british] = stem + american
+    return out
+
+
+ISE_STEMS = (
+    'apolog', 'author', 'canonical', 'capital', 'categor', 'central', 'character', 'civil',
+    'colon', 'commercial', 'computer', 'contextual', 'critic', 'custom', 'decentral',
+    'demoral', 'deserial', 'digit', 'emphas', 'empath', 'equal', 'familiar', 'final',
+    'formal', 'general', 'global', 'granular', 'harmon', 'hospital', 'human', 'idol',
+    'immun', 'individual', 'industrial', 'initial', 'internal', 'international', 'ital',
+    'legal', 'legitim', 'liberal', 'local', 'marginal', 'material', 'maxim', 'memor',
+    'minim', 'mobil', 'modern', 'modular', 'monet', 'moral', 'nation', 'national',
+    'natural', 'neutral', 'normal', 'optim', 'organ', 'parameter', 'patron', 'penal',
+    'personal', 'polar', 'popular', 'priorit', 'privat', 'random', 'raster', 'rational',
+    'real', 'recogn', 'regular', 'revolution', 'ritual', 'sanit', 'scrutin', 'secular',
+    'serial', 'social', 'special', 'stabil', 'standard', 'steril', 'subsid', 'summar',
+    'symbol', 'sympath', 'synchron', 'synthes', 'systemat', 'tantal', 'theor', 'token',
+    'total', 'trivial', 'urban', 'util', 'vandal', 'vector', 'verbal', 'victim', 'visual',
+    'vocal',
 )
+
+YSE_STEMS = ('anal', 'paral', 'catal', 'dial', 'breathal')
+
+OUR_WORDS = (
+    'colour', 'behaviour', 'favour', 'honour', 'labour', 'neighbour', 'rigour', 'vigour',
+    'valour', 'rumour', 'vapour', 'flavour', 'odour', 'ardour', 'armour', 'clamour',
+    'endeavour', 'fervour', 'harbour', 'humour', 'parlour', 'rancour', 'saviour',
+    'splendour', 'succour', 'tumour', 'candour', 'demeanour', 'enamour',
+)
+
+LL_STEMS = (
+    'cance', 'labe', 'leve', 'mode', 'signa', 'trave', 'fue', 'jewe', 'marve', 'counse',
+    'quarre', 'tota', 'unrave', 'grove', 'shrive',
+)
+
+# The explicit map wins over anything a generator produced.
+_derived = {}
+_derived.update(_ise(ISE_STEMS))
+_derived.update(_yse(YSE_STEMS))
+_derived.update(_our(OUR_WORDS))
+_derived.update(_double_l(LL_STEMS))
+_derived.update(BRITISH)
+BRITISH = _derived
+
+# **Removed whatever a generator produced.** `analyses` is the American plural of *analysis* as
+# well as the British verb and nothing can tell those apart; `vaporise` is already the American
+# spelling; `cancellation` doubles its `l` in both. Flagging any of them would make the gate
+# wrong in a way a reader cannot argue with, which is how a gate gets switched off.
+for _same_in_both in (
+    'analyses', 'vaporise', 'vaporises', 'vaporised', 'vaporising', 'vaporisation',
+    'vaporisations', 'vaporiser', 'vaporisers', 'cancellation', 'cancellations',
+):
+    BRITISH.pop(_same_in_both, None)
+
+# **One word at a time, looked up - not one alternation of every word.**
+#
+# The first version was `(?<![A-Za-z])(word|word|...)(?-i:(?![a-z]))`, which is O(text x words):
+# at every position the engine tries each branch. That was tolerable at 240 words and is not at
+# 1271 - deriving the inflections made the alternation five times wider, and the gate went from
+# a hundred seconds to not finishing. Scanning for *a word* is one character class, and asking
+# whether that word is British is a dict lookup, so the cost stops depending on the list at all.
+#
+# The pattern splits `camelCase` as well as `snake_case`, which is what the alternation's
+# lookarounds were for: `normaliseText` gives `normalise` and `Text`, `normalise_text` gives
+# `normalise` and `text`. **`aria-labelledby` gives `labelledby`**, one token that is not in the
+# map - so the attribute is spared structurally rather than by a lookahead somebody has to get
+# right. `ALLCAPS` stays whole, so `CATALOGUE` is found.
+WORD = re.compile('[A-Z]?[a-z]+|[A-Z]+(?![a-z])')
 
 # Other people's frozen HTML. See the module docstring.
 SKIP_DIRS = ('crates/landscape-golden/pages/',)
@@ -197,29 +338,33 @@ EXEMPT = {
 }
 
 # Base64 alphabet. A run of these longer than DATA_RUN is data, not English.
-DATA = re.compile(r'[A-Za-z0-9+/=]+')
+#
+# **Masked once per line rather than re-walked per match.** The first version asked, for every
+# candidate word, whether that position sat inside a long run - and answering walked to both
+# ends of the run. On `prototype/demo-idea.html` that is a **seven-million-character line**, so
+# three candidate matches cost fifteen seconds of walking the same blob three times, and the
+# whole gate took about a hundred seconds on every verify and every CI run. Substituting spaces
+# of equal length costs one pass, keeps every offset and line number exactly where it was, and
+# takes the gate to about a second.
+DATA_RUN = 48
+DATA = re.compile('[A-Za-z0-9+/=]{' + str(DATA_RUN + 1) + ',}')
 
 # **The first version measured the whitespace-delimited run and skipped anything over 60**, which
 # is fine for prose and wrong for code: `normalise("HTTPS://WWW.Example.com/Pricing")...` is 69
 # characters with no space in it, so a real call site went unswept and the compiler found it
 # instead of this gate. A base64 run has no punctuation in it - that is what separates data from
 # a line of code, and it is what this measures now. The longest identifier here is 30 characters.
-DATA_RUN = 48
 
 
-def in_data_blob(text: str, i: int) -> bool:
-    """Is position `i` inside an unbroken run of base64 characters too long to be a word?
+def without_data(line: str) -> str:
+    """The line with every long base64 run replaced by spaces of the same length.
 
-    The prototype pages embed video and captions as data URIs, and a long enough blob contains
-    every short word there is - `greYTK`, `kErb` and `oMOuldq` are all real matches from one.
+    Same length on purpose: every offset and every line number stays where it was, so nothing
+    downstream has to know this happened. The prototype pages embed video and captions as data
+    URIs, and a long enough blob contains every short word there is - `greYTK`, `kErb` and
+    `oMOuldq` are all real matches from one.
     """
-    start = i
-    while start > 0 and DATA.fullmatch(text[start - 1]):
-        start -= 1
-    end = i
-    while end < len(text) and DATA.fullmatch(text[end]):
-        end += 1
-    return end - start > DATA_RUN
+    return DATA.sub(lambda run: ' ' * (run.end() - run.start()), line)
 
 
 def names_both(line: str) -> bool:
@@ -265,10 +410,12 @@ def offenders(text: str) -> list[tuple[int, str, str]]:
             continue
         if muted:
             continue
-        for m in RX.finditer(line):
-            if in_data_blob(line, m.start()):
-                continue
-            found.append((n, m.group(1), BRITISH[m.group(1).lower()]))
+        # Cheap first: a line with no letters at all is most of a base64 blob's neighbourhood.
+        for m in WORD.finditer(without_data(line)):
+            word = m.group(0)
+            american = BRITISH.get(word.lower())
+            if american is not None:
+                found.append((n, word, american))
     return found
 
 
@@ -297,6 +444,16 @@ FIXTURES = [
      'fn deserialise_the_whole_configuration_document() {}', ['deserialise']),
     ('capitals are matched', 'CATALOGUE', ['CATALOGUE']),
     ('a longer word is not a partial match', 'greyhounds run', []),
+    # The four the hand-written list missed, and the reason the families are derived.
+    ('a third person the base form does not imply', 'it generalises', ['generalises']),
+    ('a gerund the base form does not imply', 'generalising over it', ['generalising']),
+    ('a noun the verb does not imply', 'canonicalisation of a URL', ['canonicalisation']),
+    ('a past participle two stems along', 'synthesised from the status', ['synthesised']),
+    # Removed from whatever the generators produced. Flagging any of these is the way a gate
+    # earns being switched off.
+    ('the American plural is not a British verb', 'two analyses a day', []),
+    ('cancellation doubles its l in both', 'a cancellation policy', []),
+    ('vaporise is already American', 'it will vaporise', []),
     ('two on one line are both reported',
      'the colour and the behaviour', ['colour', 'behaviour']),
     ('a muted passage is not checked',
@@ -376,13 +533,29 @@ def main() -> int:
     hits = []
     open_markers = []
     muted = 0
+    frozen = 0
+    unreadable = []
+    checked = 0
     for path in tracked():
-        if any(path.startswith(d) for d in SKIP_DIRS) or path in EXEMPT:
+        if path in EXEMPT:
+            continue
+        if any(path.startswith(d) for d in SKIP_DIRS):
+            frozen += 1
             continue
         try:
             text = io.open(path, encoding='utf-8').read()
-        except (UnicodeDecodeError, OSError):
+        except UnicodeDecodeError:
+            # Not text. The films and the recorded video are the whole of this in practice, and
+            # a count is the honest report: naming forty binaries every run is noise.
+            unreadable.append((path, 'not text'))
             continue
+        except OSError as why:
+            # **Named, unlike the binaries.** A file this cannot open is a fact about the
+            # working tree rather than about the file's type, and silently skipping it is how a
+            # gate reports coverage it does not have.
+            unreadable.append((path, str(why)))
+            continue
+        checked += 1
         dangling = unclosed_mute(text)
         if dangling is not None:
             open_markers.append((path, dangling))
@@ -406,11 +579,24 @@ def main() -> int:
         return 1
 
     if not hits:
-        # What was skipped is printed rather than kept quiet. A check that does not mention its
-        # blind spots reads, on every green run, like a check that has none.
-        print(f'American spelling: {len(BRITISH)} words checked, none found.')
+        # **Everything skipped is printed, and that sentence has to be true.** An earlier version
+        # said it while silently passing over the frozen pages and every binary in the tree, so a
+        # green run presented known blind spots as coverage. Review found it.
+        print(
+            f'American spelling: {len(BRITISH)} words checked '
+            f'across {checked} text file(s), none found.'
+        )
         for path, why in EXEMPT.items():
             print(f'  not checked: {path} - {why}')
+        if frozen:
+            print(f'  not checked: {frozen} file(s) under ' + ', '.join(SKIP_DIRS))
+        if unreadable:
+            not_text = [p for p, why in unreadable if why == 'not text']
+            if not_text:
+                print(f'  not checked: {len(not_text)} file(s) that are not text')
+            for path, why in unreadable:
+                if why != 'not text':
+                    print(f'  not checked: {path} - {why}')
         if muted:
             print(f'  not checked: {muted} passage(s) marked `{MUTE}`')
         return 0

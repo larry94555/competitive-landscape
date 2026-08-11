@@ -693,12 +693,27 @@ resolves spends a rate-limited retry for nothing.
 
 ### 11a. Find the address you browse from
 
-**On your own machine, not the box** — and forcing IPv4, which matters:
+**On your own machine, not the box** — and forcing IPv4, which matters.
+
+**macOS or Linux:**
 
 ```bash
 curl -4 -s https://ifconfig.me
 ```
 
+**Windows, in PowerShell** — `curl.exe`, with the extension, and it is not optional:
+
+```bash
+curl.exe -4 -s https://ifconfig.me
+```
+
+> **`curl` in Windows PowerShell is not curl.** It is an alias for `Invoke-WebRequest`, which
+> reads `-4` as the start of a parameter it does not have and fails before making a request:
+> *"Cannot find drive. A drive with the name 'https' does not exist."* Writing `curl.exe` runs
+> the real program, which Windows 10 and 11 both ship. The rest of this guide runs on the box,
+> where `curl` is curl; this one step runs on your own machine, which is why it is the only
+> place the difference matters.
+>
 > **`-4` is not decoration.** Without it, that command returns your **IPv6** address whenever
 > your machine has one — and your domain has only an `A` record, so the browser reaches the box
 > over IPv4 and Caddy sees a different address entirely. The allow-list would then hold an
@@ -714,16 +729,29 @@ which beats guessing.
 
 ### 11b. Install Caddy and point it at your domain
 
-On the box. **Caddy is not in Ubuntu's archive**, so its own repository goes on first — these
-four lines are Caddy's documented install for Debian and Ubuntu, and they carry an arm64 build:
+On the box, from **Caddy's own repository** rather than Ubuntu's. This is
+[Caddy's documented install](https://caddyserver.com/docs/install#debian-ubuntu-raspbian) for
+Debian and Ubuntu, copied whole, and it carries an arm64 build:
 
 ```bash
 sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
 curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo chmod o+r /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+sudo chmod o+r /etc/apt/sources.list.d/caddy-stable.list
 sudo apt-get update
 sudo apt-get install -y caddy
 ```
+
+> **The two `chmod` lines are part of the official sequence, not tidying.** `apt` fetches as the
+> unprivileged `_apt` user, so it has to be able to read the key and the source list. Leaving
+> them out works only if your umask happened to be permissive, and when it is not, `apt-get
+> update` cannot read what the two lines above just wrote — and re-running them, which is what
+> the remedy below says, writes the same unreadable files again.
+>
+> **Ubuntu 24.04 does have a `caddy` package**, in Universe. This guide does not use it: it is
+> older than upstream, and a deployment document that pins a web server should name the source
+> it was tested against. That is the reason, rather than the package being absent.
 
 Check it is there before going on — the second command also proves the directory the next step
 writes into exists:
@@ -733,8 +761,10 @@ caddy version
 ls /etc/caddy/Caddyfile
 ```
 
-> **`E: Unable to locate package caddy`** means the repository lines above did not take. Re-run
-> them and watch `apt-get update` for an error against `dl.cloudsmith.io`.
+> **`E: Unable to locate package caddy`** means the repository lines above did not take —
+> most often because `apt-get update` could not read the key or the list, which is what the two
+> `chmod` lines prevent. Re-run all five, and watch `apt-get update` for an error mentioning
+> `dl.cloudsmith.io` or a permission denial.
 >
 > **`cp: cannot create regular file '/etc/caddy/Caddyfile': No such file or directory`** in the
 > next command is the same problem one step later: no package, so no directory. It reads like a

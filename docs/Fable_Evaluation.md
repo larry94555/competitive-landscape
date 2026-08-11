@@ -9,7 +9,7 @@
 > measurements, and the evaluator (the same model that wrote most of the documents) has an
 > obvious authorship bias toward finding the plan good. The mitigation is the same one the
 > plan uses everywhere else: be specific enough to be checkable, and prefer identifying
-> defects over defending choices. Where this document criticises the plan, the criticism
+> defects over defending choices. Where this document criticizes the plan, the criticism
 > stands even though the author wrote the thing being criticized.
 >
 > Scope caveat from the question as posed: probabilities assume the plan proceeds as written,
@@ -295,7 +295,7 @@ Ranked by expected impact per unit of effort.
    the well-known free alternatives and publish the results with screenshots. It is cheap,
    newsworthy, demonstrates the differentiator in ten seconds, and — because the product's
    architecture is the only one in the comparison that *structurally cannot* fail the test —
-   it is a marketing asset competitors cannot neutralise without rebuilding.
+   it is a marketing asset competitors cannot neutralize without rebuilding.
 5. **Elevate watch creation into the first-run flow.** The plan already believes watches are
    the retention hinge (Phase 7 expects to confirm it). Don't wait: make "watch these pages"
    part of the first report's completion moment, not a separate later discovery. One-shot

@@ -29,7 +29,7 @@
 //!
 //! Quote fidelity is worth its own column because it needs no reference answer: a quote
 //! that is not in the source is fabricated evidence, and that is decidable by `contains`.
-//! It generalises to pages nobody has hand-labeled, which is what makes it the check we
+//! It generalizes to pages nobody has hand-labeled, which is what makes it the check we
 //! can afford to run on everything later.
 //!
 //! # Running it

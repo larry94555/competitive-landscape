@@ -28,7 +28,7 @@ That second row is uncomfortable and it is the most important sentence in this d
 > ChatGPT or Claude subscription — and the reader very likely has one.**
 
 Every framework the user cited — *Crossing the Chasm*, *The Cold Start Problem*, *The
-Tipping Point*, *The Innovator's Dilemma* — is deeply internalised by every frontier model.
+Tipping Point*, *The Innovator's Dilemma* — is deeply internalized by every frontier model.
 "Does the Cold Start Problem apply to my idea?" is close to an ideal chatbot prompt. If we
 emit confident strategic prose from a quantized 8B model, we ship something *worse than free*
 under a brand built entirely on rigor, and we contaminate trust in levels 4, 5 and 8, where
@@ -131,7 +131,7 @@ signals, sources.
 **"How well are they doing"** stays bounded by the existing rule: publicly visible since,
 last public update, open roles, disclosed financials only. **No composite health score, and
 private-company revenue is never estimated.** Where a market size is quoted it is attributed
-to whoever published it, with its date and methodology, never synthesised
+to whoever published it, with its date and methodology, never synthesized
 ([Off-The-Napkin-Estimates.md](Off-The-Napkin-Estimates.md) governs what may be estimated).
 
 ### Level 5 — Discussions and reviews

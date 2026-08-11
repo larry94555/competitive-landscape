@@ -577,7 +577,7 @@ One video, **120 seconds hard maximum** — a demo nobody watches is worse than 
 | Title card | 2s | PR number, title, commit SHA, branch |
 | **UI in action** | 20–60s | The feature working, recorded from a `@demo`-tagged Playwright spec |
 | **Code walkthrough** | 20–50s | 3–6 steps through the changed code: what changed, where, and why |
-| End card | 3s | What the reviewer should scrutinise; link to the ADR |
+| End card | 3s | What the reviewer should scrutinize; link to the ADR |
 
 **Every segment is subtitled and silent.** Captions are burned in, so the video is fully
 comprehensible with sound off — which is also how GitHub autoplays it, and what makes it
@@ -778,7 +778,7 @@ Every PR. A reviewer who cannot answer yes to all of these does not approve.
       exists." The walkthrough script describes the code that is actually here (§9.5).
 
 **Language about third parties** (blocking, wherever the change produces user-visible text)
-- [ ] No sentence characterises a publisher, a source, or a company. Every statement is about
+- [ ] No sentence characterizes a publisher, a source, or a company. Every statement is about
       what **we** confirmed or could not confirm ([FACT_CHECKING.md](FACT_CHECKING.md) §3.2.5).
 - [ ] Where two values differ, both are shown with dates and links, and neither is adjudicated.
 - [ ] Field names, enum variants and log messages follow the same rule — internal vocabulary

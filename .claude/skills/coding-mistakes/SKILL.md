@@ -2430,6 +2430,26 @@ the mistake.** It lists `--cached --others --exclude-standard` now, which is wha
 by *"the files I am working on"*. Entry 16 with the halves swapped: a check whose idea of "the
 code" differs from CI's is a check reporting on something nobody is shipping.
 
+**And review found the largest hole of all: the list was a list.** `generalise` and
+`generalised` were in it; `generalises` and `generalising` were not. Nor were `characterises`,
+`criticises`, `canonicalisation`, `synthesised`, `personalisation`, `rasterises` — **31 British
+spellings across 21 files**, in a tree the gate had just called clean, one of them in a module
+written the same afternoon by the person who wrote the gate.
+
+One verb has eight forms. Somebody writing them out by hand gets five, every time, and the two
+they miss are the two they did not happen to type that week. **The families are generated from
+a stem now** — `-ise`, `-yse`, `-our`, doubled `-l` — so adding a verb is one entry and every
+inflection arrives with it. What is left by hand is the short list of words the generators get
+*wrong* (`analyses`, `vaporise`, `cancellation`), which is a thing a person can audit.
+
+**And making it complete made it slow enough to matter.** The map went from 240 words to 1271,
+and the matcher was one alternation of every word — O(text x words), at every position. It went
+from a hundred seconds to not finishing. The fix is to stop asking *"does any of these 1271
+words appear here"* and start asking *"here is a word; is it British?"*: one character class to
+find a token, one dict lookup to judge it, and the cost stops depending on the list at all.
+Eight seconds, and it splits `camelCase` structurally rather than by a lookahead somebody has
+to get right.
+
 **Rule:** a repository-wide convention that lives only in the existing text is not a convention,
 it is an average — and averages drift. Decide it, sweep it once, and land the check in the same
 commit, because the sweep is a snapshot and the check is the rule. When the check is text
@@ -2437,8 +2457,15 @@ matching, write a fixture for the case you are *most* confident about — that i
 forgot is doing the opposite of what you read — and check what your noise filter costs you,
 because a filter tuned on one kind of file is a blind spot in every other kind.
 
+**Rule, the second one:** when a check enumerates cases, ask what generates them. A list of
+inflections, of status codes, of file extensions, of error variants — anything with a regular
+shape — is a rule somebody flattened, and the flattening is where the gap is. Generate the
+regular part and hand-write only the exceptions, because the exceptions are the part a reader
+can check.
+
 > **Ask this:** *am I following this convention because it is written down somewhere a check can
-> read, or because the file I happened to open does it that way?*
+> read, or because the file I happened to open does it that way? And is this list of cases
+> really a list, or is it a rule I have written out badly?*
 
 <!-- american-spelling: on -->
 
