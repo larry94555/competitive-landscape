@@ -64,7 +64,7 @@ impl Counted {
         if self.of == 0 {
             return None;
         }
-        // A `done` past `of` would be a bug elsewhere, and clamping is the behaviour that keeps
+        // A `done` past `of` would be a bug elsewhere, and clamping is the behavior that keeps
         // a reader's bar inside its box while it is being found.
         #[allow(clippy::cast_precision_loss)]
         Some((self.done.min(self.of) as f32) / (self.of as f32))

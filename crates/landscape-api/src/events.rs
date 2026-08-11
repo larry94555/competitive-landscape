@@ -29,7 +29,7 @@
 //! event here is. The rest describe a report; this one describes a *run*, and the longest
 //! stretch with no report at all - working out which companies a description means, then
 //! finding their pages - is exactly the stretch a reader most needs to be told is not a hang.
-//! So it is synthesised from the status when the row carries no report, and read off the
+//! So it is synthesized from the status when the row carries no report, and read off the
 //! report once there is one.
 //!
 //! **A section is sent when it first has something in it, and again whenever it changes.**
