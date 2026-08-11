@@ -146,6 +146,34 @@ everywhere. And the SSH key command used `~`, which PowerShell does not expand w
 argument to a program, so the Windows path the guide advertises would have created a literal
 `~` directory.
 
+### And the first real box corrected the step that expected to be corrected
+
+Step 4b assumed Oracle's Ubuntu images ship a firewall: SSH accepted, everything else rejected,
+so the work is to insert an `ACCEPT` **above** the `REJECT` and the hazard is inserting below
+it. It was marked as the step I was least able to verify from here.
+
+The image actually used shipped this:
+
+```text
+Chain INPUT (policy ACCEPT)
+num  target     prot opt source               destination
+```
+
+**An empty chain and a default of allow.** Nothing to insert above, nothing blocking anything,
+and the commands as written fail with `Index of insertion too big` — an error that reads like a
+mistake rather than like *"you are in the other case"*.
+
+The step handles both now, and checks the two places `iptables -L` cannot see: `nft list
+ruleset`, because Ubuntu's iptables is a shim over nftables and a native rule in another table
+does not appear, and `ufw status`.
+
+**The consequence is the part worth carrying forward.** On an image with no host firewall,
+`BIND_ADDR` on loopback and SearXNG's loopback binding are not defence in depth — they are the
+depth. Anything bound to `0.0.0.0` is on the internet as soon as a security-list rule allows its
+port. Review had already moved SearXNG's binding to `127.0.0.1` on the argument that a closed
+firewall is not the same as a service that is not listening; a box with no firewall at all is
+that argument arriving in person.
+
 ### Numbers in prose are not checked by anything
 
 Renumbering the guide to put DNS at step 3 left **seven** references pointing at the wrong

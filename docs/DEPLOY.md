@@ -92,10 +92,17 @@ unauthenticated service, and this paragraph said otherwise. It is `127.0.0.1:888
 than assuming it. Review found it; a firewall that happens to be closed is not the same as a
 service that is not listening.
 
-> **⚠ The step I am least able to verify from here** is the `iptables` rule numbering. Oracle's
-> Ubuntu images ship rules that accept SSH and drop the rest, and the exact ruleset varies by
-> image. Inserting *after* the final `REJECT` does nothing, which is the failure that looks most
-> like success.
+> **This was the step I was least able to verify, and the first real box settled it.** I assumed
+> Oracle's Ubuntu images ship rules that accept SSH and reject the rest, so the whole step was
+> about inserting above the `REJECT`. The image actually used shipped an **empty INPUT chain
+> with `policy ACCEPT`** — nothing to insert above, and the commands as written fail with
+> `Index of insertion too big`.
+>
+> [Step 4b](GO_LIVE.md#step-4--open-the-two-firewalls) covers both now, and checks `nft` and
+> `ufw` as well, because `iptables -L` only shows what iptables manages. The consequence worth
+> carrying forward: on an image with no host firewall at all, **`BIND_ADDR` on loopback and the
+> loopback binding of SearXNG are the only things keeping the API and the search engine off the
+> internet.** That was defence in depth when it was written and is now the depth.
 
 ### The schema applies itself [step 6](GO_LIVE.md#step-6--create-the-database)
 

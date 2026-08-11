@@ -9,10 +9,11 @@ information to make.
 > the ports are open, why the artefacts stay root-owned, what each unit file is protecting
 > against. Read it when something surprises you. This file is the sequence.
 >
-> **None of it has been run.** There is no box reachable from this repository
-> ([PROJECT_STATUS.md](../PROJECT_STATUS.md) B5), so this is reasoned from our own code and from
-> Oracle's documented behaviour. **Correct it as you go.** Three steps are marked
-> **⚠ least certain** — those are the ones to expect trouble in.
+> **Being walked for the first time.** It was written from our own code and from Oracle's
+> documented behaviour rather than from a deployment that worked, so **correct it as you go**.
+> Two steps are still marked **⚠ least certain**; a third is not, because
+> [step 4b](#step-4--open-the-two-firewalls) has now met a real box and been rewritten around
+> what it found.
 
 ## What you will end up with
 
@@ -149,15 +150,29 @@ There are two, and a closed port looks exactly like a broken application.
 
 Leave everything else on those rules as it comes.
 
-**b. Ubuntu's, on the box.** Oracle's image drops everything except SSH, and the rules survive
-reboots.
+**b. Ubuntu's, on the box** — **and it may not exist.** Which of these you have depends on the
+image, so look before you type:
 
 ```bash
 sudo iptables -L INPUT --line-numbers
 ```
 
-Find the line number of the final `REJECT` rule. Insert **before** it — if the `REJECT` is line
-6, these are right as written; if it is a different number, use that number:
+Read the first line for the **policy**, and the rows under it for the **rules**:
+
+```text
+Chain INPUT (policy ACCEPT)
+num  target     prot opt source               destination
+```
+
+That is an empty chain — no rules, default allow — and it is what the first box this guide
+was walked on had. **Nothing on the machine is blocking anything**, so there is nothing to add.
+Skip to *"Whichever you have"* below.
+
+If instead there are numbered rows ending in a `REJECT` or `DROP`, that is the older Oracle
+ruleset: SSH allowed, everything else refused. Add yours **above** the refusal — `iptables`
+stops at the first rule that matches, so anything below a `REJECT` is never reached. If the
+`REJECT` is line 6, these are right as written; if it is a different number, use that number in
+both:
 
 ```bash
 sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
@@ -165,9 +180,40 @@ sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
 sudo netfilter-persistent save
 ```
 
-> **⚠ Least certain.** Inserting *after* the `REJECT` does nothing at all, and that failure
-> looks exactly like success. Run `sudo iptables -L INPUT --line-numbers` again and check both
-> `ACCEPT` lines are above the `REJECT`.
+Then run `sudo iptables -L INPUT --line-numbers` again and check both `ACCEPT` lines are above
+the `REJECT`. **Inserting below it does nothing at all, and that failure looks exactly like
+success.**
+
+> **On an empty chain those commands fail** with `Index of insertion too big`: position 6 does
+> not exist when there are no rules. That error means you are in the first case, not that
+> something is wrong.
+
+**Whichever you have, check the other two places a rule can hide.** `iptables -L` shows only
+what iptables manages, and Ubuntu has two other front ends to the same kernel:
+
+```bash
+sudo nft list ruleset
+sudo ufw status
+```
+
+| What you get | What to do |
+|---|---|
+| `nft` prints nothing, or only chains that say `policy accept` with no rules | Nothing. This is the ordinary case |
+| `nft` shows an `input` chain containing `drop` or `reject` | The rules are real but not where `iptables -L` looks. Add yours with `sudo nft add rule inet filter input tcp dport {80, 443} accept`, then `sudo nft list ruleset` to confirm they are above the drop |
+| `ufw` says `Status: inactive`, or the command is not installed | Nothing |
+| `ufw` says `Status: active` | `sudo ufw allow 80/tcp && sudo ufw allow 443/tcp` |
+
+**If everything is empty, Oracle's security list from 4a is your only firewall.** That is
+genuinely enough for what this guide does — it is the boundary that decides what reaches the
+machine at all — but it makes one thing matter more than it otherwise would:
+
+> **With an empty chain and `policy ACCEPT`, anything bound to `0.0.0.0` is on the internet the
+> moment a security-list rule allows its port.** `BIND_ADDR` staying on `127.0.0.1`
+> ([step 9](#step-9--configure-and-start-the-three-services)) and SearXNG being bound to
+> loopback ([step 10](#step-10--start-the-search-engine)) are then the *only* things keeping the
+> API and the search engine off the public internet. Do not change either to `0.0.0.0` without
+> reading [Appendix A](#appendix-a--running-without-a-domain), which is the one place this guide
+> asks you to.
 
 Nothing needs opening for 8787, 8080 or 8888: all three listen on `127.0.0.1` only, and
 [step 10](#step-10--start-the-search-engine) checks that rather than taking it on trust.
