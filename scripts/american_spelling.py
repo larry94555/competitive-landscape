@@ -343,8 +343,24 @@ def self_test() -> list[str]:
 
 
 def tracked() -> list[str]:
-    out = subprocess.check_output(['git', 'ls-files'], text=True)
-    return [p for p in out.split(chr(10)) if p]
+    """Every file in the repository, **including ones not committed yet**.
+
+    `git ls-files` alone lists what is *tracked*, and a brand-new file is not - so the gate was
+    blind to exactly the file most likely to carry the mistake, right up until the moment it was
+    committed and CI saw it. That is what happened: a new module went in with `behaviour` in a
+    comment, five local runs said `none found`, and the build went red on the push.
+
+    `--others --exclude-standard` adds the untracked files that are not ignored, which is the
+    set a person means by "the files I am working on". Entry 16 of the register is the same
+    lesson with the halves swapped: a check whose idea of "the code" differs from CI's is a
+    check that reports on something nobody is shipping.
+    """
+    out = subprocess.check_output(
+        ['git', 'ls-files', '--cached', '--others', '--exclude-standard'],
+        text=True,
+    )
+    # `--cached --others` can name the same path twice; `dict.fromkeys` keeps the order.
+    return list(dict.fromkeys(p for p in out.split(chr(10)) if p))
 
 
 def main() -> int:

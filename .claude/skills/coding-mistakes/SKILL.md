@@ -2422,6 +2422,14 @@ to the workflow after the last local run and nothing re-ran it. Both are the che
 second is also entry 16 again: a local run is a snapshot of the moment somebody chose to type
 the command, and the moment you add a check is the moment you are least likely to run it.
 
+*And a fourth, one PR later: the gate could not see a file that did not exist yet.* It listed
+`git ls-files`, which is what is **committed**. A brand-new module went in with `behaviour` in
+a comment, five local runs said `none found`, and CI went red on the push — because CI checks
+out the commit, where the file is tracked. **The blind spot was the file most likely to carry
+the mistake.** It lists `--cached --others --exclude-standard` now, which is what a person means
+by *"the files I am working on"*. Entry 16 with the halves swapped: a check whose idea of "the
+code" differs from CI's is a check reporting on something nobody is shipping.
+
 **Rule:** a repository-wide convention that lives only in the existing text is not a convention,
 it is an average — and averages drift. Decide it, sweep it once, and land the check in the same
 commit, because the sweep is a snapshot and the check is the rule. When the check is text
