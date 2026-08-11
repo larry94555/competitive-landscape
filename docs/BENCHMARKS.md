@@ -33,6 +33,109 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 46 — how far through it is
+
+**Date:** 2026-08-11 · **Where:** this laptop, and one real run through a browser · **Model:** none.
+
+**A reader deploying the product asked why the page could not tell loading from done.** It said
+`Reading public web pages…` for the whole of a run that takes four to eight minutes on the
+target hardware — one sentence as true at eight seconds as at eight minutes. So a reader had no
+way to distinguish *nearly finished* from *barely started* from *dead*, and the third is the one
+that matters: a run that has hung looks exactly like a run that is working.
+
+### The denominator has to be real, and for the first stretch there is not one
+
+The obvious build is a bar that fills smoothly from nothing to done. It would be a lie, and a
+specific one. Before `order::plan` runs, **nothing in this system knows how much work there
+is** — resolving a description into companies is a search, a fetch of each candidate's front
+page and a gate's verdict, and none of those can say in advance how many there will be.
+
+What is actually known, and when:
+
+| | known when |
+|---|---|
+| how many companies this run covers | as soon as the set is resolved, before anything is read |
+| how many pages one company will be read for | when `order::plan` picks them, before the first fetch |
+| how many pages have been read | continuously |
+
+So `landscape-core::progress` carries a **phase always** and a **fraction only once there is
+one**. The page shows a moving bar and `—` for the opening stretch, and the instant a plan
+exists a real percentage appears. A reader is better served by *"finding the pages worth
+reading"* than by `7%`, because the first is true.
+
+**The percentage is pages read out of pages planned**, weighted equally across companies — which
+is an assumption, and the run entry is where it gets said out loud. One company may hold nine
+pages and the next three, so the bar moves at different speeds through each. The alternative is a
+denominator that grows as each company is planned, which makes the bar **retreat** when the next
+company turns out to be larger. That is the one thing it must not do: `BENCHMARKS.md` Run 16 is
+already a section that grew and then shrank in front of a reader.
+
+### Three encodings, because one is never enough
+
+| | says |
+|---|---|
+| the word | `Working` against `Done.` — readable with images off, and what a screen reader reads first |
+| the bar | moving while live, gone when finished |
+| the number | how much is left, when anything knows |
+
+**A finished run is not a bar that stopped moving**, because a still bar and a hung bar look
+identical — which is the entire question a reader is asking. It is a different word and no bar
+at all. Color carries none of it: `CODING_QUALITY.md` §9.5 asks that it never be the sole
+encoding, and here it is not an encoding at all.
+
+### The test found the silence before a reader did
+
+The first pipeline test asserted that the fraction never decreases over a real run, and it
+passed. It also passed on an **empty list** — because a run over three unreachable companies
+emitted no progress at all. Every report on that path is sent from inside a page that produced
+something, so a company whose pages cannot be fetched used to send a watching reader *nothing
+for the whole of it*, which is this feature's own failure arriving in the case a reader most
+needs it.
+
+Two fixes, and the second is the one worth keeping: progress is now emitted **when the phase
+changes**, not only when a claim appears — and the test asserts `seen.len() >= origins.len()`
+before it asserts anything about the values. The register calls the first version a check that
+cannot fail.
+
+### And a helper is not a feature
+
+The API sends the progress event from inside `if analysis.status == Running`. The harness
+replaced that with `if false` - reinstating the exact defect above, a reader watching a run with
+no report told nothing at all - and **no test failed**, because the unit tests assert the
+*payload helper* and nothing drove the branch that calls it. Sixteen mutations, and the one that
+survived was the most important guard in the change.
+
+The test that closes it opens the real stream over the real router against a claimed analysis
+with no report. That is `interrupted_runs.rs`'s whole argument, made once more: every stream
+test before it checked a helper, and the loop itself is where the defects were.
+
+### Watched end to end, in a browser, against the real worker
+
+Not asserted from a test — driven through the page, on the API and worker running in memory
+mode against the live web:
+
+```text
+Working   —     Finding the pages worth reading
+Working   0%    Reading public web pages — page 1 of 5, company 1 of 2
+Done.
+```
+
+That is the whole design in three lines: no number while nothing knows one, a real count the
+moment a plan exists, and an end state that cannot be mistaken for a stall.
+
+### What this run does not measure
+
+No latency figure changed and none was taken. The wait is the same length; what changed is
+whether a reader can see into it. The end-to-end number still belongs to a client's side of a
+deployment ([ADR 0011](decisions/0011-no-experiments-on-production.md)).
+
+| | Rust tests | frontend tests | catalog |
+|---|---|---|---|
+| Run 45 | 992 | 79 | 22, all caught |
+| now | **1008** | **85** | **23**, all caught |
+
+---
+
 <!-- american-spelling: off -->
 
 ## Run 45 — one dialect, and a sixteenth gate

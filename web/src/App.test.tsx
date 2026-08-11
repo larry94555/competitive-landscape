@@ -1663,12 +1663,164 @@ describe("after a reconnect", () => {
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     act(() => FakeEventSource.last!.send("status", "running"));
-    expect(await screen.findByText(/Reading public web pages/)).toBeInTheDocument();
+    // The running indicator, not the old sentence: a run that has reported no phase yet says
+    // it is working and refuses to say what it is working *on*, because it does not know.
+    expect(await screen.findByText("Working")).toBeInTheDocument();
 
     act(() => FakeEventSource.last!.onerror?.());
 
     expect(await screen.findByText("Done.")).toBeInTheDocument();
-    expect(screen.queryByText(/Still reading|Reading the first pages/)).toBeNull();
+    expect(screen.queryByText("Working")).toBeNull();
+  });
+});
+
+describe("how far through it is", () => {
+  /** Start a run and get it to `running`, which is where the indicator lives. */
+  async function running(): Promise<void> {
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+    act(() => FakeEventSource.last!.send("status", "running"));
+  }
+
+  const bar = (): HTMLElement | null =>
+    document.querySelector("progress.bar");
+
+  it("shows no number at all until something knows the total", async () => {
+    // **The whole argument, on screen.** The first stretch of a run - resolving the companies,
+    // then discovering their pages - has no denominator, and this is where a smooth 0-to-100
+    // bar would be inventing one. `—` says "no number yet"; `0%` would say "nothing has
+    // happened", which is false and which a reader would watch for a full minute.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "discovering",
+          saying: "Finding the pages worth reading",
+          percent: null,
+          companies: { done: 0, of: 0 },
+          pages: null,
+        }),
+      ),
+    );
+
+    expect(await screen.findByText("—")).toBeInTheDocument();
+    expect(screen.queryByText("0%")).toBeNull();
+    expect(bar()).not.toHaveAttribute("value");
+    expect(
+      await screen.findByText(/Finding the pages worth reading/),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the real fraction once a plan exists", async () => {
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "reading",
+          saying: "Reading public web pages",
+          percent: 40,
+          companies: { done: 0, of: 1 },
+          pages: { done: 2, of: 5 },
+        }),
+      ),
+    );
+
+    expect(await screen.findByText("40%")).toBeInTheDocument();
+    expect(bar()).toHaveAttribute("value", "40");
+    // The page being read now is the one after the pages already read.
+    expect(await screen.findByText(/page 3 of 5/)).toBeInTheDocument();
+  });
+
+  it("names the company when there is more than one", async () => {
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "reading",
+          saying: "Reading public web pages",
+          percent: 50,
+          companies: { done: 1, of: 3 },
+          pages: { done: 1, of: 4 },
+        }),
+      ),
+    );
+    expect(await screen.findByText(/company 2 of 3/)).toBeInTheDocument();
+  });
+
+  it("does not name a company when the report is about one", async () => {
+    // Noise. Every report covers at least one company, and saying "company 1 of 1" tells a
+    // reader something they cannot act on.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "reading",
+          saying: "Reading public web pages",
+          percent: 20,
+          companies: { done: 0, of: 1 },
+          pages: { done: 1, of: 5 },
+        }),
+      ),
+    );
+    await screen.findByText("20%");
+    expect(screen.queryByText(/company 1 of 1/)).toBeNull();
+  });
+
+  it("a percentage that is not a number is dropped rather than read as zero", async () => {
+    // `Number(null)` is `0`, and a bar reporting zero percent for "we do not know" is exactly
+    // the lie this refuses. A malformed tick leaves the previous state alone.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "reading",
+          saying: "Reading public web pages",
+          percent: "lots",
+          companies: { done: 0, of: 1 },
+          pages: null,
+        }),
+      ),
+    );
+    expect(await screen.findByText("—")).toBeInTheDocument();
+    expect(screen.queryByText("0%")).toBeNull();
+  });
+
+  it("a finished run is a different word and no bar, not a bar that stopped", async () => {
+    // **A still bar and a hung bar look identical.** The question a reader is asking is which
+    // of the two they are looking at, so the finished state answers it in words and by the
+    // bar being gone rather than by the absence of movement.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "reading",
+          saying: "Reading public web pages",
+          percent: 60,
+          companies: { done: 0, of: 1 },
+          pages: { done: 3, of: 5 },
+        }),
+      ),
+    );
+    expect(await screen.findByText("Working")).toBeInTheDocument();
+    expect(bar()).not.toBeNull();
+
+    act(() => FakeEventSource.last!.send("status", "complete"));
+    act(() => FakeEventSource.last!.send("done", ""));
+
+    expect(await screen.findByText("Done.")).toBeInTheDocument();
+    expect(screen.queryByText("Working")).toBeNull();
+    expect(screen.queryByText("60%")).toBeNull();
+    await waitFor(() => expect(bar()).toBeNull());
   });
 });
 

@@ -12,6 +12,7 @@ import {
   type Analysis,
   type AnalysisStatus,
   type Examples,
+  type Progress,
   type Section,
 } from "./api";
 
@@ -136,7 +137,7 @@ export default function App(): React.JSX.Element {
 
   const submit = useCallback(() => start(prompt), [start, prompt]);
 
-  const { status, sections, subjects } = useReport(analysis, setAnalysis);
+  const { status, sections, subjects, progress } = useReport(analysis, setAnalysis);
 
   if (opening !== null) {
     // A shared link lands here first. Rendering the empty box for the moment the fetch takes
@@ -233,6 +234,7 @@ export default function App(): React.JSX.Element {
           status={status}
           sections={sections}
           subjects={subjects}
+          progress={progress}
           onPick={(text) => void start(text)}
           picking={submitting}
         />
@@ -269,9 +271,13 @@ function useReport(
   status: AnalysisStatus | null;
   sections: readonly Section[];
   subjects: readonly string[];
+  progress: Progress | null;
 } {
   const [status, setStatus] = useState<AnalysisStatus | null>(null);
   const [sections, setSections] = useState<readonly Section[]>([]);
+  // How far the run has got. `null` before the first tick and after the run ends — the page
+  // reads a terminal status as the end, not the absence of a bar.
+  const [progress, setProgress] = useState<Progress | null>(null);
   // The companies this run set out to cover, heard from the stream. State rather than a ref:
   // it decides whether every claim on screen carries a label, so hearing it has to render.
   const [subjects, setSubjects] = useState<readonly string[]>([]);
@@ -294,6 +300,7 @@ function useReport(
     setStatus(null);
     setSections([]);
     setSubjects([]);
+    setProgress(null);
     setAttempt(0);
     generationRef.current = null;
   }, [id]);
@@ -358,6 +365,9 @@ function useReport(
         // defect this exists to prevent, wearing a different hat.
         if (!canceled) setSubjects(next);
       },
+      onProgress: (next) => {
+        if (!canceled) setProgress(next);
+      },
       onDone: () => {
         if (canceled) return;
         void getAnalysis(id)
@@ -390,7 +400,7 @@ function useReport(
     };
   }, [id, settled, attempt]);
 
-  return { status, sections, subjects };
+  return { status, sections, subjects, progress };
 }
 
 function AnalysisView({
@@ -398,6 +408,7 @@ function AnalysisView({
   status,
   sections,
   subjects,
+  progress,
   onPick,
   picking,
 }: {
@@ -405,6 +416,8 @@ function AnalysisView({
   status: AnalysisStatus | null;
   sections: readonly Section[];
   subjects: readonly string[];
+  /** How far the run has got. `null` before the first tick, and once it is over. */
+  progress: Progress | null;
   /** Run this instead. The chip hands back a whole prompt, not a company name. */
   onPick: (prompt: string) => void;
   /** A run is already starting. Two clicks would spend two analyses on one question. */
@@ -516,9 +529,23 @@ function AnalysisView({
       */}
       {report && isTerminal(showing_status) && <CopyAsContext id={analysis.id} />}
 
-      <p className="status">
-        {describe(showing_status, analysis.failure, choices.length)}
-      </p>
+      {/*
+        **Running or finished, and how far through.** Before this the page said
+        `Reading public web pages…` for the whole of a four-to-eight-minute run — one sentence
+        as true at eight seconds as at eight minutes, so a reader could not tell a run that had
+        nearly finished from one that had barely started, or either from one that had died.
+
+        Three things carry the distinction, deliberately, because one of them is not enough for
+        everybody: a **word** (`Working` against `Done`), a **bar** that is either moving or
+        full and still, and a **number** when there is one. Color is not among them —
+        `CODING_QUALITY.md` §9.5 asks that it never be the sole encoding.
+      */}
+      <Waiting
+        status={showing_status}
+        progress={progress}
+        failure={analysis.failure}
+        offered={choices.length}
+      />
 
       {/*
         The question itself, one button per company.
@@ -888,6 +915,133 @@ function stillArriving(
   }
   return merged;
 }
+
+/**
+ * Whether a run is still going, how far through it is, and what it is doing.
+ *
+ * **The problem this solves is not decoration.** `Reading public web pages…` was shown for the
+ * whole of a run that takes four to eight minutes on the target hardware, and a reader
+ * therefore had no way to tell *nearly finished* from *barely started* from *dead*.
+ *
+ * # Three encodings, because one is never enough
+ *
+ * | | says |
+ * |---|---|
+ * | the word | `Working` or `Done.` — readable with images off, and what a screen reader reads first |
+ * | the bar | moving while live, full and still when finished |
+ * | the number | how much is left, when anything knows |
+ *
+ * A finished run is **not** a bar that quietly stops moving: it is a full bar, a different
+ * word, and no percentage — because a still bar and a stalled bar look identical, and the
+ * difference is the entire question a reader is asking.
+ *
+ * # Why the percentage is sometimes absent
+ *
+ * `landscape_core::progress` refuses to invent a denominator. Until a reading plan exists —
+ * which means until the companies are resolved and their pages discovered — nothing knows how
+ * much work there is, so there is no number and the bar is indeterminate. That window is the
+ * first stretch of every run, and filling it with a fake `7%` would be lying at exactly the
+ * moment a reader is deciding whether to trust the thing.
+ */
+function Waiting({
+  status,
+  progress,
+  failure,
+  offered,
+}: {
+  status: AnalysisStatus;
+  progress: Progress | null;
+  failure: Analysis["failure"];
+  offered: number;
+}): React.JSX.Element {
+  const live = !isTerminal(status);
+  const running = status === "running";
+  // Only while running. A percentage beside `Done.` is a number about something that is over.
+  const percent = running ? (progress?.percent ?? null) : null;
+  const known = percent !== null;
+
+  // **The word and the sentence must not say the same thing twice.** `describe` answers
+  // *"what happened"*, which is the whole story for a failure and pure duplication for
+  // `complete` — where the word already is the story. A running analysis gets the phase
+  // instead, because it is strictly more informative than the one sentence `describe` has.
+  // `queued` and `complete` are wholly said by their word; `running` is better served by the
+  // phase line below, which knows more than `describe` ever can. That leaves `failed`, where
+  // `describe` carries the one sentence telling a reader what to do next - which is the case
+  // it was written for.
+  const said = status === "failed" ? describe(status, failure, offered) : null;
+
+  return (
+    <div className="waiting" data-live={live ? "yes" : "no"}>
+      <p className="status">
+        {/*
+          **A word, before anything visual.** `aria-live="polite"` so a reader using a screen
+          reader hears it change rather than having to go looking — and `polite` rather than
+          `assertive` because this is progress, not an alarm.
+        */}
+        <span className="status-word" aria-live="polite">
+          {WORD_FOR[status]}
+        </span>
+        {said !== null && <span className="status-said">{said}</span>}
+      </p>
+
+      {/* Queued has not started; finished and failed have nothing left to show. */}
+      {running && (
+        <>
+          <div className="bar-row">
+            {/*
+              **A real `<progress>`, not a styled div.** It is announced as a progress bar,
+              it carries the value without an ARIA attribute having to be kept in step with
+              the paint, and with no `value` it is indeterminate — which is precisely the
+              state this needs for the window where nothing knows the total.
+            */}
+            <progress
+              className="bar"
+              {...(known ? { value: percent, max: 100 } : {})}
+              aria-label={
+                known
+                  ? `${String(percent)}% of this analysis is done`
+                  : "Working out how much there is to do"
+              }
+            />
+            <span className="bar-number">
+              {known ? `${String(percent)}%` : "—"}
+            </span>
+          </div>
+
+          {progress !== null && (
+          <p className="doing">
+            {progress.saying}
+            {progress.pages
+              ? ` — page ${String(progress.pages.done + 1)} of ${String(progress.pages.of)}`
+              : ""}
+            {progress.companies.of > 1
+              ? `, company ${String(Math.min(progress.companies.done + 1, progress.companies.of))} of ${String(progress.companies.of)}`
+              : ""}
+          </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One word per state, and it is the first thing a reader reads.
+ *
+ * `Done.` rather than `Complete` and `Stopped` rather than `Failed`: the first of each pair is
+ * what somebody would say out loud, and the second sounds like a status code.
+ *
+ * **`Queued.` and `Done.` keep their full stops**, because they are the words this product has
+ * always used for those two states — in `USING_THE_SITE.md`, in the walkthrough, and in the
+ * tests that assert a finished run says so. A visual change is not a reason to rename the two
+ * states a reader has been taught.
+ */
+const WORD_FOR: Record<AnalysisStatus, string> = {
+  queued: "Queued.",
+  running: "Working",
+  complete: "Done.",
+  failed: "Stopped",
+};
 
 function describe(
   status: AnalysisStatus,

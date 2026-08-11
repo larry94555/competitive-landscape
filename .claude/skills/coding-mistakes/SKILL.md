@@ -2483,6 +2483,75 @@ can check.
 
 ---
 
+## 64. The case the feature exists for was the case it did not cover
+
+**Found:** by a test that passed, and would have passed on nothing at all.
+
+A run takes four to eight minutes and the page said `Reading public web pages…` for all of it,
+so a progress indicator was built: a phase, a bar, and a percentage that is pages read out of
+pages planned.
+
+The pipeline test asserted the property that matters — **the fraction never decreases over a
+real run** — and it was green on the first try. It was green because the list it iterated was
+**empty**. Every progress report on that path is emitted from inside a page that produced
+something, so a run whose pages cannot be fetched at all emitted nothing, and the test looped
+over zero elements and concluded that none of them went backwards.
+
+**Two defects in one, and the second is the one that matters.**
+
+*The test could not fail.* That class already has entries here, and the fix is one line:
+`assert!(seen.len() >= origins.len())` before anything about the values. A property asserted
+over a collection is a property asserted about nothing until the collection is known to be
+non-empty.
+
+*But the code was worse.* **A reader watching a company with no readable pages saw nothing at
+all** — no phase, no bar, no number, for the entire run. That is not a gap at the edge of the
+feature; it is the feature's own purpose failing in the exact case that produces it. Somebody
+watching a healthy run has sections arriving and can infer progress from them. Somebody watching
+a run that is fetching nothing has **only** the indicator, and that was the one they did not
+get. Progress is now emitted **when the phase changes**, not only when a claim appears.
+
+**The general shape: a signal derived from output is absent precisely when output is.** Anything
+that reports on work by piggybacking on the work's results — a progress bar fed by rows, a
+heartbeat written beside a log line, a spinner cleared by a response — goes quiet in the failure
+it exists to make visible. Ask what it emits when the underlying thing produces nothing, because
+that is the run somebody is staring at.
+
+**And the harness found a third thing, which is the same shape one layer up.** The API sends the
+progress event from inside `if analysis.status == Running`. Replacing that condition with
+`if false` - so a reader watching a run with no report is told nothing, the exact defect above -
+broke **no test**, because the unit tests asserted the *payload helper* and nothing drove the
+branch that calls it. A helper is not a feature. The test that closes it opens the real stream
+over the real router against a claimed analysis with no report, which is the only arrangement
+that can see the difference.
+
+**And one guard was load-bearing only in appearance.** `Counted::share` clamps a count that
+exceeds its total; the mutation harness removed the clamp and **nothing failed**, because
+`Progress::fraction` clamps again downstream. The register's own question — *untested, or
+unnecessary?* — has a third answer here: **tested through a caller that hides it.** `share` is
+public, so a caller reading it directly would have got `3.0` and drawn a bar three times the
+width of its box. The test now asserts `share` itself rather than reaching it through
+`fraction`.
+
+**And a footnote about the harness itself, because it cost half an hour.** A mutation run was
+interrupted twice on this change. `mutate.py` refuses to start while a backup is on disk, which
+is right and which saved the tree both times — but restoring a backup with `mv` gives the
+restored file an **older mtime than the object cargo already built from the mutated one**, so
+`cargo test` happily reused the compiled defect and a correct source tree failed its own test.
+Ten minutes went into reading code that was not wrong. `cargo clean -p` is the answer, and the
+general shape is worth keeping: **after restoring a file out of band, the build cache has not
+heard about it.**
+
+**Rule:** when a feature reports on a process, write the test for the run that produces
+*nothing* first — it is the run the feature is for, and it is the one where every incidental
+signal a reader might have used is also missing. And when a mutation survives, check whether an
+outer guard is hiding an inner one before concluding the inner one is unnecessary.
+
+> **Ask this:** *what does this show when the thing it is watching produces no output at all —
+> and is my test for that case looping over an empty list?*
+
+---
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

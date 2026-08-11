@@ -1,0 +1,200 @@
+[
+  {
+    "name": "nothing out of nothing is reported as nought percent",
+    "file": "crates/landscape-core/src/progress.rs",
+    "old": "        if self.of == 0 {\n            return None;\n        }",
+    "new": "        if self.of == 0 {\n            return Some(0.0);\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a run that is still going is allowed to say it is finished",
+    "file": "crates/landscape-core/src/progress.rs",
+    "old": "        let over = self.companies.done >= self.companies.of;\n        Some(if whole >= 100 && !over { 99 } else { whole })",
+    "new": "        Some(whole)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the bar stalls through search and assembly",
+    "file": "crates/landscape-core/src/progress.rs",
+    "old": "            Phase::Searching | Phase::Assembling => 1.0,",
+    "new": "            Phase::Searching | Phase::Assembling => 0.0,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "discovery claims a share of the work it has not done",
+    "file": "crates/landscape-core/src/progress.rs",
+    "old": "            Phase::Discovering => 0.0,",
+    "new": "            Phase::Discovering => 1.0,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a page count past its plan escapes its own box",
+    "file": "crates/landscape-core/src/progress.rs",
+    "old": "        Some((self.done.min(self.of) as f32) / (self.of as f32))",
+    "new": "        Some((self.done as f32) / (self.of as f32))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the plan is made and the page count is never recorded",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        plan: Some(landscape_core::Counted::new(0, plan.read.len())),",
+    "new": "        plan: None,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a company whose pages cannot be fetched reports nothing at all",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        if on_progress(&announced) == Wanted::No {\n            stopped_early = true;\n        }",
+    "new": "        let _ = &announced;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the company count comes from the page instead of the set",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "            Some(reached) => landscape_core::Progress {\n                companies: landscape_core::Counted::new(finished.len(), origins.len()),\n                ..reached\n            },",
+    "new": "            Some(reached) => reached,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the stored report is a snapshot of the middle of the run",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "            None => landscape_core::Progress::finished(origins.len()),",
+    "new": "            None => landscape_core::Progress::starting(origins.len()),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the wire says nought percent where the core says it does not know",
+    "file": "crates/landscape-api/src/events.rs",
+    "old": "        \"percent\": reached.percent(),",
+    "new": "        \"percent\": reached.percent().unwrap_or(0),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "the browser reads an unknown percentage as zero",
+    "file": "web/src/App.tsx",
+    "old": "  const percent = running ? (progress?.percent ?? null) : null;",
+    "new": "  const percent = running ? (progress?.percent ?? 0) : null;",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ]
+  },
+  {
+    "name": "a percentage that is not a number is coerced instead of dropped",
+    "file": "web/src/api.ts",
+    "old": "        typeof parsed.percent === \"number\" && Number.isFinite(parsed.percent)\n          ? parsed.percent\n          : null;",
+    "new": "        Number(parsed.percent);",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ]
+  },
+  {
+    "name": "a finished run keeps its bar, so a still one and a hung one look the same",
+    "file": "web/src/App.tsx",
+    "old": "      {running && (",
+    "new": "      {true && (",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ]
+  },
+  {
+    "name": "a report about one company is told which company it is on",
+    "file": "web/src/App.tsx",
+    "old": "            {progress.companies.of > 1",
+    "new": "            {progress.companies.of > 0",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ]
+  },
+  {
+    "name": "the page being read is the one already finished",
+    "file": "web/src/App.tsx",
+    "old": "? ` — page ${String(progress.pages.done + 1)} of ${String(progress.pages.of)}`",
+    "new": "? ` — page ${String(progress.pages.done)} of ${String(progress.pages.of)}`",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ]
+  },
+  {
+    "name": "a running analysis with no report yet is told nothing",
+    "file": "crates/landscape-api/src/events.rs",
+    "old": "            if analysis.status == AnalysisStatus::Running {",
+    "new": "            if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  }
+]

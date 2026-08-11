@@ -461,6 +461,8 @@ mod tests {
 
     fn two_companies() -> Report {
         Report {
+            // A finished report, so it carries a finished run.
+            progress: Some(crate::Progress::finished(2)),
             subject: "basecamp.com linear.app".to_owned(),
             searched_as: "basecamp.com, linear.app".to_owned(),
             generated_at: when(),

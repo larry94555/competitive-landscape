@@ -62,10 +62,21 @@ before anything is fetched.
 | When | What you should see |
 |---|---|
 | Immediately | The address bar changes to `/a/` and a long id. **Queued.** |
-| A few seconds later | **Reading public web pages…** |
+| A few seconds later | **Working**, a moving bar, and `—` where the percentage will be |
+| Once the pages are chosen | A percentage, and *"Reading public web pages — page 1 of 5"* |
 | Within about a minute | The first section, usually **Recent public changes** |
-| Every 20–60 seconds after | Another section fills in |
-| Four to eight minutes | **Done.** |
+| Every 20–60 seconds after | Another section, and the percentage climbs |
+| Four to eight minutes | **Done.** The bar is gone |
+
+> **Why `—` and not `0%`.** For the first stretch the run is working out which companies you
+> mean and which of their pages are worth reading, and **nothing knows yet how many pages there
+> will be** — so there is no percentage to show, and a bar that filled smoothly from zero would
+> be inventing one. The moving bar means *working*; the dash means *no number yet*. The instant
+> a real count exists it appears, and from then on the percentage is pages actually read.
+>
+> **A finished run does not just stop moving.** The word changes to **Done.** and the bar
+> disappears entirely, because a still bar and a hung bar look identical — and telling those
+> two apart is the whole reason to look.
 
 **Reload the page while it is running.** Nothing is lost: the report is in the database, the
 page picks the stream back up, and the sections already on screen come straight back.

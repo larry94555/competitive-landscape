@@ -238,6 +238,7 @@ mod tests {
     /// A report whose only section is named, so the order writes landed in is readable.
     fn report_titled(title: &str) -> Report {
         Report {
+            progress: None,
             subject: "basecamp.com".to_owned(),
             searched_as: "https://basecamp.com".to_owned(),
             generated_at: chrono::Utc::now(),

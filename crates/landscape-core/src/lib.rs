@@ -15,6 +15,7 @@ pub mod context;
 pub mod coverage;
 pub mod examples;
 pub mod extract;
+pub mod progress;
 pub mod report;
 pub mod source;
 pub mod subject;
@@ -30,6 +31,7 @@ pub use extract::{
     PageChanges, PageFeatures, PageHiring, PageIdentity, PagePricing, PageTrust, PricingExtraction,
     Role, Stated, TrustExtraction,
 };
+pub use progress::{Counted, Phase, Progress};
 pub use report::{Claim, Confidence, Interpreted, Report, Section, SectionStatus};
 pub use source::{Disposition, Source};
 pub use subject::{resolve, Candidate, Resolution};

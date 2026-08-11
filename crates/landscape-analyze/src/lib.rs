@@ -463,6 +463,18 @@ fn joined(
         sources,
         interpreted: interpreted.cloned(),
         notes,
+        // **Each layer contributes the count it knows.** The company being read says what phase
+        // it is in and how far through its own pages; only here is it known how many companies
+        // there are, so only here is the company count filled in. No `in_flight` means no
+        // company is being read - which, at the one place this is called that way, is because
+        // the run is over.
+        progress: Some(match in_flight.and_then(|r| r.progress) {
+            Some(reached) => landscape_core::Progress {
+                companies: landscape_core::Counted::new(finished.len(), origins.len()),
+                ..reached
+            },
+            None => landscape_core::Progress::finished(origins.len()),
+        }),
     }
 }
 
@@ -519,7 +531,15 @@ pub async fn analyze_with(
     let plan = order::plan(&found.sources);
     let mut notes: Vec<String> = plan.note().into_iter().collect();
 
-    let mut so_far = SoFar::default();
+    // **Discovery is over, so a denominator exists for the first time.** Everything before this
+    // line is the window `landscape_core::progress` refuses to put a number on: a page count
+    // could only have been guessed, and this is the moment it stops being a guess - which is
+    // why it is set where the run is constructed rather than assigned afterwards.
+    let mut so_far = SoFar {
+        plan: Some(landscape_core::Counted::new(0, plan.read.len())),
+        phase: landscape_core::Phase::Reading,
+        ..SoFar::default()
+    };
     let mut stopped_early = false;
 
     {
@@ -532,8 +552,28 @@ pub async fn analyze_with(
             now,
             notes: &notes,
         };
+        // **Said once here, because a phase change is news even when no claim is.** Every other
+        // report on this path is emitted from inside a page that produced something, so a
+        // company whose pages cannot be fetched at all used to send a reader *nothing for the
+        // whole of it* - which is the silence this feature exists to end, arriving in the case
+        // where a reader most wants to know something is happening. It is also the moment the
+        // denominator starts existing: the plan is made, so `pages` stops being `None`.
+        let (announced, _) = assemble(
+            &reading,
+            &so_far.claims,
+            &so_far.sources,
+            &so_far.opened,
+            &so_far.searched_evidence(),
+            so_far.reached(),
+        );
+        if on_progress(&announced) == Wanted::No {
+            stopped_early = true;
+        }
         for source in &plan.read {
-            if read_one(
+            if stopped_early {
+                break;
+            }
+            let carry_on = read_one(
                 fetcher,
                 &reading,
                 today,
@@ -541,9 +581,16 @@ pub async fn analyze_with(
                 &mut so_far,
                 on_progress,
             )
-            .await
-                == Wanted::No
-            {
+            .await;
+            // **Counted after, not before.** `read_one` reports the report-so-far from inside
+            // itself, once per window, and a count incremented first would tell a reader a page
+            // was read while it was being read. Pages that fail to fetch count too: the plan
+            // has one fewer left either way, and a bar that stalls on an unreachable page is
+            // the wait this exists to explain.
+            if let Some(plan) = so_far.plan.as_mut() {
+                plan.done += 1;
+            }
+            if carry_on == Wanted::No {
                 stopped_early = true;
                 break;
             }
@@ -557,6 +604,13 @@ pub async fn analyze_with(
     // exist, so a company whose own pages answered everything costs no search at all.
     let gaps = so_far.unanswered();
     if worth_searching(stopped_early, &gaps) {
+        // **The plan is spent, and the reader is still waiting.** The pages search admits are
+        // not in the plan and cannot be - the plan was made before anything was read, and what
+        // search is asked for is computed from what the reading did not find. So the count
+        // stops here and the phase carries the sentence instead: a fraction that grew a
+        // denominator at this point would be a bar that retreats, which is the one thing
+        // `landscape_core::progress` promises not to do.
+        so_far.phase = landscape_core::Phase::Searching;
         let (admitted, failures) = search_for_gaps(search, origin, &gaps, &so_far.urls()).await;
         so_far.searched.extend(searched_pages(&admitted));
         {
@@ -595,6 +649,9 @@ pub async fn analyze_with(
         notes.extend(note_for(origin, &gaps, &admitted, &so_far, failures));
     }
 
+    // Everything this company had to say has been said; what is left is putting it together.
+    so_far.phase = landscape_core::Phase::Assembling;
+
     let reading = Reading {
         found: &found,
         origin,
@@ -604,13 +661,20 @@ pub async fn analyze_with(
         now,
         notes: &notes,
     };
-    let (report, coverage) = assemble(
+    let (mut report, coverage) = assemble(
         &reading,
         &so_far.claims,
         &so_far.sources,
         &so_far.opened,
         &so_far.searched_evidence(),
+        so_far.reached(),
     );
+    // **The last word about a finished run is that it is finished.** Every other report here
+    // is a snapshot handed to somebody who is watching; this one is the artifact that gets
+    // stored, and a stored report saying *"reading page 4 of 9"* about a run that ended an
+    // hour ago is a false statement in a database. `analyze_many` overwrites this with the
+    // set's own count when there are several companies.
+    report.progress = Some(landscape_core::Progress::finished(1));
     Analysis {
         report,
         coverage,
@@ -904,9 +968,30 @@ struct SoFar {
     /// everywhere else: `pages_read` is the other number, and the gap between them is what
     /// *"found and not read"* is built from.
     searched: Vec<(Answers, String)>,
+    /// Pages read out of the pages this company's plan holds.
+    ///
+    /// **`None` until [`order::plan`] has made one.** Discovery decides how many pages there
+    /// are, so before it finishes nothing here can say - and a number invented for that window
+    /// is the one thing `landscape_core::progress` exists to refuse.
+    plan: Option<landscape_core::Counted>,
+    /// What this company's run is doing now.
+    phase: landscape_core::Phase,
 }
 
 impl SoFar {
+    /// How far this company's run has got, as one value.
+    ///
+    /// One of one company, because this is a run over one; `joined` replaces that count with
+    /// the set's. The page count is whatever the plan has reached, and `None` until there is
+    /// a plan at all.
+    fn reached(&self) -> landscape_core::Progress {
+        landscape_core::Progress {
+            phase: self.phase,
+            companies: landscape_core::Counted::new(0, 1),
+            pages: self.plan,
+        }
+    }
+
     /// The questions no claim has filled.
     ///
     /// **Not the questions discovery found no page for**, which is the weaker measure and the
@@ -1091,6 +1176,12 @@ async fn read_one(
         let searched = so_far.searched_evidence();
         let label = label.clone();
         let cite = &cite;
+        // **Copied before the closure borrows `so_far`, and deliberately not updated inside
+        // it.** These reports arrive once per window of the page being read *now*, so the page
+        // count they carry is the one that was true when the page began — which is the honest
+        // number. Counting the page as read while it is being read is the same defect as a
+        // section that arrives and then changes.
+        let reached_here = so_far.reached();
         let mut emit = |partial: &[Finding]| {
             let mut with_partial: Vec<(Answers, Claim)> = claims.clone();
             with_partial.extend(partial.iter().map(|f| {
@@ -1112,7 +1203,14 @@ async fn read_one(
             if !partial.is_empty() && !with_source.iter().any(|s| s.label == label) {
                 with_source.push(cite(page_title(&markdown, &url)));
             }
-            let (report, _) = assemble(reading, &with_partial, &with_source, opened, &searched);
+            let (report, _) = assemble(
+                reading,
+                &with_partial,
+                &with_source,
+                opened,
+                &searched,
+                reached_here,
+            );
             on_progress(&report)
         };
         Some(stages::extract(llm, question, &url, &markdown, today, &mut emit).await)
@@ -1167,6 +1265,7 @@ async fn read_one(
         &so_far.sources,
         &so_far.opened,
         &so_far.searched_evidence(),
+        so_far.reached(),
     );
     on_progress(&report)
 }
@@ -1234,6 +1333,10 @@ fn assemble(
     sources: &[Source],
     opened: &[(Answers, usize)],
     searched: &[Searched],
+    // How far this company's run has got. Passed rather than derived from the claims: a company
+    // whose pages state nothing produces no claim and is not thereby unread, and a bar computed
+    // from claims would sit at zero through the whole of it.
+    reached: landscape_core::Progress,
 ) -> (Report, Vec<Coverage>) {
     let Reading {
         found,
@@ -1300,6 +1403,11 @@ fn assemble(
         sources: sources.to_vec(),
         interpreted: None,
         notes: notes.to_vec(),
+        // **What this company knows about its own size, and nothing about the set.** One of
+        // one, because `analyze_with` is a run over one company; `joined` replaces the company
+        // count with the set's when several are merged. Each layer states what it knows and
+        // nothing it would have to guess.
+        progress: Some(reached),
     };
     (report, coverage)
 }
@@ -1736,6 +1844,7 @@ mod joining {
     /// A one-company report: one source labeled `S1`, one claim citing it.
     fn one_company(origin: &str, says: &str) -> Analysis {
         let report = Report {
+            progress: Some(landscape_core::Progress::finished(1)),
             subject: origin.to_owned(),
             searched_as: origin.to_owned(),
             generated_at: at(),
@@ -2079,6 +2188,95 @@ mod joining {
 
     fn unreachable(n: usize) -> Vec<String> {
         (0..n).map(|i| format!("https://s{i}.invalid")).collect()
+    }
+
+    #[tokio::test]
+    async fn a_watching_reader_is_never_told_a_run_went_backwards() {
+        // **The property, over a real run rather than at chosen points.** `progress::tests`
+        // asserts the arithmetic against a simulated sequence; this asserts that the sequence
+        // the pipeline actually emits is one of those. They are different claims, and the gap
+        // between them is where a phase set in the wrong order would live.
+        let origins = unreachable(3);
+        let mut seen: Vec<landscape_core::Progress> = Vec::new();
+        let outcome = analyze_many(
+            &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
+            &named(&origins),
+            &mut |report| {
+                seen.push(
+                    report
+                        .progress
+                        .expect("a report handed to a watching reader says how far it has got"),
+                );
+                Wanted::Yes
+            },
+        )
+        .await;
+
+        // **Without this the test passes on an empty list**, which is how the first version of
+        // it was green while a run over three unreachable companies reported nothing at all.
+        // The register calls that class a check that cannot fail.
+        assert!(
+            seen.len() >= origins.len(),
+            "a run over {} companies reported {} times: a reader watching saw nothing",
+            origins.len(),
+            seen.len()
+        );
+
+        let mut highest = 0.0f32;
+        for step in &seen {
+            let now = step
+                .fraction()
+                .expect("a run over three companies has a fraction");
+            assert!(
+                now >= highest - f32::EPSILON,
+                "the bar retreated from {highest} to {now} at {step:?}"
+            );
+            assert!(
+                step.companies.done < step.companies.of,
+                "a run still emitting progress called itself finished: {step:?}"
+            );
+            // **The denominator exists by the time anything is reported.** Every emission on
+            // this path happens after `order::plan` has run, so `pages` being `None` here
+            // would mean the plan was made and never recorded - and a reader would sit in
+            // front of an indeterminate bar for a run whose size is known.
+            assert!(
+                step.pages.is_some(),
+                "a plan was made and the page count was not recorded: {step:?}"
+            );
+            highest = now;
+        }
+
+        // And the report that gets stored is not a snapshot of the middle of the run.
+        assert_eq!(
+            outcome.report.progress,
+            Some(landscape_core::Progress::finished(origins.len())),
+            "the finished report does not say the run finished"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_company_count_is_the_set_and_not_the_page() {
+        // Each layer states what it knows: `assemble` says one of one because it is one run,
+        // and `joined` replaces that with the set's count. A report that kept the inner number
+        // would tell a reader watching three companies that there was only ever one.
+        let origins = unreachable(3);
+        let mut first: Option<landscape_core::Progress> = None;
+        analyze_many(
+            &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
+            &named(&origins),
+            &mut |report| {
+                first = first.or(report.progress);
+                Wanted::Yes
+            },
+        )
+        .await;
+        assert_eq!(
+            first.expect("something was reported").companies.of,
+            3,
+            "the company count came from the company being read, not from the set"
+        );
     }
 
     #[tokio::test]
@@ -3509,7 +3707,14 @@ mod filling_gaps {
             read: true,
         }];
 
-        let (report, coverage) = assemble(&reading, &[], &[], &[(Answers::Trust, 1)], &searched);
+        let (report, coverage) = assemble(
+            &reading,
+            &[],
+            &[],
+            &[(Answers::Trust, 1)],
+            &searched,
+            landscape_core::Progress::starting(1),
+        );
         let trust = coverage
             .iter()
             .find(|c| c.question == "trust")
@@ -3576,7 +3781,14 @@ mod filling_gaps {
             url: "https://elsewhere.example/e".to_owned(),
             read: false,
         }];
-        let (_, coverage) = assemble(&reading, &[], &[], &[], &searched);
+        let (_, coverage) = assemble(
+            &reading,
+            &[],
+            &[],
+            &[],
+            &searched,
+            landscape_core::Progress::starting(1),
+        );
         let note = coverage
             .iter()
             .find(|c| c.question == "trust")

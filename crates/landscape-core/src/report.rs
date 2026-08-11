@@ -157,6 +157,20 @@ pub struct Report {
     /// a higher count would be the same defect wearing a bigger number.
     #[serde(default)]
     pub notes: Vec<String>,
+    /// How far the run that is writing this report has got.
+    ///
+    /// **Here because this is the only thing the worker and the API already share.**
+    /// `landscape-api::events` polls the analysis row rather than running a message broker
+    /// ([ADR 0005](../../../docs/decisions/0005-observability-on-a-24gb-box.md)), and the row
+    /// carries the report-so-far. A second channel for this one number would be a second thing
+    /// to run, supervise and lose messages through.
+    ///
+    /// `None` on a report from before this existed, and on any report nobody watched being
+    /// written. A finished report carries [`crate::Progress::finished`] rather than whatever
+    /// the last page happened to leave behind — a stored report saying *"reading page 4 of 9"*
+    /// about a run that ended an hour ago is a false statement sitting in a database.
+    #[serde(default)]
+    pub progress: Option<crate::Progress>,
 }
 
 impl Report {
@@ -241,6 +255,7 @@ mod tests {
             sources,
             interpreted: None,
             notes: Vec::new(),
+            progress: None,
         }
     }
 

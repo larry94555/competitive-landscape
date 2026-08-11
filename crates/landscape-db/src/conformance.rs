@@ -26,6 +26,7 @@ fn sample_report(subject: &str) -> Report {
         sources: Vec::new(),
         interpreted: None,
         notes: Vec::new(),
+        progress: None,
     }
 }
 

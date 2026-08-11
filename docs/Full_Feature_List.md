@@ -70,11 +70,11 @@ only you can do; they are listed at the bottom and are not counted anywhere.
 |---|---|---|---|---|---|
 | [**S1**](#s1--ready-for-a-guided-demo) | Ready for a guided demo | 39 | 39 | **0** | **100%** |
 | [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 19 | 19 | **0** | **100%** |
-| [**S3**](#s3--ready-for-use) | Friendly users find no issue | 26 | 2 | **24** | **8%** |
+| [**S3**](#s3--ready-for-use) | Friendly users find no issue | 27 | 3 | **24** | **11%** |
 | [**S4**](#s4--ready-for-general-use) | Promotable, word-of-mouth quality | 11 | 0 | **11** | **0%** |
 | [**S5**](#s5--general-use-free-mode) | Stable, email signup, community | 15 | 0 | **15** | **0%** |
 | [**S6**](#s6--general-use-full-mode) | Notifications and paid subscriptions | 21 | 0 | **21** | **0%** |
-| | **Total** | **131** | **60** | **71** | **46%** |
+| | **Total** | **132** | **61** | **71** | **46%** |
 | | *Getting it onto a host (not a state)* | *3* | *0* | *3* | *0%* |
 
 **The shape of that table is the answer to "how far are we".** **S1 is complete** — the guided
@@ -268,7 +268,8 @@ and the measurement that decided against a headless browser.
 | Latency work — section-parallel generation, prompt-prefix stabilization | S3 | 2 | 0 | **2** | 0% |
 | "What people are saying" — Hacker News and GitHub only, with named exclusions | S3 | 2 | 0 | **2** | 0% |
 | **Copy as context** — the whole report as clean Markdown, sized to paste elsewhere | S3 | 1 | **1** | 0 | **100%** |
-| | | **26** | **2** | **24** | **8%** |
+| **How far through it is** — a phase, a bar and a real percentage while a report is written | S3 | 1 | **1** | 0 | **100%** |
+| | | **27** | **3** | **24** | **11%** |
 
 **Copy as context was the cheapest row on this page and it is done** —
 [BENCHMARKS.md](BENCHMARKS.md) Run 43. It was pulled forward because it settles what the product
