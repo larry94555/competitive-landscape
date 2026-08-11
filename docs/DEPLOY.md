@@ -1,37 +1,40 @@
-# Landscape — Deploying to Oracle Cloud
+# Landscape — why the deployment is shaped the way it is
 
-> **Every step below is written and none has been run.** There is no box reachable from this
-> repository ([PROJECT_STATUS.md](../PROJECT_STATUS.md) B5), so this procedure is reasoned from
-> the code and from Oracle's documented behaviour rather than from a deployment that worked.
-> **Correct it as you go** — the first person through is the one who finds out where it is
-> wrong, and a procedure nobody has walked is the deployment equivalent of a backup nobody has
-> restored ([RUNBOOK.md](RUNBOOK.md) §3.1 makes the same admission about the restore drill).
->
-> Where a step is a guess rather than a reading of our own code, it says so — the ACME challenge
-> and the allow-list in step 8, and the iptables rule numbering in step 4, are the two I would
-> check first.
+**The steps are in [GO_LIVE.md](GO_LIVE.md).** This file is the argument behind them: what each
+decision is protecting against, which parts are guesses, and what to check first when something
+surprises you.
+
+> **They were one document and that was a copy of a rule.** The procedure and its reasoning were
+> interleaved here, which made the procedure slow to follow and — once a second document existed
+> — gave the model pin, the checksum and the firewall rules two homes. Two copies of a command
+> drift, and the copy that drifts is the one nobody runs. **Every command lives in
+> [GO_LIVE.md](GO_LIVE.md) and nowhere else**; this file names steps rather than repeating them.
+
+> **None of it has been run.** There is no box reachable from this repository
+> ([PROJECT_STATUS.md](../PROJECT_STATUS.md) B5), so all of it is reasoned from our own code and
+> from Oracle's documented behaviour rather than from a deployment that worked. The first person
+> through is the one who finds out where it is wrong.
 
 **Deploying changes nothing but secrets.** Everything environmental is already an environment
-variable — `BIND_ADDR`, `DATABASE_URL`, `LLAMA_URL`, `WEB_DIR` — and nothing in the code branches
-on where it is running. If a step below turns out to need a code change, that is a defect worth
+variable — `BIND_ADDR`, `DATABASE_URL`, `LLAMA_URL`, `WEB_DIR`, `SEARX_URL` — and nothing in the
+code branches on where it is running. If a step ever needs a code change, that is a defect worth
 fixing rather than a step worth documenting.
 
 ---
 
-## Before you start: two things that will bite
+## The two things that will bite
 
-### The URL has a cap on it now, and it is not a wall
+### The URL has a cap on it, and it is not a wall
 
-**D6 is built.** One anonymous address may start **two analyses a day** — `PRODUCT_SPEC.md`
-§2.1's number — after which `POST /api/analyses` answers `429` with a sentence saying when to
-come back. Reading a report, watching one arrive and reloading its URL are never capped: the
-cap counts where a run *starts*, because that is the request that occupies the model for
-minutes.
+One anonymous address may start **two analyses a day** — `PRODUCT_SPEC.md` §2.1's number — after
+which `POST /api/analyses` answers `429` with a sentence saying when to come back. Reading a
+report, watching one arrive and reloading its URL are never capped: the cap counts where a run
+*starts*, because that is the request that occupies the model for minutes.
 
-Change it with `ANONYMOUS_DAILY_LIMIT` in `/etc/landscape/landscape.env`. It reads the client
-from `X-Forwarded-For` — **the rightmost entry, which is what Caddy observed** — so it depends
-on the application being reachable only through the proxy, which is what `BIND_ADDR` on
-loopback arranges.
+It reads the client from `X-Forwarded-For` — **the rightmost entry, which is what Caddy
+observed** — so it only applies to requests that came through the proxy. A request straight to
+the API is not counted, which is why [USING_THE_SITE.md](USING_THE_SITE.md) tells you to raise
+`ANONYMOUS_DAILY_LIMIT` before walking the features: that tour needs more than two runs.
 
 **Two a day is not a wall, and this is still worth knowing.** The cap is per address, it resets
 at midnight UTC — which the refusal states, rather than saying "tomorrow" — and it is held in
@@ -39,12 +42,8 @@ memory, so a restart clears it. **A failed analysis costs nothing**, including o
 fails after accepting it. It stops a URL being drained by strangers; it is not an accounting
 record.
 
-**Keep the allow-list in step 8 anyway while you are trying this out.** Two analyses a day from
-each of many addresses is still more than four ARM cores will enjoy, and until you want an
-audience, one address is the simplest answer. It is deliberately *not* in the firewall: the
-certificate authority has to reach this host, so ports 80 and 443 cannot be restricted to you.
-Review found that contradiction in the first version of this document, where the two halves made
-each other impossible.
+**Keep the allow-list anyway while you are trying this out.** Two analyses a day from each of
+many addresses is still more than four ARM cores will enjoy.
 
 ### The wait is four minutes, and this box is slower than a laptop
 
@@ -55,258 +54,148 @@ model at all — but the whole report will take longer than it does at home, and
 much is one of the two reasons to deploy at all.
 
 The other is that [ADR 0011](decisions/0011-no-experiments-on-production.md) says the end-to-end
-figure can only be taken **from the client's side of a deployment**. Step 9 is that measurement.
+figure can only be taken **from the client's side of a deployment**.
 
 ---
 
-## 1. The instance
+## The decisions, step by step
 
-Oracle's Always Free tier gives 4 OCPU and 24 GB of Ampere A1 (aarch64) across your instances.
-Take it as **one** instance rather than four small ones: the model wants the memory and the
-extraction wants the cores, and splitting them helps nothing here.
+### One instance, not four [step 2](GO_LIVE.md#step-2--create-the-instance)
 
-| | |
-|---|---|
-| Shape | `VM.Standard.A1.Flex` — 4 OCPU, 24 GB |
-| Image | Ubuntu 22.04 or 24.04 (aarch64) |
-| Boot volume | 50 GB is comfortable; the model is ~2.5 GB and Rust's build directory is large |
+Oracle's Always Free tier gives 4 OCPU and 24 GB of Ampere A1 across your instances. Take it as
+one: the model wants the memory and the extraction wants the cores, and splitting them helps
+nothing. 50 GB of boot volume is comfortable — the model is ~2.5 GB and Rust's build directory
+is large.
 
-Add your SSH public key when you create it. Then:
+*"Out of host capacity"* is a real and common Oracle condition, not a mistake in your request.
 
-```bash
-ssh ubuntu@YOUR_INSTANCE_IP
-```
+### Two firewalls, and the allow-list is not in either [step 4](GO_LIVE.md#step-4--open-the-two-firewalls)
 
-> **If the free-tier capacity error appears** — *"Out of host capacity"* — it is a real and
-> common Oracle condition, not a mistake in your request. It usually clears; some regions clear
-> faster than others.
+**Ports 80 and 443 are open to the internet, deliberately.** The first version of this document
+restricted them to one address, and review pointed out that this made the whole procedure
+impossible: Let's Encrypt validates the domain by reaching this host, and it does not come from
+your address. A certificate could never have been issued — and if one somehow had, renewal would
+have failed sixty days later, quietly.
 
-## 2. Packages
+So the ports are open, the certificate works, and **Caddy is what refuses everybody but you**.
+That is a weaker boundary than a firewall and it is the one that can actually exist: it is one
+process rather than the whole box, and a refused request never reaches the application or the
+model.
 
-```bash
-sudo apt-get update
-sudo apt-get install -y build-essential cmake git curl pkg-config libssl-dev postgresql
-```
+**Nothing needs opening for 8787, 8080 or 8888.** The API binds to loopback and Caddy reaches it
+locally; the model server and the search engine never leave the machine.
 
-Rust, for building the binary on the box:
+**That was a promise the compose file did not keep.** `8888:8080` publishes on every interface,
+not on loopback — so the search engine was one wrong security-list rule away from being a public,
+unauthenticated service, and this paragraph said otherwise. It is `127.0.0.1:8888:8080` now, and
+[GO_LIVE.md](GO_LIVE.md#step-10--start-the-search-engine) checks the listening address rather
+than assuming it. Review found it; a firewall that happens to be closed is not the same as a
+service that is not listening.
 
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-source "$HOME/.cargo/env"
-```
+> **This was the step I was least able to verify, and the first real box settled it.** I assumed
+> Oracle's Ubuntu images ship rules that accept SSH and reject the rest, so the whole step was
+> about inserting above the `REJECT`. The image actually used shipped an **empty INPUT chain
+> with `policy ACCEPT`** — nothing to insert above, and the commands as written fail with
+> `Index of insertion too big`.
+>
+> [Step 4b](GO_LIVE.md#step-4--open-the-two-firewalls) covers both now, and checks `nft` and
+> `ufw` as well, because `iptables -L` only shows what iptables manages. The consequence worth
+> carrying forward: on an image with no host firewall at all, **`BIND_ADDR` on loopback and the
+> loopback binding of SearXNG are the only things keeping the API and the search engine off the
+> internet.** That was defence in depth when it was written and is now the depth.
 
-Node, for building the web app:
+### The schema applies itself [step 6](GO_LIVE.md#step-6--create-the-database)
 
-```bash
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt-get install -y nodejs
-```
+Every Postgres-backed role runs migrations on boot before it serves anything, so there is no
+separate migration step to forget and no window where the binary and the schema disagree.
+`landscape migrate` does exactly that and exits, if you want to watch it happen on its own.
 
-## 3. Postgres
+### The artefacts stay root-owned [step 7](GO_LIVE.md#step-7--build-the-application)
 
-```bash
-sudo -u postgres psql <<'SQL'
-CREATE USER landscape WITH PASSWORD 'pick-a-real-one';
-CREATE DATABASE landscape OWNER landscape;
-SQL
-```
+The services read these files and never write them, so nothing needs to be handed over. The
+first version of this document chowned the lot to the service user, and review pointed out what
+that buys an attacker: a compromised API or worker could replace the binary it runs from and
+survive every restart afterwards. The units carry no writable path either, so `ProtectSystem=strict`
+leaves the whole filesystem read-only to them.
 
-Nothing else: **the schema applies itself.** Every Postgres-backed role runs migrations on boot
-before it serves anything, so there is no separate migration step to forget. If you want to see
-it happen on its own, `landscape migrate` does exactly that and exits.
+### Both inference artefacts are pinned [step 8](GO_LIVE.md#step-8--build-the-model-server-and-get-the-model)
 
-## 4. The firewall, which is two firewalls
+An inference build taken from a moving branch means the same application commit can be deployed
+twice and behave differently — and every quality number this project has would be about a build
+nobody can reproduce. So `llama.cpp` is pinned to a revision, and the model to a Hugging Face
+revision with a checksum.
 
-This is the step that wastes an afternoon, because closed ports look identical to a broken
-application.
-
-**a. The VCN security list**, in the Oracle console — Networking → Virtual Cloud Networks → your
-VCN → Security Lists → Default. Add ingress rules:
-
-| Source | Protocol | Port |
-|---|---|---|
-| `0.0.0.0/0` | TCP | 80 |
-| `0.0.0.0/0` | TCP | 443 |
-
-**Open to the internet, and the allow-list moves up a layer.** The first version of this
-document restricted both ports to one address, and review pointed out that this made the
-procedure impossible: Let's Encrypt validates the domain by reaching this host, and it does not
-come from your address. A certificate could never have been issued — and if one somehow had,
-renewal would have failed sixty days later, quietly.
-
-So the ports are open, the certificate works, and **Caddy is what refuses everybody but you** —
-step 8. That is a weaker boundary than a firewall and it is the one that can actually exist: it
-is one process rather than the whole box, and a refused request never reaches the application or
-the model.
-
-**b. The instance's own iptables.** Oracle's Ubuntu images ship with rules that accept SSH and
-drop the rest, and they survive reboots through `netfilter-persistent`. A security list rule
-alone will not get you in.
-
-```bash
-sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
-sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
-sudo netfilter-persistent save
-```
-
-> **Check the rule numbering first** with `sudo iptables -L INPUT --line-numbers`. Inserting
-> after the final `REJECT` does nothing, which is the failure that looks most like success.
-> *(This is the step I am least able to verify from here — the exact ruleset varies by image.)*
-
-**Nothing needs opening for 8787 or 8080.** The API binds to `127.0.0.1` and Caddy reaches it
-locally; the model server never leaves the machine.
-
-## 5. Build
-
-On the box, in a checkout:
-
-```bash
-git clone https://github.com/larry94555/competitive-landscape.git
-cd competitive-landscape
-./scripts/build-release.sh
-```
-
-About ten minutes on four cores. It produces `dist/` — the binary, the built web app, and the
-commit it came from.
-
-```bash
-sudo useradd --system --home /opt/landscape --shell /usr/sbin/nologin landscape || true
-sudo mkdir -p /opt/landscape/{bin,web,models}
-sudo cp dist/bin/landscape /opt/landscape/bin/
-sudo cp -r dist/web/dist /opt/landscape/web/dist
-sudo cp dist/MANIFEST /opt/landscape/
-sudo chown -R root:root /opt/landscape
-sudo chmod -R go-w /opt/landscape
-```
-
-**Leave it root-owned.** The services read these files and never write them, so nothing needs to
-be handed over. The first version of this document chowned the lot to the service user, and
-review pointed out what that buys an attacker: a compromised API or worker could replace the
-binary it runs from and survive every restart afterwards. The units carry no writable path
-either, so `ProtectSystem=strict` leaves the whole filesystem read-only to them.
-
-## 6. The model
-
-`llama-server` has to be built for aarch64; there is no package for it.
-
-**Pinned, both of them.** An inference artefact taken from a moving branch means the same
-application commit can be deployed twice and behave differently — and every quality number this
-project has would be about a build nobody can reproduce.
-
-```bash
-git clone https://github.com/ggml-org/llama.cpp
-cd llama.cpp
-git checkout b10291
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release -j4
-sudo install -o root -g root -m 0755 build/bin/llama-server /opt/landscape/bin/
-```
-
-Then the model — **Qwen3-4B Q4_K_M**, which is the one the golden set is scored against
+The model is **Qwen3-4B Q4_K_M**, which is the one the golden set is scored against
 ([MODEL_BAKEOFF.md](MODEL_BAKEOFF.md), [ADR 0007](decisions/0007-model-licences.md)). The 1.7B is
 a router, not an extractor: it invented a price on a contact-sales page, which is the one failure
 this product cannot ship.
 
-The model is pinned to a revision rather than `main`, and checked afterwards:
+**If the checksum disagrees, stop.** A model that is not the one the golden set scored makes
+every quality figure on this project inapplicable to what is running.
 
-```bash
-sudo curl -L --output /opt/landscape/models/Qwen3-4B-Q4_K_M.gguf \
-  https://huggingface.co/Qwen/Qwen3-4B-GGUF/resolve/bc640142c66e1fdd12af0bd68f40445458f3869b/Qwen3-4B-Q4_K_M.gguf
+### The search engine is a step, not a default [step 10](GO_LIVE.md#step-10--start-the-search-engine)
 
-echo '7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5  /opt/landscape/models/Qwen3-4B-Q4_K_M.gguf' | sha256sum --check
-sudo chmod 0444 /opt/landscape/models/Qwen3-4B-Q4_K_M.gguf
-```
+`SEARX_URL` has **no default, deliberately**: a fallback to somebody's public instance would send
+everything strangers type into your box to a third party.
 
-The revision, the file name and the checksum were read from Hugging Face's API rather than
-guessed, and the file is 2,497,280,256 bytes. **If `sha256sum` disagrees, stop.** A model that is
-not the one the golden set scored makes every quality figure on this project inapplicable to
-what is running.
+Without it the site still works — a company's website produces a full report — and a *description*
+cannot become a set of companies. The application says which of those it is rather than guessing,
+and [USING_THE_SITE.md](USING_THE_SITE.md) part 9 is how to see each sentence.
 
-Record what you actually used, beside what the application was built from:
+SearXNG serves HTML and answers `403` to `format=json` until an instance opts in, which is why
+`deploy/searxng/settings.yml` is checked in. What a first run says when it goes wrong is built
+and tested — [BENCHMARKS.md](BENCHMARKS.md) Run 42 — against stand-ins rather than against a real
+engine, because no engine has ever answered this application a query.
 
-```bash
-printf 'llama.cpp b10291\nmodel bc640142c66e1fdd12af0bd68f40445458f3869b\n' | sudo tee -a /opt/landscape/MANIFEST
-```
+### DNS before Caddy [step 3](GO_LIVE.md#step-3--point-your-domain-at-it-now) and [step 11](GO_LIVE.md#step-11--https)
 
-## 7. The services
+Caddy asks for a certificate on the name in its config, and the authority resolves that name and
+connects to it — so with no record there is nothing to validate and no certificate. Failed
+issuance is rate-limited, so the cheap order is DNS, check it resolves, then Caddy.
 
-```bash
-sudo mkdir -p /etc/landscape
-sudo cp deploy/landscape.env.example /etc/landscape/landscape.env
-sudo nano /etc/landscape/landscape.env      # the database password
-sudo chmod 600 /etc/landscape/landscape.env
-sudo chown landscape:landscape /etc/landscape/landscape.env
+Two things in `deploy/Caddyfile.example` are deliberate:
 
-sudo cp deploy/*.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now llama-server landscape-api landscape-worker
-```
-
-Check all three, in the order they depend on each other:
-
-```bash
-systemctl status llama-server landscape-api landscape-worker
-curl -s http://127.0.0.1:8080/health
-curl -s http://127.0.0.1:8787/api/health
-```
-
-`/api/health` reads the queue depth **out of the database**, so a healthy answer also proves the
-process can reach Postgres. A health check that only proves the process is running would report
-healthy while every request failed.
-
-## 8. DNS, then TLS
-
-**The domain has to point here first.** Caddy asks for a certificate on the name in its config,
-and the authority resolves that name and connects to it — so with no record there is nothing to
-validate and no certificate. This step was missing from the first version of this document.
-
-At your registrar or DNS host:
-
-| Type | Name | Value |
-|---|---|---|
-| `A` | `landscape` (or `@`) | your instance's public IPv4 |
-
-Check it resolves from your machine — `dig +short landscape.example.com` — **before** starting
-Caddy. Failed issuance is rate-limited by Let's Encrypt, so the cheap order is DNS, check, then
-Caddy.
-
-```bash
-sudo apt-get install -y caddy
-sudo cp deploy/Caddyfile.example /etc/caddy/Caddyfile
-sudo nano /etc/caddy/Caddyfile        # your domain, and your address in the allow-list
-sudo systemctl restart caddy
-journalctl -u caddy -f                # watch the certificate arrive
-```
-
-Two things in that config are deliberate.
-
-**The `remote_ip` allow-list** is what step 4 moved up here — the application is behind a list of
-one, because the ports cannot be. Put the address you will browse from; `curl -s https://ifconfig.me`
-tells you what it is. Everybody else gets a 403, which matters more than it sounds: a new
-certificate appears in public certificate-transparency logs within minutes of being issued, and
-scanners read those logs.
+**The `remote_ip` allow-list** is what the firewall could not be. Everybody else gets a 403,
+which matters more than it sounds: a new certificate appears in public certificate-transparency
+logs within minutes of being issued, and scanners read those logs.
 
 **`flush_interval -1`** stops the event stream being buffered. Without it a report that fills in
 over ninety seconds arrives all at once at the end — the feature, undone by the thing in front
 of it.
 
-> **The ACME challenge and the allow-list.** Caddy answers the validation request itself, ahead
-> of the routes above, so the 403 should not block issuance. **This is the step I am least able
-> to verify from here.** If the first `journalctl -u caddy` shows a challenge failing, widen the
-> matcher, let the certificate issue, then narrow it again — and confirm a renewal in the log
-> before trusting it, because the failure mode is silent and sixty days away.
+> **⚠ The ACME challenge and the allow-list.** Caddy answers the validation request itself, ahead
+> of the routes, so the 403 should not block issuance. **This is the other step I cannot verify
+> from here.** If the first `journalctl -u caddy` shows a challenge failing, widen the matcher,
+> let the certificate issue, then narrow it again — and confirm a renewal in the log before
+> trusting it, because the failure mode is silent and sixty days away.
 
-**Without a domain there is no certificate.** You can point a browser at `http://YOUR_IP:8787`
-after changing `BIND_ADDR` to `0.0.0.0:8787` and opening that port — but then the prompts
-somebody types and the reports they read cross the internet in clear text, and there is no
-allow-list in front of the application at all. Fine for ten minutes of your own testing; not
-something to send anybody.
+**Without a domain there is no certificate**, and the prompts somebody types cross the internet
+in clear text. Fine for an afternoon of your own testing; not something to send anybody. One
+feature also degrades: browsers refuse the clipboard outside a secure context, so **Copy as
+context** puts the document in a text box instead. That path is built and tested rather than
+assumed — it was the first thing a real browser did.
 
-## 9. Now measure it, from here rather than there
+### Updating, and rolling back ([keeping it running](GO_LIVE.md#updating-to-a-newer-commit))
 
-[ADR 0011](decisions/0011-no-experiments-on-production.md) is the reason this step is a browser
-and a stopwatch rather than a profiler on the box: a benchmark leaves a toolchain, a downloaded
-model and a set of assumptions behind in the thing customers depend on.
+**The unit files are part of the deploy.** The first draft of the update recipe copied only the
+binary, so a change to a memory cap or a startup gate would have sat in the repository for months
+while the box ran the version from the first install.
+
+**Stopping the worker mid-analysis is safe.** The row is left `running`, the staleness sweep
+returns it to the queue, and another worker starts it over from nothing — that whole path is what
+[BENCHMARKS.md](BENCHMARKS.md) Runs 18–20 were about. The reader sees it restart rather than sees
+a lie.
+
+**To roll back**, keep the previous binary beside the new one and put it back. There is nothing
+else to undo: the schema only moves forwards, and no migration so far drops anything.
+
+---
+
+## The measurement this deployment exists for
+
+[ADR 0011](decisions/0011-no-experiments-on-production.md) is why this is a browser and a
+stopwatch rather than a profiler on the box: a benchmark leaves a toolchain, a downloaded model
+and a set of assumptions behind in the thing customers depend on.
 
 Open the site, pick **project management for a small design agency**, and note two things:
 
@@ -323,54 +212,13 @@ If it is bad, the levers are in [BENCHMARKS.md](BENCHMARKS.md) Run 23 and none o
 faster model: fewer pages, a shorter read order, and — the one the laptop already points at —
 discovery, which is about 20 of those 23 seconds.
 
-## 10. Updating
-
-```bash
-cd competitive-landscape && git pull && ./scripts/build-release.sh
-sudo systemctl stop landscape-api landscape-worker
-sudo cp dist/bin/landscape /opt/landscape/bin/
-sudo rm -rf /opt/landscape/web/dist && sudo cp -r dist/web/dist /opt/landscape/web/dist
-sudo cp dist/MANIFEST /opt/landscape/
-sudo chown -R root:root /opt/landscape && sudo chmod -R go-w /opt/landscape
-
-# **The unit files are part of the deploy.** The first draft of this recipe copied only the
-# binary, so a change to a memory cap or a startup gate would have sat in the repository for
-# months while the box ran the version from the first install.
-sudo cp deploy/*.service /etc/systemd/system/
-sudo systemctl daemon-reload
-
-sudo systemctl start landscape-api landscape-worker
-```
-
-If `deploy/llama-server.service` changed, restart that one too. It is left out above because
-reloading the model costs minutes and most updates do not touch it:
-
-```bash
-sudo systemctl restart llama-server
-```
-
-Migrations apply on boot, so there is no separate step and no window where the binary and the
-schema disagree.
-
-**Stopping the worker mid-analysis is safe.** The row is left `running`, the staleness sweep
-returns it to the queue, and another worker starts it over from nothing — that whole path is
-what [BENCHMARKS.md](BENCHMARKS.md) Runs 18–20 were about. The reader sees it restart rather than
-sees a lie.
-
-**To roll back**, keep the previous binary beside the new one and put it back. There is nothing
-else to undo: the schema only moves forwards, and no migration so far drops anything.
-
 ---
 
 ## When it does not work
 
-[RUNBOOK.md §6](RUNBOOK.md) covers the failures this procedure produces — a service that will not
-start, a page that never arrives, a queue that never moves. The short version:
+[GO_LIVE.md](GO_LIVE.md) ends with the short table. [RUNBOOK.md](RUNBOOK.md) §6 is the long one:
+a service that will not start, a page that never arrives, a queue that never moves.
 
-| Symptom | Look at |
-|---|---|
-| Connection times out from your machine | Both firewalls. §4, and check the rule numbering |
-| `502` from Caddy | `landscape-api` is down, or `BIND_ADDR` is not what Caddy proxies to |
-| The page loads, every API call 404s | `WEB_DIR` is right but the API is not running — the fallback is serving `index.html` for `/api/*` |
-| Analyses stay `queued` for ever | `landscape-worker` is down, or it cannot reach Postgres |
-| Reports come back with every section empty | `llama-server` is not up. The changelog section will still fill, because it needs no model — that is how you tell this apart from a fetching problem |
+The one worth memorising: **every section empty but the changelog filled means the model server
+is down.** Changes is the section that needs no model, so it is what tells an inference problem
+apart from a fetching one.

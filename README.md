@@ -180,6 +180,13 @@ endpoint by hand, so the rejection names the missing header rather than making y
   "remedy": "Add -H 'content-type: application/json' to the request." }
 ```
 
+### Deploying it, and walking it
+
+[GO_LIVE.md](docs/GO_LIVE.md) is the deployment as a sequence — every command, in order, from
+an empty Oracle Cloud account to a URL that works. [DEPLOY.md](docs/DEPLOY.md) is the same thing
+as an argument, for when a step surprises you. [USING_THE_SITE.md](docs/USING_THE_SITE.md) walks
+every feature from a browser once it is up.
+
 ### Take the report somewhere else
 
 `GET /api/analyses/{id}/context` returns the whole report as Markdown, with every source URL and

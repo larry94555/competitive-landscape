@@ -34,7 +34,9 @@ TypeScript + React frontend · Rust backend · local llama.cpp inference on Orac
 | [FACT_CHECKING.md](FACT_CHECKING.md) | Information gathering & fact-checking: source discovery, the two-axis trust model, competitive-set derivation, the nine-level verification pipeline, misinformation/disinformation handling, and how a reader independently confirms every claim |
 | [Fable_Evaluation.md](Fable_Evaluation.md) · [Evaluation_Action_Plan.md](Evaluation_Action_Plan.md) | Pre-implementation evaluation of the whole plan, and the disposition of every finding with its impact on implementation |
 | [CODING_QUALITY.md](CODING_QUALITY.md) | The code quality standard: simplicity budgets, design patterns, testing, linting, hooks, ADRs, the tutorial, review process, and the agent contract |
-| [DEPLOY.md](DEPLOY.md) | Putting it on an Oracle Ampere A1: the instance, the two firewalls, DNS, the pinned inference artefacts, the units, TLS with an allow-list in front of the application — and the measurement that can only be taken from the client's side |
+| [GO_LIVE.md](GO_LIVE.md) | The deployment as a sequence: every command, in order, from an empty Oracle account to a URL that works. Nothing to look up and nothing to decide that it does not tell you how to decide |
+| [DEPLOY.md](DEPLOY.md) | The same deployment as an argument: why the ports are open, why the artefacts stay root-owned, why both inference artefacts are pinned, and which two steps are guesses — and the measurement that can only be taken from the client's side |
+| [USING_THE_SITE.md](USING_THE_SITE.md) | Every feature the site has, walked from a browser: what to click, what you should see, and why it behaves that way |
 
 ---
 
@@ -1926,14 +1928,14 @@ determine whether this business exists at all.
 | 3–4 (accounts, billing) | €0 | email ~€15/mo once sending | €0 |
 | 5 (watches) | €0 | email ~€15/mo | first customers |
 | 6 (launch) | €0 → €65 | ~€100 one-off launch costs | **$350–500** |
+| 7 (retention/scale) | €65 → €200 | | **$1,100–2,000** |
+| 8 (sustain) | €200 | | **$2,000+**, infra ≤ 20% |
 
 **One variable cost to watch:** SearXNG depends on upstream engines that rate-limit it, and
 Brave Search API is the documented fallback — which is **paid per query**. Budget **~$5–15/month
 from Phase 2** as a contingency, and track queries-per-analysis as a cost metric. It is small,
 but it is the only line in this plan that scales with usage, which makes it the one worth
 watching.
-| 7 (retention/scale) | €65 → €200 | | **$1,100–2,000** |
-| 8 (sustain) | €200 | | **$2,000+**, infra ≤ 20% |
 
 Total cash required to reach first revenue: **under €100.** That is the entire point of the
 free-tier launch, and it is what makes a no-outside-capital plan credible rather than

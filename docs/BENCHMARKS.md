@@ -33,6 +33,360 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 44 — two documents somebody can follow, and a fifteenth gate
+
+**Date:** 2026-08-10 · **Where:** this laptop · **Model:** none. Nothing here runs.
+
+Two documents, written because the deployment is about to happen and the existing ones were
+written for somebody who already knew the answers.
+
+### The sequence, and the argument, are two documents now
+
+`DEPLOY.md` interleaved its commands with the reasoning for them, which makes it a good essay
+and a slow procedure — and the moment a second deployment document existed, the model pin, the
+checksum and the firewall rules would have had two homes. **Two copies of a command drift, and
+the copy that drifts is the one nobody runs.**
+
+So: [GO_LIVE.md](GO_LIVE.md) holds every command and nothing else, twelve numbered steps from an
+empty Oracle account to a URL. [DEPLOY.md](DEPLOY.md) keeps every argument and **no commands at
+all**, naming steps rather than repeating them.
+
+Three things the sequence needed that the essay did not have:
+
+| | |
+|---|---|
+| The Oracle console, click by click | Shape, image, boot volume, SSH key, and where the security list is |
+| DNS at step 3, not step 10 | It propagates during the twenty-five minutes of building `llama-server` rather than being waited on at the end |
+| **The search engine at all** | `SEARX_URL` was in no deploy document. A box built from the old one would have had no search channel, and a description would have produced the refusal that says so |
+
+That last one is the substantive gap. Everything else was ordering.
+
+### And a walkthrough with no terminal in it
+
+[USING_THE_SITE.md](USING_THE_SITE.md) walks the product from a browser: the examples, a report
+arriving, how to read a claim against its source, comparing two companies, editing the set,
+handing the whole thing to an assistant, describing an idea rather than naming companies, the
+clarifying chips, and each of the ways it says no. `Feature_Walkthrough.md` stays what it is —
+the terminal version, for the parts with no browser surface.
+
+It opens with the two things that interrupt somebody trying it: **an analysis takes four to
+eight minutes on four ARM cores**, and **the cap is two a day per visitor**, which a six-analysis
+tour hits immediately. The cap only counts requests that arrived through Caddy, which is exactly
+the case a deployed box is in.
+
+### The gate: a table with no separator is not a table
+
+Writing those documents produced a two-row table with no `|---|---|` under its header. It reads
+correctly in an editor, in a diff, and in every review that looks at the source — and renders on
+GitHub as a row of pipes. **These documents are read in a browser**, so that is the rendering
+that decides whether they are readable at all.
+
+A check over every Markdown file in the repository found **two**, and the second one is the more
+interesting:
+
+```text
+docs/ROADMAP.md:1935  | 7 (retention/scale) | €65 → €200 | | **$1,100–2,000** |
+```
+
+That table was not typed wrongly. A paragraph was inserted **into the middle of it**, splitting
+one table into two — and the second half has no separator of its own, so its last two rows had
+been rendering as text for as long as the paragraph had been there. Nobody edits a table by
+deleting its separator; they edit it by putting something where the separator's protection does
+not reach.
+
+`scripts/markdown_tables.py` is the fifteenth gate. It checks what decides *table or not a
+table* and nothing else: **a body row with the wrong number of cells is padded or truncated by
+GFM and still renders**, so that is a tidiness question and not this gate's. A delimiter row of
+the wrong width is a different matter, and the next section is about how that was learned.
+
+### What review found, and the gate was most of it
+
+**The gate did not know what a table is.** Five ways, across two rounds of review. Three in the
+first: it accepted `| : |` as a
+separator, when GFM requires at least one hyphen per cell; it saw code fences only as three
+backticks at the start of a line, so a `~~~` block or an indented example full of pipes read as
+a broken table; and it silently ignored the GFM form written without outer pipes, which is a
+blind spot rather than a decision. That round added **eleven fixtures**, one per shape, and the
+version before it failed three of them.
+
+And two more in the second, both about the shape that decides whether GFM recognises a table
+at all:
+
+**The delimiter row has to have the same number of cells as the header.** `| a | b |` over
+`|---|` renders the whole block as a paragraph — the same wall of pipes, arriving by a route the
+gate did not look at. Adding that check found one immediately, in this file: a five-column
+header over a six-column separator, which has been rendering as text for as long as it has been
+here.
+
+**And a closing fence is not "any line starting with three of the character".** A four-backtick
+block was being ended by a three-backtick line inside it, and a line like ````rust` inside a
+block ended it too — both of which expose the pipes underneath as a table. A closing fence is
+the same character, at least as long, and carries nothing after it.
+
+Sixteen fixtures now. **The gate has been wrong about five shapes and right about one real
+defect in each round**, which is the argument for fixtures over confidence.
+
+It also has one exclusion, which is a judgement rather than an oversight:
+`crates/landscape-golden/pages` holds pages captured from the live web so extraction can be
+scored against them, and one of them contains a table written without outer pipes. **That is how
+that site wrote it.** Editing it to please a linter would be editing the evidence.
+
+**And the compose file did not keep the promise this guide makes.** `8888:8080` publishes
+SearXNG on every interface; the guide said all three internal ports listen on loopback only. A
+closed firewall is not the same as a service that is not listening, and it had no restart policy
+either — so the first reboot would have taken the search channel away silently. Both fixed in
+`docker-compose.yml`, and the guide now checks the listening address and the restart policy
+rather than asserting them.
+
+**Two more, both about a value crossing a boundary.** The database password went into a SQL
+string, a URL and a systemd environment file, and the guide said "nothing with quotes or `@`" —
+which still permits `/`, `?`, `#`, `%` and a space, each of which changes how at least one of
+those three parses. It is `openssl rand -hex 24` now: letters and digits mean the same thing
+everywhere. And the SSH key command used `~`, which PowerShell does not expand when it hands an
+argument to a program, so the Windows path the guide advertises would have created a literal
+`~` directory.
+
+### And the first real box corrected the step that expected to be corrected
+
+Step 4b assumed Oracle's Ubuntu images ship a firewall: SSH accepted, everything else rejected,
+so the work is to insert an `ACCEPT` **above** the `REJECT` and the hazard is inserting below
+it. It was marked as the step I was least able to verify from here.
+
+The image actually used shipped this:
+
+```text
+Chain INPUT (policy ACCEPT)
+num  target     prot opt source               destination
+```
+
+**An empty chain and a default of allow.** Nothing to insert above, nothing blocking anything,
+and the commands as written fail with `Index of insertion too big` — an error that reads like a
+mistake rather than like *"you are in the other case"*.
+
+The step handles both now, and checks the two places `iptables -L` cannot see: `nft list
+ruleset`, because Ubuntu's iptables is a shim over nftables and a native rule in another table
+does not appear, and `ufw status`.
+
+**The consequence is the part worth carrying forward.** On an image with no host firewall,
+`BIND_ADDR` on loopback and SearXNG's loopback binding are not defence in depth — they are the
+depth. Anything bound to `0.0.0.0` is on the internet as soon as a security-list rule allows its
+port. Review had already moved SearXNG's binding to `127.0.0.1` on the argument that a closed
+firewall is not the same as a service that is not listening; a box with no firewall at all is
+that argument arriving in person.
+
+### Three questions from the first walk, and each one was a gap
+
+**"What does an empty chain mean?"** — answered above.
+
+**"Is Docker's ruleset something I have to act on?"** The decision table said to act when `nft`
+shows an `input` chain containing a `drop`. What anybody with Docker installed actually sees is
+a page of rules in `ip nat` and `ip raw`, several of them saying `drop`, and none of them theirs
+to change: they stop traffic reaching a container by routing past the bridge, and they make a
+port published to `127.0.0.1` genuinely loopback-only. That is the same property the guide asks
+to be checked for SearXNG two steps later — the guide relied on it and then failed to recognise
+it when it appeared. Named now, with both shapes quoted, and a note that their presence means
+containers are running, which matters for the next question.
+
+**"Doesn't step 6 assume a database exists?"** It creates the role and the database, and it
+assumed something it never checked: that the *server* is up. `psql --version` proves the client
+binary is installed and says nothing about the thing it connects to, so a stopped Postgres
+surfaced two steps later as `could not connect to server` — which reads like a missing database
+rather than a stopped service.
+
+Step 5 checks the server now, and step 6 ends with the check that was missing entirely:
+
+```bash
+psql "postgres://landscape:...@127.0.0.1:5432/landscape" -c '\conninfo'
+```
+
+**One command, four facts:** the server is up, the role exists, the password is right, and the
+URL parses the way it was meant. It is the exact string that goes into `landscape.env` three
+steps later, so the escaping question review raised about the password is answered here rather
+than by a service that will not start. And on this box it doubles as the port-collision check:
+a container already holding 5432 stops the native server, which is how the question arose.
+
+### And then running step 6 twice found the thing worth finding
+
+Two messages, and only one of them was a problem.
+
+`could not change directory to "/home/ubuntu": Permission denied` is a **warning**: `sudo -u
+postgres` keeps the caller's directory and `postgres` cannot read it. `psql` runs anyway. It
+appears above the real output, which is the worst place for a line that does not matter.
+
+`role "landscape" already exists` is the step having run before — benign, except for what it
+implies: **`CREATE USER` failing means it did not set the password**, so what is in force is
+whatever the first attempt used. A guide that says "run this" and not "and here is what it means
+when it says no" leaves somebody carrying an unknown into `landscape.env`. `ALTER USER` is the
+answer and it is written down now.
+
+**The real find is underneath both.** These two commands do not necessarily talk to the same
+server:
+
+| | Route | Reaches |
+|---|---|---|
+| `sudo -u postgres psql` | the Unix socket | always the native PostgreSQL |
+| `postgres://…@127.0.0.1:5432/…` | TCP | **whatever holds that port** |
+
+On a box with containers — which this one has, and whose Docker rules were the previous
+question — a published 5432 means the role is created on one server and the application
+connects to the other. Two databases with the same name, and an authentication failure three
+steps later that makes no sense given what was just typed.
+
+`\conninfo` is the only command in that step which takes the same route the services will, which
+is exactly why it is there. It was added an hour before this became the situation it catches.
+
+### One placeholder was three, so it had to be substituted three times
+
+The check that was added to catch the socket-versus-TCP problem failed on the walk, and not for
+that reason:
+
+```text
+psql: error: ... FATAL:  password authentication failed for user "landscape"
+```
+
+**The step used two different names for one value** — `PASTE_IT_HERE` in the create,
+`YOUR_GENERATED_PASSWORD` in the repair, `PASTE_IT_HERE` again in the check — across three
+commands a reader copies one at a time. Getting that right is a transcription exercise, and the
+guide had made it one three times over for a value nobody can see afterwards.
+
+It is a shell variable now. `PGPASS=$(openssl rand -hex 24)` once, `$PGPASS` in the create, the
+repair, the check and step 9, and the heredoc loses its quotes so the shell can expand it. **One
+substitution, done by the shell.**
+
+The error is worth reading twice, though, because it answered the previous question: *password
+authentication failed for user "landscape"* means the server on TCP 5432 **has** that role. A
+container answering instead of the native server would have said *role does not exist*. The
+check found the thing it was written for by failing for a different reason.
+
+### A collision this project ships, and which fails by succeeding
+
+Setting the password and then checking it failed **the same way twice**, which is the shape of
+something other than a typo:
+
+```text
+FATAL:  password authentication failed for user "landscape"
+```
+
+`sudo -u postgres psql` goes over the Unix socket and always reaches the native PostgreSQL. A
+`postgres://…@127.0.0.1:5432/…` URL goes over TCP, to whatever holds the port. `ALTER USER`
+changed the password on one server; the check authenticated against the other.
+
+**And this repository is what puts the other one there.** `docker-compose.yml`'s `db` service
+ships `POSTGRES_USER: landscape`, `POSTGRES_DB: landscape`, `POSTGRES_PASSWORD: landscape`, on
+`5432`. Every name matches the native server the guide builds, so a collision does not announce
+itself — `CREATE USER` says *already exists*, `CREATE DATABASE` says *already exists*, and a
+connection succeeds against the wrong database if the password happens to be `landscape`. It is
+the failure that hides inside four plausible successes.
+
+Three changes:
+
+| | |
+|---|---|
+| `db` publishes on `127.0.0.1` | Same fix review made for SearXNG, for the same reason — and this one ships a database whose password is its own name |
+| Step 5 checks **who holds 5432** before anything depends on the answer | `postgres`, `docker-proxy`, or nothing, each with what it means |
+| Step 6 names the symptom | *password authentication failed* right after setting the password is this, and the wording is the tell: a server with no such role says so |
+
+**The wording of the error is what makes it diagnosable at all.** *"password authentication
+failed for user landscape"* means the server that answered **has** that role; a machine without
+one says *role does not exist*. Two servers both having it is what makes this confusing, and
+knowing which sentence means what is the difference between five minutes and an afternoon.
+
+### The box was not empty, and the guide assumed it was
+
+`ss` named `docker-proxy` on 5432, so the guide said what it had just been taught to say: stop
+the container. `docker ps` said what the container was:
+
+```text
+d5804be60c89   postgres:16-alpine   Up 3 weeks (healthy)   127.0.0.1:5432->5432/tcp   job-preparation-db-1
+```
+
+**Another application of the operator's, running for three weeks.** Nothing about this
+deployment justifies stopping it, and the instruction to do so was written on the assumption
+that anything on 5432 must be in the way — an assumption that a guide for somebody else's
+machine has no business making.
+
+It does not need stopping either. Ubuntu's packaging puts a new cluster on **the next free
+port** when 5432 is taken, so the native server had been on 5433 the whole time, working
+perfectly over the socket, while every URL in the guide pointed at 5432 and reached the other
+project. `pg_lsclusters` prints the port; step 5 records it, step 6 checks against it, step 9
+writes it into `DATABASE_URL`, and the env file says why it might not be 5432.
+
+**And I read the error message wrong, twice.** *"password authentication failed for user
+landscape"* does not mean the answering server has that role: PostgreSQL returns the same
+sentence either way, deliberately, so that it cannot be used to enumerate usernames. I used it
+as evidence about which server had answered and it was never evidence of anything. The guide now
+says to check the port instead of reading the error, and says why the error cannot be read.
+
+That is three corrections in one step — the instruction that assumed an empty box, the
+instruction that needed a checkout two steps in the future, and my own diagnosis.
+
+`pg_lsclusters` then settled it in one line:
+
+```text
+Ver Cluster Port Status Owner    Data directory
+14  main    5433 online postgres /var/lib/postgresql/14/main
+```
+
+**5433, online, and working the whole time.** Two more things came out of that:
+
+The variable is `DBPORT` and not `PGPORT`, because `PGPORT` is one `psql` itself reads — a
+reader who exported it while following the guide would silently redirect their own commands.
+Choosing a name that collides with the tool being driven is a trap this project has walked into
+before under a different name.
+
+And the expected output in step 6 said `at port "5432"`, which on this box would have been the
+one thing in the block that did not match. It says 5433 now, and says that the number is
+whatever `pg_lsclusters` printed — **an example that cannot be true for the reader is worse than
+no example**, because the natural reading of a mismatch is that something is wrong.
+
+### A check with no remedy is half a check
+
+Step 10 verifies that SearXNG listens on loopback. On the first walk it printed:
+
+```text
+LISTEN 0 4096 0.0.0.0:8888 0.0.0.0:* users:(("docker-proxy",...))
+```
+
+The check was right, the operator had done nothing wrong, and **the guide had nothing to say
+next.** Two reasons, and the second is the interesting one.
+
+The immediate reason: the loopback binding is a change in the open pull request that contains
+this guide, and step 7 clones `main`. **A document reviewed like code can describe a repository
+that does not exist yet** — the guide and the fix travel together and the clone does not.
+
+The general reason: three checks were added to step 10 because review was right that a guide
+should verify rather than assert. Two of them had no remedy underneath. A reader who ran them
+got a correct diagnosis and nowhere to go, which is a worse experience than not checking — the
+check converts an invisible problem into a visible dead end.
+
+Both now carry the command that fixes them, chosen so neither needs a rebuild: a one-line `sed`
+and `docker compose up -d`, or `docker update --restart` on the running container. Step 7 says
+plainly that it clones `main` and that an open pull request is not in it.
+
+**The rule this is an instance of:** every check earns its place by what it says when it fails,
+not by what it confirms when it passes.
+
+### Numbers in prose are not checked by anything
+
+Renumbering the guide to put DNS at step 3 left **seven** references pointing at the wrong
+operation: the database password sent to the packages step, the firewall to DNS, the search
+engine to the services. Every one of them read plausibly.
+
+They are anchor links now — `[step 6](GO_LIVE.md#step-6--create-the-database)` — and
+`scripts/check_links.py` already resolves fragments against the headings of the file they point
+into. A step that moves breaks the build rather than misleading a reader, which is the same
+trade the benchmark-count gate and the feature-totals gate make: a number a document must hold,
+checked against the thing it is derived from.
+
+| | |
+|---|---|
+| Markdown tables checked | **343**, plus 16 fixtures |
+| Broken when the check was first run | **2**, and a third once it learned cell counts |
+| Stale step references after renumbering | **7**, now links |
+| Gates in `scripts/verify.py` | 14 → **15** |
+
+---
+
 ## Run 43 — the evidence file a chatbot cannot assemble
 
 **Date:** 2026-08-10 · **Where:** this laptop · **Model:** none. Every byte here is a field of
@@ -3704,7 +4058,7 @@ cargo run -p landscape -- examples
 ### What it found
 
 | Idea | Company | Sources | Discovery | Questions answered |
-|---|---|---|---:|---:|---|
+|---|---|---:|---:|---|
 | project management | basecamp.com | 6 | 16s | pricing, features, identity, trust, direction |
 | | linear.app | 8 | 20s | **all six** |
 | website analytics | usefathom.com | 8 | 18s | **all six** |

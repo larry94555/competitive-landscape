@@ -186,13 +186,13 @@ reports, refuse new ones, and say so plainly.
 
 ## 6. Deployment
 
-The procedure is [DEPLOY.md](DEPLOY.md). This section is what to do when following it does not
+The procedure is [GO_LIVE.md](GO_LIVE.md), and the reasoning behind it is [DEPLOY.md](DEPLOY.md). This section is what to do when following it does not
 work — and **the first three are all the same mistake**, which is that a closed port and a
 broken application look identical from a browser.
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Connection times out from your machine | The VCN security list has no ingress rule | Console, Networking, Security Lists. DEPLOY.md §4a |
+| Connection times out from your machine | The VCN security list has no ingress rule | Console, Networking, Security Lists. GO_LIVE.md step 4a |
 | Still times out with the rule in place | The instance's own iptables. Oracle's Ubuntu images drop everything but SSH and persist it | `sudo iptables -L INPUT --line-numbers` and insert **before** the final REJECT, then `netfilter-persistent save` |
 | Times out only on 443 | Caddy could not get a certificate, so nothing is listening | `journalctl -u caddy` — usually port 80 is closed, which Let's Encrypt needs |
 | `502 Bad Gateway` | `landscape-api` is down, or `BIND_ADDR` disagrees with the Caddyfile | `systemctl status landscape-api`; they must both say `127.0.0.1:8787` |
@@ -203,9 +203,9 @@ broken application look identical from a browser.
 | Sections all arrive at once at the end | A proxy is buffering the event stream | `flush_interval -1` in the Caddyfile. Without it the streaming feature is undone by the thing in front of it |
 | `403 Not open yet.` from your own browser | Your address is not the one in the Caddy allow-list, or it changed | `curl -s https://ifconfig.me`, then the `@allowed remote_ip` line. A home connection's address moves |
 | The certificate never issues | DNS does not point here yet, or port 80 is closed | `dig +short <name>` first; issuance is rate-limited, so check before retrying |
-| The certificate issued once and expired | Renewal failed silently for sixty days | `journalctl -u caddy --since '70 days ago' \| grep -i renew`. This is why step 8 says to confirm a renewal rather than trust the first success |
+| The certificate issued once and expired | Renewal failed silently for sixty days | `journalctl -u caddy --since '70 days ago' \| grep -i renew`. This is why [step 11](GO_LIVE.md#step-11--https) says to confirm a renewal rather than trust the first success |
 | A service was killed and the journal says `oom` | `MemoryMax=` did its job | One service failing instead of the machine. Raise the cap on that unit if the journal shows it repeatedly |
-| The deploy did not take | The unit files were not reinstalled | DEPLOY.md step 10 copies `deploy/*.service` and reloads. A binary-only update leaves the old unit in place |
+| The deploy did not take | The unit files were not reinstalled | [Updating](GO_LIVE.md#updating-to-a-newer-commit) copies `deploy/*.service` and reloads. A binary-only update leaves the old unit in place |
 
 ### 6.1 A run that will not die
 
