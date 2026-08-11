@@ -78,8 +78,15 @@ One line, in the product's own voice:
 
 > **Here's how I interpreted the business idea:** *competitive intelligence software*
 
-The phrase is the one every query was actually built from — `Report::searched_as`, already
-carried today. Beside it, two links:
+**The phrase is `Report::interpreted.label`, not `Report::searched_as`.** An earlier draft of
+this document named the wrong field and review caught it. `searched_as` holds the *origins* —
+`origins.join(", ")` on the multi-company path and the single origin on the other — and the
+interface already renders it separately as *"Searched as basecamp.com, linear.app"*. Following
+the wrong field would have produced *"Here's how I interpreted the business idea:
+https://basecamp.com"*, and an **Edit** link that let somebody rewrite a domain as though it
+were a market phrase.
+
+Beside it, two links:
 
 | Link | Does |
 |---|---|
@@ -90,6 +97,23 @@ carried today. Beside it, two links:
 interpretation is wrong, everything below it is wrong, and the reader is the only one who can
 tell. `COMPETITIVE_DISCOVERY.md` §4 already argues that showing the substitution beats asking a
 clarifying question first — this makes it correctable rather than merely visible.
+
+#### When nothing was interpreted
+
+`interpreted` is deliberately `None` when the reader's own words were searched for unchanged —
+a URL, a product name, or an explicitly named set. **There was no substitution, so there is
+nothing to disclose**, and a line reading *"interpreted as ‹what you typed›"* is noise the field's
+own documentation already refuses.
+
+| The reader typed | The block says |
+|---|---|
+| A description that was substituted (`interpreted` is `Some`) | **Here's how I interpreted the business idea:** *the phrase*, with **Edit** and **Why this?** |
+| One or more domains or product names (`interpreted` is `None`) | **You named these directly, so nothing was interpreted:** the names, with **Edit** — which edits *the set*, the thing that actually exists, using the machinery `EditableSet` already has |
+
+**Two different sentences rather than one sentence with a hole in it.** A reader who typed
+`basecamp.com` has not had an idea interpreted and should not be shown a block implying they
+did; a reader who typed a description has, and is the only person who can tell whether it was
+read correctly.
 
 ---
 
@@ -124,6 +148,12 @@ Each block with more than five items ends with **`…more`**. Clicking it reveal
 the cap of 25. There is no pagination beyond that: 25 is the whole of what this page will ever
 show, and anything past it belongs in the full report.
 
+**The count and the cap are different numbers and both are shown.** If 31 discussions were
+found, the count sentence says **31** — that is what was found — and the block says
+*"Showing 25 of 31"*. The `…more` control names what it can actually reveal, **20**, not the 26
+that are not on screen. A control promising more than it delivers is the same defect as a
+progress bar that retreats: it is checkable by the person reading it, and it is wrong.
+
 **A block with nothing in it says so** and does not render an empty list.
 
 **Each heading is a rule, not a line of prose** — set large, closed off from its rows by an
@@ -133,8 +163,15 @@ finding them must not require reading them. See
 
 #### Ordering
 
-**Companies** and **open source projects** keep the order the pipeline already produces — the
-scored order from `landscape-search::candidates`, best-supported first.
+**Companies** keep the order the pipeline already produces — the scored order from
+`landscape-search::candidates`, best-supported first.
+
+**Open source projects have no order yet, and this document must not invent one.** An earlier
+draft said projects kept the `candidates` order too. That function ranks *company* candidates
+from URL shape and cross-query agreement; it never produced a repository and cannot be the
+existing order for a category that does not exist. What ranks a project — stars, recent
+commits, whether it is a library or a product, whether an archived repository still counts — is
+[open issue 5](#45-open-issues), and **nothing should be built against a guess about it**.
 
 **Discussions are ordered differently, and this is the part that needs care.**
 
@@ -148,6 +185,44 @@ scored order from `landscape-search::candidates`, best-supported first.
 see [§4](#4-dependencies). The rule itself is stated under the discussions heading, in a line a
 reader can check the list against: *"Most authoritative venues first, most recent within
 each."*
+
+---
+
+### 2.5 When a source could not be reached
+
+**Three states per category, not two.** *Found some*, *found none*, and *could not look* are
+different findings, and the third is the one this document originally left out.
+
+That distinction is not new here. A company search already reports `nothing_found`,
+`search_incomplete` and `search_refused` as separate outcomes, because only one of them is
+fixed by trying again and only one is fixed by changing the words. With three independent
+channels — the web, a code host, and whatever reaches discussions — one of them being down while
+the others answer is the *ordinary* case rather than the edge one.
+
+| State | The count sentence | The block |
+|---|---|---|
+| Found some | *"12 companies"* | The list |
+| Found none, and the search finished | *"0 open source projects"* | The heading, and one line: *"Searched, and found none."* |
+| Could not look | The clause is **replaced**, not zeroed | The heading, and one line saying which source and what a reader can do |
+
+Worked through, with the projects channel down and the other two fine:
+
+> **I found 12 companies and 31 discussions on this topic. I could not reach the code host, so
+> I have not looked for open source projects.**
+
+**A zero is a claim that we looked.** Rendering *"0 open source projects"* during a code-host
+outage is the product asserting an absence it never established, which is the single thing
+`FACT_CHECKING.md` §5.4 and `PRODUCT_SPEC.md` §4.3 exist to prevent — and it is worse here than
+in a report section, because a count carries more authority than a paragraph.
+
+**Omitting the clause is also wrong**, and it is what §2.3's original rule forced: a reader who
+sees two categories named cannot tell whether the third found nothing, was not searched, or
+does not exist as a feature. The clause has to be *replaced* by a sentence that says what
+happened.
+
+**Every category failing is not a special case.** It reads: *"I could not reach any of the
+sources for this. Nothing below is a finding about your idea."* — and the three blocks are
+absent rather than empty.
 
 ---
 
