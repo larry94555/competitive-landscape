@@ -296,13 +296,15 @@ Ver Cluster Port Online Owner    Data directory              Log file
 16  main    5432 online postgres /var/lib/postgresql/16/main /var/log/postgresql/…
 ```
 
-**Write down the number in the `Port` column.** Everything below calls it `PGPORT`, and it goes
+**Write down the number in the `Port` column.** Everything below calls it `DBPORT`, and it goes
 into `DATABASE_URL` at [step 9](#step-9--configure-and-start-the-three-services). Carrying it in
-the shell saves retyping:
+the shell saves retyping — and it is `DBPORT` rather than `PGPORT` on purpose, because that
+second name is one `psql` itself reads, and exporting it would send your own commands somewhere
+you did not mean:
 
 ```bash
-PGPORT=$(pg_lsclusters --no-header | awk '{print $3}' | head -1)
-echo "$PGPORT"
+DBPORT=$(pg_lsclusters --no-header | awk '{print $3}' | head -1)
+echo "$DBPORT"
 ```
 
 > **It is 5433 or higher when something else already had 5432.** Ubuntu's packaging picks the
@@ -413,12 +415,16 @@ as, the second makes the **database** it logs in to, owned by that role.
 services will:
 
 ```bash
-psql "postgres://landscape:$PGPASS@127.0.0.1:$PGPORT/landscape" -c '\conninfo'
+psql "postgres://landscape:$PGPASS@127.0.0.1:$DBPORT/landscape" -c '\conninfo'
 ```
 
 ```text
-You are connected to database "landscape" as user "landscape" on host "127.0.0.1" at port "5432".
+You are connected to database "landscape" as user "landscape" on host "127.0.0.1" at port "5433".
 ```
+
+**That port is whatever `pg_lsclusters` said**, and on the first box this was walked on it was
+`5433`, not `5432` — another application already had 5432. If the number here is not the one
+in the `Port` column, you have connected to something else.
 
 **This is the check worth not skipping.** It proves four separate things at once — the server is
 up, the role exists, the password is right, and the URL parses the way you meant — and it is the
@@ -445,12 +451,12 @@ finding out there costs a service that will not start and a journal line about a
 > So check the port rather than reading the error:
 >
 > ```bash
-> echo "$PGPORT"
+> echo "$DBPORT"
 > pg_lsclusters
-> sudo ss -ltnp | grep "$PGPORT"
+> sudo ss -ltnp | grep "$DBPORT"
 > ```
 >
-> If `$PGPORT` is empty you skipped that part of
+> If `$DBPORT` is empty you skipped that part of
 > [step 5](#step-5--install-what-the-build-needs). If `ss` names `docker-proxy` on the port your
 > cluster claims, two things are fighting over it and `pg_lsclusters` will say your cluster is
 > `down`.

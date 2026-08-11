@@ -320,6 +320,25 @@ says to check the port instead of reading the error, and says why the error cann
 That is three corrections in one step — the instruction that assumed an empty box, the
 instruction that needed a checkout two steps in the future, and my own diagnosis.
 
+`pg_lsclusters` then settled it in one line:
+
+```text
+Ver Cluster Port Status Owner    Data directory
+14  main    5433 online postgres /var/lib/postgresql/14/main
+```
+
+**5433, online, and working the whole time.** Two more things came out of that:
+
+The variable is `DBPORT` and not `PGPORT`, because `PGPORT` is one `psql` itself reads — a
+reader who exported it while following the guide would silently redirect their own commands.
+Choosing a name that collides with the tool being driven is a trap this project has walked into
+before under a different name.
+
+And the expected output in step 6 said `at port "5432"`, which on this box would have been the
+one thing in the block that did not match. It says 5433 now, and says that the number is
+whatever `pg_lsclusters` printed — **an example that cannot be true for the reader is worse than
+no example**, because the natural reading of a mismatch is that something is wrong.
+
 ### Numbers in prose are not checked by anything
 
 Renumbering the guide to put DNS at step 3 left **seven** references pointing at the wrong
