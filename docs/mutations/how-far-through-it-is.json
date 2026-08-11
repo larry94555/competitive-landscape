@@ -130,10 +130,10 @@
     ]
   },
   {
-    "name": "the browser reads an unknown percentage as zero",
+    "name": "a counted percentage does not win over the estimate",
     "file": "web/src/App.tsx",
-    "old": "  const percent = running ? (progress?.percent ?? null) : null;",
-    "new": "  const percent = running ? (progress?.percent ?? 0) : null;",
+    "old": "  const percent = counted ?? (running ? estimated : null);",
+    "new": "  const percent = running ? estimated : null;",
     "run": [
       "npx",
       "vitest",
@@ -195,6 +195,28 @@
       "run",
       "-p",
       "landscape-api"
+    ]
+  },
+  {
+    "name": "the estimate is not capped, so it overtakes the thing it estimates",
+    "file": "web/src/App.tsx",
+    "old": "  const ceiling = DISCOVERY_SHARE / Math.max(1, companies);",
+    "new": "  const ceiling = 1;",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ]
+  },
+  {
+    "name": "an estimate is shown as though it had been counted",
+    "file": "web/src/App.tsx",
+    "old": "              {known ? `${guessed ? \"~\" : \"\"}${String(percent)}%` : \"—\"}",
+    "new": "              {known ? `${String(percent)}%` : \"—\"}",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
     ]
   }
 ]

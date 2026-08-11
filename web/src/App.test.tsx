@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import App from "./App";
+import App, { estimate } from "./App";
 import type { Analysis, Failure } from "./api";
 
 const IDEA = "an app that helps small farms sell to local restaurants";
@@ -1674,6 +1674,45 @@ describe("after a reconnect", () => {
   });
 });
 
+describe("the estimate, where nothing has been counted yet", () => {
+  // **Unit tests, because this is the one number in the interface that is not counted.**
+  // `Off-The-Napkin-Estimates.md` §1 permits it and says what the condition is: a reader must
+  // be able to tell it is an estimate. These assert the other half - that it cannot run ahead
+  // of the count it is standing in for.
+  const started = new Date("2026-08-11T12:00:00Z");
+  const after = (seconds: number): Date =>
+    new Date(started.getTime() + seconds * 1000);
+
+  it("starts at nothing and climbs", () => {
+    expect(estimate(started, started, 1)).toBe(0);
+    expect(estimate(started, after(12), 1)).toBeGreaterThan(0);
+    expect(estimate(started, after(24), 1)).toBeGreaterThan(
+      estimate(started, after(12), 1),
+    );
+  });
+
+  it("never passes the share discovery was measured to take", () => {
+    // 17% of one company, from BENCHMARKS Run 23. A minute in, ten minutes in, an hour in -
+    // the estimate stops where counting begins, so the real percentage never has to come down
+    // to meet it.
+    for (const seconds of [30, 60, 600, 3600]) {
+      expect(estimate(started, after(seconds), 1)).toBeLessThanOrEqual(17);
+    }
+  });
+
+  it("claims less of the whole when there are more companies to get through", () => {
+    // Discovery of the first of three companies is a third of the share it would be if there
+    // were only one, because the other two are still ahead.
+    expect(estimate(started, after(600), 3)).toBeLessThan(
+      estimate(started, after(600), 1),
+    );
+  });
+
+  it("a clock that runs backwards does not produce a negative bar", () => {
+    expect(estimate(started, new Date(started.getTime() - 60_000), 1)).toBe(0);
+  });
+});
+
 describe("how far through it is", () => {
   /** Start a run and get it to `running`, which is where the indicator lives. */
   async function running(): Promise<void> {
@@ -1689,11 +1728,12 @@ describe("how far through it is", () => {
   const bar = (): HTMLElement | null =>
     document.querySelector("progress.bar");
 
-  it("shows no number at all until something knows the total", async () => {
-    // **The whole argument, on screen.** The first stretch of a run - resolving the companies,
-    // then discovering their pages - has no denominator, and this is where a smooth 0-to-100
-    // bar would be inventing one. `—` says "no number yet"; `0%` would say "nothing has
-    // happened", which is false and which a reader would watch for a full minute.
+  it("estimates while nothing has been counted, and says it is estimating", async () => {
+    // **A number always, and the reader can tell which kind.** Before this the bar showed `—`
+    // for the opening stretch of an eight-minute wait, on the argument that no denominator
+    // existed. That was the report's "never invent a fact" rule applied to an affordance;
+    // `Off-The-Napkin-Estimates.md` §1 draws the line in the right place, and what it forbids
+    // is estimation a reader cannot *tell* is an estimate. The tilde is that telling.
     await running();
     act(() =>
       FakeEventSource.last!.send(
@@ -1708,12 +1748,45 @@ describe("how far through it is", () => {
       ),
     );
 
-    expect(await screen.findByText("—")).toBeInTheDocument();
-    expect(screen.queryByText("0%")).toBeNull();
-    expect(bar()).not.toHaveAttribute("value");
+    const shown = await screen.findByText(/^~\d+%$/);
+    expect(shown).toBeInTheDocument();
+    expect(screen.queryByText("—")).toBeNull();
     expect(
       await screen.findByText(/Finding the pages worth reading/),
     ).toBeInTheDocument();
+  });
+
+  it("a counted percentage replaces the estimate, and drops the tilde", async () => {
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "discovering",
+          saying: "Finding the pages worth reading",
+          percent: null,
+          companies: { done: 0, of: 1 },
+          pages: null,
+        }),
+      ),
+    );
+    await screen.findByText(/^~\d+%$/);
+
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "reading",
+          saying: "Reading public web pages",
+          percent: 40,
+          companies: { done: 0, of: 1 },
+          pages: { done: 2, of: 5 },
+        }),
+      ),
+    );
+
+    expect(await screen.findByText("40%")).toBeInTheDocument();
+    expect(screen.queryByText(/^~/)).toBeNull();
   });
 
   it("shows the real fraction once a plan exists", async () => {
@@ -1790,7 +1863,10 @@ describe("how far through it is", () => {
         }),
       ),
     );
-    expect(await screen.findByText("—")).toBeInTheDocument();
+    // **The guard is still the point**, and it is now about which number is shown rather than
+    // whether one is: a malformed tick must not be coerced to a *counted* `0%`. It falls back
+    // to the estimate, which carries a tilde and is therefore not the same claim.
+    expect(await screen.findByText(/^~\d+%$/)).toBeInTheDocument();
     expect(screen.queryByText("0%")).toBeNull();
   });
 

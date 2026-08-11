@@ -545,6 +545,7 @@ function AnalysisView({
         progress={progress}
         failure={analysis.failure}
         offered={choices.length}
+        started={analysis.created_at}
       />
 
       {/*
@@ -917,6 +918,50 @@ function stillArriving(
 }
 
 /**
+ * How long discovery takes, from `BENCHMARKS.md` Run 23: **16-35 seconds a company**.
+ *
+ * The middle of the measured range. This is the one number here that is not counted, and it is
+ * the reason `estimate` exists rather than the bar sitting at nothing.
+ */
+const DISCOVERY_MS = 25_000;
+
+/**
+ * Discovery's share of one company's wait, from the same measurements.
+ *
+ * `BENCHMARKS.md` Run 23: discovery is 16-35 seconds a company and the model is about two
+ * minutes, so discovery is roughly a sixth of it. The bar may move through this much of a
+ * company before a real page count exists, and **not past it** - the cap is what stops an
+ * estimate from overtaking the thing it is estimating.
+ */
+const DISCOVERY_SHARE = 0.17;
+
+/**
+ * A percentage for the stretch where nothing has counted anything yet.
+ *
+ * **This is an estimate, and the interface says so.** `Off-The-Napkin-Estimates.md` §1 draws
+ * the line this sits on: what the product refuses is *hidden* estimation - a number nobody can
+ * tell is a guess. A progress bar is not an assertion about the world, it is an affordance, and
+ * a reader who has waited forty seconds is owed something better than a dash.
+ *
+ * So: interpolate elapsed time against the measured length of discovery, cap it at discovery's
+ * measured share of the wait, and **mark it with a tilde** so `~12%` and `40%` are visibly
+ * different claims. The moment a real page count arrives it takes over and the tilde drops.
+ *
+ * @param started when the run was accepted
+ * @param now the clock, passed in so a test does not have to wait
+ * @param companies how many companies the run covers, when that is known
+ */
+export function estimate(started: Date, now: Date, companies: number): number {
+  const elapsed = Math.max(0, now.getTime() - started.getTime());
+  // Never past discovery's share of the *first* company: everything after that point is
+  // counted rather than guessed, and an estimate that runs ahead of the count would have to
+  // come back down.
+  const ceiling = DISCOVERY_SHARE / Math.max(1, companies);
+  const through = Math.min(1, elapsed / DISCOVERY_MS);
+  return Math.floor(through * ceiling * 100);
+}
+
+/**
  * Whether a run is still going, how far through it is, and what it is doing.
  *
  * **The problem this solves is not decoration.** `Reading public web pages…` was shown for the
@@ -948,17 +993,37 @@ function Waiting({
   progress,
   failure,
   offered,
+  started,
 }: {
   status: AnalysisStatus;
   progress: Progress | null;
   failure: Analysis["failure"];
   offered: number;
+  /** When the run was accepted. The estimate is measured from here. */
+  started: string;
 }): React.JSX.Element {
   const live = !isTerminal(status);
   const running = status === "running";
+
+  // **A clock, so the estimate moves.** A number that is an estimate and also frozen reads as a
+  // hang, which is the thing this whole component exists to rule out. One second is far finer
+  // than an eight-minute wait needs and far coarser than anything that costs.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!running) return undefined;
+    const tick = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(tick);
+  }, [running]);
+  const estimated = estimate(new Date(started), now, progress?.companies.of ?? 1);
   // Only while running. A percentage beside `Done.` is a number about something that is over.
-  const percent = running ? (progress?.percent ?? null) : null;
+  const counted = running ? (progress?.percent ?? null) : null;
+  // **A number always, and the reader can tell which kind it is.** Before anything has been
+  // counted the bar shows an estimate from measured phase durations rather than a dash - see
+  // `estimate`. `counted` wins the moment it exists, and cannot be overtaken because the
+  // estimate is capped below where counting begins.
+  const percent = counted ?? (running ? estimated : null);
   const known = percent !== null;
+  const guessed = counted === null && percent !== null;
 
   // **The word and the sentence must not say the same thing twice.** `describe` answers
   // *"what happened"*, which is the whole story for a failure and pure duplication for
@@ -999,12 +1064,12 @@ function Waiting({
               {...(known ? { value: percent, max: 100 } : {})}
               aria-label={
                 known
-                  ? `${String(percent)}% of this analysis is done`
+                  ? `${guessed ? "about " : ""}${String(percent)}% of this analysis is done`
                   : "Working out how much there is to do"
               }
             />
             <span className="bar-number">
-              {known ? `${String(percent)}%` : "—"}
+              {known ? `${guessed ? "~" : ""}${String(percent)}%` : "—"}
             </span>
           </div>
 

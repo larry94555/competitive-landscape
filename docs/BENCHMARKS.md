@@ -43,12 +43,26 @@ target hardware — one sentence as true at eight seconds as at eight minutes. S
 way to distinguish *nearly finished* from *barely started* from *dead*, and the third is the one
 that matters: a run that has hung looks exactly like a run that is working.
 
-### The denominator has to be real, and for the first stretch there is not one
+### Two kinds of number, and the interface says which is which
 
-The obvious build is a bar that fills smoothly from nothing to done. It would be a lie, and a
-specific one. Before `order::plan` runs, **nothing in this system knows how much work there
-is** — resolving a description into companies is a search, a fetch of each candidate's front
-page and a gate's verdict, and none of those can say in advance how many there will be.
+Before `order::plan` runs, **nothing in this system has counted anything** — resolving a
+description into companies is a search, a fetch of each candidate's front page and a gate's
+verdict, and none of those knows in advance how many pages there will be.
+
+> **The first version showed `—` for that stretch, and that was wrong.** The reasoning was that
+> a bar filling smoothly from nothing would be inventing a number. That is the report's *"never
+> invent a fact"* rule aimed at the wrong target, and
+> [Off-The-Napkin-Estimates.md](Off-The-Napkin-Estimates.md) §1 had already drawn the line in
+> the right place: what the product refuses is **hidden** estimation, *"dangerous not because it
+> is a guess — but because nobody can tell it is a guess."* A price in a report is an assertion
+> about the world. A progress bar is an affordance, and a dash held in front of somebody for the
+> first minute of an eight-minute wait protects nobody.
+>
+> There was measured data to hand, too: Run 23 puts discovery at **16–35 seconds a company**
+> against about **two minutes** of model time, so discovery is roughly a sixth of the wait. The
+> bar interpolates elapsed time against that, **caps at that share so it cannot overtake the
+> count**, and marks the result with a tilde. `~12%` and `40%` are visibly different claims, and
+> one character buys the distinction that matters.
 
 What is actually known, and when:
 
@@ -58,10 +72,11 @@ What is actually known, and when:
 | how many pages one company will be read for | when `order::plan` picks them, before the first fetch |
 | how many pages have been read | continuously |
 
-So `landscape-core::progress` carries a **phase always** and a **fraction only once there is
-one**. The page shows a moving bar and `—` for the opening stretch, and the instant a plan
-exists a real percentage appears. A reader is better served by *"finding the pages worth
-reading"* than by `7%`, because the first is true.
+So `landscape-core::progress` carries a **phase always** and a **counted fraction once there is
+one**, reporting `percent: null` rather than a zero when nothing has been counted. **The
+estimate lives in the browser**, which is where the clock and the render loop already are — so
+what is measured and what is estimated are computed in different places, and neither can be
+mistaken for the other on the way through.
 
 **The percentage is pages read out of pages planned**, weighted equally across companies — which
 is an assumption, and the run entry is where it gets said out loud. One company may hold nine
@@ -132,7 +147,7 @@ deployment ([ADR 0011](decisions/0011-no-experiments-on-production.md)).
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 45 | 992 | 79 | 22, all caught |
-| now | **1008** | **85** | **23**, all caught |
+| now | **1008** | **90** | **23**, all caught |
 
 ---
 

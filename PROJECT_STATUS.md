@@ -391,10 +391,10 @@ browser found two defects 425 passing tests had not.
 could not tell a run that had nearly finished from one that had barely started — it said
 `Reading public web pages…` for all four to eight minutes, which is as true at eight seconds
 as at eight minutes. There is a phase, a bar and a percentage now, and the percentage is
-**pages actually read out of pages the run planned to read**. For the first stretch there is no
-percentage at all, because until discovery finishes nothing knows how many pages there are, and
-[`landscape-core::progress`](crates/landscape-core/src/progress.rs) refuses to invent a
-denominator — see [BENCHMARKS.md](docs/BENCHMARKS.md) Run 46.
+**pages actually read out of pages the run planned to read**. For the first stretch, before
+anything has been counted, it is an **estimate** worked out from measured phase durations and
+marked with a tilde — `~12%` and `40%` are visibly different claims, and the estimate is capped
+so it cannot overtake the count. See [BENCHMARKS.md](docs/BENCHMARKS.md) Run 46.
 
 **And first content now meets §2.1A.** The page that needs no model is read first, so on
 `linear.app` the first thing on screen is seven dated changes at **23 seconds, with no model

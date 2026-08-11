@@ -2542,6 +2542,26 @@ Ten minutes went into reading code that was not wrong. `cargo clean -p` is the a
 general shape is worth keeping: **after restoring a file out of band, the build cache has not
 heard about it.**
 
+**And the first design of it was wrong in the other direction, which is the more interesting
+half.** The bar showed `—` for the whole opening stretch, on the argument that nothing yet knew
+the denominator and a smooth fill would be inventing one. A reader looked at it and said: *a
+reasonable guess is fine for a progress indicator as long as it is not wildly off — this is user
+experience, not scientific precision.* They were right, and this repository had already written
+the argument against me. `Off-The-Napkin-Estimates.md` §1: what the product refuses is **hidden**
+estimation, *"dangerous not because it is a guess — but because nobody can tell it is a guess."*
+
+**A price in a report is an assertion about the world; a progress bar is an affordance.** I had
+taken a rule that protects the first and applied it to the second, and the cost was a dash held
+in front of somebody for the first minute of an eight-minute wait. The measured data was already
+in `BENCHMARKS.md` — discovery is a sixth of the wait — so the estimate was available the whole
+time. It is capped at that share so it cannot overtake the count, and marked with a tilde so the
+two kinds of number are distinguishable.
+
+**Rule, the honest version:** ask *what does a wrong number here cost the reader?* Wrong about a
+competitor's price, they make a decision on a fiction. Wrong about how much is left, they wait a
+bit longer than they expected. Those do not deserve the same rule, and reaching for the strict
+one because it is the one you already have is how a principle turns into a tic.
+
 **Rule:** when a feature reports on a process, write the test for the run that produces
 *nothing* first — it is the run the feature is for, and it is the one where every incidental
 signal a reader might have used is also missing. And when a mutation survives, check whether an
