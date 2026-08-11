@@ -339,6 +339,33 @@ one thing in the block that did not match. It says 5433 now, and says that the n
 whatever `pg_lsclusters` printed — **an example that cannot be true for the reader is worse than
 no example**, because the natural reading of a mismatch is that something is wrong.
 
+### A check with no remedy is half a check
+
+Step 10 verifies that SearXNG listens on loopback. On the first walk it printed:
+
+```text
+LISTEN 0 4096 0.0.0.0:8888 0.0.0.0:* users:(("docker-proxy",...))
+```
+
+The check was right, the operator had done nothing wrong, and **the guide had nothing to say
+next.** Two reasons, and the second is the interesting one.
+
+The immediate reason: the loopback binding is a change in the open pull request that contains
+this guide, and step 7 clones `main`. **A document reviewed like code can describe a repository
+that does not exist yet** — the guide and the fix travel together and the clone does not.
+
+The general reason: three checks were added to step 10 because review was right that a guide
+should verify rather than assert. Two of them had no remedy underneath. A reader who ran them
+got a correct diagnosis and nowhere to go, which is a worse experience than not checking — the
+check converts an invisible problem into a visible dead end.
+
+Both now carry the command that fixes them, chosen so neither needs a rebuild: a one-line `sed`
+and `docker compose up -d`, or `docker update --restart` on the running container. Step 7 says
+plainly that it clones `main` and that an open pull request is not in it.
+
+**The rule this is an instance of:** every check earns its place by what it says when it fails,
+not by what it confirms when it passes.
+
 ### Numbers in prose are not checked by anything
 
 Renumbering the guide to put DNS at step 3 left **seven** references pointing at the wrong

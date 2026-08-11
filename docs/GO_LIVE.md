@@ -479,6 +479,11 @@ cd competitive-landscape
 ./scripts/build-release.sh
 ```
 
+> **This clones `main`.** A change still sitting in an open pull request is not in what you just
+> cloned — including changes to this guide, which is itself reviewed like any other. So a later
+> step can check for something your checkout does not have. Every such check below says what to
+> do about it, and `git pull` once the branch is merged is the general answer.
+
 **About ten minutes.** It ends with a `dist/` directory. Install it:
 
 ```bash
@@ -630,6 +635,18 @@ sudo ss -ltnp | grep 8888
 The address must be `127.0.0.1:8888`, not `0.0.0.0:8888` or `*:8888`. SearXNG has no
 authentication in front of it and nothing outside this box has any business reaching it.
 
+> **If it says `0.0.0.0:8888`,** your checkout predates the fix — the published port used to be
+> written for every interface. One line, then recreate the container:
+>
+> ```bash
+> cd ~/competitive-landscape
+> sed -i 's|- "8888:8080"|- "127.0.0.1:8888:8080"|' docker-compose.yml
+> grep -n 8888 docker-compose.yml
+> sudo docker compose --profile search up -d searxng
+> ```
+>
+> `git pull` later replaces the edit with the same thing.
+
 **And it comes back by itself:**
 
 ```bash
@@ -638,6 +655,18 @@ sudo docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' $(sudo docker compos
 
 That must print `unless-stopped`. Without it the container stays down after the first reboot,
 and every description quietly loses its search channel.
+
+> **If it prints `no`,** the same checkout is missing the restart policy. Set it on the running
+> container — no file to edit, and it survives `git pull`:
+>
+> ```bash
+> sudo docker update --restart unless-stopped $(sudo docker compose --profile search ps -q searxng)
+> ```
+
+> **Both of those mean the same thing: the checkout is older than these checks.** The checks
+> came from review of the guide itself, and a box cloned before that review has the code the
+> review was about. `git pull` in `~/competitive-landscape` is the general answer; the two
+> commands above are the ones that do not require rebuilding anything.
 
 Now tell the application about it:
 
