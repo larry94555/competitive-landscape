@@ -409,6 +409,7 @@ mod tests {
             .await
             .expect("enqueued");
         let report = landscape_core::Report {
+            progress: None,
             subject: "basecamp.com".to_owned(),
             searched_as: "basecamp.com".to_owned(),
             generated_at: chrono::Utc::now(),
@@ -527,6 +528,7 @@ mod tests {
             sources: Vec::new(),
             interpreted: None,
             notes: Vec::new(),
+            progress: None,
         };
         store.save_progress(a.id, 1, &half).await.expect("saved");
         let running = store.get(a.id).await.expect("read back");

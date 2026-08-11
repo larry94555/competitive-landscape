@@ -33,6 +33,184 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 46 — how far through it is
+
+**Date:** 2026-08-11 · **Where:** this laptop, and one real run through a browser · **Model:** none.
+
+**A reader deploying the product asked why the page could not tell loading from done.** It said
+`Reading public web pages…` for the whole of a run that takes four to eight minutes on the
+target hardware — one sentence as true at eight seconds as at eight minutes. So a reader had no
+way to distinguish *nearly finished* from *barely started* from *dead*, and the third is the one
+that matters: a run that has hung looks exactly like a run that is working.
+
+### Two kinds of number, and the interface says which is which
+
+Before `order::plan` runs, **nothing in this system has counted anything** — resolving a
+description into companies is a search, a fetch of each candidate's front page and a gate's
+verdict, and none of those knows in advance how many pages there will be.
+
+> **The first version showed `—` for that stretch, and that was wrong.** The reasoning was that
+> a bar filling smoothly from nothing would be inventing a number. That is the report's *"never
+> invent a fact"* rule aimed at the wrong target, and
+> [Off-The-Napkin-Estimates.md](Off-The-Napkin-Estimates.md) §1 had already drawn the line in
+> the right place: what the product refuses is **hidden** estimation, *"dangerous not because it
+> is a guess — but because nobody can tell it is a guess."* A price in a report is an assertion
+> about the world. A progress bar is an affordance, and a dash held in front of somebody for the
+> first minute of an eight-minute wait protects nobody.
+>
+> There was measured data to hand, too: Run 23 puts discovery at **16–35 seconds a company**
+> against about **two minutes** of model time, so discovery is roughly a sixth of the wait. The
+> bar interpolates elapsed time against that, **caps at that share so it cannot overtake the
+> count**, and marks the result with a tilde. `~12%` and `40%` are visibly different claims, and
+> one character buys the distinction that matters.
+
+What is actually known, and when:
+
+| | known when |
+|---|---|
+| how many companies this run covers | as soon as the set is resolved, before anything is read |
+| how many pages one company will be read for | when `order::plan` picks them, before the first fetch |
+| how many pages have been read | continuously |
+
+So `landscape-core::progress` carries a **phase always** and a **counted fraction once there is
+one**, reporting `percent: null` rather than a zero when nothing has been counted. **The
+estimate lives in the browser**, which is where the clock and the render loop already are — so
+what is measured and what is estimated are computed in different places, and neither can be
+mistaken for the other on the way through.
+
+**The percentage is pages read out of pages planned**, weighted equally across companies — which
+is an assumption, and the run entry is where it gets said out loud. One company may hold nine
+pages and the next three, so the bar moves at different speeds through each. The alternative is a
+denominator that grows as each company is planned, which makes the bar **retreat** when the next
+company turns out to be larger. That is the one thing it must not do: `BENCHMARKS.md` Run 16 is
+already a section that grew and then shrank in front of a reader.
+
+### Three encodings, because one is never enough
+
+| | says |
+|---|---|
+| the word | `Working` against `Done.` — readable with images off, and what a screen reader reads first |
+| the bar | moving while live, gone when finished |
+| the number | how much is left, when anything knows |
+
+**A finished run is not a bar that stopped moving**, because a still bar and a hung bar look
+identical — which is the entire question a reader is asking. It is a different word and no bar
+at all. Color carries none of it: `CODING_QUALITY.md` §9.5 asks that it never be the sole
+encoding, and here it is not an encoding at all.
+
+### The test found the silence before a reader did
+
+The first pipeline test asserted that the fraction never decreases over a real run, and it
+passed. It also passed on an **empty list** — because a run over three unreachable companies
+emitted no progress at all. Every report on that path is sent from inside a page that produced
+something, so a company whose pages cannot be fetched used to send a watching reader *nothing
+for the whole of it*, which is this feature's own failure arriving in the case a reader most
+needs it.
+
+Two fixes, and the second is the one worth keeping: progress is now emitted **when the phase
+changes**, not only when a claim appears — and the test asserts `seen.len() >= origins.len()`
+before it asserts anything about the values. The register calls the first version a check that
+cannot fail.
+
+### Making a phase visible reopened the path that cancels it
+
+The announcements added at `Searching` and `Assembling` discarded their answers with `let _ =`,
+and that answer is not decoration: `on_progress` returns `Wanted::No` once the worker's claim
+has been revoked, and `worth_searching(stopped_early, ...)` **is** the cancellation guard. The
+announcement was made *after* that predicate had already been evaluated, so a revocation first
+seen at the searching boundary spent the whole search anyway — a network round trip per
+unanswered question, then up to three pages of model calls — and one seen at the assembling
+boundary returned an `Analysis` claiming `stopped_early: false` about a run that had been taken
+away from it.
+
+**A fix for visibility reopened a hole in cancellation, which is the shape worth recording**:
+the new code was correct about what it published and wrong about what it did with the reply.
+Both answers are read now, and the search predicate is asked a second time because the
+announcement can change it.
+
+**And the same defect was one level up, in that fix.** `analyze_many` announces the next company
+before discovering it; that announcement's `Wanted::No` only `break`s the loop, while
+`stopped_early` is read off the finished children — every one of which really did finish. So a
+run revoked *between* two companies came back saying it had completed on its own terms, at the
+one boundary with no child to speak for it. Review found it in the commit that fixed the other
+two.
+
+**Three boundaries, three fixes, each found a round apart.** That is the lesson rather than any
+one of them: when a signal has to be honored in several places, repairing the ones that were
+reported tells you nothing about how many there are. The register's rule is to enumerate the
+callback's call sites and check every one.
+
+### A floor and a clock that outlived the worker they belonged to
+
+The browser's monotonic floor and the estimate's start time both live in refs, and a ref
+survives a re-render. They must not survive a **different worker** — and a reclaim does not
+have to pass back through `queued` from the browser's side: the stream can drop during the
+sweep and reconnect with the replacement already `running`, so `status` never stops being
+`running` and nothing else would clear them. A dead worker last shown at 90% therefore floored
+the replacement's discovery at 90%, and dated its estimate from the dead run's start.
+
+The first fix was `key={generation}`, and an existing test caught it as too blunt: a key
+remounts the DOM as well, which is more than was meant. Two refs are reset during render
+instead, which is exactly the state that must not cross the line and nothing else.
+
+### One guard this run could not test, named rather than left quiet
+
+Progress is announced after **every** page now, whatever that page produced — a fetch that
+failed, a page too thin to open, a model that was unreachable. The mutation that deletes that
+announcement **survives**, and the reason is the fixture rather than the guard: the offline
+harness drives `analyze_many` against `.invalid` origins, where discovery finds nothing, so
+`order::plan` returns an **empty plan** and the loop that announces per page never runs.
+
+Closing it needs a fetcher that can be seeded from a test, so discovery admits pages that then
+fail to read. `landscape-fetch` can serve from memory — that is how `serving_from_memory` works,
+and the loopback guard is what proves nothing went to a network — but the seam is private to
+that crate. Exposing it the way `landscape-db::conformance` is exposed is the fix, and it is
+its own piece of work rather than something to bolt onto this one.
+
+**The mutation is removed from the catalog rather than left reporting `MISSED` for ever**, so
+that a catalog run still means what it says. This paragraph is the record that the guard is
+thinner than the others: it rests on the phase assertions and on sharing one macro with the
+announcement that *is* covered.
+
+### And a helper is not a feature
+
+The API sends the progress event from inside `if analysis.status == Running`. The harness
+replaced that with `if false` - reinstating the exact defect above, a reader watching a run with
+no report told nothing at all - and **no test failed**, because the unit tests assert the
+*payload helper* and nothing drove the branch that calls it. Sixteen mutations, and the one that
+survived was the most important guard in the change.
+
+The test that closes it opens the real stream over the real router against a claimed analysis
+with no report. That is `interrupted_runs.rs`'s whole argument, made once more: every stream
+test before it checked a helper, and the loop itself is where the defects were.
+
+### Watched end to end, in a browser, against the real worker
+
+Not asserted from a test — driven through the page, on the API and worker running in memory
+mode against the live web:
+
+```text
+Working   —     Finding the pages worth reading
+Working   0%    Reading public web pages — page 1 of 5, company 1 of 2
+Done.
+```
+
+That is the whole design in three lines: no number while nothing knows one, a real count the
+moment a plan exists, and an end state that cannot be mistaken for a stall.
+
+### What this run does not measure
+
+No latency figure changed and none was taken. The wait is the same length; what changed is
+whether a reader can see into it. The end-to-end number still belongs to a client's side of a
+deployment ([ADR 0011](decisions/0011-no-experiments-on-production.md)).
+
+| | Rust tests | frontend tests | catalog |
+|---|---|---|---|
+| Run 45 | 992 | 79 | 22, all caught |
+| now | **1013** | **94** | **26**, all caught |
+
+---
+
 <!-- american-spelling: off -->
 
 ## Run 45 — one dialect, and a sixteenth gate

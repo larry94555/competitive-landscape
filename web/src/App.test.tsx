@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import App from "./App";
+import App, { estimate } from "./App";
 import type { Analysis, Failure } from "./api";
 
 const IDEA = "an app that helps small farms sell to local restaurants";
@@ -1663,12 +1663,387 @@ describe("after a reconnect", () => {
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
 
     act(() => FakeEventSource.last!.send("status", "running"));
-    expect(await screen.findByText(/Reading public web pages/)).toBeInTheDocument();
+    // The running indicator, not the old sentence: a run that has reported no phase yet says
+    // it is working and refuses to say what it is working *on*, because it does not know.
+    expect(await screen.findByText("Working")).toBeInTheDocument();
 
     act(() => FakeEventSource.last!.onerror?.());
 
     expect(await screen.findByText("Done.")).toBeInTheDocument();
-    expect(screen.queryByText(/Still reading|Reading the first pages/)).toBeNull();
+    expect(screen.queryByText("Working")).toBeNull();
+  });
+});
+
+describe("the estimate, where nothing has been counted yet", () => {
+  // **Unit tests, because this is the one number in the interface that is not counted.**
+  // `Off-The-Napkin-Estimates.md` §1 permits it and says what the condition is: a reader must
+  // be able to tell it is an estimate. These assert the other half - that it cannot run ahead
+  // of the count it is standing in for.
+  const started = new Date("2026-08-11T12:00:00Z");
+  const after = (seconds: number): Date =>
+    new Date(started.getTime() + seconds * 1000);
+
+  it("starts at nothing and climbs", () => {
+    expect(estimate(started, started, 17)).toBe(0);
+    expect(estimate(started, after(12), 17)).toBeGreaterThan(0);
+    expect(estimate(started, after(24), 17)).toBeGreaterThan(
+      estimate(started, after(12), 17),
+    );
+  });
+
+  it("never passes the ceiling the server sent", () => {
+    // The ceiling is where counting begins, computed by `landscape-core::progress`. A minute
+    // in, ten minutes in, an hour in - the estimate stops there, so the counted percentage
+    // never has to come down to meet it.
+    for (const seconds of [30, 60, 600, 3600]) {
+      expect(estimate(started, after(seconds), 17)).toBeLessThanOrEqual(17);
+      expect(estimate(started, after(seconds), 5)).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it("a clock that runs backwards does not produce a negative bar", () => {
+    expect(estimate(started, new Date(started.getTime() - 60_000), 17)).toBe(0);
+  });
+
+  it("a ceiling of nothing is nothing, not a negative", () => {
+    // What arrives before the first progress event: no ceiling known yet.
+    expect(estimate(started, after(600), 0)).toBe(0);
+  });
+});
+
+describe("how far through it is", () => {
+  /** Start a run and get it to `running`, which is where the indicator lives. */
+  async function running(): Promise<void> {
+    stubAccepting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
+    await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
+    act(() => FakeEventSource.last!.send("status", "running"));
+  }
+
+  const bar = (): HTMLElement | null =>
+    document.querySelector("progress.bar");
+
+  it("estimates while nothing has been counted, and says it is estimating", async () => {
+    // **A number always, and the reader can tell which kind.** Before this the bar showed `—`
+    // for the opening stretch of an eight-minute wait, on the argument that no denominator
+    // existed. That was the report's "never invent a fact" rule applied to an affordance;
+    // `Off-The-Napkin-Estimates.md` §1 draws the line in the right place, and what it forbids
+    // is estimation a reader cannot *tell* is an estimate. The tilde is that telling.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "discovering",
+          saying: "Finding the pages worth reading",
+          percent: null,
+          estimating_to: 17,
+          companies: { done: 0, of: 0 },
+          pages: null,
+        }),
+      ),
+    );
+
+    const shown = await screen.findByText(/^~\d+%$/);
+    expect(shown).toBeInTheDocument();
+    expect(screen.queryByText("—")).toBeNull();
+    expect(
+      await screen.findByText(/Finding the pages worth reading/),
+    ).toBeInTheDocument();
+  });
+
+  it("a counted percentage replaces the estimate, and drops the tilde", async () => {
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "discovering",
+          saying: "Finding the pages worth reading",
+          percent: null,
+          estimating_to: 17,
+          companies: { done: 0, of: 1 },
+          pages: null,
+        }),
+      ),
+    );
+    await screen.findByText(/^~\d+%$/);
+
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "reading",
+          saying: "Reading public web pages",
+          percent: 40,
+          estimating_to: null,
+          companies: { done: 0, of: 1 },
+          pages: { done: 2, of: 5 },
+        }),
+      ),
+    );
+
+    expect(await screen.findByText("40%")).toBeInTheDocument();
+    expect(screen.queryByText(/^~/)).toBeNull();
+  });
+
+  it("shows the real fraction once a plan exists", async () => {
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "reading",
+          saying: "Reading public web pages",
+          percent: 40,
+          estimating_to: null,
+          companies: { done: 0, of: 1 },
+          pages: { done: 2, of: 5 },
+        }),
+      ),
+    );
+
+    expect(await screen.findByText("40%")).toBeInTheDocument();
+    expect(bar()).toHaveAttribute("value", "40");
+    // The page being read now is the one after the pages already read.
+    expect(await screen.findByText(/page 3 of 5/)).toBeInTheDocument();
+  });
+
+  it("names the company when there is more than one", async () => {
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "reading",
+          saying: "Reading public web pages",
+          percent: 50,
+          estimating_to: null,
+          companies: { done: 1, of: 3 },
+          pages: { done: 1, of: 4 },
+        }),
+      ),
+    );
+    expect(await screen.findByText(/company 2 of 3/)).toBeInTheDocument();
+  });
+
+  it("does not name a company when the report is about one", async () => {
+    // Noise. Every report covers at least one company, and saying "company 1 of 1" tells a
+    // reader something they cannot act on.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "reading",
+          saying: "Reading public web pages",
+          percent: 20,
+          estimating_to: null,
+          companies: { done: 0, of: 1 },
+          pages: { done: 1, of: 5 },
+        }),
+      ),
+    );
+    await screen.findByText("20%");
+    expect(screen.queryByText(/company 1 of 1/)).toBeNull();
+  });
+
+  it("a percentage that is not a number is dropped rather than read as zero", async () => {
+    // `Number(null)` is `0`, and a bar reporting zero percent for "we do not know" is exactly
+    // the lie this refuses. A malformed tick leaves the previous state alone.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "reading",
+          saying: "Reading public web pages",
+          percent: "lots",
+          estimating_to: 17,
+          companies: { done: 0, of: 1 },
+          pages: null,
+        }),
+      ),
+    );
+    // **The guard is still the point**, and it is now about which number is shown rather than
+    // whether one is: a malformed tick must not be coerced to a *counted* `0%`. It falls back
+    // to the estimate, which carries a tilde and is therefore not the same claim.
+    expect(await screen.findByText(/^~\d+%$/)).toBeInTheDocument();
+    expect(screen.queryByText("0%")).toBeNull();
+  });
+
+  it("does not fall back to zero when the first counted tick arrives", async () => {
+    // **The seam, driven end to end.** The estimate climbs across discovery; the first counted
+    // tick after `order::plan` is `Reading, pages 0/N`, whose percentage used to be `0`. The
+    // bar therefore fell from its cap straight back to nothing - the one thing this feature
+    // promises it will not do, at the join neither side owned. The earlier test jumped from
+    // the estimate to 40% and never exercised the handoff at all.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "discovering",
+          saying: "Finding the pages worth reading",
+          percent: null,
+          estimating_to: 17,
+          companies: { done: 0, of: 1 },
+          pages: null,
+        }),
+      ),
+    );
+    const before = Number(
+      (await screen.findByText(/^~?\d+%$/)).textContent!.replace(/[~%]/g, ""),
+    );
+
+    // The real first tick: a plan exists, and nothing has been read from it yet.
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "reading",
+          saying: "Reading public web pages",
+          percent: 17,
+          estimating_to: null,
+          companies: { done: 0, of: 1 },
+          pages: { done: 0, of: 9 },
+        }),
+      ),
+    );
+
+    const after = Number(
+      (await screen.findByText(/^~?\d+%$/)).textContent!.replace(/[~%]/g, ""),
+    );
+    expect(after).toBeGreaterThanOrEqual(before);
+    expect(screen.queryByText("0%")).toBeNull();
+  });
+
+  it("does not offer a page ordinal when the plan is empty", async () => {
+    // A company discovery found nothing for is a real plan of zero pages, and it rendered
+    // "page 1 of 0" - an ordinal for a page that does not exist.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "reading",
+          saying: "Reading public web pages",
+          percent: 17,
+          estimating_to: null,
+          companies: { done: 0, of: 1 },
+          pages: { done: 0, of: 0 },
+        }),
+      ),
+    );
+    await screen.findByText(/Reading public web pages/);
+    expect(screen.queryByText(/page 1 of 0/)).toBeNull();
+    // No ordinal of any shape. `/page/` alone would match "Reading public web pages".
+    expect(screen.queryByText(/page \d+ of \d+/)).toBeNull();
+  });
+
+  it("does not count a page past the plan once searching starts", async () => {
+    // The finished plan is kept through the search phase, where `done === of` rendered
+    // "page N+1 of N" about pages that are deliberately outside the plan.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "searching",
+          saying: "Searching for what their own pages did not say",
+          percent: 90,
+          estimating_to: null,
+          companies: { done: 0, of: 1 },
+          pages: { done: 5, of: 5 },
+        }),
+      ),
+    );
+    expect(
+      await screen.findByText(/Searching for what their own pages did not say/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/page 6 of 5/)).toBeNull();
+    expect(screen.queryByText(/page \d+ of \d+/)).toBeNull();
+  });
+
+  it("a new worker does not inherit the dead one's percentage", async () => {
+    // **A reclaim need not pass back through `queued` from here.** The stream can drop during
+    // the sweep and reconnect with the replacement already `running`, so `status` never stops
+    // being `running` and nothing else in this component would clear the progress. The floor
+    // that makes the bar monotonic lives in a ref, and a ref survives a re-render - so the
+    // dead worker's 90% became the replacement's starting floor, and its elapsed time dated
+    // the replacement's estimate.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send("generation", "1"),
+    );
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "reading",
+          saying: "Reading public web pages",
+          percent: 90,
+          estimating_to: null,
+          companies: { done: 0, of: 1 },
+          pages: { done: 9, of: 10 },
+        }),
+      ),
+    );
+    expect(await screen.findByText("90%")).toBeInTheDocument();
+
+    // The sweep hands the run to another worker. Status stays `running` throughout.
+    act(() => FakeEventSource.last!.send("generation", "2"));
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "discovering",
+          saying: "Finding the pages worth reading",
+          percent: null,
+          estimating_to: 17,
+          companies: { done: 0, of: 1 },
+          pages: null,
+        }),
+      ),
+    );
+
+    // The replacement is discovering, so it is estimating - and from nothing, not from 90.
+    const shown = await screen.findByText(/^~\d+%$/);
+    expect(Number(shown.textContent!.replace(/[~%]/g, ""))).toBeLessThan(90);
+    expect(screen.queryByText("90%")).toBeNull();
+  });
+
+  it("a finished run is a different word and no bar, not a bar that stopped", async () => {
+    // **A still bar and a hung bar look identical.** The question a reader is asking is which
+    // of the two they are looking at, so the finished state answers it in words and by the
+    // bar being gone rather than by the absence of movement.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "reading",
+          saying: "Reading public web pages",
+          percent: 60,
+          estimating_to: null,
+          companies: { done: 0, of: 1 },
+          pages: { done: 3, of: 5 },
+        }),
+      ),
+    );
+    expect(await screen.findByText("Working")).toBeInTheDocument();
+    expect(bar()).not.toBeNull();
+
+    act(() => FakeEventSource.last!.send("status", "complete"));
+    act(() => FakeEventSource.last!.send("done", ""));
+
+    expect(await screen.findByText("Done.")).toBeInTheDocument();
+    expect(screen.queryByText("Working")).toBeNull();
+    expect(screen.queryByText("60%")).toBeNull();
+    await waitFor(() => expect(bar()).toBeNull());
   });
 });
 

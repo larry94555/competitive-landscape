@@ -21,8 +21,16 @@
 //! ```text
 //! event: section     one section that now has claims, as JSON
 //! event: status      queued -> running -> complete | failed
+//! event: progress    what the run is doing, and how far through it is
 //! event: done        nothing else is coming
 //! ```
+//!
+//! **`progress` is sent for a running analysis that has written nothing yet**, which no other
+//! event here is. The rest describe a report; this one describes a *run*, and the longest
+//! stretch with no report at all - working out which companies a description means, then
+//! finding their pages - is exactly the stretch a reader most needs to be told is not a hang.
+//! So it is synthesized from the status when the row carries no report, and read off the
+//! report once there is one.
 //!
 //! **A section is sent when it first has something in it, and again whenever it changes.**
 //! Watching a real run in a browser is what settled that: sending it once put *"What it does:
@@ -87,6 +95,7 @@ pub(crate) async fn stream(
         let mut sent_status: Option<AnalysisStatus> = None;
         let mut sent_generation: Option<u32> = None;
         let mut sent_subjects: Option<String> = None;
+        let mut sent_progress: Option<String> = None;
 
         loop {
             let Ok(analysis) = store.get(id).await else {
@@ -122,6 +131,24 @@ pub(crate) async fn stream(
                 }
                 sent_generation = Some(analysis.generation);
                 yield Ok(generation_event(analysis.generation));
+            }
+
+            // **Before the report, and from the report once there is one.** A running analysis
+            // with no report has still started: it is discovering, and saying so is the whole
+            // difference between a page that looks busy and a page that looks broken.
+            if analysis.status == AnalysisStatus::Running {
+                let reached = analysis
+                    .report
+                    .as_ref()
+                    .and_then(|r| r.progress)
+                    // No report yet means no plan and no company count - the honest reading is
+                    // "started, and nothing countable yet", which is what `starting(0)` is.
+                    .unwrap_or(landscape_core::Progress::starting(0));
+                let payload = progress_payload(&reached);
+                if sent_progress.as_ref() != Some(&payload) {
+                    sent_progress = Some(payload.clone());
+                    yield Ok(Event::default().event("progress").data(payload));
+                }
             }
 
             if let Some(report) = &analysis.report {
@@ -197,6 +224,28 @@ fn subjects_payload(subjects: &[String]) -> String {
     serde_json::to_string(subjects).unwrap_or_else(|_| "[]".to_owned())
 }
 
+/// What a run is doing, and how far through it is.
+///
+/// **The percentage is computed here rather than in the browser**, so the one place that decides
+/// what a fraction means is `landscape_core::progress` and not two implementations of the same
+/// arithmetic that can disagree. `percent` is `null` when there is nothing countable yet, and a
+/// client that receives `null` is being told there is no number - not told to invent one.
+fn progress_payload(reached: &landscape_core::Progress) -> String {
+    serde_json::json!({
+        "phase": reached.phase,
+        "saying": reached.phase.wording(),
+        "percent": reached.percent(),
+        // **Where the browser's estimate must stop.** It interpolates elapsed time across
+        // discovery, and this is the percentage the first counted tick will land on - computed
+        // by `landscape_core::progress`, which owns the arithmetic, rather than by a constant
+        // copied into TypeScript that would drift away from it. `null` once counting has begun.
+        "estimating_to": reached.estimating_to(),
+        "companies": reached.companies,
+        "pages": reached.pages,
+    })
+    .to_string()
+}
+
 fn done() -> Event {
     Event::default().event("done").data("")
 }
@@ -221,6 +270,65 @@ mod tests {
         chrono::DateTime::parse_from_rfc3339("2026-08-04T09:00:00Z")
             .map(|d| d.with_timezone(&chrono::Utc))
             .unwrap_or_default()
+    }
+
+    #[test]
+    fn the_wire_carries_where_the_estimate_must_stop() {
+        // One copy of the constant, in the language that owns the arithmetic. The browser is
+        // told the ceiling rather than computing it, so the estimate and the count meet.
+        let discovering = landscape_core::Progress::starting(2);
+        let payload = progress_payload(&discovering);
+        let read: serde_json::Value = serde_json::from_str(&payload).expect("valid JSON");
+        assert_eq!(
+            read["estimating_to"],
+            serde_json::json!(discovering.estimating_to())
+        );
+        assert!(
+            !read["estimating_to"].is_null(),
+            "a discovering run has a ceiling"
+        );
+
+        let reading = landscape_core::Progress {
+            phase: landscape_core::Phase::Reading,
+            companies: landscape_core::Counted::new(0, 2),
+            pages: Some(landscape_core::Counted::new(1, 4)),
+        };
+        let counting: serde_json::Value =
+            serde_json::from_str(&progress_payload(&reading)).expect("valid JSON");
+        assert!(
+            counting["estimating_to"].is_null(),
+            "nothing is left to estimate once something is counted"
+        );
+    }
+
+    #[test]
+    fn a_run_with_nothing_countable_yet_sends_no_number_rather_than_zero() {
+        // The window this event exists for: running, no report, nothing knows how big the job
+        // is. `null` says so. A `0` here would be a claim that no work has been done, and the
+        // reader would watch it sit there through the longest silent stretch of the run.
+        let payload = progress_payload(&landscape_core::Progress::starting(0));
+        let read: serde_json::Value = serde_json::from_str(&payload).expect("valid JSON");
+        assert_eq!(read["percent"], serde_json::Value::Null);
+        assert_eq!(read["saying"], "Finding the pages worth reading");
+        assert_eq!(read["pages"], serde_json::Value::Null);
+    }
+
+    #[test]
+    fn the_percentage_on_the_wire_is_the_one_the_core_computes() {
+        // **One implementation of the arithmetic.** Two would be a fact derived in two places,
+        // which is the shape this register has an entry for.
+        let reached = landscape_core::Progress {
+            phase: landscape_core::Phase::Reading,
+            companies: landscape_core::Counted::new(1, 2),
+            pages: Some(landscape_core::Counted::new(2, 4)),
+        };
+        let payload = progress_payload(&reached);
+        let read: serde_json::Value = serde_json::from_str(&payload).expect("valid JSON");
+        assert_eq!(read["percent"], serde_json::json!(reached.percent()));
+        // One of two companies, plus the second's finished discovery and half of its pages.
+        assert_eq!(read["percent"], 79);
+        assert_eq!(read["pages"]["done"], 2);
+        assert_eq!(read["pages"]["of"], 4);
     }
 
     fn section(key: &str, claims: Vec<Claim>) -> Section {
@@ -316,6 +424,7 @@ mod tests {
             sources: Vec::new(),
             interpreted: None,
             notes: Vec::new(),
+            progress: None,
         };
         let ready = report
             .sections

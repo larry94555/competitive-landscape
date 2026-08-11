@@ -62,10 +62,24 @@ before anything is fetched.
 | When | What you should see |
 |---|---|
 | Immediately | The address bar changes to `/a/` and a long id. **Queued.** |
-| A few seconds later | **Reading public web pages…** |
+| A few seconds later | **Working**, a moving bar, and an estimate like `~4%` |
+| Once the pages are chosen | A counted percentage, and *"Reading public web pages — page 1 of 5"* |
 | Within about a minute | The first section, usually **Recent public changes** |
-| Every 20–60 seconds after | Another section fills in |
-| Four to eight minutes | **Done.** |
+| Every 20–60 seconds after | Another section, and the percentage climbs |
+| Four to eight minutes | **Done.** The bar is gone |
+
+> **Why the tilde.** For the first stretch the run is working out which companies you mean and
+> which of their pages are worth reading, and nothing has counted anything yet — so `~4%` is an
+> **estimate**, worked out from how long that stage has taken on measured runs. Once the pages
+> are chosen the tilde disappears and the number is pages actually read.
+>
+> Both are useful and they are not the same claim, which is the only reason the interface
+> bothers to distinguish them. The estimate cannot overtake the count: it stops at the share
+> discovery was measured to take, so the number never has to come back down.
+>
+> **A finished run does not just stop moving.** The word changes to **Done.** and the bar
+> disappears entirely, because a still bar and a hung bar look identical — and telling those
+> two apart is the whole reason to look.
 
 **Reload the page while it is running.** Nothing is lost: the report is in the database, the
 page picks the stream back up, and the sections already on screen come straight back.

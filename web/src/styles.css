@@ -50,7 +50,98 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   padding: 0.7rem 1rem;
 }
 
-.status { color: var(--muted); font-family: ui-monospace, monospace; font-size: 0.85rem; }
+/* Whether a run is still going, and how far through it is.
+
+   Three encodings, never one: a word, a bar, a number. Color is not among them - a reader
+   with a color-vision deficiency, or a monochrome screen, gets exactly the same information
+   as everybody else. CODING_QUALITY.md 9.5. */
+.waiting { margin: 1.5rem 0; }
+
+.status {
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin: 0 0 0.5rem;
+}
+
+/* The word carries the distinction on its own, so it is the loudest thing here. */
+.status-word {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* Finished: a full bar and a still one. A bar that merely stops moving is indistinguishable
+   from a bar that has hung, which is the question a reader is asking. */
+.waiting[data-live="no"] .status-word { color: var(--accent); }
+
+.status-said { flex: 1 1 12rem; }
+
+.bar-row { display: flex; align-items: center; gap: 0.75rem; }
+
+.bar {
+  flex: 1;
+  height: 0.5rem;
+  appearance: none;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: #fff;
+  overflow: hidden;
+}
+
+/* Both engines need naming: `-webkit-` covers Chrome and Safari, `-moz-` covers Firefox, and
+   a rule written for one leaves the other showing an unstyled bar. */
+.bar::-webkit-progress-bar { background: #fff; }
+.bar::-webkit-progress-value {
+  background: var(--accent);
+  transition: width 0.4s ease;
+}
+.bar::-moz-progress-bar { background: var(--accent); }
+
+/* No `value` attribute at all: nothing knows the total yet, so the bar says "working" and
+   refuses to say "this much". A sweep rather than a fill, so it cannot be read as a
+   percentage. */
+.bar:indeterminate {
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--accent-soft) 0 12px,
+      #fff 12px 24px
+    );
+  background-size: 48px 100%;
+  animation: bar-sweep 1.1s linear infinite;
+}
+
+@keyframes bar-sweep {
+  from { background-position: 0 0; }
+  to { background-position: 48px 0; }
+}
+
+/* **Motion is not the only signal, so removing it costs nothing.** Somebody who has asked
+   their system for less movement still gets the word, the number and the filled bar. */
+@media (prefers-reduced-motion: reduce) {
+  .bar:indeterminate { animation: none; }
+  .bar::-webkit-progress-value { transition: none; }
+}
+
+.bar-number {
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+  color: var(--ink);
+  min-width: 3.2rem;
+  text-align: right;
+  /* Tabular figures, so the number does not jitter sideways as it counts up. */
+  font-variant-numeric: tabular-nums;
+}
+
+.doing {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0.45rem 0 0;
+}
 
 .gap {
   border-left: 3px solid var(--muted);

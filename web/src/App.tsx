@@ -12,6 +12,7 @@ import {
   type Analysis,
   type AnalysisStatus,
   type Examples,
+  type Progress,
   type Section,
 } from "./api";
 
@@ -136,7 +137,10 @@ export default function App(): React.JSX.Element {
 
   const submit = useCallback(() => start(prompt), [start, prompt]);
 
-  const { status, sections, subjects } = useReport(analysis, setAnalysis);
+  const { status, sections, subjects, progress, generation } = useReport(
+    analysis,
+    setAnalysis,
+  );
 
   if (opening !== null) {
     // A shared link lands here first. Rendering the empty box for the moment the fetch takes
@@ -233,6 +237,8 @@ export default function App(): React.JSX.Element {
           status={status}
           sections={sections}
           subjects={subjects}
+          progress={progress}
+          generation={generation}
           onPick={(text) => void start(text)}
           picking={submitting}
         />
@@ -269,9 +275,21 @@ function useReport(
   status: AnalysisStatus | null;
   sections: readonly Section[];
   subjects: readonly string[];
+  progress: Progress | null;
+  /**
+   * Which run the progress belongs to.
+   *
+   * **State rather than a ref, unlike the copy the callbacks compare against.** A reclaim means
+   * the numbers on screen describe a worker that no longer exists, so a change here has to
+   * reach the render - which is the one thing the ref was documented as never needing to do.
+   */
+  generation: number | null;
 } {
   const [status, setStatus] = useState<AnalysisStatus | null>(null);
   const [sections, setSections] = useState<readonly Section[]>([]);
+  // How far the run has got. `null` before the first tick and after the run ends — the page
+  // reads a terminal status as the end, not the absence of a bar.
+  const [progress, setProgress] = useState<Progress | null>(null);
   // The companies this run set out to cover, heard from the stream. State rather than a ref:
   // it decides whether every claim on screen carries a label, so hearing it has to render.
   const [subjects, setSubjects] = useState<readonly string[]>([]);
@@ -282,8 +300,9 @@ function useReport(
   const analysisRef = useRef(analysis);
   analysisRef.current = analysis;
   // Which run the sections in state belong to. A ref rather than state because it is compared
-  // and written inside callbacks, and because changing it is never itself a reason to render.
+  // and written inside callbacks; the copy below is the one a render reads.
   const generationRef = useRef<number | null>(null);
+  const [generation, setGeneration] = useState<number | null>(null);
 
   const id = analysis?.id ?? null;
   const settled = analysis != null && isTerminal(analysis.status);
@@ -294,8 +313,10 @@ function useReport(
     setStatus(null);
     setSections([]);
     setSubjects([]);
+    setProgress(null);
     setAttempt(0);
     generationRef.current = null;
+    setGeneration(null);
   }, [id]);
 
   /**
@@ -309,7 +330,14 @@ function useReport(
   const sawGeneration = useCallback((generation: number) => {
     const held = generationRef.current;
     generationRef.current = generation;
+    setGeneration(generation);
     if (held === null || held === generation) return;
+    // **The progress belonged to the worker that died.** A reclaim does not have to pass back
+    // through `queued` from this component's side: the stream can drop during the sweep and
+    // reconnect with the replacement already `running`, so `status` never stops being
+    // `running` and nothing else here would clear this. Left alone, the new run's discovery
+    // inherits the dead one's percentage as a floor and its elapsed time as a start.
+    setProgress(null);
     // The run started over. Two copies of the old run's answers are in play: the sections
     // this hook accumulated, which survive a reconnect on purpose, and the partial report a
     // recovery fetch cached on the analysis.
@@ -358,6 +386,9 @@ function useReport(
         // defect this exists to prevent, wearing a different hat.
         if (!canceled) setSubjects(next);
       },
+      onProgress: (next) => {
+        if (!canceled) setProgress(next);
+      },
       onDone: () => {
         if (canceled) return;
         void getAnalysis(id)
@@ -390,7 +421,7 @@ function useReport(
     };
   }, [id, settled, attempt]);
 
-  return { status, sections, subjects };
+  return { status, sections, subjects, progress, generation };
 }
 
 function AnalysisView({
@@ -398,6 +429,8 @@ function AnalysisView({
   status,
   sections,
   subjects,
+  progress,
+  generation,
   onPick,
   picking,
 }: {
@@ -405,6 +438,10 @@ function AnalysisView({
   status: AnalysisStatus | null;
   sections: readonly Section[];
   subjects: readonly string[];
+  /** How far the run has got. `null` before the first tick, and once it is over. */
+  progress: Progress | null;
+  /** Which run that progress belongs to. A change means a different worker is doing it. */
+  generation: number | null;
   /** Run this instead. The chip hands back a whole prompt, not a company name. */
   onPick: (prompt: string) => void;
   /** A run is already starting. Two clicks would spend two analyses on one question. */
@@ -516,9 +553,24 @@ function AnalysisView({
       */}
       {report && isTerminal(showing_status) && <CopyAsContext id={analysis.id} />}
 
-      <p className="status">
-        {describe(showing_status, analysis.failure, choices.length)}
-      </p>
+      {/*
+        **Running or finished, and how far through.** Before this the page said
+        `Reading public web pages…` for the whole of a four-to-eight-minute run — one sentence
+        as true at eight seconds as at eight minutes, so a reader could not tell a run that had
+        nearly finished from one that had barely started, or either from one that had died.
+
+        Three things carry the distinction, deliberately, because one of them is not enough for
+        everybody: a **word** (`Working` against `Done`), a **bar** that is either moving or
+        full and still, and a **number** when there is one. Color is not among them —
+        `CODING_QUALITY.md` §9.5 asks that it never be the sole encoding.
+      */}
+      <Waiting
+        status={showing_status}
+        generation={generation}
+        progress={progress}
+        failure={analysis.failure}
+        offered={choices.length}
+      />
 
       {/*
         The question itself, one button per company.
@@ -888,6 +940,231 @@ function stillArriving(
   }
   return merged;
 }
+
+/**
+ * How long discovery takes, from `BENCHMARKS.md` Run 23: **16-35 seconds a company**.
+ *
+ * The middle of the measured range, and the only number here that is not counted. **Where the
+ * estimate stops is not decided here** - the server sends that, because it is the same number
+ * as the first counted tick and a constant in two languages is a constant that will disagree
+ * with itself.
+ */
+const DISCOVERY_MS = 25_000;
+
+/**
+ * A percentage for the stretch where nothing has counted anything yet.
+ *
+ * **This is an estimate, and the interface says so.** `Off-The-Napkin-Estimates.md` §1 draws
+ * the line this sits on: what the product refuses is *hidden* estimation - a number nobody can
+ * tell is a guess. A progress bar is not an assertion about the world, it is an affordance, and
+ * a reader who has waited forty seconds is owed something better than a dash.
+ *
+ * So: interpolate elapsed time across discovery and stop at `ceiling`, which is where counting
+ * begins. **The two meet rather than collide** - the first version derived its own cap from a
+ * copy of the server's constant, and the first counted tick was `0%`, so the bar fell from its
+ * cap back to nothing in front of whoever was watching.
+ *
+ * @param started when the run began *running* - not when it was queued, which is time nobody
+ *   worked
+ * @param now the clock, passed in so a test does not have to wait
+ * @param ceiling the percentage counting will start from, per the server
+ */
+export function estimate(started: Date, now: Date, ceiling: number): number {
+  const elapsed = Math.max(0, now.getTime() - started.getTime());
+  const through = Math.min(1, elapsed / DISCOVERY_MS);
+  return Math.floor(through * Math.max(0, ceiling));
+}
+
+/**
+ * Whether a run is still going, how far through it is, and what it is doing.
+ *
+ * **The problem this solves is not decoration.** `Reading public web pages…` was shown for the
+ * whole of a run that takes four to eight minutes on the target hardware, and a reader
+ * therefore had no way to tell *nearly finished* from *barely started* from *dead*.
+ *
+ * # Three encodings, because one is never enough
+ *
+ * | | says |
+ * |---|---|
+ * | the word | `Working` or `Done.` — readable with images off, and what a screen reader reads first |
+ * | the bar | moving while live, full and still when finished |
+ * | the number | how much is left, when anything knows |
+ *
+ * A finished run is **not** a bar that quietly stops moving: it is a full bar, a different
+ * word, and no percentage — because a still bar and a stalled bar look identical, and the
+ * difference is the entire question a reader is asking.
+ *
+ * # Why the percentage is sometimes absent
+ *
+ * `landscape_core::progress` refuses to invent a denominator. Until a reading plan exists —
+ * which means until the companies are resolved and their pages discovered — nothing knows how
+ * much work there is, so there is no number and the bar is indeterminate. That window is the
+ * first stretch of every run, and filling it with a fake `7%` would be lying at exactly the
+ * moment a reader is deciding whether to trust the thing.
+ */
+function Waiting({
+  status,
+  progress,
+  generation,
+  failure,
+  offered,
+}: {
+  status: AnalysisStatus;
+  progress: Progress | null;
+  /** Which run this is about. A change means a different worker picked the analysis up. */
+  generation: number | null;
+  failure: Analysis["failure"];
+  offered: number;
+}): React.JSX.Element {
+  const live = !isTerminal(status);
+  const running = status === "running";
+
+  // **A clock, so the estimate moves.** A number that is an estimate and also frozen reads as a
+  // hang, which is the thing this whole component exists to rule out. One second is far finer
+  // than an eight-minute wait needs and far coarser than anything that costs.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!running) return undefined;
+    const tick = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(tick);
+  }, [running]);
+
+  // **When the work started, not when it was accepted.** `created_at` includes time spent in
+  // the queue, and a job that waited thirty seconds for a worker would open at the estimate's
+  // ceiling having had nothing done to it. The first moment this page saw `running` is the
+  // closest thing it has to when a worker picked the job up.
+  const startedRunning = useRef<Date | null>(null);
+  if (running && startedRunning.current === null) startedRunning.current = new Date();
+  if (!running) startedRunning.current = null;
+  const estimated = estimate(
+    startedRunning.current ?? now,
+    now,
+    progress?.estimating_to ?? 0,
+  );
+  // Only while running. A percentage beside `Done.` is a number about something that is over.
+  const counted = running ? (progress?.percent ?? null) : null;
+  // **A number always, and the reader can tell which kind it is.** Before anything has been
+  // counted the bar shows an estimate from measured phase durations rather than a dash - see
+  // `estimate`. `counted` wins the moment it exists, and meets the estimate rather than
+  // colliding with it, because the server sends the ceiling the estimate stops at.
+  const shown = counted ?? (running ? estimated : null);
+  // **And a floor, because "never goes backwards" is a promise to the reader, not to a
+  // module.** Both sides are monotonic on their own and the seam between them was not - which
+  // is how a bar that could not retreat retreated. This makes the guarantee a property of the
+  // thing that makes it.
+  const ceiling = useRef(0);
+  // **A different worker is a different run, and neither ref may cross that line.** A reclaim
+  // does not have to pass back through `queued` from here: the stream can drop during the
+  // sweep and reconnect with the replacement already `running`, so nothing else would clear
+  // them. Left alone, the dead run's percentage floors the replacement's discovery and its
+  // elapsed time dates the replacement's estimate.
+  //
+  // Reset during render rather than by keying the whole component: a key remounts the DOM as
+  // well, which is more than is meant here and turned out to be observable in a test.
+  const run = useRef(generation);
+  if (run.current !== generation) {
+    run.current = generation;
+    startedRunning.current = running ? new Date() : null;
+    ceiling.current = 0;
+  }
+  if (shown === null) ceiling.current = 0;
+  else ceiling.current = Math.max(ceiling.current, shown);
+  const percent = shown === null ? null : ceiling.current;
+  const known = percent !== null;
+  const guessed = counted === null && percent !== null;
+
+  // **The word and the sentence must not say the same thing twice.** `describe` answers
+  // *"what happened"*, which is the whole story for a failure and pure duplication for
+  // `complete` — where the word already is the story. A running analysis gets the phase
+  // instead, because it is strictly more informative than the one sentence `describe` has.
+  // `queued` and `complete` are wholly said by their word; `running` is better served by the
+  // phase line below, which knows more than `describe` ever can. That leaves `failed`, where
+  // `describe` carries the one sentence telling a reader what to do next - which is the case
+  // it was written for.
+  const said = status === "failed" ? describe(status, failure, offered) : null;
+
+  return (
+    <div className="waiting" data-live={live ? "yes" : "no"}>
+      <p className="status">
+        {/*
+          **A word, before anything visual.** `aria-live="polite"` so a reader using a screen
+          reader hears it change rather than having to go looking — and `polite` rather than
+          `assertive` because this is progress, not an alarm.
+        */}
+        <span className="status-word" aria-live="polite">
+          {WORD_FOR[status]}
+        </span>
+        {said !== null && <span className="status-said">{said}</span>}
+      </p>
+
+      {/* Queued has not started; finished and failed have nothing left to show. */}
+      {running && (
+        <>
+          <div className="bar-row">
+            {/*
+              **A real `<progress>`, not a styled div.** It is announced as a progress bar,
+              it carries the value without an ARIA attribute having to be kept in step with
+              the paint, and with no `value` it is indeterminate — which is precisely the
+              state this needs for the window where nothing knows the total.
+            */}
+            <progress
+              className="bar"
+              {...(known ? { value: percent, max: 100 } : {})}
+              aria-label={
+                known
+                  ? `${guessed ? "about " : ""}${String(percent)}% of this analysis is done`
+                  : "Working out how much there is to do"
+              }
+            />
+            <span className="bar-number">
+              {known ? `${guessed ? "~" : ""}${String(percent)}%` : "—"}
+            </span>
+          </div>
+
+          {progress !== null && (
+          <p className="doing">
+            {progress.saying}
+            {/*
+              **Only while there is a next planned page to be on.** An empty plan sends
+              `0 of 0` and rendered *"page 1 of 0"*; the plan is kept through the search phase,
+              where `done === of` rendered *"page N+1 of N"* about pages that are deliberately
+              outside it. Both are the same slip: an ordinal computed without asking whether
+              the thing it counts exists.
+            */}
+            {progress.phase === "reading" &&
+            progress.pages &&
+            progress.pages.of > 0 &&
+            progress.pages.done < progress.pages.of
+              ? ` — page ${String(progress.pages.done + 1)} of ${String(progress.pages.of)}`
+              : ""}
+            {progress.companies.of > 1
+              ? `, company ${String(Math.min(progress.companies.done + 1, progress.companies.of))} of ${String(progress.companies.of)}`
+              : ""}
+          </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One word per state, and it is the first thing a reader reads.
+ *
+ * `Done.` rather than `Complete` and `Stopped` rather than `Failed`: the first of each pair is
+ * what somebody would say out loud, and the second sounds like a status code.
+ *
+ * **`Queued.` and `Done.` keep their full stops**, because they are the words this product has
+ * always used for those two states — in `USING_THE_SITE.md`, in the walkthrough, and in the
+ * tests that assert a finished run says so. A visual change is not a reason to rename the two
+ * states a reader has been taught.
+ */
+const WORD_FOR: Record<AnalysisStatus, string> = {
+  queued: "Queued.",
+  running: "Working",
+  complete: "Done.",
+  failed: "Stopped",
+};
 
 function describe(
   status: AnalysisStatus,

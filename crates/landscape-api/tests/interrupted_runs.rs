@@ -40,6 +40,7 @@ fn at() -> chrono::DateTime<chrono::Utc> {
 /// A report whose pricing section says one thing, so two runs can be told apart.
 fn report_saying(text: &str) -> Report {
     Report {
+        progress: None,
         subject: "basecamp.com".to_owned(),
         searched_as: "https://basecamp.com".to_owned(),
         generated_at: at(),
@@ -165,6 +166,50 @@ async fn hand_to_another_worker(store: &Arc<dyn Store>, id: AnalysisId) -> u32 {
     let claimed = store.claim_next().await.expect("claim").expect("requeued");
     assert_eq!(claimed.id, id, "a different analysis was claimed");
     claimed.generation
+}
+
+#[tokio::test]
+async fn a_running_analysis_that_has_written_nothing_still_says_it_is_working() {
+    // **The longest silent stretch of a run, and the one a reader reads as a hang.** Working
+    // out which companies a description means, then finding their pages, happens before any
+    // report is written - so every other event on this stream has nothing to send, and a
+    // reader watches an empty page for the part of the wait they are least able to explain.
+    //
+    // Driven over the real handler rather than asserted on the payload helper, because the
+    // mutation harness caught the difference: `if analysis.status == Running` could be
+    // replaced with `if false` and every unit test still passed. This is the test that could
+    // not have failed, and now can.
+    let store: Arc<dyn Store> = Arc::new(MemoryStore::default());
+    let (id, _) = running_analysis(&store).await;
+
+    let mut reader = Reader::open(&store, id).await;
+    let mut saw_progress = None;
+    for _ in 0..6 {
+        let Some(event) = tokio::time::timeout(PATIENCE, reader.next())
+            .await
+            .expect("the stream should speak")
+        else {
+            break;
+        };
+        if event.contains("event: progress") {
+            saw_progress = Some(event);
+            break;
+        }
+    }
+
+    let event = saw_progress
+        .expect("a running analysis with no report sent no progress: a reader sees nothing at all");
+    // **No number, and the phase said out loud.** Nothing knows how many pages there will be
+    // yet, so `percent` is null - a zero here would be a claim that no work has happened, sat
+    // in front of a reader for the whole of the opening minute.
+    assert!(
+        event.contains("\"percent\":null"),
+        "a run with no plan yet reported a percentage: {event}"
+    );
+    assert!(
+        event.contains("Finding the pages worth reading"),
+        "the phase a reader is shown is missing: {event}"
+    );
 }
 
 #[tokio::test]

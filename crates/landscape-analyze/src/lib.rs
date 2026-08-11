@@ -270,8 +270,40 @@ pub async fn analyze_many(
     let origins = analyzing;
 
     let mut finished: Vec<Analysis> = Vec::with_capacity(origins.len());
+    // **A run abandoned *between* companies leaves no child to say so.** `stopped_early` below
+    // is otherwise derived from the finished children alone, and each of those really did
+    // finish - so a revocation caught at the announcement before the next company produced an
+    // `Analysis` claiming the run had completed on its own terms. Same defect as the one at
+    // the `Assembling` boundary, one level up, and review found it in the fix for that one.
+    let mut stopped_between_companies = false;
 
     for origin in origins {
+        // **The gap between two companies is the longest silence left.** `analyze_with` cannot
+        // announce anything until discovery has finished, because until then there is no
+        // `found` to assemble a report from - so the next company's 16-35 seconds of discovery
+        // would go by with the last thing on screen saying *"putting the report together"*
+        // about the company before it. Said here instead, where the company count is known and
+        // the report so far already exists.
+        {
+            let mut ahead = joined(
+                &finished,
+                None,
+                origins,
+                notes.clone(),
+                llm,
+                now,
+                interpreted,
+            );
+            ahead.progress = Some(landscape_core::Progress {
+                phase: landscape_core::Phase::Discovering,
+                companies: landscape_core::Counted::new(finished.len(), origins.len()),
+                pages: None,
+            });
+            if on_progress(&ahead) == Wanted::No {
+                stopped_between_companies = true;
+                break;
+            }
+        }
         let stopped = {
             let so_far = &finished;
             let mut merge_and_report = |partial: &Report| {
@@ -312,7 +344,7 @@ pub async fn analyze_many(
         report,
         coverage: coverage_by_question(&finished),
         pages: finished.iter().flat_map(|a| a.pages.clone()).collect(),
-        stopped_early: finished.iter().any(|a| a.stopped_early),
+        stopped_early: stopped_between_companies || finished.iter().any(|a| a.stopped_early),
     }
 }
 
@@ -463,6 +495,18 @@ fn joined(
         sources,
         interpreted: interpreted.cloned(),
         notes,
+        // **Each layer contributes the count it knows.** The company being read says what phase
+        // it is in and how far through its own pages; only here is it known how many companies
+        // there are, so only here is the company count filled in. No `in_flight` means no
+        // company is being read - which, at the one place this is called that way, is because
+        // the run is over.
+        progress: Some(match in_flight.and_then(|r| r.progress) {
+            Some(reached) => landscape_core::Progress {
+                companies: landscape_core::Counted::new(finished.len(), origins.len()),
+                ..reached
+            },
+            None => landscape_core::Progress::finished(origins.len()),
+        }),
     }
 }
 
@@ -516,10 +560,49 @@ pub async fn analyze_with(
     // no model goes first so the first thing on screen costs a fetch rather than a chain of
     // model calls, and each question is worth one page that does need one. The pages that are
     // left are named on the report rather than dropped in silence.
+    // **Every phase change and every count change is news.** The first version emitted only
+    // from inside a page that produced something, so a run whose pages all failed announced
+    // `0 of N` once and then sat there until it was suddenly Done - the exact no-content case
+    // this feature exists to explain, and review found it a second time after the first fix
+    // covered one boundary and not the rest.
+    //
+    // A closure rather than four copies of the same six lines: a boundary that is one line is a
+    // boundary somebody adds when they add the phase.
+    macro_rules! announce {
+        ($so_far:expr, $notes:expr) => {{
+            let reading = Reading {
+                found: &found,
+                origin,
+                llm,
+                budget,
+                memo,
+                now,
+                notes: $notes,
+            };
+            let (snapshot, _) = assemble(
+                &reading,
+                &$so_far.claims,
+                &$so_far.sources,
+                &$so_far.opened,
+                &$so_far.searched_evidence(),
+                $so_far.reached(),
+            );
+            on_progress(&snapshot)
+        }};
+    }
+
     let plan = order::plan(&found.sources);
     let mut notes: Vec<String> = plan.note().into_iter().collect();
 
-    let mut so_far = SoFar::default();
+    // **Discovery is over, so a denominator exists for the first time.** Everything before this
+    // line is the window `landscape_core::progress` refuses to put a number on: a page count
+    // could only have been guessed, and this is the moment it stops being a guess - which is
+    // why it is set where the run is constructed rather than assigned afterwards.
+    let mut so_far = SoFar {
+        plan: Some(landscape_core::Counted::new(0, plan.read.len())),
+        phase: landscape_core::Phase::Reading,
+        ..SoFar::default()
+    };
     let mut stopped_early = false;
 
     {
@@ -532,8 +615,16 @@ pub async fn analyze_with(
             now,
             notes: &notes,
         };
+        // The moment the denominator starts existing: the plan is made, so `pages` stops
+        // being `None` and the browser stops estimating.
+        if announce!(so_far, &notes) == Wanted::No {
+            stopped_early = true;
+        }
         for source in &plan.read {
-            if read_one(
+            if stopped_early {
+                break;
+            }
+            let carry_on = read_one(
                 fetcher,
                 &reading,
                 today,
@@ -541,9 +632,20 @@ pub async fn analyze_with(
                 &mut so_far,
                 on_progress,
             )
-            .await
-                == Wanted::No
-            {
+            .await;
+            // **Counted after, not before.** `read_one` reports the report-so-far from inside
+            // itself, once per window, and a count incremented first would tell a reader a page
+            // was read while it was being read. Pages that fail to fetch count too: the plan
+            // has one fewer left either way, and a bar that stalls on an unreachable page is
+            // the wait this exists to explain.
+            if let Some(plan) = so_far.plan.as_mut() {
+                plan.done += 1;
+            }
+            // **Counted, then said.** `read_one` reports from inside itself only when a window
+            // produced something; a page that failed to fetch, or was too thin to open, or was
+            // read while the model was unreachable, returns having said nothing at all. Without
+            // this the count advanced in a variable nobody could see.
+            if announce!(so_far, &notes) == Wanted::No || carry_on == Wanted::No {
                 stopped_early = true;
                 break;
             }
@@ -556,6 +658,29 @@ pub async fn analyze_with(
     // what makes that structural — the questions handed to it are computed from claims that
     // exist, so a company whose own pages answered everything costs no search at all.
     let gaps = so_far.unanswered();
+    if worth_searching(stopped_early, &gaps) {
+        // **The plan is spent, and the reader is still waiting.** The pages search admits are
+        // not in the plan and cannot be - the plan was made before anything was read, and what
+        // search is asked for is computed from what the reading did not find. So the count
+        // stops here and the phase carries the sentence instead: a fraction that grew a
+        // denominator at this point would be a bar that retreats, which is the one thing
+        // `landscape_core::progress` promises not to do.
+        so_far.phase = landscape_core::Phase::Searching;
+        // **Before the await, and the answer is the point.** `search_for_gaps` is a network
+        // round trip per unanswered question followed by up to three pages of model calls, so
+        // a phase set but not published is a phase nobody is told about for the whole of the
+        // slowest thing it names - and an answer published but not *read* is worse. The worker
+        // says `Wanted::No` here when the run has been given to somebody else, and this is the
+        // cheapest place left to stop.
+        if announce!(so_far, &notes) == Wanted::No {
+            stopped_early = true;
+        }
+    }
+
+    // **Asked a second time, because the announcement above can have changed the answer.**
+    // `worth_searching` is the cancellation guard - `!stopped_early && !gaps.is_empty()` - and
+    // the first version discarded the announcement's verdict with `let _ =`, so a revocation
+    // first seen at this boundary went on to spend the search anyway. Review found it.
     if worth_searching(stopped_early, &gaps) {
         let (admitted, failures) = search_for_gaps(search, origin, &gaps, &so_far.urls()).await;
         so_far.searched.extend(searched_pages(&admitted));
@@ -595,6 +720,16 @@ pub async fn analyze_with(
         notes.extend(note_for(origin, &gaps, &admitted, &so_far, failures));
     }
 
+    // Everything this company had to say has been said; what is left is putting it together.
+    so_far.phase = landscape_core::Phase::Assembling;
+    // **And the verdict here decides what the returned `Analysis` says about itself.** Left
+    // discarded, a run revoked at this boundary came back with `stopped_early: false` - so the
+    // caller, the worker's log, and `analyze_many`'s own decision about the companies still
+    // ahead were all told the run had finished on its own terms.
+    if announce!(so_far, &notes) == Wanted::No {
+        stopped_early = true;
+    }
+
     let reading = Reading {
         found: &found,
         origin,
@@ -604,13 +739,20 @@ pub async fn analyze_with(
         now,
         notes: &notes,
     };
-    let (report, coverage) = assemble(
+    let (mut report, coverage) = assemble(
         &reading,
         &so_far.claims,
         &so_far.sources,
         &so_far.opened,
         &so_far.searched_evidence(),
+        so_far.reached(),
     );
+    // **The last word about a finished run is that it is finished.** Every other report here
+    // is a snapshot handed to somebody who is watching; this one is the artifact that gets
+    // stored, and a stored report saying *"reading page 4 of 9"* about a run that ended an
+    // hour ago is a false statement in a database. `analyze_many` overwrites this with the
+    // set's own count when there are several companies.
+    report.progress = Some(landscape_core::Progress::finished(1));
     Analysis {
         report,
         coverage,
@@ -904,9 +1046,30 @@ struct SoFar {
     /// everywhere else: `pages_read` is the other number, and the gap between them is what
     /// *"found and not read"* is built from.
     searched: Vec<(Answers, String)>,
+    /// Pages read out of the pages this company's plan holds.
+    ///
+    /// **`None` until [`order::plan`] has made one.** Discovery decides how many pages there
+    /// are, so before it finishes nothing here can say - and a number invented for that window
+    /// is the one thing `landscape_core::progress` exists to refuse.
+    plan: Option<landscape_core::Counted>,
+    /// What this company's run is doing now.
+    phase: landscape_core::Phase,
 }
 
 impl SoFar {
+    /// How far this company's run has got, as one value.
+    ///
+    /// One of one company, because this is a run over one; `joined` replaces that count with
+    /// the set's. The page count is whatever the plan has reached, and `None` until there is
+    /// a plan at all.
+    fn reached(&self) -> landscape_core::Progress {
+        landscape_core::Progress {
+            phase: self.phase,
+            companies: landscape_core::Counted::new(0, 1),
+            pages: self.plan,
+        }
+    }
+
     /// The questions no claim has filled.
     ///
     /// **Not the questions discovery found no page for**, which is the weaker measure and the
@@ -1091,6 +1254,12 @@ async fn read_one(
         let searched = so_far.searched_evidence();
         let label = label.clone();
         let cite = &cite;
+        // **Copied before the closure borrows `so_far`, and deliberately not updated inside
+        // it.** These reports arrive once per window of the page being read *now*, so the page
+        // count they carry is the one that was true when the page began — which is the honest
+        // number. Counting the page as read while it is being read is the same defect as a
+        // section that arrives and then changes.
+        let reached_here = so_far.reached();
         let mut emit = |partial: &[Finding]| {
             let mut with_partial: Vec<(Answers, Claim)> = claims.clone();
             with_partial.extend(partial.iter().map(|f| {
@@ -1112,7 +1281,14 @@ async fn read_one(
             if !partial.is_empty() && !with_source.iter().any(|s| s.label == label) {
                 with_source.push(cite(page_title(&markdown, &url)));
             }
-            let (report, _) = assemble(reading, &with_partial, &with_source, opened, &searched);
+            let (report, _) = assemble(
+                reading,
+                &with_partial,
+                &with_source,
+                opened,
+                &searched,
+                reached_here,
+            );
             on_progress(&report)
         };
         Some(stages::extract(llm, question, &url, &markdown, today, &mut emit).await)
@@ -1167,6 +1343,7 @@ async fn read_one(
         &so_far.sources,
         &so_far.opened,
         &so_far.searched_evidence(),
+        so_far.reached(),
     );
     on_progress(&report)
 }
@@ -1234,6 +1411,10 @@ fn assemble(
     sources: &[Source],
     opened: &[(Answers, usize)],
     searched: &[Searched],
+    // How far this company's run has got. Passed rather than derived from the claims: a company
+    // whose pages state nothing produces no claim and is not thereby unread, and a bar computed
+    // from claims would sit at zero through the whole of it.
+    reached: landscape_core::Progress,
 ) -> (Report, Vec<Coverage>) {
     let Reading {
         found,
@@ -1300,6 +1481,11 @@ fn assemble(
         sources: sources.to_vec(),
         interpreted: None,
         notes: notes.to_vec(),
+        // **What this company knows about its own size, and nothing about the set.** One of
+        // one, because `analyze_with` is a run over one company; `joined` replaces the company
+        // count with the set's when several are merged. Each layer states what it knows and
+        // nothing it would have to guess.
+        progress: Some(reached),
     };
     (report, coverage)
 }
@@ -1736,6 +1922,7 @@ mod joining {
     /// A one-company report: one source labeled `S1`, one claim citing it.
     fn one_company(origin: &str, says: &str) -> Analysis {
         let report = Report {
+            progress: Some(landscape_core::Progress::finished(1)),
             subject: origin.to_owned(),
             searched_as: origin.to_owned(),
             generated_at: at(),
@@ -2079,6 +2266,207 @@ mod joining {
 
     fn unreachable(n: usize) -> Vec<String> {
         (0..n).map(|i| format!("https://s{i}.invalid")).collect()
+    }
+
+    #[tokio::test]
+    async fn a_watching_reader_is_never_told_a_run_went_backwards() {
+        // **The property, over a real run rather than at chosen points.** `progress::tests`
+        // asserts the arithmetic against a simulated sequence; this asserts that the sequence
+        // the pipeline actually emits is one of those. They are different claims, and the gap
+        // between them is where a phase set in the wrong order would live.
+        let origins = unreachable(3);
+        let mut seen: Vec<landscape_core::Progress> = Vec::new();
+        let outcome = analyze_many(
+            &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
+            &named(&origins),
+            &mut |report| {
+                seen.push(
+                    report
+                        .progress
+                        .expect("a report handed to a watching reader says how far it has got"),
+                );
+                Wanted::Yes
+            },
+        )
+        .await;
+
+        // **Without this the test passes on an empty list**, which is how the first version of
+        // it was green while a run over three unreachable companies reported nothing at all.
+        // The register calls that class a check that cannot fail.
+        assert!(
+            seen.len() >= origins.len(),
+            "a run over {} companies reported {} times: a reader watching saw nothing",
+            origins.len(),
+            seen.len()
+        );
+
+        let mut highest = 0.0f32;
+        for step in &seen {
+            let now = step
+                .fraction()
+                .expect("a run over three companies has a fraction");
+            assert!(
+                now >= highest - f32::EPSILON,
+                "the bar retreated from {highest} to {now} at {step:?}"
+            );
+            assert!(
+                step.companies.done < step.companies.of,
+                "a run still emitting progress called itself finished: {step:?}"
+            );
+            // **A page count exists exactly when a plan does.** `Discovering` is the one phase
+            // that legitimately has none - it is the window the browser estimates across. Any
+            // later phase without one would mean the plan was made and never recorded, and a
+            // reader would sit in front of an estimate for a run whose size is known.
+            assert_eq!(
+                step.pages.is_some(),
+                step.phase != landscape_core::Phase::Discovering,
+                "the page count disagrees with the phase: {step:?}"
+            );
+            highest = now;
+        }
+
+        // **Which phases a reader was actually told about**, rather than only how many times
+        // something was said. Review asked for this: the first version counted emissions, and a
+        // count cannot tell a run that narrated itself from one that repeated a single line.
+        let phases: Vec<landscape_core::Phase> = seen.iter().map(|p| p.phase).collect();
+        for wanted in [
+            landscape_core::Phase::Discovering,
+            landscape_core::Phase::Reading,
+            landscape_core::Phase::Assembling,
+        ] {
+            assert!(
+                phases.contains(&wanted),
+                "a reader was never told the run reached {wanted:?}: {phases:?}"
+            );
+        }
+        // One announcement before each company is discovered, so the wait between two of them
+        // is not spent under the previous one's closing phase.
+        assert!(
+            phases
+                .iter()
+                .filter(|p| **p == landscape_core::Phase::Discovering)
+                .count()
+                >= origins.len(),
+            "a company began discovery without saying so: {phases:?}"
+        );
+
+        // And the report that gets stored is not a snapshot of the middle of the run.
+        assert_eq!(
+            outcome.report.progress,
+            Some(landscape_core::Progress::finished(origins.len())),
+            "the finished report does not say the run finished"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_run_revoked_at_a_phase_boundary_stops_there() {
+        // **A reader who accepts every reading tick and refuses the one at a later phase.**
+        // The announcements at `Searching` and `Assembling` had their answers discarded with
+        // `let _ =`, so a revocation first seen at either boundary was published and ignored:
+        // the search ran anyway - a network round trip per unanswered question - and the
+        // returned `Analysis` said `stopped_early: false` about a run that had been taken away.
+        for refuse_at in [
+            landscape_core::Phase::Searching,
+            landscape_core::Phase::Assembling,
+        ] {
+            let origins = unreachable(1);
+            let mut refused = false;
+            let outcome = analyze_many(
+                &offline(),
+                &landscape_fetch::Budget::for_one_analysis(),
+                &named(&origins),
+                &mut |report| {
+                    let phase = report.progress.map(|p| p.phase);
+                    if phase == Some(refuse_at) {
+                        refused = true;
+                        Wanted::No
+                    } else {
+                        Wanted::Yes
+                    }
+                },
+            )
+            .await;
+
+            assert!(
+                refused,
+                "the run never reached {refuse_at:?}, so this asserts nothing"
+            );
+            assert!(
+                outcome.stopped_early,
+                "a run revoked at {refuse_at:?} came back saying it finished on its own terms"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn a_run_revoked_between_two_companies_stops_there() {
+        // **The boundary with no child to speak for it.** Every other cancellation path ends
+        // inside `analyze_with`, which returns an `Analysis` saying it stopped. This one is in
+        // `analyze_many`, between two of them - so the loop breaks with a `finished` list whose
+        // every member really did finish, and `stopped_early` read off those alone said the run
+        // had completed on its own terms.
+        let origins = unreachable(3);
+        let mut refused = false;
+        let outcome = analyze_many(
+            &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
+            &named(&origins),
+            &mut |report| {
+                let Some(reached) = report.progress else {
+                    return Wanted::Yes;
+                };
+                // The announcement before the *second* company: discovering, with one company
+                // already behind it. The first company's own ticks are accepted.
+                if reached.phase == landscape_core::Phase::Discovering
+                    && reached.companies.done == 1
+                    && reached.pages.is_none()
+                {
+                    refused = true;
+                    return Wanted::No;
+                }
+                Wanted::Yes
+            },
+        )
+        .await;
+
+        assert!(
+            refused,
+            "the run never announced a second company, so this asserts nothing"
+        );
+        assert_eq!(
+            outcome.report.subjects.len(),
+            origins.len(),
+            "the report should still cover every company it set out to"
+        );
+        assert!(
+            outcome.stopped_early,
+            "a run revoked between two companies came back saying it finished on its own terms"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_company_count_is_the_set_and_not_the_page() {
+        // Each layer states what it knows: `assemble` says one of one because it is one run,
+        // and `joined` replaces that with the set's count. A report that kept the inner number
+        // would tell a reader watching three companies that there was only ever one.
+        let origins = unreachable(3);
+        let mut first: Option<landscape_core::Progress> = None;
+        analyze_many(
+            &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
+            &named(&origins),
+            &mut |report| {
+                first = first.or(report.progress);
+                Wanted::Yes
+            },
+        )
+        .await;
+        assert_eq!(
+            first.expect("something was reported").companies.of,
+            3,
+            "the company count came from the company being read, not from the set"
+        );
     }
 
     #[tokio::test]
@@ -3509,7 +3897,14 @@ mod filling_gaps {
             read: true,
         }];
 
-        let (report, coverage) = assemble(&reading, &[], &[], &[(Answers::Trust, 1)], &searched);
+        let (report, coverage) = assemble(
+            &reading,
+            &[],
+            &[],
+            &[(Answers::Trust, 1)],
+            &searched,
+            landscape_core::Progress::starting(1),
+        );
         let trust = coverage
             .iter()
             .find(|c| c.question == "trust")
@@ -3576,7 +3971,14 @@ mod filling_gaps {
             url: "https://elsewhere.example/e".to_owned(),
             read: false,
         }];
-        let (_, coverage) = assemble(&reading, &[], &[], &[], &searched);
+        let (_, coverage) = assemble(
+            &reading,
+            &[],
+            &[],
+            &[],
+            &searched,
+            landscape_core::Progress::starting(1),
+        );
         let note = coverage
             .iter()
             .find(|c| c.question == "trust")

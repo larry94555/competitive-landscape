@@ -172,6 +172,7 @@ mod tests {
                 sources,
                 interpreted: None,
                 notes: Vec::new(),
+                progress: None,
             },
             coverage,
             pages: Vec::new(),
