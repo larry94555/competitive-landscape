@@ -205,6 +205,36 @@ steps later, so the escaping question review raised about the password is answer
 than by a service that will not start. And on this box it doubles as the port-collision check:
 a container already holding 5432 stops the native server, which is how the question arose.
 
+### And then running step 6 twice found the thing worth finding
+
+Two messages, and only one of them was a problem.
+
+`could not change directory to "/home/ubuntu": Permission denied` is a **warning**: `sudo -u
+postgres` keeps the caller's directory and `postgres` cannot read it. `psql` runs anyway. It
+appears above the real output, which is the worst place for a line that does not matter.
+
+`role "landscape" already exists` is the step having run before — benign, except for what it
+implies: **`CREATE USER` failing means it did not set the password**, so what is in force is
+whatever the first attempt used. A guide that says "run this" and not "and here is what it means
+when it says no" leaves somebody carrying an unknown into `landscape.env`. `ALTER USER` is the
+answer and it is written down now.
+
+**The real find is underneath both.** These two commands do not necessarily talk to the same
+server:
+
+| | Route | Reaches |
+|---|---|---|
+| `sudo -u postgres psql` | the Unix socket | always the native PostgreSQL |
+| `postgres://…@127.0.0.1:5432/…` | TCP | **whatever holds that port** |
+
+On a box with containers — which this one has, and whose Docker rules were the previous
+question — a published 5432 means the role is created on one server and the application
+connects to the other. Two databases with the same name, and an authentication failure three
+steps later that makes no sense given what was just typed.
+
+`\conninfo` is the only command in that step which takes the same route the services will, which
+is exactly why it is there. It was added an hour before this became the situation it catches.
+
 ### Numbers in prose are not checked by anything
 
 Renumbering the guide to put DNS at step 3 left **seven** references pointing at the wrong

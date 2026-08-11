@@ -302,9 +302,11 @@ file. `/`, `?`, `#`, `%`, `@`, a space or a backslash changes how at least one o
 and the failure is a service that will not start, or worse, one that connects somewhere else.
 Letters and digits mean the same thing in all three.
 
-Then, with `PASTE_IT_HERE` replaced by what that printed:
+Then, with `PASTE_IT_HERE` replaced by what that printed — **including the `cd`**, which stops
+a confusing warning:
 
 ```bash
+cd /tmp
 sudo -u postgres psql <<'SQL'
 CREATE USER landscape WITH PASSWORD 'PASTE_IT_HERE';
 CREATE DATABASE landscape OWNER landscape;
@@ -313,6 +315,22 @@ SQL
 
 Two lines, and they are the whole of it: the first makes the **role** the application logs in
 as, the second makes the **database** it logs in to, owned by that role.
+
+> **`could not change directory to "/home/ubuntu": Permission denied` is a warning, not a
+> failure.** `sudo -u postgres` keeps your current directory and the `postgres` user cannot read
+> your home. `psql` runs anyway, and everything printed after that line is the real result. The
+> `cd /tmp` above is only there to silence it.
+
+> **`role "landscape" already exists` means this step has run before.** Nothing is broken and
+> nothing needs undoing — but `CREATE USER` failing means it did **not** set the password, so
+> what is in force is whatever the first run used. Settle it rather than guess:
+>
+> ```bash
+> sudo -u postgres psql -c "ALTER USER landscape WITH PASSWORD 'PASTE_IT_HERE';"
+> ```
+>
+> `database "landscape" already exists` needs nothing at all: it is owned by that role and the
+> application creates its own tables.
 
 **Now prove it works from the outside**, with the same password, over TCP, exactly as the
 services will:
@@ -334,8 +352,28 @@ finding out there costs a service that will not start and a journal line about a
 | If it says | Then |
 |---|---|
 | `could not connect to server` | The server is not running — see the table at the end of [step 5](#step-5--install-what-the-build-needs) |
-| `password authentication failed` | The password here and the one in the `CREATE USER` line are not the same. `ALTER USER landscape WITH PASSWORD '...';` sets it again |
+| `password authentication failed` | The password here is not the one the role has. `sudo -u postgres psql -c "ALTER USER landscape WITH PASSWORD '...';"` sets it, which is also the answer when the role already existed |
 | `database "landscape" does not exist` | The second SQL line did not run. Run it on its own |
+
+> **These two commands do not necessarily reach the same server, and on a box with containers
+> they may not.** `sudo -u postgres psql` goes over the Unix socket, which is always the native
+> PostgreSQL; a `postgres://…@127.0.0.1:5432/…` URL goes over TCP, to **whatever holds that
+> port**. If a container has published 5432, the role you just created is on one server and the
+> application will connect to the other — two databases with the same name, and an
+> authentication failure at [step 9](#step-9--configure-and-start-the-three-services) that makes
+> no sense given what you typed here.
+>
+> ```bash
+> sudo ss -ltnp | grep 5432
+> ```
+>
+> | What it names | What it means |
+> |---|---|
+> | `postgres` | The native server holds the port. Everything is consistent |
+> | `docker-proxy` | A container holds it. `sudo docker ps` finds it; stop it and restart `postgresql`, or this bites two steps later |
+>
+> **The `\conninfo` check above is what catches this**, because it is the only command in this
+> step that takes the same route the services will.
 
 There is no schema step. **The application applies its own migrations on boot**, so there is
 nothing to run and nothing to forget — the tables appear the first time
