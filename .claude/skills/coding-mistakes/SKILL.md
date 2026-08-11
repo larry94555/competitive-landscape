@@ -2457,6 +2457,18 @@ matching, write a fixture for the case you are *most* confident about — that i
 forgot is doing the opposite of what you read — and check what your noise filter costs you,
 because a filter tuned on one kind of file is a blind spot in every other kind.
 
+**And review had to say it twice, because a correction is not one edit.** The Caddy diagnosis
+was fixed in `GO_LIVE.md` and left standing in `BENCHMARKS.md`, which is the document that holds
+the *reason* - so the instruction was right and the permanent rationale still taught the false
+fact, under a heading that repeated it. Same shape with the gate's coverage: the run entry got
+the new number and `CODING_QUALITY.md` 8.2a, which is what a maintainer actually reads as the
+rule, still advertised the hand-written 240. **An instruction and its rationale are one fact in
+two places.** Correcting the command and leaving the argument is how a repository ends up
+arguing with itself, and the copy nobody re-reads is the one that survives.
+
+The second half of that fix is to stop writing the number down at all: the gate prints its own
+count, and the guide now says how the list is *built* rather than how long it is.
+
 **Rule, the second one:** when a check enumerates cases, ask what generates them. A list of
 inflections, of status codes, of file extensions, of error variants — anything with a regular
 shape — is a rule somebody flattened, and the flattening is where the gap is. Generate the

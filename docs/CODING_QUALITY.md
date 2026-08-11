@@ -439,7 +439,16 @@ every decision made before code existed. The ADR process continues it.
 ### 8.2a American spelling, everywhere **[CI]**
 
 **One dialect, and it is American** — in prose, comments, identifiers, test names, commit
-messages and product copy alike. `scripts/american_spelling.py` checks 240 words on every run.
+messages and product copy alike. `scripts/american_spelling.py` checks every run.
+
+**The word list is derived, not written.** The regular families — `-ise`, `-yse`, `-our`, the
+doubled `-l` — are generated from a stem, so adding a verb is one entry and all eight of its
+forms arrive with it. That is over a thousand forms, and the gate prints its own count on every
+passing run rather than this page carrying a number that drifts from it. **Add verbs to the
+stem tuples**; hand-write only the exceptions the generators get wrong, which is a short list
+somebody can audit. The previous version was a hand-written list of 240 words, and it certified
+this repository American while 31 British spellings sat in it — see
+[BENCHMARKS.md](BENCHMARKS.md) Run 45.
 
 This was not a preference until it was written down. Nobody had chosen a dialect, so the
 repository grew both, and the first place it showed was the product's busiest button. Mixed

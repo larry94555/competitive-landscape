@@ -71,9 +71,14 @@ Four things were deliberately not touched:
 
 ### The gate, because a sweep is a snapshot
 
-`scripts/american_spelling.py` is the sixteenth. 240 words, checked over every tracked file on
-every run, because the next `analyse` will be typed by somebody who has no idea a decision was
-ever made. **A convention with no check is a preference.**
+`scripts/american_spelling.py` is the sixteenth, checked over every tracked file on every run,
+because the next `analyse` will be typed by somebody who has no idea a decision was ever made.
+**A convention with no check is a preference.**
+
+It began as a hand-written list of **240 words**, and that turned out to be the largest defect in
+this run — review found 31 British spellings it could not see. The account of that, and of what
+replaced it, is [further down](#and-review-found-the-largest-hole-the-list-was-a-list); the
+numbers in this section are the ones the first version carried.
 
 **`analyses` is the one thing it cannot decide, and it says so.** The word is the American plural
 of *analysis* (`two analyses a day`) and the British third-person verb (`it analyses`), and no
@@ -499,15 +504,26 @@ plainly that it clones `main` and that an open pull request is not in it.
 **The rule this is an instance of:** every check earns its place by what it says when it fails,
 not by what it confirms when it passes.
 
-### A package that is not in the archive, and a failure one step away from its cause
+### A package that did not install, and a failure one step away from its cause
 
 ```text
 cp: cannot create regular file '/etc/caddy/Caddyfile': No such file or directory
 ```
 
-**Caddy is not in Ubuntu's archive.** `sudo apt-get install -y caddy` cannot work on a stock
-image; the line was written from memory of a machine that already had Caddy's repository
-configured. It needs four lines of Caddy's own documented install first.
+> **This section said something false, and review of Run 45 caught it.** It read *"Caddy is not
+> in Ubuntu's archive"*. **Ubuntu 24.04 ships `caddy` 2.6.2 in Universe**, which is the release
+> this guide targets, so the sentence was wrong about the archive and would have sent anybody
+> diagnosing a repeat down the wrong path. Corrected here rather than in `GO_LIVE.md` alone,
+> because a run entry is where the *reason* lives and a reason nobody corrects outlives the
+> instruction that came from it.
+
+`sudo apt-get install -y caddy` did not install Caddy on the box, and the line had been written
+from memory of a machine that already had Caddy's own repository configured. The guide uses that
+repository now — not because Ubuntu has no package, but because Ubuntu's is older than upstream
+and a deployment document that pins a web server should name the source it was tested against.
+That is [Caddy's documented install](https://caddyserver.com/docs/install#debian-ubuntu-raspbian),
+copied whole, including the two `chmod o+r` lines that let `apt` read the key and the source list
+it just wrote.
 
 What makes it worth writing down is **where the failure surfaces**. `apt` says *unable to locate
 package* and carries on; the next command then fails on `/etc/caddy/Caddyfile`, and that message
@@ -517,8 +533,9 @@ installed. The guide now checks with `caddy version` and `ls /etc/caddy/Caddyfil
 two, and names both messages as the same cause.
 
 **Every installation step in this guide has now been walked**, and this is the third where the
-box disagreed with what was written: an empty firewall chain, a cluster on 5433, and a package
-that does not exist. None was a hard problem. All three were invisible from here.
+box disagreed with what was written: an empty firewall chain, a cluster on 5433, and an install
+line that had never been run on a clean image. None was a hard problem. All three were invisible
+from here.
 
 ### The deployment's own refusal, indistinguishable from a broken one
 
