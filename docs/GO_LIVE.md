@@ -289,12 +289,18 @@ stopped service.
 
 ## Step 6 — Create the database
 
-**Generate the password rather than inventing one**, and write down what it prints — you need
-it again in [step 9](#step-9--configure-and-start-the-three-services):
+**Generate the password into a shell variable**, so that the rest of this step uses it without
+you retyping it anywhere:
 
 ```bash
-openssl rand -hex 24
+cd /tmp
+PGPASS=$(openssl rand -hex 24)
+echo "$PGPASS"
 ```
+
+**Write down what `echo` prints.** [Step 9](#step-9--configure-and-start-the-three-services)
+needs the value, and `$PGPASS` is gone the moment you close this SSH session — if that happens
+before step 9, come back and run the `ALTER USER` line below with a fresh one.
 
 **Hexadecimal on purpose.** That password goes into three places with three different escaping
 rules: a SQL string, a URL (`postgres://landscape:PASSWORD@...`), and a systemd environment
@@ -302,19 +308,21 @@ file. `/`, `?`, `#`, `%`, `@`, a space or a backslash changes how at least one o
 and the failure is a service that will not start, or worse, one that connects somewhere else.
 Letters and digits mean the same thing in all three.
 
-Then, with `PASTE_IT_HERE` replaced by what that printed — **including the `cd`**, which stops
-a confusing warning:
+Then, exactly as written — the shell puts the password in, so there is nothing to edit:
 
 ```bash
-cd /tmp
-sudo -u postgres psql <<'SQL'
-CREATE USER landscape WITH PASSWORD 'PASTE_IT_HERE';
+sudo -u postgres psql <<SQL
+CREATE USER landscape WITH PASSWORD '$PGPASS';
 CREATE DATABASE landscape OWNER landscape;
 SQL
 ```
 
 Two lines, and they are the whole of it: the first makes the **role** the application logs in
 as, the second makes the **database** it logs in to, owned by that role.
+
+> **`<<SQL` and not `<<'SQL'`.** The quotes around the marker are what stop a shell expanding
+> anything inside a heredoc; without them `$PGPASS` becomes the password, which is the point.
+> Nothing else in those two lines contains a `$`.
 
 > **`could not change directory to "/home/ubuntu": Permission denied` is a warning, not a
 > failure.** `sudo -u postgres` keeps your current directory and the `postgres` user cannot read
@@ -323,11 +331,14 @@ as, the second makes the **database** it logs in to, owned by that role.
 
 > **`role "landscape" already exists` means this step has run before.** Nothing is broken and
 > nothing needs undoing — but `CREATE USER` failing means it did **not** set the password, so
-> what is in force is whatever the first run used. Settle it rather than guess:
+> what is in force is whatever the earlier run used, which you may no longer know. Settle it
+> rather than guess, with the same variable:
 >
 > ```bash
-> sudo -u postgres psql -c "ALTER USER landscape WITH PASSWORD 'PASTE_IT_HERE';"
+> sudo -u postgres psql -c "ALTER USER landscape WITH PASSWORD '$PGPASS';"
 > ```
+>
+> Double quotes there, so your shell expands `$PGPASS` before `sudo` runs.
 >
 > `database "landscape" already exists` needs nothing at all: it is owned by that role and the
 > application creates its own tables.
@@ -336,7 +347,7 @@ as, the second makes the **database** it logs in to, owned by that role.
 services will:
 
 ```bash
-psql "postgres://landscape:PASTE_IT_HERE@127.0.0.1:5432/landscape" -c '\conninfo'
+psql "postgres://landscape:$PGPASS@127.0.0.1:5432/landscape" -c '\conninfo'
 ```
 
 ```text
@@ -352,7 +363,7 @@ finding out there costs a service that will not start and a journal line about a
 | If it says | Then |
 |---|---|
 | `could not connect to server` | The server is not running — see the table at the end of [step 5](#step-5--install-what-the-build-needs) |
-| `password authentication failed` | The password here is not the one the role has. `sudo -u postgres psql -c "ALTER USER landscape WITH PASSWORD '...';"` sets it, which is also the answer when the role already existed |
+| `password authentication failed` | The role exists and its password is not `$PGPASS` — which is what happens when the role predates this attempt. The `ALTER USER` line above sets it, and then this command passes |
 | `database "landscape" does not exist` | The second SQL line did not run. Run it on its own |
 
 > **These two commands do not necessarily reach the same server, and on a box with containers
@@ -458,7 +469,17 @@ sudo nano /etc/landscape/landscape.env
 ```
 
 In that file, change exactly one thing: on the `DATABASE_URL` line, replace `CHANGE_ME` with
-the password from [step 6](#step-6--create-the-database). Save with `Ctrl+O`, `Enter`, then `Ctrl+X`.
+the password from [step 6](#step-6--create-the-database) — the one `echo "$PGPASS"` printed and
+you wrote down. Save with `Ctrl+O`, `Enter`, then `Ctrl+X`.
+
+**If you still have the same SSH session open**, you do not have to retype it at all:
+
+```bash
+echo "$PGPASS"
+```
+
+and if that prints nothing, the session has been reconnected since step 6 — use what you wrote
+down, or set a fresh one with the `ALTER USER` line from that step and use that.
 
 ```bash
 sudo chmod 600 /etc/landscape/landscape.env

@@ -235,6 +235,29 @@ steps later that makes no sense given what was just typed.
 `\conninfo` is the only command in that step which takes the same route the services will, which
 is exactly why it is there. It was added an hour before this became the situation it catches.
 
+### One placeholder was three, so it had to be substituted three times
+
+The check that was added to catch the socket-versus-TCP problem failed on the walk, and not for
+that reason:
+
+```text
+psql: error: ... FATAL:  password authentication failed for user "landscape"
+```
+
+**The step used two different names for one value** — `PASTE_IT_HERE` in the create,
+`YOUR_GENERATED_PASSWORD` in the repair, `PASTE_IT_HERE` again in the check — across three
+commands a reader copies one at a time. Getting that right is a transcription exercise, and the
+guide had made it one three times over for a value nobody can see afterwards.
+
+It is a shell variable now. `PGPASS=$(openssl rand -hex 24)` once, `$PGPASS` in the create, the
+repair, the check and step 9, and the heredoc loses its quotes so the shell can expand it. **One
+substitution, done by the shell.**
+
+The error is worth reading twice, though, because it answered the previous question: *password
+authentication failed for user "landscape"* means the server on TCP 5432 **has** that role. A
+container answering instead of the native server would have said *role does not exist*. The
+check found the thing it was written for by failing for a different reason.
+
 ### Numbers in prose are not checked by anything
 
 Renumbering the guide to put DNS at step 3 left **seven** references pointing at the wrong
