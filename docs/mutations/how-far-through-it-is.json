@@ -80,8 +80,8 @@
   {
     "name": "a company whose pages cannot be fetched reports nothing at all",
     "file": "crates/landscape-analyze/src/lib.rs",
-    "old": "        if announce!(so_far, &notes) == Wanted::No {\n            stopped_early = true;\n        }",
-    "new": "        let _ = &notes;",
+    "old": "        if announce!(so_far, &notes) == Wanted::No {\n            stopped_early = true;\n        }\n        for source in &plan.read {",
+    "new": "        for source in &plan.read {",
     "run": [
       "cargo",
       "nextest",
@@ -263,6 +263,43 @@
     "file": "web/src/App.tsx",
     "old": "            {progress.phase === \"reading\" &&\n            progress.pages &&\n            progress.pages.of > 0 &&\n            progress.pages.done < progress.pages.of",
     "new": "            {progress.pages",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ]
+  },
+  {
+    "name": "a run revoked while searching spends the search anyway",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        if announce!(so_far, &notes) == Wanted::No {\n            stopped_early = true;\n        }\n    }\n\n    // **Asked a second time",
+    "new": "        let _ = announce!(so_far, &notes);\n    }\n\n    // **Asked a second time",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a run revoked while assembling says it finished on its own terms",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "    if announce!(so_far, &notes) == Wanted::No {\n        stopped_early = true;\n    }\n\n    let reading = Reading {",
+    "new": "    let _ = announce!(so_far, &notes);\n\n    let reading = Reading {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a new worker inherits the dead one percentage as a floor",
+    "file": "web/src/App.tsx",
+    "old": "  const run = useRef(generation);\n  if (run.current !== generation) {\n    run.current = generation;\n    startedRunning.current = running ? new Date() : null;\n    ceiling.current = 0;\n  }",
+    "new": "  const run = useRef(generation);",
     "run": [
       "npx",
       "vitest",

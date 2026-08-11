@@ -2557,6 +2557,19 @@ in `BENCHMARKS.md` — discovery is a sixth of the wait — so the estimate was 
 time. It is capped at that share so it cannot overtake the count, and marked with a tilde so the
 two kinds of number are distinguishable.
 
+**And making a phase visible reopened the path that cancels it.** The announcements added at
+`Searching` and `Assembling` discarded their answers with `let _ =` — and that answer is how the
+worker says the run has been given to somebody else. `worth_searching(stopped_early, ...)` *is*
+the cancellation guard, and the announcement was made after it had already been evaluated, so a
+revocation seen at that boundary spent the search anyway and the returned `Analysis` said it had
+finished on its own terms. **A fix for one property reopened another**, which is the whole
+reason this file exists: the new code was right about what it published and wrong about what it
+did with the reply.
+
+> **Ask this about any callback you add:** *what does its return value mean, and what am I doing
+> with it?* A discarded `Result` at least warns. A discarded domain answer looks like a
+> statement.
+
 **Rule, the honest version:** ask *what does a wrong number here cost the reader?* Wrong about a
 competitor's price, they make a decision on a fiction. Wrong about how much is left, they wait a
 bit longer than they expected. Those do not deserve the same rule, and reaching for the strict

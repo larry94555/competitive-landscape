@@ -112,6 +112,35 @@ changes**, not only when a claim appears — and the test asserts `seen.len() >=
 before it asserts anything about the values. The register calls the first version a check that
 cannot fail.
 
+### Making a phase visible reopened the path that cancels it
+
+The announcements added at `Searching` and `Assembling` discarded their answers with `let _ =`,
+and that answer is not decoration: `on_progress` returns `Wanted::No` once the worker's claim
+has been revoked, and `worth_searching(stopped_early, ...)` **is** the cancellation guard. The
+announcement was made *after* that predicate had already been evaluated, so a revocation first
+seen at the searching boundary spent the whole search anyway — a network round trip per
+unanswered question, then up to three pages of model calls — and one seen at the assembling
+boundary returned an `Analysis` claiming `stopped_early: false` about a run that had been taken
+away from it.
+
+**A fix for visibility reopened a hole in cancellation, which is the shape worth recording**:
+the new code was correct about what it published and wrong about what it did with the reply.
+Both answers are read now, and the search predicate is asked a second time because the
+announcement can change it.
+
+### A floor and a clock that outlived the worker they belonged to
+
+The browser's monotonic floor and the estimate's start time both live in refs, and a ref
+survives a re-render. They must not survive a **different worker** — and a reclaim does not
+have to pass back through `queued` from the browser's side: the stream can drop during the
+sweep and reconnect with the replacement already `running`, so `status` never stops being
+`running` and nothing else would clear them. A dead worker last shown at 90% therefore floored
+the replacement's discovery at 90%, and dated its estimate from the dead run's start.
+
+The first fix was `key={generation}`, and an existing test caught it as too blunt: a key
+remounts the DOM as well, which is more than was meant. Two refs are reset during render
+instead, which is exactly the state that must not cross the line and nothing else.
+
 ### One guard this run could not test, named rather than left quiet
 
 Progress is announced after **every** page now, whatever that page produced — a fetch that
@@ -166,7 +195,7 @@ deployment ([ADR 0011](decisions/0011-no-experiments-on-production.md)).
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 45 | 992 | 79 | 22, all caught |
-| now | **1011** | **93** | **22**, all caught |
+| now | **1012** | **94** | **25**, all caught |
 
 ---
 

@@ -137,7 +137,10 @@ export default function App(): React.JSX.Element {
 
   const submit = useCallback(() => start(prompt), [start, prompt]);
 
-  const { status, sections, subjects, progress } = useReport(analysis, setAnalysis);
+  const { status, sections, subjects, progress, generation } = useReport(
+    analysis,
+    setAnalysis,
+  );
 
   if (opening !== null) {
     // A shared link lands here first. Rendering the empty box for the moment the fetch takes
@@ -235,6 +238,7 @@ export default function App(): React.JSX.Element {
           sections={sections}
           subjects={subjects}
           progress={progress}
+          generation={generation}
           onPick={(text) => void start(text)}
           picking={submitting}
         />
@@ -272,6 +276,14 @@ function useReport(
   sections: readonly Section[];
   subjects: readonly string[];
   progress: Progress | null;
+  /**
+   * Which run the progress belongs to.
+   *
+   * **State rather than a ref, unlike the copy the callbacks compare against.** A reclaim means
+   * the numbers on screen describe a worker that no longer exists, so a change here has to
+   * reach the render - which is the one thing the ref was documented as never needing to do.
+   */
+  generation: number | null;
 } {
   const [status, setStatus] = useState<AnalysisStatus | null>(null);
   const [sections, setSections] = useState<readonly Section[]>([]);
@@ -288,8 +300,9 @@ function useReport(
   const analysisRef = useRef(analysis);
   analysisRef.current = analysis;
   // Which run the sections in state belong to. A ref rather than state because it is compared
-  // and written inside callbacks, and because changing it is never itself a reason to render.
+  // and written inside callbacks; the copy below is the one a render reads.
   const generationRef = useRef<number | null>(null);
+  const [generation, setGeneration] = useState<number | null>(null);
 
   const id = analysis?.id ?? null;
   const settled = analysis != null && isTerminal(analysis.status);
@@ -303,6 +316,7 @@ function useReport(
     setProgress(null);
     setAttempt(0);
     generationRef.current = null;
+    setGeneration(null);
   }, [id]);
 
   /**
@@ -316,7 +330,14 @@ function useReport(
   const sawGeneration = useCallback((generation: number) => {
     const held = generationRef.current;
     generationRef.current = generation;
+    setGeneration(generation);
     if (held === null || held === generation) return;
+    // **The progress belonged to the worker that died.** A reclaim does not have to pass back
+    // through `queued` from this component's side: the stream can drop during the sweep and
+    // reconnect with the replacement already `running`, so `status` never stops being
+    // `running` and nothing else here would clear this. Left alone, the new run's discovery
+    // inherits the dead one's percentage as a floor and its elapsed time as a start.
+    setProgress(null);
     // The run started over. Two copies of the old run's answers are in play: the sections
     // this hook accumulated, which survive a reconnect on purpose, and the partial report a
     // recovery fetch cached on the analysis.
@@ -400,7 +421,7 @@ function useReport(
     };
   }, [id, settled, attempt]);
 
-  return { status, sections, subjects, progress };
+  return { status, sections, subjects, progress, generation };
 }
 
 function AnalysisView({
@@ -409,6 +430,7 @@ function AnalysisView({
   sections,
   subjects,
   progress,
+  generation,
   onPick,
   picking,
 }: {
@@ -418,6 +440,8 @@ function AnalysisView({
   subjects: readonly string[];
   /** How far the run has got. `null` before the first tick, and once it is over. */
   progress: Progress | null;
+  /** Which run that progress belongs to. A change means a different worker is doing it. */
+  generation: number | null;
   /** Run this instead. The chip hands back a whole prompt, not a company name. */
   onPick: (prompt: string) => void;
   /** A run is already starting. Two clicks would spend two analyses on one question. */
@@ -542,6 +566,7 @@ function AnalysisView({
       */}
       <Waiting
         status={showing_status}
+        generation={generation}
         progress={progress}
         failure={analysis.failure}
         offered={choices.length}
@@ -980,11 +1005,14 @@ export function estimate(started: Date, now: Date, ceiling: number): number {
 function Waiting({
   status,
   progress,
+  generation,
   failure,
   offered,
 }: {
   status: AnalysisStatus;
   progress: Progress | null;
+  /** Which run this is about. A change means a different worker picked the analysis up. */
+  generation: number | null;
   failure: Analysis["failure"];
   offered: number;
 }): React.JSX.Element {
@@ -1025,6 +1053,20 @@ function Waiting({
   // is how a bar that could not retreat retreated. This makes the guarantee a property of the
   // thing that makes it.
   const ceiling = useRef(0);
+  // **A different worker is a different run, and neither ref may cross that line.** A reclaim
+  // does not have to pass back through `queued` from here: the stream can drop during the
+  // sweep and reconnect with the replacement already `running`, so nothing else would clear
+  // them. Left alone, the dead run's percentage floors the replacement's discovery and its
+  // elapsed time dates the replacement's estimate.
+  //
+  // Reset during render rather than by keying the whole component: a key remounts the DOM as
+  // well, which is more than is meant here and turned out to be observable in a test.
+  const run = useRef(generation);
+  if (run.current !== generation) {
+    run.current = generation;
+    startedRunning.current = running ? new Date() : null;
+    ceiling.current = 0;
+  }
   if (shown === null) ceiling.current = 0;
   else ceiling.current = Math.max(ceiling.current, shown);
   const percent = shown === null ? null : ceiling.current;

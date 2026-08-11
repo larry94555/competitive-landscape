@@ -659,10 +659,22 @@ pub async fn analyze_with(
         // denominator at this point would be a bar that retreats, which is the one thing
         // `landscape_core::progress` promises not to do.
         so_far.phase = landscape_core::Phase::Searching;
-        // **Before the await, not after it.** `search_for_gaps` is a network round trip per
-        // unanswered question, and a phase set but not published is a phase nobody is told
-        // about for the whole of the slowest thing it names.
-        let _ = announce!(so_far, &notes);
+        // **Before the await, and the answer is the point.** `search_for_gaps` is a network
+        // round trip per unanswered question followed by up to three pages of model calls, so
+        // a phase set but not published is a phase nobody is told about for the whole of the
+        // slowest thing it names - and an answer published but not *read* is worse. The worker
+        // says `Wanted::No` here when the run has been given to somebody else, and this is the
+        // cheapest place left to stop.
+        if announce!(so_far, &notes) == Wanted::No {
+            stopped_early = true;
+        }
+    }
+
+    // **Asked a second time, because the announcement above can have changed the answer.**
+    // `worth_searching` is the cancellation guard - `!stopped_early && !gaps.is_empty()` - and
+    // the first version discarded the announcement's verdict with `let _ =`, so a revocation
+    // first seen at this boundary went on to spend the search anyway. Review found it.
+    if worth_searching(stopped_early, &gaps) {
         let (admitted, failures) = search_for_gaps(search, origin, &gaps, &so_far.urls()).await;
         so_far.searched.extend(searched_pages(&admitted));
         {
@@ -703,7 +715,13 @@ pub async fn analyze_with(
 
     // Everything this company had to say has been said; what is left is putting it together.
     so_far.phase = landscape_core::Phase::Assembling;
-    let _ = announce!(so_far, &notes);
+    // **And the verdict here decides what the returned `Analysis` says about itself.** Left
+    // discarded, a run revoked at this boundary came back with `stopped_early: false` - so the
+    // caller, the worker's log, and `analyze_many`'s own decision about the companies still
+    // ahead were all told the run had finished on its own terms.
+    if announce!(so_far, &notes) == Wanted::No {
+        stopped_early = true;
+    }
 
     let reading = Reading {
         found: &found,
@@ -2332,6 +2350,46 @@ mod joining {
             Some(landscape_core::Progress::finished(origins.len())),
             "the finished report does not say the run finished"
         );
+    }
+
+    #[tokio::test]
+    async fn a_run_revoked_at_a_phase_boundary_stops_there() {
+        // **A reader who accepts every reading tick and refuses the one at a later phase.**
+        // The announcements at `Searching` and `Assembling` had their answers discarded with
+        // `let _ =`, so a revocation first seen at either boundary was published and ignored:
+        // the search ran anyway - a network round trip per unanswered question - and the
+        // returned `Analysis` said `stopped_early: false` about a run that had been taken away.
+        for refuse_at in [
+            landscape_core::Phase::Searching,
+            landscape_core::Phase::Assembling,
+        ] {
+            let origins = unreachable(1);
+            let mut refused = false;
+            let outcome = analyze_many(
+                &offline(),
+                &landscape_fetch::Budget::for_one_analysis(),
+                &named(&origins),
+                &mut |report| {
+                    let phase = report.progress.map(|p| p.phase);
+                    if phase == Some(refuse_at) {
+                        refused = true;
+                        Wanted::No
+                    } else {
+                        Wanted::Yes
+                    }
+                },
+            )
+            .await;
+
+            assert!(
+                refused,
+                "the run never reached {refuse_at:?}, so this asserts nothing"
+            );
+            assert!(
+                outcome.stopped_early,
+                "a run revoked at {refuse_at:?} came back saying it finished on its own terms"
+            );
+        }
     }
 
     #[tokio::test]

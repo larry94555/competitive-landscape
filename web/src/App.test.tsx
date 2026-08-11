@@ -1968,6 +1968,54 @@ describe("how far through it is", () => {
     expect(screen.queryByText(/page \d+ of \d+/)).toBeNull();
   });
 
+  it("a new worker does not inherit the dead one's percentage", async () => {
+    // **A reclaim need not pass back through `queued` from here.** The stream can drop during
+    // the sweep and reconnect with the replacement already `running`, so `status` never stops
+    // being `running` and nothing else in this component would clear the progress. The floor
+    // that makes the bar monotonic lives in a ref, and a ref survives a re-render - so the
+    // dead worker's 90% became the replacement's starting floor, and its elapsed time dated
+    // the replacement's estimate.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send("generation", "1"),
+    );
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "reading",
+          saying: "Reading public web pages",
+          percent: 90,
+          estimating_to: null,
+          companies: { done: 0, of: 1 },
+          pages: { done: 9, of: 10 },
+        }),
+      ),
+    );
+    expect(await screen.findByText("90%")).toBeInTheDocument();
+
+    // The sweep hands the run to another worker. Status stays `running` throughout.
+    act(() => FakeEventSource.last!.send("generation", "2"));
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "discovering",
+          saying: "Finding the pages worth reading",
+          percent: null,
+          estimating_to: 17,
+          companies: { done: 0, of: 1 },
+          pages: null,
+        }),
+      ),
+    );
+
+    // The replacement is discovering, so it is estimating - and from nothing, not from 90.
+    const shown = await screen.findByText(/^~\d+%$/);
+    expect(Number(shown.textContent!.replace(/[~%]/g, ""))).toBeLessThan(90);
+    expect(screen.queryByText("90%")).toBeNull();
+  });
+
   it("a finished run is a different word and no bar, not a bar that stopped", async () => {
     // **A still bar and a hung bar look identical.** The question a reader is asking is which
     // of the two they are looking at, so the finished state answers it in words and by the
