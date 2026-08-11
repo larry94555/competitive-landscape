@@ -704,10 +704,35 @@ one thing you may have to come back and edit.
 
 ### 11b. Install Caddy and point it at your domain
 
-On the box:
+On the box. **Caddy is not in Ubuntu's archive**, so its own repository goes on first — these
+four lines are Caddy's documented install for Debian and Ubuntu, and they carry an arm64 build:
 
 ```bash
+sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt-get update
 sudo apt-get install -y caddy
+```
+
+Check it is there before going on — the second command also proves the directory the next step
+writes into exists:
+
+```bash
+caddy version
+ls /etc/caddy/Caddyfile
+```
+
+> **`E: Unable to locate package caddy`** means the repository lines above did not take. Re-run
+> them and watch `apt-get update` for an error against `dl.cloudsmith.io`.
+>
+> **`cp: cannot create regular file '/etc/caddy/Caddyfile': No such file or directory`** in the
+> next command is the same problem one step later: no package, so no directory. It reads like a
+> missing file and it is a missing program.
+
+Now the configuration. The package ships a default `Caddyfile`; you are replacing it:
+
+```bash
 sudo cp ~/competitive-landscape/deploy/Caddyfile.example /etc/caddy/Caddyfile
 sudo nano /etc/caddy/Caddyfile
 ```

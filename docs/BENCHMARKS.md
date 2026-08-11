@@ -366,6 +366,27 @@ plainly that it clones `main` and that an open pull request is not in it.
 **The rule this is an instance of:** every check earns its place by what it says when it fails,
 not by what it confirms when it passes.
 
+### A package that is not in the archive, and a failure one step away from its cause
+
+```text
+cp: cannot create regular file '/etc/caddy/Caddyfile': No such file or directory
+```
+
+**Caddy is not in Ubuntu's archive.** `sudo apt-get install -y caddy` cannot work on a stock
+image; the line was written from memory of a machine that already had Caddy's repository
+configured. It needs four lines of Caddy's own documented install first.
+
+What makes it worth writing down is **where the failure surfaces**. `apt` says *unable to locate
+package* and carries on; the next command then fails on `/etc/caddy/Caddyfile`, and that message
+names a missing *file*. A reader who scrolled to the error rather than back through the output
+would go looking for the file, or `mkdir` the directory and get a Caddy that is still not
+installed. The guide now checks with `caddy version` and `ls /etc/caddy/Caddyfile` between the
+two, and names both messages as the same cause.
+
+**Every installation step in this guide has now been walked**, and this is the third where the
+box disagreed with what was written: an empty firewall chain, a cluster on 5433, and a package
+that does not exist. None was a hard problem. All three were invisible from here.
+
 ### Numbers in prose are not checked by anything
 
 Renumbering the guide to put DNS at step 3 left **seven** references pointing at the wrong
