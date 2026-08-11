@@ -18,9 +18,23 @@ screen**. A reader who typed an idea forty seconds ago wants to know *what is al
 there*. Instead they get a comparison matrix's worth of prose about companies they have not yet
 decided they care about.
 
+**The six questions are a deeper dive, and they were never a first step.** They are what a
+reader asks *about a company they have already decided matters* — what does it cost, what does
+it do, what has it changed lately. Asking all six of a company nobody has chosen yet is asking
+a stranger their salary.
+
+**And a question with no answer beside it is worse than no question.** Six headings, most of
+them followed by *"nothing found in public sources"* and a list of what was checked, is a page
+of apologies. The honest-negative treatment is right — `PRODUCT_SPEC.md` §4.3 argues for it and
+this document does not touch it — but it belongs where somebody went looking for that fact, not
+in front of somebody who has not yet seen a single name.
+
 **The detail is not being deleted. It is being demoted.** The full report becomes a downloadable
 PDF and a browsable detail view. The first screen becomes an answer to the question that was
 actually asked.
+
+See the shape: [`prototype/results-mockup.html`](../prototype/results-mockup.html), with
+invented data and working interactions.
 
 ---
 
@@ -198,6 +212,28 @@ Two further questions fall out of it, neither answered:
   actually is, so a discussions block that silently omits it is misleading about its own
   coverage.
 
+### 4.3a The examples were never shown to produce values
+
+**This is the assumption that should have been checked and was not**, and it is a dependency
+because everything above assumes the pipeline can fill a page.
+
+`ROADMAP.md` §2·D item D4 asks for example ideas that *really run*, and
+[BENCHMARKS.md](BENCHMARKS.md) Run 22 is the check that was supposed to prove it. Its table has
+a column headed **"Questions answered"** reading *"all six"* for four of the six companies.
+
+Its own header reads: **"Model: none — this is discovery alone."**
+
+So *"answered"* there means **a page was found and admitted for that question**. Nothing was
+extracted, because nothing could be: no model ran. Discovery finding a pricing page and a model
+pulling a number off it are different events, and the check measured the first while its column
+name claimed the second. A reader of that table — including whoever wrote the next thing on top
+of it — would reasonably conclude the examples had been shown to produce answers.
+
+**What is actually unmeasured:** how many of the six questions yield a *claim* for a curated
+example company, on the deployed box, with the model running. That number could be six and it
+could be one. Nobody knows, and the first screen this document specifies is the wrong place to
+find out.
+
 ### 4.4 What the search channel can and cannot reach
 
 The channel today is one SearXNG instance, reached through `SEARX_URL`, returning general web
@@ -213,6 +249,30 @@ It is **not** obviously enough for the other two:
 **Whether to add per-venue adapters or to push harder on the general channel is undecided**, and
 it should be decided by trying the general channel against real subjects first — this repository
 has a rule about running the real thing before designing around a limit it has not measured.
+
+---
+
+## 4.5 Open issues
+
+Each of these blocks something in this document. None has an answer yet, and they are listed so
+that a decision is made rather than assumed by whoever writes the code.
+
+| # | Open issue | Blocks |
+|---|---|---|
+| **1** | **Discussion ordering.** Venue authority first, or specificity and corroboration first? See §4.3 — two written rules disagree | The discussions list, and the cap of 25 against 5 |
+| **2** | **What makes a venue authoritative.** Domain age, editorial process, primary against aggregating, or a hand-maintained list? | Tiering, and whether the tier can be shown to a reader as a reason |
+| **3** | **Reddit.** [DISCUSSION_SIGNALS.md](DISCUSSION_SIGNALS.md) §4.3 marks it restricted and needing a decision before any code | Whether the discussions block is honest about its own coverage |
+| **4** | **Where open source projects come from.** A code host's API, or the general web channel? | The projects list, and its share of the count |
+| **5** | **What counts as a project worth listing.** Stars, recent commits, whether it is a library or a product, whether an archived repository still counts | Ordering the projects list, and the count |
+| **6** | **How many companies can be named without being analyzed.** The list wants 25; `subject::MAX_SUBJECTS` caps a *run* far lower because each company is its own discovery and model calls | The companies list at 25 |
+| **7** | **What "Why this?" actually shows.** `Interpreted` holds the phrase, the alternatives and the host count — an account a reader can argue with has to be written | The interpretation block |
+| **8** | **Whether the examples produce values at all.** See §4.3a — unmeasured, and the check that claimed it measured something else | Every list on the page, and whether this redesign is treating a symptom |
+| **9** | **What the detail view is.** A page per company, a single scrolling report, an expander under each list row? | Everything §3 moves out of the first screen |
+
+**Issue 8 is the one to settle first.** If a curated example yields one claim in six on the
+deployed box, the problem this document is solving is a symptom and the cause is upstream — in
+extraction, in the model, or in what discovery admits. A better first screen would still be
+worth having, and it would be lipstick.
 
 ---
 
