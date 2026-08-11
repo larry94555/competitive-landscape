@@ -291,6 +291,35 @@ failed for user landscape"* means the server that answered **has** that role; a 
 one says *role does not exist*. Two servers both having it is what makes this confusing, and
 knowing which sentence means what is the difference between five minutes and an afternoon.
 
+### The box was not empty, and the guide assumed it was
+
+`ss` named `docker-proxy` on 5432, so the guide said what it had just been taught to say: stop
+the container. `docker ps` said what the container was:
+
+```text
+d5804be60c89   postgres:16-alpine   Up 3 weeks (healthy)   127.0.0.1:5432->5432/tcp   job-preparation-db-1
+```
+
+**Another application of the operator's, running for three weeks.** Nothing about this
+deployment justifies stopping it, and the instruction to do so was written on the assumption
+that anything on 5432 must be in the way — an assumption that a guide for somebody else's
+machine has no business making.
+
+It does not need stopping either. Ubuntu's packaging puts a new cluster on **the next free
+port** when 5432 is taken, so the native server had been on 5433 the whole time, working
+perfectly over the socket, while every URL in the guide pointed at 5432 and reached the other
+project. `pg_lsclusters` prints the port; step 5 records it, step 6 checks against it, step 9
+writes it into `DATABASE_URL`, and the env file says why it might not be 5432.
+
+**And I read the error message wrong, twice.** *"password authentication failed for user
+landscape"* does not mean the answering server has that role: PostgreSQL returns the same
+sentence either way, deliberately, so that it cannot be used to enumerate usernames. I used it
+as evidence about which server had answered and it was never evidence of anything. The guide now
+says to check the port instead of reading the error, and says why the error cannot be read.
+
+That is three corrections in one step — the instruction that assumed an empty box, the
+instruction that needed a checkout two steps in the future, and my own diagnosis.
+
 ### Numbers in prose are not checked by anything
 
 Renumbering the guide to put DNS at step 3 left **seven** references pointing at the wrong

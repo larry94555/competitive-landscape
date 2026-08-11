@@ -285,30 +285,67 @@ stopped service.
 | `systemctl is-active postgresql` says `inactive` or `failed` | `sudo systemctl start postgresql`, then `journalctl -u postgresql -n 30` if it will not |
 | the journal says the address is already in use | Something else holds port 5432 — see below |
 
-**Then check who holds the port, before anything depends on the answer:**
+**Then find out which port your server is on**, because it is not necessarily 5432:
 
 ```bash
-sudo ss -ltnp | grep 5432
+pg_lsclusters
 ```
 
-| What it names | What it means |
+```text
+Ver Cluster Port Online Owner    Data directory              Log file
+16  main    5432 online postgres /var/lib/postgresql/16/main /var/log/postgresql/…
+```
+
+**Write down the number in the `Port` column.** Everything below calls it `PGPORT`, and it goes
+into `DATABASE_URL` at [step 9](#step-9--configure-and-start-the-three-services). Carrying it in
+the shell saves retyping:
+
+```bash
+PGPORT=$(pg_lsclusters --no-header | awk '{print $3}' | head -1)
+echo "$PGPORT"
+```
+
+> **It is 5433 or higher when something else already had 5432.** Ubuntu's packaging picks the
+> next free port for a new cluster rather than failing, which is a kindness that is invisible
+> until it confuses you: your socket commands work regardless of port, while anything using a
+> URL goes wherever 5432 actually points.
+>
+> **That "something else" may not be yours to stop.** This box may run other applications — the
+> first one this guide was walked on had another project's database on 5432, up for three weeks.
+> Nothing here justifies stopping it, and nothing here needs to: the port lives in one
+> environment variable and the application has no opinion about it.
+
+| If `Online` says | Then |
 |---|---|
-| `postgres` | The native server. This is what the guide expects — carry on |
-| `docker-proxy` | **A container has it.** Everything after this step will edit one database and connect to another |
-| nothing at all | Postgres is not listening on TCP. `sudo systemctl status postgresql` |
+| `online` | Carry on |
+| `down` | `sudo pg_ctlcluster VERSION main start`, with the version from the first column, then `journalctl -u postgresql -n 20 --no-pager` if it will not |
 
 > **This project's own `docker-compose.yml` is the likeliest container**, and it is built to
 > catch you out: its `db` service ships a role called `landscape`, a database called
 > `landscape`, and the password `landscape`. So a collision does not fail loudly — it succeeds
 > against the wrong server.
 >
+> **Stop it by name, not with compose.** The checkout does not exist yet — it arrives in
+> [step 7](#step-7--build-the-application) — so `docker compose down` has no project to read and
+> `cd ~/competitive-landscape` fails:
+>
 > ```bash
-> cd ~/competitive-landscape && sudo docker compose down
-> sudo systemctl restart postgresql
+> sudo docker ps
 > ```
 >
-> That stops the whole compose project. [Step 10](#step-10--start-the-search-engine) brings back
-> only what is wanted, with `--profile search up -d searxng`.
+> Find the row whose image is a `postgres`, then, with its name or the first characters of its
+> id:
+>
+> ```bash
+> sudo docker stop NAME_OR_ID
+> sudo systemctl restart postgresql
+> sudo ss -ltnp | grep 5432
+> ```
+>
+> `ss` should now name `postgres`. **If Postgres will not start**, look at
+> `sudo journalctl -u postgresql -n 20 --no-pager`: a server that could not bind the port when
+> it was installed has been down ever since, and anything you have run over the socket since
+> then failed too.
 >
 > **The compose file publishes on `127.0.0.1` now** rather than every interface, so a container
 > and the native server can no longer both look reachable from outside. They still cannot share
@@ -376,7 +413,7 @@ as, the second makes the **database** it logs in to, owned by that role.
 services will:
 
 ```bash
-psql "postgres://landscape:$PGPASS@127.0.0.1:5432/landscape" -c '\conninfo'
+psql "postgres://landscape:$PGPASS@127.0.0.1:$PGPORT/landscape" -c '\conninfo'
 ```
 
 ```text
@@ -395,26 +432,30 @@ finding out there costs a service that will not start and a journal line about a
 | `password authentication failed` | The role exists and its password is not `$PGPASS` — which is what happens when the role predates this attempt. The `ALTER USER` line above sets it, and then this command passes |
 | `database "landscape" does not exist` | The second SQL line did not run. Run it on its own |
 
-> **`password authentication failed` right after you set the password is the collision from
-> [step 5](#step-5--install-what-the-build-needs).** `sudo -u postgres psql` goes over the Unix
-> socket and always reaches the native PostgreSQL; the URL goes over TCP, to whatever holds the
-> port. `ALTER USER` changed the password on one server and this command authenticated against
-> the other.
+> **`password authentication failed` right after you set the password almost always means you
+> are talking to a different server.** `sudo -u postgres psql` goes over the Unix socket and
+> reaches your cluster whatever port it is on; a URL goes over TCP, to whoever holds the port
+> you named. `ALTER USER` changed the password on one and the check authenticated against the
+> other.
 >
-> The tell is the wording: *password authentication failed for user "landscape"* means the
-> server that answered **has** that role. A machine with no `landscape` role would have said so.
-> Both servers having one is what makes this confusing, and this project's own compose file is
-> why — its `db` service ships that exact role, database and the password `landscape`.
+> **The message will not tell you which.** PostgreSQL answers *password authentication failed
+> for user "landscape"* whether or not that role exists — deliberately, so that it cannot be
+> used to discover valid usernames. It is not evidence that the role is there.
+>
+> So check the port rather than reading the error:
 >
 > ```bash
-> sudo ss -ltnp | grep 5432
-> psql "postgres://landscape:landscape@127.0.0.1:5432/landscape" -c '\conninfo'
+> echo "$PGPORT"
+> pg_lsclusters
+> sudo ss -ltnp | grep "$PGPORT"
 > ```
 >
-> If the second one succeeds, you are talking to that container. Stop it and restart the native
-> server as [step 5](#step-5--install-what-the-build-needs) describes, then run the check again.
+> If `$PGPORT` is empty you skipped that part of
+> [step 5](#step-5--install-what-the-build-needs). If `ss` names `docker-proxy` on the port your
+> cluster claims, two things are fighting over it and `pg_lsclusters` will say your cluster is
+> `down`.
 >
-> **The `\conninfo` check is what catches this at all**, because it is the only command in this
+> **The `\conninfo` check is what catches all of this**, because it is the only command in this
 > step that takes the same route the services will.
 
 There is no schema step. **The application applies its own migrations on boot**, so there is
@@ -499,9 +540,19 @@ sudo cp deploy/landscape.env.example /etc/landscape/landscape.env
 sudo nano /etc/landscape/landscape.env
 ```
 
-In that file, change exactly one thing: on the `DATABASE_URL` line, replace `CHANGE_ME` with
-the password from [step 6](#step-6--create-the-database) — the one `echo "$PGPASS"` printed and
-you wrote down. Save with `Ctrl+O`, `Enter`, then `Ctrl+X`.
+In that file, change the `DATABASE_URL` line so it carries **two** things from
+[step 6](#step-6--create-the-database): the password in place of `CHANGE_ME`, and the port your
+cluster is actually on in place of `5432`. It is the string you already proved works:
+
+```text
+DATABASE_URL=postgres://landscape:THE_PASSWORD@127.0.0.1:THE_PORT/landscape
+```
+
+Save with `Ctrl+O`, `Enter`, then `Ctrl+X`.
+
+> **The port is `5432` only if `pg_lsclusters` said so.** If another application already had
+> that port when PostgreSQL was installed, your cluster is on 5433 or higher, and this line is
+> the one place that has to know.
 
 **If you still have the same SSH session open**, you do not have to retype it at all:
 
