@@ -417,6 +417,24 @@ That is the observed value rather than a second opinion about it, which is the s
 every other check in this guide. Step 12 now carries a four-row table — the page, the refusal, a
 certificate warning, and nothing at all — each with what it means and what to do.
 
+**And the remedy for it was wrong twice over.** It said to read the client address out of
+Caddy's log — and **Caddy writes no access log unless a site asks for one**, so the command
+returned nothing and the dead end stayed a dead end. The approach was wrong even if the log had
+existed: the address is known at the moment of refusal, and the person who needs it is the one
+person who cannot read the server's logs.
+
+So the refusal says it:
+
+```text
+Not open yet. Seen from 203.0.113.99
+```
+
+`{remote_host}` is exactly what Caddy compared against the list. It tells a refused visitor
+nothing they did not know — their own address, and nobody else's — and it turns the one
+sentence they are already looking at into the whole diagnosis. Guessing the value with `curl`
+from another machine was never going to be reliable: a browser behind a VPN, an `AAAA` record
+the registrar added, a rotated lease.
+
 **Three of the last four findings have the same shape**: a check or a message that was correct
 and had no remedy attached. A guide is not a list of commands; it is a list of commands **and
 what each of their answers means**, and the second half is the half that gets written only when

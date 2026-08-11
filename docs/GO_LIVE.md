@@ -793,13 +793,12 @@ The padlock should be there. If the browser warns about the certificate, Caddy h
 > **`Not open yet.` is this deployment's own words**, from the `handle` block in
 > `/etc/caddy/Caddyfile` that refuses everybody who is not in `@allowed`. Seeing it means the
 > domain resolves, the certificate works, Caddy is running, and the only thing wrong is which
-> address is on the list. **Read the address Caddy saw rather than guessing again:**
+> address is on the list.
 >
-> ```bash
-> sudo journalctl -u caddy --no-pager | grep -o '"remote_ip":"[^"]*"' | tail -5
-> ```
->
-> The last one is you. Put it on the `@allowed remote_ip` line, then:
+> **The page tells you which address it refused.** The refusal reads
+> `Not open yet. Seen from 203.0.113.99`, and that number is what Caddy compared against your
+> list — observed, rather than guessed by a second command on a different machine. Put it on
+> the `@allowed remote_ip` line and:
 >
 > ```bash
 > sudo systemctl reload caddy
@@ -807,9 +806,24 @@ The padlock should be there. If the browser warns about the certificate, Caddy h
 >
 > **Reload, not restart** — it re-reads the configuration without touching the certificate.
 >
-> The usual cause is [step 11a](#step-11--https) returning an IPv6 address while the browser
-> arrives over IPv4. A `remote_ip` matcher takes several values and CIDR ranges, so
-> `@allowed remote_ip 203.0.113.4 2001:db8::/32` is valid if you want both.
+> **If your refusal does not name an address**, your `Caddyfile` predates that — add it:
+>
+> ```bash
+> sudo sed -i 's|respond "Not open yet." 403|respond "Not open yet. Seen from {remote_host}" 403|' /etc/caddy/Caddyfile
+> sudo systemctl reload caddy
+> ```
+>
+> Four things commonly make the address differ from what [step 11a](#step-11--https) printed: a
+> browser using a VPN when `curl` did not, an **`AAAA` record** your registrar added, so the
+> browser arrives over IPv6 while you listed an IPv4 address, `curl` having been run on the box,
+> and an ISP that rotates the lease. A `remote_ip` matcher takes several values and CIDR
+> ranges, so `@allowed remote_ip 203.0.113.4 2001:db8:abcd:1234::/64` covers both families.
+>
+> ```bash
+> nslookup -type=AAAA YOUR_DOMAIN
+> ```
+>
+> Anything returned there means your browser is probably reaching the box over IPv6.
 
 You should see **What is your idea?**, a text box, an **Analyse** button, and three example
 ideas underneath.
