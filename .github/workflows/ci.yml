@@ -45,9 +45,11 @@ jobs:
         run: python3 scripts/check_links.py
 
       - name: American spelling
+        # american-spelling: off
         # One dialect. Nobody had chosen one, so the repository grew both and the product's
         # busiest button read `Analyse` for months. Text matching over every tracked file, so
         # it costs nothing and runs beside the other checks that read prose.
+        # american-spelling: on
         run: python3 scripts/american_spelling.py
 
       - uses: taiki-e/install-action@v2

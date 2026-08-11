@@ -114,11 +114,15 @@ test` instead, along with three more like it. What separates data from code is p
 length: a base64 run has none. The filter measures an unbroken run of the base64 alphabet now,
 and that line is a fixture.
 
-**And the third the gate found itself**, one commit later. `CODING_QUALITY.md` §8.2a describes
-how to bracket a passage, and describing it means naming **both** markers in one sentence —
-which the first version read as a mute that is never closed, and reported, on the first run after
-the sentence existed. A line that mentions both is writing about them and changes nothing. That
-is the check working, which is why it is a paragraph here rather than a fourth entry.
+**And the third is that writing about a rule trips the rule** — which happened twice, and both
+times the gate said so. `CODING_QUALITY.md` §8.2a describes how to bracket a passage, and
+describing it means naming **both** markers in one sentence, which the first version read as a
+mute that is never closed; a line mentioning both is writing *about* them and changes nothing.
+Then the comment added to `.github/workflows/ci.yml` explaining the new step quoted `Analyse`,
+and **CI failed on it** — the gate had gone into the workflow after the last local run, and
+nothing re-ran it. That is entry 16 for the third time in this repository: the moment you add a
+check is the moment you are least likely to run it, and CI is the only place that does not
+forget.
 
 ### What this run does not measure
 

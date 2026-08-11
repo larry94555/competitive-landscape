@@ -2413,11 +2413,14 @@ being skipped quietly — this entry is one, and so is the run that describes it
 into a silent hole. Everything skipped is printed on a passing run, because a check that does
 not mention its blind spots reads, on every green run, like a check that has none.
 
-*And the third defect was found by the gate itself*, one commit later: the coding standard's
-sentence describing how to bracket a passage names **both** markers on one line, which the
-first version read as an unclosed mute. A line that mentions both is writing *about* them and
-changes nothing. That is the gate doing its job on the first run after the sentence existed,
-which is the only reason it is a footnote here rather than an entry of its own.
+*And the gate kept catching the same thing: writing about a rule trips the rule.* Three times
+in one change. The coding standard's sentence describing how to bracket a passage names **both**
+markers on one line, which the first version read as an unclosed mute — so a line mentioning
+both is now writing *about* them and changes nothing. Then the comment added to `ci.yml`
+explaining the step quoted `Analyse`, and **CI failed on it**, because the gate had been added
+to the workflow after the last local run and nothing re-ran it. Both are the check working. The
+second is also entry 16 again: a local run is a snapshot of the moment somebody chose to type
+the command, and the moment you add a check is the moment you are least likely to run it.
 
 **Rule:** a repository-wide convention that lives only in the existing text is not a convention,
 it is an average — and averages drift. Decide it, sweep it once, and land the check in the same

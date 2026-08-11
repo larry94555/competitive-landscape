@@ -371,8 +371,11 @@ def main() -> int:
         if dangling is not None:
             open_markers.append((path, dangling))
             continue
-        if MUTE in text:
-            muted += text.count(MUTE)
+        # Counting `text.count(MUTE)` would include the sentences that *describe* the markers,
+        # and this number exists to be trusted rather than approximately right.
+        muted += sum(
+            1 for line in text.split(chr(10)) if MUTE in line and not names_both(line)
+        )
         for line, found, american in offenders(text):
             hits.append((path, line, found, american))
 
