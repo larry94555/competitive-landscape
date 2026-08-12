@@ -463,6 +463,8 @@ mod tests {
         Report {
             // A finished report, so it carries a finished run.
             progress: Some(crate::Progress::finished(2)),
+            asked: None,
+            searches: None,
             subject: "basecamp.com linear.app".to_owned(),
             searched_as: "basecamp.com, linear.app".to_owned(),
             generated_at: when(),

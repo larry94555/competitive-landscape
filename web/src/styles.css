@@ -42,12 +42,142 @@ button {
 }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* Directly under the typed idea and above the results — Demo_Walkthrough.md §4. */
-.searched-as {
+/* The four blocks of PRODUCT_IDEA_RESULTS.md §2, in the order a reader checks them. Ported
+   from prototype/results-mockup.html — the mockup is the specification for this page, and
+   the two are meant to look the same.
+
+   1. What you asked --------------------------------------------------------------------- */
+.asked { margin-bottom: 1.75rem; }
+/* A label, not a title. The reader's own words are the loud thing here; "What you asked" only
+   has to say what they are looking at. */
+.asked h2 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  font-weight: 600;
+  margin: 0 0 0.4rem;
+}
+.prompt { font-size: 1.35rem; line-height: 1.45; margin: 0; }
+/* Two lines, measured by the browser rather than counted in characters — the same sentence is
+   two lines wide on a laptop and four on a phone. */
+.prompt.clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.more-dots {
+  margin-top: 0;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* 2. How that was interpreted ------------------------------------------------------------
+   Every query underneath was built from this phrase, so a wrong reading has to be visible
+   before anything below it is believed — COMPETITIVE_DISCOVERY.md §4. */
+.reading {
+  border-left: 3px solid var(--accent);
   background: var(--accent-soft);
-  border: 1px solid var(--accent);
-  border-radius: 3px;
-  padding: 0.7rem 1rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.75rem;
+}
+.reading p { margin: 0; }
+.reading .phrase { font-weight: 700; }
+.reading .backing { color: var(--muted); font-size: 0.9rem; margin-top: 0.35rem; }
+/* The other names the same market goes by, inside the block that names it. */
+.reading .also { color: var(--muted); }
+
+/* 3. The count --------------------------------------------------------------------------- */
+.count {
+  font-size: 1.05rem;
+  margin: 0 0 2.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--rule);
+}
+/* What was not looked for, in the same sentence as what was. Quieter, because it is a fact
+   about this product rather than about the reader's market — but on the same line, because a
+   reader who misses it will read the count as covering all three categories. */
+.count .not-yet { color: var(--muted); }
+
+/* 4. The three lists ----------------------------------------------------------------------
+   The headings are the page's furniture, so they are built like it: size, a rule that closes
+   the header off from its list, and the count moved to the right where the eye already goes at
+   the end of a line. None of the three is color alone — CODING_QUALITY.md §9.5. */
+.listing { margin-bottom: 3.25rem; }
+.listing > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 2px solid var(--accent);
+  margin-bottom: 0.35rem;
+}
+.listing h2 {
+  font-size: 1.45rem;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.012em;
+  margin: 0;
+}
+/* The count as a chip: it is a fact about the list, so it sits at the list's edge instead of
+   trailing off the title like an afterthought. */
+.listing .of {
+  flex: none;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+  white-space: nowrap;
+}
+/* A category with no pipeline behind it reads as absent, not as empty. */
+.listing .of.not-built {
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--rule);
+}
+.listing .note { color: var(--muted); font-size: 0.85rem; margin: 0 0 0.6rem; }
+.listing ul { list-style: none; margin: 0; padding: 0; }
+.listing li {
+  padding: 0.78rem 0;
+  border-bottom: 1px solid var(--rule);
+  display: flex;
+  gap: 0.9rem;
+  align-items: baseline;
+}
+.listing li:last-child { border-bottom: 0; }
+.listing li .name { font-weight: 600; }
+.listing .reveal {
+  margin-top: 0.8rem;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--accent);
+  cursor: pointer;
+}
+.listing .reveal:hover { text-decoration: underline; }
+
+/* The evidence, off the first screen and on the same page. PRODUCT_IDEA_RESULTS.md §3 sends it
+   to a separate view and a downloadable report; until those exist, a disclosure is the smallest
+   change that clears the first screen without losing anything. */
+.detail { border-top: 1px solid var(--rule); padding-top: 1rem; }
+.detail > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
 }
 
 /* Whether a run is still going, and how far through it is.
@@ -274,12 +404,6 @@ button.choice strong { display: block; }
   font-family: ui-monospace, monospace;
   font-size: 0.8rem;
 }
-
-/* The market's words, above the results. Quiet, because it is context rather than a finding —
-   but never hidden, because everything below it was searched for in these words. */
-.interpreted { color: var(--ink); margin-bottom: 0.2rem; }
-.interpreted .also { color: var(--muted); }
-.interpreted .backing { color: var(--muted); font-size: 0.9rem; }
 
 /* What is curated and what is not. Small, and never omitted. */
 .curation { color: var(--muted); font-size: 0.85rem; }

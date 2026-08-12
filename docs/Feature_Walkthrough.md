@@ -2364,6 +2364,55 @@ one that worked. See [BENCHMARKS.md](BENCHMARKS.md) Run 43.
 
 ---
 
+## Part 8J — Read the first screen a finished run leaves you on
+
+**This part is about what you see when the bar reaches the end.** It used to be six section
+headings, most of them saying *"Nothing found in public sources"* — a list of questions with no
+answers under them, above the three things you had actually asked about.
+[PRODUCT_IDEA_RESULTS.md](PRODUCT_IDEA_RESULTS.md) is the specification for what replaced it.
+
+Run anything end to end — Part 8E does — and look at the top of the page.
+
+```text
+WHAT YOU ASKED
+an app that helps small farms sell to local restaurants
+
+  Here's how I interpreted the business idea: farm-to-restaurant ordering software
+  4 independent sites use this name for it.
+
+I found 12 companies.  I have not looked for open source projects or discussions
+— neither search is built yet.
+
+Companies                                                          12 FOUND
+  provisions.io
+  cropconnect.com
+  ...
+  …more (7)
+```
+
+### Four things to check, because each is a different way to be wrong
+
+**1. Type a domain instead of a description.** `basecamp.com linear.app` — the count must say
+**"You named 2 companies"**, never *"I found 2 companies"*. Nothing was discovered: the domains
+were handed straight through. Claiming otherwise is the product taking credit for reading your
+list.
+
+**2. Check the order of a named set.** Run `zulip.com basecamp.com linear.app` and the list must
+come back in **that** order. You put one first for a reason.
+
+**3. Look at what it says about the two empty categories.** They must say **not built**, and
+they must still have their headings. A *"0 open source projects"* would be a claim that we
+looked; a missing heading would be indistinguishable from a feature that does not exist.
+
+**4. Break the engine mid-run** — Part 8F1 shows how — and the count should read **"at least"**.
+A bare number over a search that did not finish is a definite claim about an indefinite thing.
+
+The six claim sections are still there, under **The full report** — they are the only evidence
+this product has, and they stay on the page until the detail view and the downloadable report
+exist. See [BENCHMARKS.md](BENCHMARKS.md) Run 47.
+
+---
+
 ## Part 9 — What the tests prove
 
 ```bash

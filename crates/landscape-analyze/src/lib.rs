@@ -170,6 +170,14 @@ pub struct Asked<'a> {
     /// The report says so first, because it is the one thing a reader cannot check by reading
     /// further down the page: they never typed any of these names.
     pub set: Option<&'a landscape_search::competitors::Set>,
+    /// What class of thing the reader gave, and how much of the searching finished.
+    ///
+    /// **Both are known here and nowhere later.** `subjects_in` runs in the worker and
+    /// `candidates::Queried` is consumed there too, so a report assembled without them can
+    /// never recover either - see `landscape_core::given`.
+    pub given: landscape_core::Given,
+    /// `None` when nothing was searched for, which is a named set.
+    pub searches: Option<landscape_core::Searches>,
     /// What the market calls this, when the queries turned out to use different words.
     ///
     /// Rides here rather than being stamped on afterwards because the **partial** reports go
@@ -228,14 +236,24 @@ pub async fn analyze_many(
     asked: &Asked<'_>,
     on_progress: &mut dyn FnMut(&Report) -> Wanted,
 ) -> Analysis {
-    let &Asked {
+    let Asked {
         origins,
         now,
         today,
         search,
         set,
+        given,
+        searches,
         interpreted,
     } = asked;
+    let (origins, now, today, search, set, interpreted) =
+        (*origins, *now, *today, *search, *set, *interpreted);
+    // Assembled once, so no call site can pass these three in the wrong order or forget one.
+    let how = Provenance {
+        given: Some(given),
+        searches: searches.as_ref(),
+        interpreted,
+    };
     let llm = with.llm;
     // The cap is applied here rather than in the parser, so what it costs can be said out
     // loud. Dropping the fourth company in silence would be the defect this feature exists to
@@ -285,15 +303,7 @@ pub async fn analyze_many(
         // about the company before it. Said here instead, where the company count is known and
         // the report so far already exists.
         {
-            let mut ahead = joined(
-                &finished,
-                None,
-                origins,
-                notes.clone(),
-                llm,
-                now,
-                interpreted,
-            );
+            let mut ahead = joined(&finished, None, origins, notes.clone(), llm, now, how);
             ahead.progress = Some(landscape_core::Progress {
                 phase: landscape_core::Phase::Discovering,
                 companies: landscape_core::Counted::new(finished.len(), origins.len()),
@@ -314,7 +324,7 @@ pub async fn analyze_many(
                     notes.clone(),
                     llm,
                     now,
-                    interpreted,
+                    how,
                 ))
             };
             let one = analyze_with(
@@ -339,7 +349,7 @@ pub async fn analyze_many(
         }
     }
 
-    let report = joined(&finished, None, origins, notes, llm, now, interpreted);
+    let report = joined(&finished, None, origins, notes, llm, now, how);
     Analysis {
         report,
         coverage: coverage_by_question(&finished),
@@ -376,6 +386,26 @@ fn coverage_by_question(finished: &[Analysis]) -> Vec<Coverage> {
     merged
 }
 
+/// How this run came about, as one value.
+///
+/// **Three facts that always travel together, and none of which a finished report can recover.**
+/// What the reader gave, how much of the searching came back, and what the market turned out to
+/// call it are all decided in the worker and all needed by every partial report on the way out —
+/// so they are passed as one thing rather than as three parameters somebody can get out of order.
+///
+/// The partial reports matter here as much as the last one: a line that appeared only at the end
+/// would tell somebody, ninety seconds in, that what they had been watching had been about
+/// something else all along.
+#[derive(Clone, Copy, Default)]
+struct Provenance<'a> {
+    /// What class of thing the reader gave — a description, a seed, or a named set.
+    given: Option<&'a landscape_core::Given>,
+    /// How many searches were sent and how many answered. `None` when nothing searched.
+    searches: Option<&'a landscape_core::Searches>,
+    /// What the market calls this, when it turned out to call it something else.
+    interpreted: Option<&'a landscape_core::Interpreted>,
+}
+
 /// One report from several, with source labels reassigned so none collides.
 fn joined(
     finished: &[Analysis],
@@ -384,11 +414,7 @@ fn joined(
     notes: Vec<String>,
     llm: &landscape_llm::LlamaClient,
     now: DateTime<Utc>,
-    // What the market calls this, when it turned out to call it something else. A parameter
-    // rather than something stamped on afterwards, because the **partial** reports reach a
-    // reader too — a line that appeared only at the end would tell somebody, ninety seconds
-    // in, that what they had been watching had been about something else all along.
-    interpreted: Option<&landscape_core::Interpreted>,
+    how: Provenance<'_>,
 ) -> Report {
     let mut sections: Vec<Section> = Vec::new();
     let mut sources: Vec<Source> = Vec::new();
@@ -493,8 +519,10 @@ fn joined(
         subjects: origins.to_vec(),
         sections,
         sources,
-        interpreted: interpreted.cloned(),
+        interpreted: how.interpreted.cloned(),
         notes,
+        asked: how.given.cloned(),
+        searches: how.searches.copied(),
         // **Each layer contributes the count it knows.** The company being read says what phase
         // it is in and how far through its own pages; only here is it known how many companies
         // there are, so only here is the company count filled in. No `in_flight` means no
@@ -1486,6 +1514,8 @@ fn assemble(
         // count with the set's when several are merged. Each layer states what it knows and
         // nothing it would have to guess.
         progress: Some(reached),
+        asked: None,
+        searches: None,
     };
     (report, coverage)
 }
@@ -1923,6 +1953,8 @@ mod joining {
     fn one_company(origin: &str, says: &str) -> Analysis {
         let report = Report {
             progress: Some(landscape_core::Progress::finished(1)),
+            asked: None,
+            searches: None,
             subject: origin.to_owned(),
             searched_as: origin.to_owned(),
             generated_at: at(),
@@ -2070,7 +2102,7 @@ mod joining {
             Vec::new(),
             &llm(),
             at(),
-            None,
+            Provenance::default(),
         );
 
         let pricing = merged
@@ -2104,7 +2136,7 @@ mod joining {
             Vec::new(),
             &llm(),
             at(),
-            None,
+            Provenance::default(),
         );
 
         assert!(
@@ -2157,7 +2189,7 @@ mod joining {
             Vec::new(),
             &llm(),
             at(),
-            None,
+            Provenance::default(),
         );
 
         assert_eq!(merged.sections[0].claims.len(), 2);
@@ -2179,7 +2211,7 @@ mod joining {
             Vec::new(),
             &llm(),
             at(),
-            None,
+            Provenance::default(),
         );
 
         let subjects: Vec<&str> = merged.sections[0]
@@ -2260,12 +2292,73 @@ mod joining {
             today: at().date_naive(),
             search: None,
             set: None,
+            // These tests are about the joining, so the class is the plain one and nothing
+            // was searched for.
+            given: landscape_core::Given::Described,
+            searches: None,
             interpreted: None,
         }
     }
 
     fn unreachable(n: usize) -> Vec<String> {
         (0..n).map(|i| format!("https://s{i}.invalid")).collect()
+    }
+
+    #[tokio::test]
+    async fn every_report_a_reader_sees_says_where_its_companies_came_from() {
+        // **The seam, not the two sides of it.** `given::tests` asserts the type and
+        // `web/src/App.test.tsx` asserts the sentences it produces; between them sits
+        // `joined()`, which builds a report once per company and once at the end. A version
+        // that stamped the class on only the last of those would pass both of those suites and
+        // still tell a reader mid-run that three companies they typed had been *found*.
+        //
+        // So: every report handed out, not just the final one.
+        let origins = unreachable(3);
+        let asked = Asked {
+            given: landscape_core::Given::Named { count: 3 },
+            searches: Some(landscape_core::Searches {
+                answered: 6,
+                failed: 2,
+            }),
+            ..named(&origins)
+        };
+
+        let mut partial = 0_usize;
+        let outcome = analyze_many(
+            &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
+            &asked,
+            &mut |report| {
+                partial += 1;
+                assert_eq!(
+                    report.asked,
+                    Some(landscape_core::Given::Named { count: 3 }),
+                    "a partial report forgot what the reader gave"
+                );
+                assert_eq!(
+                    report.searches.map(|s| s.sent()),
+                    Some(8),
+                    "a partial report forgot how much of the searching came back"
+                );
+                Wanted::Yes
+            },
+        )
+        .await;
+
+        // Without this the test passes on a run that announced nothing at all.
+        assert!(partial > 0, "no report reached the reader to be checked");
+        assert_eq!(
+            outcome.report.asked,
+            Some(landscape_core::Given::Named { count: 3 })
+        );
+        assert!(
+            !outcome
+                .report
+                .searches
+                .expect("the finished report carries the coverage")
+                .finished(),
+            "two searches did not come back, so the coverage must not read as complete"
+        );
     }
 
     #[tokio::test]
@@ -2517,7 +2610,10 @@ mod joining {
             Vec::new(),
             &llm(),
             at(),
-            Some(&market),
+            Provenance {
+                interpreted: Some(&market),
+                ..Provenance::default()
+            },
         );
         assert_eq!(partial.interpreted.as_ref(), Some(&market));
     }
@@ -2793,7 +2889,7 @@ mod joining {
             vec!["Comparing the first 2 sites named.".to_owned()],
             &llm(),
             at(),
-            None,
+            Provenance::default(),
         );
 
         assert!(
@@ -2834,7 +2930,7 @@ mod joining {
             Vec::new(),
             &llm(),
             at(),
-            None,
+            Provenance::default(),
         );
         assert_eq!(
             merged.notes.iter().filter(|n| **n == note).count(),
@@ -2865,7 +2961,7 @@ mod joining {
             Vec::new(),
             &llm(),
             at(),
-            None,
+            Provenance::default(),
         );
 
         assert_eq!(
@@ -3459,7 +3555,15 @@ mod joining {
     #[test]
     fn the_report_says_which_companies_it_is_about() {
         let origins = vec!["https://a.com".to_owned(), "https://b.com".to_owned()];
-        let merged = joined(&[], None, &origins, Vec::new(), &llm(), at(), None);
+        let merged = joined(
+            &[],
+            None,
+            &origins,
+            Vec::new(),
+            &llm(),
+            at(),
+            Provenance::default(),
+        );
         assert_eq!(merged.subject, "https://a.com, https://b.com");
         assert_eq!(merged.searched_as, "https://a.com, https://b.com");
     }

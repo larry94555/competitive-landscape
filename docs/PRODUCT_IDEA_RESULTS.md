@@ -554,3 +554,41 @@ it — re-parsing the prompt in the browser, inferring the class from whether `i
 set, treating any non-empty result as complete — is a business rule in a second place or a
 claim about a search nobody watched. Both are on the list of things this repository has already
 paid for once.
+
+---
+
+## 6. What was built, and where it departs from §5
+
+Steps 1 and 2 above shipped together. `landscape_core::given` carries `Given` — the input class,
+set where `subjects_in` is already called — and `Searches` — how many searches were sent and how
+many came back. Both are on `Report`, both reach the browser, and every sentence on the page that
+depends on provenance reads them rather than re-deriving anything.
+
+**Step 3 shipped differently, and this section is the reason.** §5 said the count sentence stays
+out until it can name all three categories. `prototype/results-mockup.html` — which is the
+instruction this page was built to — shows the sentence and all three headings. Rather than pick
+one, the page says what is true of each category separately:
+
+> I found 12 companies. **I have not looked for open source projects or discussions — neither
+> search is built yet.**
+
+and the two categories keep their headings with a **not built** chip and one line in place of a
+list.
+
+**This is §2.5's *could not look* state, one step further out.** That row was written for a
+source that was unreachable on this run; these two were never reachable at all. Both are facts
+about us rather than about the reader's market, and both are worse than useless as a zero — *"0
+open source projects"* is a claim that we looked. The distinction §5 was protecting — never
+show an empty list — is intact; what changed is that the headings stay, because a missing
+heading is indistinguishable from a feature that does not exist, and a reader cannot ask for
+what they cannot see is missing.
+
+### 6.1 Still outstanding
+
+| | Why |
+|---|---|
+| **Why this?** on the interpretation | Needs an explanation surface. [Open issue 3](#47-open-issues) |
+| **Edit** on the interpretation | `EditableSet` edits the *set*; editing the *phrase* is a different affordance and a different re-run |
+| The separate detail view and the downloadable report (§3) | [Open issue 9](#47-open-issues). Until they exist the six claim sections sit behind a disclosure on the same page — off the first screen, and nothing thrown away |
+| Both missing pipelines | [§4.1](#41-not-built-at-all) |
+

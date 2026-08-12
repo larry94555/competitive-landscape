@@ -2597,6 +2597,51 @@ outer guard is hiding an inner one before concluding the inner one is unnecessar
 
 ---
 
+## 65. A field that was empty for two different reasons, and I read only one of them
+
+**Found:** by review, against a specification, before any of it was built.
+
+`Report::interpreted` is `Some` when the market's words replaced the reader's and `None`
+otherwise. Writing the page that discloses the substitution, I wrote:
+
+| `interpreted` | The page says |
+|---|---|
+| `Some` | *"Here's how I interpreted the business idea: …"* |
+| `None` | *"You named these directly, so nothing was interpreted."* |
+
+Two rows, total, mutually exclusive, and every test I would have written passes.
+
+**`None` does not mean *"the reader named companies"*. It means *"nothing was substituted"***,
+and those come apart in a case that is not rare: somebody who already knows their market types
+its name. *Competitive intelligence software* takes the **description** path, has those exact
+words searched for, produces a discovered set, and stores `None` — because there was nothing to
+replace. My page would have told them they had named companies directly, which is false about
+the one thing that block exists to have them check, and would have pointed **Edit** at a set
+they never wrote.
+
+**The shape: a nullable field carries one bit, and I read a second one out of it.** `None` is
+the absence of a value; it is not evidence for whichever explanation of that absence is most
+convenient. There were **two independent facts** — what class of thing the reader gave, and
+whether their words were replaced — and I had used one field for both. The fix is not a third
+row in the table; it is asking the first question first:
+
+| The reader gave | Substituted | Where it comes from |
+|---|---|---|
+| A description | Yes | `subjects_in` — then `interpreted` |
+| A description | No | `subjects_in` — then `interpreted` |
+| Names | — | `subjects_in` alone |
+
+**Which exposed the thing underneath.** `subjects_in` runs **in the worker**. Nothing it decides
+reaches the browser — only the prompt does — so the honest version of this block was not
+buildable at all until the report carried the class. The two ways out of that are both entries
+in this file already: re-parse the prompt in TypeScript (a business rule in two languages), or
+infer the class from whether `interpreted` is set (the mistake above, promoted to architecture).
+The contract had to grow first.
+
+**Ask, of any optional field a decision is being read from:** *how many different situations
+produce the empty case, and does my branch tell them apart?* If the answer is more than one,
+the field is not the input to the decision — it is one of the inputs.
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**
@@ -2670,7 +2715,7 @@ Grouped by what has actually gone wrong, commonest first.
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35, 47, 49, 50, 51 |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35, 47, 49, 50, 51, 65 |
 | The mutation harness | 32, 36, 46, 48 | The only ones it found before review did. 36 deleted a rule rather than adding a test; 46 deleted an argument; 48 was a defect in a test |
 | Its own tooling | 28 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |

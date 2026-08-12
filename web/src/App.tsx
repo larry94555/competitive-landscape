@@ -8,6 +8,7 @@ import {
   getExamples,
   isTerminal,
   pathFor,
+  searchFinished,
   watchAnalysis,
   type Analysis,
   type AnalysisStatus,
@@ -493,66 +494,6 @@ function AnalysisView({
 
   return (
     <section aria-live="polite">
-      <h2>{analysis.prompt}</h2>
-
-      {/*
-        Anything true of the whole report rather than one section — today, which companies were
-        named and not analyzed. It sits above the sections because it changes what the sections
-        below it mean.
-      */}
-      {report?.notes?.map((note) => (
-        <p key={note} className="report-note">
-          {note}
-        </p>
-      ))}
-
-      {/*
-        **What the market calls this, above the results and below what the reader typed.**
-        `COMPETITIVE_DISCOVERY.md` §4: the substitution decides every query underneath it, so a
-        wrong reading has to be visible before anything below it is believed. It is absent when
-        nothing was substituted — repeating somebody's own words back at them discloses nothing.
-      */}
-      {report?.interpreted && (
-        <p className="interpreted">
-          Interpreted as <strong>{report.interpreted.label}</strong>
-          {report.interpreted.also.length > 0 && (
-            <span className="also"> (also: {report.interpreted.also.join(", ")})</span>
-          )}
-          <span className="backing">
-            {" "}
-            — {report.interpreted.hosts} independent{" "}
-            {report.interpreted.hosts === 1 ? "site" : "sites"} use this name
-          </span>
-        </p>
-      )}
-
-      {report && report.searched_as !== "" && (
-        <p className="searched-as">
-          Searched as <strong>{report.searched_as}</strong>
-        </p>
-      )}
-
-      {/*
-        **The set, correctable.** `COMPETITIVE_DISCOVERY.md` §5.5 and §6.3: a competitive set
-        presented without a way to correct it is an unfalsifiable editorial choice, and direct
-        manipulation beats interrogation — one glance confirms or corrects what was decided,
-        with no prompt literacy and no question spent.
-
-        Under the notes that say *why* each company is here, because a reader corrects the set
-        having read the reasons rather than before.
-      */}
-      {isTerminal(showing_status) && analyzed.length > 0 && (
-        <EditableSet companies={analyzed} onRun={onPick} running={picking} />
-      )}
-
-      {/*
-        **The evidence file, on the clipboard.** `IDEA_ANALYSIS.md` §5: most readers evaluating
-        an idea already pay for a frontier chatbot, and the honest response is to feed it rather
-        than compete with it. Only once the report is finished — half of it, pasted, is answered
-        from as confidently as all of it.
-      */}
-      {report && isTerminal(showing_status) && <CopyAsContext id={analysis.id} />}
-
       {/*
         **Running or finished, and how far through.** Before this the page said
         `Reading public web pages…` for the whole of a four-to-eight-minute run — one sentence
@@ -563,6 +504,11 @@ function AnalysisView({
         everybody: a **word** (`Working` against `Done`), a **bar** that is either moving or
         full and still, and a **number** when there is one. Color is not among them —
         `CODING_QUALITY.md` §9.5 asks that it never be the sole encoding.
+
+        **Above the four blocks rather than inside them.** Rendered, `Done.` was landing between
+        the reader's own words and how those words were read — splitting the two blocks that
+        together answer *"did it understand me?"*. A status line is chrome; it goes where chrome
+        goes. Found by looking at the page, which is the only way this kind of defect is found.
       */}
       <Waiting
         status={showing_status}
@@ -571,6 +517,70 @@ function AnalysisView({
         failure={analysis.failure}
         offered={choices.length}
       />
+
+      {/*
+        **Four blocks, in the order a reader checks them** — `PRODUCT_IDEA_RESULTS.md` §2: what
+        you asked, how that was read, what is here, and the lists. Everything the previous page
+        put above the results — the interpreted line, `Searched as`, the prompt as a heading —
+        said the same three facts in five places and in no particular order.
+      */}
+      <Asked prompt={analysis.prompt} />
+
+      {/*
+        Anything true of the whole report rather than one section — today, which companies were
+        named and not analyzed. It sits above the results because it changes what they mean.
+      */}
+      {report?.notes?.map((note) => (
+        <p key={note} className="report-note">
+          {note}
+        </p>
+      ))}
+
+      {/*
+        **How the idea was read, and what is here.** Both need a finished report: the
+        interpretation because a half-run one has not decided it, and the count because a number
+        that keeps climbing is not a count.
+      */}
+      {report && isTerminal(showing_status) && (
+        <>
+          <Reading report={report} prompt={analysis.prompt} names={analyzed} />
+          <Count report={report} companies={analyzed.length} />
+
+          {/*
+            **Without the scheme.** `subjects` holds origins — `https://basecamp.com` —
+            because that is what gets fetched, and a column of `https://` is five characters of
+            noise on every row that tell a reader nothing. `EditableSet` already made this
+            decision for the same strings; this is that decision, not a second one.
+          */}
+          <Listing heading="Companies" items={analyzed.map(withoutScheme)} />
+          {/*
+            **Two headings with nothing under them, on purpose.** Neither search exists —
+            `PRODUCT_IDEA_RESULTS.md` §4.1 — and §2.5 asks that a category nobody looked in say
+            so rather than show an empty list, which would be this product claiming it looked.
+          */}
+          <NotSearched heading="Open source projects" />
+          <NotSearched heading="Discussions" />
+
+          {/*
+            **The set, correctable.** `COMPETITIVE_DISCOVERY.md` §5.5 and §6.3: a competitive set
+            presented without a way to correct it is an unfalsifiable editorial choice, and
+            direct manipulation beats interrogation — one glance confirms or corrects what was
+            decided, with no prompt literacy and no question spent.
+
+            Under the list, because a reader corrects the set having read it rather than before.
+          */}
+          {analyzed.length > 0 && (
+            <EditableSet companies={analyzed} onRun={onPick} running={picking} />
+          )}
+
+          {/*
+            **The evidence file, on the clipboard.** `IDEA_ANALYSIS.md` §5: most readers
+            evaluating an idea already pay for a frontier chatbot, and the honest response is to
+            feed it rather than compete with it.
+          */}
+          <CopyAsContext id={analysis.id} />
+        </>
+      )}
 
       {/*
         The question itself, one button per company.
@@ -614,52 +624,71 @@ function AnalysisView({
         </ul>
       )}
 
-      {showing.map((section) => (
-        <article key={section.key}>
-          <h3>{section.title}</h3>
-          {section.claims.length === 0 ? (
-            <div className="gap">
-              <strong>Nothing found in public sources.</strong>
-              {section.checked.length > 0 && (
+      {/*
+        **The claims, off the first screen but on the same page.** §3 of
+        `PRODUCT_IDEA_RESULTS.md` sends the detail to a separate view and a downloadable report;
+        neither is built (open issue 9), and deleting the sections in the meantime would lose
+        the only evidence this product has. A disclosure is the smallest honest stand-in: the
+        first screen is the four blocks, and nothing was thrown away.
+
+        **Open while the run is going.** A `<details>` that hides the only moving thing on the
+        page would make a working analysis look like a stalled one; it closes itself once there
+        is a summary above it worth reading first.
+      */}
+      {showing.length > 0 && (
+        <details className="detail" open={live}>
+          <summary>
+            The full report — what public sources say about{" "}
+            {analyzed.length === 1 ? analyzed[0] : "these companies"}
+          </summary>
+          {showing.map((section) => (
+                <article key={section.key}>
+              <h3>{section.title}</h3>
+              {section.claims.length === 0 ? (
+                <div className="gap">
+                  <strong>Nothing found in public sources.</strong>
+                  {section.checked.length > 0 && (
+                    <ul>
+                      {section.checked.map((what) => (
+                        <li key={what}>{what}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : (
                 <ul>
-                  {section.checked.map((what) => (
-                    <li key={what}>{what}</li>
+                  {section.claims.map((claim) => (
+                    <li key={`${claim.source_label}-${claim.text}`}>
+                      {/*
+                        Whose is this? A claim says what the page said — "Pro costs $15" — and
+                        never names the company, so on a report covering several a reader would be
+                        looking at two prices with no way to tell them apart. Shown only when there
+                        is more than one, because repeating the same name down a single-company
+                        report is noise.
+                      */}
+                      {several && claim.subject !== "" && (
+                        <>
+                          {/*
+                            The space is written rather than left to CSS: JSX drops the whitespace
+                            around a newline, and without it the line reads `basecamp.comPro costs
+                            $15`. A margin would space the box and leave the *text* — which is what
+                            a reader copies, and what a test reads — still run together.
+                          */}
+                          <strong className="subject">{withoutScheme(claim.subject)}</strong>{" "}
+                        </>
+                      )}
+                      {claim.text} <cite>[{claim.source_label}]</cite>
+                      {claim.evidence_quote !== "" && (
+                        <blockquote>{claim.evidence_quote}</blockquote>
+                      )}
+                    </li>
                   ))}
                 </ul>
               )}
-            </div>
-          ) : (
-            <ul>
-              {section.claims.map((claim) => (
-                <li key={`${claim.source_label}-${claim.text}`}>
-                  {/*
-                    Whose is this? A claim says what the page said — "Pro costs $15" — and
-                    never names the company, so on a report covering several a reader would be
-                    looking at two prices with no way to tell them apart. Shown only when there
-                    is more than one, because repeating the same name down a single-company
-                    report is noise.
-                  */}
-                  {several && claim.subject !== "" && (
-                    <>
-                      {/*
-                        The space is written rather than left to CSS: JSX drops the whitespace
-                        around a newline, and without it the line reads `basecamp.comPro costs
-                        $15`. A margin would space the box and leave the *text* — which is what
-                        a reader copies, and what a test reads — still run together.
-                      */}
-                      <strong className="subject">{withoutScheme(claim.subject)}</strong>{" "}
-                    </>
-                  )}
-                  {claim.text} <cite>[{claim.source_label}]</cite>
-                  {claim.evidence_quote !== "" && (
-                    <blockquote>{claim.evidence_quote}</blockquote>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </article>
-      ))}
+            </article>
+          ))}
+        </details>
+      )}
 
       {/*
         While it runs, say what is still coming. An empty space below three sections reads
@@ -939,6 +968,272 @@ function stillArriving(
     if (!merged.some((s) => s.key === section.key)) merged.push(section);
   }
   return merged;
+}
+
+/** How many rows a list shows before `…more`, and how many it will ever hold. */
+const SHOWN = 5;
+const CAP = 25;
+
+/**
+ * The reader's own words, clamped to two lines.
+ *
+ * **Two lines is a measurement, not a character count.** A clamp counted in characters is wrong
+ * at every window width, and this page is read on a phone - so the clamp is CSS and the `…`
+ * appears only when the browser reports that the text is actually cut.
+ *
+ * **The tooltip and the expand are not alternatives.** A tooltip reaches nobody on a touch
+ * screen and nobody using a keyboard; the expand is what serves them. Both show the same text.
+ */
+function Asked({ prompt }: { prompt: string }): React.JSX.Element {
+  const [open, setOpen] = useState(false);
+  const [clipped, setClipped] = useState(false);
+  const words = useRef<HTMLParagraphElement | null>(null);
+
+  // Measured rather than guessed, and re-measured when the window changes, because the same
+  // sentence is two lines wide on a laptop and four on a phone.
+  useEffect(() => {
+    const measure = (): void => {
+      const el = words.current;
+      if (el) setClipped(el.scrollHeight > el.clientHeight + 1);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [prompt]);
+
+  return (
+    <div className="asked">
+      <h2 className="asked-label">What you asked</h2>
+      <p
+        className={open ? "prompt" : "prompt clamped"}
+        ref={words}
+        title={prompt}
+      >
+        {prompt}
+      </p>
+      {(clipped || open) && (
+        <button
+          type="button"
+          className="more-dots"
+          onClick={() => setOpen((was) => !was)}
+        >
+          {open ? "Show less" : "…"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * How the idea was read, and what the reader can do about it.
+ *
+ * **Three cases, and the first question is not the one about substitution.** `interpreted` is
+ * `None` whenever nothing was replaced - which includes a reader who typed a phrase the market
+ * already uses. Telling them *"you named these directly"* would be false about the one thing
+ * they are being asked to check. So the class of input decides the sentence, and the
+ * substitution decides only whether there is anything to justify.
+ */
+function Reading({
+  report,
+  prompt,
+  names,
+}: {
+  report: NonNullable<Analysis["report"]>;
+  prompt: string;
+  /** The set as analyzed, in the order it will be listed. */
+  names: readonly string[];
+}): React.JSX.Element | null {
+  const given = report.asked ?? null;
+  const phrase = report.interpreted?.label ?? null;
+
+  if (given?.kind === "named" || given?.kind === "seeded") {
+    return (
+      <div className="reading">
+        <p>
+          You named{" "}
+          <span className="phrase">
+            {given.kind === "seeded" ? given.named : names.join(", ")}
+          </span>{" "}
+          directly.
+        </p>
+      </div>
+    );
+  }
+
+  // **A report stored before `asked` existed knows none of this.** `#[serde(default)]` gives it
+  // `null`, and every sentence below is a claim about how the idea was read - so the honest
+  // rendering of "we did not record it" is the interpretation if there is one and silence
+  // otherwise. Telling somebody who typed two domains that we searched for their words as they
+  // wrote them would be the same defect as the one this component was built to avoid, arriving
+  // through the back door of an old row.
+  if (given === null && phrase === null) return null;
+
+  // A description. Whether the market's words replaced the reader's decides the sentence and
+  // whether there is anything to explain.
+  return (
+    <div className="reading">
+      {phrase !== null ? (
+        <>
+          <p>
+            Here&apos;s how I interpreted the business idea:{" "}
+            <span className="phrase">{phrase}</span>
+          </p>
+          <p className="backing">
+            {report.interpreted?.hosts ?? 0} independent{" "}
+            {(report.interpreted?.hosts ?? 0) === 1 ? "site" : "sites"} use this
+            name for it.
+            {(report.interpreted?.also.length ?? 0) > 0 && (
+              <span className="also">
+                {" "}
+                Also called {report.interpreted?.also.join(", ")}.
+              </span>
+            )}
+          </p>
+        </>
+      ) : (
+        <p>
+          I searched for your words as you wrote them:{" "}
+          <span className="phrase">{prompt}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One sentence saying what is here.
+ *
+ * **"Found" is a claim about provenance and it is false for two of the three input classes.** A
+ * named set is handed straight through with no discovery of any kind, so saying *"I found 3
+ * companies"* to somebody who typed all three takes credit for reading a list.
+ *
+ * **And a count over an unfinished search is a definite number about an indefinite thing**, so
+ * a partial search says *"at least"*. Both facts come from the report rather than being
+ * re-derived here - see `landscape_core::given`.
+ */
+function Count({
+  report,
+  companies,
+}: {
+  report: NonNullable<Analysis["report"]>;
+  companies: number;
+}): React.JSX.Element {
+  const given = report.asked ?? null;
+  const sure = given?.kind === "named" || searchFinished(report.searches);
+  const about = sure ? "" : "at least ";
+
+  let clause: string;
+  if (given?.kind === "named") {
+    clause = `You named ${String(given.count)} ${plural(given.count, "company", "companies")}.`;
+  } else if (given?.kind === "seeded") {
+    const others = Math.max(0, companies - 1);
+    clause =
+      others === 0
+        ? `You named ${given.named}.`
+        : `You named ${given.named}, and I found ${about}${String(others)} more like it.`;
+  } else if (given === null) {
+    // Same old row, and the same rule: state the number, claim nothing about where it came
+    // from. "I found" is the one word here that could be false.
+    clause = `${String(companies)} ${plural(companies, "company", "companies")}.`;
+  } else {
+    clause = `I found ${about}${String(companies)} ${plural(companies, "company", "companies")}.`;
+  }
+
+  return (
+    <p className="count">
+      <span>{clause}</span>{" "}
+      {/*
+        **Not "0 projects, 0 discussions".** A zero is a claim that we looked, and neither
+        search exists yet — `PRODUCT_IDEA_RESULTS.md` §2.5 and §4.1. Saying so is the only
+        honest shape available until they do.
+      */}
+      <span className="not-yet">
+        I have not looked for open source projects or discussions — neither search is built
+        yet.
+      </span>
+    </p>
+  );
+}
+
+function plural(n: number, one: string, many: string): string {
+  return n === 1 ? one : many;
+}
+
+/**
+ * One of the three result lists: at most 25, five at a time.
+ *
+ * **The count and the cap are different numbers and both are shown.** `…more` names what it can
+ * actually reveal rather than what is not on screen, and the "showing" line counts what is
+ * visible now — a control that promises more than it delivers is checkable by the person
+ * reading it, and wrong.
+ */
+function Listing({
+  heading,
+  items,
+  note,
+}: {
+  heading: string;
+  items: readonly string[];
+  note?: string;
+}): React.JSX.Element {
+  const [all, setAll] = useState(false);
+  const held = items.slice(0, CAP);
+  const visible = all ? held : held.slice(0, SHOWN);
+  const hidden = held.length - visible.length;
+
+  return (
+    // Named, so a reader moving by landmark can go straight to the list they want rather than
+    // walking the page. Three unnamed <section>s are three anonymous stops.
+    <section className="listing" aria-label={heading}>
+      <header>
+        <h2>{heading}</h2>
+        <span className="of">{items.length} found</span>
+      </header>
+      {note !== undefined && <p className="note">{note}</p>}
+      {items.length > CAP && (
+        <p className="note">
+          Showing {visible.length} of {items.length} — the rest are in the full report.
+        </p>
+      )}
+      {held.length === 0 ? (
+        <p className="note">Searched, and found none.</p>
+      ) : (
+        <ul>
+          {visible.map((item) => (
+            <li key={item}>
+              <span className="name">{item}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {hidden > 0 && (
+        <button type="button" className="reveal" onClick={() => setAll(true)}>
+          …more ({hidden})
+        </button>
+      )}
+    </section>
+  );
+}
+
+/**
+ * A category with no pipeline behind it.
+ *
+ * **The heading stays and the list does not.** A missing heading is indistinguishable from a
+ * feature that does not exist, and an empty list would be this product claiming it looked —
+ * `PRODUCT_IDEA_RESULTS.md` §2.5.
+ */
+function NotSearched({ heading }: { heading: string }): React.JSX.Element {
+  return (
+    <section className="listing" aria-label={heading}>
+      <header>
+        <h2>{heading}</h2>
+        <span className="of not-built">not built</span>
+      </header>
+      <p className="note">
+        This search does not exist yet, so nothing here is a finding about your idea.
+      </p>
+    </section>
+  );
 }
 
 /**

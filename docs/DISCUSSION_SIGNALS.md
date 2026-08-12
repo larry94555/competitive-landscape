@@ -394,8 +394,19 @@ block with the reader's own phrasing is the natural follow-on, and belongs in th
 
 ## 6. Ranking, and what is worth showing
 
-Raw volume is a bad ranking signal — it selects for whatever was on the front page. Signals
-are ranked by:
+> **Superseded for the results page.** The order a reader sees is
+> [`PRODUCT_IDEA_RESULTS.md` §2.4](PRODUCT_IDEA_RESULTS.md#24-the-three-lists): **authority tier
+> first, then recency within a tier**, at most 25 with 5 shown. That is a direct product
+> instruction and it wins. What follows describes the ranking inside the *absence report* — the
+> Markdown section this document specifies — and is kept because that section still exists.
+>
+> The two are not the same list ordered two ways. This document ranks **signals** — a want,
+> deduplicated across the four venues that expressed it — and the results page lists
+> **discussions**, which are individual threads. A rule about the first is not a rule about the
+> second, and collapsing them was how the contradiction arose.
+
+Raw volume is a bad ranking signal — it selects for whatever was on the front page. Signals in
+the absence report are ranked by:
 
 1. **Specificity** — a stated concrete want beats a general grumble
 2. **Recency**, windowed, with the window shown
@@ -409,8 +420,10 @@ collapse into **one** signal with multiple links, using the existing independenc
 machinery (FACT_CHECKING §L6). Showing them as four independent signals would manufacture
 consensus out of one event — the exact failure the independence rule was written to prevent.
 
-**Volume caps.** At most 5 items per block. This section can generate hundreds of plausible
-items and a founder will read six. The cap is a product decision, not a performance one.
+**Volume caps.** At most 5 items per block in the absence report. This section can generate
+hundreds of plausible items and a founder will read six. The cap is a product decision, not a
+performance one — and on the results page the same decision is expressed as **5 shown, 25
+reachable**, because there a reader who wants the sixth has somewhere to click.
 
 ---
 

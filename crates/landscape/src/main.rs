@@ -1549,6 +1549,12 @@ struct Read {
     /// Set only when the market's words replaced the reader's. `None` means nothing was
     /// substituted, so there is nothing to disclose.
     interpreted: Option<landscape_core::Interpreted>,
+    /// How many of the searches behind the set answered, and how many did not.
+    ///
+    /// **`Queried` held both halves and this function used to log them and drop them**, so a
+    /// finished report could not tell a complete search from a partial one and every count
+    /// looked definite. See `landscape_core::given::Searches`.
+    searches: landscape_core::Searches,
 }
 
 async fn resolve_from_description(
@@ -1559,6 +1565,7 @@ async fn resolve_from_description(
 ) -> Read {
     let refuse =
         |why: String, kind, choices| Read {
+            searches: landscape_core::Searches::new(0, 0),
             decided: landscape_analyze::subject::Decided::Refuse(
                 landscape_analyze::subject::Refusal { why, kind, choices },
             ),
@@ -1607,6 +1614,10 @@ async fn resolve_from_description(
         );
     }
     Read {
+        searches: landscape_core::Searches::new(
+            read.queried.completed.len(),
+            read.queried.failed.len(),
+        ),
         decided: landscape_analyze::subject::decide(derived, &read.queried),
         // **Only when something was actually substituted.** A market whose name is what the
         // reader already typed is not an interpretation, and a line saying so would be noise
@@ -1769,6 +1780,12 @@ async fn run_analysis(
     // Set by the description path alone: a reader who named a domain has said what to look at,
     // and nothing is substituted for words they did not use.
     let mut interpreted: Option<landscape_core::Interpreted> = None;
+    // **What the reader gave, written down where it is known.** `subjects_in` answers this once,
+    // here, and a report that does not carry the answer cannot be re-asked - the prompt alone
+    // does not distinguish a description from a named set without re-running the same rule in
+    // whatever language the reader's browser speaks.
+    let mut given = landscape_core::Given::Described;
+    let mut searches: Option<landscape_core::Searches> = None;
     let (origins, set) = match landscape_analyze::subject::subjects_in(&analysis.prompt) {
         // **A description is no longer the end of the road.** Until Run 29 a prompt naming no
         // domain was refused; the channel now produces candidates and hands them to the gate
@@ -1780,6 +1797,7 @@ async fn run_analysis(
             match read.decided {
                 landscape_analyze::subject::Decided::Analyze(set) => {
                     let origins = set.origins();
+                    searches = Some(read.searches);
                     tracing::info!(
                         id = %analysis.id,
                         companies = origins.len(),
@@ -1803,6 +1821,9 @@ async fn run_analysis(
         // engine this is exactly what it always was - the laptop default, unchanged - and
         // saying so at the level of a whole set is its own roadmap row.
         landscape_analyze::subject::Subjects::Seed(origin) => {
+            given = landscape_core::Given::Seeded {
+                named: origin.clone(),
+            };
             let set = rivals_of(searching, fetcher, &budget, &origin).await;
             let origins = set.origins();
             tracing::info!(
@@ -1816,7 +1837,12 @@ async fn run_analysis(
         }
         // Several named: the reader has said what to compare, and adding to it would be
         // overruling them.
-        landscape_analyze::subject::Subjects::Exactly(named) => (named, None),
+        // Nothing is discovered here, so there is no coverage to report and no order of ours
+        // to impose: `searches` stays `None` and the reader's sequence is the report's.
+        landscape_analyze::subject::Subjects::Exactly(named) => {
+            given = landscape_core::Given::Named { count: named.len() };
+            (named, None)
+        }
     };
 
     let Some(first) = origins.first().cloned() else {
@@ -1874,6 +1900,8 @@ async fn run_analysis(
             today: now.date_naive(),
             search: searching,
             set: set.as_ref(),
+            given,
+            searches,
             interpreted: interpreted.as_ref(),
         },
         &mut |so_far| progress.record(so_far),
