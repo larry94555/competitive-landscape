@@ -183,29 +183,42 @@ unaffected.
 
 #### One name, and what happened to the search for its rivals
 
-**The seed is never in doubt; the rivals are.** `rivals_of` can come back with the seed alone
-because no engine is configured (`NoRivals::NoEngine`), because the company's own page gave
-nothing to search with (`NothingToCompare`), or because some queries did not return
-(`SearchingIncomplete`) — and it can come back with *some* rivals and some queries still
-failed. Applying [§2.5](#25-when-a-source-could-not-be-reached) mechanically to that would print
-*"I found 0 more"* when nothing was ever asked, which is a false absence about a search that did
-not happen.
+**The seed is never in doubt; the rivals are.** `competitors::NoRivals` has four variants, and
+they are four different facts:
 
-| What happened to the rival search | The clause reads |
+| Variant | What actually happened |
 |---|---|
-| Finished, found rivals | *"You named basecamp.com, and I found 11 more like it"* |
-| Did not finish, found some | *"You named basecamp.com, and I found **at least** 4 more like it"* |
-| Finished, found none | *"You named basecamp.com. I searched for others like it and found none."* |
-| Could not search at all | *"You named basecamp.com. I could not search for others like it."* |
+| `NoEngine` | **Nothing was asked.** No search engine is configured, so nothing off the company's own site was reachable |
+| `NothingToCompare(why)` | **Nothing was asked.** The company's own page gave no words to judge a rival against |
+| `SearchIncomplete { failed, sent, sought, fault }` | Some searches went out and some did not come back |
+| `NobodyHeldUp { sought }` | **Every search ran.** What came back did not hold up — the only one of the four that is a statement about the world |
 
-**The last two rows are the distinction this whole section exists for**, arriving one level
-down: *searched and found nothing* is a finding about the market, and *never searched* is a fact
-about us. `NoEngine` and `NothingToCompare` are both the second, and `competitors::NoRivals`
-already separates them — the page must not collapse what the pipeline was careful to keep
-apart.
+**The page does not write these sentences.** `NoRivals::sentence()` already does, it already
+carries the reason *and* the remedy, and it is what the tests assert. Restating it here would put
+the wording in two places and let them drift — and the second copy would be the one nobody
+re-reads. So the page composes: **the seed clause it owns, then the pipeline's own sentence.**
+
+| What the rival search returned | The clause |
+|---|---|
+| Rivals, every search finished | *"You named basecamp.com, and I found 11 more like it"* |
+| Rivals, `SearchIncomplete` | *"You named basecamp.com, and I found **at least** 4 more like it."* + `NoRivals::sentence()` |
+| `NobodyHeldUp` | *"You named basecamp.com."* + `NoRivals::sentence()` |
+| `NothingToCompare` | *"You named basecamp.com."* + `NoRivals::sentence()` |
+| `NoEngine` | *"You named basecamp.com."* + `NoRivals::sentence()` |
+
+**The bottom three rows must not share a sentence, and an earlier draft of this table gave two
+of them one** — four lines below a paragraph saying the page must not collapse what the pipeline
+keeps apart. The distinction is not decorative: **configuring a search engine fixes `NoEngine`
+and cannot fix `NothingToCompare`**, whose seed page had nothing quotable on it. One is a
+deployment problem and the other is a fact about that company's website, and a reader who is
+told the wrong one goes and does the wrong thing.
+
+`SearchIncomplete` carries a `Fault` for the same reason, and `Fault::advice()` is why a reader
+whose engine refuses every query permanently is not told to try again.
 
 **The mixed case maps to the same coverage number §2.5 uses:** searches attempted against
-searches answered, which is what makes *"at least"* honest rather than a hedge.
+searches answered — `failed` and `sent`, already on the variant — which is what makes
+*"at least"* honest rather than a hedge.
 
 ---
 
