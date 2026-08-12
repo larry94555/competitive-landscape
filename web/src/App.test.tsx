@@ -1210,6 +1210,47 @@ describe("the four blocks", () => {
       expect(shown.textContent).toBe(IDEA);
       expect(shown.className).toContain("clamped");
     });
+
+    it("can be reopened after a resize taken while it was open", async () => {
+      // **jsdom has no layout**, so overflow is stubbed: a clamped paragraph reports more
+      // content than box, an unclamped one reports exactly its content. That is the real
+      // relationship, and it is the whole of what the bug turned on.
+      const overflowing = (el: HTMLElement): boolean =>
+        el.className.includes("clamped");
+      for (const [prop, value] of [
+        ["scrollHeight", 100],
+        ["clientHeight", 40],
+      ] as const) {
+        Object.defineProperty(HTMLElement.prototype, prop, {
+          configurable: true,
+          get(this: HTMLElement) {
+            return prop === "scrollHeight" || overflowing(this) ? value : 100;
+          },
+        });
+      }
+      try {
+        await reportWith({});
+        const user = userEvent.setup();
+        const dots = await screen.findByRole("button", { name: "…" });
+
+        await user.click(dots);
+        // Open, the paragraph is exactly as tall as its text — so a resize measured here
+        // used to record "not clipped" about a prompt that is.
+        act(() => window.dispatchEvent(new Event("resize")));
+        await user.click(screen.getByRole("button", { name: /show less/i }));
+
+        expect(screen.getByTitle(IDEA).className).toContain("clamped");
+        expect(
+          screen.getByRole("button", { name: "…" }),
+        ).toBeInTheDocument();
+      } finally {
+        for (const prop of ["scrollHeight", "clientHeight"]) {
+          delete (HTMLElement.prototype as unknown as Record<string, unknown>)[
+            prop
+          ];
+        }
+      }
+    });
   });
 
   describe("2. how that was interpreted", () => {
@@ -1309,6 +1350,49 @@ describe("the four blocks", () => {
       expect((await screen.findByText(/^You named basecamp/, { selector: ".count span" })).textContent).toBe(
         "You named basecamp.com, and I found 2 more like it.",
       );
+    });
+
+    it("does not hedge a seed whose rival search finished", async () => {
+      // **The fixture used to answer this for the seeded case**, so the shared
+      // `searches: { answered: 8, failed: 0 }` hid a worker that left `searches` null on that
+      // path entirely and rendered every complete search as "at least". Set explicitly here,
+      // both ways, so the test says what it is testing.
+      await reportWith({
+        asked: { kind: "seeded", named: "basecamp.com" },
+        subjects: ["basecamp.com", "linear.app", "height.app"],
+        searches: { answered: 3, failed: 0 },
+      });
+      expect(
+        (await screen.findByText(/^You named basecamp/, { selector: ".count span" }))
+          .textContent,
+      ).toBe("You named basecamp.com, and I found 2 more like it.");
+    });
+
+    it("hedges a seed whose rival search did not finish", async () => {
+      await reportWith({
+        asked: { kind: "seeded", named: "basecamp.com" },
+        subjects: ["basecamp.com", "linear.app", "height.app"],
+        searches: { answered: 2, failed: 1 },
+      });
+      expect(
+        (await screen.findByText(/^You named basecamp/, { selector: ".count span" }))
+          .textContent,
+      ).toBe("You named basecamp.com, and I found at least 2 more like it.");
+    });
+
+    it("hedges a seed the worker reported no coverage for", async () => {
+      // `searches: null` means nothing was asked — no engine configured, or the seed's own
+      // page gave nothing to search with. A bare count over that is a definite number about a
+      // search that never happened; `report.notes` carries which of those it was.
+      await reportWith({
+        asked: { kind: "seeded", named: "basecamp.com" },
+        subjects: ["basecamp.com", "linear.app"],
+        searches: null,
+      });
+      expect(
+        (await screen.findByText(/^You named basecamp/, { selector: ".count span" }))
+          .textContent,
+      ).toBe("You named basecamp.com, and I found at least 1 more like it.");
     });
 
     it("hedges a count taken over a search that did not finish", async () => {

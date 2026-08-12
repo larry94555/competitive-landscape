@@ -165,6 +165,18 @@ pub struct Queried {
     pub failed: Vec<Failed>,
 }
 
+impl From<&Queried> for landscape_core::Searches {
+    /// The coverage a reader is shown, from the queries that produced it.
+    ///
+    /// **Here rather than at each call site.** Two callers needed this — the description path
+    /// and the seeded one — and the second was written without it, so a seeded report reached
+    /// the page with no coverage at all and every complete search was hedged as *"at least"*.
+    /// One conversion, in the crate that owns both halves of the count.
+    fn from(queried: &Queried) -> Self {
+        Self::new(queried.completed.len(), queried.failed.len())
+    }
+}
+
 /// A query that did not come back, **and why**.
 ///
 /// **The query alone was half a fact.** Every caller that reported a failure counted these and

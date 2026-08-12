@@ -991,7 +991,18 @@ function Asked({ prompt }: { prompt: string }): React.JSX.Element {
 
   // Measured rather than guessed, and re-measured when the window changes, because the same
   // sentence is two lines wide on a laptop and four on a phone.
+  //
+  // **`open` is in the dependencies, and that is the fix.** Expanded, the paragraph is exactly
+  // as tall as its content, so `scrollHeight === clientHeight` by construction — a resize in
+  // that state recorded *"not clipped"* about text that is, and collapsing afterwards left the
+  // prompt clamped with the ellipsis gone and no way to reopen it. Review found it. Collapsing
+  // now re-runs this and takes a fresh measurement in the only state that can answer.
+  //
+  // The early return below is not what fixes it — the harness said so, by removing it and
+  // watching every test still pass. It is kept because measuring while open is work that can
+  // only produce a wrong answer, and it is one line.
   useEffect(() => {
+    if (open) return undefined;
     const measure = (): void => {
       const el = words.current;
       if (el) setClipped(el.scrollHeight > el.clientHeight + 1);
@@ -999,7 +1010,7 @@ function Asked({ prompt }: { prompt: string }): React.JSX.Element {
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
-  }, [prompt]);
+  }, [prompt, open]);
 
   return (
     <div className="asked">

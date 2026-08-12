@@ -232,5 +232,42 @@
       "run"
     ],
     "cwd": "web"
+  },
+  {
+    "name": "the clamp is never re-measured after the reader collapses it",
+    "file": "web/src/App.tsx",
+    "old": "  }, [prompt, open]);",
+    "new": "  }, [prompt]);",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a seeded report carries no search coverage",
+    "file": "crates/landscape/src/main.rs",
+    "old": "    (set, Some((&queried).into()))",
+    "new": "    (set, None)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "--all-features"
+    ]
+  },
+  {
+    "name": "the searches that failed are dropped from the coverage",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        Self::new(queried.completed.len(), queried.failed.len())",
+    "new": "        Self::new(queried.completed.len(), 0)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
   }
 ]

@@ -1614,10 +1614,7 @@ async fn resolve_from_description(
         );
     }
     Read {
-        searches: landscape_core::Searches::new(
-            read.queried.completed.len(),
-            read.queried.failed.len(),
-        ),
+        searches: (&read.queried).into(),
         decided: landscape_analyze::subject::decide(derived, &read.queried),
         // **Only when something was actually substituted.** A market whose name is what the
         // reader already typed is not an interpretation, and a line saying so would be noise
@@ -1662,19 +1659,27 @@ fn ambiguous_market(between: &[landscape_search::vocabulary::Market]) -> String 
 /// [`landscape_search::competitors::NoRivals`], and it is the row this function was left
 /// half-done for: four different reasons a report covers one company, and a reader acts on each
 /// of them differently.
+///
+/// **And it hands back what it asked.** The coverage was computed here, warned about, and
+/// dropped — so a seeded report reached the page with `searches: None`, and every seed that
+/// found rivals was rendered as *"at least N more like it"* however completely the search had
+/// finished. `None` is reserved for the case where nothing was asked at all.
 async fn rivals_of(
     engine: Option<&dyn landscape_search::SourceProvider>,
     fetcher: &landscape_fetch::Fetcher,
     budget: &landscape_fetch::Budget,
     origin: &str,
-) -> landscape_search::competitors::Set {
+) -> (
+    landscape_search::competitors::Set,
+    Option<landscape_core::Searches>,
+) {
     let host = match landscape_fetch::Target::parse(origin) {
         Ok(target) => target.host,
         // Unreachable: `Subjects::Seed` comes from `origins_in`, which only produces parseable
         // origins. A refusal rather than an `expect`, because a panic here takes a worker down.
         Err(e) => {
             tracing::error!(%origin, error = %e, "a named origin did not parse");
-            return landscape_search::competitors::Set::default();
+            return (landscape_search::competitors::Set::default(), None);
         }
     };
     let read = |url: String| {
@@ -1687,21 +1692,49 @@ async fn rivals_of(
                 .map(|page| landscape_extract::markdown::from_body(&page.body))
         }
     };
-    let seed = landscape_search::candidates::named_seed(&host, read).await;
+    rivals_from(engine, &host, read).await
+}
+
+/// The whole of the decision above, with reading a page as a parameter.
+///
+/// **Split out so the coverage can be asserted without a server.** Everything a reader is shown
+/// about a seeded set — who is in it, why there is nobody else, and how much of the searching
+/// finished — is decided here; the only reason it needed a network was one closure. Review found
+/// `searches` left `None` on this path, and the mutation that put it back was not caught by
+/// anything, because nothing could reach the function it lived in.
+async fn rivals_from<F, Fut>(
+    engine: Option<&dyn landscape_search::SourceProvider>,
+    host: &str,
+    read: F,
+) -> (
+    landscape_search::competitors::Set,
+    Option<landscape_core::Searches>,
+)
+where
+    F: Fn(String) -> Fut + Copy,
+    Fut: std::future::Future<Output = Option<String>>,
+{
+    let seed = landscape_search::candidates::named_seed(host, read).await;
     let Some(engine) = engine else {
         // **The laptop default, and now it says so.** A reader who gets a one-company report
         // deserves to know whether we looked and found nobody or never looked at all; only one
         // of those is fixed by configuring something.
-        return landscape_search::competitors::Set {
-            members: vec![landscape_search::competitors::Member {
-                candidate: seed.candidate.clone(),
-                because: landscape_search::competitors::Because::Named,
-            }],
-            set_aside: Vec::new(),
-            alone: Some(
-                landscape_search::competitors::NoRivals::when_no_engine_is_configured(&seed),
-            ),
-        };
+        return (
+            landscape_search::competitors::Set {
+                members: vec![landscape_search::competitors::Member {
+                    candidate: seed.candidate.clone(),
+                    because: landscape_search::competitors::Because::Named,
+                }],
+                set_aside: Vec::new(),
+                alone: Some(
+                    landscape_search::competitors::NoRivals::when_no_engine_is_configured(&seed),
+                ),
+            },
+            // **Not `Searches::new(0, 0)`.** Nothing was asked, and a coverage of nought out of
+            // nought reads as a search that came back empty. `None` is the same word
+            // `Subjects::Exactly` uses, for the same reason.
+            None,
+        );
     };
     let (set, queried) = landscape_search::competitors::of_company(engine, &seed, read).await;
     if !queried.failed.is_empty() {
@@ -1711,7 +1744,7 @@ async fn rivals_of(
             "some competitor searches did not complete"
         );
     }
-    set
+    (set, Some((&queried).into()))
 }
 
 /// Record a refusal a reader can act on, and say so if the claim was taken away first.
@@ -1824,7 +1857,8 @@ async fn run_analysis(
             given = landscape_core::Given::Seeded {
                 named: origin.clone(),
             };
-            let set = rivals_of(searching, fetcher, &budget, &origin).await;
+            let (set, covered) = rivals_of(searching, fetcher, &budget, &origin).await;
+            searches = covered;
             let origins = set.origins();
             tracing::info!(
                 id = %analysis.id,
@@ -1995,6 +2029,77 @@ mod tests {
         }
     }
 
+    /// An engine whose answers are decided up front, one per query in order.
+    struct Canned(std::sync::Mutex<Vec<Result<Vec<landscape_search::Hit>, ()>>>);
+
+    #[async_trait::async_trait]
+    impl landscape_search::SourceProvider for Canned {
+        fn name(&self) -> &str {
+            "canned"
+        }
+        async fn search(
+            &self,
+            _query: &landscape_search::Query,
+        ) -> Result<Vec<landscape_search::Hit>, landscape_search::SearchError> {
+            let mut left = self.0.lock().expect("a canned engine is never poisoned");
+            let answer = if left.is_empty() {
+                Ok(Vec::new())
+            } else {
+                left.remove(0)
+            };
+            answer.map_err(|()| landscape_search::SearchError::Unreachable("canned".to_owned()))
+        }
+    }
+
+    fn rival(url: &str) -> landscape_search::Hit {
+        landscape_search::Hit {
+            url: url.to_owned(),
+            title: String::new(),
+            snippet: String::new(),
+        }
+    }
+
+    /// A front page with enough words on it that `seed.words()` can build queries.
+    async fn a_readable_page(_url: String) -> Option<String> {
+        Some(
+            "# Linear
+
+Project management software built for speed."
+                .to_owned(),
+        )
+    }
+
+    #[tokio::test]
+    async fn a_seeded_set_reports_how_much_of_the_searching_came_back() {
+        // **The hop review found empty, and the one nothing could reach.** `searches` was left
+        // `None` on this path, so every seed that found rivals was rendered *"at least N more
+        // like it"* however completely the search had finished — and the mutation that put it
+        // back was missed, because the only function it lived in needed a network to call.
+        let engine = Canned(std::sync::Mutex::new(vec![
+            Ok(vec![rival("https://height.app")]),
+            Ok(vec![rival("https://height.app")]),
+            Ok(vec![rival("https://height.app")]),
+        ]));
+        let (_, covered) = rivals_from(Some(&engine), "linear.app", a_readable_page).await;
+        let covered = covered.expect("a search was sent, so there is coverage to report");
+        assert_eq!(covered.failed, 0);
+        assert!(
+            covered.finished(),
+            "a complete search was reported as partial, so the page hedges a definite count"
+        );
+
+        // And the other way: one query that never came back is what *"at least"* is for.
+        let flaky = Canned(std::sync::Mutex::new(vec![
+            Ok(vec![rival("https://height.app")]),
+            Ok(vec![rival("https://height.app")]),
+            Err(()),
+        ]));
+        let (_, covered) = rivals_from(Some(&flaky), "linear.app", a_readable_page).await;
+        let covered = covered.expect("some searches answered");
+        assert_eq!(covered.failed, 1);
+        assert!(!covered.finished());
+    }
+
     #[tokio::test]
     async fn no_engine_and_no_vocabulary_never_recommends_configuring_one() {
         // **Review found the report sending a reader somewhere that could not help.** With the
@@ -2004,7 +2109,7 @@ mod tests {
         // have been asked either.
         //
         // `.invalid` is RFC 2606, so the seed's front page is never really fetched.
-        let set = rivals_of(
+        let (set, searches) = rivals_of(
             None,
             &landscape_fetch::Fetcher::new(),
             &landscape_fetch::Budget::for_one_analysis(),
@@ -2012,6 +2117,13 @@ mod tests {
         )
         .await;
 
+        // **Nothing was asked, so there is no coverage** — not a coverage of nought out of
+        // nought, which the page would read as a search that came back empty and would make it
+        // hedge a count nobody searched for.
+        assert_eq!(
+            searches, None,
+            "a search nobody sent was reported as coverage"
+        );
         assert_eq!(set.members.len(), 1, "{:#?}", set.members);
         assert_eq!(
             set.alone,

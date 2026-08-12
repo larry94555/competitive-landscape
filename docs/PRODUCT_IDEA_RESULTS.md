@@ -564,6 +564,11 @@ set where `subjects_in` is already called — and `Searches` — how many search
 many came back. Both are on `Report`, both reach the browser, and every sentence on the page that
 depends on provenance reads them rather than re-deriving anything.
 
+**On both discovery paths, which took a second pass.** The first version populated the coverage
+where a *description* was resolved and not where a *named company's* rivals were searched for,
+so a seed whose search finished completely was still hedged as *"at least"*. The arithmetic now
+lives once, in the crate that owns the query counts, rather than at each caller.
+
 **Step 3 shipped differently, and this section is the reason.** §5 said the count sentence stays
 out until it can name all three categories. `prototype/results-mockup.html` — which is the
 instruction this page was built to — shows the sentence and all three headings. Rather than pick

@@ -130,6 +130,36 @@ found the *"Open source projects"* block by `findByRole("region", { name: headin
 with the `<h2>` deleted @ the accessible name comes from `aria-label`, so the one thing the test
 was about was the one thing it could not see.
 
+### The two the contract missed, and how
+
+Review found both, and both are the same defect at different addresses: **a rule applied on one
+path and not on the one beside it.**
+
+**The seeded path carried no coverage at all.** `rivals_of` computed it, warned about it, and
+dropped it — so every seed that found rivals reached the page with `searches: None` and was
+rendered *"at least N more like it"* however completely the search had finished. The frontend
+test did not catch it because the shared fixture supplied the coverage the worker never sent:
+**the test and production disagreed, and the fixture was the one telling the truth.**
+
+The arithmetic now lives once, as `impl From<&Queried> for Searches`, in the crate that owns
+both counts. Two callers needed it and the second was written without it, which is what a
+duplicated conversion is for.
+
+**And nothing could reach the fix.** The mutation that put the defect back was **missed**,
+because `rivals_of` built its own fetcher and could only be called with a network. Lifting the
+read closure to a parameter — `rivals_from` — made the whole of that decision testable against a
+canned engine and a canned page. The same mutation is caught now.
+
+**The clamped prompt could not be reopened.** Expanded, a paragraph is exactly as tall as its
+content, so a window resize measured *"not clipped"* about text that is; collapsing afterwards
+left the prompt clamped with the ellipsis gone. The effect now re-measures when the reader
+collapses it.
+
+**The harness corrected the fix as well as finding the defect.** The first mutation aimed at the
+early return that skips measuring while open, and **passed** — that guard is not what fixes
+this; the dependency array is. *"Check the second before believing the first"* is written on the
+tool's own output and it was right twice here.
+
 ### And one thing only looking at it found
 
 The finished page was rendered to a file with the real stylesheet and read. `Done.` was landing
@@ -151,7 +181,7 @@ always travel together and can be passed in the wrong order became one `Provenan
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 46 | 1013 | 94 | 26, all caught |
-| now | **1018** | **109** | **19**, all caught |
+| now | **1020** | **113** | **22**, all caught |
 
 ---
 

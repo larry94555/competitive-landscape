@@ -980,6 +980,64 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn the_coverage_a_reader_is_shown_is_what_was_actually_asked() {
+        // **The number under *"at least"*.** A seeded report says *"You named basecamp.com, and
+        // I found 4 more like it"* only when the searching finished; otherwise it says *"at
+        // least 4"*, and `Searches` is the whole of what decides which. Both halves come from
+        // the queries this function sent, so this is where the conversion is checked — the
+        // worker used to do the arithmetic itself, in two places, and the second one was
+        // written without it.
+        let both = vec![hit("https://linear.app"), hit("https://height.app")];
+
+        let finished = Canned {
+            per_query: vec![Ok(both.clone()), Ok(both.clone()), Ok(both.clone())],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (_, queried) = of_company(&finished, &seed(), |_url| async {
+            Some(
+                "# Linear
+
+Project management built for speed."
+                    .to_owned(),
+            )
+        })
+        .await;
+        let covered: landscape_core::Searches = (&queried).into();
+        assert_eq!(covered.answered, 3);
+        assert_eq!(covered.failed, 0);
+        assert!(
+            covered.finished(),
+            "a complete search was reported as incomplete, so the page hedges for no reason"
+        );
+
+        let partial = Canned {
+            per_query: vec![Ok(both.clone()), Ok(both), Err(())],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (_, queried) = of_company(&partial, &seed(), |_url| async {
+            Some(
+                "# Linear
+
+Project management built for speed."
+                    .to_owned(),
+            )
+        })
+        .await;
+        let covered: landscape_core::Searches = (&queried).into();
+        assert_eq!(covered.answered, 2);
+        assert_eq!(covered.failed, 1);
+        assert_eq!(
+            covered.sent(),
+            3,
+            "a query that failed was not counted as sent"
+        );
+        assert!(
+            !covered.finished(),
+            "one query did not come back, and the count over it is not a definite number"
+        );
+    }
+
+    #[tokio::test]
     async fn our_own_error_message_is_never_the_market_vocabulary() {
         // **Review found a report citing our error message as a company's evidence.** With the
         // seed's front page unread, `what_it_is` holds *"we were unable to read its front

@@ -2642,6 +2642,52 @@ The contract had to grow first.
 produce the empty case, and does my branch tell them apart?* If the answer is more than one,
 the field is not the input to the decision — it is one of the inputs.
 
+## 66. A new contract, populated on one of the two paths that needed it
+
+**Found:** by review, on a pull request whose whole point was the contract.
+
+`Report` gained two fields so the page could stop guessing where its companies came from: what
+class of thing the reader gave, and how much of the searching came back. The description path
+sets both. **The seeded path sets neither** — `rivals_of` computed the coverage, logged a warning
+about it, and returned only the set.
+
+So every reader who typed one company and got rivals was told *"I found **at least** 4 more like
+it"* however completely the search had finished, and a partial one could not say what it missed.
+The hedge is the safe direction, which is why it survived being looked at.
+
+**The frontend test did not catch it, and the reason is worse than the defect.** Its shared
+fixture supplies `searches: { answered: 8, failed: 0 }` on every case, including the seeded one.
+The test passed because the fixture provided what production did not: **the test and the running
+system disagreed, and the fixture was the one telling the truth.** A fixture that fills in a
+field the code under test is supposed to produce is not a fixture, it is an alibi.
+
+**The shape: a rule applied on one path and not the one beside it.** Two callers needed the same
+conversion from *queries sent* to *coverage shown*; the second was written without it. That is
+what a duplicated conversion is for, and it now exists once — `impl From<&Queried> for Searches`,
+in the crate that owns both counts — so the next caller cannot be written without it either.
+
+### And nothing could reach the fix
+
+The mutation that put the defect back was **MISSED**. Not because a test was missing in the
+ordinary sense, but because `rivals_of` built its own fetcher from a `&Fetcher` and a budget, so
+the only way to call it was over a network. **A function that can only be called with a network
+has no unit tests, and nobody notices until something in it is wrong.**
+
+Lifting the one closure that needed the network to a parameter made the whole of that decision
+callable with a canned engine and a canned page. Nothing else changed and the mutation is caught.
+
+**Ask, when a mutation reports MISSED:** *is this untested, or is it unreachable?* They want
+different fixes, and writing the first kind of test for the second kind of problem produces a
+test that asserts the mocking.
+
+### The harness also corrected the fix
+
+The first attempt at the companion defect — a clamped prompt that could not be reopened after a
+resize — added an early return that skips measuring while the text is expanded. **The mutation
+aimed at that early return passed**, which said plainly that it was not what fixed anything; the
+dependency array was. *"Check the second before believing the first"* is printed on the tool's
+own output, and it was right about the fix as well as about the defect.
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**
@@ -2715,8 +2761,8 @@ Grouped by what has actually gone wrong, commonest first.
 
 | Found by | Entries | |
 |---|---|---|
-| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35, 47, 49, 50, 51, 65 |
-| The mutation harness | 32, 36, 46, 48 | The only ones it found before review did. 36 deleted a rule rather than adding a test; 46 deleted an argument; 48 was a defect in a test |
+| Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35, 47, 49, 50, 51, 65, 66 |
+| The mutation harness | 32, 36, 46, 48, and half of 66 | The only ones it found before review did. 36 deleted a rule rather than adding a test; 46 deleted an argument; 48 was a defect in a test. In 66 it did something else: review found the defect, and the harness found that the **fix** was in the wrong place |
 | Its own tooling | 28 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
 | Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |
