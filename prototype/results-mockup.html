@@ -275,7 +275,7 @@
       <span class="of">31 found</span>
     </header>
     <p class="note">Most authoritative venues first, most recent within each.
-      <b>Showing 25 of 31</b> — the rest are in the full report.</p>
+      <b><span id="showing">Showing 5 of 31</span></b> — the rest are in the full report.</p>
     <ul id="discussions">
       <li><span class="tier">A</span><span class="name">Why farm-to-table software keeps failing</span><span class="where">news.ycombinator.com</span><span class="meta">2026-07-28</span></li>
       <li><span class="tier">A</span><span class="name">Anyone building wholesale ordering for growers?</span><span class="where">news.ycombinator.com</span><span class="meta">2026-06-14</span></li>
@@ -327,6 +327,11 @@
     button.addEventListener("click", () => {
       const list = document.getElementById(button.dataset.list);
       for (const row of list.querySelectorAll("li.hidden")) row.classList.remove("hidden");
+      const showing = document.getElementById("showing");
+      if (showing && button.dataset.list === "discussions") {
+        showing.textContent =
+          "Showing " + list.querySelectorAll("li").length + " of 31";
+      }
       button.remove();
     });
   }

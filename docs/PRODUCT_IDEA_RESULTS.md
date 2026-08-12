@@ -98,22 +98,36 @@ interpretation is wrong, everything below it is wrong, and the reader is the onl
 tell. `COMPETITIVE_DISCOVERY.md` §4 already argues that showing the substitution beats asking a
 clarifying question first — this makes it correctable rather than merely visible.
 
-#### When nothing was interpreted
+#### Three cases, and the first question is not the one about substitution
 
-`interpreted` is deliberately `None` when the reader's own words were searched for unchanged —
-a URL, a product name, or an explicitly named set. **There was no substitution, so there is
-nothing to disclose**, and a line reading *"interpreted as ‹what you typed›"* is noise the field's
-own documentation already refuses.
+An earlier draft of this section read `interpreted: None` as *"the reader named companies"*.
+**It does not mean that**, and review caught it. `interpreted` is `None` whenever **nothing was
+substituted**, and a reader who types a phrase the market already uses — *competitive
+intelligence software* — takes the description path, has those exact words searched for,
+produces a discovered set, and stores `None`. Telling them *"You named these directly"* would
+be false about the one thing they are being asked to check, and would point **Edit** at a set
+they never wrote.
 
-| The reader typed | The block says |
+**Two independent facts decide this block**, and they must be read in this order:
+
+| | Where it comes from |
 |---|---|
-| A description that was substituted (`interpreted` is `Some`) | **Here's how I interpreted the business idea:** *the phrase*, with **Edit** and **Why this?** |
-| One or more domains or product names (`interpreted` is `None`) | **You named these directly, so nothing was interpreted:** the names, with **Edit** — which edits *the set*, the thing that actually exists, using the machinery `EditableSet` already has |
+| **What class of thing the reader gave** | `subject::subjects_in` — `Describe`, `Seed(one)`, or `Exactly(several)` |
+| **Whether their words were replaced** | `interpreted`, which is `Some` only on the describe path and only when `substituted` was true |
 
-**Two different sentences rather than one sentence with a hole in it.** A reader who typed
-`basecamp.com` has not had an idea interpreted and should not be shown a block implying they
-did; a reader who typed a description has, and is the only person who can tell whether it was
-read correctly.
+| The reader gave | Substituted | The block says | **Edit** acts on |
+|---|---|---|---|
+| A description | Yes | **Here's how I interpreted the business idea:** *the phrase*, with **Why this?** | The phrase |
+| A description | No | **I searched for your words as you wrote them:** *the words* | The phrase |
+| One or more names | — | **You named these directly:** the names | The **set**, with the machinery `EditableSet` already has |
+
+**The middle row is the one that was missing**, and it is not a rare case: a reader who already
+knows their market types its name. They interpreted nothing, so there is nothing to justify and
+no *"Why this?"* — but the phrase is still what every query was built from, so it is still the
+thing they may want to change.
+
+**A reader who typed `basecamp.com` has not had an idea interpreted** and is not shown a block
+implying they did.
 
 ---
 
@@ -149,10 +163,16 @@ the cap of 25. There is no pagination beyond that: 25 is the whole of what this 
 show, and anything past it belongs in the full report.
 
 **The count and the cap are different numbers and both are shown.** If 31 discussions were
-found, the count sentence says **31** — that is what was found — and the block says
-*"Showing 25 of 31"*. The `…more` control names what it can actually reveal, **20**, not the 26
-that are not on screen. A control promising more than it delivers is the same defect as a
-progress bar that retreats: it is checkable by the person reading it, and it is wrong.
+found, the count sentence says **31** — that is what was found — and the `…more` control names
+what it can actually reveal, **20**, not the 26 that are not on screen.
+
+**And the "showing" line counts what is on screen now, not what will be.** Before the click it
+reads *"Showing 5 of 31"*; after it, *"Showing 25 of 31"*. A line that says 25 while five rows
+are visible is false in the state a reader spends most of their time in, which is the one before
+they touch anything.
+
+A control or a count that promises more than is there is the same defect as a progress bar that
+retreats: checkable by the person reading it, and wrong.
 
 **A block with nothing in it says so** and does not render an empty list.
 
@@ -201,9 +221,24 @@ the others answer is the *ordinary* case rather than the edge one.
 
 | State | The count sentence | The block |
 |---|---|---|
-| Found some | *"12 companies"* | The list |
+| Found some, and the search finished | *"12 companies"* | The list |
+| **Found some, and the search did not finish** | *"at least 12 companies"* | The list, and one line naming what did not come back |
 | Found none, and the search finished | *"0 open source projects"* | The heading, and one line: *"Searched, and found none."* |
-| Could not look | The clause is **replaced**, not zeroed | The heading, and one line saying which source and what a reader can do |
+| Could not look at all | The clause is **replaced**, not zeroed | The heading, and one line saying which source and what a reader can do |
+
+**Four states, because a non-empty answer is not the same as a complete one.** An earlier draft
+of this section had three and treated anything non-empty as finished — which reintroduces, one
+row down, the exact ambiguity the section was written to remove.
+
+**Partial success is reachable today, not just with future adapters.**
+`resolve_from_description` records the queries that failed, and it can return the companies the
+*successful* queries found. A bare *"12 companies"* over that is a definite number about an
+indefinite search: the thirteenth may not exist, or may be behind the query that timed out, and
+the reader cannot tell which.
+
+*"At least 12"* costs one word and is true. The line beneath it says what was missed — *"2 of
+8 searches did not come back"* — because a reader deciding whether to re-run needs to know
+whether re-running would plausibly change the answer.
 
 Worked through, with the projects channel down and the other two fine:
 
@@ -265,7 +300,7 @@ pipeline does not produce is a wish rather than a plan.
 
 | Capability | Needed by | State today |
 |---|---|---|
-| **The interpreted phrase** | §2.2 | **Available.** `Report::searched_as` and `Report::interpreted` carry the phrase, the alternatives that recurred, and how many independent hosts used it |
+| **The interpreted phrase** | §2.2 | **Available.** `Report::interpreted` carries `label` — the phrase every query was built from — along with the alternatives that recurred and how many independent hosts used it. **Not `searched_as`**, which carries the origins and none of the vocabulary; see §2.2 |
 | **Why this interpretation** | The *"Why this?"* link | **The material exists, the explanation does not.** `Interpreted` holds `also` and `hosts`; nothing renders an account a reader can argue with |
 | **Editing the interpretation** | The *"Edit"* link | **The pattern exists for a different thing.** `EditableSet` lets a reader correct the *company set* and re-run. Correcting the *phrase* is the same shape and does not exist |
 | **A company list of up to 25** | §2.4 | **Capped far lower today.** `subject::MAX_SUBJECTS` limits a run to a handful of companies because each one is its own discovery, fetches and model calls. A list of 25 **named** companies is a much cheaper thing than 25 analyzed ones, and the distinction has not been drawn in the code |
