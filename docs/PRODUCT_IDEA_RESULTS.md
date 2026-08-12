@@ -40,14 +40,30 @@ invented data and working interactions.
 
 ## 2. The page, in order
 
-Exactly four blocks, in this order, and nothing else.
+Four blocks, in this order, and nothing else. **Blocks 1 and 2 always render. Blocks 3 and 4
+depend on whether anything could be looked for at all** — see
+[§2.5](#25-when-a-source-could-not-be-reached).
 
-| | Block | Answers |
-|---|---|---|
-| 1 | What you asked | *"Did it understand me?"* |
-| 2 | How that was interpreted | *"Is it looking for the right thing?"* |
-| 3 | The count | *"Is there anything here?"* |
-| 4 | The three lists | *"What is already out there?"* |
+| | Block | Answers | Always? |
+|---|---|---|---|
+| 1 | What you asked | *"Did it understand me?"* | Yes |
+| 2 | How that was interpreted | *"Is it looking for the right thing?"* | Yes |
+| 3 | The count | *"Is there anything here?"* | Yes, though its wording changes |
+| 4 | The three lists | *"What is already out there?"* | One heading per category that was searched |
+
+**When every source failed**, the page is blocks 1 and 2, then one sentence in place of the
+count — *"I could not reach any of the sources for this. Nothing below is a finding about your
+idea."* — and **no fourth block at all**: no headings, no empty lists.
+
+**When some failed**, every category that was *searched* keeps its heading, whatever it found. A
+category that could not be searched keeps its heading too, with the line saying so, because a
+missing heading is indistinguishable from a feature that does not exist. **Only the all-failed
+case removes the block**, and it removes the whole of it rather than leaving three apologies
+where three lists were.
+
+An earlier draft of this section said *"exactly four blocks and nothing else"* without
+qualification, which contradicted §2.5 one screen later — two owning rules producing two
+different pages, and an implementer forced to pick which to break.
 
 ---
 
@@ -93,7 +109,7 @@ case:
 | The reader gave | The phrase shown is | Where it comes from |
 |---|---|---|
 | A description, substituted | The market's words | `interpreted.label` |
-| A description, unchanged | The reader's own words | The analysis prompt, or a field added to carry it — see [§4.6](#46-what-the-report-does-not-carry) |
+| A description, unchanged | The reader's own words | The analysis prompt, or a field added to carry it — see [§4.5](#45-what-the-report-does-not-carry) |
 | One or more names | The names | The subject set |
 
 Beside it, two links:
@@ -159,11 +175,37 @@ companies"* to somebody who typed all three is the product taking credit for rea
 | The reader gave | The companies clause reads |
 |---|---|
 | A description | *"I found 12 companies"* |
-| One name | *"You named basecamp.com, and I found 11 more like it"* |
+| One name | See below — the rival search has three outcomes |
 | Several names | *"You named 3 companies"* — and no discovery number, because there was none |
 
 Projects and discussions are always discovered, whatever the reader typed, so their clauses are
 unaffected.
+
+#### One name, and what happened to the search for its rivals
+
+**The seed is never in doubt; the rivals are.** `rivals_of` can come back with the seed alone
+because no engine is configured (`NoRivals::NoEngine`), because the company's own page gave
+nothing to search with (`NothingToCompare`), or because some queries did not return
+(`SearchingIncomplete`) — and it can come back with *some* rivals and some queries still
+failed. Applying [§2.5](#25-when-a-source-could-not-be-reached) mechanically to that would print
+*"I found 0 more"* when nothing was ever asked, which is a false absence about a search that did
+not happen.
+
+| What happened to the rival search | The clause reads |
+|---|---|
+| Finished, found rivals | *"You named basecamp.com, and I found 11 more like it"* |
+| Did not finish, found some | *"You named basecamp.com, and I found **at least** 4 more like it"* |
+| Finished, found none | *"You named basecamp.com. I searched for others like it and found none."* |
+| Could not search at all | *"You named basecamp.com. I could not search for others like it."* |
+
+**The last two rows are the distinction this whole section exists for**, arriving one level
+down: *searched and found nothing* is a finding about the market, and *never searched* is a fact
+about us. `NoEngine` and `NothingToCompare` are both the second, and `competitors::NoRivals`
+already separates them — the page must not collapse what the pipeline was careful to keep
+apart.
+
+**The mixed case maps to the same coverage number §2.5 uses:** searches attempted against
+searches answered, which is what makes *"at least"* honest rather than a hedge.
 
 ---
 
@@ -226,7 +268,7 @@ draft said projects kept the `candidates` order too. That function ranks *compan
 from URL shape and cross-query agreement; it never produced a repository and cannot be the
 existing order for a category that does not exist. What ranks a project — stars, recent
 commits, whether it is a library or a product, whether an archived repository still counts — is
-[open issue 5](#45-open-issues), and **nothing should be built against a guess about it**.
+[open issue 5](#47-open-issues), and **nothing should be built against a guess about it**.
 
 **Discussions are ordered differently, and this is the part that needs care.**
 
@@ -245,8 +287,10 @@ each."*
 
 ### 2.5 When a source could not be reached
 
-**Three states per category, not two.** *Found some*, *found none*, and *could not look* are
-different findings, and the third is the one this document originally left out.
+**Four states per category.** *Found some and finished*, *found some and did not finish*, *found
+none*, and *could not look* are four different findings. The first draft of this section had
+three of them; the second had the table below and this sentence still saying three, which is the
+document disagreeing with itself in the space of a paragraph.
 
 That distinction is not new here. A company search already reports `nothing_found`,
 `search_incomplete` and `search_refused` as separate outcomes, because only one of them is
@@ -317,9 +361,16 @@ their own; this document is only the first screen.
 
 ## 4. Dependencies
 
-**Two of the four blocks cannot be built today**, and one more is partly available. This section
-is the honest accounting of what is missing, because a specification that assumes data the
-pipeline does not produce is a wish rather than a plan.
+**Three of the four blocks cannot be built today**, either because nothing produces the data or
+because the finished report does not carry what the page needs to describe it honestly. This
+section is the accounting, because a specification that assumes data the pipeline does not
+produce is a wish rather than a plan.
+
+Two whole result categories have no pipeline ([§4.1](#41-not-built-at-all)); the interpretation
+block and the count both need facts the report never carries
+([§4.5](#45-what-the-report-does-not-carry)); and whether the pipeline yields values at all is
+unmeasured ([§4.4](#44-the-examples-were-never-shown-to-produce-values)). [§5](#5-what-can-be-built-now)
+states what survives all of that.
 
 ### 4.1 Not built at all
 
@@ -336,8 +387,8 @@ pipeline does not produce is a wish rather than a plan.
 | Capability | Needed by | State today |
 |---|---|---|
 | **The interpreted phrase, when one exists** | §2.2, first row | **Available.** `Report::interpreted` carries `label` — the phrase every query was built from — with the alternatives that recurred and how many independent hosts used it. **Not `searched_as`**, which carries the origins and none of the vocabulary |
-| **The phrase when nothing was substituted** | §2.2, second row | **Not carried as a phrase.** `interpreted` is `None` there by design, and the prompt is the nearest thing — which stops being the same thing the moment a prompt also names companies. See [§4.6](#46-what-the-report-does-not-carry) |
-| **Which class of thing the reader gave** | §2.2, §2.3, §2.4 | **Not carried at all.** `subjects_in` runs in the worker and only the prompt survives — [§4.6](#46-what-the-report-does-not-carry) |
+| **The phrase when nothing was substituted** | §2.2, second row | **Not carried as a phrase.** `interpreted` is `None` there by design, and the prompt is the nearest thing — which stops being the same thing the moment a prompt also names companies. See [§4.5](#45-what-the-report-does-not-carry) |
+| **Which class of thing the reader gave** | §2.2, §2.3, §2.4 | **Not carried at all.** `subjects_in` runs in the worker and only the prompt survives — [§4.5](#45-what-the-report-does-not-carry) |
 | **Why this interpretation** | The *"Why this?"* link | **The material exists, the explanation does not.** `Interpreted` holds `also` and `hosts`; nothing renders an account a reader can argue with |
 | **Editing the interpretation** | The *"Edit"* link | **The pattern exists for a different thing.** `EditableSet` lets a reader correct the *company set* and re-run. Correcting the *phrase* is the same shape and does not exist |
 | **A company list of up to 25** | §2.4 | **Capped far lower today.** `subject::MAX_SUBJECTS` limits a run to a handful of companies because each one is its own discovery, fetches and model calls. A list of 25 **named** companies is a much cheaper thing than 25 analyzed ones, and the distinction has not been drawn in the code |
@@ -371,7 +422,7 @@ Two further questions fall out of it, neither answered:
   actually is, so a discussions block that silently omits it is misleading about its own
   coverage.
 
-### 4.3a The examples were never shown to produce values
+### 4.4 The examples were never shown to produce values
 
 **This is the assumption that should have been checked and was not**, and it is a dependency
 because everything above assumes the pipeline can fill a page.
@@ -393,7 +444,7 @@ example company, on the deployed box, with the model running. That number could 
 could be one. Nobody knows, and the first screen this document specifies is the wrong place to
 find out.
 
-### 4.6 What the report does not carry
+### 4.5 What the report does not carry
 
 **This document now asks the page to know two things the finished analysis cannot tell it**, and
 that is a dependency rather than an implementation detail. Review found it after the rest of the
@@ -419,7 +470,7 @@ So the contract has to carry them. The smallest honest version:
 **Until that exists, §2.3's per-class wording and §2.5's partial state cannot be built at all**,
 and §5 says so rather than implying they are a rendering exercise.
 
-### 4.4 What the search channel can and cannot reach
+### 4.6 What the search channel can and cannot reach
 
 The channel today is one SearXNG instance, reached through `SEARX_URL`, returning general web
 results. That is enough to find **companies**, which is what it was built for.
@@ -437,7 +488,7 @@ has a rule about running the real thing before designing around a limit it has n
 
 ---
 
-## 4.5 Open issues
+### 4.7 Open issues
 
 Each of these blocks something in this document. None has an answer yet, and they are listed so
 that a decision is made rather than assumed by whoever writes the code.
@@ -451,9 +502,9 @@ that a decision is made rather than assumed by whoever writes the code.
 | **5** | **What counts as a project worth listing.** Stars, recent commits, whether it is a library or a product, whether an archived repository still counts | Ordering the projects list, and the count |
 | **6** | **How many companies can be named without being analyzed.** The list wants 25; `subject::MAX_SUBJECTS` caps a *run* far lower because each company is its own discovery and model calls | The companies list at 25 |
 | **7** | **What "Why this?" actually shows.** `Interpreted` holds the phrase, the alternatives and the host count — an account a reader can argue with has to be written | The interpretation block |
-| **8** | **Whether the examples produce values at all.** See §4.3a — unmeasured, and the check that claimed it measured something else | Every list on the page, and whether this redesign is treating a symptom |
+| **8** | **Whether the examples produce values at all.** See §4.4 — unmeasured, and the check that claimed it measured something else | Every list on the page, and whether this redesign is treating a symptom |
 | **9** | **What the detail view is.** A page per company, a single scrolling report, an expander under each list row? | Everything §3 moves out of the first screen |
-| **10** | **The report contract.** The page needs the input class and discovery coverage; the finished analysis carries neither — [§4.6](#46-what-the-report-does-not-carry). Deciding the shape is the first piece of work, before any of the four blocks | §2.2's second and third rows, §2.3 entirely, §2.4's ordering, §2.5's partial state |
+| **10** | **The report contract.** The page needs the input class and discovery coverage; the finished analysis carries neither — [§4.5](#45-what-the-report-does-not-carry). Deciding the shape is the first piece of work, before any of the four blocks | §2.2's second and third rows, §2.3 entirely, §2.4's ordering, §2.5's partial state |
 
 **Issue 8 is the one to settle first.** If a curated example yields one claim in six on the
 deployed box, the problem this document is solving is a symptom and the cause is upstream — in
@@ -469,14 +520,14 @@ Honestly, from the four blocks:
 | Block | Buildable today |
 |---|---|
 | §2.1 What you asked | **Yes, wholly.** The prompt is on the analysis |
-| §2.2 How that was interpreted | **The substituted case only.** The other two rows need the input class, which does not reach the client — §4.6. *Why this?* needs an explanation surface besides |
+| §2.2 How that was interpreted | **The substituted case only.** The other two rows need the input class, which does not reach the client — §4.5. *Why this?* needs an explanation surface besides |
 | §2.3 The count | **No.** Even the company clause needs the input class to avoid claiming it *found* companies the reader named, and the partial state needs discovery coverage — neither is on the report |
 | §2.4 The three lists | **The companies list, in scored order, for a description.** Named sets need the input class to keep the reader's order |
 
 So the first honest increment is smaller than the last draft of this section claimed, and it
 starts one step earlier:
 
-1. **Extend the report contract** — input class and discovery coverage (§4.6). Without it, three
+1. **Extend the report contract** — input class and discovery coverage (§4.5). Without it, three
    of the four blocks are either unbuildable or buildable only in a way that misstates
    provenance.
 2. **Then**: the reader's words, the interpretation, and the companies list in the right order
