@@ -171,6 +171,26 @@ pub struct Report {
     /// about a run that ended an hour ago is a false statement sitting in a database.
     #[serde(default)]
     pub progress: Option<crate::Progress>,
+    /// What class of thing the reader gave: a description, one company, or several.
+    ///
+    /// **The page cannot say "I found" without it.** `Subjects::Exactly` hands named domains
+    /// straight through and discovers nothing, so calling those companies *found* is the
+    /// product taking credit for reading a list - and re-sorting them would overrule an order
+    /// the reader wrote on purpose. See
+    /// [PRODUCT_IDEA_RESULTS.md](../../../docs/PRODUCT_IDEA_RESULTS.md) §2.3.
+    ///
+    /// `None` on a report written before this existed.
+    #[serde(default)]
+    pub asked: Option<crate::Given>,
+    /// How much of the searching behind the company set finished.
+    ///
+    /// **A count over an unfinished search is a definite number about an indefinite thing.**
+    /// `candidates::Queried` has both halves and used to log them; this is them surviving as
+    /// far as the reader, so a partial result can say *"at least 12"* rather than *"12"*.
+    ///
+    /// `None` when nothing was searched for - a named set - and on older reports.
+    #[serde(default)]
+    pub searches: Option<crate::Searches>,
 }
 
 impl Report {
@@ -256,6 +276,8 @@ mod tests {
             interpreted: None,
             notes: Vec::new(),
             progress: None,
+            asked: None,
+            searches: None,
         }
     }
 

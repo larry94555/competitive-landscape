@@ -425,6 +425,8 @@ mod tests {
             interpreted: None,
             notes: Vec::new(),
             progress: None,
+            asked: None,
+            searches: None,
         };
         let ready = report
             .sections

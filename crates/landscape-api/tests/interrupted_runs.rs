@@ -41,6 +41,8 @@ fn at() -> chrono::DateTime<chrono::Utc> {
 fn report_saying(text: &str) -> Report {
     Report {
         progress: None,
+        asked: None,
+        searches: None,
         subject: "basecamp.com".to_owned(),
         searched_as: "https://basecamp.com".to_owned(),
         generated_at: at(),

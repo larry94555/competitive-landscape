@@ -1,0 +1,322 @@
+[
+  {
+    "name": "a search with failures reads as finished",
+    "file": "crates/landscape-core/src/given.rs",
+    "old": "        self.failed == 0 && self.answered > 0",
+    "new": "        self.answered > 0",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a search that answered nothing reads as finished",
+    "file": "crates/landscape-core/src/given.rs",
+    "old": "        self.failed == 0 && self.answered > 0",
+    "new": "        self.failed == 0",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the searches that failed are not counted as sent",
+    "file": "crates/landscape-core/src/given.rs",
+    "old": "        self.answered + self.failed",
+    "new": "        self.answered",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a seed's rivals are treated as an order the reader chose",
+    "file": "crates/landscape-core/src/given.rs",
+    "old": "        matches!(self, Self::Named { .. })",
+    "new": "        !matches!(self, Self::Described)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "only the finished report says what the reader gave",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        asked: how.given.cloned(),",
+    "new": "        asked: None,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "how much of the searching came back is dropped on the way out",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        searches: how.searches.copied(),",
+    "new": "        searches: None,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the reader's own words are truncated rather than clamped",
+    "file": "web/src/App.tsx",
+    "old": "        title={prompt}",
+    "new": "        title={prompt.slice(0, 40)}",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a reader whose words were used unchanged is told they were replaced",
+    "file": "web/src/App.tsx",
+    "old": "      {phrase !== null ? (",
+    "new": "      {true ? (",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a reader who named companies is told their idea was interpreted",
+    "file": "web/src/App.tsx",
+    "old": "  if (given?.kind === \"named\" || given?.kind === \"seeded\") {",
+    "new": "  if (false) {",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a count taken over an unfinished search is stated as a fact",
+    "file": "web/src/App.tsx",
+    "old": "  const about = sure ? \"\" : \"at least \";",
+    "new": "  const about = \"\";",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "companies the reader typed are reported as companies we found",
+    "file": "web/src/App.tsx",
+    "old": "  if (given?.kind === \"named\") {\n    clause = `You named ${String(given.count)} ${plural(given.count, \"company\", \"companies\")}.`;\n  } else if (given?.kind === \"seeded\") {",
+    "new": "  if (false) {\n    clause = \"\";\n  } else if (given?.kind === \"seeded\") {",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the seed is counted among the companies found around it",
+    "file": "web/src/App.tsx",
+    "old": "    const others = Math.max(0, companies - 1);",
+    "new": "    const others = companies;",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "two searches nobody ran are reported as having found nothing",
+    "file": "web/src/App.tsx",
+    "old": "      <span className=\"not-yet\">\n        I have not looked for open source projects or discussions — neither search is built\n        yet.\n      </span>",
+    "new": "      <span className=\"not-yet\">0 open source projects, 0 discussions.</span>",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the control promises more rows than it can reveal",
+    "file": "web/src/App.tsx",
+    "old": "  const hidden = held.length - visible.length;",
+    "new": "  const hidden = items.length - visible.length;",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the showing line counts what will be on screen rather than what is",
+    "file": "web/src/App.tsx",
+    "old": "          Showing {visible.length} of {items.length} — the rest are in the full report.",
+    "new": "          Showing {held.length} of {items.length} — the rest are in the full report.",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a list shows everything at once rather than five",
+    "file": "web/src/App.tsx",
+    "old": "  const visible = all ? held : held.slice(0, SHOWN);",
+    "new": "  const visible = held;",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the cap is not applied and the page grows without bound",
+    "file": "web/src/App.tsx",
+    "old": "  const held = items.slice(0, CAP);",
+    "new": "  const held = [...items];",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a category nobody searched renders an empty list",
+    "file": "web/src/App.tsx",
+    "old": "      <p className=\"note\">\n        This search does not exist yet, so nothing here is a finding about your idea.\n      </p>",
+    "new": "      <ul />",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a category nobody searched loses its heading",
+    "file": "web/src/App.tsx",
+    "old": "    <section className=\"listing\" aria-label={heading}>\n      <header>\n        <h2>{heading}</h2>\n        <span className=\"of not-built\">not built</span>\n      </header>",
+    "new": "    <section className=\"listing\" aria-label={heading}>\n      <header>\n        <span className=\"of not-built\">not built</span>\n      </header>",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the clamp is never re-measured after the reader collapses it",
+    "file": "web/src/App.tsx",
+    "old": "  }, [prompt, open]);",
+    "new": "  }, [prompt]);",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a seeded report carries no search coverage",
+    "file": "crates/landscape/src/main.rs",
+    "old": "    (set, queried.coverage())",
+    "new": "    (set, None)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "--all-features"
+    ]
+  },
+  {
+    "name": "the searches that failed are dropped from the coverage",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        Some(landscape_core::Searches::new(\n            self.completed.len(),\n            self.failed.len(),\n        ))",
+    "new": "        Some(landscape_core::Searches::new(\n            self.completed.len(),\n            0,\n        ))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "an engine nobody asked anything reports a search that found nothing",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        if self.sent() == 0 {\n            return None;\n        }\n",
+    "new": "",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a partial search hedges the count without saying what was missed",
+    "file": "web/src/App.tsx",
+    "old": "            note={missed(report.searches)}\n",
+    "new": "",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a complete search is given a coverage line anyway",
+    "file": "web/src/App.tsx",
+    "old": "  if (searches == null || searchFinished(searches)) return undefined;",
+    "new": "  if (searches == null) return undefined;",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the coverage line counts the failures as the total",
+    "file": "web/src/App.tsx",
+    "old": "  return `${String(searches.failed)} of ${String(sent)} ${plural(",
+    "new": "  return `${String(sent)} of ${String(sent)} ${plural(",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  }
+]

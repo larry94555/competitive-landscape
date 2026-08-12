@@ -1110,9 +1110,9 @@ describe("watching a report being written", () => {
   });
 });
 
-describe("what the market calls it", () => {
-  /** Run to a finished report carrying `interpreted`, or not carrying it. */
-  async function reportWith(interpreted: unknown): Promise<void> {
+describe("the four blocks", () => {
+  /** Run to a finished report, with whatever the case under test needs on it. */
+  async function reportWith(extra: Record<string, unknown>): Promise<void> {
     stubEventSource();
     vi.stubGlobal(
       "fetch",
@@ -1135,7 +1135,10 @@ describe("what the market calls it", () => {
                       prompt_version: 1,
                       sections: [],
                       sources: [],
-                      interpreted,
+                      interpreted: null,
+                      asked: { kind: "described" },
+                      searches: { answered: 8, failed: 0 },
+                      ...extra,
                     },
                   },
             ),
@@ -1148,38 +1151,402 @@ describe("what the market calls it", () => {
     await user.click(screen.getByRole("button", { name: /analyze/i }));
     await waitFor(() => expect(FakeEventSource.last).not.toBeNull());
     act(() => FakeEventSource.last!.send("done", ""));
+    await screen.findByText("Done.");
   }
 
-  it("says what it searched for when that is not what the reader typed", async () => {
-    // COMPETITIVE_DISCOVERY.md section 4. The substitution decides every query underneath it,
-    // so a wrong reading has to be visible *before* anything below it is believed.
-    await reportWith({
-      label: "competitive intelligence software",
-      also: ["competitive intelligence", "intelligence software"],
-      hosts: 3,
-    });
-    // Read the whole line rather than hunting for words in it: `searched_as` renders the same
-    // phrase a few lines down, and a loose matcher would pass on either of them.
-    const line = await screen.findByText(/interpreted as/i);
-    expect(line.textContent).toBe(
-      "Interpreted as competitive intelligence software" +
-        " (also: competitive intelligence, intelligence software)" +
-        " — 3 independent sites use this name",
+  it("says nothing conclusive over a report the run is still writing", async () => {
+    // **The case the guard exists for, and the one nothing reached.** A reader who reloads
+    // mid-run is served the *partial* report the recovery fetch stored — so `report` is truthy
+    // while the run is still going, and every test that checked these blocks were absent had
+    // been checking `report` was null rather than that the run had finished. Both mutations
+    // aimed at `isTerminal` survived, which is how this was found.
+    //
+    // Nothing here is settled yet: the count would climb, the set is still being decided, and
+    // half a report handed to an assistant is answered from as confidently as all of it.
+    stubEventSource();
+    openAt("/a/abc");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              ...queued(),
+              status: "running",
+              report: {
+                subject: IDEA,
+                searched_as: "",
+                generated_at: "2026-08-09T00:00:00Z",
+                model_id: "test",
+                prompt_version: 1,
+                sections: [],
+                sources: [],
+                subjects: ["basecamp.com"],
+                interpreted: null,
+                asked: { kind: "described" },
+                searches: { answered: 2, failed: 0 },
+              },
+            }),
+        } as Response),
+      ),
     );
+    render(<App />);
+    await screen.findByTitle(IDEA);
+
+    expect(screen.queryByRole("region", { name: "Companies" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /copy as context/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /run this set/i })).toBeNull();
   });
 
-  it("says nothing when the reader's own words were searched for", async () => {
-    // **Absence is the disclosure working.** Repeating somebody's words back at them as an
-    // "interpretation" is noise, and noise is what stops the real line being read.
-    await reportWith(null);
-    expect(await screen.findByText("Done.")).toBeInTheDocument();
-    expect(screen.queryByText(/interpreted as/i)).toBeNull();
+  describe("1. what you asked", () => {
+    it("carries the whole prompt even while it shows two lines of it", async () => {
+      // The clamp is CSS, so the text is all there for anybody who copies it, and the tooltip
+      // shows the rest. **A clamp that truncated the string** would put the reader's own words
+      // out of reach of selection, search, and a screen reader all at once.
+      await reportWith({});
+      const shown = await screen.findByTitle(IDEA);
+      expect(shown.textContent).toBe(IDEA);
+      expect(shown.className).toContain("clamped");
+    });
+
+    it("can be reopened after a resize taken while it was open", async () => {
+      // **jsdom has no layout**, so overflow is stubbed: a clamped paragraph reports more
+      // content than box, an unclamped one reports exactly its content. That is the real
+      // relationship, and it is the whole of what the bug turned on.
+      const overflowing = (el: HTMLElement): boolean =>
+        el.className.includes("clamped");
+      for (const [prop, value] of [
+        ["scrollHeight", 100],
+        ["clientHeight", 40],
+      ] as const) {
+        Object.defineProperty(HTMLElement.prototype, prop, {
+          configurable: true,
+          get(this: HTMLElement) {
+            return prop === "scrollHeight" || overflowing(this) ? value : 100;
+          },
+        });
+      }
+      try {
+        await reportWith({});
+        const user = userEvent.setup();
+        const dots = await screen.findByRole("button", { name: "…" });
+
+        await user.click(dots);
+        // Open, the paragraph is exactly as tall as its text — so a resize measured here
+        // used to record "not clipped" about a prompt that is.
+        act(() => window.dispatchEvent(new Event("resize")));
+        await user.click(screen.getByRole("button", { name: /show less/i }));
+
+        expect(screen.getByTitle(IDEA).className).toContain("clamped");
+        expect(
+          screen.getByRole("button", { name: "…" }),
+        ).toBeInTheDocument();
+      } finally {
+        for (const prop of ["scrollHeight", "clientHeight"]) {
+          delete (HTMLElement.prototype as unknown as Record<string, unknown>)[
+            prop
+          ];
+        }
+      }
+    });
   });
 
-  it("counts one site in the singular", async () => {
-    // A number a reader is meant to weigh has to read like one.
-    await reportWith({ label: "crm software", also: [], hosts: 1 });
-    expect(await screen.findByText(/1 independent site\b/)).toBeInTheDocument();
+  describe("2. how that was interpreted", () => {
+    it("says what it searched for when that is not what the reader typed", async () => {
+      // COMPETITIVE_DISCOVERY.md section 4. The substitution decides every query underneath it,
+      // so a wrong reading has to be visible *before* anything below it is believed.
+      await reportWith({
+        interpreted: {
+          label: "competitive intelligence software",
+          also: ["competitive intelligence", "intelligence software"],
+          hosts: 3,
+        },
+      });
+      const line = await screen.findByText(/how I interpreted/i);
+      expect(line.textContent).toBe(
+        "Here's how I interpreted the business idea: competitive intelligence software",
+      );
+      expect(screen.getByText(/3 independent sites/)).toHaveTextContent(
+        "3 independent sites use this name for it." +
+          " Also called competitive intelligence, intelligence software.",
+      );
+    });
+
+    it("repeats the reader's own words back when nothing was substituted", async () => {
+      // **The row an earlier draft left out.** `interpreted` is null whenever nothing was
+      // replaced, which includes somebody who typed a phrase the market already uses. Telling
+      // them "you named these directly" would be false about the one thing they are checking.
+      await reportWith({ interpreted: null, asked: { kind: "described" } });
+      const line = await screen.findByText(/as you wrote them/i);
+      expect(line.textContent).toBe(
+        "I searched for your words as you wrote them: " + IDEA,
+      );
+      expect(screen.queryByText(/how I interpreted/i)).toBeNull();
+    });
+
+    it("does not claim to have interpreted a set the reader named", async () => {
+      await reportWith({
+        asked: { kind: "named", count: 2 },
+        subjects: ["basecamp.com", "linear.app"],
+      });
+      expect(
+        (await screen.findByText(/directly/)).textContent,
+      ).toBe("You named basecamp.com, linear.app directly.");
+    });
+
+    it("counts one site in the singular", async () => {
+      // A number a reader is meant to weigh has to read like one.
+      await reportWith({ interpreted: { label: "crm software", also: [], hosts: 1 } });
+      expect(await screen.findByText(/1 independent site\b/)).toBeInTheDocument();
+    });
+
+    it("says nothing about how a report stored before the contract was read", async () => {
+      // `asked` is `#[serde(default)]`, so every row written before this change deserializes
+      // with `null`. Each of the three sentences this block can produce is a claim about how
+      // the idea was read, and we did not record it — so it makes none of them.
+      await reportWith({ asked: null, interpreted: null });
+      expect(screen.queryByText(/as you wrote them/i)).toBeNull();
+      expect(screen.queryByText(/directly/)).toBeNull();
+      expect(screen.queryByText(/how I interpreted/i)).toBeNull();
+    });
+  });
+
+  describe("3. the count", () => {
+    it("counts an old report without claiming to have found it", async () => {
+      await reportWith({ asked: null, subjects: ["basecamp.com", "linear.app"] });
+      expect(
+        (await screen.findByText(/^2 companies/, { selector: ".count span" })).textContent,
+      ).toBe("2 companies.");
+      expect(screen.queryByText(/I found/)).toBeNull();
+    });
+
+    it("says it found what it discovered", async () => {
+      await reportWith({ subjects: ["basecamp.com", "linear.app"] });
+      expect((await screen.findByText(/^I found/, { selector: ".count span" })).textContent).toBe(
+        "I found 2 companies.",
+      );
+    });
+
+    it("never claims to have found companies the reader typed", async () => {
+      // `Subjects::Exactly` hands the domains straight through — no discovery of any kind — so
+      // "I found 2 companies" would be this product taking credit for reading a list.
+      await reportWith({
+        asked: { kind: "named", count: 2 },
+        subjects: ["basecamp.com", "linear.app"],
+      });
+      expect((await screen.findByText(/^You named 2/, { selector: ".count span" })).textContent).toBe(
+        "You named 2 companies.",
+      );
+      expect(screen.queryByText(/I found/)).toBeNull();
+    });
+
+    it("separates the seed from what was found around it", async () => {
+      await reportWith({
+        asked: { kind: "seeded", named: "basecamp.com" },
+        subjects: ["basecamp.com", "linear.app", "height.app"],
+      });
+      expect((await screen.findByText(/^You named basecamp/, { selector: ".count span" })).textContent).toBe(
+        "You named basecamp.com, and I found 2 more like it.",
+      );
+    });
+
+    it("does not hedge a seed whose rival search finished", async () => {
+      // **The fixture used to answer this for the seeded case**, so the shared
+      // `searches: { answered: 8, failed: 0 }` hid a worker that left `searches` null on that
+      // path entirely and rendered every complete search as "at least". Set explicitly here,
+      // both ways, so the test says what it is testing.
+      await reportWith({
+        asked: { kind: "seeded", named: "basecamp.com" },
+        subjects: ["basecamp.com", "linear.app", "height.app"],
+        searches: { answered: 3, failed: 0 },
+      });
+      expect(
+        (await screen.findByText(/^You named basecamp/, { selector: ".count span" }))
+          .textContent,
+      ).toBe("You named basecamp.com, and I found 2 more like it.");
+    });
+
+    it("hedges a seed whose rival search did not finish", async () => {
+      await reportWith({
+        asked: { kind: "seeded", named: "basecamp.com" },
+        subjects: ["basecamp.com", "linear.app", "height.app"],
+        searches: { answered: 2, failed: 1 },
+      });
+      expect(
+        (await screen.findByText(/^You named basecamp/, { selector: ".count span" }))
+          .textContent,
+      ).toBe("You named basecamp.com, and I found at least 2 more like it.");
+    });
+
+    it("hedges a seed the worker reported no coverage for", async () => {
+      // `searches: null` means nothing was asked — no engine configured, or the seed's own
+      // page gave nothing to search with. A bare count over that is a definite number about a
+      // search that never happened; `report.notes` carries which of those it was.
+      await reportWith({
+        asked: { kind: "seeded", named: "basecamp.com" },
+        subjects: ["basecamp.com", "linear.app"],
+        searches: null,
+      });
+      expect(
+        (await screen.findByText(/^You named basecamp/, { selector: ".count span" }))
+          .textContent,
+      ).toBe("You named basecamp.com, and I found at least 1 more like it.");
+    });
+
+    it("hedges a count taken over a search that did not finish", async () => {
+      // A bare "12" over a partial search is a definite number about an indefinite thing: the
+      // thirteenth may not exist, or may be behind the query that timed out, and a reader
+      // cannot tell which. "At least" costs one word and is true.
+      await reportWith({
+        subjects: ["basecamp.com", "linear.app"],
+        searches: { answered: 6, failed: 2 },
+      });
+      expect((await screen.findByText(/^I found/, { selector: ".count span" })).textContent).toBe(
+        "I found at least 2 companies.",
+      );
+    });
+
+    it("says the other two searches do not exist rather than reporting zero", async () => {
+      // A zero is a claim that we looked. PRODUCT_IDEA_RESULTS.md 2.5 and 4.1.
+      await reportWith({ subjects: ["basecamp.com"] });
+      expect(await screen.findByText(/have not looked/, { selector: ".not-yet" })).toBeInTheDocument();
+      expect(screen.queryByText(/0 open source projects/)).toBeNull();
+      expect(screen.queryByText(/0 discussions/)).toBeNull();
+    });
+  });
+
+  describe("what did not come back", () => {
+    /** The one block whose search actually ran. */
+    async function companies(): Promise<HTMLElement> {
+      return screen.findByRole("region", { name: "Companies" });
+    }
+
+    it("names what was missed under a description whose search did not finish", async () => {
+      // **The other half of "at least."** The hedge says the number is soft; this says whether
+      // re-running would plausibly change it. One failed search out of eight and six out of
+      // eight are the same word and very different decisions — `PRODUCT_IDEA_RESULTS.md`
+      // §2.5 asks for both, and the first version of this page shipped only the word.
+      await reportWith({
+        subjects: ["basecamp.com", "linear.app"],
+        searches: { answered: 6, failed: 2 },
+      });
+      expect(
+        within(await companies()).getByText(
+          "2 of 8 searches did not come back.",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("names what was missed under a seed whose rival search did not finish", async () => {
+      // The path the contract reached second, and the one review found empty twice.
+      await reportWith({
+        asked: { kind: "seeded", named: "basecamp.com" },
+        subjects: ["basecamp.com", "linear.app"],
+        searches: { answered: 2, failed: 1 },
+      });
+      expect(
+        within(await companies()).getByText("1 of 3 searches did not come back."),
+      ).toBeInTheDocument();
+    });
+
+    it("says nothing when every search came back", async () => {
+      // A line about coverage over a complete search is noise, and noise is what stops the
+      // real one being read.
+      await reportWith({
+        subjects: ["basecamp.com", "linear.app"],
+        searches: { answered: 8, failed: 0 },
+      });
+      expect(
+        within(await companies()).queryByText(/did not come back/),
+      ).toBeNull();
+    });
+
+    it("says nothing when no search was sent at all", async () => {
+      // `null` is what the worker sends when nothing was asked — no engine, or the seed's own
+      // page gave nothing to search with. A coverage line over that would invent a search.
+      await reportWith({ subjects: ["basecamp.com"], searches: null });
+      expect(
+        within(await companies()).queryByText(/did not come back/),
+      ).toBeNull();
+    });
+  });
+
+  describe("4. the lists", () => {
+    const MANY = Array.from({ length: 31 }, (_, i) => "co" + String(i) + ".example");
+
+    it("shows five, and offers exactly what it can reveal", async () => {
+      // The count and the cap are different numbers. The control names what it can actually
+      // show — 20, not the 26 that are off screen — because a promise a reader can check is a
+      // promise a reader will check.
+      await reportWith({ subjects: MANY });
+      const list = await screen.findByRole("region", { name: "Companies" });
+      expect(within(list).getAllByRole("listitem")).toHaveLength(5);
+      expect(within(list).getByText("31 found")).toBeInTheDocument();
+      expect(
+        within(list).getByRole("button", { name: "…more (20)" }),
+      ).toBeInTheDocument();
+    });
+
+    it("counts what is on screen now, not what will be", async () => {
+      // Before the click it reads "Showing 5 of 31". A line that says 25 while five rows are
+      // visible is false in the state a reader spends most of their time in.
+      await reportWith({ subjects: MANY });
+      const list = await screen.findByRole("region", { name: "Companies" });
+      expect(within(list).getByText(/Showing 5 of 31/)).toBeInTheDocument();
+      await userEvent.setup().click(within(list).getByRole("button", { name: /more/ }));
+      expect(within(list).getAllByRole("listitem")).toHaveLength(25);
+      expect(within(list).getByText(/Showing 25 of 31/)).toBeInTheDocument();
+    });
+
+    it("shows a company as a reader would type it", async () => {
+      await reportWith({ subjects: ["https://basecamp.com", "https://linear.app"] });
+      const list = await screen.findByRole("region", { name: "Companies" });
+      expect(
+        within(list)
+          .getAllByRole("listitem")
+          .map((li) => li.textContent),
+      ).toEqual(["basecamp.com", "linear.app"]);
+    });
+
+    it("keeps the order a reader wrote", async () => {
+      // `Subjects::Exactly` is "exactly these, in the order written", and somebody comparing
+      // `basecamp.com vs linear.app` has put the one they care about first. Re-scoring would
+      // overrule them in the one place they were most explicit.
+      await reportWith({
+        asked: { kind: "named", count: 3 },
+        subjects: ["zulip.com", "basecamp.com", "linear.app"],
+      });
+      const list = await screen.findByRole("region", { name: "Companies" });
+      expect(
+        within(list)
+          .getAllByRole("listitem")
+          .map((li) => li.textContent),
+      ).toEqual(["zulip.com", "basecamp.com", "linear.app"]);
+    });
+
+    it("keeps the headings of the searches that were never built", async () => {
+      // A missing heading is indistinguishable from a feature that does not exist, and an
+      // empty list would be this product claiming it looked.
+      await reportWith({ subjects: ["basecamp.com"] });
+      for (const heading of ["Open source projects", "Discussions"]) {
+        const block = await screen.findByRole("region", { name: heading });
+        // **The visible heading, not the landmark's name.** The first version of this asserted
+        // `findByRole("region", { name: heading })` and stopped, which passes with the <h2>
+        // deleted - the accessible name comes from `aria-label`, so the one thing the test was
+        // about was the one thing it could not see. The mutation harness found it.
+        expect(
+          within(block).getByRole("heading", { name: heading }),
+        ).toBeInTheDocument();
+        expect(within(block).getByText("not built")).toBeInTheDocument();
+        // And the sentence, because an empty <ul> also has no rows in it.
+        expect(
+          within(block).getByText(/This search does not exist yet/),
+        ).toBeInTheDocument();
+        expect(within(block).queryAllByRole("listitem")).toHaveLength(0);
+      }
+    });
   });
 });
 

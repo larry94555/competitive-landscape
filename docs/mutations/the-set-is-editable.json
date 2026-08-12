@@ -2,8 +2,8 @@
   {
     "name": "the set a report was built from is never shown",
     "file": "web/src/App.tsx",
-    "old": "      {isTerminal(showing_status) && analyzed.length > 0 && (\n        <EditableSet companies={analyzed} onRun={onPick} running={picking} />\n      )}",
-    "new": "      {false && (\n        <EditableSet companies={analyzed} onRun={onPick} running={picking} />\n      )}",
+    "old": "          {analyzed.length > 0 && (\n            <EditableSet companies={analyzed} onRun={onPick} running={picking} />\n          )}",
+    "new": "          {false && (\n            <EditableSet companies={analyzed} onRun={onPick} running={picking} />\n          )}",
     "run": [
       "npx",
       "vitest",
@@ -14,8 +14,8 @@
   {
     "name": "a set is offered for correction while the run is still deciding it",
     "file": "web/src/App.tsx",
-    "old": "      {isTerminal(showing_status) && analyzed.length > 0 && (",
-    "new": "      {analyzed.length >= 0 && (",
+    "old": "      {report && isTerminal(showing_status) && (",
+    "new": "      {report && showing.length >= 0 && (",
     "run": [
       "npx",
       "vitest",

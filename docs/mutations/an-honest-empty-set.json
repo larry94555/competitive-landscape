@@ -171,8 +171,8 @@
   {
     "name": "no engine is reported to a reader as a market with nobody in it",
     "file": "crates/landscape/src/main.rs",
-    "old": "            alone: Some(\n                landscape_search::competitors::NoRivals::when_no_engine_is_configured(&seed),\n            ),",
-    "new": "            alone: Some(landscape_search::competitors::NoRivals::NoEngine),",
+    "old": "                alone: Some(\n                    landscape_search::competitors::NoRivals::when_no_engine_is_configured(&seed),\n                ),",
+    "new": "                alone: Some(landscape_search::competitors::NoRivals::NoEngine),",
     "run": [
       "cargo",
       "nextest",
@@ -184,8 +184,8 @@
   {
     "name": "a run with no engine says nothing about why it found nobody",
     "file": "crates/landscape/src/main.rs",
-    "old": "            alone: Some(\n                landscape_search::competitors::NoRivals::when_no_engine_is_configured(&seed),\n            ),",
-    "new": "            alone: None,",
+    "old": "                alone: Some(\n                    landscape_search::competitors::NoRivals::when_no_engine_is_configured(&seed),\n                ),",
+    "new": "                alone: None,",
     "run": [
       "cargo",
       "nextest",

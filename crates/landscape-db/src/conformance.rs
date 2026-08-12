@@ -27,6 +27,8 @@ fn sample_report(subject: &str) -> Report {
         interpreted: None,
         notes: Vec::new(),
         progress: None,
+        asked: None,
+        searches: None,
     }
 }
 

@@ -104,6 +104,51 @@ export interface Report {
   readonly interpreted?: Interpreted | null;
   /** Anything true of the whole report — today, companies named and not analyzed. */
   readonly notes?: readonly string[];
+  /**
+   * What class of thing the reader gave.
+   *
+   * **The page cannot say "I found" without it.** A named set is handed straight through with
+   * no discovery, so calling those companies *found* takes credit for reading a list — and
+   * their order is the reader's instruction rather than our ranking.
+   * `PRODUCT_IDEA_RESULTS.md` §2.3.
+   */
+  readonly asked?: Given | null;
+  /** How much of the searching finished. Absent when nothing was searched for. */
+  readonly searches?: Searches | null;
+}
+
+/** What the reader gave. Mirrors `landscape_core::Given`. */
+export type Given =
+  | { readonly kind: "described" }
+  | { readonly kind: "seeded"; readonly named: string }
+  | { readonly kind: "named"; readonly count: number };
+
+/** How many of the searches behind the company set answered, and how many did not. */
+export interface Searches {
+  readonly answered: number;
+  readonly failed: number;
+}
+
+/**
+ * How many searches were sent, answered or not.
+ *
+ * **Mirrors `Searches::sent` in the core**, and exists for the same reason `searchFinished`
+ * does: the two halves of a coverage are stored, and every question a reader is shown about it
+ * is derived, in one place on each side of the wire rather than at each call.
+ */
+export function searchesSent(searches: Searches): number {
+  return searches.answered + searches.failed;
+}
+
+/**
+ * Whether a count taken from these searches may be stated as a definite number.
+ *
+ * **Nothing sent is not the same as everything answered.** A run that asked no questions has
+ * established no absence, which is why this is not `failed === 0`. Mirrors
+ * `Searches::finished` in the core, and the two are asserted against the same cases.
+ */
+export function searchFinished(searches: Searches | null | undefined): boolean {
+  return searches != null && searches.failed === 0 && searches.answered > 0;
 }
 
 export interface Analysis {

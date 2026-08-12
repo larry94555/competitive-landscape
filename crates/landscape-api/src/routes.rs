@@ -410,6 +410,8 @@ mod tests {
             .expect("enqueued");
         let report = landscape_core::Report {
             progress: None,
+            asked: None,
+            searches: None,
             subject: "basecamp.com".to_owned(),
             searched_as: "basecamp.com".to_owned(),
             generated_at: chrono::Utc::now(),
@@ -518,6 +520,8 @@ mod tests {
             .expect("enqueued");
         store.claim_next().await.expect("claimable");
         let half = landscape_core::Report {
+            asked: None,
+            searches: None,
             subject: "basecamp.com".to_owned(),
             searched_as: "basecamp.com".to_owned(),
             generated_at: chrono::Utc::now(),

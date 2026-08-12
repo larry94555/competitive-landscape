@@ -106,7 +106,7 @@
   {
     "name": "the interpretation never reaches the report",
     "file": "crates/landscape-analyze/src/lib.rs",
-    "old": "        interpreted: interpreted.cloned(),",
+    "old": "        interpreted: how.interpreted.cloned(),",
     "new": "        interpreted: None,",
     "run": [
       "cargo",
@@ -119,8 +119,8 @@
   {
     "name": "a reader is told their own words were interpreted as something else",
     "file": "web/src/App.tsx",
-    "old": "      {report?.interpreted && (",
-    "new": "      {true && (",
+    "old": "      {phrase !== null ? (",
+    "new": "      {true ? (",
     "run": [
       "npx",
       "vitest",
@@ -131,8 +131,8 @@
   {
     "name": "the evidence behind the market's name is not shown",
     "file": "web/src/App.tsx",
-    "old": "            — {report.interpreted.hosts} independent{\" \"}\n            {report.interpreted.hosts === 1 ? \"site\" : \"sites\"} use this name",
-    "new": "            — independent sites use this name",
+    "old": "            {report.interpreted?.hosts ?? 0} independent{\" \"}\n            {(report.interpreted?.hosts ?? 0) === 1 ? \"site\" : \"sites\"} use this\n            name for it.",
+    "new": "            independent sites use this name for it.",
     "run": [
       "npx",
       "vitest",
@@ -143,8 +143,8 @@
   {
     "name": "one site is counted in the plural",
     "file": "web/src/App.tsx",
-    "old": "            {report.interpreted.hosts === 1 ? \"site\" : \"sites\"} use this name",
-    "new": "            {\"sites\"} use this name",
+    "old": "            {(report.interpreted?.hosts ?? 0) === 1 ? \"site\" : \"sites\"} use this\n            name for it.",
+    "new": "            {\"sites\"} use this\n            name for it.",
     "run": [
       "npx",
       "vitest",

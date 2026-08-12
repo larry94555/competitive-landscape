@@ -33,6 +33,186 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 47 — the first screen
+
+**Date:** 2026-08-11 — **Where:** this laptop — **Model:** none — this is interface and contract work.
+
+**A reader looked at the output of a finished run and said it was horrible.** What the page led
+with was six headings — *What it costs*, *What it does*, *Who it is for* — most of them holding
+*"Nothing found in public sources"*. A list of questions with no answers under them, above the
+three things the reader had actually asked for.
+[PRODUCT_IDEA_RESULTS.md](PRODUCT_IDEA_RESULTS.md) is the specification that came out of that,
+and [`prototype/results-mockup.html`](../prototype/results-mockup.html) is what it should look
+like. This run is both, built.
+
+### The contract had to come first, and that is the finding
+
+The four blocks are four sentences about **provenance**, and the finished report carried none of
+it. Three sentences the page has to say:
+
+| The page says | Only true if it knows |
+|---|---|
+| *"I found 12 companies"* | The reader **described** an idea. `Subjects::Exactly` hands named domains straight through, so *"found"* would be taking credit for reading a list |
+| *"I found **at least** 12"* | Some searches did not come back |
+| *"I searched for your words as you wrote them"* | Nothing was substituted **and** the reader gave a description — `interpreted: None` alone does not mean what an earlier draft of the specification thought it meant |
+
+All three live in the worker: `subjects_in` decides the class, `read.searches` counts the
+coverage, and both were thrown away before the report was built. **Every shortcut around that is
+one of two mistakes this repository has already paid for** — re-parsing the prompt in TypeScript
+puts a business rule in two languages, and treating a non-empty result as a complete one is a
+claim about a search nobody watched. So `landscape_core::given` carries `Given` and `Searches`,
+`Report` carries both, and the page reads them.
+
+### The seam is where the test goes
+
+`given::tests` asserts the type. `App.test.tsx` asserts the sentences. Between them sits
+`joined()`, which builds a report **once per company and once at the end** — and a version that
+stamped the class on only the last of those would pass both suites while telling a reader,
+mid-run, that three companies they had typed had been *found*. The test asserts it on every
+report handed out, not on the last one.
+
+That is the fourth time in this repository that a property held on both sides of a seam and not
+at it.
+
+### Where the page departs from its own specification, and why
+
+[§5](PRODUCT_IDEA_RESULTS.md#5-what-can-be-built-now) said the count sentence stays out until it
+can name all three categories. The mockup — which is the instruction — shows the sentence and
+all three headings. Neither *"0 open source projects"* nor a silently missing heading is honest:
+the first claims we looked, the second is indistinguishable from a feature that does not exist.
+So the page says what is separately true of each:
+
+```text
+What you asked
+  an app that helps small farms sell to local restaurants
+
+Here's how I interpreted the business idea: farm-to-restaurant ordering software
+  4 independent sites use this name for it.
+
+I found 12 companies.  I have not looked for open source projects or
+discussions — neither search is built yet.
+
+Companies              12 FOUND
+Open source projects   NOT BUILT
+Discussions            NOT BUILT
+```
+
+The six claim sections are not deleted — they are the only evidence this product has. They sit
+behind a disclosure on the same page until the detail view and the downloadable report exist,
+which is [open issue 9](PRODUCT_IDEA_RESULTS.md#47-open-issues).
+
+### One older rule now yields
+
+`DISCUSSION_SIGNALS.md` §6 ranked by specificity, corroboration and engagement, capped at 5.
+The results page orders discussions by **venue authority, then recency**, 25 held and 5 shown.
+Those are not the same list ordered two ways: that document ranks **signals** — one want,
+deduplicated across the venues that expressed it — and this page lists **discussions**, which
+are threads. §6 now says so and points at the newer rule, rather than leaving two documents
+describing one screen differently.
+
+### What the harness found, which no test did
+
+Rewriting this page broke six recorded mutations aimed at code that had moved. Retargeting
+them to where each defect now lives is maintenance @ but two of the six then **survived**, and
+they were not stale. They removed `isTerminal` from the guard on the summary blocks, and every
+test that had ever asserted those blocks were absent mid-run had been asserting that
+`report` was **null**, not that the run had finished.
+
+**Those are different states, and the difference is a real reader.** Reload during a run and the
+recovery fetch serves the *partial* report it stored @ so `report` is truthy while the run is
+still going. Without `isTerminal`, that reader is offered **Copy as context** over half a
+report, and an editable set the pipeline has not finished deciding.
+
+The guard was right; nothing reached it. One test now does, and it catches both.
+
+**Two of this run's own nineteen were missed for the same reason at one remove.** A test that
+found the *"Open source projects"* block by `findByRole("region", { name: heading })` passes
+with the `<h2>` deleted @ the accessible name comes from `aria-label`, so the one thing the test
+was about was the one thing it could not see.
+
+### The two the contract missed, and how
+
+Review found both, and both are the same defect at different addresses: **a rule applied on one
+path and not on the one beside it.**
+
+**The seeded path carried no coverage at all.** `rivals_of` computed it, warned about it, and
+dropped it — so every seed that found rivals reached the page with `searches: None` and was
+rendered *"at least N more like it"* however completely the search had finished. The frontend
+test did not catch it because the shared fixture supplied the coverage the worker never sent:
+**the test and production disagreed, and the fixture was the one telling the truth.**
+
+The arithmetic now lives once, as `impl From<&Queried> for Searches`, in the crate that owns
+both counts. Two callers needed it and the second was written without it, which is what a
+duplicated conversion is for.
+
+**And nothing could reach the fix.** The mutation that put the defect back was **missed**,
+because `rivals_of` built its own fetcher and could only be called with a network. Lifting the
+read closure to a parameter — `rivals_from` — made the whole of that decision testable against a
+canned engine and a canned page. The same mutation is caught now.
+
+**The clamped prompt could not be reopened.** Expanded, a paragraph is exactly as tall as its
+content, so a window resize measured *"not clipped"* about text that is; collapsing afterwards
+left the prompt clamped with the ellipsis gone. The effect now re-measures when the reader
+collapses it.
+
+**The harness corrected the fix as well as finding the defect.** The first mutation aimed at the
+early return that skips measuring while open, and **passed** — that guard is not what fixes
+this; the dependency array is. *"Check the second before believing the first"* is written on the
+tool's own output and it was right twice here.
+
+### A third round, on the fix rather than the feature
+
+Review came back to the same contract twice more, and both were the same question one level in:
+**what does this field mean when nothing happened?**
+
+**A configured engine that was never asked anything reported a search that found nothing.**
+`of_company` returns before sending a query when the seed's own page gave no vocabulary, so
+`coverage` was `Some(0 of 0)` — and the same run serialized two different ways depending only on
+whether an unused engine happened to be set. `None` is now decided in `Queried::coverage()`, once,
+beside the counts, rather than at either caller.
+
+**And the page hedged without saying why.** [`PRODUCT_IDEA_RESULTS.md` §2.5](PRODUCT_IDEA_RESULTS.md#25-when-a-source-could-not-be-reached)
+asks for *"at least 12"* **and** a line naming what was missed; the first version shipped the
+word alone. One failed search out of eight and six out of eight are the same word and very
+different decisions, and the line is what a reader deciding whether to re-run actually needs.
+
+**The test found a defect in the sentence it was written for.** The first version read *"1 of 3
+**search** did not come back"* — pluralised on the failures rather than on the total, which is
+right only when both are one. The seeded case has one failure of three, so the assertion that
+existed to check the count checked the grammar too.
+
+**What is not built, and is now written down as [open issue 11](PRODUCT_IDEA_RESULTS.md#47-open-issues).**
+The line says *how much* was missed and not *what to do about it*. Which of three things happened
+— refused, rate-limited, never answered — is what decides whether trying again is worth
+anything; `NoRivals` keeps those apart and reaches the page only through `Report::notes`, and
+only when the set has one member. Carrying it is a second contract change, so it is named rather
+than half-built.
+
+### And one thing only looking at it found
+
+The finished page was rendered to a file with the real stylesheet and read. `Done.` was landing
+**between** the reader's own words and how those words were read — splitting the two blocks that
+together answer *"did it understand me?"*. Nothing in 109 frontend tests could see it: every one
+of them asserts what is on the page, and this was about what is *next to* what.
+
+The status line is chrome and now sits above all four blocks. This is the fourth time in this
+repository that looking at the product found something the suite is structurally unable to
+report — [ADR 0011](decisions/0011-no-experiments-on-production.md), and the reason the
+walkthrough exists.
+
+### What this run does not measure
+
+No latency figure changed and none was taken. `clippy::too_many_arguments` fired on `joined()`
+once the two contract parameters arrived, which is the lint doing its job: three arguments that
+always travel together and can be passed in the wrong order became one `Provenance`.
+
+| | Rust tests | frontend tests | catalog |
+|---|---|---|---|
+| Run 46 | 1013 | 94 | 26, all caught |
+| now | **1020** | **117** | **26**, all caught |
+
+---
+
 ## Run 46 — how far through it is
 
 **Date:** 2026-08-11 · **Where:** this laptop, and one real run through a browser · **Model:** none.

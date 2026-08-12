@@ -158,8 +158,8 @@
   {
     "name": "the button is offered before there is a whole report to paste",
     "file": "web/src/App.tsx",
-    "old": "      {report && isTerminal(showing_status) && <CopyAsContext id={analysis.id} />}",
-    "new": "      {<CopyAsContext id={analysis.id} />}",
+    "old": "      {report && isTerminal(showing_status) && (",
+    "new": "      {report && (",
     "run": [
       "npx",
       "vitest",
