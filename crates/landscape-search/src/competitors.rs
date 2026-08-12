@@ -1002,7 +1002,7 @@ Project management built for speed."
             )
         })
         .await;
-        let covered: landscape_core::Searches = (&queried).into();
+        let covered = queried.coverage().expect("queries were sent");
         assert_eq!(covered.answered, 3);
         assert_eq!(covered.failed, 0);
         assert!(
@@ -1023,7 +1023,7 @@ Project management built for speed."
             )
         })
         .await;
-        let covered: landscape_core::Searches = (&queried).into();
+        let covered = queried.coverage().expect("queries were sent");
         assert_eq!(covered.answered, 2);
         assert_eq!(covered.failed, 1);
         assert_eq!(
@@ -1034,6 +1034,33 @@ Project management built for speed."
         assert!(
             !covered.finished(),
             "one query did not come back, and the count over it is not a definite number"
+        );
+
+        // **And a configured engine that was never asked anything reports nothing.** With the
+        // seed's own page unreadable there is no vocabulary, so `of_company` returns before it
+        // sends a query — and a coverage of nought out of nought would read as a search that
+        // came back empty. Review found the same run serializing two different ways depending
+        // only on whether an unused engine happened to be set.
+        let unused = Canned {
+            per_query: Vec::new(),
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (set, queried) =
+            of_company(&unused, &seed_nobody_could_read(), |_url| async { None }).await;
+        assert_eq!(
+            queried.sent(),
+            0,
+            "a query was sent with nothing to search for"
+        );
+        assert_eq!(
+            queried.coverage(),
+            None,
+            "an engine nobody asked anything was reported as a search that found nothing"
+        );
+        assert!(
+            matches!(set.alone, Some(NoRivals::NothingToCompare(_))),
+            "{:?}",
+            set.alone
         );
     }
 

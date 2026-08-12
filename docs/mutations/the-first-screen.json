@@ -248,7 +248,7 @@
   {
     "name": "a seeded report carries no search coverage",
     "file": "crates/landscape/src/main.rs",
-    "old": "    (set, Some((&queried).into()))",
+    "old": "    (set, queried.coverage())",
     "new": "    (set, None)",
     "run": [
       "cargo",
@@ -260,8 +260,8 @@
   {
     "name": "the searches that failed are dropped from the coverage",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "        Self::new(queried.completed.len(), queried.failed.len())",
-    "new": "        Self::new(queried.completed.len(), 0)",
+    "old": "        Some(landscape_core::Searches::new(\n            self.completed.len(),\n            self.failed.len(),\n        ))",
+    "new": "        Some(landscape_core::Searches::new(\n            self.completed.len(),\n            0,\n        ))",
     "run": [
       "cargo",
       "nextest",
@@ -269,5 +269,54 @@
       "-p",
       "landscape-search"
     ]
+  },
+  {
+    "name": "an engine nobody asked anything reports a search that found nothing",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        if self.sent() == 0 {\n            return None;\n        }\n",
+    "new": "",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a partial search hedges the count without saying what was missed",
+    "file": "web/src/App.tsx",
+    "old": "            note={missed(report.searches)}\n",
+    "new": "",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a complete search is given a coverage line anyway",
+    "file": "web/src/App.tsx",
+    "old": "  if (searches == null || searchFinished(searches)) return undefined;",
+    "new": "  if (searches == null) return undefined;",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the coverage line counts the failures as the total",
+    "file": "web/src/App.tsx",
+    "old": "  return `${String(searches.failed)} of ${String(sent)} ${plural(",
+    "new": "  return `${String(sent)} of ${String(sent)} ${plural(",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
   }
 ]

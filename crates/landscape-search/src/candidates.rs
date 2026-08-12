@@ -165,15 +165,29 @@ pub struct Queried {
     pub failed: Vec<Failed>,
 }
 
-impl From<&Queried> for landscape_core::Searches {
-    /// The coverage a reader is shown, from the queries that produced it.
+impl Queried {
+    /// The coverage a reader is shown, or `None` when nothing was asked.
     ///
     /// **Here rather than at each call site.** Two callers needed this — the description path
     /// and the seeded one — and the second was written without it, so a seeded report reached
     /// the page with no coverage at all and every complete search was hedged as *"at least"*.
-    /// One conversion, in the crate that owns both halves of the count.
-    fn from(queried: &Queried) -> Self {
-        Self::new(queried.completed.len(), queried.failed.len())
+    /// One conversion, in the type that owns both halves of the count.
+    ///
+    /// **And `None` is the answer whenever nothing was sent**, which is not the same as "no
+    /// engine". `of_company` returns an empty `Queried` when the seed's own page gave nothing
+    /// to search with, so a configured engine that was never asked anything would otherwise
+    /// report a coverage of nought out of nought — a search that came back empty, which is a
+    /// finding about the market rather than about us. Review found the same run serializing
+    /// two different ways depending only on whether an unused engine happened to be set.
+    #[must_use]
+    pub fn coverage(&self) -> Option<landscape_core::Searches> {
+        if self.sent() == 0 {
+            return None;
+        }
+        Some(landscape_core::Searches::new(
+            self.completed.len(),
+            self.failed.len(),
+        ))
     }
 }
 

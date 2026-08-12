@@ -503,6 +503,19 @@ has a rule about running the real thing before designing around a limit it has n
 
 ### 4.7 Open issues
 
+**11. A partial search says how much was missed and not what to do about it.** `Searches` carries
+two counts, so the page can say *"2 of 8 searches did not come back"* and stop there. Which of
+three things happened — the engine refused, asked us to slow down, or never answered — is what
+decides whether trying again is worth anything, and `landscape_search::competitors::NoRivals`
+already keeps those apart. It reaches the page only through `Report::notes`, and only when the
+set has **one** member: `alone_because` returns `None` as soon as there is a comparison, so a
+seeded search that found rivals *and* dropped queries has the count and no remedy.
+
+**Carrying it is a contract change rather than a rendering one** § `Searches` is counts, and the
+fault is an enum with a reader-facing sentence attached. It is named here rather than
+half-built, because collapsing *refused*, *rate-limited* and *never answered* into one sentence
+is the un-making this project has already paid for three times.
+
 Each of these blocks something in this document. None has an answer yet, and they are listed so
 that a decision is made rather than assumed by whoever writes the code.
 
@@ -569,6 +582,19 @@ where a *description* was resolved and not where a *named company's* rivals were
 so a seed whose search finished completely was still hedged as *"at least"*. The arithmetic now
 lives once, in the crate that owns the query counts, rather than at each caller.
 
+**And *"nothing was asked"* is decided there too, not at each caller.** `of_company` returns
+before it sends anything when the seed's own page gave no vocabulary, so a configured engine
+that was never asked a question would otherwise report a coverage of nought out of nought — a
+search that came back empty, which is a finding about the market rather than about us. Review
+found the same run serializing two different ways depending only on whether an unused engine
+happened to be set. `Queried::coverage()` returns `None` whenever `sent()` is zero.
+
+**[§2.5](#25-when-a-source-could-not-be-reached)'s line beneath the hedge is built.** *"At least
+12"* says the number is soft; *"2 of 8 searches did not come back"* says whether re-running
+would plausibly change it, and one failed search out of eight and six out of eight are the same
+word and very different decisions. The first version of this page shipped the word without the
+line, which is this document's own requirement unimplemented.
+
 **Step 3 shipped differently, and this section is the reason.** §5 said the count sentence stays
 out until it can name all three categories. `prototype/results-mockup.html` — which is the
 instruction this page was built to — shows the sentence and all three headings. Rather than pick
@@ -596,4 +622,5 @@ what they cannot see is missing.
 | **Edit** on the interpretation | `EditableSet` edits the *set*; editing the *phrase* is a different affordance and a different re-run |
 | The separate detail view and the downloadable report (§3) | [Open issue 9](#47-open-issues). Until they exist the six claim sections sit behind a disclosure on the same page — off the first screen, and nothing thrown away |
 | Both missing pipelines | [§4.1](#41-not-built-at-all) |
+| **The remedy for a partial search** | [Open issue 11](#47-open-issues) |
 

@@ -1417,6 +1417,62 @@ describe("the four blocks", () => {
     });
   });
 
+  describe("what did not come back", () => {
+    /** The one block whose search actually ran. */
+    async function companies(): Promise<HTMLElement> {
+      return screen.findByRole("region", { name: "Companies" });
+    }
+
+    it("names what was missed under a description whose search did not finish", async () => {
+      // **The other half of "at least."** The hedge says the number is soft; this says whether
+      // re-running would plausibly change it. One failed search out of eight and six out of
+      // eight are the same word and very different decisions — `PRODUCT_IDEA_RESULTS.md`
+      // §2.5 asks for both, and the first version of this page shipped only the word.
+      await reportWith({
+        subjects: ["basecamp.com", "linear.app"],
+        searches: { answered: 6, failed: 2 },
+      });
+      expect(
+        within(await companies()).getByText(
+          "2 of 8 searches did not come back.",
+        ),
+      ).toBeInTheDocument();
+    });
+
+    it("names what was missed under a seed whose rival search did not finish", async () => {
+      // The path the contract reached second, and the one review found empty twice.
+      await reportWith({
+        asked: { kind: "seeded", named: "basecamp.com" },
+        subjects: ["basecamp.com", "linear.app"],
+        searches: { answered: 2, failed: 1 },
+      });
+      expect(
+        within(await companies()).getByText("1 of 3 searches did not come back."),
+      ).toBeInTheDocument();
+    });
+
+    it("says nothing when every search came back", async () => {
+      // A line about coverage over a complete search is noise, and noise is what stops the
+      // real one being read.
+      await reportWith({
+        subjects: ["basecamp.com", "linear.app"],
+        searches: { answered: 8, failed: 0 },
+      });
+      expect(
+        within(await companies()).queryByText(/did not come back/),
+      ).toBeNull();
+    });
+
+    it("says nothing when no search was sent at all", async () => {
+      // `null` is what the worker sends when nothing was asked — no engine, or the seed's own
+      // page gave nothing to search with. A coverage line over that would invent a search.
+      await reportWith({ subjects: ["basecamp.com"], searches: null });
+      expect(
+        within(await companies()).queryByText(/did not come back/),
+      ).toBeNull();
+    });
+  });
+
   describe("4. the lists", () => {
     const MANY = Array.from({ length: 31 }, (_, i) => "co" + String(i) + ".example");
 

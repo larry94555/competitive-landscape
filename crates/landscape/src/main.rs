@@ -1551,10 +1551,12 @@ struct Read {
     interpreted: Option<landscape_core::Interpreted>,
     /// How many of the searches behind the set answered, and how many did not.
     ///
+    /// `None` when nothing was asked at all, which is not a coverage of nought out of nought.
+    ///
     /// **`Queried` held both halves and this function used to log them and drop them**, so a
     /// finished report could not tell a complete search from a partial one and every count
     /// looked definite. See `landscape_core::given::Searches`.
-    searches: landscape_core::Searches,
+    searches: Option<landscape_core::Searches>,
 }
 
 async fn resolve_from_description(
@@ -1565,7 +1567,7 @@ async fn resolve_from_description(
 ) -> Read {
     let refuse =
         |why: String, kind, choices| Read {
-            searches: landscape_core::Searches::new(0, 0),
+            searches: None,
             decided: landscape_analyze::subject::Decided::Refuse(
                 landscape_analyze::subject::Refusal { why, kind, choices },
             ),
@@ -1614,7 +1616,7 @@ async fn resolve_from_description(
         );
     }
     Read {
-        searches: (&read.queried).into(),
+        searches: read.queried.coverage(),
         decided: landscape_analyze::subject::decide(derived, &read.queried),
         // **Only when something was actually substituted.** A market whose name is what the
         // reader already typed is not an interpretation, and a line saying so would be noise
@@ -1744,7 +1746,7 @@ where
             "some competitor searches did not complete"
         );
     }
-    (set, Some((&queried).into()))
+    (set, queried.coverage())
 }
 
 /// Record a refusal a reader can act on, and say so if the claim was taken away first.
@@ -1830,7 +1832,7 @@ async fn run_analysis(
             match read.decided {
                 landscape_analyze::subject::Decided::Analyze(set) => {
                     let origins = set.origins();
-                    searches = Some(read.searches);
+                    searches = read.searches;
                     tracing::info!(
                         id = %analysis.id,
                         companies = origins.len(),

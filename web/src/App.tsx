@@ -8,12 +8,14 @@ import {
   getExamples,
   isTerminal,
   pathFor,
+  searchesSent,
   searchFinished,
   watchAnalysis,
   type Analysis,
   type AnalysisStatus,
   type Examples,
   type Progress,
+  type Searches,
   type Section,
 } from "./api";
 
@@ -552,7 +554,11 @@ function AnalysisView({
             noise on every row that tell a reader nothing. `EditableSet` already made this
             decision for the same strings; this is that decision, not a second one.
           */}
-          <Listing heading="Companies" items={analyzed.map(withoutScheme)} />
+          <Listing
+            heading="Companies"
+            items={analyzed.map(withoutScheme)}
+            note={missed(report.searches)}
+          />
           {/*
             **Two headings with nothing under them, on purpose.** Neither search exists —
             `PRODUCT_IDEA_RESULTS.md` §4.1 — and §2.5 asks that a category nobody looked in say
@@ -1171,6 +1177,30 @@ function plural(n: number, one: string, many: string): string {
 }
 
 /**
+ * What did not come back, when something did not.
+ *
+ * **The other half of *"at least"*.** `PRODUCT_IDEA_RESULTS.md` §2.5 asks for the hedge *and* a
+ * line naming what was missed, because the hedge alone tells a reader the number is soft
+ * without telling them whether re-running would plausibly change it. One failed search out of
+ * eight and six out of eight are the same word and very different decisions.
+ *
+ * `null` when the search finished, and when nothing was asked at all — neither is a partial
+ * search, and a line about coverage over either would be inventing one.
+ */
+function missed(searches: Searches | null | undefined): string | undefined {
+  if (searches == null || searchFinished(searches)) return undefined;
+  // **The noun agrees with the total, not with the failures.** `1 of 3 search` is what
+  // pluralising on `failed` produces, and the first version of this did exactly that; the
+  // test caught it on the seeded case.
+  const sent = searchesSent(searches);
+  return `${String(searches.failed)} of ${String(sent)} ${plural(
+    sent,
+    "search",
+    "searches",
+  )} did not come back.`;
+}
+
+/**
  * One of the three result lists: at most 25, five at a time.
  *
  * **The count and the cap are different numbers and both are shown.** `…more` names what it can
@@ -1185,7 +1215,7 @@ function Listing({
 }: {
   heading: string;
   items: readonly string[];
-  note?: string;
+  note?: string | undefined;
 }): React.JSX.Element {
   const [all, setAll] = useState(false);
   const held = items.slice(0, CAP);

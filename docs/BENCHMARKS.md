@@ -160,6 +160,34 @@ early return that skips measuring while open, and **passed** — that guard is n
 this; the dependency array is. *"Check the second before believing the first"* is written on the
 tool's own output and it was right twice here.
 
+### A third round, on the fix rather than the feature
+
+Review came back to the same contract twice more, and both were the same question one level in:
+**what does this field mean when nothing happened?**
+
+**A configured engine that was never asked anything reported a search that found nothing.**
+`of_company` returns before sending a query when the seed's own page gave no vocabulary, so
+`coverage` was `Some(0 of 0)` — and the same run serialized two different ways depending only on
+whether an unused engine happened to be set. `None` is now decided in `Queried::coverage()`, once,
+beside the counts, rather than at either caller.
+
+**And the page hedged without saying why.** [`PRODUCT_IDEA_RESULTS.md` §2.5](PRODUCT_IDEA_RESULTS.md#25-when-a-source-could-not-be-reached)
+asks for *"at least 12"* **and** a line naming what was missed; the first version shipped the
+word alone. One failed search out of eight and six out of eight are the same word and very
+different decisions, and the line is what a reader deciding whether to re-run actually needs.
+
+**The test found a defect in the sentence it was written for.** The first version read *"1 of 3
+**search** did not come back"* — pluralised on the failures rather than on the total, which is
+right only when both are one. The seeded case has one failure of three, so the assertion that
+existed to check the count checked the grammar too.
+
+**What is not built, and is now written down as [open issue 11](PRODUCT_IDEA_RESULTS.md#47-open-issues).**
+The line says *how much* was missed and not *what to do about it*. Which of three things happened
+— refused, rate-limited, never answered — is what decides whether trying again is worth
+anything; `NoRivals` keeps those apart and reaches the page only through `Report::notes`, and
+only when the set has one member. Carrying it is a second contract change, so it is named rather
+than half-built.
+
 ### And one thing only looking at it found
 
 The finished page was rendered to a file with the real stylesheet and read. `Done.` was landing
@@ -181,7 +209,7 @@ always travel together and can be passed in the wrong order became one `Provenan
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 46 | 1013 | 94 | 26, all caught |
-| now | **1020** | **113** | **22**, all caught |
+| now | **1020** | **117** | **26**, all caught |
 
 ---
 

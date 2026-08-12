@@ -130,6 +130,17 @@ export interface Searches {
 }
 
 /**
+ * How many searches were sent, answered or not.
+ *
+ * **Mirrors `Searches::sent` in the core**, and exists for the same reason `searchFinished`
+ * does: the two halves of a coverage are stored, and every question a reader is shown about it
+ * is derived, in one place on each side of the wire rather than at each call.
+ */
+export function searchesSent(searches: Searches): number {
+  return searches.answered + searches.failed;
+}
+
+/**
  * Whether a count taken from these searches may be stated as a definite number.
  *
  * **Nothing sent is not the same as everything answered.** A run that asked no questions has
