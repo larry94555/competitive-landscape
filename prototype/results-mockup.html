@@ -1,0 +1,338 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Results — proposed</title>
+<!--
+  The results page proposed by docs/PRODUCT_IDEA_RESULTS.md, with invented data.
+
+  **This is a mockup and says so on the page.** Nothing here is fetched; the numbers, companies,
+  repositories and discussions are made up to show shape, spacing and behavior. The three
+  interactions are real, because they are the part that cannot be judged from a picture: the
+  two-line clamp expands, the tooltip is on the text, and each list reveals the rest.
+
+  Styled from web/src/styles.css so the proportions are the ones a reader would actually get.
+-->
+<style>
+  :root {
+    --ink: #141c19;
+    --muted: #6b7772;
+    --rule: #dce3de;
+    --accent: #0f6e5c;
+    --accent-soft: #e2f0eb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--ink);
+    background: #f6f8f6;
+  }
+  main { max-width: 54rem; margin: 0 auto; padding: 2.5rem 1.25rem 5rem; }
+
+  .mock {
+    background: #fffbe9;
+    border: 1px solid #e4d9a8;
+    border-radius: 3px;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.85rem;
+    color: #6b5f2a;
+    margin-bottom: 2rem;
+  }
+
+  /* 1. What you asked ---------------------------------------------------- */
+  .asked { margin-bottom: 1.75rem; }
+  .asked h1 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 0 0 0.4rem;
+  }
+  .prompt {
+    font-size: 1.35rem;
+    line-height: 1.45;
+    margin: 0;
+  }
+  .prompt.clamped {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .more-dots {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
+  /* 2. Interpretation ---------------------------------------------------- */
+  .reading {
+    border-left: 3px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 0.85rem 1rem;
+    margin-bottom: 1.75rem;
+  }
+  .reading p { margin: 0; }
+  .reading .phrase { font-weight: 700; }
+  .reading .links {
+    margin-top: 0.35rem;
+    font-size: 0.85rem;
+    display: flex;
+    gap: 1.1rem;
+  }
+  .reading a { color: var(--accent); }
+
+  /* 3. The count --------------------------------------------------------- */
+  .count {
+    font-size: 1.05rem;
+    margin: 0 0 2.25rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  .count b { font-weight: 700; }
+
+  /* 4. The three lists --------------------------------------------------- */
+  /*
+     **The headings are the page's furniture, so they are built like it.** In the first version
+     they were 1.05rem and sat in the same visual register as the rows underneath - a reader
+     scanning for "where are the projects" had to read to find out. Three things fix that and
+     none of them is color alone: size, a rule that closes the header off from its list, and
+     the count moved to the right where the eye already goes at the end of a line.
+  */
+  section { margin-bottom: 3.25rem; }
+  section > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.55rem;
+    border-bottom: 2px solid var(--accent);
+    margin-bottom: 0.35rem;
+  }
+  section h2 {
+    font-size: 1.45rem;
+    line-height: 1.25;
+    font-weight: 700;
+    letter-spacing: -0.012em;
+    margin: 0;
+  }
+  /* The count, as a chip rather than a trailing phrase. It is a fact about the list, so it
+     sits at the list's edge instead of trailing off the title like an afterthought. */
+  .of {
+    flex: none;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
+    white-space: nowrap;
+  }
+  /* Anything that is not the title or the count. The ordering rule for discussions lives
+     here rather than inside the heading, which was making one line do two jobs. */
+  .note {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin: 0 0 0.6rem;
+  }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li {
+    padding: 0.78rem 0;
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    gap: 0.9rem;
+    align-items: baseline;
+  }
+  li:last-child { border-bottom: 0; }
+  li .name { font-weight: 600; }
+  li .where {
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-family: ui-monospace, monospace;
+  }
+  li .meta {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+  .tier {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 2px;
+    padding: 0 0.3rem;
+  }
+  .tier.b { color: var(--muted); border-color: var(--rule); }
+  li.hidden { display: none; }
+  .reveal {
+    margin-top: 0.8rem;
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    font-size: 0.9rem;
+    color: var(--accent);
+    cursor: pointer;
+  }
+  .reveal:hover { text-decoration: underline; }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.25rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  footer a { color: var(--accent); }
+</style>
+
+<main>
+  <p class="mock">
+    <b>Mockup.</b> Invented data, real behavior — the clamp, the tooltip and each
+    <code>…more</code> work. Specified by <code>docs/PRODUCT_IDEA_RESULTS.md</code>.
+  </p>
+
+  <!-- 1 ---------------------------------------------------------------- -->
+  <div class="asked">
+    <h1>What you asked</h1>
+    <p class="prompt clamped" id="prompt"
+       title="a tool that helps small farms sell produce directly to restaurants, so a grower can see what chefs ordered last week and plan their planting around it, instead of tracking six different price lists in spreadsheets">a
+      tool that helps small farms sell produce directly to restaurants, so a grower can see
+      what chefs ordered last week and plan their planting around it, instead of tracking six
+      different price lists in spreadsheets</p>
+    <button class="more-dots" id="expand">…</button>
+  </div>
+
+  <!-- 2 ---------------------------------------------------------------- -->
+  <div class="reading">
+    <p>Here's how I interpreted the business idea:
+      <span class="phrase">farm-to-restaurant ordering software</span></p>
+    <p class="links">
+      <a href="#">Edit</a>
+      <a href="#">Why this?</a>
+    </p>
+  </div>
+
+  <!-- 3 ---------------------------------------------------------------- -->
+  <p class="count">
+    I found <b>12 companies</b>, <b>7 open source projects</b>, and <b>31 discussions</b>
+    on this topic.
+  </p>
+
+  <!-- 4a --------------------------------------------------------------- -->
+  <section>
+    <header>
+      <h2>Companies</h2>
+      <span class="of">12 found</span>
+    </header>
+    <ul id="companies">
+      <li><span class="name">Local Line</span><span class="where">localline.ca</span></li>
+      <li><span class="name">GrazeCart</span><span class="where">grazecart.com</span></li>
+      <li><span class="name">Barn2Door</span><span class="where">barn2door.com</span></li>
+      <li><span class="name">Harvie</span><span class="where">harvie.farm</span></li>
+      <li><span class="name">Farmbrite</span><span class="where">farmbrite.com</span></li>
+      <li class="hidden"><span class="name">Cropio</span><span class="where">cropio.com</span></li>
+      <li class="hidden"><span class="name">Tend</span><span class="where">tend.com</span></li>
+      <li class="hidden"><span class="name">Forager</span><span class="where">goforager.com</span></li>
+      <li class="hidden"><span class="name">Farmigo</span><span class="where">farmigo.com</span></li>
+      <li class="hidden"><span class="name">CropWalk</span><span class="where">cropwalk.io</span></li>
+      <li class="hidden"><span class="name">FarmDrop</span><span class="where">farmdrop.example</span></li>
+      <li class="hidden"><span class="name">Market Wagon</span><span class="where">marketwagon.com</span></li>
+    </ul>
+    <button class="reveal" data-list="companies">…more (7)</button>
+  </section>
+
+  <!-- 4b --------------------------------------------------------------- -->
+  <section>
+    <header>
+      <h2>Open source projects</h2>
+      <span class="of">7 found</span>
+    </header>
+    <ul id="projects">
+      <li><span class="name">openfoodnetwork</span><span class="where">github.com/openfoodfoundation</span><span class="meta">Ruby · 1.4k ★</span></li>
+      <li><span class="name">foodcoop-suite</span><span class="where">github.com/foodcoopshop</span><span class="meta">PHP · 310 ★</span></li>
+      <li><span class="name">farmOS</span><span class="where">github.com/farmOS</span><span class="meta">PHP · 1.2k ★</span></li>
+      <li><span class="name">local-food-marketplace</span><span class="where">github.com/lfm-org</span><span class="meta">TypeScript · 88 ★</span></li>
+      <li><span class="name">cropplan</span><span class="where">github.com/cropplan</span><span class="meta">Python · 240 ★</span></li>
+      <li class="hidden"><span class="name">harvest-ledger</span><span class="where">github.com/hledger-farm</span><span class="meta">Go · 41 ★</span></li>
+      <li class="hidden"><span class="name">csa-manager</span><span class="where">gitlab.com/csa-tools</span><span class="meta">Ruby · 27 ★</span></li>
+    </ul>
+    <button class="reveal" data-list="projects">…more (2)</button>
+  </section>
+
+  <!-- 4c --------------------------------------------------------------- -->
+  <section>
+    <header>
+      <h2>Discussions</h2>
+      <span class="of">31 found</span>
+    </header>
+    <p class="note">Most authoritative venues first, most recent within each.
+      <b><span id="showing">Showing 5 of 31</span></b> — the rest are in the full report.</p>
+    <ul id="discussions">
+      <li><span class="tier">A</span><span class="name">Why farm-to-table software keeps failing</span><span class="where">news.ycombinator.com</span><span class="meta">2026-07-28</span></li>
+      <li><span class="tier">A</span><span class="name">Anyone building wholesale ordering for growers?</span><span class="where">news.ycombinator.com</span><span class="meta">2026-06-14</span></li>
+      <li><span class="tier">A</span><span class="name">Open sourcing our CSA order manager</span><span class="where">github.com</span><span class="meta">2026-05-30</span></li>
+      <li><span class="tier">A</span><span class="name">Standard price-list format for produce?</span><span class="where">github.com</span><span class="meta">2026-05-02</span></li>
+      <li><span class="tier">A</span><span class="name">Chef-side ordering: what actually gets used</span><span class="where">lobste.rs</span><span class="meta">2026-04-19</span></li>
+      <li class="hidden"><span class="tier">A</span><span class="name">Invoicing restaurants without a POS</span><span class="where">news.ycombinator.com</span><span class="meta">2026-03-22</span></li>
+      <li class="hidden"><span class="tier">A</span><span class="name">Show HN: order sheets that chefs actually fill in</span><span class="where">news.ycombinator.com</span><span class="meta">2026-03-04</span></li>
+      <li class="hidden"><span class="tier">A</span><span class="name">Produce availability as a feed, not a PDF</span><span class="where">github.com</span><span class="meta">2026-02-27</span></li>
+      <li class="hidden"><span class="tier">A</span><span class="name">Why we abandoned our farm marketplace</span><span class="where">news.ycombinator.com</span><span class="meta">2026-02-15</span></li>
+      <li class="hidden"><span class="tier">A</span><span class="name">Ask HN: pricing per-case or per-pound?</span><span class="where">news.ycombinator.com</span><span class="meta">2026-01-30</span></li>
+      <li class="hidden"><span class="tier">A</span><span class="name">Delivery routing for one van and forty drops</span><span class="where">lobste.rs</span><span class="meta">2026-01-12</span></li>
+      <li class="hidden"><span class="tier">A</span><span class="name">Issue: standard units for wholesale produce</span><span class="where">github.com</span><span class="meta">2025-12-19</span></li>
+      <li class="hidden"><span class="tier">A</span><span class="name">The CSA box is the wrong abstraction</span><span class="where">lobste.rs</span><span class="meta">2025-12-01</span></li>
+      <li class="hidden"><span class="tier">A</span><span class="name">Restaurant buyers do not want a portal</span><span class="where">news.ycombinator.com</span><span class="meta">2025-11-14</span></li>
+      <li class="hidden"><span class="tier">A</span><span class="name">Offline-first ordering for rural growers</span><span class="where">github.com</span><span class="meta">2025-10-28</span></li>
+      <li class="hidden"><span class="tier b">B</span><span class="name">Six spreadsheets and counting</span><span class="where">growersforum.example</span><span class="meta">2026-02-11</span></li>
+      <li class="hidden"><span class="tier b">B</span><span class="name">What do chefs actually want to see?</span><span class="where">discuss.example.org</span><span class="meta">2026-01-08</span></li>
+      <li class="hidden"><span class="tier b">B</span><span class="name">Anyone using a co-op ordering platform?</span><span class="where">growersforum.example</span><span class="meta">2025-12-22</span></li>
+      <li class="hidden"><span class="tier b">B</span><span class="name">Weekly price list: email or app?</span><span class="where">smallfarm.example</span><span class="meta">2025-12-05</span></li>
+      <li class="hidden"><span class="tier b">B</span><span class="name">Getting paid on time by restaurants</span><span class="where">growersforum.example</span><span class="meta">2025-11-20</span></li>
+      <li class="hidden"><span class="tier b">B</span><span class="name">Do buyers care about the farm story?</span><span class="where">discuss.example.org</span><span class="meta">2025-11-02</span></li>
+      <li class="hidden"><span class="tier b">B</span><span class="name">Cold chain on a half-ton truck</span><span class="where">smallfarm.example</span><span class="meta">2025-10-15</span></li>
+      <li class="hidden"><span class="tier b">B</span><span class="name">Minimum order sizes that work</span><span class="where">growersforum.example</span><span class="meta">2025-09-30</span></li>
+      <li class="hidden"><span class="tier b">B</span><span class="name">Splitting a delivery run with a neighbor farm</span><span class="where">smallfarm.example</span><span class="meta">2025-09-11</span></li>
+      <li class="hidden"><span class="tier b">B</span><span class="name">Wholesale versus farmers market margins</span><span class="where">discuss.example.org</span><span class="meta">2025-08-26</span></li>
+    </ul>
+    <button class="reveal" data-list="discussions">…more (20)</button>
+  </section>
+
+  <footer>
+    The full report — pricing, what each one does, recent changes, company facts, trust posture
+    and where they are investing — is in the
+    <a href="#">detail view</a> and the <a href="#">downloadable PDF</a>.
+  </footer>
+</main>
+
+<script>
+  // The clamp. Two lines, then a dash that opens the whole thing in place.
+  const prompt = document.getElementById("prompt");
+  const expand = document.getElementById("expand");
+  expand.addEventListener("click", () => {
+    const open = prompt.classList.toggle("clamped");
+    expand.textContent = open ? "…" : "Show less";
+  });
+
+  // Each list reveals the rest, up to the cap of 25.
+  for (const button of document.querySelectorAll(".reveal")) {
+    button.addEventListener("click", () => {
+      const list = document.getElementById(button.dataset.list);
+      for (const row of list.querySelectorAll("li.hidden")) row.classList.remove("hidden");
+      const showing = document.getElementById("showing");
+      if (showing && button.dataset.list === "discussions") {
+        showing.textContent =
+          "Showing " + list.querySelectorAll("li").length + " of 31";
+      }
+      button.remove();
+    });
+  }
+</script>
