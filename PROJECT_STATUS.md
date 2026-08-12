@@ -396,6 +396,19 @@ anything has been counted, it is an **estimate** worked out from measured phase 
 marked with a tilde — `~12%` and `40%` are visibly different claims, and the estimate is capped
 so it cannot overtake the count. See [BENCHMARKS.md](docs/BENCHMARKS.md) Run 46.
 
+**And a reader found what all of that was resting on.** They typed a product idea, pressed
+Analyze, and were told *"we could not work out which company you meant — try naming its
+website"*. Nothing was wrong with their words: no search engine was configured, so the
+description could not be resolved, and the one thing that sentence told them to type instead is
+the research they came for. `Failure::NoSubject` had covered both situations, and the interface
+renders from the kind. `Failure::NoEngine` is now its own, and the first screen says
+**before** a run is spent that searching is not configured here.
+
+**Nobody had hit it because the examples never took that path.** Each one put its companies in
+the box, so clicking one ran a *named set* — no discovery at all. An example is now the idea
+alone, which is what the product is for and what
+[B2](#4-blockers) has always been about. See [BENCHMARKS.md](docs/BENCHMARKS.md) Run 48.
+
 **And what the wait ends in was rebuilt.** The same reader looked at a finished run and said the
 output was horrible: it led with six section headings, most of them holding *"Nothing found in
 public sources"*, above the three facts they had asked about.

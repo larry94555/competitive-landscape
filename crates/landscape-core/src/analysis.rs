@@ -105,11 +105,27 @@ impl AnalysisStatus {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Failure {
-    /// Nothing in the prompt named a company, and nothing here can go looking.
+    /// Nothing in the prompt named a company, and the searching for one came to nothing.
     ///
-    /// **The reader fixes this by naming a domain**, or an operator by configuring a search
-    /// engine. It is the only one of these that is about our configuration.
+    /// **The reader fixes this by naming a domain.** It is about their words.
     NoSubject,
+    /// No search engine is configured, so a description cannot be resolved at all.
+    ///
+    /// **This used to be [`Self::NoSubject`], and that was the whole of a fatal bug.** One kind
+    /// covered two situations with different audiences — *your words named nothing we could
+    /// find* and *we have no way to look* — and the interface renders from the kind, so a reader
+    /// who typed a perfectly good product idea was told *"we could not work out which company
+    /// you meant, try naming its website"*. That blames them for an environment variable, and
+    /// it points them at the one input that skips the feature they came for: naming the
+    /// companies is what the product is supposed to do **for** them.
+    ///
+    /// The worker's own sentence had said *"which is not configured here"* since it was
+    /// written. Nothing carried it to the surface, because `Failure` is what the surface reads.
+    ///
+    /// **The operator fixes this**, by setting `SEARX_URL`. `PRODUCT_SPEC.md` §3's rule earns it a
+    /// value: a reader would do something different, which is *nothing* — there is no wording
+    /// that helps, and being told to reword is worse than being told to wait.
+    NoEngine,
     /// Several real companies match what was typed, and we will not choose between them.
     ///
     /// **A question, not a failure** — `PRODUCT_SPEC.md` §3's *"Which Notion do you mean?"*.
@@ -149,6 +165,7 @@ impl Failure {
     pub const fn as_db_str(self) -> &'static str {
         match self {
             Self::NoSubject => "no_subject",
+            Self::NoEngine => "no_engine",
             Self::Ambiguous => "ambiguous",
             Self::NothingFound => "nothing_found",
             Self::SearchIncomplete => "search_incomplete",
@@ -165,6 +182,7 @@ impl Failure {
     pub fn from_db_str(s: &str) -> Self {
         match s {
             "no_subject" => Self::NoSubject,
+            "no_engine" => Self::NoEngine,
             "ambiguous" => Self::Ambiguous,
             "nothing_found" => Self::NothingFound,
             "search_incomplete" => Self::SearchIncomplete,

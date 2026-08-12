@@ -313,14 +313,8 @@ button.example {
   font-weight: 400;
 }
 button.example:hover { border-color: var(--accent); }
-button.example strong { display: block; }
-.example .companies {
-  display: block;
-  font-family: ui-monospace, monospace;
-  font-size: 0.85rem;
-  color: var(--accent);
-}
-.example .why { display: block; color: var(--muted); font-size: 0.9rem; margin-top: 0.3rem; }
+/* The idea is the whole of the card now, so it carries the weight the three lines shared. */
+button.example strong { display: block; font-size: 1.05rem; }
 
 /* The companies to pick between when a name matched several. Styled as the examples are,
    because they are the same offer — a whole prompt behind one click — and a reader who has
@@ -404,6 +398,18 @@ button.choice strong { display: block; }
   font-family: ui-monospace, monospace;
   font-size: 0.8rem;
 }
+
+/* A capability this instance does not have, said before a run is spent on finding out.
+   Loud enough to be read before the ideas above it are clicked, because that is the whole
+   point of it being here rather than in the failure a click produces. */
+.unavailable {
+  background: #fff6e5;
+  border: 1px solid #d9a441;
+  border-radius: 3px;
+  padding: 0.7rem 1rem;
+  font-size: 0.92rem;
+}
+.unavailable code { font-family: ui-monospace, monospace; }
 
 /* What is curated and what is not. Small, and never omitted. */
 .curation { color: var(--muted); font-size: 0.85rem; }

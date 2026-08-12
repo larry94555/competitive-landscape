@@ -1,22 +1,5 @@
 [
   {
-    "name": "a chip expands to companies the reader never saw",
-    "file": "crates/landscape-core/src/examples.rs",
-    "old": "        format!(\"{} - {}\", self.idea, self.companies.join(\" vs \"))",
-    "new": "        self.idea.clone()",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-core",
-      "-p",
-      "landscape-analyze",
-      "-p",
-      "landscape-api"
-    ]
-  },
-  {
     "name": "an example names one company, so the demo shows a profile",
     "file": "crates/landscape-core/src/examples.rs",
     "old": "            companies: vec![\"basecamp.com\".to_owned(), \"linear.app\".to_owned()],",
@@ -40,19 +23,6 @@
       "run",
       "-p",
       "landscape-core",
-      "-p",
-      "landscape-analyze"
-    ]
-  },
-  {
-    "name": "the words joining an idea to its companies glue two domains into one",
-    "file": "crates/landscape-core/src/examples.rs",
-    "old": "        format!(\"{} - {}\", self.idea, self.companies.join(\" vs \"))",
-    "new": "        format!(\"{} - {}\", self.idea, self.companies.join(\"/vs/\"))",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
       "-p",
       "landscape-analyze"
     ]
@@ -95,18 +65,6 @@
     "cwd": "web"
   },
   {
-    "name": "the box is filled with the idea and the companies are passed behind it",
-    "file": "web/src/App.tsx",
-    "old": "                    setPrompt(example.prompt);",
-    "new": "                    setPrompt(example.idea);",
-    "run": [
-      "npx",
-      "vitest",
-      "run"
-    ],
-    "cwd": "web"
-  },
-  {
     "name": "the ideas render without the sentence that qualifies them",
     "file": "web/src/api.ts",
     "old": "      typeof (body as Examples).note !== \"string\"",
@@ -135,18 +93,6 @@
     "file": "web/src/api.ts",
     "old": "    const usable = (body as Examples).examples.filter(isExample);",
     "new": "    const usable = (body as Examples).examples as Example[];",
-    "run": [
-      "npx",
-      "vitest",
-      "run"
-    ],
-    "cwd": "web"
-  },
-  {
-    "name": "an entry's companies are taken on trust once the other fields look right",
-    "file": "web/src/api.ts",
-    "old": "    Array.isArray(example.companies) &&\n    example.companies.every((company) => typeof company === \"string\")",
-    "new": "    true",
     "run": [
       "npx",
       "vitest",

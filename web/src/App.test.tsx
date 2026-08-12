@@ -610,15 +610,13 @@ describe("submitting an idea", () => {
 
 describe("the ideas offered on the first screen", () => {
   const CATALOG = {
-    note: "The companies in these examples were chosen by hand. Everything the report says about them is fetched, quoted and cited when you click - nothing here is stored or written in advance.",
+    discovery: true,
+    note: "These ideas were chosen by hand. The companies are not: clicking one searches for them, and everything the report says is fetched, quoted and cited at that moment - nothing here is stored or written in advance.",
     examples: [
       {
         id: "project-management",
         idea: "project management for a small design agency",
-        companies: ["basecamp.com", "linear.app"],
-        why: "The two ends of the same market.",
-        prompt:
-          "project management for a small design agency - basecamp.com vs linear.app",
+        prompt: "project management for a small design agency",
       },
     ],
   };
@@ -645,10 +643,11 @@ describe("the ideas offered on the first screen", () => {
     );
   }
 
-  it("fills the box with the companies rather than expanding them behind the reader", async () => {
-    // The honesty of the feature. A chip that put the idea in the box and passed the domains
-    // separately would hide the curated part in the one place a reader cannot check it — so
-    // what lands in the box is a sentence they could have typed, and can edit.
+  it("fills the box with the idea and nothing else", async () => {
+    // **The inversion of what this used to assert.** The box used to receive
+    // `"...agency — basecamp.com vs linear.app"`, which is a *named set*: the run discovers
+    // nothing, and the first screen demonstrates the one path where the central feature of
+    // this product does not run. A reader clicking an idea wants to watch it find them.
     stubWithExamples();
     const user = userEvent.setup();
     render(<App />);
@@ -658,9 +657,39 @@ describe("the ideas offered on the first screen", () => {
     });
     await user.click(chip);
 
-    expect(box().value).toBe(
-      "project management for a small design agency - basecamp.com vs linear.app",
-    );
+    expect(box().value).toBe("project management for a small design agency");
+    expect(box().value).not.toContain(".com");
+  });
+
+  it("says so before a run is spent when searching is not configured", async () => {
+    // **A reader found this the hard way.** Every idea here is a description, and resolving
+    // one needs an engine — so with none configured each of these refuses, and the reader
+    // learns about an environment variable at the cost of one of their analyses.
+    stubWithExamples({ ...CATALOG, discovery: false });
+    render(<App />);
+
+    expect(
+      await screen.findByText(/Searching is not configured/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText("SEARX_URL")).toBeInTheDocument();
+  });
+
+  it("says nothing about it when searching works", async () => {
+    // A warning that is always there is furniture, and furniture is not read.
+    stubWithExamples();
+    render(<App />);
+    await screen.findByRole("button", { name: /project management/i });
+    expect(screen.queryByText(/not configured/i)).toBeNull();
+  });
+
+  it("treats a server too old to say as one that cannot search", async () => {
+    // Guessing "yes" would put the reader back where they started: an idea typed, a run
+    // spent, an environment variable explained afterwards.
+    stubWithExamples({ note: CATALOG.note, examples: CATALOG.examples });
+    render(<App />);
+    expect(
+      await screen.findByText(/Searching is not configured/i),
+    ).toBeInTheDocument();
   });
 
   it("does not start the run when a chip is clicked", async () => {
@@ -687,6 +716,8 @@ describe("the ideas offered on the first screen", () => {
     render(<App />);
     expect(await screen.findByText(/chosen by hand/i)).toBeInTheDocument();
     expect(screen.getByText(/fetched, quoted and cited/i)).toBeInTheDocument();
+    // And it must no longer say the companies were chosen for them, because they are not.
+    expect(screen.getByText(/companies are not/i)).toBeInTheDocument();
   });
 
   it("still lets somebody type when the examples cannot be loaded", async () => {
@@ -694,7 +725,7 @@ describe("the ideas offered on the first screen", () => {
     // missing convenience look like a broken application.
     // A body with a perfectly good note and a list that is not a list. Two guards read this
     // shape, and a fixture missing *both* fields would let either one carry the test alone.
-    stubWithExamples({ note: "chosen by hand", examples: "not a list" });
+    stubWithExamples({ discovery: true, note: "chosen by hand", examples: "not a list" });
     const user = userEvent.setup();
     render(<App />);
 
@@ -709,7 +740,7 @@ describe("the ideas offered on the first screen", () => {
     // The rule the API enforces on its side: the note travels with the list. Chips rendered
     // without it would let a reader assume the reports were written in advance too — so the
     // honest degradation is no chips, not chips with the qualification quietly dropped.
-    stubWithExamples({ examples: CATALOG.examples });
+    stubWithExamples({ discovery: true, examples: CATALOG.examples });
     const user = userEvent.setup();
     render(<App />);
 
@@ -722,13 +753,13 @@ describe("the ideas offered on the first screen", () => {
 
   it("drops one malformed idea and still shows the others", async () => {
     // Review found this. The first guard checked that `examples` was an array and stopped
-    // there, which reads as validation and is not: an entry with a null `companies` reached
-    // `companies.join(" vs ")` and threw while the first screen was drawing itself — the one
-    // path that is supposed to degrade in silence. A bad row costs the reader that row.
+    // there, which reads as validation and is not: an entry with a null field reached the
+    // render and threw while the first screen was drawing itself — the one path that is
+    // supposed to degrade in silence. A bad row costs the reader that row.
     stubWithExamples({
-      note: CATALOG.note,
+      ...CATALOG,
       examples: [
-        { ...CATALOG.examples[0], id: "broken", idea: "a broken one", companies: null },
+        { id: "broken", idea: "a broken one", prompt: null },
         CATALOG.examples[0],
       ],
     });
@@ -1812,6 +1843,24 @@ describe("when it does not finish", () => {
 
     expect(await screen.findByText("Done.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /notion energy/i })).toBeNull();
+  });
+
+  it("does not blame a reader's idea for an environment variable", async () => {
+    // **The bug a reader found, and the sharpest one in this file.** With no engine the run
+    // refused as `no_subject`, which renders as *"we could not work out which company you
+    // meant, try naming its website"* — told to somebody who typed a perfectly good product
+    // idea, which is the input this product exists for.
+    //
+    // Worse than wrong: the one thing it tells them to type instead, a domain, is the research
+    // they came here to have done. The server's own sentence had named the cause since it was
+    // written; `Failure` is what the surface reads, and it had one kind for two situations.
+    await shownFor("no_engine");
+    expect(
+      await screen.findByText(/No search engine is configured/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Your idea is fine/i)).toBeInTheDocument();
+    expect(screen.queryByText(/naming its website/i)).toBeNull();
+    expect(screen.queryByText(/could not work out which company/i)).toBeNull();
   });
 
   it("says the market was empty rather than blaming the prompt", async () => {

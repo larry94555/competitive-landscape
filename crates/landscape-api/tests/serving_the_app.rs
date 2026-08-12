@@ -24,7 +24,7 @@ fn built_app() -> PathBuf {
 }
 
 fn app_with_ui(dir: &Path) -> axum::Router {
-    with_ui(AppState::new(Arc::new(MemoryStore::new())), dir)
+    with_ui(AppState::new(Arc::new(MemoryStore::new()), false), dir)
 }
 
 async fn get(app: axum::Router, path: &str) -> (u16, String) {

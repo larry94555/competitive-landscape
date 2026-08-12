@@ -26,15 +26,31 @@ pub struct AppState {
     /// and nowhere else: a reader watching a report they already began must never be cut off
     /// by a cap, and a middleware over the whole router would do exactly that.
     pub cap: Arc<crate::cap::Cap>,
+    /// Whether a search engine is configured, and so whether an idea can be researched at all.
+    ///
+    /// **Read once, at startup, and served with the examples.** Without an engine a description
+    /// cannot be resolved: the run refuses, and the reader has spent one of their analyses to
+    /// be told about an environment variable. A reader found this the hard way — the honest
+    /// thing is to say it on the first screen, beside the ideas that will not work.
+    ///
+    /// The same call the worker makes, so the two cannot disagree about what is configured.
+    pub discovery: bool,
 }
 
 impl AppState {
-    /// The ordinary way to build one: a store, and the cap the environment asks for.
+    /// The ordinary way to build one: a store, the cap the environment asks for, and whether
+    /// an engine answered the binary when it looked.
+    ///
+    /// **`discovery` is passed in rather than read here.** What counts as a configured engine
+    /// is `landscape_search::Searx::configured` — it trims, and rejects an empty string — and a
+    /// second copy of that rule in this crate is a second thing to keep in step. The binary
+    /// already holds the answer because it is the thing that runs the searches.
     #[must_use]
-    pub fn new(store: Arc<dyn Store>) -> Self {
+    pub fn new(store: Arc<dyn Store>, discovery: bool) -> Self {
         Self {
             store,
             cap: Arc::new(crate::cap::Cap::from_env()),
+            discovery,
         }
     }
 }
@@ -181,14 +197,16 @@ async fn health(State(state): State<AppState>) -> Result<Json<Health>, ApiError>
 /// **The note travels with the list.** An interface free to render the chips without it would
 /// be free to imply the reports are curated too, which is the one misreading this feature can
 /// cause — and the sentence would then live in a component nobody reviews.
-async fn list_examples() -> Json<Examples> {
+async fn list_examples(State(state): State<AppState>) -> Json<Examples> {
     Json(Examples {
+        discovery: state.discovery,
         note: landscape_core::CURATION_NOTE,
         examples: landscape_core::examples()
             .into_iter()
             .map(|example| Listed {
                 prompt: example.prompt(),
-                example,
+                id: example.id,
+                idea: example.idea,
             })
             .collect(),
     })
@@ -196,21 +214,33 @@ async fn list_examples() -> Json<Examples> {
 
 #[derive(Debug, Serialize)]
 struct Examples {
+    /// Whether these will run at all.
+    ///
+    /// **Beside the examples because that is where somebody is about to click.** A capability
+    /// the product does not currently have is not a detail for a log — every one of these
+    /// ideas is a description, and without an engine every one of them refuses.
+    discovery: bool,
     /// What is curated and what is not, in one sentence.
     note: &'static str,
     examples: Vec<Listed>,
 }
 
 /// One example on the wire.
+///
+/// **Three fields, not the whole `Example`.** It used to `#[serde(flatten)]` the core type, so
+/// the browser received `companies` and `why` — the curation fixture and the note explaining a
+/// pairing — neither of which the page shows now that a prompt is the idea alone. Sending data
+/// nobody renders is how a field ends up displayed by accident two changes later.
 #[derive(Debug, Serialize)]
 struct Listed {
-    #[serde(flatten)]
-    example: landscape_core::Example,
+    /// Stable across wording changes, and what a click is logged as.
+    id: String,
+    /// What the chip reads.
+    idea: String,
     /// The text the chip puts in the box.
     ///
-    /// Sent rather than assembled in the browser: the format is one decision - which words
-    /// join an idea to its companies - and a second copy of it in TypeScript would be a second
-    /// thing to keep in step with the parser that has to read the result back.
+    /// Sent rather than assembled in the browser: what an example *is* has changed twice, and
+    /// both times every caller had to agree about it. One decision, one place.
     prompt: String,
 }
 
@@ -369,7 +399,7 @@ mod tests {
     use tower::ServiceExt;
 
     fn app() -> Router {
-        router(AppState::new(Arc::new(MemoryStore::new())))
+        router(AppState::new(Arc::new(MemoryStore::new()), false))
     }
 
     async fn json_body(res: axum::response::Response) -> serde_json::Value {
@@ -468,7 +498,7 @@ mod tests {
         // file inside a quoted string.
         let store: Arc<dyn Store> = Arc::new(MemoryStore::new());
         let id = a_finished_analysis(&store).await;
-        let res = router(AppState::new(Arc::clone(&store)))
+        let res = router(AppState::new(Arc::clone(&store), false))
             .oneshot(get_context_request(&id.0.to_string()))
             .await
             .expect("response");
@@ -501,7 +531,7 @@ mod tests {
             .enqueue(&NewAnalysis::parse(IDEA).expect("a valid prompt"))
             .await
             .expect("enqueued");
-        let res = router(AppState::new(Arc::clone(&store)))
+        let res = router(AppState::new(Arc::clone(&store), false))
             .oneshot(get_context_request(&queued.id.0.to_string()))
             .await
             .expect("response");
@@ -543,7 +573,7 @@ mod tests {
         );
         assert!(running.report.is_some(), "and it has to carry a report");
 
-        let res = router(AppState::new(Arc::clone(&store)))
+        let res = router(AppState::new(Arc::clone(&store), false))
             .oneshot(get_context_request(&a.id.0.to_string()))
             .await
             .expect("response");
@@ -731,6 +761,7 @@ mod tests {
         let app = router(AppState {
             store: Arc::clone(&store),
             cap: Arc::clone(&cap),
+            discovery: false,
         });
         (app, store, cap)
     }
@@ -808,6 +839,7 @@ mod tests {
         let store: Arc<dyn Store> = Arc::new(YieldsBetweenSteps(inner));
         let app = router(AppState {
             store,
+            discovery: false,
             cap: Arc::new(crate::cap::Cap::of(2)),
         });
         let together = Arc::new(tokio::sync::Barrier::new(20));
@@ -890,6 +922,7 @@ mod tests {
         let app = router(AppState {
             store,
             cap: Arc::clone(&cap),
+            discovery: false,
         });
 
         let send = |app: axum::Router| {
@@ -1169,7 +1202,7 @@ mod tests {
             .await
             .expect("enqueue");
 
-        let res = router(AppState::new(Arc::clone(&store)))
+        let res = router(AppState::new(Arc::clone(&store), false))
             .oneshot(
                 Request::builder()
                     .uri(format!("/api/analyses/{}/events", created.id))
@@ -1266,15 +1299,32 @@ mod tests {
                 .is_some_and(|n| n.contains("chosen by hand")),
             "the list arrived without the sentence that qualifies it: {body}"
         );
-        // Every chip carries the text it will put in the box - including the companies, so a
-        // reader can see and edit the curated part rather than take it on trust.
+        // **And whether these will run at all**, beside the ideas somebody is about to click.
+        // Without an engine every one of them refuses, and a reader who clicks first spends an
+        // analysis to be told about an environment variable. `app()` configures none.
+        assert_eq!(
+            body["discovery"],
+            serde_json::json!(false),
+            "the first screen cannot tell a reader these will not work: {body}"
+        );
+
+        // **The curation fixture stays on this side of the wire.** `companies` and `why` are
+        // what `--check` verifies against; a browser that received them could render them, and
+        // a field sent for no reason is one displayed by accident two changes later.
         for example in listed {
             let prompt = example["prompt"].as_str().unwrap_or_default();
-            for company in example["companies"].as_array().expect("companies") {
-                let company = company.as_str().unwrap_or_default();
+            assert!(
+                !prompt.contains('.'),
+                "an example reads like a domain, so nothing would be discovered: {example}"
+            );
+            assert_eq!(
+                prompt, example["idea"],
+                "the prompt is not the idea: {example}"
+            );
+            for gone in ["companies", "why"] {
                 assert!(
-                    prompt.contains(company),
-                    "{company} is curated out of sight: {example}"
+                    example.get(gone).is_none(),
+                    "{gone} reached the browser, which has no use for it: {example}"
                 );
             }
         }
