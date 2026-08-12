@@ -78,13 +78,23 @@ One line, in the product's own voice:
 
 > **Here's how I interpreted the business idea:** *competitive intelligence software*
 
-**The phrase is `Report::interpreted.label`, not `Report::searched_as`.** An earlier draft of
-this document named the wrong field and review caught it. `searched_as` holds the *origins* —
-`origins.join(", ")` on the multi-company path and the single origin on the other — and the
-interface already renders it separately as *"Searched as basecamp.com, linear.app"*. Following
-the wrong field would have produced *"Here's how I interpreted the business idea:
-https://basecamp.com"*, and an **Edit** link that let somebody rewrite a domain as though it
-were a market phrase.
+**It is never `Report::searched_as`.** An earlier draft named that field and review caught it:
+`searched_as` holds the *origins* — `origins.join(", ")` on the multi-company path and the single
+origin on the other — and the interface already renders it separately as *"Searched as
+basecamp.com, linear.app"*. Following it would have produced *"Here's how I interpreted the
+business idea: https://basecamp.com"*, and an **Edit** that let somebody rewrite a domain as
+though it were a market phrase.
+
+**And it is not one field either.** A second draft said the phrase is `interpreted.label` full
+stop, which is right for one of the three cases below and unbuildable for another — the
+unchanged-description row exists *precisely* when `interpreted` is `None`. The source is per
+case:
+
+| The reader gave | The phrase shown is | Where it comes from |
+|---|---|---|
+| A description, substituted | The market's words | `interpreted.label` |
+| A description, unchanged | The reader's own words | The analysis prompt, or a field added to carry it — see [§4.6](#46-what-the-report-does-not-carry) |
+| One or more names | The names | The subject set |
 
 Beside it, two links:
 
@@ -141,6 +151,20 @@ Plain numbers. A category with nothing found is stated as zero rather than omitt
 discussions"* is a finding, and a missing clause is an ambiguity. `PRODUCT_SPEC.md` §4.3 and
 `FACT_CHECKING.md` §5.4 both already require that an absence say so.
 
+**"Found" is a claim about provenance, and it is false for two of the three input classes.**
+`Subjects::Exactly` hands the named domains straight through — `(named, None)`, no discovery of
+any kind — and `Seed` supplies one company and discovers the rest. Saying *"I found 3
+companies"* to somebody who typed all three is the product taking credit for reading a list.
+
+| The reader gave | The companies clause reads |
+|---|---|
+| A description | *"I found 12 companies"* |
+| One name | *"You named basecamp.com, and I found 11 more like it"* |
+| Several names | *"You named 3 companies"* — and no discovery number, because there was none |
+
+Projects and discussions are always discovered, whatever the reader typed, so their clauses are
+unaffected.
+
 ---
 
 ### 2.4 The three lists
@@ -183,8 +207,19 @@ finding them must not require reading them. See
 
 #### Ordering
 
-**Companies** keep the order the pipeline already produces — the scored order from
-`landscape-search::candidates`, best-supported first.
+**Companies are ordered by where they came from**, and one of the three orders is not ours to
+choose:
+
+| The reader gave | Order |
+|---|---|
+| A description | The scored order from `landscape-search::candidates`, best-supported first |
+| One name | The named company first, then the discovered rivals in scored order |
+| Several names | **Exactly the order they wrote**, never re-sorted |
+
+**The third is an instruction, not a default.** `Subjects::Exactly` is documented as *"exactly
+these, in the order written"*, and somebody comparing `basecamp.com vs linear.app` has put the
+one they care about first. Re-scoring that list would silently overrule them in the one place
+they were most explicit.
 
 **Open source projects have no order yet, and this document must not invent one.** An earlier
 draft said projects kept the `candidates` order too. That function ranks *company* candidates
@@ -300,7 +335,9 @@ pipeline does not produce is a wish rather than a plan.
 
 | Capability | Needed by | State today |
 |---|---|---|
-| **The interpreted phrase** | §2.2 | **Available.** `Report::interpreted` carries `label` — the phrase every query was built from — along with the alternatives that recurred and how many independent hosts used it. **Not `searched_as`**, which carries the origins and none of the vocabulary; see §2.2 |
+| **The interpreted phrase, when one exists** | §2.2, first row | **Available.** `Report::interpreted` carries `label` — the phrase every query was built from — with the alternatives that recurred and how many independent hosts used it. **Not `searched_as`**, which carries the origins and none of the vocabulary |
+| **The phrase when nothing was substituted** | §2.2, second row | **Not carried as a phrase.** `interpreted` is `None` there by design, and the prompt is the nearest thing — which stops being the same thing the moment a prompt also names companies. See [§4.6](#46-what-the-report-does-not-carry) |
+| **Which class of thing the reader gave** | §2.2, §2.3, §2.4 | **Not carried at all.** `subjects_in` runs in the worker and only the prompt survives — [§4.6](#46-what-the-report-does-not-carry) |
 | **Why this interpretation** | The *"Why this?"* link | **The material exists, the explanation does not.** `Interpreted` holds `also` and `hosts`; nothing renders an account a reader can argue with |
 | **Editing the interpretation** | The *"Edit"* link | **The pattern exists for a different thing.** `EditableSet` lets a reader correct the *company set* and re-run. Correcting the *phrase* is the same shape and does not exist |
 | **A company list of up to 25** | §2.4 | **Capped far lower today.** `subject::MAX_SUBJECTS` limits a run to a handful of companies because each one is its own discovery, fetches and model calls. A list of 25 **named** companies is a much cheaper thing than 25 analyzed ones, and the distinction has not been drawn in the code |
@@ -356,6 +393,32 @@ example company, on the deployed box, with the model running. That number could 
 could be one. Nobody knows, and the first screen this document specifies is the wrong place to
 find out.
 
+### 4.6 What the report does not carry
+
+**This document now asks the page to know two things the finished analysis cannot tell it**, and
+that is a dependency rather than an implementation detail. Review found it after the rest of the
+section had been called an honest accounting, which it was not.
+
+| The page needs | Where it lives today | Reaches the client? |
+|---|---|---|
+| The input class — `Describe`, `Seed`, `Exactly` | `subjects_in(&analysis.prompt)`, evaluated **inside the worker** | **No.** Only the prompt survives |
+| The reader's unchanged phrase, when nothing was substituted | The prompt | Only as the raw prompt, which is not the same thing once a prompt names companies |
+| How many searches did not come back | `read.queried.failed`, **logged and dropped** — `Read` returns `decided` and `interpreted` and nothing else | **No** |
+
+**Both fixes are the same shape: stop deriving in the client what the worker already knew.**
+Re-running `subjects_in` in TypeScript would put a business rule in two languages, which is the
+mistake this repository has a register entry about; and no amount of client-side parsing can
+recover a query that failed inside the worker an hour ago.
+
+So the contract has to carry them. The smallest honest version:
+
+- **the input class**, as a field on the report, set where `subjects_in` is already called;
+- **discovery coverage** — how many searches were attempted and how many answered — which is
+  the same number §2.5's *"at least 12"* needs, and which `Read` currently throws away.
+
+**Until that exists, §2.3's per-class wording and §2.5's partial state cannot be built at all**,
+and §5 says so rather than implying they are a rendering exercise.
+
 ### 4.4 What the search channel can and cannot reach
 
 The channel today is one SearXNG instance, reached through `SEARX_URL`, returning general web
@@ -390,6 +453,7 @@ that a decision is made rather than assumed by whoever writes the code.
 | **7** | **What "Why this?" actually shows.** `Interpreted` holds the phrase, the alternatives and the host count — an account a reader can argue with has to be written | The interpretation block |
 | **8** | **Whether the examples produce values at all.** See §4.3a — unmeasured, and the check that claimed it measured something else | Every list on the page, and whether this redesign is treating a symptom |
 | **9** | **What the detail view is.** A page per company, a single scrolling report, an expander under each list row? | Everything §3 moves out of the first screen |
+| **10** | **The report contract.** The page needs the input class and discovery coverage; the finished analysis carries neither — [§4.6](#46-what-the-report-does-not-carry). Deciding the shape is the first piece of work, before any of the four blocks | §2.2's second and third rows, §2.3 entirely, §2.4's ordering, §2.5's partial state |
 
 **Issue 8 is the one to settle first.** If a curated example yields one claim in six on the
 deployed box, the problem this document is solving is a symptom and the cause is upstream — in
@@ -405,11 +469,24 @@ Honestly, from the four blocks:
 | Block | Buildable today |
 |---|---|
 | §2.1 What you asked | **Yes, wholly.** The prompt is on the analysis |
-| §2.2 How that was interpreted | **The line and the Edit link, yes.** *Why this?* needs an explanation surface |
-| §2.3 The count | **Only the company count**, and a sentence with two thirds of it missing is worse than no sentence |
-| §2.4 The three lists | **Companies only** |
+| §2.2 How that was interpreted | **The substituted case only.** The other two rows need the input class, which does not reach the client — §4.6. *Why this?* needs an explanation surface besides |
+| §2.3 The count | **No.** Even the company clause needs the input class to avoid claiming it *found* companies the reader named, and the partial state needs discovery coverage — neither is on the report |
+| §2.4 The three lists | **The companies list, in scored order, for a description.** Named sets need the input class to keep the reader's order |
 
-So the first honest increment is: **the reader's words, the interpretation with an edit, and the
-companies list** — with the count sentence held back until it can name all three, and the other
-two lists absent rather than empty. An empty *"Here are the open source projects"* block would
-be this product claiming it looked, which is the one thing it must never do.
+So the first honest increment is smaller than the last draft of this section claimed, and it
+starts one step earlier:
+
+1. **Extend the report contract** — input class and discovery coverage (§4.6). Without it, three
+   of the four blocks are either unbuildable or buildable only in a way that misstates
+   provenance.
+2. **Then**: the reader's words, the interpretation, and the companies list in the right order
+   for how they were arrived at.
+3. **The count sentence stays out** until it can name all three categories, and the other two
+   lists are **absent rather than empty**. An empty *"Open source projects"* block would be this
+   product claiming it looked, which is the one thing it must never do.
+
+**The contract work is not a prerequisite somebody can skip and revisit.** Every shortcut around
+it — re-parsing the prompt in the browser, inferring the class from whether `interpreted` is
+set, treating any non-empty result as complete — is a business rule in a second place or a
+claim about a search nobody watched. Both are on the list of things this repository has already
+paid for once.
