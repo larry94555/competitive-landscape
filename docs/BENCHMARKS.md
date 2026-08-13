@@ -105,6 +105,18 @@ thing is the bar above it. Closed from the first paint.
 **Neither is visible to a test in jsdom**, which does not paint and cannot see what is *next to*
 what. Both were found by using the product, which is the third time in three runs.
 
+### A sentence that described the wrong interaction
+
+Review found the curation note — rewritten in this very change, to stop claiming the companies
+were curated — saying *"clicking one searches for them"*. **A chip fills the box and
+deliberately does not run**, and there is a test in this repository asserting no POST is sent
+when one is clicked. So the note promised four minutes of somebody else's electricity from a
+click meant to read a label.
+
+**The behavior and the sentence about it are now asserted together**, in the test that proves
+the click sends nothing. Apart is how they came to disagree: one lives in Rust and one in the
+browser, and each was right about itself.
+
 ### What this run does not measure
 
 No latency figure changed and none was taken.
@@ -112,7 +124,7 @@ No latency figure changed and none was taken.
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 47 | 1020 | 117 | 26, all caught |
-| now | **1021** | **121** | **7**, all caught |
+| now | **1021** | **121** | **8**, all caught |
 
 ---
 

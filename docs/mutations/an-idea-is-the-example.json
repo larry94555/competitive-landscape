@@ -72,5 +72,18 @@
       "run"
     ],
     "cwd": "web"
+  },
+  {
+    "name": "the note promises a search a click does not start",
+    "file": "crates/landscape-core/src/examples.rs",
+    "old": "    \"These ideas were chosen by hand. The companies are not: choosing one and pressing \\\n",
+    "new": "    \"These ideas were chosen by hand. The companies are not: clicking one immediately \\\n",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
   }
 ]

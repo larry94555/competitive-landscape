@@ -611,7 +611,7 @@ describe("submitting an idea", () => {
 describe("the ideas offered on the first screen", () => {
   const CATALOG = {
     discovery: true,
-    note: "These ideas were chosen by hand. The companies are not: clicking one searches for them, and everything the report says is fetched, quoted and cited at that moment - nothing here is stored or written in advance.",
+    note: "These ideas were chosen by hand. The companies are not: choosing one and pressing Analyze searches for them, and everything the report says is fetched, quoted and cited at that moment - nothing here is stored or written in advance.",
     examples: [
       {
         id: "project-management",
@@ -692,9 +692,14 @@ describe("the ideas offered on the first screen", () => {
     ).toBeInTheDocument();
   });
 
-  it("does not start the run when a chip is clicked", async () => {
+  it("does not start the run when a chip is clicked, and says so", async () => {
     // Four minutes of somebody else's electricity, started by a click meant to read a label.
     // The reader looks at the sentence and presses Analyze themselves.
+    //
+    // **And the note beside the chips has to describe that**, which review caught it not
+    // doing: it read *"clicking one searches for them"*, promising the run this test proves
+    // does not happen. The behavior and the sentence about it are asserted together, because
+    // apart is how they came to disagree.
     stubWithExamples();
     const user = userEvent.setup();
     render(<App />);
@@ -707,6 +712,7 @@ describe("the ideas offered on the first screen", () => {
     expect(calls.some((c) => (c[1] as RequestInit | undefined)?.method === "POST")).toBe(
       false,
     );
+    expect(screen.getByText(/pressing Analyze searches for them/i)).toBeInTheDocument();
   });
 
   it("says what is curated and what is not", async () => {

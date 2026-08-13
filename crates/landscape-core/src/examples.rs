@@ -128,9 +128,9 @@ pub fn examples() -> Vec<Example> {
 /// Here rather than in the web app because it is a claim about the product, and a claim about
 /// the product that lives only in a component is one nobody reviews.
 pub const CURATION_NOTE: &str =
-    "These ideas were chosen by hand. The companies are not: clicking one searches for them, \
-     and everything the report says is fetched, quoted and cited at that moment - nothing here \
-     is stored or written in advance.";
+    "These ideas were chosen by hand. The companies are not: choosing one and pressing \
+     Analyze searches for them, and everything the report says is fetched, quoted and \
+     cited at that moment - nothing here is stored or written in advance.";
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -251,12 +251,25 @@ mod tests {
         // were too, which is the misreading this feature has to prevent.
         assert!(CURATION_NOTE.contains("chosen by hand"), "{CURATION_NOTE}");
         assert!(CURATION_NOTE.contains("cited"), "{CURATION_NOTE}");
-        // **And it must no longer claim the companies are curated**, because they are not:
-        // clicking searches for them. A sentence left over from the previous design would be
-        // this product describing a curation it stopped doing.
+        // **And it must no longer claim the companies are curated**, because they are not.
+        // A sentence left over from the previous design would be this product describing a
+        // curation it stopped doing.
         assert!(
             CURATION_NOTE.contains("companies are not"),
             "the note still says the companies are chosen by hand: {CURATION_NOTE}"
+        );
+        // **And it must describe the interaction that actually happens.** A chip fills the box
+        // and deliberately does not run — `App.test.tsx` asserts no POST is sent — so a note
+        // reading *"clicking one searches for them"* promises four minutes of somebody else's
+        // electricity from a click meant to read a label. Review caught it; it had been written
+        // in the same change that made the note true about everything else.
+        assert!(
+            CURATION_NOTE.contains("pressing Analyze"),
+            "the note says a click searches, and a click does not: {CURATION_NOTE}"
+        );
+        assert!(
+            !CURATION_NOTE.contains("clicking one searches"),
+            "{CURATION_NOTE}"
         );
     }
 }
