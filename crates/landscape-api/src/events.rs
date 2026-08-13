@@ -25,12 +25,16 @@
 //! event: done        nothing else is coming
 //! ```
 //!
-//! **`progress` is sent for a running analysis that has written nothing yet**, which no other
-//! event here is. The rest describe a report; this one describes a *run*, and the longest
-//! stretch with no report at all - working out which companies a description means, then
-//! finding their pages - is exactly the stretch a reader most needs to be told is not a hang.
-//! So it is synthesized from the status when the row carries no report, and read off the
-//! report once there is one.
+//! **`progress` begins only once the worker has persisted a phase**, and is never synthesized
+//! here. It used to be: a running row with no report was served a phase of `Discovering`,
+//! *"finding the pages worth reading"*, which then jumped **backwards** to whatever the worker
+//! turned out to be doing. `Running` does not say which phase and nothing in this file can make
+//! it, so this says nothing rather than guessing.
+//!
+//! **What tells a reader the run is alive in that window** is the status — carried by the
+//! fetch that opened the report, and by `status` here when it changes — and the elapsed clock
+//! the browser draws from it. Neither claims to know what the run is doing, which is the
+//! difference.
 //!
 //! **A section is sent when it first has something in it, and again whenever it changes.**
 //! Watching a real run in a browser is what settled that: sending it once put *"What it does:
@@ -133,9 +137,6 @@ pub(crate) async fn stream(
                 yield Ok(generation_event(analysis.generation));
             }
 
-            // **Before the report, and from the report once there is one.** A running analysis
-            // with no report has still started: it is discovering, and saying so is the whole
-            // difference between a page that looks busy and a page that looks broken.
             // **Nothing is sent until the worker has said something.** This used to substitute
             // `Progress::starting(0)` for a running row with no report yet — whose phase is
             // `Discovering`, *"finding the pages worth reading"*. There is necessarily a window

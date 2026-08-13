@@ -31,6 +31,14 @@ use tower::ServiceExt;
 /// Longer than any of these need, short enough that a hang fails rather than hangs CI.
 const PATIENCE: Duration = Duration::from_secs(20);
 
+/// How long to wait for something that is expected **not** to arrive.
+///
+/// **A timeout is a failure budget, and silence is not a failure.** Waiting `PATIENCE` to prove
+/// nothing was sent spends twenty seconds on the passing path of every run — review measured
+/// this suite going from six seconds to twenty-one on one test. Long enough to outlast the
+/// half-second polling interval, and nothing beyond that.
+const SILENCE: Duration = Duration::from_millis(750);
+
 fn at() -> chrono::DateTime<chrono::Utc> {
     chrono::DateTime::parse_from_rfc3339("2026-08-05T09:00:00Z")
         .map(|d| d.with_timezone(&chrono::Utc))
@@ -189,7 +197,7 @@ async fn a_running_analysis_that_has_written_nothing_invents_no_phase() {
 
     let mut reader = Reader::open(&store, id).await;
     for _ in 0..4 {
-        match tokio::time::timeout(PATIENCE, reader.next()).await {
+        match tokio::time::timeout(SILENCE, reader.next()).await {
             // Silence is the expected answer: there is nothing true to say yet.
             Err(_) | Ok(None) => break,
             Ok(Some(event)) => assert!(

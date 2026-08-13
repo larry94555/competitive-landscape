@@ -432,9 +432,13 @@ export interface Watcher {
   /**
    * What the run is doing, and how far through it is.
    *
-   * Arrives for a running analysis that has written no report at all, which no other event
-   * here does — that stretch is the longest one with nothing on screen, and it is the one a
-   * reader is most likely to read as a hang.
+   * **Arrives only once the worker has persisted a phase, and not before.** The server used to
+   * synthesize one for a running analysis with no report — which then jumped backwards to
+   * whatever the run turned out to be doing, because a status of *running* does not say which
+   * phase and nothing on that side can make it.
+   *
+   * So there is a window at the start of every run where this never fires. **What fills it is
+   * the status and the elapsed clock**, neither of which claims to know what the run is doing.
    */
   readonly onProgress: (progress: Progress) => void;
   /** Nothing else is coming. The caller fetches the finished analysis. */
