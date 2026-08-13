@@ -92,6 +92,82 @@ And the refusal now says **how long**, which is what was actually being asked:
 
 Both, because the relative one is actionable and the absolute one is checkable.
 
+### Seven minutes of a page that said nothing
+
+The same reader ran it again and watched for seven minutes: `Working`, a **dash**, and one
+sentence. Not the 0% of Run 49 — a different state, and one no fix so far had touched.
+
+**The worker built its progress recorder *after* resolving the description.** Turning an idea
+into companies is the longest single stretch of a run, it happens before any company is known,
+and for the whole of it nothing was emitted at all: the page held whatever it had, which is a
+dash and a static line.
+
+There is still no fraction there and there cannot be — no denominator exists until a reading
+plan does. But **which step is happening was knowable all along and was simply never said**, so
+the recorder is built first and the run announces `Resolving` and then `Judging` as it goes.
+
+**And elapsed time, which needs nothing from anybody.** A percentage needs a denominator; a
+clock does not. It moves every second, cannot be wrong, and answers the only question a reader
+staring at a still page is actually asking. Counted in seconds under a minute and then minutes
+*and* seconds — a number that changes once a minute is a number a worried reader watches not
+change.
+
+**The harness then found two guards where one would do.** The clock was hidden by both a
+`running &&` and a nulled ref, inside a block that only renders while a run is live: three
+guards, so no mutation on any one of them could fail. Redundancy reading as coverage. One
+guard now, and the pin on the one that never existed is deleted rather than left looking green.
+
+### The phase changed after the work it named
+
+Review found the first version announcing `Judging` **after** awaiting the whole of
+`for_market` — which reads every candidate's front page. So *"reading their pages"* appeared
+once the reading was over, and for the minutes it took the page still said *"searching"*. A
+transition that fires after its own work is worth less than none: it is a claim about the
+present tense that is only ever true in the past.
+
+The moment is handed **in** now, as a callback, and fired at the seam. **A moment cannot be
+returned from a function that has not finished** — which is the whole reason the first attempt
+put it where it did.
+
+**And the test had to observe the order, not the enum.** One list, recording when the marker
+fires and when each page is fetched, asserting the marker is first. Written the obvious way it
+covered one of the two paths into `from_hits`, and the mutation on the other survived; it drives
+both now.
+
+**Its companion was vacuous in a way that proved its own point.** The ambiguous-market case read
+`if read.derived.is_none() { assert… }`, and the fixture was not ambiguous — so it asserted
+nothing at all, and the mutation announcing a reading on the path that reads nothing survived.
+Asserting the precondition rather than guarding on it turned it red immediately.
+
+### And the API was inventing the phase it could not know
+
+The one place left. A running row with no report yet was served
+`Progress::starting(0)`, whose phase is `Discovering` — *"finding the pages worth reading"*.
+There is necessarily a window between the row being marked running and the worker's first
+write landing, so a reader saw that sentence and then watched it jump **backwards** to
+*"searching for the companies behind your idea"*: the interface claiming work that had not
+started, during exactly the gap these phases were added to make truthful.
+
+**`Running` does not say which phase, and no care here can make it.** So the API says nothing
+rather than guessing, which is the rule the rest of this product already follows about facts it
+does not have.
+
+**Saying nothing is only affordable because of the other half of this run.** The status word and
+the elapsed clock show the run is alive without claiming to know what it is doing — before
+they existed, the invented phase was covering for their absence. The fix and what makes it
+payable arrived together, which is why this was the last of the three to be found.
+
+**The test that covered it was pinning it.** `a_running_analysis_that_has_written_nothing_still_says_it_is_working`
+asserted the invented sentence, in as many words. It asserts the silence now, and that the
+liveness a reader actually gets comes from the fetch that opened the report.
+
+### A named company is not an idea being resolved
+
+The seeded path recorded `Resolving`, whose sentence is *"searching for the companies behind
+your idea"*. Its reader typed `basecamp.com`. That misstates their input **and** the work: there
+is no idea to resolve, and what is happening is a search for rivals of a company they named.
+`Phase::Rivals` says so.
+
 ### The refusal promised something the server cannot see
 
 Review found it: the remedy read *"the analyses you have already run are listed below"*, and
@@ -133,7 +209,7 @@ changed is what it says about it.
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 48 | 1021 | 121 | 8, all caught |
-| now | **1023** | **136** | **14**, all caught |
+| now | **1026** | **139** | **19**, all caught |
 
 ---
 

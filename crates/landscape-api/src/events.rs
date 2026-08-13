@@ -25,12 +25,16 @@
 //! event: done        nothing else is coming
 //! ```
 //!
-//! **`progress` is sent for a running analysis that has written nothing yet**, which no other
-//! event here is. The rest describe a report; this one describes a *run*, and the longest
-//! stretch with no report at all - working out which companies a description means, then
-//! finding their pages - is exactly the stretch a reader most needs to be told is not a hang.
-//! So it is synthesized from the status when the row carries no report, and read off the
-//! report once there is one.
+//! **`progress` begins only once the worker has persisted a phase**, and is never synthesized
+//! here. It used to be: a running row with no report was served a phase of `Discovering`,
+//! *"finding the pages worth reading"*, which then jumped **backwards** to whatever the worker
+//! turned out to be doing. `Running` does not say which phase and nothing in this file can make
+//! it, so this says nothing rather than guessing.
+//!
+//! **What tells a reader the run is alive in that window** is the status — carried by the
+//! fetch that opened the report, and by `status` here when it changes — and the elapsed clock
+//! the browser draws from it. Neither claims to know what the run is doing, which is the
+//! difference.
 //!
 //! **A section is sent when it first has something in it, and again whenever it changes.**
 //! Watching a real run in a browser is what settled that: sending it once put *"What it does:
@@ -133,17 +137,25 @@ pub(crate) async fn stream(
                 yield Ok(generation_event(analysis.generation));
             }
 
-            // **Before the report, and from the report once there is one.** A running analysis
-            // with no report has still started: it is discovering, and saying so is the whole
-            // difference between a page that looks busy and a page that looks broken.
-            if analysis.status == AnalysisStatus::Running {
-                let reached = analysis
-                    .report
-                    .as_ref()
-                    .and_then(|r| r.progress)
-                    // No report yet means no plan and no company count - the honest reading is
-                    // "started, and nothing countable yet", which is what `starting(0)` is.
-                    .unwrap_or(landscape_core::Progress::starting(0));
+            // **Nothing is sent until the worker has said something.** This used to substitute
+            // `Progress::starting(0)` for a running row with no report yet — whose phase is
+            // `Discovering`, *"finding the pages worth reading"*. There is necessarily a window
+            // between the row being marked running and the first progress write landing, so a
+            // reader saw that sentence and then watched it jump **backwards** to *"searching
+            // for the companies behind your idea"*: the API claiming work that had not started,
+            // during exactly the gap the phases were added to make truthful.
+            //
+            // **`Running` does not say which phase**, and no amount of care here can make it.
+            // So this says nothing rather than guessing, which is the same rule the rest of
+            // this product follows about facts it does not have.
+            //
+            // Saying nothing is only affordable because something else shows the run is alive:
+            // the status word, and the elapsed clock beside the bar. Before those existed this
+            // fallback was covering for their absence.
+            if let (AnalysisStatus::Running, Some(reached)) = (
+                analysis.status,
+                analysis.report.as_ref().and_then(|r| r.progress),
+            ) {
                 let payload = progress_payload(&reached);
                 if sent_progress.as_ref() != Some(&payload) {
                     sent_progress = Some(payload.clone());

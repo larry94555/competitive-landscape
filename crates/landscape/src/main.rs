@@ -1569,6 +1569,13 @@ async fn resolve_from_description(
     fetcher: &landscape_fetch::Fetcher,
     budget: &landscape_fetch::Budget,
     prompt: &str,
+    // Called at the seam between searching and reading the candidates' own pages.
+    //
+    // **A moment, not a return value.** What a watching reader needs is *when* the reading
+    // starts, and a function that has not finished cannot return it — the first version
+    // announced the phase after awaiting all of this, so the page said *"reading their pages"*
+    // once the reading was over. Review caught it.
+    reading: &dyn Fn(),
 ) -> Read {
     let refuse =
         |why: String, kind, choices| Read {
@@ -1591,16 +1598,21 @@ async fn resolve_from_description(
         );
     };
 
-    let read = landscape_search::candidates::for_market(engine, prompt, |url| {
-        let fetcher = &fetcher;
-        async move {
-            fetcher
-                .get(&url, budget)
-                .await
-                .ok()
-                .map(|page| landscape_extract::markdown::from_body(&page.body))
-        }
-    })
+    let read = landscape_search::candidates::for_market(
+        engine,
+        prompt,
+        |url| {
+            let fetcher = &fetcher;
+            async move {
+                fetcher
+                    .get(&url, budget)
+                    .await
+                    .ok()
+                    .map(|page| landscape_extract::markdown::from_body(&page.body))
+            }
+        },
+        reading,
+    )
     .await;
 
     // **Nothing was searched for.** Two markets with the same backing is a question, and
@@ -1819,6 +1831,25 @@ async fn run_analysis(
     });
     let searching = engine.as_ref().map(searching);
 
+    // **Built before the work rather than after it**, which is the whole of a reported defect:
+    // this used to be created once the companies were known, so for the minutes it takes to
+    // *find* them the worker said nothing at all. A reader waited seven minutes, saw one
+    // sentence and a dash, and could not tell a working run from a dead one.
+    let progress = progress::Progress::new(Arc::clone(store), analysis.id, analysis.generation);
+    // Which step is happening. There is no fraction here and there cannot be — no denominator
+    // exists until a reading plan does — but *which of these* was knowable all along.
+    let doing = |phase| {
+        progress.record(&landscape_core::Report::starting(
+            &analysis.prompt,
+            chrono::Utc::now(),
+            landscape_core::Progress {
+                phase,
+                companies: landscape_core::Counted::new(0, 0),
+                pages: None,
+            },
+        ))
+    };
+
     // **Three readings of one box**, and the rule lives in `subject::subjects_in` rather than
     // here because it is a decision about what somebody meant. See [`Subjects`] for why
     // naming two companies is an instruction and naming one is a starting point.
@@ -1836,8 +1867,15 @@ async fn run_analysis(
         // domain was refused; the channel now produces candidates and hands them to the gate
         // `FACT_CHECKING.md` §3.1 built before anything could feed it.
         landscape_analyze::subject::Subjects::Describe => {
+            let _ = doing(landscape_core::Phase::Resolving);
+            // **Handed in rather than announced afterwards.** `for_market` reads every
+            // candidate's front page, and the first version said *"reading their pages"* once
+            // the reading was over — the transition fired after the work it named.
             let read =
-                resolve_from_description(searching, fetcher, &budget, &analysis.prompt).await;
+                resolve_from_description(searching, fetcher, &budget, &analysis.prompt, &|| {
+                    let _ = doing(landscape_core::Phase::Judging);
+                })
+                .await;
             interpreted = read.interpreted;
             match read.decided {
                 landscape_analyze::subject::Decided::Analyze(set) => {
@@ -1869,6 +1907,9 @@ async fn run_analysis(
             given = landscape_core::Given::Seeded {
                 named: origin.clone(),
             };
+            // Not `Resolving`: this reader typed a website, so there is no idea to resolve
+            // and saying so would misstate both their input and the work.
+            let _ = doing(landscape_core::Phase::Rivals);
             let (set, covered) = rivals_of(searching, fetcher, &budget, &origin).await;
             searches = covered;
             let origins = set.origins();
@@ -1932,7 +1973,6 @@ async fn run_analysis(
     let llm = landscape_llm::LlamaClient::from_env();
     let now = chrono::Utc::now();
 
-    let progress = progress::Progress::new(Arc::clone(store), analysis.id, analysis.generation);
     let outcome = landscape_analyze::analyze_many(
         &landscape_analyze::With {
             fetcher,
@@ -2228,6 +2268,7 @@ Project management software built for speed."
             &landscape_fetch::Fetcher::new(),
             &landscape_fetch::Budget::for_one_analysis(),
             "a shared inbox for a small team",
+            &|| {},
         )
         .await;
         let landscape_analyze::subject::Decided::Refuse(refusal) = read.decided else {

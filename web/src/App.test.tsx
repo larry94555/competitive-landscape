@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import App, { estimate } from "./App";
+import App, { estimate, lasting } from "./App";
 import type { Analysis, Failure } from "./api";
 
 const IDEA = "an app that helps small farms sell to local restaurants";
@@ -2287,6 +2287,57 @@ describe("how far through it is", () => {
 
   const bar = (): HTMLElement | null =>
     document.querySelector("progress.bar");
+
+  it("shows how long it has been going, even with nothing to count", async () => {
+    // **The stretch a reader watched for seven minutes.** Turning a description into companies
+    // has no denominator - no plan exists yet - so the bar is indeterminate and the number is
+    // a dash. That is honest and it is also motionless, and a motionless page is how a working
+    // run and a dead one look identical. Elapsed time needs nothing from anybody.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "resolving",
+          saying: "Searching for the companies behind your idea",
+          percent: null,
+          estimating_to: null,
+          companies: { done: 0, of: 0 },
+          pages: null,
+        }),
+      ),
+    );
+
+    expect(
+      await screen.findByText("Searching for the companies behind your idea"),
+    ).toBeInTheDocument();
+    // The dash is still right - nothing has counted anything - and it is no longer alone.
+    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(await screen.findByText(/^\d+s$/)).toBeInTheDocument();
+  });
+
+  it("counts in the coarsest unit that is still moving", () => {
+    // **Not "7 minutes".** A number that changes once a minute is a number a worried reader
+    // watches not change, which is the whole complaint this exists to answer.
+    const at = new Date("2026-08-13T12:00:00.000Z");
+    const after = (s: number): Date => new Date(at.getTime() + s * 1000);
+    expect(lasting(at, after(0))).toBe("0s");
+    expect(lasting(at, after(59))).toBe("59s");
+    expect(lasting(at, after(60))).toBe("1m 0s");
+    expect(lasting(at, after(425))).toBe("7m 5s");
+    // A clock that has not started says nothing rather than "0s" about a run not running.
+    expect(lasting(null, after(10))).toBe("");
+    // And never counts backwards, whatever the two clocks disagree about.
+    expect(lasting(at, after(-5))).toBe("0s");
+  });
+
+  it("says nothing about elapsed time once the run is over", async () => {
+    // A clock beside `Done.` is counting something that has stopped.
+    await running();
+    act(() => FakeEventSource.last!.send("done", ""));
+    await screen.findByText("Done.");
+    expect(screen.queryByText(/^\d+m? ?\d*s$/)).toBeNull();
+  });
 
   it("keeps estimating when the count is a counted zero", async () => {
     // **The defect a reader reported as *"the progress stays at 0%"*.**

@@ -1,0 +1,117 @@
+[
+  {
+    "name": "the run says nothing while it works out which companies to compare",
+    "file": "crates/landscape/src/main.rs",
+    "old": "            let _ = doing(landscape_core::Phase::Resolving);\n",
+    "new": "",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape"
+    ]
+  },
+  {
+    "name": "the clock counts in whole minutes, so it stops moving",
+    "file": "web/src/App.tsx",
+    "old": "  if (seconds < 60) return `${String(seconds)}s`;\n  return `${String(Math.floor(seconds / 60))}m ${String(seconds % 60)}s`;",
+    "new": "  return `${String(Math.floor(seconds / 60))}m`;",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a clock that has not started counts from the epoch",
+    "file": "web/src/App.tsx",
+    "old": "  if (since === null) return \"\";",
+    "new": "  if (since === null) since = new Date(0);",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the two steps before a company is known share one sentence",
+    "file": "crates/landscape-core/src/progress.rs",
+    "old": "            Self::Judging => \"Reading their pages to see which ones match\",",
+    "new": "            Self::Judging => \"Searching for the companies behind your idea\",",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the reading is announced after it has finished",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        reading();\n        let (derived, _) = from_hits(&again, &asked_twice, words, fetch).await;",
+    "new": "        let (derived, _) = from_hits(&again, &asked_twice, words, fetch).await;\n        reading();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the reading is announced on the path that does no reading",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    if matches!(interpreted, crate::vocabulary::Resolved::Ambiguous { .. }) {\n        return Read {",
+    "new": "    if matches!(interpreted, crate::vocabulary::Resolved::Ambiguous { .. }) {\n        reading();\n        return Read {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a named company and a described idea share one sentence",
+    "file": "crates/landscape-core/src/progress.rs",
+    "old": "            Self::Rivals => \"Finding companies like the one you named\",",
+    "new": "            Self::Rivals => \"Searching for the companies behind your idea\",",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the reading is announced after it has finished, on the straight path",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        reading();\n        from_hits(&hits, &asked_once, words, fetch).await",
+    "new": "        let out = from_hits(&hits, &asked_once, words, fetch).await;\n        reading();\n        out",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a phase is invented before the worker has reported one",
+    "file": "crates/landscape-api/src/events.rs",
+    "old": "            if let (AnalysisStatus::Running, Some(reached)) = (\n                analysis.status,\n                analysis.report.as_ref().and_then(|r| r.progress),\n            ) {",
+    "new": "            if let (AnalysisStatus::Running, reached) = (\n                analysis.status,\n                analysis.report.as_ref().and_then(|r| r.progress)\n                    .unwrap_or(landscape_core::Progress::starting(0)),\n            ) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  }
+]

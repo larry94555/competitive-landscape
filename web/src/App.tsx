@@ -891,6 +891,19 @@ function when(at: string): string {
   return `${String(days)} ${days === 1 ? "day" : "days"} ago`;
 }
 
+/**
+ * How long this has been going, in the coarsest unit that is still moving.
+ *
+ * Seconds under a minute, then minutes and seconds. Not *"7 minutes"* alone: a number that
+ * only changes once a minute is a number a worried reader watches not change.
+ */
+export function lasting(since: Date | null, now: Date): string {
+  if (since === null) return "";
+  const seconds = Math.max(0, Math.floor((now.getTime() - since.getTime()) / 1000));
+  if (seconds < 60) return `${String(seconds)}s`;
+  return `${String(Math.floor(seconds / 60))}m ${String(seconds % 60)}s`;
+}
+
 function CopyAsContext({ id }: { id: string }): React.JSX.Element {
   const [state, setState] = useState<"idle" | "working" | "copied">("idle");
   const [fallback, setFallback] = useState("");
@@ -1619,6 +1632,23 @@ function Waiting({
             <span className="bar-number">
               {known ? `${guessed ? "~" : ""}${String(percent)}%` : "—"}
             </span>
+            {/*
+              **The one number that is always available and cannot be wrong.**
+              A percentage needs a denominator, and for the first stretch of a run — turning
+              a description into companies — none exists, so the bar is indeterminate and the
+              number is a dash. A reader watched seven minutes of that and could not tell a
+              working run from a dead one. They asked for *"something that changes over time"*,
+              and elapsed time is exactly that: no estimate, no denominator, nothing to get
+              wrong, and it moves every second.
+            */}
+            {/*
+              **No `running &&` here.** `startedRunning` is already nulled the moment a run
+              stops, and `lasting(null, …)` is the empty string — so a second guard would be a
+              second thing that could be right while the first was wrong. The harness found
+              them: with two, neither mutation could fail, which is redundancy reading as
+              coverage.
+            */}
+            <span className="elapsed">{lasting(startedRunning.current, now)}</span>
           </div>
 
           {progress !== null && (
