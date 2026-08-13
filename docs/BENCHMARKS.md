@@ -33,6 +33,84 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 49 @ a counted zero, and a way back to work that cost minutes
+
+**Date:** 2026-08-12 @ **Where:** this laptop @ **Model:** none @ interface work.
+
+**A reader watched the bar sit at 0% for a whole run, three times, and then hit the daily cap.**
+
+> You have started 2 analyses today, which is the free limit of 2. It resets at 00:00 on 14
+> August UTC.
+
+Two defects, and the second one is why the first one hurt.
+
+### `0` is not `null`
+
+The page chose its number with `counted ?? estimated`. **The first tick of every run announces
+`Discovering`**, where `Progress::fraction` deliberately contributes nothing for the company
+being resolved @ so `percent` is `0`. And `0` is not `null`, so `??` took it: the estimate that
+band exists for was discarded on the first message, and the bar sat at a hard zero for the whole
+of discovery. On a three-company run that is minutes of a page that looks hung.
+
+**The type could not tell *counted zero* from *nothing counted*, and neither could that line.**
+The distinction was already on the wire @ `estimating_to` is sent exactly while a band is open
+@ and the page now reads it: while a band is open the number is interpolated, floored at
+whatever has genuinely been counted; when it closes, the count is exact.
+
+**Every existing test sent `percent: null` with `companies: { done: 0, of: 0 }`**, which the
+server emits only when it knows nothing about companies at all. The fixture supplied a value
+production does not send, so the suite agreed with itself rather than with the worker. That is
+the same shape review found in the seeded-coverage fixture two runs ago, and it is now the third
+time a fixture has been the thing telling the truth.
+
+### And the estimate now starts from what was counted
+
+A run over three companies discovers three times. The second band is 33% to 39%, not 0% to 39%,
+and each band gets its own clock @ measuring the third from when the run started would put it at
+its ceiling the moment it opened.
+
+### The message at the end of it said nothing about the work
+
+A run costs minutes and there are two a day. The only record of one was the address bar, so
+closing the tab lost it @ and the refusal that says both of today's are spent is exactly the
+moment a reader needs the two they already ran. It named neither.
+
+**The browser remembers them now**, in `web/src/history.ts`: id, prompt, when. Not the status
+and not the report @ those live on the analysis, they change after the list was written, and a
+second copy would be a stale one. Following the link asks the server.
+
+**The browser rather than the server, because there are no accounts.** The cap counts runs per
+address, and an address is not a person: reading a list back from it would hand one reader
+another reader's questions whenever two share an office or a household. The only thing that
+knows these are yours is the browser you started them in.
+
+And the refusal now says **how long**, which is what was actually being asked:
+
+> You have started 2 analyses today, which is the free limit of 2. You can start another **in
+> about 22 hours**, at 00:00 on 14 August UTC. *The analyses you have already run are listed
+> below, and nothing you did is lost.*
+
+Both, because the relative one is actionable and the absolute one is checkable.
+
+### The lost continuation, in the one message a frustrated reader reads
+
+Writing that sentence, the `\` continuation was lost in an edit and what came out was *"the free
+limit of                          2"*. `scripts/no_lost_continuations.py` exists for exactly
+this and would have caught it; the Rust test caught it first, because the run is checked before
+the gates are. It is `concat!` now, which is what that gate's own message recommends.
+
+### What this run does not measure
+
+No latency figure changed and none was taken. The bar was always wrong about the same run; what
+changed is what it says about it.
+
+| | Rust tests | frontend tests | catalog |
+|---|---|---|---|
+| Run 48 | 1021 | 121 | 8, all caught |
+| now | **1021** | **134** | **10**, all caught |
+
+---
+
 ## Run 48 — an example is an idea, and the sentence that blamed the reader
 
 **Date:** 2026-08-12 — **Where:** this laptop — **Model:** none — interface and taxonomy work.

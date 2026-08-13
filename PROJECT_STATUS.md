@@ -396,6 +396,18 @@ anything has been counted, it is an **estimate** worked out from measured phase 
 marked with a tilde — `~12%` and `40%` are visibly different claims, and the estimate is capped
 so it cannot overtake the count. See [BENCHMARKS.md](docs/BENCHMARKS.md) Run 46.
 
+**And the bar that was built to show the wait was showing nothing.** `counted ?? estimated`
+took a **counted zero** — which is what the first tick of every run carries, because discovery
+deliberately contributes nothing for the company being resolved — so the estimate that stretch
+exists for was discarded on the first message and the bar sat at 0% for minutes. The page now
+reads the server's own `estimating_to` to tell *counted zero* from *nothing counted*.
+
+**And the analyses somebody has run are theirs to get back to.** A run costs minutes and there
+are two a day; the only record of one was the address bar, so closing the tab lost it, and the
+refusal that says both are spent named neither. The browser keeps the list — there are no
+accounts, and an address is not a person — and the refusal now says how long the wait is rather
+than only when it ends. See [BENCHMARKS.md](docs/BENCHMARKS.md) Run 49.
+
 **And a reader found what all of that was resting on.** They typed a product idea, pressed
 Analyze, and were told *"we could not work out which company you meant — try naming its
 website"*. Nothing was wrong with their words: no search engine was configured, so the

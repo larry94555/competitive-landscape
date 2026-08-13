@@ -130,10 +130,10 @@
     ]
   },
   {
-    "name": "a counted percentage does not win over the estimate",
+    "name": "the count never wins, so the bar estimates for ever",
     "file": "web/src/App.tsx",
-    "old": "  const shown = counted ?? (running ? estimated : null);",
-    "new": "  const shown = running ? estimated : null;",
+    "old": "      : counted;",
+    "new": "      : estimate(bandStarted.current ?? now, now, 100, counted ?? 0);",
     "run": [
       "npx",
       "vitest",
@@ -200,8 +200,8 @@
   {
     "name": "the estimate is not capped, so it overtakes the thing it estimates",
     "file": "web/src/App.tsx",
-    "old": "  return Math.floor(through * Math.max(0, ceiling));",
-    "new": "  return Math.floor(through * 100);",
+    "old": "  const through = Math.min(1, elapsed / DISCOVERY_MS);",
+    "new": "  const through = elapsed / DISCOVERY_MS;",
     "run": [
       "npx",
       "vitest",

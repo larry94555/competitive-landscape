@@ -332,6 +332,10 @@ function openAt(path: string): void {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  // **One jsdom window serves every test in this file**, and the analyses a reader has run are
+  // now real state in it. Without this, a test that submits leaves its prompt in the list for
+  // the next one to find — the same leak the URL reset below exists for, one store over.
+  window.localStorage.clear();
   // One jsdom window serves every test in this file, so a URL pushed by one of them is still
   // there for the next. Without this reset a test that submits leaves `/a/<id>` behind, and
   // every test after it opens that analysis instead of rendering the box.
@@ -522,7 +526,80 @@ describe("a run has a URL", () => {
     });
 
     expect(await screen.findByLabelText("What is your idea?")).toBeInTheDocument();
-    expect(screen.queryByText(IDEA)).toBeNull();
+    // **The report is gone.** The prompt itself is still on the page — as a link in the list
+    // of analyses this browser has run, which is the point of that list — so what this asserts
+    // is the absence of the *report*, not the absence of the words.
+    expect(screen.queryByText("Queued.")).toBeNull();
+    expect(screen.queryByText(/What you asked/i)).toBeNull();
+    expect(screen.getByRole("link", { name: IDEA })).toBeInTheDocument();
+  });
+});
+
+describe("the analyses this browser has run", () => {
+  /** A `fetch` that accepts a POST, so a run can be started and then left. */
+  function stubStarting(): void {
+    stubAccepting();
+  }
+
+  async function started(): Promise<void> {
+    stubStarting();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
+    await waitFor(() => expect(window.location.pathname).toBe("/a/abc"));
+  }
+
+  it("keeps a way back to a run that cost minutes", async () => {
+    // **A reader reported losing their work.** A run takes several minutes and there are two a
+    // day; until this the only record of one was the address bar, so closing the tab lost it
+    // and the message about the daily limit said nothing about where either had gone.
+    await started();
+    act(() => {
+      window.history.replaceState({}, "", "/");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    const link = await screen.findByRole("link", { name: IDEA });
+    expect(link).toHaveAttribute("href", "/a/abc");
+  });
+
+  it("does not show a status it would have to keep in step", async () => {
+    // The status lives on the analysis and changes after this list was written. A second copy
+    // here would be a stale one, and following the link asks the server what really happened.
+    await started();
+    act(() => {
+      window.history.replaceState({}, "", "/");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+
+    const list = await screen.findByRole("region", { name: /Analyses you have run/i });
+    for (const word of ["Queued.", "Working", "Done.", "Stopped"]) {
+      expect(within(list).queryByText(word)).toBeNull();
+    }
+  });
+
+  it("is the reader's to clear", async () => {
+    // It is in their browser and nothing here sent it anywhere, so the only person who can
+    // remove it is the only person who should be able to.
+    await started();
+    act(() => {
+      window.history.replaceState({}, "", "/");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    });
+    await screen.findByRole("link", { name: IDEA });
+
+    await userEvent.setup().click(screen.getByRole("button", { name: /clear this list/i }));
+    expect(screen.queryByRole("link", { name: IDEA })).toBeNull();
+    expect(window.localStorage.getItem("landscape.analyses")).toBeNull();
+  });
+
+  it("says nothing at all before anything has been run", async () => {
+    // An empty list under an empty box is furniture. The first screen is the box.
+    stubStarting();
+    render(<App />);
+    await screen.findByLabelText("What is your idea?");
+    expect(screen.queryByText(/Analyses you have run/i)).toBeNull();
   });
 });
 
@@ -2147,6 +2224,64 @@ describe("how far through it is", () => {
 
   const bar = (): HTMLElement | null =>
     document.querySelector("progress.bar");
+
+  it("keeps estimating when the count is a counted zero", async () => {
+    // **The defect a reader reported as *"the progress stays at 0%"*.**
+    //
+    // The first tick of every run announces `Discovering`, and `Progress::fraction` gives the
+    // company being resolved nothing — so `percent` is **0**, not null. The page read
+    // `counted ?? estimated`, and `0` is not `null`, so the estimate this band exists for was
+    // thrown away on the first message and the bar sat at a hard zero for the whole of
+    // discovery. On a three-company run that is minutes of a page that looks hung.
+    //
+    // **Every existing test here sent `percent: null` with `of: 0`**, which the server emits
+    // only when it knows nothing about companies at all. The fixture supplied a value
+    // production does not send, so the suite agreed with itself and not with the worker. This
+    // is the tick a real run opens with: three companies, none done.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "discovering",
+          saying: "Finding the pages worth reading",
+          percent: 0,
+          estimating_to: 5,
+          companies: { done: 0, of: 3 },
+          pages: null,
+        }),
+      ),
+    );
+
+    // A tilde, because part of it is interpolated - and not a bare "0%", which is what a
+    // reader stares at for minutes when the band is discarded.
+    expect(await screen.findByText(/^~\d+%$/)).toBeInTheDocument();
+  });
+
+  it("estimates upward from what has already been counted", async () => {
+    // The second company's discovery on a three-company run: one is read, so the band is 33%
+    // to 39%. Interpolating that from zero would ask the bar to go backwards, which is the one
+    // thing it may never do.
+    await running();
+    act(() =>
+      FakeEventSource.last!.send(
+        "progress",
+        JSON.stringify({
+          phase: "discovering",
+          saying: "Finding the pages worth reading",
+          percent: 33,
+          estimating_to: 39,
+          companies: { done: 1, of: 3 },
+          pages: null,
+        }),
+      ),
+    );
+
+    const shown = await screen.findByText(/^~\d+%$/);
+    const value = Number(shown.textContent?.replace(/[^0-9]/g, ""));
+    expect(value).toBeGreaterThanOrEqual(33);
+    expect(value).toBeLessThanOrEqual(39);
+  });
 
   it("estimates while nothing has been counted, and says it is estimating", async () => {
     // **A number always, and the reader can tell which kind.** Before this the bar showed `—`

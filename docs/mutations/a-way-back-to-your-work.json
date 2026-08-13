@@ -1,0 +1,88 @@
+[
+  {
+    "name": "a counted zero suppresses the estimate it was meant to hand over to",
+    "file": "web/src/App.tsx",
+    "old": "    band !== null\n      ? estimate(bandStarted.current ?? now, now, band, counted ?? 0)\n      : counted;",
+    "new": "    counted ?? (band !== null ? estimate(bandStarted.current ?? now, now, band, 0) : null);",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the estimate restarts from nothing above a counted floor",
+    "file": "web/src/App.tsx",
+    "old": "      ? estimate(bandStarted.current ?? now, now, band, counted ?? 0)",
+    "new": "      ? estimate(bandStarted.current ?? now, now, band, 0)",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a run is never written down, so closing the tab loses it",
+    "file": "web/src/App.tsx",
+    "old": "      remember({ id: started.id, prompt: started.prompt, at: new Date().toISOString() });\n",
+    "new": "",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the list keeps every run and eventually stores nothing",
+    "file": "web/src/history.ts",
+    "old": "export const KEPT = 20;",
+    "new": "export const KEPT = Infinity;",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "one analysis is listed twice after a reload",
+    "file": "web/src/history.ts",
+    "old": "    const kept = [entry, ...recall().filter((held) => held.id !== entry.id)].slice(",
+    "new": "    const kept = [entry, ...recall()].slice(",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the refusal makes a reader work out how long to wait",
+    "file": "crates/landscape-api/src/error.rs",
+    "old": "                        when = in_about(resets),",
+    "new": "                        when = String::new(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "the refusal says nothing about the work already done",
+    "file": "crates/landscape-api/src/error.rs",
+    "old": "                            \"The analyses you have already run are listed below, and nothing \",",
+    "new": "                            \"\",",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  }
+]

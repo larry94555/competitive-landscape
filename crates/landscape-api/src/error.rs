@@ -54,6 +54,37 @@ struct Body {
     reference: Option<String>,
 }
 
+/// How long until the counter turns over, in the words the question is asked in.
+///
+/// **The absolute time is checkable and the relative one is actionable**, so the message
+/// carries both. *"It resets at 00:00 on 14 August UTC"* is a fact a reader has to do
+/// arithmetic on, in a timezone that is not theirs, to answer the only thing they wanted to
+/// know: how long. A reader said so.
+///
+/// Rounded up, and never *"in 0 hours"*: a wait stated shorter than it is sends somebody back
+/// to a door that is still shut.
+fn in_about(resets: chrono::DateTime<chrono::Utc>) -> String {
+    let left = resets.signed_duration_since(chrono::Utc::now());
+    let minutes = left.num_minutes().max(0);
+    if minutes < 1 {
+        return "in under a minute".to_owned();
+    }
+    if minutes < 60 {
+        return format!("in about {minutes} minute{}", plural(minutes));
+    }
+    // Rounded up: with 90 minutes left, "in about 1 hour" is a reader coming back to a refusal.
+    let hours = (minutes + 59) / 60;
+    format!("in about {hours} hour{}", plural(hours))
+}
+
+const fn plural(n: i64) -> &'static str {
+    if n == 1 {
+        ""
+    } else {
+        "s"
+    }
+}
+
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, body) = match self {
@@ -88,19 +119,35 @@ impl IntoResponse for ApiError {
             } => (
                 StatusCode::TOO_MANY_REQUESTS,
                 Body {
+                    // `concat!` rather than a `\` continuation. This sentence was written with
+                    // one, the backslash was lost in an edit, and what reached a reader was
+                    // *"the free limit of                          2"* — the defect
+                    // `scripts/no_lost_continuations.py` exists for, arriving in the one
+                    // message somebody sees when they are already frustrated.
                     error: format!(
-                        "You have started {used} analyses today, which is the free limit of {limit}. It resets at {} UTC.",
-                        resets.format("%H:%M on %-d %B")
+                        concat!(
+                            "You have started {used} analyses today, which is the free ",
+                            "limit of {limit}. You can start another {when}, at {at} UTC."
+                        ),
+                        used = used,
+                        limit = limit,
+                        when = in_about(resets),
+                        at = resets.format("%H:%M on %-d %B")
                     ),
                     // **The honest remedy, not the specified one.** `PRODUCT_SPEC.md` §2.1
                     // offers "sign in for 10 a month" here; there are no accounts yet, and
                     // sending somebody to a door that does not exist is worse than telling
                     // them to come back. This sentence changes when signing in does.
+                    // **And where the ones already run went.** A reader who has spent both of
+                    // today's analyses is at the exact moment they most need to find them, and
+                    // this said nothing about them — the work looked lost. The browser keeps
+                    // that list, so what belongs here is the pointer to it.
                     remedy: Some(
                         concat!(
-                            "Each analysis reads live pages and runs a model for several ",
-                            "minutes, so the free limit is per day. An analysis that fails ",
-                            "does not count. Or run your own copy - it is open source."
+                            "The analyses you have already run are listed below, and nothing ",
+                            "you did is lost. Each one reads live pages and runs a model for ",
+                            "several minutes, so the free limit is per day; an analysis that ",
+                            "fails does not count. Or run your own copy - it is open source."
                         )
                         .to_owned(),
                     ),
