@@ -136,14 +136,25 @@ pub(crate) async fn stream(
             // **Before the report, and from the report once there is one.** A running analysis
             // with no report has still started: it is discovering, and saying so is the whole
             // difference between a page that looks busy and a page that looks broken.
-            if analysis.status == AnalysisStatus::Running {
-                let reached = analysis
-                    .report
-                    .as_ref()
-                    .and_then(|r| r.progress)
-                    // No report yet means no plan and no company count - the honest reading is
-                    // "started, and nothing countable yet", which is what `starting(0)` is.
-                    .unwrap_or(landscape_core::Progress::starting(0));
+            // **Nothing is sent until the worker has said something.** This used to substitute
+            // `Progress::starting(0)` for a running row with no report yet — whose phase is
+            // `Discovering`, *"finding the pages worth reading"*. There is necessarily a window
+            // between the row being marked running and the first progress write landing, so a
+            // reader saw that sentence and then watched it jump **backwards** to *"searching
+            // for the companies behind your idea"*: the API claiming work that had not started,
+            // during exactly the gap the phases were added to make truthful.
+            //
+            // **`Running` does not say which phase**, and no amount of care here can make it.
+            // So this says nothing rather than guessing, which is the same rule the rest of
+            // this product follows about facts it does not have.
+            //
+            // Saying nothing is only affordable because something else shows the run is alive:
+            // the status word, and the elapsed clock beside the bar. Before those existed this
+            // fallback was covering for their absence.
+            if let (AnalysisStatus::Running, Some(reached)) = (
+                analysis.status,
+                analysis.report.as_ref().and_then(|r| r.progress),
+            ) {
                 let payload = progress_payload(&reached);
                 if sent_progress.as_ref() != Some(&payload) {
                     sent_progress = Some(payload.clone());

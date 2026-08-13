@@ -139,6 +139,28 @@ both now.
 nothing at all, and the mutation announcing a reading on the path that reads nothing survived.
 Asserting the precondition rather than guarding on it turned it red immediately.
 
+### And the API was inventing the phase it could not know
+
+The one place left. A running row with no report yet was served
+`Progress::starting(0)`, whose phase is `Discovering` — *"finding the pages worth reading"*.
+There is necessarily a window between the row being marked running and the worker's first
+write landing, so a reader saw that sentence and then watched it jump **backwards** to
+*"searching for the companies behind your idea"*: the interface claiming work that had not
+started, during exactly the gap these phases were added to make truthful.
+
+**`Running` does not say which phase, and no care here can make it.** So the API says nothing
+rather than guessing, which is the rule the rest of this product already follows about facts it
+does not have.
+
+**Saying nothing is only affordable because of the other half of this run.** The status word and
+the elapsed clock show the run is alive without claiming to know what it is doing — before
+they existed, the invented phase was covering for their absence. The fix and what makes it
+payable arrived together, which is why this was the last of the three to be found.
+
+**The test that covered it was pinning it.** `a_running_analysis_that_has_written_nothing_still_says_it_is_working`
+asserted the invented sentence, in as many words. It asserts the silence now, and that the
+liveness a reader actually gets comes from the fetch that opened the report.
+
 ### A named company is not an idea being resolved
 
 The seeded path recorded `Resolving`, whose sentence is *"searching for the companies behind

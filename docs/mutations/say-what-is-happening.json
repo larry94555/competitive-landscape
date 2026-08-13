@@ -100,5 +100,18 @@
       "-p",
       "landscape-search"
     ]
+  },
+  {
+    "name": "a phase is invented before the worker has reported one",
+    "file": "crates/landscape-api/src/events.rs",
+    "old": "            if let (AnalysisStatus::Running, Some(reached)) = (\n                analysis.status,\n                analysis.report.as_ref().and_then(|r| r.progress),\n            ) {",
+    "new": "            if let (AnalysisStatus::Running, reached) = (\n                analysis.status,\n                analysis.report.as_ref().and_then(|r| r.progress)\n                    .unwrap_or(landscape_core::Progress::starting(0)),\n            ) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
   }
 ]

@@ -185,19 +185,6 @@
     ]
   },
   {
-    "name": "a running analysis with no report yet is told nothing",
-    "file": "crates/landscape-api/src/events.rs",
-    "old": "            if analysis.status == AnalysisStatus::Running {",
-    "new": "            if false {",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-api"
-    ]
-  },
-  {
     "name": "the estimate is not capped, so it overtakes the thing it estimates",
     "file": "web/src/App.tsx",
     "old": "  const through = Math.min(1, elapsed / DISCOVERY_MS);",

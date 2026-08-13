@@ -171,46 +171,44 @@ async fn hand_to_another_worker(store: &Arc<dyn Store>, id: AnalysisId) -> u32 {
 }
 
 #[tokio::test]
-async fn a_running_analysis_that_has_written_nothing_still_says_it_is_working() {
-    // **The longest silent stretch of a run, and the one a reader reads as a hang.** Working
-    // out which companies a description means, then finding their pages, happens before any
-    // report is written - so every other event on this stream has nothing to send, and a
-    // reader watches an empty page for the part of the wait they are least able to explain.
+async fn a_running_analysis_that_has_written_nothing_invents_no_phase() {
+    // **This test used to pin the defect.** It asserted that a running row with no report
+    // sends *"Finding the pages worth reading"* — a phase the API cannot know, because
+    // `Running` does not say which one. There is necessarily a window between the row being
+    // marked running and the worker's first progress write landing, and in it a reader saw
+    // that sentence and then watched it jump **backwards** to *"searching for the companies
+    // behind your idea"*: the interface claiming work that had not started, during exactly the
+    // gap the phases exist to make truthful. Review caught it.
     //
-    // Driven over the real handler rather than asserted on the payload helper, because the
-    // mutation harness caught the difference: `if analysis.status == Running` could be
-    // replaced with `if false` and every unit test still passed. This is the test that could
-    // not have failed, and now can.
+    // So: no progress event at all until the worker has said something. **Saying nothing is
+    // only affordable because something else shows the run is alive** — the status event
+    // below, and the elapsed clock the browser draws beside the bar. Before those existed the
+    // invented phase was covering for their absence.
     let store: Arc<dyn Store> = Arc::new(MemoryStore::default());
     let (id, _) = running_analysis(&store).await;
 
     let mut reader = Reader::open(&store, id).await;
-    let mut saw_progress = None;
-    for _ in 0..6 {
-        let Some(event) = tokio::time::timeout(PATIENCE, reader.next())
-            .await
-            .expect("the stream should speak")
-        else {
-            break;
-        };
-        if event.contains("event: progress") {
-            saw_progress = Some(event);
-            break;
+    for _ in 0..4 {
+        match tokio::time::timeout(PATIENCE, reader.next()).await {
+            // Silence is the expected answer: there is nothing true to say yet.
+            Err(_) | Ok(None) => break,
+            Ok(Some(event)) => assert!(
+                !event.contains("event: progress"),
+                "a phase was invented for a run that has not reported one: {event}"
+            ),
         }
     }
 
-    let event = saw_progress
-        .expect("a running analysis with no report sent no progress: a reader sees nothing at all");
-    // **No number, and the phase said out loud.** Nothing knows how many pages there will be
-    // yet, so `percent` is null - a zero here would be a claim that no work has happened, sat
-    // in front of a reader for the whole of the opening minute.
+    // **And the reader is not left with nothing.** Liveness does not come from this stream
+    // while it has nothing to say: the fetch that opened the report already carried
+    // `status: running`, and the browser draws the word and a running clock from that.
+    // `web/src/App.test.tsx` asserts both. What is being checked here is only that the API
+    // does not fill the silence with a guess.
+    let held = store.get(id).await.expect("it reads back");
+    assert_eq!(held.status, landscape_core::AnalysisStatus::Running);
     assert!(
-        event.contains("\"percent\":null"),
-        "a run with no plan yet reported a percentage: {event}"
-    );
-    assert!(
-        event.contains("Finding the pages worth reading"),
-        "the phase a reader is shown is missing: {event}"
+        held.report.is_none(),
+        "this test is about the window before the first write, and it has already been written"
     );
 }
 
