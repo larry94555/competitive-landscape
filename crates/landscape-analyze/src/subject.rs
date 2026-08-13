@@ -162,6 +162,24 @@ pub const NO_SUBJECT: &str = "this prompt does not name a website, and finding o
     description needs a search engine, which is not configured here. Try a domain — for \
     example: basecamp.com";
 
+/// What a reader is told when no search engine is configured at all.
+///
+/// **It does not tell them to reword anything, and that is the point.** They typed a product
+/// idea, which is the input this product exists for; nothing about it was wrong, and the one
+/// thing they could type instead — a domain — skips the feature they came for. Telling somebody
+/// to name the companies is telling them to do the research themselves.
+///
+/// This was [`NO_SUBJECT`] until a reader hit it, and worse: it arrived under
+/// `Failure::NoSubject`, which the interface renders as *"we could not work out which company
+/// you meant"*. The sentence below had always named the cause, and nothing carried it out.
+///
+/// The remedy names the variable because the person who can act on it is an operator — and a
+/// reader who is also the operator, which is everybody running this on a laptop, is both.
+pub const NO_ENGINE: &str = "searching for the companies behind an idea needs a search engine, \
+    and none is configured here, so nothing was looked for. This is ours to fix rather than \
+    yours: set SEARX_URL. Naming a website works meanwhile, but that is the research you came \
+    here to have done";
+
 /// What a reader is told when we searched and found nobody.
 ///
 /// **Different from [`NO_SUBJECT`], and the difference is the whole honest-negative
@@ -1231,17 +1249,19 @@ mod the_examples {
     use super::{origins_in, MAX_SUBJECTS};
 
     #[test]
-    fn every_example_prompt_resolves_to_exactly_the_companies_it_names() {
+    fn no_example_prompt_names_a_company_to_the_parser() {
+        // **The inversion of what this used to assert.** An example is now the idea alone, so
+        // the parser must find no origins in it at all - that is what sends the run down the
+        // *describe* path and makes clicking a chip demonstrate discovery rather than skip it.
+        //
+        // Asserted against `origins_in` rather than by reading the string, because the parser
+        // is the thing that decides, and a prompt that merely *looks* like prose to a person
+        // can still contain something it reads as a host.
         for example in landscape_core::examples() {
-            let expected: Vec<String> = example
-                .companies
-                .iter()
-                .map(|c| format!("https://{c}"))
-                .collect();
             assert_eq!(
                 origins_in(&example.prompt()),
-                expected,
-                "{} does not parse to its own companies. The prompt is {:?}",
+                Vec::<String>::new(),
+                "{} parses as a named set, so nothing would be discovered. The prompt is {:?}",
                 example.id,
                 example.prompt()
             );
@@ -1249,14 +1269,15 @@ mod the_examples {
     }
 
     #[test]
-    fn no_example_is_capped_when_it_runs() {
-        // The cap drops companies and says so in a note above the sections. That note is right
-        // for a prompt somebody typed and wrong on a curated example, where it would mean the
-        // demo shipped an idea it cannot run.
+    fn no_example_fixture_is_capped_when_it_runs() {
+        // The cap drops companies and says so in a note above the sections. **It no longer
+        // applies to the prompt** - a description is resolved by discovery, and what it returns
+        // is capped by the same constant wherever it came from. This holds the *fixture* to it
+        // so `--check` never verifies more companies than a run could carry.
         for example in landscape_core::examples() {
             assert!(
                 example.companies.len() <= MAX_SUBJECTS,
-                "{} names {} companies and the cap is {MAX_SUBJECTS}",
+                "{} was checked against {} companies and the cap is {MAX_SUBJECTS}",
                 example.id,
                 example.companies.len()
             );

@@ -1,0 +1,89 @@
+[
+  {
+    "name": "an example puts the companies back in the box",
+    "file": "crates/landscape-core/src/examples.rs",
+    "old": "        self.idea.clone()",
+    "new": "        format!(\"{} - {}\", self.idea, self.companies.join(\" vs \"))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "--all-features"
+    ]
+  },
+  {
+    "name": "no engine is reported as a prompt that named nothing",
+    "file": "crates/landscape/src/main.rs",
+    "old": "            landscape_analyze::subject::NO_ENGINE.to_owned(),\n            landscape_core::Failure::NoEngine,",
+    "new": "            landscape_analyze::subject::NO_SUBJECT.to_owned(),\n            landscape_core::Failure::NoSubject,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "--all-features"
+    ]
+  },
+  {
+    "name": "the first screen does not say searching is unconfigured",
+    "file": "crates/landscape-api/src/routes.rs",
+    "old": "        discovery: state.discovery,\n",
+    "new": "        discovery: true,\n",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "the chip reads as the curated companies rather than the idea",
+    "file": "crates/landscape-api/src/routes.rs",
+    "old": "                idea: example.idea,",
+    "new": "                idea: example.companies.join(\" vs \"),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "a server too old to say is assumed able to search",
+    "file": "web/src/api.ts",
+    "old": "      discovery: (body as Examples).discovery === true,",
+    "new": "      discovery: (body as Examples).discovery !== false,",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "no engine is rendered as a reader who named nothing",
+    "file": "web/src/App.tsx",
+    "old": "        case \"no_engine\":",
+    "new": "        case \"no_engine_unused\":",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the note promises a search a click does not start",
+    "file": "crates/landscape-core/src/examples.rs",
+    "old": "    \"These ideas were chosen by hand. The companies are not: choosing one and pressing \\\n",
+    "new": "    \"These ideas were chosen by hand. The companies are not: clicking one immediately \\\n",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  }
+]

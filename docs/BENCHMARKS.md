@@ -33,6 +33,101 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 48 — an example is an idea, and the sentence that blamed the reader
+
+**Date:** 2026-08-12 — **Where:** this laptop — **Model:** none — interface and taxonomy work.
+
+**A reader typed a product idea, pressed Analyze, and was told they had not named a company.**
+
+> Stopped. We could not work out which company you meant. Try naming its website — for example,
+> basecamp.com.
+
+Nothing was wrong with what they typed. **No search engine was configured**, so the description
+could not be resolved — and the one thing that sentence tells them to do instead, name the
+companies, is the research they came here to have done. Their words were blamed for our
+environment.
+
+### One kind, two situations, and the interface renders from the kind
+
+`Failure::NoSubject`'s own documentation had said it: *"the reader fixes this by naming a domain,
+**or an operator by configuring a search engine**. It is the only one of these that is about our
+configuration."* One value, two audiences — and the surface could only render one of them.
+
+The worker's sentence had named the cause since it was written: *"finding one from a description
+needs a search engine, which is not configured here."* `Failure` is what the page reads, so the
+sentence never arrived.
+
+`Failure::NoEngine` is its own kind now, by the rule the same file already states: **a situation
+earns a value when a reader would do something different.** Here they would do *nothing* — there
+is no wording that helps, and being told to reword is worse than being told to wait.
+
+### Which made the examples' own defect visible
+
+Every example put its companies in the box — *"project management for a small design agency -
+basecamp.com vs linear.app"* — so clicking one ran a **named set**: nothing discovered, the
+first screen of the product demonstrating the one path where its central feature does not run.
+That is why nobody had hit the refusal before: the demo never took the path the product is for.
+
+An example is now the idea alone. The checked domains stay as a **fixture** — what
+`landscape examples --check` verifies and what a reader compares live discovery against — and
+the API stops sending them, because a field on the wire with no renderer is one displayed by
+accident two changes later.
+
+### What that costs, stated rather than discovered
+
+**These now need `SEARX_URL`.** A description cannot be resolved without an engine, so on a
+laptop with none configured every example refuses where it used to run. The refusal is honest
+now, but a demo that dies at the first screen is what that module exists to prevent.
+
+So the first screen says it **before** a run is spent: `/api/examples` carries `discovery`, and
+with no engine the page reads *"Searching is not configured on this instance"* beside the ideas
+rather than after one of them has been paid for. **Absent reads as unavailable**, because
+guessing *yes* puts the reader back where they started.
+
+This is [B2](../PROJECT_STATUS.md#4-blockers) reaching a reader. *"An engine has never answered
+this application a single query"* has been on that page for six phases; what was new is that the
+product now says so where somebody can act on it.
+
+### And two flashes of the wrong page
+
+**The stale one.** `useReport` cleared its sections, subjects and progress in an effect keyed on
+the analysis id — and an effect runs *after* the browser paints. So the render in which
+`analysis` became the new run still read the **previous** run's state, and pressing Analyze a
+second time showed the last report flash past under the new one's heading. Resetting during the
+render is the documented fix: React discards the output and re-renders before anything reaches
+the screen. There is no frame to see.
+
+**The long one.** The claim sections sat in a `<details open={live}>`, so for the whole of a
+four-minute run the page was the old six-heading wall, replaced by the four blocks at the end.
+The reasoning was that hiding the only moving thing would look like a stall — but the moving
+thing is the bar above it. Closed from the first paint.
+
+**Neither is visible to a test in jsdom**, which does not paint and cannot see what is *next to*
+what. Both were found by using the product, which is the third time in three runs.
+
+### A sentence that described the wrong interaction
+
+Review found the curation note — rewritten in this very change, to stop claiming the companies
+were curated — saying *"clicking one searches for them"*. **A chip fills the box and
+deliberately does not run**, and there is a test in this repository asserting no POST is sent
+when one is clicked. So the note promised four minutes of somebody else's electricity from a
+click meant to read a label.
+
+**The behavior and the sentence about it are now asserted together**, in the test that proves
+the click sends nothing. Apart is how they came to disagree: one lives in Rust and one in the
+browser, and each was right about itself.
+
+### What this run does not measure
+
+No latency figure changed and none was taken.
+
+| | Rust tests | frontend tests | catalog |
+|---|---|---|---|
+| Run 47 | 1020 | 117 | 26, all caught |
+| now | **1021** | **121** | **8**, all caught |
+
+---
+
 ## Run 47 — the first screen
 
 **Date:** 2026-08-11 — **Where:** this laptop — **Model:** none — this is interface and contract work.

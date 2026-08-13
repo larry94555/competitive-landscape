@@ -6,18 +6,25 @@
 //! *"a tool for small farms"* names no site, so the run fails with a reason and the demo is
 //! over before anything was read.
 //!
+//! # An example is an idea, and nothing else
+//!
+//! **[`Example::prompt`] is the idea verbatim.** It used to be `"{idea} - {a.com vs b.com}"`,
+//! which made every example a *named set*: the reader typed nothing, the pipeline discovered
+//! nothing, and the first screen of the product demonstrated the one path where discovery does
+//! not run. A reader clicking *"privacy-friendly website analytics"* wants to see this find the
+//! companies, not to be handed two we picked.
+//!
 //! # What is curated, and what is not
 //!
-//! **Only the choice of companies.** Everything a report says is fetched, quoted and cited at
-//! the moment somebody clicks — there are no stored answers here, no cached reports, and no
-//! text that ends up in a claim. What this file contains is a list of domains that were checked
-//! by hand, once, for a property the pipeline cannot promise for an arbitrary site: that
-//! discovery finds pages worth reading.
+//! **Only the ideas.** Everything a report says is fetched, quoted and cited at the moment
+//! somebody clicks — there are no stored answers here, no cached reports, and no text that ends
+//! up in a claim or in the box.
 //!
-//! That distinction is the whole honesty of the feature, so [`Example::prompt`] puts the
-//! companies **into the text the reader sees and can edit**. Nothing is expanded behind their
-//! back: clicking a chip types a sentence they could have typed themselves, and deleting a
-//! company from it analyzes one company.
+//! [`Example::companies`] survives that change as a **fixture, not an input**: the domains that
+//! were checked by hand for a property the pipeline cannot promise of an arbitrary site — that
+//! discovery finds pages worth reading. `landscape examples --check` still runs them, and they
+//! are what a reader of that output compares live discovery against. **Nothing puts them in
+//! front of somebody using the product**, and the API does not send them.
 //!
 //! # Why this is data in `landscape-core` rather than a list in the web app
 //!
@@ -26,43 +33,55 @@
 //! `landscape-analyze` that runs each prompt through **the real prompt parser** and asserts the
 //! companies come back out.
 //!
-//! # The wait these imply
+//! # The wait these imply, and what changed about it
 //!
-//! Two companies each, not three. Each company is its own discovery, fetches and model calls —
-//! about two minutes a company on the laptop this was measured on, so an example is about four.
-//! Three companies would be six, which is past what `PRODUCT_SPEC.md` §2.1A asks for and well
-//! past what somebody clicking a link will sit through. Three is what the analyzer *allows*;
-//! two is what a demo can spend.
+//! **An idea is a description, so clicking one runs discovery.** That is the point, and it has
+//! two consequences worth stating rather than discovering.
+//!
+//! *It needs a search engine.* A description cannot be resolved without one, so on a laptop
+//! with no `SEARX_URL` these now fail where they used to run — the refusal says which variable
+//! and why, but a demo that dies at the first screen is what this module exists to prevent.
+//! That is a real cost of the change and it is named here rather than left to be found.
+//!
+//! *And the wait is no longer exactly two companies.* It was four minutes because the set was
+//! fixed at two; now discovery decides, and the fixture below is what it was checked against.
 
 use serde::{Deserialize, Serialize};
 
-/// One idea a reader can click, and the companies it compares.
+/// One idea a reader can click.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Example {
     /// Stable across changes to the wording, because it ends up in logs and in the command
     /// that checks these.
     pub id: String,
-    /// The idea in the words somebody would use, without the companies.
+    /// The idea in the words somebody would use. **This is the whole of the prompt.**
     pub idea: String,
-    /// The companies, as a person would type them — bare domains, no scheme.
+    /// The companies this idea was checked against — a fixture, never an input.
+    ///
+    /// **Not sent to the browser and not put in the box.** These are what
+    /// `landscape examples --check` fetches to prove discovery finds pages worth reading, and
+    /// what a reader of that output compares live discovery against. Putting them in the prompt
+    /// is what made every example a named set.
     ///
     /// Discovery follows a redirect to `www.`, which was checked for each of these rather
     /// than assumed: `helpscout.com` and `simpleanalytics.com` both serve from `www.` and both
     /// resolve from the bare name.
     pub companies: Vec<String>,
-    /// One line saying why these two are a comparison rather than two arbitrary sites.
+    /// One line saying why these two were the pair worth checking against.
+    ///
+    /// Operator-facing, like `companies`: it explains a curation decision, and the reader of
+    /// the product is no longer shown a curated set to explain.
     pub why: String,
 }
 
 impl Example {
-    /// The text this puts in the box.
+    /// The text this puts in the box: the idea, and nothing else.
     ///
-    /// **The companies are in it.** A chip that filled the box with the idea alone and passed
-    /// the domains separately would be hiding the curated part in the place a reader is least
-    /// able to see it, which is the opposite of what this feature is for.
+    /// **A function rather than reading `idea` at each call site**, because what an example
+    /// *is* has now changed twice and both times every caller had to agree about it.
     #[must_use]
     pub fn prompt(&self) -> String {
-        format!("{} - {}", self.idea, self.companies.join(" vs "))
+        self.idea.clone()
     }
 }
 
@@ -109,8 +128,9 @@ pub fn examples() -> Vec<Example> {
 /// Here rather than in the web app because it is a claim about the product, and a claim about
 /// the product that lives only in a component is one nobody reviews.
 pub const CURATION_NOTE: &str =
-    "The companies in these examples were chosen by hand. Everything the report says about them \
-     is fetched, quoted and cited when you click - nothing here is stored or written in advance.";
+    "These ideas were chosen by hand. The companies are not: choosing one and pressing \
+     Analyze searches for them, and everything the report says is fetched, quoted and \
+     cited at that moment - nothing here is stored or written in advance.";
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -118,29 +138,46 @@ mod tests {
     use super::*;
 
     #[test]
-    fn every_example_puts_its_companies_in_the_text_a_reader_can_see() {
-        // The honesty of the feature, as an assertion. A chip that expanded to companies the
-        // reader never saw would be curating in the one place they cannot check.
+    fn no_example_puts_a_company_in_the_box() {
+        // **The inversion of what this used to assert**, and the whole of the change. A prompt
+        // naming domains is a *named set*: nothing is discovered, and the first screen of the
+        // product demonstrates the one path where its central feature does not run.
         for example in examples() {
             let prompt = example.prompt();
             for company in &example.companies {
                 assert!(
-                    prompt.contains(company.as_str()),
-                    "{} is not in the prompt {prompt:?}",
+                    !prompt.contains(company.as_str()),
+                    "{} puts {company} in the box: {prompt:?}",
                     example.id
                 );
             }
+            assert!(
+                !prompt.contains('.'),
+                "{} reads like a domain, so it would be parsed as one: {prompt:?}",
+                example.id
+            );
         }
     }
 
     #[test]
-    fn every_example_is_a_comparison() {
-        // One company is a profile. The whole reason these exist is to show the thing the
-        // product is for, and a single-company example would demonstrate the old defect.
+    fn every_prompt_is_the_idea_and_nothing_else() {
+        // A second reading of the same rule, and not a duplicate: the one above forbids the
+        // companies, this one forbids everything else too. An example that grew a suffix
+        // would pass the first and fail here.
+        for example in examples() {
+            assert_eq!(example.prompt(), example.idea, "{}", example.id);
+        }
+    }
+
+    #[test]
+    fn every_example_was_checked_against_a_comparison() {
+        // Still two, and still for the same reason — but now about the **fixture** rather than
+        // the prompt. An idea checked against one company proves discovery can find one
+        // company, which is not the thing the product is for.
         for example in examples() {
             assert!(
                 example.companies.len() >= 2,
-                "{} names {} company - that is a profile, not a comparison",
+                "{} was checked against {} company - that is a profile, not a comparison",
                 example.id,
                 example.companies.len()
             );
@@ -148,13 +185,17 @@ mod tests {
     }
 
     #[test]
-    fn no_example_asks_for_a_wait_nobody_will_sit_through() {
-        // Two minutes a company, measured. Three companies is six minutes, and a demo that
-        // takes six minutes is not a demo - `ROADMAP.md` §2·D says so in the risk section.
+    fn no_fixture_asks_for_a_check_nobody_will_sit_through() {
+        // Two minutes a company, measured, and `--check` fetches every one of them.
+        //
+        // **This no longer bounds what a reader waits for**, and saying so is the point: a
+        // description is resolved by discovery, so the set is whatever the engine returns and
+        // the analyzer's own cap is what holds it. The bound that used to live here moved,
+        // and a test still claiming it would be describing a feature that changed.
         for example in examples() {
             assert!(
                 example.companies.len() <= 2,
-                "{} names {} companies, which is about {} minutes",
+                "{} would make --check fetch {} companies, about {} minutes",
                 example.id,
                 example.companies.len(),
                 example.companies.len() * 2
@@ -183,8 +224,8 @@ mod tests {
 
     #[test]
     fn no_company_appears_in_two_examples() {
-        // Not a correctness rule - a demo rule. Clicking the second chip and recognizing the
-        // first one's companies makes three examples look like one.
+        // Not a correctness rule - a check rule. Two ideas verified against the same domain
+        // are one measurement reported twice.
         let all: Vec<String> = examples().into_iter().flat_map(|e| e.companies).collect();
         let mut sorted = all.clone();
         sorted.sort();
@@ -210,5 +251,25 @@ mod tests {
         // were too, which is the misreading this feature has to prevent.
         assert!(CURATION_NOTE.contains("chosen by hand"), "{CURATION_NOTE}");
         assert!(CURATION_NOTE.contains("cited"), "{CURATION_NOTE}");
+        // **And it must no longer claim the companies are curated**, because they are not.
+        // A sentence left over from the previous design would be this product describing a
+        // curation it stopped doing.
+        assert!(
+            CURATION_NOTE.contains("companies are not"),
+            "the note still says the companies are chosen by hand: {CURATION_NOTE}"
+        );
+        // **And it must describe the interaction that actually happens.** A chip fills the box
+        // and deliberately does not run — `App.test.tsx` asserts no POST is sent — so a note
+        // reading *"clicking one searches for them"* promises four minutes of somebody else's
+        // electricity from a click meant to read a label. Review caught it; it had been written
+        // in the same change that made the note true about everything else.
+        assert!(
+            CURATION_NOTE.contains("pressing Analyze"),
+            "the note says a click searches, and a click does not: {CURATION_NOTE}"
+        );
+        assert!(
+            !CURATION_NOTE.contains("clicking one searches"),
+            "{CURATION_NOTE}"
+        );
     }
 }

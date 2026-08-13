@@ -182,9 +182,11 @@ export default function App(): React.JSX.Element {
         having to invent a prompt — and the prompts people invent are the ones this pipeline
         cannot resolve, so an empty box is where a demo dies.
 
-        Clicking one **fills the box and does not submit.** The reader sees the sentence,
-        including the companies, and can change it before anything is fetched. That is the
-        whole of what "the curation is visible" means here.
+        Clicking one **fills the box and does not submit**, and what it fills in is the idea
+        and nothing else. These used to read *"project management for a small design agency -
+        basecamp.com vs linear.app"*, which made every example a **named set**: nothing was
+        discovered, and the first screen of the product demonstrated the one path where its
+        central feature does not run.
       */}
       {analysis === null && examples !== null && examples.examples.length > 0 && (
         <section className="examples" aria-labelledby="examples-heading">
@@ -201,12 +203,23 @@ export default function App(): React.JSX.Element {
                   }}
                 >
                   <strong>{example.idea}</strong>
-                  <span className="companies">{example.companies.join(" vs ")}</span>
-                  <span className="why">{example.why}</span>
                 </button>
               </li>
             ))}
           </ul>
+          {/*
+            **Before a run is spent, not after.** Every idea here is a description, and
+            resolving one into companies needs a search engine. Without it each of these
+            refuses — and a reader who clicks first learns about an environment variable at the
+            cost of one of their analyses. That happened, which is why this is here.
+          */}
+          {!examples.discovery && (
+            <p className="unavailable" role="status">
+              <strong>Searching is not configured on this instance</strong>, so these ideas
+              cannot be researched yet — set <code>SEARX_URL</code>. Naming a website still
+              works, though finding the companies is the part this is for.
+            </p>
+          )}
           {/*
             The server's sentence, not one written here. What is curated and what is not is a
             claim about the product, and a claim that lives only in a component is one nobody
@@ -312,7 +325,19 @@ function useReport(
 
   // A new analysis starts from nothing. Kept apart from the connection below so that
   // reconnecting does not wipe the sections the reader is already looking at.
-  useEffect(() => {
+  //
+  // **During the render, not in an effect, and that is the whole of a reported defect.** An
+  // effect runs *after* the browser has painted, so the render in which `analysis` became the
+  // new run still read the previous run's sections, subjects and progress — and the reader saw
+  // one frame of the last report under the new one's heading before it cleared. Pressing
+  // Analyze a second time showed the first report flash past. A reader reported exactly that.
+  //
+  // Setting state during a render is the documented way to reset it when an input changes:
+  // React discards the output and re-renders immediately, before anything reaches the screen.
+  // There is no frame to see.
+  const [ranFor, setRanFor] = useState(id);
+  if (id !== ranFor) {
+    setRanFor(id);
     setStatus(null);
     setSections([]);
     setSubjects([]);
@@ -320,7 +345,7 @@ function useReport(
     setAttempt(0);
     generationRef.current = null;
     setGeneration(null);
-  }, [id]);
+  }
 
   /**
    * The run these sections belong to, from wherever we heard it.
@@ -637,12 +662,14 @@ function AnalysisView({
         the only evidence this product has. A disclosure is the smallest honest stand-in: the
         first screen is the four blocks, and nothing was thrown away.
 
-        **Open while the run is going.** A `<details>` that hides the only moving thing on the
-        page would make a working analysis look like a stalled one; it closes itself once there
-        is a summary above it worth reading first.
+        **Closed from the first paint, including while the run is going.** It was `open={live}`,
+        on the reasoning that a `<details>` hiding the only moving thing would make a working
+        analysis look stalled — but the moving thing is the bar above it, and what the open
+        state actually did was show the *old* page for the whole of a run and then replace it
+        with this one at the end. A reader reported seeing exactly that.
       */}
       {showing.length > 0 && (
-        <details className="detail" open={live}>
+        <details className="detail">
           <summary>
             The full report — what public sources say about{" "}
             {analyzed.length === 1 ? analyzed[0] : "these companies"}
@@ -1523,6 +1550,11 @@ function describe(
       switch (failure) {
         case "no_subject":
           return "We could not work out which company you meant. Try naming its website — for example, basecamp.com.";
+        case "no_engine":
+          // **Not "try naming its website".** They typed an idea, which is the input this
+          // product is for, and naming the companies is the research they came here to have
+          // done. Nothing they can type fixes this, so they are not asked to type anything.
+          return "No search engine is configured, so nothing was looked for. Your idea is fine — this is ours to fix, by setting SEARX_URL.";
         case "ambiguous":
           // **Two sentences, because the reader's next move is different.** With chips under
           // it, "name the one you mean" asks somebody to type what is already a button — the

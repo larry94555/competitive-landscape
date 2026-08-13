@@ -1406,7 +1406,12 @@ async fn serve(store: Arc<dyn Store>) -> Result<()> {
     // Nothing needs it. In production the binary serves the page and the API from one origin,
     // and `vite.config.ts` proxies `/api` in development — so the browser has never actually
     // been making a cross-origin request.
-    let app = landscape_api::with_ui(AppState::new(store), &landscape_api::web_dir());
+    // **What the first screen says about itself.** Every example is a description, and a
+    // description cannot be resolved without an engine — so a reader with no `SEARX_URL` would
+    // spend an analysis to be told about an environment variable. Decided here, where the rule
+    // for what counts as configured already lives.
+    let discovery = matches!(landscape_search::searx::Searx::from_env(), Ok(Some(_)));
+    let app = landscape_api::with_ui(AppState::new(store, discovery), &landscape_api::web_dir());
 
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
@@ -1574,9 +1579,14 @@ async fn resolve_from_description(
             interpreted: None,
         };
     let Some(engine) = engine else {
+        // **Its own kind, because the interface renders from the kind.** This said `NoSubject`
+        // for as long as it existed, so a reader who typed a perfectly good product idea was
+        // told *"we could not work out which company you meant, try naming its website"* —
+        // blamed for an environment variable, and pointed at the one input that skips the
+        // feature they came for. The sentence had always named the cause; nothing carried it.
         return refuse(
-            landscape_analyze::subject::NO_SUBJECT.to_owned(),
-            landscape_core::Failure::NoSubject,
+            landscape_analyze::subject::NO_ENGINE.to_owned(),
+            landscape_core::Failure::NoEngine,
             Vec::new(),
         );
     };
@@ -2203,10 +2213,16 @@ Project management software built for speed."
     }
 
     #[tokio::test]
-    async fn a_description_with_no_engine_is_the_one_situation_naming_a_domain_fixes() {
+    async fn a_description_with_no_engine_blames_the_configuration_and_not_the_reader() {
         // **The worker's own choice of situation**, which `decide` never sees: with nothing
-        // configured there is no verdict to decide from, and this is the only refusal where
-        // *"try naming its website"* is the right instruction rather than a habit.
+        // configured there is no verdict to decide from.
+        //
+        // **This test used to assert `NoSubject`**, on the reasoning written here that naming a
+        // domain is the right instruction. A reader disproved that by typing a perfectly good
+        // product idea and being told *"we could not work out which company you meant"*. The
+        // instruction is not right: nothing about their words was wrong, and the domain they
+        // are told to type is the research they came here to have done. It is a fact about our
+        // configuration, and it now has a kind that says so.
         let read = resolve_from_description(
             None,
             &landscape_fetch::Fetcher::new(),
@@ -2217,9 +2233,14 @@ Project management software built for speed."
         let landscape_analyze::subject::Decided::Refuse(refusal) = read.decided else {
             panic!("a run with no engine analyzed something")
         };
-        assert_eq!(refusal.kind, landscape_core::Failure::NoSubject);
+        assert_eq!(refusal.kind, landscape_core::Failure::NoEngine);
         let why = &refusal.why;
-        assert!(why.contains("not configured here"), "{why}");
+        assert!(why.contains("none is configured here"), "{why}");
+        // And it must not send them off to fix their prompt, which was never the problem.
+        assert!(
+            !why.contains("Try a domain"),
+            "a reader is told to reword something that was right: {why}"
+        );
         assert!(
             read.interpreted.is_none(),
             "nothing was searched for, so nothing can have been interpreted"

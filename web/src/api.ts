@@ -22,6 +22,10 @@ export type AnalysisStatus = "queued" | "running" | "complete" | "failed";
  */
 export type Failure =
   | "no_subject"
+  // **The one that took a reader to find.** `no_subject` covered this too, so somebody who
+  // typed a product idea — the input this product is for — was told we could not work out
+  // which company they meant. Nothing was wrong with their words; nothing is configured here.
+  | "no_engine"
   | "ambiguous"
   | "nothing_found"
   | "search_incomplete"
@@ -229,20 +233,28 @@ async function readError(response: Response): Promise<never> {
 export interface Example {
   readonly id: string;
   readonly idea: string;
-  readonly companies: readonly string[];
-  readonly why: string;
+
   /**
-   * What goes in the box.
+   * What goes in the box: the idea, and nothing else.
    *
-   * Built by the server, and it already contains the companies. The browser must not
-   * assemble this: which words join an idea to its domains is one decision, and the parser
-   * that reads them back out lives on the other side of it.
+   * Built by the server rather than assembled here. What an example *is* has changed twice —
+   * it used to carry the companies to compare — and both times every caller had to agree
+   * about it, including the parser that reads the result back on the other side.
    */
   readonly prompt: string;
 }
 
 /** The examples, with the sentence that says what is curated about them. */
 export interface Examples {
+  /**
+   * Whether an idea can be researched at all.
+   *
+   * **False means every example below will refuse.** Each is a description, and resolving one
+   * into companies needs a search engine; without `SEARX_URL` the run stops and the reader has
+   * spent an analysis to be told about an environment variable. A reader found that out the
+   * hard way, so the first screen says it first.
+   */
+  readonly discovery: boolean;
   readonly note: string;
   readonly examples: readonly Example[];
 }
@@ -273,11 +285,18 @@ export async function getExamples(): Promise<Examples | null> {
     }
     // **Every field of every entry, not the container.** The first version of this checked
     // that `examples` was an array and stopped there, which is a guard that reads as
-    // validation and is not: one entry with a null `companies` still reached
-    // `companies.join(" vs ")` and threw while the first screen was drawing itself. Review
-    // found it. A shape checked at the edge and trusted at the leaf is unchecked.
+    // validation and is not: one entry with a null field still reached the render and threw
+    // while the first screen was drawing itself. Review found it. A shape checked at the edge
+    // and trusted at the leaf is unchecked.
     const usable = (body as Examples).examples.filter(isExample);
-    return { note: (body as Examples).note, examples: usable };
+    return {
+      // **Absent reads as unavailable, not as available.** A server too old to send this is
+      // one that predates the field, and guessing "yes" would put the reader back where they
+      // started: an idea typed, a run spent, an environment variable explained afterwards.
+      discovery: (body as Examples).discovery === true,
+      note: (body as Examples).note,
+      examples: usable,
+    };
   } catch {
     return null;
   }
@@ -296,10 +315,7 @@ function isExample(value: unknown): value is Example {
   return (
     typeof example.id === "string" &&
     typeof example.idea === "string" &&
-    typeof example.why === "string" &&
-    typeof example.prompt === "string" &&
-    Array.isArray(example.companies) &&
-    example.companies.every((company) => typeof company === "string")
+    typeof example.prompt === "string"
   );
 }
 

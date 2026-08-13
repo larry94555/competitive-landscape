@@ -78,7 +78,7 @@ struct Reader {
 
 impl Reader {
     async fn open(store: &Arc<dyn Store>, id: AnalysisId) -> Self {
-        let app = router(AppState::new(Arc::clone(store)));
+        let app = router(AppState::new(Arc::clone(store), false));
         let response = app
             .oneshot(
                 Request::builder()
