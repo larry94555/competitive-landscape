@@ -149,6 +149,11 @@ export default function App(): React.JSX.Element {
 
   const submit = useCallback(() => start(prompt), [start, prompt]);
 
+  // **One condition, because one sentence claims what the other renders.** The line under an
+  // error says the earlier analyses are *listed below*; if that could be true while the list
+  // is not drawn, it would be the same defect the server's copy of it had, one step smaller.
+  const listing = analysis === null && earlier.length > 0;
+
   const { status, sections, subjects, progress, generation } = useReport(
     analysis,
     setAnalysis,
@@ -253,6 +258,18 @@ export default function App(): React.JSX.Element {
               <code className="reference">{error.reference}</code>
             </>
           )}
+          {/*
+            **Said here because only here knows.** The server refuses by network address and
+            has no idea whether this browser kept a list — a reader hitting the cap from a
+            second device, after clearing site data, or with storage unavailable would have
+            been promised something that is not on their screen.
+          */}
+          {listing && (
+            <span className="also-below">
+              {" "}
+              The analyses you have already run are listed below, and nothing you did is lost.
+            </span>
+          )}
         </p>
       )}
 
@@ -261,7 +278,7 @@ export default function App(): React.JSX.Element {
         they have used both of today's analyses is exactly the moment they most need to find
         the two they already ran — and it used to say nothing about where either had gone.
       */}
-      {analysis === null && earlier.length > 0 && (
+      {listing && (
         <Earlier
           held={earlier}
           onForget={() => {

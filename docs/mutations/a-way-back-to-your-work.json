@@ -62,7 +62,7 @@
   {
     "name": "the refusal makes a reader work out how long to wait",
     "file": "crates/landscape-api/src/error.rs",
-    "old": "                        when = in_about(resets),",
+    "old": "                        when = in_about(resets.signed_duration_since(chrono::Utc::now())),",
     "new": "                        when = String::new(),",
     "run": [
       "cargo",
@@ -73,10 +73,47 @@
     ]
   },
   {
-    "name": "the refusal says nothing about the work already done",
+    "name": "the refusal promises a list this side cannot see",
+    "file": "web/src/App.tsx",
+    "old": "  const listing = analysis === null && earlier.length > 0;",
+    "new": "  const listing = analysis === null;",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the sentence and the list come apart",
+    "file": "web/src/App.tsx",
+    "old": "          {listing && (\n            <span className=\"also-below\">",
+    "new": "          {earlier.length >= 0 && (\n            <span className=\"also-below\">",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the minutes truncate under an hour that rounds up",
     "file": "crates/landscape-api/src/error.rs",
-    "old": "                            \"The analyses you have already run are listed below, and nothing \",",
-    "new": "                            \"\",",
+    "old": "    let minutes = (seconds + 59) / 60;",
+    "new": "    let minutes = seconds / 60;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "a wait already past is stated as a negative one",
+    "file": "crates/landscape-api/src/error.rs",
+    "old": "    let seconds = left.num_seconds().max(0);",
+    "new": "    let seconds = left.num_seconds();",
     "run": [
       "cargo",
       "nextest",

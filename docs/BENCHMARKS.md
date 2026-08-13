@@ -92,6 +92,32 @@ And the refusal now says **how long**, which is what was actually being asked:
 
 Both, because the relative one is actionable and the absolute one is checkable.
 
+### The refusal promised something the server cannot see
+
+Review found it: the remedy read *"the analyses you have already run are listed below"*, and
+**the cap is keyed by network address while the list is in one browser's storage.** A reader
+hitting the shared cap from a second device, after clearing site data, or with storage
+unavailable is promised something that is not on their screen.
+
+The sentence moved to the side that knows. And it is drawn on **the same condition as the list
+itself** — one boolean, because a claim about what is below that could be true while nothing is
+below would be the same defect one step smaller.
+
+**This is the third message in three runs that described something it could not see** — the
+curation note describing a click that does not run, the failure kind describing the reader's
+words instead of our configuration, and now this. Each was written on one side of a boundary
+about what happens on the other.
+
+### The guarantee held at one unit and not the one below it
+
+`in_about` rounded hours up and let `num_minutes()` truncate underneath, so 59m59s read as
+*"in about 59 minutes"* and a reader coming back then found the door shut. Its own
+documentation had promised the opposite. Both units come from one ceiling now.
+
+**The duration is a parameter rather than a clock reading**, which is what made the boundaries
+checkable at all: a function that reads the clock can only be tested by waiting. Eleven rows,
+either side of one minute and one hour.
+
 ### The lost continuation, in the one message a frustrated reader reads
 
 Writing that sentence, the `\` continuation was lost in an edit and what came out was *"the free
@@ -107,7 +133,7 @@ changed is what it says about it.
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 48 | 1021 | 121 | 8, all caught |
-| now | **1021** | **134** | **10**, all caught |
+| now | **1023** | **136** | **14**, all caught |
 
 ---
 

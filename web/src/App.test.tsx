@@ -594,6 +594,69 @@ describe("the analyses this browser has run", () => {
     expect(window.localStorage.getItem("landscape.analyses")).toBeNull();
   });
 
+  it("promises the list only when the list is there", async () => {
+    // **The server cannot see this browser.** The cap is keyed by network address and the
+    // list is in one browser's storage, so the refusal used to promise *"the analyses you
+    // have already run are listed below"* to a reader who had hit the shared cap from a
+    // second device, or cleared site data, or has no storage at all. Review caught it, and
+    // the sentence moved to the only side that knows.
+    stubEventSource();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          status: 429,
+          json: () =>
+            Promise.resolve({
+              error: "You have started 2 analyses today, which is the free limit of 2.",
+              remedy: "An analysis that fails does not count.",
+            }),
+        } as Response),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), IDEA);
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
+
+    await screen.findByRole("alert");
+    expect(screen.queryByText(/listed below/i)).toBeNull();
+    expect(screen.queryByText(/Analyses you have run/i)).toBeNull();
+  });
+
+  it("promises it when it is", async () => {
+    // The same refusal, from a browser that does have the list. The sentence and the list
+    // are drawn on one condition, so they cannot come apart.
+    window.localStorage.setItem(
+      "landscape.analyses",
+      JSON.stringify([{ id: "abc", prompt: IDEA, at: "2026-08-12T12:00:00.000Z" }]),
+    );
+    stubEventSource();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve({
+          ok: false,
+          status: 429,
+          json: () =>
+            Promise.resolve({
+              error: "You have started 2 analyses today, which is the free limit of 2.",
+              remedy: "An analysis that fails does not count.",
+            }),
+        } as Response),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(box(), "something else entirely for this run");
+    await user.click(screen.getByRole("button", { name: /analyze/i }));
+
+    await screen.findByRole("alert");
+    expect(screen.getByText(/listed below/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: IDEA })).toBeInTheDocument();
+  });
+
   it("says nothing at all before anything has been run", async () => {
     // An empty list under an empty box is furniture. The first screen is the box.
     stubStarting();

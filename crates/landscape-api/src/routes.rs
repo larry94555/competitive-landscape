@@ -827,13 +827,18 @@ mod tests {
                 .is_some_and(|e| e.contains("in about") || e.contains("in under")),
             "the refusal makes a reader work out how long to wait: {body}"
         );
-        // And where the analyses they already ran went. This said nothing about them, so at
-        // the exact moment a reader most needs their work, it read as lost.
+        // **And it says nothing about a list this side cannot see.** The remedy briefly read
+        // *"the analyses you have already run are listed below"* — but the cap is keyed by
+        // network address and the list is in one browser's storage, so a reader hitting the
+        // shared cap from a second device, after clearing site data, or with no storage at all
+        // was promised something not on their screen. Review caught it. The sentence is drawn
+        // by the browser, the only side that knows; `App.test.tsx` asserts it appears exactly
+        // when the list does.
         assert!(
-            body["remedy"].as_str().is_some_and(
-                |r| r.contains("listed below") && r.contains("nothing you did is lost")
-            ),
-            "the refusal does not point at the work already done: {body}"
+            body["remedy"]
+                .as_str()
+                .is_some_and(|r| !r.contains("listed below") && !r.contains("lost")),
+            "the refusal describes a screen the server cannot see: {body}"
         );
         // A rejected request is fully explained by its own message. A reference here would
         // suggest they have hit something worth reporting.
