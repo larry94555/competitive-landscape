@@ -37,9 +37,10 @@ is being done about it. This is what is true today.
 | 4 | Ask three more, if substituted | `candidates::ask` | The second round |
 | 5 | Group hits into candidates | `candidates::from_results` | **What a candidate is** |
 | 6 | Score and rank | `candidates::score` | **Which candidates win** |
-| 7 | Fetch the top five | `candidates::from_hits` → `from_its_own_page` | What each is called |
-| 8 | Admit or refuse | `subject::decide` | Whether to report at all |
-| 9 | Read each company | `landscape_analyze::analyze_many` | The six questions |
+| 7 | Fetch the top five | `candidates::from_hits` → `describe` | What each is called, **and its words** |
+| 8 | Exclude on shared words | `competitors::assemble` | **Whether it is in this market** |
+| 9 | Admit or refuse | `subject::decide` | Whether to report at all |
+| 10 | Read each company | `landscape_analyze::analyze_many` | The six questions |
 
 **Steps 5 and 6 decide the answer**, and both work on URLs alone. Everything the engine actually
 said — titles, snippets, the pages themselves — is used to count votes for domains and then
@@ -96,12 +97,39 @@ shrug, which was the point. **What it measures is breadth of appearance, not fit
 name in every adjacent listicle agrees with everything; a specialist named in one article scores
 below the floor and is refused before anybody sees it.
 
-### 3.4 What a candidate is called
+### 3.4 What a candidate is called, and the fit test that already exists
 
-`from_its_own_page` fetches the **front page of the domain** and reads a name and a one-line
-description from it. The page is not consulted about whether the company belongs in this market.
+`describe` fetches the **front page of the domain**, reads a name and a one-line description from
+it, **and records which of the market's words that page uses** — `Vocabulary::Read(shared(...))`.
 
-### 3.5 The gate
+`competitors::assemble` then excludes any candidate whose page shares fewer than `SHARED_WORDS`
+of them, as `Aside::ElsewhereEntirely`, and says so in the reader's words: *"its own front page
+uses none of the words this comparison is built on"*.
+
+```
+SHARED_WORDS = 1     one content word is enough to be admitted
+```
+
+**One word is the whole test**, and it is why `projectplusgame.com` is in the answer: its page
+uses *project*, the description contains *project*, and one is the bar. So the fit gate is not
+missing — it is a lexical test set to its weakest possible value.
+
+**An earlier draft of this document said the page was consulted only for a name.** That was
+wrong, and review caught it. It matters: *there is no test* and *there is a test that admits
+anything sharing one word* have different fixes, and only the second is true.
+
+### 3.5 The reason a company is in the set, which already exists
+
+`Because::Found { agreed, asked, shares }` is built on the described path and reads:
+
+> *"3 of the 3 searches returned it, and its own front page uses ‘project’"*
+
+`Because::Named`, `Aside::ElsewhereEntirely`, `Aside::Unread` and `Aside::NotReached` cover the
+rest. **Every company in the set already carries a countable reason, and every one left out
+carries the reason it is not there.** What is missing is that
+[`PRODUCT_IDEA_RESULTS.md`](PRODUCT_IDEA_RESULTS.md)'s page does not render it.
+
+### 3.6 The gate
 
 `subject::decide`, with `landscape_core::subject`'s constants:
 
@@ -114,7 +142,7 @@ DESCRIBES_A_MARKET = 2        one word that several products share is ambiguity,
 **The gate is not the problem.** It refuses correctly and it will not guess between two close
 candidates — but nothing above it can help when the ranking it is fed is confident and wrong.
 
-### 3.6 The three silences, kept apart
+### 3.7 The three silences, kept apart
 
 `Vocabulary::Read | Unreadable | NotRequested` distinguishes *the page said nothing about this
 market*, *the page could not be fetched*, and *this candidate ranked too low to be fetched at
@@ -131,7 +159,11 @@ all*. That distinction exists and is enforced; §4 relies on it.
 | 1 | The first query is malformed and the qualifier is dropped | The answer is about a much broader market than the one asked about |
 | 2 | A domain, not a product, is the unit | **Microsoft**, scoring 3 of 3, named from `microsoft.com` |
 | 3 | Ranking measures appearance, not fit | Household names win; the right specialist scores 0.175 and is refused |
-| 4 | Nothing verifies a candidate is in the market | **projectplusgame.com**, clearing `CORROBORATION` on keywords alone |
+| 4 | The fit test is one shared content word | **projectplusgame.com** — its page uses *project*, and `SHARED_WORDS = 1` |
+
+**Cause 4 is a threshold, not an absence**, which is the correction review made to this
+document. The machinery to exclude a company for being in another market is built, tested, and
+reports itself honestly. It is set to admit anything that shares a single word with the prompt.
 
 **And the best sources are discarded.** Every page a general web answer cites for this question —
 review sites, agency blogs — is on `NOT_A_COMPANY`. They are correctly refused *as candidates*

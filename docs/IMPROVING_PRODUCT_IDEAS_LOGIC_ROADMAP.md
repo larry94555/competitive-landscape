@@ -6,6 +6,10 @@
 >
 > **This is one plan, not a menu.** The four causes in §4 of that document are independent, and
 > fixing any one alone still leaves a bad answer.
+>
+> **Review has already corrected two rows and one cause.** The first draft proposed building a
+> fit test and a reason that both turned out to exist. A plan written from a memory of a codebase
+> rather than from reading it will do that, and the correction is worth more than the plan was.
 
 ---
 
@@ -49,9 +53,9 @@ Each row is a pull request. Each is shippable alone and improves the answer alon
 | 1 | **This document and the logic document** | `docs/` | **Done** |
 | 2 | **A golden set for discovery** | new `landscape-golden` fixtures | To do |
 | 3 | **Product-level candidates** | `candidates::from_results`, `from_its_own_page` | To do |
-| 4 | **Admit on fit, not appearance** | `candidates::from_hits`, `Vocabulary` | To do |
+| 4 | **Raise the fit test above one word** | `competitors::SHARED_WORDS`, `assemble` | To do |
 | 5 | **Candidates from page content** | new `candidates::named_in` | To do |
-| 6 | **Carry the reason to the page** | `Candidate`, `Because`, `Report`, `web/` | To do |
+| 6 | **Render the reason that already exists** | `Report`, `web/src/App.tsx` | To do |
 | 7 | **Breadth, and subcategories** | new `candidates::breadth`, the interface | To do |
 
 **The comparison matrix is not in this list.** It is already a row in
@@ -83,28 +87,58 @@ and the four-to-eight-minute wait is unjustifiable either way. Measure it here, 
 
 ### PR 3 — Product-level candidates
 
-**Keep the path.** `from_results` reduces every URL to its registrable domain; keep the URL the
-engine returned and make *that* the candidate. `from_its_own_page` then fetches the page that was
-actually found rather than the domain root.
+**Two identities, not one.** The first draft of this said *"make the returned URL the
+candidate"*, and review found the hole: corroboration is counted by grouping URL variants under a
+registrable domain, so making raw URLs the candidates turns `/project`, `/project/pricing` and a
+localized variant into **three one-query candidates**, each below `CORROBORATION = 2` and all
+three refused. That change would have made the answer worse, not better.
 
-Microsoft Project, with *by Microsoft* beside it, instead of Microsoft. When the root is what came
-back — `asana.com` — the company and the product are one thing and one name is right.
+A candidate needs two things kept apart:
+
+| | What it is | Used for |
+|---|---|---|
+| **Identity** | Registrable domain **plus the first path segment**, normalized | Merging appearances, counting agreement |
+| **Evidence URL** | The shallowest URL seen for that identity | The page to fetch, and the link a reader follows |
+
+**Agreement is counted per identity**, exactly as it is counted per domain today, so `/project`
+and `/project/pricing` are one candidate that agreed with two queries rather than two that agreed
+with one each.
+
+**The first path segment is a starting point and must be labeled as one.** It is right for
+`microsoft.com/microsoft-365/...` because the segment carries the product; it is wrong for a site
+that puts everything under `/products/`. What makes it defensible is that a reader asking *why
+are these one company* gets an answer — and that the alternative, asking a 4B model to decide,
+breaks the rule in [`PRODUCT_IDEA_RESULTS_LOGIC.md`](PRODUCT_IDEA_RESULTS_LOGIC.md) §5.
+
+**And a rule for the root.** When the evidence URL is the domain root — `asana.com` — the
+company and the product are one thing and one name is right. Only a non-root URL produces
+*Microsoft Project, by Microsoft*.
 
 **It also fixes attribution downstream.** A price labeled `microsoft.com` is true and useless.
 
-*Removes cause 2. The smallest change in this plan and the largest single improvement.*
+*Removes cause 2. Still the smallest change in this plan, but not as small as the first draft
+claimed: the identity rule and the merge are the work, and the fetch is the easy part.*
 
-### PR 4 — Admit on fit, not appearance
+### PR 4 — Raise the fit test above one word
 
-The page fetch in step 7 becomes the admission test rather than a naming step: **does this page
-describe something in the market being asked about?** The vocabulary-overlap machinery already
-exists for the seeded path, and `Vocabulary::Read | Unreadable | NotRequested` already keeps the
-three silences apart.
+**This test exists and is set to its weakest possible value.** The first draft of this roadmap
+proposed building it; review found it built. `describe` records which of the market's words a
+candidate's front page uses, `assemble` excludes on fewer than `SHARED_WORDS`, and the exclusion
+reaches the reader as `Aside::ElsewhereEntirely`: *"its own front page uses none of the words
+this comparison is built on"*. The machinery is right. The number is **1**.
 
-A page that is about something else is a **finding**, reported as one — not a silent drop.
+`projectplusgame.com` uses *project*. The prompt contains *project*. One word is the bar, so it
+passed.
 
-*Removes cause 4. `projectplusgame.com` fails on its own front page, which is the cheapest place
-to catch it and a page already being fetched.*
+**The work is the test, not the plumbing:**
+
+- raise `SHARED_WORDS`, or weight words by how much they carry — *project* is a far weaker
+  signal than *design agency*;
+- require a word from the **interpreted market label** rather than from anywhere in the prompt;
+- and settle both against PR 2's golden set rather than by picking a number.
+
+*Removes cause 4. The cheapest change in the plan, and the one most easily got wrong by guessing
+at a threshold — which is why it comes after the measurement.*
 
 ### PR 5 — Candidates from page content
 
@@ -120,14 +154,20 @@ as evidence.
 *Removes cause 3, and most of cause 1 — a malformed query matters far less when the answer comes
 from what the returned pages say rather than from which domains they were.*
 
-### PR 6 — Carry the reason to the page
+### PR 6 — Render the reason that already exists
 
-Every company arrives with the sentence and the URL that admitted it, and the date it was read.
-`Because` already exists for the seeded path; extend it to the described one, put it on `Report`,
-and render it under each company.
+**The reason already exists, on both paths.** `Because::Found { agreed, asked, shares }` is
+built for described candidates and reads *"3 of the 3 searches returned it, and its own front
+page uses 'project'"*. `Aside::ElsewhereEntirely`, `Unread` and `NotReached` cover the excluded.
+Review corrected the first draft here too, which had this as extending a seeded-only type.
 
-**This is the last place something is asserted without evidence.** The claims inside a report
-are quoted, dated and cited; the *choice of company* is not.
+**So the work is carrying it to the page.** `Because` reaches the CLI and the report's notes; it
+does not reach the four blocks. Put it on `Report` beside each subject, and render it under each
+company with the date the page was read.
+
+**This is the last place something is asserted without its evidence being shown.** The claims
+inside a report are quoted, dated and cited. The reason a company is in the set is computed,
+correct, and invisible.
 
 ### PR 7 — Breadth, and subcategories
 
