@@ -117,6 +117,35 @@ change.
 guards, so no mutation on any one of them could fail. Redundancy reading as coverage. One
 guard now, and the pin on the one that never existed is deleted rather than left looking green.
 
+### The phase changed after the work it named
+
+Review found the first version announcing `Judging` **after** awaiting the whole of
+`for_market` — which reads every candidate's front page. So *"reading their pages"* appeared
+once the reading was over, and for the minutes it took the page still said *"searching"*. A
+transition that fires after its own work is worth less than none: it is a claim about the
+present tense that is only ever true in the past.
+
+The moment is handed **in** now, as a callback, and fired at the seam. **A moment cannot be
+returned from a function that has not finished** — which is the whole reason the first attempt
+put it where it did.
+
+**And the test had to observe the order, not the enum.** One list, recording when the marker
+fires and when each page is fetched, asserting the marker is first. Written the obvious way it
+covered one of the two paths into `from_hits`, and the mutation on the other survived; it drives
+both now.
+
+**Its companion was vacuous in a way that proved its own point.** The ambiguous-market case read
+`if read.derived.is_none() { assert… }`, and the fixture was not ambiguous — so it asserted
+nothing at all, and the mutation announcing a reading on the path that reads nothing survived.
+Asserting the precondition rather than guarding on it turned it red immediately.
+
+### A named company is not an idea being resolved
+
+The seeded path recorded `Resolving`, whose sentence is *"searching for the companies behind
+your idea"*. Its reader typed `basecamp.com`. That misstates their input **and** the work: there
+is no idea to resolve, and what is happening is a search for rivals of a company they named.
+`Phase::Rivals` says so.
+
 ### The refusal promised something the server cannot see
 
 Review found it: the remedy read *"the analyses you have already run are listed below"*, and
@@ -158,7 +187,7 @@ changed is what it says about it.
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 48 | 1021 | 121 | 8, all caught |
-| now | **1024** | **139** | **17**, all caught |
+| now | **1026** | **139** | **19**, all caught |
 
 ---
 

@@ -807,13 +807,20 @@ pub struct Read {
 ///
 /// # Errors
 /// Never. A query that fails is counted in [`Read::queried`] and the rest carry on.
-pub async fn for_market<F, Fut>(engine: &dyn SourceProvider, description: &str, fetch: F) -> Read
+pub async fn for_market<F, Fut>(
+    engine: &dyn SourceProvider,
+    description: &str,
+    fetch: F,
+    reading: &dyn Fn(),
+) -> Read
 where
     F: Fn(String) -> Fut + Copy,
     Fut: std::future::Future<Output = Option<String>>,
 {
     let (hits, asked_once) = ask(engine, description).await;
     let interpreted = crate::vocabulary::from_titles(&hits, &asked_once);
+    // No `reading()` here: an ambiguous market returns before a single page is fetched, and
+    // announcing a phase that is not about to happen is the defect above pointing backwards.
     if matches!(interpreted, crate::vocabulary::Resolved::Ambiguous { .. }) {
         return Read {
             interpreted,
@@ -827,9 +834,16 @@ where
     let substituted = substitutes(description, words);
     let (derived, queried) = if substituted {
         let (again, asked_twice) = ask(engine, words).await;
+        // **The seam, and the only place it can be.** `from_hits` fetches every candidate's
+        // front page, which is minutes of work on a slow market — and a caller that announced
+        // it *after* awaiting this said *"reading their pages"* once the reading was over.
+        // Review caught that. Called here rather than returned, because what a caller needs is
+        // the moment, and a moment cannot be returned from a function that has not finished.
+        reading();
         let (derived, _) = from_hits(&again, &asked_twice, words, fetch).await;
         (derived, asked_once.and(asked_twice))
     } else {
+        reading();
         from_hits(&hits, &asked_once, words, fetch).await
     };
     Read {
@@ -2281,15 +2295,148 @@ The second of two."
     }
 
     #[tokio::test]
+    async fn the_reading_is_announced_before_a_page_is_read() {
+        // **The order, observed rather than assumed.** The worker announced *"reading their
+        // pages"* after awaiting this whole function — so the phase changed once the reading
+        // was over, and for the minutes it actually took the page still said *"searching"*.
+        // Review caught it, and a test that only checked the phases exist would not have.
+        //
+        // So: record when the marker fires and when each page is fetched, in one list, and
+        // assert the marker is first. Nothing here is about *which* pages — only that the
+        // announcement precedes the work it announces.
+        let engine = Canned {
+            per_query: vec![
+                Ok(vec![
+                    titled("https://linear.app", "Linear - project management"),
+                    titled("https://height.app", "Height - project management"),
+                ]);
+                3
+            ],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let seen: std::sync::Mutex<Vec<&'static str>> = std::sync::Mutex::new(Vec::new());
+
+        let read = for_market(
+            &engine,
+            "project management",
+            |_url| {
+                seen.lock().expect("never poisoned").push("fetched");
+                async { None }
+            },
+            &|| seen.lock().expect("never poisoned").push("announced"),
+        )
+        .await;
+
+        // **Both paths into `from_hits`, because there are two.** A market whose words differ
+        // from the typed ones searches a second time first; one whose do not goes straight in.
+        // The first version of this drove only the second, so the mutation that moved the
+        // announcement after the reading on the *other* branch survived untouched.
+        assert!(
+            !read.substituted,
+            "this case is the straight-through one; the substituted path is below"
+        );
+
+        let order = seen.lock().expect("never poisoned").clone();
+        assert!(
+            order.contains(&"fetched"),
+            "no page was read, so the ordering is vacuous: {order:?}"
+        );
+        assert_eq!(
+            order.first(),
+            Some(&"announced"),
+            "the reading was announced after it started: {order:?}"
+        );
+        assert_eq!(
+            order.iter().filter(|s| **s == "announced").count(),
+            1,
+            "announced more than once: {order:?}"
+        );
+        assert!(read.derived.is_some());
+
+        // The same question of the path that searches twice.
+        let twice = Canned {
+            per_query: vec![
+                Ok(vec![
+                    titled("https://a.example", "The best project management software"),
+                    titled("https://b.example", "Project management software compared"),
+                    titled("https://c.example", "Top project management software"),
+                ]);
+                6
+            ],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let seen: std::sync::Mutex<Vec<&'static str>> = std::sync::Mutex::new(Vec::new());
+        let read = for_market(
+            &twice,
+            "a tool for keeping track of work",
+            |_url| {
+                seen.lock().expect("never poisoned").push("fetched");
+                async { None }
+            },
+            &|| seen.lock().expect("never poisoned").push("announced"),
+        )
+        .await;
+
+        let order = seen.lock().expect("never poisoned").clone();
+        assert!(read.substituted, "the substituted path was not taken");
+        assert!(order.contains(&"fetched"), "{order:?}");
+        assert_eq!(order.first(), Some(&"announced"), "{order:?}");
+    }
+
+    #[tokio::test]
+    async fn an_ambiguous_market_never_announces_a_reading_it_will_not_do() {
+        // It returns before a single page is fetched. Announcing a phase that is not about to
+        // happen is the same defect pointing backwards.
+        let engine = Canned {
+            per_query: vec![
+                Ok(vec![
+                    titled("https://a.example", "Email Marketing Software"),
+                    titled("https://b.example", "Email Marketing Software"),
+                    titled("https://c.example", "Project Management Software"),
+                    titled("https://d.example", "Project Management Software"),
+                ]);
+                3
+            ],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let announced = std::sync::Mutex::new(0_usize);
+        let read = for_market(&engine, "notion", nothing_fetched, &|| {
+            *announced.lock().expect("never poisoned") += 1;
+        })
+        .await;
+
+        // **Asserted, not guarded.** The first version wrapped this in `if derived.is_none()`,
+        // so a fixture that stopped being ambiguous would have made the test vacuous rather
+        // than failing — and the mutation that announced a reading here survived it.
+        assert!(
+            matches!(
+                read.interpreted,
+                crate::vocabulary::Resolved::Ambiguous { .. }
+            ),
+            "the fixture is no longer ambiguous, so this tests nothing: {:?}",
+            read.interpreted
+        );
+        assert!(read.derived.is_none());
+        assert_eq!(
+            *announced.lock().expect("never poisoned"),
+            0,
+            "a reading was announced on the path that reads nothing"
+        );
+    }
+
+    #[tokio::test]
     async fn the_second_round_is_asked_in_the_market_s_words() {
         // §4, end to end and with no network: what a reader typed finds the pages that *name*
         // the market, and the market's name finds the companies in it.
         let engine = ByWords {
             asked: std::sync::Mutex::new(Vec::new()),
         };
-        let read = for_market(&engine, "a free competitive landscape research tool", |u| {
-            nothing_fetched(u)
-        })
+        let read = for_market(
+            &engine,
+            "a free competitive landscape research tool",
+            nothing_fetched,
+            &|| {},
+        )
         .await;
 
         let crate::vocabulary::Resolved::Market(market) = &read.interpreted else {
@@ -2330,7 +2477,7 @@ The second of two."
             let engine = ByWords {
                 asked: std::sync::Mutex::new(Vec::new()),
             };
-            let read = for_market(&engine, typed, nothing_fetched).await;
+            let read = for_market(&engine, typed, nothing_fetched, &|| {}).await;
             assert_eq!(
                 engine.asked.lock().unwrap().len(),
                 IDEA_QUERIES,
@@ -2391,7 +2538,7 @@ The second of two."
         let engine = Tied {
             asked: std::sync::Mutex::new(0),
         };
-        let read = for_market(&engine, "something people manage", nothing_fetched).await;
+        let read = for_market(&engine, "something people manage", nothing_fetched, &|| {}).await;
         assert!(
             matches!(
                 read.interpreted,

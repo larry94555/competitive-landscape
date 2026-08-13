@@ -1569,6 +1569,13 @@ async fn resolve_from_description(
     fetcher: &landscape_fetch::Fetcher,
     budget: &landscape_fetch::Budget,
     prompt: &str,
+    // Called at the seam between searching and reading the candidates' own pages.
+    //
+    // **A moment, not a return value.** What a watching reader needs is *when* the reading
+    // starts, and a function that has not finished cannot return it — the first version
+    // announced the phase after awaiting all of this, so the page said *"reading their pages"*
+    // once the reading was over. Review caught it.
+    reading: &dyn Fn(),
 ) -> Read {
     let refuse =
         |why: String, kind, choices| Read {
@@ -1591,16 +1598,21 @@ async fn resolve_from_description(
         );
     };
 
-    let read = landscape_search::candidates::for_market(engine, prompt, |url| {
-        let fetcher = &fetcher;
-        async move {
-            fetcher
-                .get(&url, budget)
-                .await
-                .ok()
-                .map(|page| landscape_extract::markdown::from_body(&page.body))
-        }
-    })
+    let read = landscape_search::candidates::for_market(
+        engine,
+        prompt,
+        |url| {
+            let fetcher = &fetcher;
+            async move {
+                fetcher
+                    .get(&url, budget)
+                    .await
+                    .ok()
+                    .map(|page| landscape_extract::markdown::from_body(&page.body))
+            }
+        },
+        reading,
+    )
     .await;
 
     // **Nothing was searched for.** Two markets with the same backing is a question, and
@@ -1856,9 +1868,14 @@ async fn run_analysis(
         // `FACT_CHECKING.md` §3.1 built before anything could feed it.
         landscape_analyze::subject::Subjects::Describe => {
             let _ = doing(landscape_core::Phase::Resolving);
+            // **Handed in rather than announced afterwards.** `for_market` reads every
+            // candidate's front page, and the first version said *"reading their pages"* once
+            // the reading was over — the transition fired after the work it named.
             let read =
-                resolve_from_description(searching, fetcher, &budget, &analysis.prompt).await;
-            let _ = doing(landscape_core::Phase::Judging);
+                resolve_from_description(searching, fetcher, &budget, &analysis.prompt, &|| {
+                    let _ = doing(landscape_core::Phase::Judging);
+                })
+                .await;
             interpreted = read.interpreted;
             match read.decided {
                 landscape_analyze::subject::Decided::Analyze(set) => {
@@ -1890,7 +1907,9 @@ async fn run_analysis(
             given = landscape_core::Given::Seeded {
                 named: origin.clone(),
             };
-            let _ = doing(landscape_core::Phase::Resolving);
+            // Not `Resolving`: this reader typed a website, so there is no idea to resolve
+            // and saying so would misstate both their input and the work.
+            let _ = doing(landscape_core::Phase::Rivals);
             let (set, covered) = rivals_of(searching, fetcher, &budget, &origin).await;
             searches = covered;
             let origins = set.origins();
@@ -2249,6 +2268,7 @@ Project management software built for speed."
             &landscape_fetch::Fetcher::new(),
             &landscape_fetch::Budget::for_one_analysis(),
             "a shared inbox for a small team",
+            &|| {},
         )
         .await;
         let landscape_analyze::subject::Decided::Refuse(refusal) = read.decided else {

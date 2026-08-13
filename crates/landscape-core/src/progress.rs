@@ -104,6 +104,13 @@ pub enum Phase {
     /// is knowable, and it was simply never said.
     #[default]
     Resolving,
+    /// Finding the companies a **named** one competes with.
+    ///
+    /// **Its own phase because its reader typed something else.** A seeded run was announced as
+    /// `Resolving` — *"searching for the companies behind your idea"* — to somebody who typed
+    /// `basecamp.com`. That misstates their input and the work: there is no idea to resolve,
+    /// and what is happening is a search for rivals of a company they already named.
+    Rivals,
     /// Reading the candidates' own pages to decide which of them are the same market.
     Judging,
     /// Finding which pages of this company are worth reading. No page count exists yet.
@@ -123,6 +130,7 @@ impl Phase {
     pub const fn wording(self) -> &'static str {
         match self {
             Self::Resolving => "Searching for the companies behind your idea",
+            Self::Rivals => "Finding companies like the one you named",
             Self::Judging => "Reading their pages to see which ones match",
             Self::Discovering => "Finding the pages worth reading",
             Self::Reading => "Reading public web pages",
@@ -203,7 +211,7 @@ impl Progress {
             // Nothing has been counted in either, and `of` is zero while they run, so this
             // arm is unreachable rather than a value being chosen. Kept explicit because the
             // next phase added should have to think about it.
-            Phase::Resolving | Phase::Judging => 0.0,
+            Phase::Resolving | Phase::Rivals | Phase::Judging => 0.0,
             Phase::Discovering => 0.0,
             Phase::Reading => {
                 let read = self.pages.and_then(Counted::share).unwrap_or(0.0);
@@ -279,9 +287,12 @@ mod tests {
         // words to change would be watching a run that had moved on. The point of the two
         // before any company is known is that they *differ*: the first version of `Judging`
         // repeated `Resolving`'s line, and the mutation harness found nothing asserting it.
-        use super::Phase::{Assembling, Discovering, Judging, Reading, Resolving, Searching};
+        use super::Phase::{
+            Assembling, Discovering, Judging, Reading, Resolving, Rivals, Searching,
+        };
         let all = [
             Resolving,
+            Rivals,
             Judging,
             Discovering,
             Reading,

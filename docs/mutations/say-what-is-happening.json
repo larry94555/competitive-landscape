@@ -2,8 +2,8 @@
   {
     "name": "the run says nothing while it works out which companies to compare",
     "file": "crates/landscape/src/main.rs",
-    "old": "            let _ = doing(landscape_core::Phase::Resolving);\n            let read =\n",
-    "new": "            let read =\n",
+    "old": "            let _ = doing(landscape_core::Phase::Resolving);\n",
+    "new": "",
     "run": [
       "cargo",
       "nextest",
@@ -47,6 +47,58 @@
       "run",
       "-p",
       "landscape-core"
+    ]
+  },
+  {
+    "name": "the reading is announced after it has finished",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        reading();\n        let (derived, _) = from_hits(&again, &asked_twice, words, fetch).await;",
+    "new": "        let (derived, _) = from_hits(&again, &asked_twice, words, fetch).await;\n        reading();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "the reading is announced on the path that does no reading",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "    if matches!(interpreted, crate::vocabulary::Resolved::Ambiguous { .. }) {\n        return Read {",
+    "new": "    if matches!(interpreted, crate::vocabulary::Resolved::Ambiguous { .. }) {\n        reading();\n        return Read {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
+    ]
+  },
+  {
+    "name": "a named company and a described idea share one sentence",
+    "file": "crates/landscape-core/src/progress.rs",
+    "old": "            Self::Rivals => \"Finding companies like the one you named\",",
+    "new": "            Self::Rivals => \"Searching for the companies behind your idea\",",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the reading is announced after it has finished, on the straight path",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        reading();\n        from_hits(&hits, &asked_once, words, fetch).await",
+    "new": "        let out = from_hits(&hits, &asked_once, words, fetch).await;\n        reading();\n        out",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search"
     ]
   }
 ]
