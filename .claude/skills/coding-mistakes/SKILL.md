@@ -2688,6 +2688,48 @@ aimed at that early return passed**, which said plainly that it was not what fix
 dependency array was. *"Check the second before believing the first"* is printed on the tool's
 own output, and it was right about the fix as well as about the defect.
 
+## 67. A sentinel that is also a real value, and `??` chose wrong
+
+**Found:** by a reader watching the bar sit at 0% for three runs.
+
+The progress number was picked with one line:
+
+```ts
+const shown = counted ?? (running ? estimated : null);
+```
+
+**The intent was "use the count when there is one, otherwise estimate".** What it says is "use
+the count when it is not null" — and `0` is not null. The first tick of every run announces
+`Discovering`, where the fraction deliberately contributes nothing for the company being
+resolved, so `percent` is `0`. The estimate the whole band exists for was discarded on the first
+message and the bar sat at a hard zero for minutes.
+
+**The shape: `??` distinguishes *absent* from *present*, and the code needed *unknown* from
+*known*.** Those coincide only when the value's zero is impossible. Here zero is not merely
+possible, it is **the value the first message always carries** — so the guard was wrong on every
+run rather than in an edge case, which is why it looked like a hang rather than a glitch.
+
+**Ask, at every `?? `, `|| ` and `if (x)` over a number:** *is zero reachable, and does it mean
+the same thing as absent?* If a zero is a real reading, the emptiness has to be carried by
+something that is not the number — here the server was already sending it, and the page was not
+reading it.
+
+### The fixture agreed with the code instead of the system
+
+Six tests covered this band. Every one sent `percent: null` with `companies: { done: 0, of: 0 }`
+— a combination the server emits only when it knows nothing about companies at all. **Production
+sends `percent: 0` there, and no test ever did.** So the suite passed over a bar that never
+moved, on data the worker does not produce.
+
+That is the third time in three changes that a fixture supplied a value production does not
+send, and each time it was the fixture telling the truth: entry 66's seeded coverage, the
+example catalog's companies, and this. **A fixture is an assertion about the system.** When one
+carries a field the code under test is supposed to produce, it has stopped being a fixture and
+become an alibi.
+
+**Ask, of any fixture:** *would the thing that really builds this ever produce it?* The cheap
+version is to take one from a real run and paste it in.
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**
@@ -2764,7 +2806,7 @@ Grouped by what has actually gone wrong, commonest first.
 | Review | 1, 2, 3, 4, 13, 14, 18, 19, 19b, 20, 22, 23, 24, 25, 26, 27, 29, 30, 31, 33, 34, 35, 47, 49, 50, 51, 65, 66 |
 | The mutation harness | 32, 36, 46, 48, and half of 66 | The only ones it found before review did. 36 deleted a rule rather than adding a test; 46 deleted an argument; 48 was a defect in a test. In 66 it did something else: review found the defect, and the harness found that the **fix** was in the wrong place |
 | Its own tooling | 28 | Almost all in error paths; 13 and 14 were successive halves of one fix, and so were 19 and 19b |
-| Using the product in a browser | the two Run 16 defects | Neither visible to 425 passing tests |
+| Using the product in a browser | the two Run 16 defects, and 67 | Neither visible to 425 passing tests; 67 was invisible to 121 |
 | Running the pipeline against real companies | 5, 6, 7, 8, 9, 11 | `BENCHMARKS.md` Runs 5–16 |
 | Deliberately breaking the code to see if a test notices | 12, the rearm in 14, and 21 | The store was fast, so nothing raced until one was made slow. Now `scripts/mutate.py` |
 | Writing down what a fix does *not* cover | 15 | Named as open in Run 18's "what is still not right", fixed in Run 19 |

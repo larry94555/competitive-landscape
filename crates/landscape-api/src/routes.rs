@@ -815,10 +815,30 @@ mod tests {
         // `UI_FLOWS.md` section 2.2: the message says **when** it resets. "Tomorrow" is not
         // that - west of UTC the allowance comes back later the same local day.
         assert!(
+            body["error"].as_str().is_some_and(|e| e.contains("UTC")),
+            "the refusal does not say when the limit resets: {body}"
+        );
+        // **And how long that is**, which is the thing a reader actually wanted to know. A
+        // timestamp in a timezone that is not theirs is arithmetic homework; a reader said so.
+        // Both, because the relative one is actionable and the absolute one is checkable.
+        assert!(
             body["error"]
                 .as_str()
-                .is_some_and(|e| e.contains("resets at") && e.contains("UTC")),
-            "the refusal does not say when the limit resets: {body}"
+                .is_some_and(|e| e.contains("in about") || e.contains("in under")),
+            "the refusal makes a reader work out how long to wait: {body}"
+        );
+        // **And it says nothing about a list this side cannot see.** The remedy briefly read
+        // *"the analyses you have already run are listed below"* — but the cap is keyed by
+        // network address and the list is in one browser's storage, so a reader hitting the
+        // shared cap from a second device, after clearing site data, or with no storage at all
+        // was promised something not on their screen. Review caught it. The sentence is drawn
+        // by the browser, the only side that knows; `App.test.tsx` asserts it appears exactly
+        // when the list does.
+        assert!(
+            body["remedy"]
+                .as_str()
+                .is_some_and(|r| !r.contains("listed below") && !r.contains("lost")),
+            "the refusal describes a screen the server cannot see: {body}"
         );
         // A rejected request is fully explained by its own message. A reference here would
         // suggest they have hit something worth reporting.

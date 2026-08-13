@@ -106,7 +106,7 @@
   {
     "name": "the refusal says no and offers nothing to do about it",
     "file": "crates/landscape-api/src/error.rs",
-    "old": "                    remedy: Some(\n                        concat!(\n                            \"Each analysis reads live pages and runs a model for several \",\n                            \"minutes, so the free limit is per day. An analysis that fails \",\n                            \"does not count. Or run your own copy - it is open source.\"\n                        )\n                        .to_owned(),\n                    ),",
+    "old": "                    remedy: Some(\n                        concat!(\n                            \"Each analysis reads live pages and runs a model for several \",\n                            \"minutes, so the free limit is per day; an analysis that fails \",\n                            \"does not count. Or run your own copy - it is open source.\"\n                        )\n                        .to_owned(),\n                    ),",
     "new": "                    remedy: None,",
     "run": [
       "cargo",

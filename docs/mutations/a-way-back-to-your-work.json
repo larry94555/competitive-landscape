@@ -1,0 +1,125 @@
+[
+  {
+    "name": "a counted zero suppresses the estimate it was meant to hand over to",
+    "file": "web/src/App.tsx",
+    "old": "    band !== null\n      ? estimate(bandStarted.current ?? now, now, band, counted ?? 0)\n      : counted;",
+    "new": "    counted ?? (band !== null ? estimate(bandStarted.current ?? now, now, band, 0) : null);",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the estimate restarts from nothing above a counted floor",
+    "file": "web/src/App.tsx",
+    "old": "      ? estimate(bandStarted.current ?? now, now, band, counted ?? 0)",
+    "new": "      ? estimate(bandStarted.current ?? now, now, band, 0)",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a run is never written down, so closing the tab loses it",
+    "file": "web/src/App.tsx",
+    "old": "      remember({ id: started.id, prompt: started.prompt, at: new Date().toISOString() });\n",
+    "new": "",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the list keeps every run and eventually stores nothing",
+    "file": "web/src/history.ts",
+    "old": "export const KEPT = 20;",
+    "new": "export const KEPT = Infinity;",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "one analysis is listed twice after a reload",
+    "file": "web/src/history.ts",
+    "old": "    const kept = [entry, ...recall().filter((held) => held.id !== entry.id)].slice(",
+    "new": "    const kept = [entry, ...recall()].slice(",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the refusal makes a reader work out how long to wait",
+    "file": "crates/landscape-api/src/error.rs",
+    "old": "                        when = in_about(resets.signed_duration_since(chrono::Utc::now())),",
+    "new": "                        when = String::new(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "the refusal promises a list this side cannot see",
+    "file": "web/src/App.tsx",
+    "old": "  const listing = analysis === null && earlier.length > 0;",
+    "new": "  const listing = analysis === null;",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the sentence and the list come apart",
+    "file": "web/src/App.tsx",
+    "old": "          {listing && (\n            <span className=\"also-below\">",
+    "new": "          {earlier.length >= 0 && (\n            <span className=\"also-below\">",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the minutes truncate under an hour that rounds up",
+    "file": "crates/landscape-api/src/error.rs",
+    "old": "    let minutes = (seconds + 59) / 60;",
+    "new": "    let minutes = seconds / 60;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  },
+  {
+    "name": "a wait already past is stated as a negative one",
+    "file": "crates/landscape-api/src/error.rs",
+    "old": "    let seconds = left.num_seconds().max(0);",
+    "new": "    let seconds = left.num_seconds();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-api"
+    ]
+  }
+]

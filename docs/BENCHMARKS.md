@@ -33,6 +33,110 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 49 @ a counted zero, and a way back to work that cost minutes
+
+**Date:** 2026-08-12 @ **Where:** this laptop @ **Model:** none @ interface work.
+
+**A reader watched the bar sit at 0% for a whole run, three times, and then hit the daily cap.**
+
+> You have started 2 analyses today, which is the free limit of 2. It resets at 00:00 on 14
+> August UTC.
+
+Two defects, and the second one is why the first one hurt.
+
+### `0` is not `null`
+
+The page chose its number with `counted ?? estimated`. **The first tick of every run announces
+`Discovering`**, where `Progress::fraction` deliberately contributes nothing for the company
+being resolved @ so `percent` is `0`. And `0` is not `null`, so `??` took it: the estimate that
+band exists for was discarded on the first message, and the bar sat at a hard zero for the whole
+of discovery. On a three-company run that is minutes of a page that looks hung.
+
+**The type could not tell *counted zero* from *nothing counted*, and neither could that line.**
+The distinction was already on the wire @ `estimating_to` is sent exactly while a band is open
+@ and the page now reads it: while a band is open the number is interpolated, floored at
+whatever has genuinely been counted; when it closes, the count is exact.
+
+**Every existing test sent `percent: null` with `companies: { done: 0, of: 0 }`**, which the
+server emits only when it knows nothing about companies at all. The fixture supplied a value
+production does not send, so the suite agreed with itself rather than with the worker. That is
+the same shape review found in the seeded-coverage fixture two runs ago, and it is now the third
+time a fixture has been the thing telling the truth.
+
+### And the estimate now starts from what was counted
+
+A run over three companies discovers three times. The second band is 33% to 39%, not 0% to 39%,
+and each band gets its own clock @ measuring the third from when the run started would put it at
+its ceiling the moment it opened.
+
+### The message at the end of it said nothing about the work
+
+A run costs minutes and there are two a day. The only record of one was the address bar, so
+closing the tab lost it @ and the refusal that says both of today's are spent is exactly the
+moment a reader needs the two they already ran. It named neither.
+
+**The browser remembers them now**, in `web/src/history.ts`: id, prompt, when. Not the status
+and not the report @ those live on the analysis, they change after the list was written, and a
+second copy would be a stale one. Following the link asks the server.
+
+**The browser rather than the server, because there are no accounts.** The cap counts runs per
+address, and an address is not a person: reading a list back from it would hand one reader
+another reader's questions whenever two share an office or a household. The only thing that
+knows these are yours is the browser you started them in.
+
+And the refusal now says **how long**, which is what was actually being asked:
+
+> You have started 2 analyses today, which is the free limit of 2. You can start another **in
+> about 22 hours**, at 00:00 on 14 August UTC. *The analyses you have already run are listed
+> below, and nothing you did is lost.*
+
+Both, because the relative one is actionable and the absolute one is checkable.
+
+### The refusal promised something the server cannot see
+
+Review found it: the remedy read *"the analyses you have already run are listed below"*, and
+**the cap is keyed by network address while the list is in one browser's storage.** A reader
+hitting the shared cap from a second device, after clearing site data, or with storage
+unavailable is promised something that is not on their screen.
+
+The sentence moved to the side that knows. And it is drawn on **the same condition as the list
+itself** — one boolean, because a claim about what is below that could be true while nothing is
+below would be the same defect one step smaller.
+
+**This is the third message in three runs that described something it could not see** — the
+curation note describing a click that does not run, the failure kind describing the reader's
+words instead of our configuration, and now this. Each was written on one side of a boundary
+about what happens on the other.
+
+### The guarantee held at one unit and not the one below it
+
+`in_about` rounded hours up and let `num_minutes()` truncate underneath, so 59m59s read as
+*"in about 59 minutes"* and a reader coming back then found the door shut. Its own
+documentation had promised the opposite. Both units come from one ceiling now.
+
+**The duration is a parameter rather than a clock reading**, which is what made the boundaries
+checkable at all: a function that reads the clock can only be tested by waiting. Eleven rows,
+either side of one minute and one hour.
+
+### The lost continuation, in the one message a frustrated reader reads
+
+Writing that sentence, the `\` continuation was lost in an edit and what came out was *"the free
+limit of                          2"*. `scripts/no_lost_continuations.py` exists for exactly
+this and would have caught it; the Rust test caught it first, because the run is checked before
+the gates are. It is `concat!` now, which is what that gate's own message recommends.
+
+### What this run does not measure
+
+No latency figure changed and none was taken. The bar was always wrong about the same run; what
+changed is what it says about it.
+
+| | Rust tests | frontend tests | catalog |
+|---|---|---|---|
+| Run 48 | 1021 | 121 | 8, all caught |
+| now | **1023** | **136** | **14**, all caught |
+
+---
+
 ## Run 48 — an example is an idea, and the sentence that blamed the reader
 
 **Date:** 2026-08-12 — **Where:** this laptop — **Model:** none — interface and taxonomy work.

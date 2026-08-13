@@ -18,6 +18,7 @@ import {
   type Searches,
   type Section,
 } from "./api";
+import { forget, recall, remember, type Remembered } from "./history";
 
 /**
  * One box, one question.
@@ -39,6 +40,9 @@ export default function App(): React.JSX.Element {
   // The ideas offered on the first screen. `null` until they arrive, and `null` for ever if
   // they do not — see `getExamples`: a missing convenience must not look like a broken page.
   const [examples, setExamples] = useState<Examples | null>(null);
+  // What this browser has already started. Read once: it changes only when this page writes
+  // to it, so re-reading on every render would be work with no question behind it.
+  const [earlier, setEarlier] = useState<readonly Remembered[]>(() => recall());
 
   // A URL that names an analysis opens it. This is the whole of the routing: the server
   // returns the page for any path it does not claim, so what the path means is decided here.
@@ -117,6 +121,11 @@ export default function App(): React.JSX.Element {
     setSubmitting(true);
     try {
       const started = await createAnalysis(text);
+      // **Before anything else that can fail.** A run costs minutes and there are two a day;
+      // the only record of one used to be the address bar, so closing the tab lost it. Written
+      // the moment the server accepts it, because that is the moment it starts costing.
+      remember({ id: started.id, prompt: started.prompt, at: new Date().toISOString() });
+      setEarlier(recall());
       setAnalysis(started);
       // The URL names it from the moment it exists, so a reader who reloads — or sends the
       // link to somebody — gets the run rather than an empty box. `pushState` rather than a
@@ -139,6 +148,11 @@ export default function App(): React.JSX.Element {
   }, []);
 
   const submit = useCallback(() => start(prompt), [start, prompt]);
+
+  // **One condition, because one sentence claims what the other renders.** The line under an
+  // error says the earlier analyses are *listed below*; if that could be true while the list
+  // is not drawn, it would be the same defect the server's copy of it had, one step smaller.
+  const listing = analysis === null && earlier.length > 0;
 
   const { status, sections, subjects, progress, generation } = useReport(
     analysis,
@@ -244,7 +258,34 @@ export default function App(): React.JSX.Element {
               <code className="reference">{error.reference}</code>
             </>
           )}
+          {/*
+            **Said here because only here knows.** The server refuses by network address and
+            has no idea whether this browser kept a list — a reader hitting the cap from a
+            second device, after clearing site data, or with storage unavailable would have
+            been promised something that is not on their screen.
+          */}
+          {listing && (
+            <span className="also-below">
+              {" "}
+              The analyses you have already run are listed below, and nothing you did is lost.
+            </span>
+          )}
         </p>
+      )}
+
+      {/*
+        **Under the error as well as on the empty screen.** The message a reader gets when
+        they have used both of today's analyses is exactly the moment they most need to find
+        the two they already ran — and it used to say nothing about where either had gone.
+      */}
+      {listing && (
+        <Earlier
+          held={earlier}
+          onForget={() => {
+            forget();
+            setEarlier([]);
+          }}
+        />
       )}
 
       {analysis && (
@@ -791,6 +832,65 @@ function AnalysisView({
  * worse than one that admits it — so a failure puts the text on the page, selected, with a
  * sentence saying to copy it by hand.
  */
+/**
+ * The analyses this browser started, as a way back to them.
+ *
+ * **Plain links, not buttons.** Each one already exists at its own URL: a link can be opened
+ * in a new tab, copied, sent to somebody, and middle-clicked, and every one of those is a
+ * thing a reader wants to do with a report they waited minutes for.
+ *
+ * The status is not shown. It lives on the analysis, it changes after this list was written,
+ * and a second copy of it here would be a stale one — following the link asks the server.
+ */
+function Earlier({
+  held,
+  onForget,
+}: {
+  held: readonly Remembered[];
+  onForget: () => void;
+}): React.JSX.Element {
+  return (
+    <section className="earlier" aria-labelledby="earlier-heading">
+      <h2 id="earlier-heading">Analyses you have run</h2>
+      <ul>
+        {held.map((one) => (
+          <li key={one.id}>
+            <a href={pathFor(one.id)}>{one.prompt}</a>
+            <span className="when">{when(one.at)}</span>
+          </li>
+        ))}
+      </ul>
+      {/*
+        **The reader's list is the reader's to clear.** It is in their browser and nothing here
+        sent it anywhere, so the only person who can remove it is the only person who should
+        be able to.
+      */}
+      <button type="button" className="forget" onClick={onForget}>
+        Clear this list
+      </button>
+    </section>
+  );
+}
+
+/**
+ * When something happened, in the terms somebody actually asks it in.
+ *
+ * *"3 hours ago"* is what a reader wants from a list they are scanning; an exact timestamp is
+ * what they want when they are checking one. The title attribute carries the second so the
+ * first does not have to compromise.
+ */
+function when(at: string): string {
+  const then = new Date(at);
+  if (Number.isNaN(then.getTime())) return "";
+  const minutes = Math.floor((Date.now() - then.getTime()) / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${String(minutes)} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${String(hours)} ${hours === 1 ? "hour" : "hours"} ago`;
+  const days = Math.floor(hours / 24);
+  return `${String(days)} ${days === 1 ? "day" : "days"} ago`;
+}
+
 function CopyAsContext({ id }: { id: string }): React.JSX.Element {
   const [state, setState] = useState<"idle" | "working" | "copied">("idle");
   const [fallback, setFallback] = useState("");
@@ -1327,15 +1427,28 @@ const DISCOVERY_MS = 25_000;
  * copy of the server's constant, and the first counted tick was `0%`, so the bar fell from its
  * cap back to nothing in front of whoever was watching.
  *
- * @param started when the run began *running* - not when it was queued, which is time nobody
- *   worked
+ * **And it starts from what has been counted, not from nothing.** On a run over three
+ * companies the second company's discovery begins with one of them already read, so the band
+ * being estimated is 33% to 39% — not 0% to 39%. Interpolating from zero there would ask the
+ * bar to go backwards, which is the one thing it may never do.
+ *
+ * @param started when this band began — not when the run was queued, which is time nobody
+ *   worked, and not when the run started, which was two companies ago
  * @param now the clock, passed in so a test does not have to wait
- * @param ceiling the percentage counting will start from, per the server
+ * @param ceiling the percentage counting will resume at, per the server
+ * @param floor what has already been counted, which this may never fall below
  */
-export function estimate(started: Date, now: Date, ceiling: number): number {
+export function estimate(
+  started: Date,
+  now: Date,
+  ceiling: number,
+  floor = 0,
+): number {
   const elapsed = Math.max(0, now.getTime() - started.getTime());
   const through = Math.min(1, elapsed / DISCOVERY_MS);
-  return Math.floor(through * Math.max(0, ceiling));
+  const from = Math.max(0, floor);
+  const to = Math.max(from, ceiling);
+  return Math.floor(from + through * (to - from));
 }
 
 /**
@@ -1399,18 +1512,40 @@ function Waiting({
   const startedRunning = useRef<Date | null>(null);
   if (running && startedRunning.current === null) startedRunning.current = new Date();
   if (!running) startedRunning.current = null;
-  const estimated = estimate(
-    startedRunning.current ?? now,
-    now,
-    progress?.estimating_to ?? 0,
-  );
   // Only while running. A percentage beside `Done.` is a number about something that is over.
   const counted = running ? (progress?.percent ?? null) : null;
-  // **A number always, and the reader can tell which kind it is.** Before anything has been
-  // counted the bar shows an estimate from measured phase durations rather than a dash - see
-  // `estimate`. `counted` wins the moment it exists, and meets the estimate rather than
-  // colliding with it, because the server sends the ceiling the estimate stops at.
-  const shown = counted ?? (running ? estimated : null);
+  // **Which stretch this is, said by the side that knows.** `estimating_to` is sent exactly
+  // while the run is discovering — the band where nothing has counted the thing being waited
+  // for — and is `null` once counting has resumed.
+  const band = running ? (progress?.estimating_to ?? null) : null;
+
+  // **A band restarts the clock.** A run over three companies discovers three times, and each
+  // band is its own stretch of elapsed time; measuring the third from when the run started
+  // would put it at its ceiling the moment it began.
+  const bandStarted = useRef<Date | null>(null);
+  const bandAt = useRef<number | null>(null);
+  if (band !== bandAt.current) {
+    bandAt.current = band;
+    bandStarted.current = band === null ? null : new Date();
+  }
+
+  // **A number always, and the reader can tell which kind it is.**
+  //
+  // **`counted ?? estimated` was the defect a reader reported as *"the progress stays at
+  // 0%"*.** The first tick of every run announces `Discovering`, where `fraction` deliberately
+  // contributes nothing for the company being resolved — so `percent` is `0`, and `0` is not
+  // `null`, so the estimate this whole band exists for was discarded on the first message and
+  // the bar sat at a hard zero for the entire discovery. On a three-company run that is
+  // minutes. The type could not tell *counted zero* from *nothing counted*, and neither could
+  // this line.
+  //
+  // The server's own `estimating_to` is that distinction, already on the wire. While it is
+  // present the band is being estimated, floored at whatever has genuinely been counted; when
+  // it goes away, the count is exact.
+  const shown =
+    band !== null
+      ? estimate(bandStarted.current ?? now, now, band, counted ?? 0)
+      : counted;
   // **And a floor, because "never goes backwards" is a promise to the reader, not to a
   // module.** Both sides are monotonic on their own and the seam between them was not - which
   // is how a bar that could not retreat retreated. This makes the guarantee a property of the
@@ -1434,7 +1569,9 @@ function Waiting({
   else ceiling.current = Math.max(ceiling.current, shown);
   const percent = shown === null ? null : ceiling.current;
   const known = percent !== null;
-  const guessed = counted === null && percent !== null;
+  // Marked as a guess whenever a band is open, which is exactly when part of the number is
+  // interpolated - including the part above a real counted floor.
+  const guessed = band !== null && percent !== null;
 
   // **The word and the sentence must not say the same thing twice.** `describe` answers
   // *"what happened"*, which is the whole story for a failure and pure duplication for

@@ -411,5 +411,32 @@ button.choice strong { display: block; }
 }
 .unavailable code { font-family: ui-monospace, monospace; }
 
+/* The way back to work that cost minutes. Quiet on the empty screen, and the first thing
+   under the message that says today's runs are spent - which is when it is looked for. */
+.earlier { margin-top: 2.5rem; }
+.earlier h2 { font-size: 1rem; letter-spacing: 0.02em; }
+.earlier ul { list-style: none; margin: 0; padding: 0; }
+.earlier li {
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+.earlier li:last-child { border-bottom: 0; }
+.earlier a { color: var(--accent); flex: 1; }
+.earlier .when { color: var(--muted); font-size: 0.82rem; white-space: nowrap; }
+.earlier .forget {
+  margin-top: 0.7rem;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 /* What is curated and what is not. Small, and never omitted. */
 .curation { color: var(--muted); font-size: 0.85rem; }
