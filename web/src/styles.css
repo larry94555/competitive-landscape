@@ -438,5 +438,9 @@ button.choice strong { display: block; }
   text-decoration: underline;
 }
 
+/* How long this has been going. Beside the percentage, and quieter than it, because it is
+   the fallback rather than the answer - but it is the one that never says nothing. */
+.elapsed { color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+
 /* What is curated and what is not. Small, and never omitted. */
 .curation { color: var(--muted); font-size: 0.85rem; }

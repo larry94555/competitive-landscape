@@ -1819,6 +1819,25 @@ async fn run_analysis(
     });
     let searching = engine.as_ref().map(searching);
 
+    // **Built before the work rather than after it**, which is the whole of a reported defect:
+    // this used to be created once the companies were known, so for the minutes it takes to
+    // *find* them the worker said nothing at all. A reader waited seven minutes, saw one
+    // sentence and a dash, and could not tell a working run from a dead one.
+    let progress = progress::Progress::new(Arc::clone(store), analysis.id, analysis.generation);
+    // Which step is happening. There is no fraction here and there cannot be — no denominator
+    // exists until a reading plan does — but *which of these* was knowable all along.
+    let doing = |phase| {
+        progress.record(&landscape_core::Report::starting(
+            &analysis.prompt,
+            chrono::Utc::now(),
+            landscape_core::Progress {
+                phase,
+                companies: landscape_core::Counted::new(0, 0),
+                pages: None,
+            },
+        ))
+    };
+
     // **Three readings of one box**, and the rule lives in `subject::subjects_in` rather than
     // here because it is a decision about what somebody meant. See [`Subjects`] for why
     // naming two companies is an instruction and naming one is a starting point.
@@ -1836,8 +1855,10 @@ async fn run_analysis(
         // domain was refused; the channel now produces candidates and hands them to the gate
         // `FACT_CHECKING.md` §3.1 built before anything could feed it.
         landscape_analyze::subject::Subjects::Describe => {
+            let _ = doing(landscape_core::Phase::Resolving);
             let read =
                 resolve_from_description(searching, fetcher, &budget, &analysis.prompt).await;
+            let _ = doing(landscape_core::Phase::Judging);
             interpreted = read.interpreted;
             match read.decided {
                 landscape_analyze::subject::Decided::Analyze(set) => {
@@ -1869,6 +1890,7 @@ async fn run_analysis(
             given = landscape_core::Given::Seeded {
                 named: origin.clone(),
             };
+            let _ = doing(landscape_core::Phase::Resolving);
             let (set, covered) = rivals_of(searching, fetcher, &budget, &origin).await;
             searches = covered;
             let origins = set.origins();
@@ -1932,7 +1954,6 @@ async fn run_analysis(
     let llm = landscape_llm::LlamaClient::from_env();
     let now = chrono::Utc::now();
 
-    let progress = progress::Progress::new(Arc::clone(store), analysis.id, analysis.generation);
     let outcome = landscape_analyze::analyze_many(
         &landscape_analyze::With {
             fetcher,

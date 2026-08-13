@@ -194,6 +194,38 @@ pub struct Report {
 }
 
 impl Report {
+    /// A report carrying nothing but how far along the run is.
+    ///
+    /// **There is no report yet and a reader is watching anyway.** Turning a description into
+    /// companies takes minutes, and until this existed the worker said nothing at all for the
+    /// whole of it — the page held one sentence and a dash, and a reader who waited seven
+    /// minutes could not tell a working run from a dead one. They said so.
+    ///
+    /// Every field is empty on purpose: nothing has been found, so nothing is claimed. What it
+    /// carries is `progress`, which is the only thing that is true this early.
+    #[must_use]
+    pub fn starting(
+        prompt: &str,
+        at: chrono::DateTime<chrono::Utc>,
+        progress: crate::Progress,
+    ) -> Self {
+        Self {
+            subject: prompt.to_owned(),
+            searched_as: String::new(),
+            generated_at: at,
+            model_id: String::new(),
+            prompt_version: 0,
+            subjects: Vec::new(),
+            sections: Vec::new(),
+            sources: Vec::new(),
+            interpreted: None,
+            notes: Vec::new(),
+            asked: None,
+            searches: None,
+            progress: Some(progress),
+        }
+    }
+
     /// Every source label referenced by a claim that has no matching entry in `sources`.
     ///
     /// A citation that does not resolve is worse than no citation: it looks checkable and

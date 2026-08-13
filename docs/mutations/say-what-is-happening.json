@@ -1,0 +1,52 @@
+[
+  {
+    "name": "the run says nothing while it works out which companies to compare",
+    "file": "crates/landscape/src/main.rs",
+    "old": "            let _ = doing(landscape_core::Phase::Resolving);\n            let read =\n",
+    "new": "            let read =\n",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape"
+    ]
+  },
+  {
+    "name": "the clock counts in whole minutes, so it stops moving",
+    "file": "web/src/App.tsx",
+    "old": "  if (seconds < 60) return `${String(seconds)}s`;\n  return `${String(Math.floor(seconds / 60))}m ${String(seconds % 60)}s`;",
+    "new": "  return `${String(Math.floor(seconds / 60))}m`;",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "a clock that has not started counts from the epoch",
+    "file": "web/src/App.tsx",
+    "old": "  if (since === null) return \"\";",
+    "new": "  if (since === null) since = new Date(0);",
+    "run": [
+      "npx",
+      "vitest",
+      "run"
+    ],
+    "cwd": "web"
+  },
+  {
+    "name": "the two steps before a company is known share one sentence",
+    "file": "crates/landscape-core/src/progress.rs",
+    "old": "            Self::Judging => \"Reading their pages to see which ones match\",",
+    "new": "            Self::Judging => \"Searching for the companies behind your idea\",",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-core"
+    ]
+  }
+]

@@ -92,6 +92,31 @@ And the refusal now says **how long**, which is what was actually being asked:
 
 Both, because the relative one is actionable and the absolute one is checkable.
 
+### Seven minutes of a page that said nothing
+
+The same reader ran it again and watched for seven minutes: `Working`, a **dash**, and one
+sentence. Not the 0% of Run 49 — a different state, and one no fix so far had touched.
+
+**The worker built its progress recorder *after* resolving the description.** Turning an idea
+into companies is the longest single stretch of a run, it happens before any company is known,
+and for the whole of it nothing was emitted at all: the page held whatever it had, which is a
+dash and a static line.
+
+There is still no fraction there and there cannot be — no denominator exists until a reading
+plan does. But **which step is happening was knowable all along and was simply never said**, so
+the recorder is built first and the run announces `Resolving` and then `Judging` as it goes.
+
+**And elapsed time, which needs nothing from anybody.** A percentage needs a denominator; a
+clock does not. It moves every second, cannot be wrong, and answers the only question a reader
+staring at a still page is actually asking. Counted in seconds under a minute and then minutes
+*and* seconds — a number that changes once a minute is a number a worried reader watches not
+change.
+
+**The harness then found two guards where one would do.** The clock was hidden by both a
+`running &&` and a nulled ref, inside a block that only renders while a run is live: three
+guards, so no mutation on any one of them could fail. Redundancy reading as coverage. One
+guard now, and the pin on the one that never existed is deleted rather than left looking green.
+
 ### The refusal promised something the server cannot see
 
 Review found it: the remedy read *"the analyses you have already run are listed below"*, and
@@ -133,7 +158,7 @@ changed is what it says about it.
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 48 | 1021 | 121 | 8, all caught |
-| now | **1023** | **136** | **14**, all caught |
+| now | **1024** | **139** | **17**, all caught |
 
 ---
 
