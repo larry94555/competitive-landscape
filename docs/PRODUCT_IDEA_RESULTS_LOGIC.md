@@ -42,9 +42,14 @@ is being done about it. This is what is true today.
 | 9 | Admit or refuse | `subject::decide` | Whether to report at all |
 | 10 | Read each company | `landscape_analyze::analyze_many` | The six questions |
 
-**Steps 5 and 6 decide the answer**, and both work on URLs alone. Everything the engine actually
-said — titles, snippets, the pages themselves — is used to count votes for domains and then
-discarded. That is the single most important fact in this document.
+**Steps 5 and 6 decide the ranking, and both work on URLs alone.** Agreement across queries and
+the depth of a URL are the whole of it; nothing the engine *said* affects the order.
+
+**Step 8 is the only place a page is read for fit**, and it is a lexical test set to one shared
+word — §3.4. So it is not true that the pages are discarded, and an earlier draft of this
+document said so: they are read, once, for a name and a weak overlap check. What **is** discarded
+is everything else the engine returned — titles beyond the market label, every snippet, and the
+whole contents of the review pages that were dropped as candidates.
 
 ---
 
@@ -124,8 +129,8 @@ anything sharing one word* have different fixes, and only the second is true.
 
 > *"3 of the 3 searches returned it, and its own front page uses ‘project’"*
 
-`Because::Named`, `Aside::ElsewhereEntirely`, `Aside::Unread` and `Aside::NotReached` cover the
-rest. **Every company in the set already carries a countable reason, and every one left out
+`Because::Named`, `Aside::ElsewhereEntirely`, `Aside::Unread` and
+`Aside::BeyondTheFetchBudget` cover the rest. **Every company in the set already carries a countable reason, and every one left out
 carries the reason it is not there.** What is missing is that
 [`PRODUCT_IDEA_RESULTS.md`](PRODUCT_IDEA_RESULTS.md)'s page does not render it.
 

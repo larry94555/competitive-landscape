@@ -7,9 +7,10 @@
 > **This is one plan, not a menu.** The four causes in §4 of that document are independent, and
 > fixing any one alone still leaves a bad answer.
 >
-> **Review has already corrected two rows and one cause.** The first draft proposed building a
-> fit test and a reason that both turned out to exist. A plan written from a memory of a codebase
-> rather than from reading it will do that, and the correction is worth more than the plan was.
+> **Review has corrected this plan three times.** The first draft proposed building a fit test
+> and a reason that both turned out to exist; the second asserted a product-identity rule that
+> breaks on the one URL it was written for. A plan written from a memory of a codebase rather
+> than from reading it will do that, and the corrections are worth more than the plan was.
 
 ---
 
@@ -52,7 +53,7 @@ Each row is a pull request. Each is shippable alone and improves the answer alon
 |---|---|---|---|
 | 1 | **This document and the logic document** | `docs/` | **Done** |
 | 2 | **A golden set for discovery** | new `landscape-golden` fixtures | To do |
-| 3 | **Product-level candidates** | `candidates::from_results`, `from_its_own_page` | To do |
+| 3 | **Product-level candidates** — identity rule chosen by PR 2 | `candidates::from_results`, `describe` | To do |
 | 4 | **Raise the fit test above one word** | `competitors::SHARED_WORDS`, `assemble` | To do |
 | 5 | **Candidates from page content** | new `candidates::named_in` | To do |
 | 6 | **Render the reason that already exists** | `Report`, `web/src/App.tsx` | To do |
@@ -97,27 +98,52 @@ A candidate needs two things kept apart:
 
 | | What it is | Used for |
 |---|---|---|
-| **Identity** | Registrable domain **plus the first path segment**, normalized | Merging appearances, counting agreement |
+| **Identity** | A canonical key for *the product* — **not yet decided** | Merging appearances, counting agreement |
 | **Evidence URL** | The shallowest URL seen for that identity | The page to fetch, and the link a reader follows |
 
-**Agreement is counted per identity**, exactly as it is counted per domain today, so `/project`
-and `/project/pricing` are one candidate that agreed with two queries rather than two that agreed
-with one each.
+**Agreement is counted per identity**, exactly as it is counted per domain today, so two URLs for
+one product are one candidate that agreed with two queries rather than two that agreed with one
+each. That part is settled. **What a product's identity *is* is not** — and the second draft of
+this section asserted an answer that does not survive the example it was written for.
 
-**The first path segment is a starting point and must be labeled as one.** It is right for
-`microsoft.com/microsoft-365/...` because the segment carries the product; it is wrong for a site
-that puts everything under `/products/`. What makes it defensible is that a reader asking *why
-are these one company* gets an answer — and that the alternative, asking a 4B model to decide,
-breaks the rule in [`PRODUCT_IDEA_RESULTS_LOGIC.md`](PRODUCT_IDEA_RESULTS_LOGIC.md) §5.
+#### The identity rule is a hypothesis, and PR 2 selects it
 
-**And a rule for the root.** When the evidence URL is the domain root — `asana.com` — the
-company and the product are one thing and one name is right. Only a non-root URL produces
-*Microsoft Project, by Microsoft*.
+The second draft said *"registrable domain plus the first path segment"*. Here is the URL it
+exists to fix:
+
+```
+microsoft.com / en-us / microsoft-365 / project
+                 ^^^^^   ^^^^^^^^^^^^   ^^^^^^^
+                 locale  suite          the product
+```
+
+**The first segment is a locale.** That rule groups every Microsoft page under
+`microsoft.com/en-us`, merges Project with every other Microsoft 365 product, and *splits* the
+same Project across `/project`, `/microsoft-365/project` and any localized variant. It reproduces
+the corroboration failure it was written to prevent. Review caught it.
+
+**So the candidates are listed, and the golden set chooses between them:**
+
+| Rule | Fails when |
+|---|---|
+| Domain + first path segment | The first segment is a locale (`/en-us/`) or a container (`/products/`) |
+| Domain + first segment after stripping known locale and container prefixes | The prefix list is a guess, and a missing one fails silently |
+| Domain + **last** path segment | A pricing or docs page splits away from the product page |
+| Domain + the product name read from the page | Needs the page *before* the merge, inverting the order the pipeline runs in |
+| Domain + a canonical link or `og:title` the page declares | Only as good as what sites declare, which is uneven |
+
+**None is obviously right, and that is the finding.** Guessing between them is the same move that
+produced Microsoft. PR 2 exists to make this measurable, and this is the first thing it should be
+pointed at.
+
+**And a rule for the root, which is safe whichever wins.** When the evidence URL is the domain
+root — `asana.com` — the company and the product are one thing and one name is right. Only a
+non-root URL can produce *Microsoft Project, by Microsoft*.
 
 **It also fixes attribution downstream.** A price labeled `microsoft.com` is true and useless.
 
-*Removes cause 2. Still the smallest change in this plan, but not as small as the first draft
-claimed: the identity rule and the merge are the work, and the fetch is the easy part.*
+*Aimed at cause 2, and no longer claimed to remove it until a rule is chosen by measurement. The
+merge is the work, the fetch is the easy part, and the identity is an open question.*
 
 ### PR 4 — Raise the fit test above one word
 
@@ -158,7 +184,8 @@ from what the returned pages say rather than from which domains they were.*
 
 **The reason already exists, on both paths.** `Because::Found { agreed, asked, shares }` is
 built for described candidates and reads *"3 of the 3 searches returned it, and its own front
-page uses 'project'"*. `Aside::ElsewhereEntirely`, `Unread` and `NotReached` cover the excluded.
+page uses 'project'"*. `Aside::ElsewhereEntirely`, `Unread` and `BeyondTheFetchBudget`
+cover the excluded.
 Review corrected the first draft here too, which had this as extending a seeded-only type.
 
 **So the work is carrying it to the page.** `Because` reaches the CLI and the report's notes; it

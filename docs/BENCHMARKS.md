@@ -57,7 +57,7 @@ under each and a citation per category.
 | 1 | The first query is malformed | `best project management for a small design agency software` — an engine falls back to its strongest keywords, and *for a small design agency* is the first thing lost |
 | 2 | A domain is the unit, not a product | `microsoft.com/microsoft-365/project` and `/microsoft-teams` collapse to `microsoft.com`, which then agreed with 3 of 3 queries and was named from its own front page |
 | 3 | Ranking measures appearance, not fit | A household name is in every adjacent listicle; a specialist named in one article scores 0.175, below the floor, and is refused before anybody sees it |
-| 4 | Nothing verifies a candidate is in the market | `projectplusgame.com` cleared `CORROBORATION = 2` on keywords. Its page **is** fetched — to read a name off, never to ask whether it fits |
+| 4 | The fit test is one shared content word | `projectplusgame.com` cleared `CORROBORATION = 2`, then cleared `SHARED_WORDS = 1` because its page uses *project*. The test exists; it is set to its weakest value |
 
 **Fixing any one alone still leaves a bad answer**, which is why this is a plan rather than a
 patch: [`IMPROVING_PRODUCT_IDEAS_LOGIC_ROADMAP.md`](IMPROVING_PRODUCT_IDEAS_LOGIC_ROADMAP.md).
@@ -65,8 +65,13 @@ patch: [`IMPROVING_PRODUCT_IDEAS_LOGIC_ROADMAP.md`](IMPROVING_PRODUCT_IDEAS_LOGI
 ### The finding underneath all four
 
 **The search engine is being treated as the source of companies.** Three queries go out and the
-answer is *which domains came back most often*. Everything the engine actually said — titles,
-snippets, the pages themselves — is used to count votes for domains and then discarded.
+ranking is *which domains came back most often* — agreement and URL depth, nothing else. A
+candidate's own page is read once, for a name and a one-word overlap check, and that is the only
+influence anything the engine returned has on whether a company survives.
+
+**Review corrected this entry's cause 4**, which first read *"nothing verifies a candidate is in
+the market"*. Something does. It admits anything sharing a single word with the prompt, which is
+a different finding with a different fix.
 
 **And the best sources are the ones deliberately thrown away.** Every page the free answer cited
 — review sites, agency blogs — is on `NOT_A_COMPANY`. They are correctly refused *as candidates*
