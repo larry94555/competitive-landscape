@@ -33,9 +33,89 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
-## Run 49 @ a counted zero, and a way back to work that cost minutes
+## Run 50 — two companies, and why they were the wrong two
 
-**Date:** 2026-08-12 @ **Where:** this laptop @ **Model:** none @ interface work.
+**Date:** 2026-08-13 — **Where:** the deployed instance, with a real engine answering at last
+— **Model:** the running one. **This is the first run in this file with a search engine behind
+it.** [B2](../PROJECT_STATUS.md#4-blockers) said no engine had ever answered this application a
+query; one has now, and the first thing it produced is this.
+
+**A reader typed *"project management for a small design agency"* and got:**
+
+```text
+Microsoft
+projectplusgame.com
+```
+
+A free general web answer, on the same words, returned five named categories with companies
+under each and a citation per category.
+
+### Four independent causes, none of them a mistyped line
+
+| | Cause | What it produced |
+|---|---|---|
+| 1 | The first query is malformed | `best project management for a small design agency software` — an engine falls back to its strongest keywords, and *for a small design agency* is the first thing lost |
+| 2 | A domain is the unit, not a product | `microsoft.com/microsoft-365/project` and `/microsoft-teams` collapse to `microsoft.com`, which then agreed with 3 of 3 queries and was named from its own front page |
+| 3 | Ranking measures appearance, not fit | A household name is in every adjacent listicle; a specialist named in one article scores 0.175, below the floor, and is refused before anybody sees it |
+| 4 | The fit test is one shared content word | `projectplusgame.com` cleared `CORROBORATION = 2`, then cleared `SHARED_WORDS = 1` because its page uses *project*. The test exists; it is set to its weakest value |
+
+**Fixing any one alone still leaves a bad answer**, which is why this is a plan rather than a
+patch: [`IMPROVING_PRODUCT_IDEAS_LOGIC_ROADMAP.md`](IMPROVING_PRODUCT_IDEAS_LOGIC_ROADMAP.md).
+
+### The finding underneath all four
+
+**The search engine is being treated as the source of companies.** Three queries go out and the
+ranking is *which domains came back most often* — agreement and URL depth, nothing else. A
+candidate's own page is read once, for a name and a one-word overlap check, and that is the only
+influence anything the engine returned has on whether a company survives.
+
+**Review corrected this entry's cause 4**, which first read *"nothing verifies a candidate is in
+the market"*. Something does. It admits anything sharing a single word with the prompt, which is
+a different finding with a different fix.
+
+**And the best sources are the ones deliberately thrown away.** Every page the free answer cited
+— review sites, agency blogs — is on `NOT_A_COMPANY`. They are correctly refused *as candidates*
+and never read *as evidence*, which is where the categories, the comparisons and the reasons
+live. The information needed for a better answer is already arriving.
+
+### What the free answer is and is not
+
+Worth being precise, because *"be as good as Google"* is only a useful target if it is measured
+honestly. Strip the categories from that answer which are not competitors — *small design
+agencies* and *client businesses* are the reader's **customers** — and the real content is five
+household names, no prices, no dates, and citations that are mostly content-marketing blogs.
+
+**It reads better because it is structured and instant, not because it researched harder.** So
+parity is a legibility problem, which is mechanical. Being *ahead* means the thing an instant
+recalled answer structurally cannot do: a current price, from the vendor's own page, with the
+date it was read.
+
+### Why nothing caught it
+
+**There is no golden set for discovery.** There is one for extraction — ten subjects, scored
+against a model, run in CI — and none at all for *which companies a description resolves to*.
+1026 tests pass over this. Every one of the four causes is a design decision that is defensible
+read alone, and nothing measured the four of them together.
+
+That is PR 2 of the plan, and it comes before any change to the logic it would measure.
+
+### What this run does not measure
+
+No latency figure changed and none was taken. **One number is owed and not yet taken**: what
+fraction of the six questions actually fill on ten real companies. If it is low, better discovery
+delivers the right companies to an empty report. That measurement is part of PR 2, deliberately
+before anything is built on top of it.
+
+| | Rust tests | frontend tests | catalog |
+|---|---|---|---|
+| Run 49 | 1026 | 139 | 19, all caught |
+| now | **1026** | **139** | **no code changed** |
+
+---
+
+## Run 49 — a counted zero, and a way back to work that cost minutes
+
+**Date:** 2026-08-12 — **Where:** this laptop — **Model:** none — interface work.
 
 **A reader watched the bar sit at 0% for a whole run, three times, and then hit the daily cap.**
 
@@ -48,13 +128,13 @@ Two defects, and the second one is why the first one hurt.
 
 The page chose its number with `counted ?? estimated`. **The first tick of every run announces
 `Discovering`**, where `Progress::fraction` deliberately contributes nothing for the company
-being resolved @ so `percent` is `0`. And `0` is not `null`, so `??` took it: the estimate that
+being resolved — so `percent` is `0`. And `0` is not `null`, so `??` took it: the estimate that
 band exists for was discarded on the first message, and the bar sat at a hard zero for the whole
 of discovery. On a three-company run that is minutes of a page that looks hung.
 
 **The type could not tell *counted zero* from *nothing counted*, and neither could that line.**
-The distinction was already on the wire @ `estimating_to` is sent exactly while a band is open
-@ and the page now reads it: while a band is open the number is interpolated, floored at
+The distinction was already on the wire — `estimating_to` is sent exactly while a band is open
+— and the page now reads it: while a band is open the number is interpolated, floored at
 whatever has genuinely been counted; when it closes, the count is exact.
 
 **Every existing test sent `percent: null` with `companies: { done: 0, of: 0 }`**, which the
@@ -66,17 +146,17 @@ time a fixture has been the thing telling the truth.
 ### And the estimate now starts from what was counted
 
 A run over three companies discovers three times. The second band is 33% to 39%, not 0% to 39%,
-and each band gets its own clock @ measuring the third from when the run started would put it at
+and each band gets its own clock — measuring the third from when the run started would put it at
 its ceiling the moment it opened.
 
 ### The message at the end of it said nothing about the work
 
 A run costs minutes and there are two a day. The only record of one was the address bar, so
-closing the tab lost it @ and the refusal that says both of today's are spent is exactly the
+closing the tab lost it — and the refusal that says both of today's are spent is exactly the
 moment a reader needs the two they already ran. It named neither.
 
 **The browser remembers them now**, in `web/src/history.ts`: id, prompt, when. Not the status
-and not the report @ those live on the analysis, they change after the list was written, and a
+and not the report — those live on the analysis, they change after the list was written, and a
 second copy would be a stale one. Following the link asks the server.
 
 **The browser rather than the server, because there are no accounts.** The cap counts runs per
@@ -388,13 +468,13 @@ describing one screen differently.
 ### What the harness found, which no test did
 
 Rewriting this page broke six recorded mutations aimed at code that had moved. Retargeting
-them to where each defect now lives is maintenance @ but two of the six then **survived**, and
+them to where each defect now lives is maintenance — but two of the six then **survived**, and
 they were not stale. They removed `isTerminal` from the guard on the summary blocks, and every
 test that had ever asserted those blocks were absent mid-run had been asserting that
 `report` was **null**, not that the run had finished.
 
 **Those are different states, and the difference is a real reader.** Reload during a run and the
-recovery fetch serves the *partial* report it stored @ so `report` is truthy while the run is
+recovery fetch serves the *partial* report it stored — so `report` is truthy while the run is
 still going. Without `isTerminal`, that reader is offered **Copy as context** over half a
 report, and an editable set the pipeline has not finished deciding.
 
@@ -402,7 +482,7 @@ The guard was right; nothing reached it. One test now does, and it catches both.
 
 **Two of this run's own nineteen were missed for the same reason at one remove.** A test that
 found the *"Open source projects"* block by `findByRole("region", { name: heading })` passes
-with the `<h2>` deleted @ the accessible name comes from `aria-label`, so the one thing the test
+with the `<h2>` deleted — the accessible name comes from `aria-label`, so the one thing the test
 was about was the one thing it could not see.
 
 ### The two the contract missed, and how

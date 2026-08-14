@@ -70,11 +70,11 @@ only you can do; they are listed at the bottom and are not counted anywhere.
 |---|---|---|---|---|---|
 | [**S1**](#s1--ready-for-a-guided-demo) | Ready for a guided demo | 39 | 39 | **0** | **100%** |
 | [**S2**](#s2--ready-for-demonstration) | Any business idea handled correctly | 19 | 19 | **0** | **100%** |
-| [**S3**](#s3--ready-for-use) | Friendly users find no issue | 29 | 4 | **25** | **14%** |
+| [**S3**](#s3--ready-for-use) | Friendly users find no issue | 35 | 4 | **31** | **11%** |
 | [**S4**](#s4--ready-for-general-use) | Promotable, word-of-mouth quality | 11 | 0 | **11** | **0%** |
 | [**S5**](#s5--general-use-free-mode) | Stable, email signup, community | 15 | 0 | **15** | **0%** |
 | [**S6**](#s6--general-use-full-mode) | Notifications and paid subscriptions | 21 | 0 | **21** | **0%** |
-| | **Total** | **134** | **62** | **72** | **46%** |
+| | **Total** | **140** | **62** | **78** | **44%** |
 | | *Getting it onto a host (not a state)* | *3* | *0* | *3* | *0%* |
 
 **The shape of that table is the answer to "how far are we".** **S1 is complete** — the guided
@@ -270,7 +270,16 @@ and the measurement that decided against a headless browser.
 | **Copy as context** — the whole report as clean Markdown, sized to paste elsewhere | S3 | 1 | **1** | 0 | **100%** |
 | **How far through it is** — a phase, a bar and a real percentage while a report is written | S3 | 1 | **1** | 0 | **100%** |
 | **The first screen** — the reader's words, how the idea was read, one count, three lists | S3 | 2 | **1** | **1** | **50%** |
-| | | **29** | **4** | **25** | **14%** |
+| **Discovery quality** — the companies a description actually resolves to | S3 | 6 | 0 | **6** | **0%** |
+| | | **35** | **4** | **31** | **11%** |
+
+**Discovery quality is a new row, and the percentage went down because of it.** A reader typed
+*"project management for a small design agency"* and got **Microsoft** and
+**projectplusgame.com**. Four independent causes, none of them a mistyped line
+— [`PRODUCT_IDEA_RESULTS_LOGIC.md`](PRODUCT_IDEA_RESULTS_LOGIC.md) is what the pipeline does and
+[`IMPROVING_PRODUCT_IDEAS_LOGIC_ROADMAP.md`](IMPROVING_PRODUCT_IDEAS_LOGIC_ROADMAP.md) is the six
+pull requests that fix it. **Work that was always required is now counted**, which is what a
+percentage is for.
 
 **The first screen is half done, and the half that is left is named.** A reader looked at the
 output of a finished run and said it was horrible — six headings of questions with no answers
