@@ -19,12 +19,16 @@
 | | |
 |---|---|
 | **Pull requests in this plan** | **7** |
-| **Done** | **1** |
-| **Remaining** | **6** |
-| **Complete** | **14%** |
+| **Done** | **2** |
+| **Remaining** | **5** |
+| **Complete** | **29%** |
 
-**This document and the logic document are PR 1.** No behavior has changed yet. The percentage
-counts pull requests, not effort — PR 7 is larger than PRs 3 to 6 together.
+**PR 1 is the two documents; PR 2 is the discovery golden set.** No behavior has changed yet and
+none will until PR 3. The percentage counts pull requests, not effort — PR 7 is larger than PRs
+3 to 6 together.
+
+**The baseline, measured rather than guessed:** mean recall **70%** across five fixtures, with
+**2 impostors admitted**. Every number in this plan from here is a move against those.
 
 ---
 
@@ -56,7 +60,7 @@ which is the kind of claim that makes a plan look further along than it is.
 | PR | What | Where | Status |
 |---|---|---|---|
 | 1 | **This document and the logic document** | `docs/` | **Done** |
-| 2 | **A golden set for discovery** | new `landscape-golden` fixtures | To do |
+| 2 | **A golden set for discovery** | `landscape-golden::discovery` | **Done** |
 | 3 | **Product-level candidates** — identity rule chosen by PR 2 | `candidates::from_results`, `describe` | To do |
 | 4 | **Raise the fit test above one word** | `competitors::SHARED_WORDS`, `assemble` | To do |
 | 5 | **Candidates from page content** | new `candidates::named_in` | To do |
@@ -88,7 +92,32 @@ companies a careful person would expect, checked by hand, once.
 
 **And one number this plan depends on:** what fraction of the six questions actually fill on ten
 real companies. If it is low, better discovery delivers the right companies to an empty report,
-and the four-to-eight-minute wait is unjustifiable either way. Measure it here, before building.
+and the four-to-eight-minute wait is unjustifiable either way.
+
+#### What it measured, and the two things it corrected
+
+| Fixture | Recall | Missed | Impostors |
+|---|---|---|---|
+| `project-management-for-agencies` | 67% | workamajig.com | 1 |
+| `one-product-many-urls` | 67% | airtable.com | 0 |
+| `keyword-impostor` | 50% | toggl.com | 1 |
+| `specialist-in-one-article` | 67% | protemos.com | 0 |
+| `publisher-heavy` | 100% | | 0 |
+
+**Mean recall 70%, two impostors admitted.** Three of the five misses are the same cause: a
+company returned by one query is `Uncorroborated` and never reaches the reader.
+
+**It corrected its author twice, before PR 3 was written.** That is the argument for the
+sequencing, made by the sequencing:
+
+1. I predicted `keyword-impostor` would score (2 found, 0 missed) and it scores (1, 1). `toggl.com`
+   came back from one query. Cause 3, surfacing in a fixture written for cause 4.
+2. **No path-shaped identity rule works** — see PR 3 below. I had leaned on
+   *strip locales and containers*; it cannot tell Excel from Project, because `microsoft-365` is
+   a **suite** and suite names are not a list anybody can finish.
+
+**Still to do in a later slice:** the six-question fill rate on ten real companies, which needs a
+model and a network and is not fixture-able.
 
 ### PR 3 — Product-level candidates
 
@@ -136,9 +165,27 @@ the corroboration failure it was written to prevent. Review caught it.
 | Domain + the product name read from the page | Needs the page *before* the merge, inverting the order the pipeline runs in |
 | Domain + a canonical link or `og:title` the page declares | Only as good as what sites declare, which is uneven |
 
-**None is obviously right, and that is the finding.** Guessing between them is the same move that
-produced Microsoft. PR 2 exists to make this measurable, and this is the first thing it should be
-pointed at.
+### PR 2 ran them, and none of the path-shaped rules works
+
+`landscape_golden::discovery::Identity` implements four of the five and the fixtures score them.
+The result is not *"one is best"*:
+
+| Rule | Joins one product's pages? | Separates two products in a suite? |
+|---|---|---|
+| Domain (today) | Yes | **No** — this is cause 2 |
+| First path segment | **No** — splits on locale | **No** — groups on locale |
+| First meaningful segment | Yes | **No** — both key to `microsoft.com/microsoft-365` |
+| Last path segment | **No** — splits `/excel` from `/excel/pricing` | Yes |
+
+**Each one either merges two products or splits one.** That is a result about the approach rather
+than a threshold to tune, and it says the answer is the fifth candidate: **the identity the page
+declares about itself** — a canonical link, an `og:title`, the product name in its own words. That
+cannot be decided from a URL, so PR 3 has to fetch before it merges, which inverts the order the
+pipeline runs in today.
+
+**PR 3 is therefore larger than this plan first said, and its shape is now known rather than
+assumed.** The assertions are in `tests/discovery.rs`; a rule that ever passes both columns will
+fail that test and have to be argued for.
 
 **And a rule for the root, which is safe whichever wins.** When the evidence URL is the domain
 root — `asana.com` — the company and the product are one thing and one name is right. Only a

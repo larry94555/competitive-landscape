@@ -1,0 +1,54 @@
+[
+  {
+    "name": "the scorer ignores the confidence floor and scores everything found",
+    "file": "crates/landscape-golden/src/discovery.rs",
+    "old": "        .filter(|f| f.confidence >= landscape_core::subject::MINIMUM_CONFIDENCE)\n",
+    "new": "",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "recall counts a miss as a find",
+    "file": "crates/landscape-golden/src/discovery.rs",
+    "old": "            .filter(|e| !returned.iter().any(|r| r == e))",
+    "new": "            .filter(|e| returned.iter().any(|r| r == e))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "an impostor that got in is not reported",
+    "file": "crates/landscape-golden/src/discovery.rs",
+    "old": "            .filter(|(host, _)| returned.iter().any(|r| r == host))",
+    "new": "            .filter(|(host, _)| !returned.iter().any(|r| r == host))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a locale is treated as a product name",
+    "file": "crates/landscape-golden/src/discovery.rs",
+    "old": "                .find(|s| !is_locale(s) && !CONTAINERS.contains(&s.to_lowercase().as_str())),",
+    "new": "                .find(|s| !CONTAINERS.contains(&s.to_lowercase().as_str())),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-golden"
+    ]
+  }
+]

@@ -33,6 +33,79 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 51 — the first number discovery has ever had
+
+**Date:** 2026-08-14 — **Where:** this laptop, no engine and no model needed — **Model:** none.
+
+`IMPROVING_PRODUCT_IDEAS_LOGIC_ROADMAP.md` PR 2. There has been a golden set for *extraction*
+since Phase 0 and none at all for *discovery*, which is why four independent causes reached a
+reader with 1026 tests passing over them. There is one now.
+
+### The baseline
+
+Five fixtures, each holding one failure mode. The hits are written rather than recorded, so this
+runs on a laptop with no `SEARX_URL`; what it measures is **the logic**, not the world.
+
+| Fixture | Recall | Missed | Impostors |
+|---|---|---|---|
+| `project-management-for-agencies` | 67% | workamajig.com | 1 |
+| `one-product-many-urls` | 67% | airtable.com | 0 |
+| `keyword-impostor` | 50% | toggl.com | 1 |
+| `specialist-in-one-article` | 67% | protemos.com | 0 |
+| `publisher-heavy` | 100% | | 0 |
+
+**Mean recall 70%. Two impostors admitted.** Three of the four misses are one cause: a company
+returned by a single query is `Uncorroborated` and never reaches the reader.
+
+**The tests pass while the answer is bad**, deliberately. A red suite is one people learn to
+ignore; what is wanted is a number a pull request has to move and cannot move by accident. The
+baseline is a constant, and changing discovery fails the test until somebody reads the table and
+edits it.
+
+### It corrected its author twice, before the next PR was written
+
+**That is the whole argument for measuring first, made by the measurement.**
+
+**One.** I predicted `keyword-impostor` at (2 found, 0 missed) and it scores (1, 1). `toggl.com`
+came back from one query, so it is below `CORROBORATION` and excluded. Cause 3, surfacing in a
+fixture written to hold cause 4 — and the roadmap's guess was wrong about a case it had itself
+described one page earlier.
+
+**Two, and this one changes the plan.** The roadmap lists five candidate rules for deciding two
+URLs are the same product. Four are path-shaped and now implemented as
+`discovery::Identity`; the fixtures score them:
+
+| Rule | Joins one product's pages? | Separates two products in a suite? |
+|---|---|---|
+| Domain (today) | Yes | **No** — this is cause 2 |
+| First path segment | **No**, splits on locale | **No**, groups on locale |
+| First meaningful segment | Yes | **No** — both key to `microsoft.com/microsoft-365` |
+| Last path segment | **No**, splits `/excel` from `/excel/pricing` | Yes |
+
+**Each one either merges two products or splits one.** I had leaned on *strip locales and
+containers* and it fails, because `microsoft-365` is a **suite** and suite names —
+`google-workspace`, `adobe-creative-cloud` — are not a list anybody can finish.
+
+So the answer is the fifth candidate: **the identity a page declares about itself**. That cannot
+be read from a URL, so PR 3 must fetch before it merges — inverting the order the pipeline runs
+in, and making it a larger change than the plan claimed. **Known now rather than discovered
+halfway through writing it.**
+
+### What this does not measure
+
+**Whether a real engine returns these URLs for these prompts.** The fixtures are hand-written and
+say so; the live half is a `--ignored` companion nobody has written yet.
+
+**Whether the six questions fill.** The number this plan depends on most — what fraction of the
+six sections a real company actually produces — needs a model and a network. Still owed.
+
+| | Rust tests | frontend tests | catalog |
+|---|---|---|---|
+| Run 50 | 1026 | 139 | no code changed |
+| now | **1030** | **139** | **4**, all caught |
+
+---
+
 ## Run 50 — two companies, and why they were the wrong two
 
 **Date:** 2026-08-13 — **Where:** the deployed instance, with a real engine answering at last
