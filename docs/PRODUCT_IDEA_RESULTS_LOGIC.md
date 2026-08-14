@@ -129,19 +129,41 @@ anything sharing one word* have different fixes, and only the second is true.
 
 > *"3 of the 3 searches returned it, and its own front page uses ‘project’"*
 
-`Because::Named`, `Aside::ElsewhereEntirely`, `Aside::Unread` and
-`Aside::BeyondTheFetchBudget` cover the rest. **Every company in the set already carries a countable reason, and every one left out
-carries the reason it is not there.** What is missing is that
-[`PRODUCT_IDEA_RESULTS.md`](PRODUCT_IDEA_RESULTS.md)'s page does not render it.
+`Because::Named` covers a company the reader typed. **`Aside` has five variants, and every
+exclusion is one of them:**
+
+| Variant | Why it was left out |
+|---|---|
+| `Uncorroborated { agreed, asked }` | Fewer than `CORROBORATION` queries returned it |
+| `Unconvincing` | It scored below what is worth putting in a report |
+| `ElsewhereEntirely { looked_for }` | Its front page shares none of the market's words |
+| `Unread` | Its front page could not be fetched, so nothing could be checked |
+| `BeyondTheFetchBudget { budget }` | It ranked below `NAMED`, so no page was requested |
+
+**`Uncorroborated` is the one §4's cause 3 is about.** A specialist named in a single
+specialist article is excluded by *that* variant, and an earlier draft of this section listed
+three of the five and left that one out — in the paragraph nearest the case it explains.
+Review caught it.
+
+**Every company in the set already carries a countable reason, and every one left out carries the
+reason it is not there.** What is missing is that
+[`PRODUCT_IDEA_RESULTS.md`](PRODUCT_IDEA_RESULTS.md)'s page does not render any of it.
 
 ### 3.6 The gate
 
-`subject::decide`, with `landscape_core::subject`'s constants:
+`subject::decide`, with constants from two crates — which this document got wrong once, and
+which matters because it promises where every rule lives:
 
 ```
-MINIMUM_CONFIDENCE = 0.35     below this, nothing is resolved
-AMBIGUITY_MARGIN   = 0.15     two candidates this close is a question, not a choice
-DESCRIBES_A_MARKET = 2        one word that several products share is ambiguity, not a market
+landscape_core::subject
+    MINIMUM_CONFIDENCE = 0.35     below this, nothing is resolved
+    AMBIGUITY_MARGIN   = 0.15     two candidates this close is a question, not a choice
+
+landscape_search::competitors
+    DESCRIBES_A_MARKET = 2        one word that several products share is ambiguity,
+                                  not a market
+    SHARED_WORDS       = 1        the fit test in §3.4
+    CORROBORATION      = 2        in `candidates`, and the floor `Uncorroborated` reports
 ```
 
 **The gate is not the problem.** It refuses correctly and it will not guess between two close

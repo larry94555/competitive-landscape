@@ -47,7 +47,11 @@ page, with the date it was read.**
 
 ## 3. The plan
 
-Each row is a pull request. Each is shippable alone and improves the answer alone.
+Each row is a pull request, and **each is independently mergeable and makes the decisions after
+it safer.** That is the contract, and it is not the same as *each improves the answer*: PR 1 is
+documents and PR 2 is measurement, and neither changes a single result. **PRs 3 to 7 are the ones
+that change what a reader sees.** An earlier draft promised behavior from both prerequisites,
+which is the kind of claim that makes a plan look further along than it is.
 
 | PR | What | Where | Status |
 |---|---|---|---|
@@ -184,8 +188,9 @@ from what the returned pages say rather than from which domains they were.*
 
 **The reason already exists, on both paths.** `Because::Found { agreed, asked, shares }` is
 built for described candidates and reads *"3 of the 3 searches returned it, and its own front
-page uses 'project'"*. `Aside::ElsewhereEntirely`, `Unread` and `BeyondTheFetchBudget`
-cover the excluded.
+page uses 'project'"*. `Aside` has five variants and every exclusion is one of them —
+`Uncorroborated`, `Unconvincing`, `ElsewhereEntirely`, `Unread` and `BeyondTheFetchBudget`; see
+[`PRODUCT_IDEA_RESULTS_LOGIC.md`](PRODUCT_IDEA_RESULTS_LOGIC.md) §3.5 for the whole table.
 Review corrected the first draft here too, which had this as extending a seeded-only type.
 
 **So the work is carrying it to the page.** `Because` reaches the CLI and the report's notes; it
