@@ -51,9 +51,16 @@ use crate::Hit;
 
 /// How many **extra** page reads one analysis will spend telling products apart.
 ///
-/// **Extra, not total.** A domain whose results are all non-root pages costs `k` reads here and
-/// saves the one [`crate::candidates::describe`] would have spent on its front page, so a single
-/// product page is free and only the splitting costs anything.
+/// **Extra, not total, and the saving has to be earned.** A domain whose results are all
+/// non-root pages costs `k` reads here, and saves the one [`crate::candidates::describe`] would
+/// have spent on its front page **only if one of those reads produced a name** — a candidate
+/// nobody could read still needs its front page fetched.
+///
+/// Review found the first version charging `k - 1` before knowing that. A single unreadable
+/// product page then cost one read and refunded nothing, and because the arithmetic ran before
+/// the fetch, **any number of such candidates could each add a request while the budget sat at
+/// four**. Reads are reserved in full now and the front page is refunded once it is genuinely
+/// not going to be fetched.
 ///
 /// Four is the whole budget for a run, spent in rank order. A domain that would cost more than
 /// what is left keeps the old behavior rather than being split on half its evidence — **a
@@ -169,6 +176,9 @@ fn is_root(url: &str) -> bool {
 /// untouched, so a run with no budget left, an unreadable page or a front-page result behaves
 /// exactly as it did before this module existed.
 ///
+/// **Every read is charged, and the front page is refunded only when it is really saved.** See
+/// [`SPLIT_BUDGET`] for what charging `k - 1` up front cost.
+///
 /// The list comes back re-sorted, because agreement can only fall here: a domain that was
 /// returned by three queries and turns out to be three products has a strongest product that
 /// agreed with one of them.
@@ -197,20 +207,28 @@ where
             out.push(one);
             continue;
         }
-        // `k` reads for `k` URLs, minus the front page this saves. A domain that does not fit
-        // is left whole: half a split attributes the unread appearances to the wrong product.
-        let extra = urls.len().saturating_sub(1);
-        if extra > budget {
+        // `k` reads for `k` URLs, charged before any of them happen. A domain that does not
+        // fit is left whole: half a split attributes the unread appearances to the wrong
+        // product.
+        if urls.len() > budget {
             out.push(one);
             continue;
         }
-        budget -= extra;
+        budget -= urls.len();
 
         let mut read: Vec<(&Appearance, Option<String>)> = Vec::with_capacity(urls.len());
         for at in urls {
             read.push((at, fetch(at.url.clone()).await));
         }
-        out.push(strongest(&one, asked, &read));
+        let candidate = strongest(&one, asked, &read);
+        // **The refund, and only now can it be known.** A candidate that came out of there with
+        // a name will not have its front page fetched by `describe`, so one of these reads
+        // replaced a read rather than adding one. A candidate that did not still costs the
+        // front page, and the budget has to say so.
+        if candidate.declared.is_some() {
+            budget += 1;
+        }
+        out.push(candidate);
     }
 
     out.sort_by(|a, b| {
@@ -229,6 +247,12 @@ where
 /// whole module rests on: an unreadable page must never be able to split a candidate.
 fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) -> Found {
     /// One product's share of a domain's appearances.
+    ///
+    /// **`page` is the page at `shallowest`, and the two move together.** Review found them
+    /// moving apart: the page was kept from the first readable appearance and the URL later
+    /// slid to a shallower one, so a group whose pricing page arrived first was linked by its
+    /// product URL and *named* by its pricing page. That is the *"Pricing"*-as-a-company-name
+    /// defect this codebase already fixed once, recreated one level down.
     struct Grouped {
         queries: Vec<usize>,
         shallowest: String,
@@ -240,11 +264,16 @@ fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) 
         let declared = page
             .as_deref()
             .and_then(|markdown| declared_for(&at.url, markdown));
-        let key = declared.clone().unwrap_or_else(|| one.host.clone());
+        // **A page that declares nothing is not evidence, even though it arrived.** It keys to
+        // the domain, and it must not become the name either: a readable page with no heading
+        // would otherwise name the candidate after its own host and skip the front page that
+        // would have named it properly.
+        let evidence = declared.as_ref().and(page.clone());
+        let key = declared.unwrap_or_else(|| one.host.clone());
         let entry = by_identity.entry(key).or_insert_with(|| Grouped {
             queries: Vec::new(),
             shallowest: at.url.clone(),
-            page: None,
+            page: evidence.clone(),
         });
         for query in &at.queries {
             if !entry.queries.contains(query) {
@@ -253,9 +282,7 @@ fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) 
         }
         if crate::candidates::depth(&at.url) < crate::candidates::depth(&entry.shallowest) {
             entry.shallowest = at.url.clone();
-        }
-        if declared.is_some() && entry.page.is_none() {
-            entry.page.clone_from(page);
+            entry.page = evidence;
         }
     }
 
@@ -534,18 +561,124 @@ Group chat.",
         assert_eq!(after, before);
     }
 
+    /// Every URL a `fetch` was asked for, shared with the test that made it.
+    type Asked = std::sync::Arc<std::sync::Mutex<Vec<String>>>;
+
+    /// A `fetch` that answers from a table and counts every request it was given.
+    fn counting(
+        known: &[(String, &'static str)],
+    ) -> (impl Fn(String) -> std::future::Ready<Option<String>>, Asked) {
+        let known: Vec<(String, String)> = known
+            .iter()
+            .map(|(u, p)| (u.clone(), (*p).to_owned()))
+            .collect();
+        let asked: Asked = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let seen = std::sync::Arc::clone(&asked);
+        let fetch = move |url: String| {
+            seen.lock().expect("not poisoned").push(url.clone());
+            std::future::ready(
+                known
+                    .iter()
+                    .find(|(at, _)| *at == url)
+                    .map(|(_, page)| page.clone()),
+            )
+        };
+        (fetch, asked)
+    }
+
+    #[tokio::test]
+    async fn a_page_that_could_not_be_read_still_costs_its_front_page() {
+        // **The budget hole review found.** `split` used to charge `k - 1` before fetching, on
+        // the assumption that a product page always replaces the front page `describe` would
+        // have read. It only replaces it if it produced a name. Six one-URL domains whose pages
+        // all fail therefore cost one read each and refunded nothing, while the budget sat at
+        // four - so the cap bounded nothing.
+        let hosts: Vec<String> = (0..SPLIT_BUDGET + 2)
+            .map(|i| format!("https://d{i}.example/product/thing"))
+            .collect();
+        let results: Vec<Vec<Hit>> = vec![hosts.iter().map(|u| hit(u)).collect()];
+        let (fetch, asked) = counting(&[]);
+        let after = split(from_results(&results, 1), 1, &results, &fetch).await;
+
+        let reads = asked.lock().expect("not poisoned").len();
+        assert!(
+            reads <= SPLIT_BUDGET,
+            "{reads} reads for a budget of {SPLIT_BUDGET}"
+        );
+        // And every one of them is unchanged, because nothing was learned about any of them.
+        assert!(after.iter().all(|f| f.declared.is_none()));
+    }
+
+    #[tokio::test]
+    async fn a_read_that_named_somebody_is_refunded_and_one_that_did_not_is_not() {
+        // The other half of the same arithmetic: a domain whose page *does* declare a name
+        // costs nothing extra, because `describe` will not read its front page.
+        let named: Vec<String> = (0..SPLIT_BUDGET + 2)
+            .map(|i| format!("https://n{i}.example/product/thing"))
+            .collect();
+        let results: Vec<Vec<Hit>> = vec![named.iter().map(|u| hit(u)).collect()];
+        let known: Vec<(String, &str)> = named
+            .iter()
+            .cloned()
+            .map(|url| (url, "# A Product\n\nWhat it does."))
+            .collect();
+        let (fetch, asked) = counting(&known);
+        let after = split(from_results(&results, 1), 1, &results, &fetch).await;
+
+        assert_eq!(
+            asked.lock().expect("not poisoned").len(),
+            named.len(),
+            "every one is free: each read replaces the front-page read it saves"
+        );
+        assert!(after.iter().all(|f| f.declared.is_some()));
+    }
+
+    #[tokio::test]
+    async fn the_page_that_names_a_product_is_the_page_at_the_url_it_links_to() {
+        // **Review's second finding, and it is the "Pricing" defect one level down.** The page
+        // was kept from the first readable appearance while the URL slid to a shallower one, so
+        // a group whose pricing page arrived first linked to the product and was named by the
+        // pricing page. Both orders are run here, and they must agree.
+        let product = "# Microsoft Excel\n\nThe spreadsheet finance teams use.";
+        let pricing = "# Microsoft Excel\n\nPlans and pricing.";
+        let mut both = Vec::new();
+        for order in [[EXCEL_PRICING, EXCEL], [EXCEL, EXCEL_PRICING]] {
+            let results = vec![vec![hit(order[0])], vec![hit(order[1])]];
+            let split = split(
+                from_results(&results, 2),
+                2,
+                &results,
+                &pages(&[(EXCEL, product), (EXCEL_PRICING, pricing)]),
+            )
+            .await;
+            let one = split.into_iter().next().expect("one candidate");
+            let declared = one.declared.expect("a name from a page");
+            both.push((one.shallowest, declared.what_it_is, declared.page));
+        }
+        assert_eq!(
+            both[0], both[1],
+            "the result must not depend on result order"
+        );
+        assert_eq!(both[0].0, EXCEL, "it links to the product page");
+        assert!(
+            both[0].1.contains("finance teams"),
+            "and it is described by the same page it links to, not by the pricing page: {}",
+            both[0].1
+        );
+    }
+
     #[tokio::test]
     async fn the_budget_is_spent_in_rank_order() {
         // Two splittable domains and room for one. The stronger candidate gets the reads, and
         // the weaker one keeps the behavior it had before this module existed.
-        // `strong` costs the whole budget - one URL per query - and `weak` costs one more
-        // than is left.
-        let strong: Vec<String> = (0..=SPLIT_BUDGET)
+        // `strong` takes the whole budget - `SPLIT_BUDGET` URLs, one refunded because it ends
+        // up named - and `weak` needs two where one is left.
+        let strong: Vec<String> = (0..SPLIT_BUDGET)
             .map(|i| format!("https://strong.example/a/p{i}"))
             .collect();
         let weak = ["https://weak.example/b/one", "https://weak.example/b/two"];
         let mut results: Vec<Vec<Hit>> = Vec::new();
-        for query in 0..=SPLIT_BUDGET {
+        for query in 0..SPLIT_BUDGET {
             results.push(vec![hit(&strong[query]), hit(weak[query % 2])]);
         }
         // Both domains agreed with every query, so rank is decided by host and `strong` wins.

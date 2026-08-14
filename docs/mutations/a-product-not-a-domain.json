@@ -62,8 +62,8 @@
   {
     "name": "a domain is split on as much of its evidence as the budget allows",
     "file": "crates/landscape-search/src/products.rs",
-    "old": "        if extra > budget {\n            out.push(one);\n            continue;\n        }\n        budget -= extra;",
-    "new": "        budget = budget.saturating_sub(extra);",
+    "old": "        if urls.len() > budget {\n            out.push(one);\n            continue;\n        }\n        budget -= urls.len();",
+    "new": "        budget = budget.saturating_sub(urls.len());",
     "run": [
       "cargo",
       "nextest",
@@ -94,6 +94,36 @@
     "file": "crates/landscape-search/src/candidates.rs",
     "old": "        if let Some(declared) = &one.declared {",
     "new": "        if let Some(declared) = None::<&crate::products::Declared> {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a read that named nobody is refunded anyway",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        if candidate.declared.is_some() {\n            budget += 1;\n        }",
+    "new": "        budget += 1;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "the page and the URL it links to drift apart",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "            entry.shallowest = at.url.clone();\n            entry.page = evidence;",
+    "new": "            entry.shallowest = at.url.clone();",
     "run": [
       "cargo",
       "nextest",

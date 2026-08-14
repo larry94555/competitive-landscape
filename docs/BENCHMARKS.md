@@ -47,7 +47,7 @@ project-management vendor.
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | before | 1031 | 139 | 5, all caught |
-| after | **1041** | **139** | **12**, all caught |
+| after | **1044** | **139** | **14**, all caught |
 
 ### What moved
 
@@ -94,6 +94,21 @@ whole cost is two extra reads.
 | A page **could not be read** | Declares nothing, keeps the domain as its key | `a_page_nobody_could_read_cannot_split_anybody` |
 | A domain costs more than the **budget** left | Left whole rather than split on half its evidence | `a_domain_that_would_cost_more_than_the_budget_is_left_whole` |
 | One query returned **two pages of one product** | Corroborates it once | `two_pages_of_one_product_in_one_result_list_agreed_once` |
+| A read that **named nobody** | Charged in full; its front page is still to come | `a_page_that_could_not_be_read_still_costs_its_front_page` |
+
+**The budget was wrong in the first version of this run, and review caught it.** It charged
+`k - 1` *before* fetching, on the assumption that a product page always replaces the front page
+`describe` would have read. It only replaces it if it produced a name. One unreadable product
+page therefore cost a read and refunded nothing — and since the arithmetic ran before the fetch,
+**any number of such candidates could each add a request while the budget sat at four**. Reads
+are charged in full now and the front page is refunded once it is genuinely not going to be
+fetched. The counted version is `a_page_that_could_not_be_read_still_costs_its_front_page`.
+
+**And the page a product is named by is now the page it links to.** The page was kept from the
+first readable appearance while the URL slid to a shallower one, so a product whose pricing page
+arrived first was linked by its product URL and *named and described* by its pricing page — the
+*"Pricing"*-as-a-company-name defect this codebase fixed once, recreated one level down. The test
+runs both result orders and requires them to agree.
 
 ### What it does not do
 
@@ -211,7 +226,7 @@ six sections a real company actually produces — needs a model and a network. S
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 50 | 1026 | 139 | no code changed |
-| now | **1041** | **139** | **12**, all caught |
+| now | **1044** | **139** | **14**, all caught |
 
 ---
 
