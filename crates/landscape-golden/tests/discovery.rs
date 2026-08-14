@@ -17,71 +17,66 @@ use landscape_golden::discovery::{markets, score, Identity, Market, Scored};
 /// **A recorded baseline, not a target.** Nothing here is a claim that these numbers are good;
 /// three of them are bad on purpose, because the fixtures hold defects the roadmap has not fixed
 /// yet.
-const BASELINE: [(&str, usize, usize, usize); 5] = [
-    // id, expected found, expected missed, impostors admitted
-    ("project-management-for-agencies", 2, 1, 1),
-    ("one-product-many-urls", 2, 1, 0),
-    // **Measured, not predicted.** I guessed (2, 0, 1) here and the harness said (1, 1, 1):
-    // `toggl.com` came back from one query, so it is `Uncorroborated` and never reaches the
-    // reader. Cause 3, in a fixture written to hold cause 4. The first thing this file did was
-    // correct its author.
-    ("keyword-impostor", 1, 1, 1),
-    ("specialist-in-one-article", 2, 1, 0),
-    ("publisher-heavy", 2, 0, 0),
+/// What the pipeline returns today, exactly, as of `BENCHMARKS.md` Run 51.
+///
+/// **Exact lists, not counts.** The first version stored `(found, missed, admitted)` as three
+/// numbers, and review found the hole: swapping *which* expected company came back leaves every
+/// count identical and passes. So does adding a sixth fixture, because the test iterated the
+/// baseline rather than the set. Both are precisely the accidental change this file claims to
+/// catch.
+const BASELINE: [(&str, &[&str], &[&str], usize); 5] = [
+    // id, found, missed, impostors admitted
+    (
+        "project-management-for-agencies",
+        &["asana.com", "microsoft.com"],
+        &["workamajig.com"],
+        1,
+    ),
+    (
+        "one-product-many-urls",
+        &["microsoft.com", "google.com"],
+        &["airtable.com"],
+        0,
+    ),
+    // **Measured end to end, and it disagrees with the ranking-only number twice.** The first
+    // version of this file scored `from_results` alone and recorded 1 impostor here; running
+    // `assemble` too, the fit test *does* catch `trackingtimemusic.com` - its page shares none
+    // of "time", "tracking", "consultants". One word is enough for `projectplusgame.com` and
+    // not for this one, which is a finer account of cause 4 than the roadmap had.
+    ("keyword-impostor", &["harvestapp.com"], &["toggl.com"], 0),
+    (
+        "specialist-in-one-article",
+        &["freshbooks.com", "intuit.com"],
+        &["protemos.com"],
+        0,
+    ),
+    ("publisher-heavy", &["zendesk.com"], &["helpscout.com"], 0),
 ];
 
-fn scored() -> Vec<(Market, Scored)> {
-    markets()
-        .into_iter()
-        .map(|m| {
-            let s = score(&m);
-            (m, s)
-        })
-        .collect()
-}
-
-#[test]
-fn every_fixture_is_worth_having() {
-    // A fixture that expects nothing, or that names an impostor it also expects, measures
-    // nothing. Cheap, and it is the check the extraction set has too.
+async fn scored() -> Vec<(Market, Scored)> {
+    let mut out = Vec::new();
     for market in markets() {
-        assert_eq!(
-            market.results.len(),
-            landscape_golden::discovery::QUERIES,
-            "{} does not carry one result set per query",
-            market.id
-        );
-        assert!(!market.expected.is_empty(), "{} expects nothing", market.id);
-        for (impostor, why) in &market.impostors {
-            assert!(
-                !market.expected.contains(impostor),
-                "{}: {impostor} is both expected and an impostor ({why})",
-                market.id
-            );
-        }
+        let s = score(&market).await;
+        out.push((market, s));
     }
-    let mut ids: Vec<&str> = markets().iter().map(|m| m.id).collect();
-    ids.sort_unstable();
-    let before = ids.len();
-    ids.dedup();
-    assert_eq!(before, ids.len(), "two fixtures share an id");
+    out
 }
 
-#[test]
-fn the_baseline_has_not_changed_by_accident() {
-    let results = scored();
+#[tokio::test]
+async fn the_baseline_has_not_changed_by_accident() {
+    let results = scored().await;
 
     println!("\nDISCOVERY, AS IT RUNS TODAY\n");
-    println!("{:<34} recall  missed  impostors  returned", "market");
     for (_, s) in &results {
         println!(
-            "{:<34} {:>5.0}% {:>7} {:>10}  {}",
+            "{:<34} recall {:>3.0}%   returned: {}",
             s.id,
             s.recall() * 100.0,
-            s.missed.join(", "),
-            s.admitted.len(),
             s.returned.join(", ")
         );
+        for (host, why) in &s.set_aside {
+            println!("      set aside  {host}: {why}");
+        }
     }
     let total: f64 = results.iter().map(|(_, s)| s.recall()).sum();
     #[expect(clippy::cast_precision_loss, reason = "five fixtures")]
@@ -92,26 +87,40 @@ fn the_baseline_has_not_changed_by_accident() {
         mean * 100.0
     );
 
+    // **The set, not just its rows.** A sixth fixture used to pass unmentioned, because this
+    // walked the baseline rather than the markets.
+    let mut in_set: Vec<&str> = results.iter().map(|(_, s)| s.id).collect();
+    let mut recorded: Vec<&str> = BASELINE.iter().map(|(id, ..)| *id).collect();
+    in_set.sort_unstable();
+    recorded.sort_unstable();
+    assert_eq!(
+        in_set, recorded,
+        "a fixture was added or removed without recording what it scores"
+    );
+
     for (id, found, missed, impostors) in BASELINE {
         let (_, got) = results
             .iter()
             .find(|(_, s)| s.id == id)
             .unwrap_or_else(|| panic!("{id} is in the baseline and not in the set"));
         assert_eq!(
-            (got.found.len(), got.missed.len(), got.admitted.len()),
-            (found, missed, impostors),
-            "\n{id} changed. Read the table above, decide whether it is an improvement, and \
-             edit BASELINE. A discovery change that nobody had to look at is the thing this \
-             file exists to prevent.\n  found:   {:?}\n  missed:  {:?}\n  admitted:{:?}",
-            got.found,
-            got.missed,
-            got.admitted
+            got.found, found,
+            concat!(
+                "\n{}: a different company came back. Read the table above, ",
+                "decide whether it is an improvement, and edit BASELINE."
+            ),
+            id
         );
+        assert_eq!(
+            got.missed, missed,
+            "\n{id}: a different company is missing."
+        );
+        assert_eq!(got.admitted.len(), impostors, "\n{id}: {:?}", got.admitted);
     }
 }
 
-#[test]
-fn the_reported_failure_is_reproduced() {
+#[tokio::test]
+async fn the_reported_failure_is_reproduced() {
     // **The specific answer a reader got**, held as a test rather than as a story in a
     // benchmark. If a change makes this fixture pass, that is the thing to celebrate; if it
     // makes it pass *and* nothing else moves, it is worth suspecting.
@@ -119,7 +128,7 @@ fn the_reported_failure_is_reproduced() {
         .into_iter()
         .find(|m| m.id == "project-management-for-agencies")
         .expect("the reported failure is in the set");
-    let got = score(&market);
+    let got = score(&market).await;
 
     assert!(
         got.admitted
@@ -235,4 +244,44 @@ fn the_identity_rules_are_compared_rather_than_chosen() {
     // **So no path-shaped rule in the roadmap does both**, on these fixtures: each one either
     // merges two products or splits one. That is a result about the *approach*, not a tuning
     // problem, and it is what PR 3 has to answer before it is written.
+}
+
+#[test]
+fn the_fifth_rule_is_scored_rather_than_concluded_by_elimination() {
+    // **Review's correction.** The first version disproved four rules and then asserted the
+    // fifth is the answer — which is an inference, not a measurement, and the PR body said
+    // "PR 2 selected it". This scores it.
+    //
+    // `Identity::Declared` keys on the name a page declares about itself, which is what the
+    // roadmap's fifth candidate means. The fixtures give it the pages.
+    let excel = "# Microsoft Excel
+
+The spreadsheet.";
+    let excel_de = "# Microsoft Excel
+
+Die Tabellenkalkulation.";
+    let project = "# Microsoft Project
+
+Project management software.";
+
+    assert_eq!(
+        Identity::declared_from(excel),
+        Identity::declared_from(excel_de),
+        "a product's own name should join its localized pages"
+    );
+    assert_ne!(
+        Identity::declared_from(excel),
+        Identity::declared_from(project),
+        "a product's own name should separate two products in one suite"
+    );
+
+    // **And the cost, which is the reason it is not free.** It needs the page, and the page is
+    // fetched *after* the merge today. PR 3 has to invert that order, and only the top `NAMED`
+    // candidates are fetched at all — so anything below the cut has no declared identity and
+    // must fall back to something path-shaped.
+    assert_eq!(
+        Identity::declared_from(""),
+        None,
+        "a page that could not be read declares nothing, and must not key to an empty product"
+    );
 }

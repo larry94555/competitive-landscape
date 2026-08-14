@@ -46,16 +46,16 @@ reader with 1026 tests passing over them. There is one now.
 Five fixtures, each holding one failure mode. The hits are written rather than recorded, so this
 runs on a laptop with no `SEARX_URL`; what it measures is **the logic**, not the world.
 
-| Fixture | Recall | Missed | Impostors |
-|---|---|---|---|
-| `project-management-for-agencies` | 67% | workamajig.com | 1 |
-| `one-product-many-urls` | 67% | airtable.com | 0 |
-| `keyword-impostor` | 50% | toggl.com | 1 |
-| `specialist-in-one-article` | 67% | protemos.com | 0 |
-| `publisher-heavy` | 100% | | 0 |
+| Fixture | Recall | Set aside, and why |
+|---|---|---|
+| `project-management-for-agencies` | 67% | workamajig.com, notion.so — uncorroborated |
+| `one-product-many-urls` | 67% | airtable.com — uncorroborated |
+| `keyword-impostor` | 50% | toggl.com — uncorroborated; trackingtimemusic.com — **caught by the fit test** |
+| `specialist-in-one-article` | 67% | protemos.com — uncorroborated |
+| `publisher-heavy` | 50% | helpscout.com — front page unreadable |
 
-**Mean recall 70%. Two impostors admitted.** Three of the four misses are one cause: a company
-returned by a single query is `Uncorroborated` and never reaches the reader.
+**Mean recall 60%. One impostor admitted.** **Five of the six exclusions are the same cause**: a
+company returned by a single query is `Uncorroborated` and never reaches the reader.
 
 **The tests pass while the answer is bad**, deliberately. A red suite is one people learn to
 ignore; what is wanted is a number a pull request has to move and cannot move by accident. The
@@ -70,6 +70,16 @@ edits it.
 came back from one query, so it is below `CORROBORATION` and excluded. Cause 3, surfacing in a
 fixture written to hold cause 4 — and the roadmap's guess was wrong about a case it had itself
 described one page earlier.
+
+**One and a half, found by review.** The first version of this scorer stopped at the ranking: it
+called `from_results` and applied the confidence floor, and never ran `describe` or `assemble`.
+**So it could not see PR 4 at all** — `SHARED_WORDS` lives in the stage it skipped, and the
+fixture documented as the one that would judge that change could not have moved. Running the
+real pipeline end to end changed two numbers: mean recall 70% —> **60%**, because a company
+whose page cannot be read is excluded as `Unread`; and impostors 2 —> **1**, because the fit
+test *does* catch `trackingtimemusic.com`. One shared word is enough for a board game that
+mentions *project deadlines* and not enough for a drum machine — a finer account of cause 4
+than the roadmap had.
 
 **Two, and this one changes the plan.** The roadmap lists five candidate rules for deciding two
 URLs are the same product. Four are path-shaped and now implemented as
@@ -86,10 +96,15 @@ URLs are the same product. Four are path-shaped and now implemented as
 containers* and it fails, because `microsoft-365` is a **suite** and suite names —
 `google-workspace`, `adobe-creative-cloud` — are not a list anybody can finish.
 
-So the answer is the fifth candidate: **the identity a page declares about itself**. That cannot
-be read from a URL, so PR 3 must fetch before it merges — inverting the order the pipeline runs
-in, and making it a larger change than the plan claimed. **Known now rather than discovered
-halfway through writing it.**
+So the answer is the fifth candidate: **the identity a page declares about itself**. Review
+pointed out that concluding this by eliminating four is an inference rather than a measurement,
+so it is implemented and scored too: `Identity::declared_from` joins a product's localized pages
+and separates two products in one suite, which no URL rule does.
+
+**Its cost is why it is not free.** It needs the page, and the page is fetched *after* the merge
+today — so PR 3 must invert that order. And only the top `NAMED` candidates are fetched at all,
+so anything below the cut has no declared identity and needs a path-shaped fallback. **A larger
+change than the plan claimed, known now rather than halfway through writing it.**
 
 ### What this does not measure
 

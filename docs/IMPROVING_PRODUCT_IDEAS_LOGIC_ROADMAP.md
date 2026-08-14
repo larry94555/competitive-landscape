@@ -27,8 +27,9 @@
 none will until PR 3. The percentage counts pull requests, not effort — PR 7 is larger than PRs
 3 to 6 together.
 
-**The baseline, measured rather than guessed:** mean recall **70%** across five fixtures, with
-**2 impostors admitted**. Every number in this plan from here is a move against those.
+**The baseline, measured rather than guessed:** mean recall **60%** across five fixtures, with
+**1 impostor admitted**, scored end to end through `assemble` rather than at the ranking. Every
+number in this plan from here is a move against those.
 
 ---
 
@@ -96,18 +97,18 @@ and the four-to-eight-minute wait is unjustifiable either way.
 
 #### What it measured, and the two things it corrected
 
-| Fixture | Recall | Missed | Impostors |
-|---|---|---|---|
-| `project-management-for-agencies` | 67% | workamajig.com | 1 |
-| `one-product-many-urls` | 67% | airtable.com | 0 |
-| `keyword-impostor` | 50% | toggl.com | 1 |
-| `specialist-in-one-article` | 67% | protemos.com | 0 |
-| `publisher-heavy` | 100% | | 0 |
+| Fixture | Recall | Set aside, and why |
+|---|---|---|
+| `project-management-for-agencies` | 67% | workamajig.com, notion.so — uncorroborated |
+| `one-product-many-urls` | 67% | airtable.com — uncorroborated |
+| `keyword-impostor` | 50% | toggl.com — uncorroborated; trackingtimemusic.com — **caught by the fit test** |
+| `specialist-in-one-article` | 67% | protemos.com — uncorroborated |
+| `publisher-heavy` | 50% | helpscout.com — front page unreadable |
 
-**Mean recall 70%, two impostors admitted.** Three of the five misses are the same cause: a
-company returned by one query is `Uncorroborated` and never reaches the reader.
+**Mean recall 60%. One impostor admitted.** **Five of the six exclusions are the same cause**: a
+company returned by a single query is `Uncorroborated` and never reaches the reader.
 
-**It corrected its author twice, before PR 3 was written.** That is the argument for the
+**It corrected its author three times, before PR 3 was written.** That is the argument for the
 sequencing, made by the sequencing:
 
 1. I predicted `keyword-impostor` would score (2 found, 0 missed) and it scores (1, 1). `toggl.com`
@@ -115,6 +116,13 @@ sequencing, made by the sequencing:
 2. **No path-shaped identity rule works** — see PR 3 below. I had leaned on
    *strip locales and containers*; it cannot tell Excel from Project, because `microsoft-365` is
    a **suite** and suite names are not a list anybody can finish.
+3. **The first scorer stopped at the ranking**, so it could not see the stage PR 4 changes at
+   all — and the fixture named here as the one that would judge PR 4 could not have moved.
+   Scoring end to end says the fit test *already* excludes `trackingtimemusic.com`: one shared
+   word is enough for a board game that mentions *project deadlines* and not enough for a drum
+   machine. **So `keyword-impostor` no longer holds an impostor to raise the bar against**, and
+   PR 4 needs a fixture that survives `SHARED_WORDS = 1` — which is now part of its scope
+   below, rather than an assumption it would have inherited.
 
 **Still to do in a later slice:** the six-question fill rate on ten real companies, which needs a
 model and a network and is not fixture-able.
@@ -208,6 +216,11 @@ this comparison is built on"*. The machinery is right. The number is **1**.
 passed.
 
 **The work is the test, not the plumbing:**
+
+**It needs a fixture first.** `keyword-impostor` was written to be this PR's judge and,
+measured, does not admit its impostor; `project-management-for-agencies` does, via
+`projectplusgame.com`. So this PR opens by adding a case that survives one shared word and only
+then moves the threshold — otherwise the number it claims to improve cannot move.
 
 - raise `SHARED_WORDS`, or weight words by how much they carry — *project* is a far weaker
   signal than *design agency*;

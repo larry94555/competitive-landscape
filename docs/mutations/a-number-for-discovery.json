@@ -1,9 +1,9 @@
 [
   {
-    "name": "the scorer ignores the confidence floor and scores everything found",
+    "name": "the market's own words never reach the fit test",
     "file": "crates/landscape-golden/src/discovery.rs",
-    "old": "        .filter(|f| f.confidence >= landscape_core::subject::MINIMUM_CONFIDENCE)\n",
-    "new": "",
+    "old": "    let described = describe(&found, &words, |url| {",
+    "new": "    let described = describe(&found, &[], |url| {",
     "run": [
       "cargo",
       "nextest",

@@ -36,12 +36,17 @@
 //! | `specialist-in-one-article` | The right answer, returned by exactly one query |
 //! | `publisher-heavy` | A result set that is almost entirely review sites |
 
-use landscape_search::candidates::{from_results, Found};
+use landscape_search::candidates::{describe, from_results, Found};
+use landscape_search::competitors::assemble;
 use landscape_search::Hit;
 
-/// How many queries a description sends per round. Mirrors `candidates::IDEA_QUERIES`, and the
-/// fixtures below carry exactly this many result sets.
-pub const QUERIES: usize = 3;
+/// How many queries a description sends per round.
+///
+/// **Taken from production, not written again.** It was `= 3`, a second copy of a public
+/// constant — so adding a query would have left these fixtures scoring against the old
+/// denominator with their shape check still passing. That is the duplicated-rule mistake this
+/// repository has a register entry about, committed in a file about measuring mistakes.
+pub const QUERIES: usize = landscape_search::candidates::IDEA_QUERIES;
 
 /// One description, what the engine returns for it, and what a careful person expects.
 #[derive(Debug, Clone)]
@@ -63,6 +68,23 @@ pub struct Market {
     /// Kept apart from *"anything not expected"* because precision alone cannot tell a
     /// defensible extra from a nonsense one, and these are the nonsense ones.
     pub impostors: Vec<(&'static str, &'static str)>,
+    /// Frozen front pages, keyed by URL, as markdown.
+    ///
+    /// **Without these the scorer stops at the ranking**, which is what the first version of
+    /// this file did — and review found that it therefore could not see PR 4 at all. Raising
+    /// `SHARED_WORDS` changes `assemble`, `assemble` reads what `describe` found on a page, and
+    /// with no pages neither runs. A fixture set that cannot move when the change it is named
+    /// for lands is not a measurement.
+    ///
+    /// A URL absent here is a page that could not be fetched, which is
+    /// `Vocabulary::Unreadable` — a state worth having in the set.
+    pub pages: Vec<(&'static str, &'static str)>,
+    /// The market's words, as `assemble` receives them.
+    ///
+    /// Fixture data, like `expected`: one careful reading of what this market is called, written
+    /// where it can be argued with. Production derives it from the engine's titles; deriving it
+    /// here would make the fixture depend on the step above the one being measured.
+    pub words: Vec<&'static str>,
 }
 
 /// A hit, written the way an engine would return one.
@@ -117,6 +139,27 @@ pub fn markets() -> Vec<Market> {
                 "projectplusgame.com",
                 "a board game; shares the word project and nothing else",
             )],
+            words: vec!["project", "management", "design", "agency"],
+            pages: vec![
+                ("https://www.microsoft.com/", "# Microsoft
+
+Cloud, computers, project management and more."),
+                ("https://asana.com/", "# Asana
+
+Project management for teams, including design agency work."),
+                // **The impostor's page, and why one word is not a test.** It shares `project`
+                // and sells a board game. `SHARED_WORDS = 1` admits it; that is what PR 4 has
+                // to move, and it can only be seen with this page in the set.
+                ("https://projectplusgame.com/", "# Project Plus
+
+A board game about project deadlines. Two to six players."),
+                ("https://www.workamajig.com/", "# Workamajig
+
+Project management built for a creative design agency."),
+                ("https://www.notion.so/", "# Notion
+
+Notes, docs and project management in one place."),
+            ],
         },
         Market {
             id: "one-product-many-urls",
@@ -137,6 +180,18 @@ pub fn markets() -> Vec<Market> {
             ],
             expected: vec!["microsoft.com", "google.com", "airtable.com"],
             impostors: vec![],
+            words: vec!["spreadsheet", "finance"],
+            pages: vec![
+                ("https://www.microsoft.com/", "# Microsoft
+
+Excel is the spreadsheet finance teams use."),
+                ("https://www.google.com/", "# Google
+
+Sheets is a spreadsheet for teams."),
+                ("https://www.airtable.com/", "# Airtable
+
+A spreadsheet-database for operations and finance."),
+            ],
         },
         Market {
             id: "keyword-impostor",
@@ -160,6 +215,18 @@ pub fn markets() -> Vec<Market> {
                 "trackingtimemusic.com",
                 "a drum machine; shares tracking and time, sells neither",
             )],
+            words: vec!["time", "tracking", "consultants"],
+            pages: vec![
+                ("https://www.harvestapp.com/", "# Harvest
+
+Time tracking and invoicing for consultants."),
+                ("https://toggl.com/", "# Toggl Track
+
+Time tracking for teams and consultants."),
+                ("https://trackingtimemusic.com/", "# TrackingTime
+
+A drum machine. Sequencing, kits and swing."),
+            ],
         },
         Market {
             id: "specialist-in-one-article",
@@ -181,6 +248,18 @@ pub fn markets() -> Vec<Market> {
             // fixture exists to hold that number honest rather than to be passed today.
             expected: vec!["freshbooks.com", "intuit.com", "protemos.com"],
             impostors: vec![],
+            words: vec!["invoicing", "freelance", "translators"],
+            pages: vec![
+                ("https://www.freshbooks.com/", "# FreshBooks
+
+Invoicing and accounting for freelance work."),
+                ("https://quickbooks.intuit.com/", "# QuickBooks
+
+Invoicing and books for small business."),
+                ("https://www.protemos.com/", "# Protemos
+
+Invoicing and project management for freelance translators."),
+            ],
         },
         Market {
             id: "publisher-heavy",
@@ -204,6 +283,15 @@ pub fn markets() -> Vec<Market> {
             ],
             expected: vec!["zendesk.com", "helpscout.com"],
             impostors: vec![],
+            words: vec!["customer", "support", "helpdesk"],
+            pages: vec![
+                ("https://www.zendesk.com/", "# Zendesk
+
+Customer support and helpdesk software."),
+                // **Deliberately absent: `helpscout.com`.** A page that could not be fetched is
+                // `Vocabulary::Unreadable`, and a set with no unreadable page in it cannot tell
+                // *we could not check* from *we checked and it failed*.
+            ],
         },
     ]
 }
@@ -212,7 +300,7 @@ pub fn markets() -> Vec<Market> {
 #[derive(Debug, Clone)]
 pub struct Scored {
     pub id: &'static str,
-    /// The hosts that survived the confidence floor, best first.
+    /// The hosts in the finished set, best first. **What a reader would be shown.**
     pub returned: Vec<String>,
     /// Expected hosts that came back.
     pub found: Vec<&'static str>,
@@ -220,6 +308,11 @@ pub struct Scored {
     pub missed: Vec<&'static str>,
     /// Impostors that came back, with why each is one.
     pub admitted: Vec<(&'static str, &'static str)>,
+    /// Every host that was excluded, with the sentence a reader would be given.
+    ///
+    /// **The half a count cannot show.** Two changes can both raise recall by one and leave the
+    /// set aside for entirely different reasons, and only one of them is an improvement.
+    pub set_aside: Vec<(String, String)>,
 }
 
 impl Scored {
@@ -237,18 +330,42 @@ impl Scored {
     }
 }
 
-/// Run the real ranking over a fixture's hits.
+/// Run the real pipeline over a fixture, from the hits to the set a reader would see.
 ///
-/// **The real functions, not a copy of them.** `from_results` and the confidence floor are what
-/// decide the answer in production; a scorer that reimplemented either would measure itself.
-#[must_use]
-pub fn score(market: &Market) -> Scored {
+/// **The real functions at every stage, not a copy of any of them.** `from_results` ranks,
+/// `describe` reads each candidate's frozen page, and `assemble` admits or excludes on
+/// `SHARED_WORDS`. A scorer that stopped at the ranking """ + D + """ which the first version of this
+/// did """ + D + """ cannot see PR 4 at all, because `SHARED_WORDS` lives in the stage it skipped.
+pub async fn score(market: &Market) -> Scored {
     let found: Vec<Found> = from_results(&market.results, QUERIES);
-    let returned: Vec<String> = found
+    let words: Vec<String> = market.words.iter().map(|w| (*w).to_owned()).collect();
+
+    let described = describe(&found, &words, |url| {
+        let pages = &market.pages;
+        async move {
+            let host = landscape_fetch::Target::parse(&url)
+                .ok()
+                .map(|t| landscape_search::candidates::registrable(&t.host));
+            pages
+                .iter()
+                .find(|(at, _)| {
+                    landscape_fetch::Target::parse(at)
+                        .ok()
+                        .map(|t| landscape_search::candidates::registrable(&t.host))
+                        == host
+                })
+                .map(|(_, page)| (*page).to_owned())
+        }
+    })
+    .await;
+
+    let set = assemble(described, QUERIES, &words);
+    let returned: Vec<String> = set
+        .members
         .iter()
-        .filter(|f| f.confidence >= landscape_core::subject::MINIMUM_CONFIDENCE)
-        .map(|f| f.host.clone())
+        .map(|m| m.candidate.canonical_domain.clone())
         .collect();
+
     Scored {
         id: market.id,
         found: market
@@ -268,6 +385,11 @@ pub fn score(market: &Market) -> Scored {
             .iter()
             .copied()
             .filter(|(host, _)| returned.iter().any(|r| r == host))
+            .collect(),
+        set_aside: set
+            .set_aside
+            .iter()
+            .map(|(c, why)| (c.canonical_domain.clone(), why.sentence()))
             .collect(),
         returned,
     }
@@ -322,6 +444,23 @@ fn is_locale(segment: &str) -> bool {
 }
 
 impl Identity {
+    /// The name a page declares about itself — the roadmap's fifth candidate.
+    ///
+    /// **Not a URL rule, which is the whole point.** The four rules above are functions of a
+    /// URL and each one either merges two products or splits one; this is a function of the
+    /// *page*, which is why it can do both and why it costs a fetch before the merge.
+    ///
+    /// The first heading stands in for what production would read — a canonical link, an
+    /// `og:title`, or the `<h1>`. `None` for a page that says nothing, because a page that could
+    /// not be read declares no identity and must not key to the empty string.
+    #[must_use]
+    pub fn declared_from(page: &str) -> Option<String> {
+        page.lines()
+            .find_map(|line| line.strip_prefix("# "))
+            .map(|name| name.trim().to_lowercase())
+            .filter(|name| !name.is_empty())
+    }
+
     /// The key this rule gives a URL. `None` when the URL cannot be parsed.
     #[must_use]
     pub fn key_for(self, url: &str) -> Option<String> {
