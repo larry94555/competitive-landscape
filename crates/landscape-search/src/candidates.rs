@@ -976,7 +976,11 @@ fn naming(host: &str, markdown: &str) -> (String, String) {
 ///
 /// A host the list cannot place at all — `localhost`, a bare label — is returned lowercased and
 /// unchanged rather than guessed at.
-pub(crate) fn registrable(host: &str) -> String {
+/// **Public so the golden set can use the real one.** `landscape-golden`'s discovery fixtures
+/// score what this pipeline decides, and a scorer carrying its own copy of this rule would be
+/// measuring itself rather than the code — which is the defect that put four causes in front
+/// of a reader with 1026 tests passing.
+pub fn registrable(host: &str) -> String {
     let lowered = host.trim().trim_end_matches('.').to_lowercase();
     if lowered.parse::<std::net::IpAddr>().is_ok() {
         return lowered;

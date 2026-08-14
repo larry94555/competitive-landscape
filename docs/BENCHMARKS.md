@@ -33,6 +33,114 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 51 — the first number discovery has ever had
+
+**Date:** 2026-08-14 — **Where:** this laptop, no engine and no model needed — **Model:** none.
+
+`IMPROVING_PRODUCT_IDEAS_LOGIC_ROADMAP.md` PR 2. There has been a golden set for *extraction*
+since Phase 0 and none at all for *discovery*, which is why four independent causes reached a
+reader with 1026 tests passing over them. There is one now.
+
+### The baseline
+
+Five fixtures, each holding one failure mode. The hits are written rather than recorded, so this
+runs on a laptop with no `SEARX_URL`; what it measures is **the logic**, not the world.
+
+| Fixture | Recall | Set aside, and why |
+|---|---|---|
+| `project-management-for-agencies` | 67% | workamajig.com, notion.so — uncorroborated |
+| `one-product-many-urls` | 67% | airtable.com — uncorroborated |
+| `keyword-impostor` | 50% | toggl.com — uncorroborated; trackingtimemusic.com — **caught by the fit test** |
+| `specialist-in-one-article` | 67% | protemos.com — uncorroborated |
+| `publisher-heavy` | 50% | helpscout.com — front page unreadable |
+
+**Mean recall 60%. One impostor admitted.** **Seven companies were set aside.** One of them is
+`trackingtimemusic.com`, correctly — the fit test caught it. Of the six that should have been in
+an answer, **five are the same cause**: returned by a single query, `Uncorroborated`, never
+reaching the reader. The sixth is `helpscout.com`, `Unread`.
+
+**The tests pass while the answer is bad**, deliberately. A red suite is one people learn to
+ignore; what is wanted is a number a pull request has to move and cannot move by accident. The
+baseline is recorded in `baseline()`, and changing discovery fails the test until somebody reads
+the table and edits it.
+
+**What the baseline records is exact, and it took two review rounds to get there.** It began as
+three counts per fixture, which passed when *which* company came back changed. It then recorded
+the found and missed lists and still counted impostors and ignored exclusions — so swapping
+which impostor got in, or an expected company sliding from `Uncorroborated` to `Unread`, stayed
+green. Both are the accidental change this file exists to catch. It now records the exact hosts
+and the **typed** `Aside` for every exclusion — typed rather than its sentence, so a wording
+change cannot fail a test about discovery.
+
+### It corrected its author four times, before the next PR was written
+
+**That is the whole argument for measuring first, made by the measurement.**
+
+**One.** I predicted `keyword-impostor` at (2 found, 0 missed) and it scores (1, 1). `toggl.com`
+came back from one query, so it is below `CORROBORATION` and excluded. Cause 3, surfacing in a
+fixture written to hold cause 4 — and the roadmap's guess was wrong about a case it had itself
+described one page earlier.
+
+**One and a half, found by review.** The first version of this scorer stopped at the ranking: it
+called `from_results` and applied the confidence floor, and never ran `describe` or `assemble`.
+**So it could not see PR 4 at all** — `SHARED_WORDS` lives in the stage it skipped, and the
+fixture documented as the one that would judge that change could not have moved. Running the
+real pipeline end to end changed two numbers: mean recall 70% —> **60%**, because a company
+whose page cannot be read is excluded as `Unread`; and impostors 2 —> **1**, because the fit
+test *does* catch `trackingtimemusic.com`. One shared word is enough for a board game that
+mentions *project deadlines* and not enough for a drum machine — a finer account of cause 4
+than the roadmap had.
+
+**Two, and this one changes the plan.** The roadmap lists five candidate rules for deciding two
+URLs are the same product. Four are path-shaped and now implemented as
+`discovery::Identity`; the fixtures score them:
+
+| Rule | Joins one product's pages? | Separates two products in a suite? |
+|---|---|---|
+| Domain (today) | Yes | **No** — this is cause 2 |
+| First path segment | **No**, splits on locale | **No**, groups on locale |
+| First meaningful segment | Yes | **No** — both key to `microsoft.com/microsoft-365` |
+| Last path segment | **No**, splits `/excel` from `/excel/pricing` | Yes |
+
+**Each one either merges two products or splits one.** I had leaned on *strip locales and
+containers* and it fails, because `microsoft-365` is a **suite** and suite names —
+`google-workspace`, `adobe-creative-cloud` — are not a list anybody can finish.
+
+So the answer is the fifth candidate: **the vendor's domain plus the identity a page declares
+about itself**. Review corrected this twice. First: concluding it by eliminating four others is
+an inference, not a measurement — so `Identity::declared_for` is implemented and scored.
+Second, and worse: the first implementation keyed on **the declared name alone**, so two vendors
+who both call their product *Invoicing* merged into one company. That is a wider failure than the
+domain-collapse it replaces, because it crosses a vendor boundary, and no fixture could catch it
+while the only pair compared was two Microsoft products on one domain.
+
+Every case is now scored on `Market::product_pages` — pages of URLs the fixtures' own queries
+returned, asserted to be so by `no_page_is_evidence_the_engine_never_returned`:
+
+| Case | Two locales of one product | Two products of one suite | A product and its pricing page | One name, two vendors |
+|---|---|---|---|---|
+| Result | joined | apart | joined | apart |
+
+**Its cost is why it is not free.** It needs the page, and the page is fetched *after* the merge
+today — so PR 3 must invert that order. And only the top `NAMED` candidates are fetched at all,
+so anything below the cut has no declared identity and needs a path-shaped fallback. **A larger
+change than the plan claimed, known now rather than halfway through writing it.**
+
+### What this does not measure
+
+**Whether a real engine returns these URLs for these prompts.** The fixtures are hand-written and
+say so; the live half is a `--ignored` companion nobody has written yet.
+
+**Whether the six questions fill.** The number this plan depends on most — what fraction of the
+six sections a real company actually produces — needs a model and a network. Still owed.
+
+| | Rust tests | frontend tests | catalog |
+|---|---|---|---|
+| Run 50 | 1026 | 139 | no code changed |
+| now | **1031** | **139** | **6**, all caught |
+
+---
+
 ## Run 50 — two companies, and why they were the wrong two
 
 **Date:** 2026-08-13 — **Where:** the deployed instance, with a real engine answering at last

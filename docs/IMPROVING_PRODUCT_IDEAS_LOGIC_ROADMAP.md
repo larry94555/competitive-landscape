@@ -19,12 +19,17 @@
 | | |
 |---|---|
 | **Pull requests in this plan** | **7** |
-| **Done** | **1** |
-| **Remaining** | **6** |
-| **Complete** | **14%** |
+| **Done** | **2** |
+| **Remaining** | **5** |
+| **Complete** | **29%** |
 
-**This document and the logic document are PR 1.** No behavior has changed yet. The percentage
-counts pull requests, not effort — PR 7 is larger than PRs 3 to 6 together.
+**PR 1 is the two documents; PR 2 is the discovery golden set.** No behavior has changed yet and
+none will until PR 3. The percentage counts pull requests, not effort — PR 7 is larger than PRs
+3 to 6 together.
+
+**The baseline, measured rather than guessed:** mean recall **60%** across five fixtures, with
+**1 impostor admitted**, scored end to end through `assemble` rather than at the ranking. Every
+number in this plan from here is a move against those.
 
 ---
 
@@ -56,7 +61,7 @@ which is the kind of claim that makes a plan look further along than it is.
 | PR | What | Where | Status |
 |---|---|---|---|
 | 1 | **This document and the logic document** | `docs/` | **Done** |
-| 2 | **A golden set for discovery** | new `landscape-golden` fixtures | To do |
+| 2 | **A golden set for discovery** | `landscape-golden::discovery` | **Done** |
 | 3 | **Product-level candidates** — identity rule chosen by PR 2 | `candidates::from_results`, `describe` | To do |
 | 4 | **Raise the fit test above one word** | `competitors::SHARED_WORDS`, `assemble` | To do |
 | 5 | **Candidates from page content** | new `candidates::named_in` | To do |
@@ -88,7 +93,41 @@ companies a careful person would expect, checked by hand, once.
 
 **And one number this plan depends on:** what fraction of the six questions actually fill on ten
 real companies. If it is low, better discovery delivers the right companies to an empty report,
-and the four-to-eight-minute wait is unjustifiable either way. Measure it here, before building.
+and the four-to-eight-minute wait is unjustifiable either way.
+
+#### What it measured, and the two things it corrected
+
+| Fixture | Recall | Set aside, and why |
+|---|---|---|
+| `project-management-for-agencies` | 67% | workamajig.com, notion.so — uncorroborated |
+| `one-product-many-urls` | 67% | airtable.com — uncorroborated |
+| `keyword-impostor` | 50% | toggl.com — uncorroborated; trackingtimemusic.com — **caught by the fit test** |
+| `specialist-in-one-article` | 67% | protemos.com — uncorroborated |
+| `publisher-heavy` | 50% | helpscout.com — front page unreadable |
+
+**Mean recall 60%. One impostor admitted.** **Seven companies were set aside.** One of them is
+`trackingtimemusic.com`, correctly — the fit test caught it. Of the six that should have been in
+an answer, **five are the same cause**: returned by a single query, `Uncorroborated`, never
+reaching the reader. The sixth is `helpscout.com`, `Unread`.
+
+**It corrected its author three times, before PR 3 was written.** That is the argument for the
+sequencing, made by the sequencing:
+
+1. I predicted `keyword-impostor` would score (2 found, 0 missed) and it scores (1, 1). `toggl.com`
+   came back from one query. Cause 3, surfacing in a fixture written for cause 4.
+2. **No path-shaped identity rule works** — see PR 3 below. I had leaned on
+   *strip locales and containers*; it cannot tell Excel from Project, because `microsoft-365` is
+   a **suite** and suite names are not a list anybody can finish.
+3. **The first scorer stopped at the ranking**, so it could not see the stage PR 4 changes at
+   all — and the fixture named here as the one that would judge PR 4 could not have moved.
+   Scoring end to end says the fit test *already* excludes `trackingtimemusic.com`: one shared
+   word is enough for a board game that mentions *project deadlines* and not enough for a drum
+   machine. **So `keyword-impostor` no longer holds an impostor to raise the bar against**, and
+   PR 4 needs a fixture that survives `SHARED_WORDS = 1` — which is now part of its scope
+   below, rather than an assumption it would have inherited.
+
+**Still to do in a later slice:** the six-question fill rate on ten real companies, which needs a
+model and a network and is not fixture-able.
 
 ### PR 3 — Product-level candidates
 
@@ -136,9 +175,38 @@ the corroboration failure it was written to prevent. Review caught it.
 | Domain + the product name read from the page | Needs the page *before* the merge, inverting the order the pipeline runs in |
 | Domain + a canonical link or `og:title` the page declares | Only as good as what sites declare, which is uneven |
 
-**None is obviously right, and that is the finding.** Guessing between them is the same move that
-produced Microsoft. PR 2 exists to make this measurable, and this is the first thing it should be
-pointed at.
+### PR 2 ran them, and none of the path-shaped rules works
+
+`landscape_golden::discovery::Identity` implements four of the five and the fixtures score them.
+The result is not *"one is best"*:
+
+| Rule | Joins one product's pages? | Separates two products in a suite? |
+|---|---|---|
+| Domain (today) | Yes | **No** — this is cause 2 |
+| First path segment | **No** — splits on locale | **No** — groups on locale |
+| First meaningful segment | Yes | **No** — both key to `microsoft.com/microsoft-365` |
+| Last path segment | **No** — splits `/excel` from `/excel/pricing` | Yes |
+
+**Each one either merges two products or splits one.** That is a result about the approach rather
+than a threshold to tune, and it says the answer is the fifth candidate: **the vendor's domain
+plus the identity the page declares about itself** — a canonical link, an `og:title`, the product
+name in its own words. That cannot be decided from a URL, so PR 3 has to fetch before it merges,
+which inverts the order the pipeline runs in today.
+
+**The domain half is not decoration, and leaving it out was a real defect.** `Identity::declared_for`
+first keyed on the declared name alone, and review found what that does: two vendors who both
+call their product *Invoicing* become one company. **That is a wider failure than the
+domain-collapse it replaces** — this one crosses a vendor boundary. `specialist-in-one-article`
+now holds the pair, and the rule is scored on four cases, every one of them a page of a URL the
+fixtures' own queries returned:
+
+| Case | Two locales of one product | Two products of one suite | A product and its pricing page | One name, two vendors |
+|---|---|---|---|---|
+| Required | joined | apart | joined | apart |
+
+**PR 3 is therefore larger than this plan first said, and its shape is now known rather than
+assumed.** The assertions are in `tests/discovery.rs`; a rule that ever passes both columns of
+the table above will fail that test and have to be argued for.
 
 **And a rule for the root, which is safe whichever wins.** When the evidence URL is the domain
 root — `asana.com` — the company and the product are one thing and one name is right. Only a
@@ -161,6 +229,11 @@ this comparison is built on"*. The machinery is right. The number is **1**.
 passed.
 
 **The work is the test, not the plumbing:**
+
+**It needs a fixture first.** `keyword-impostor` was written to be this PR's judge and,
+measured, does not admit its impostor; `project-management-for-agencies` does, via
+`projectplusgame.com`. So this PR opens by adding a case that survives one shared word and only
+then moves the threshold — otherwise the number it claims to improve cannot move.
 
 - raise `SHARED_WORDS`, or weight words by how much they carry — *project* is a far weaker
   signal than *design agency*;

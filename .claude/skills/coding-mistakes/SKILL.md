@@ -2730,6 +2730,65 @@ become an alibi.
 **Ask, of any fixture:** *would the thing that really builds this ever produce it?* The cheap
 version is to take one from a real run and paste it in.
 
+## 68. A measurement that stopped one stage before the thing it was measuring
+
+**Found:** by review, on the pull request that added it.
+
+I built a golden set to score discovery, so that the six changes planned after it would have a
+number to move. Its scorer called `from_results` — the ranking — and returned. `describe` and
+`assemble` ran nowhere in it.
+
+**`SHARED_WORDS` lives in `assemble`.** One of the six planned changes is *raise the fit test
+above one shared word*, and the same document named one fixture as the case that would judge it.
+That fixture could not have moved. The harness would have reported the change as having no
+effect, and the honest reading of no effect is *do not ship it*.
+
+**The shape: a harness that covers the stages it was easy to call, and is named for the pipeline.**
+Nothing was wrong with the code it ran. What was wrong is that the boundary of the measurement
+was set by convenience and then described as if it were set by the subject — so every later
+argument treated a number about ranking as a number about discovery.
+
+**Both corrections were downward.** Recall 70% —> 60%, because a company whose front page cannot
+be read is excluded, and only `assemble` knows that. Impostors 2 —> 1, because the fit test does
+catch one of them. **The second is the expensive one:** it means the planned change now has no
+fixture that fails without it, and finding that out from a merged PR would have cost the change
+itself, not just the number.
+
+**Ask, of any harness that scores a pipeline:** *name the last function it calls, and the first
+one it does not.* Then check that nothing between there and the end is something a planned change
+touches. If the harness cannot see the stage a roadmap says it will judge, it is not a baseline
+for that roadmap.
+
+### The same error twice more, in the same file, found by the same reviewer
+
+**A key that dropped half of what it identified.** The rule chosen to replace *"a domain is a
+product"* was, in the plan's own words, *the vendor's domain plus the name the page declares*. I
+implemented it as the declared name alone — and every test I wrote compared two products on
+**one** domain, so nothing could see it. Two vendors who both call their product *Invoicing*
+merged into one company: **a wider failure than the one being fixed**, because it crosses a
+vendor boundary, which the old rule never did.
+
+**Ask, of a key built from two parts:** *write the test where the parts disagree.* Same name,
+different owner; same owner, different name. A test that varies one field at a time cannot fail
+on a key that ignores the other.
+
+**And a baseline that recorded only what was easy to compare.** It held counts; corrected, it
+held the found and missed lists — and still counted impostors and ignored exclusions entirely.
+So swapping *which* impostor got in, or an expected company sliding from `Uncorroborated` to
+`Unread`, both stayed green — and the second is a real regression with a different fix. It now
+records the exact hosts and the **typed** reason. **Typed rather than the sentence**: comparing
+presentation strings would make a wording change fail a test about discovery, which teaches
+people to edit the expectation without reading it.
+
+### The related failure, in the same file
+
+`QUERIES` was `3`, written by hand, beside `IDEA_QUERIES = 3` in the crate it scores. And the
+baseline held **counts** — so swapping *which* expected company came back left every count equal
+and passed, and a sixth fixture passed unmentioned because the loop walked the recorded list
+rather than the set. Both are the same error as the first: **a check whose scope is narrower than
+its name**, and in all three cases the fix is to derive the scope from the thing rather than
+restate it.
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

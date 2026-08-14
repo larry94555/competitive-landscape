@@ -1,0 +1,80 @@
+[
+  {
+    "name": "the market's own words never reach the fit test",
+    "file": "crates/landscape-golden/src/discovery.rs",
+    "old": "    let described = describe(&found, &words, |url| {",
+    "new": "    let described = describe(&found, &[], |url| {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "recall counts a miss as a find",
+    "file": "crates/landscape-golden/src/discovery.rs",
+    "old": "            .filter(|e| !returned.iter().any(|r| r == e))",
+    "new": "            .filter(|e| returned.iter().any(|r| r == e))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "an impostor that got in is not reported",
+    "file": "crates/landscape-golden/src/discovery.rs",
+    "old": "            .filter(|(host, _)| returned.iter().any(|r| r == host))",
+    "new": "            .filter(|(host, _)| !returned.iter().any(|r| r == host))",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a locale is treated as a product name",
+    "file": "crates/landscape-golden/src/discovery.rs",
+    "old": "                .find(|s| !is_locale(s) && !CONTAINERS.contains(&s.to_lowercase().as_str())),",
+    "new": "                .find(|s| !CONTAINERS.contains(&s.to_lowercase().as_str())),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "the declared identity forgets which vendor declared it",
+    "file": "crates/landscape-golden/src/discovery.rs",
+    "old": "        Some(format!(\"{host}#{name}\"))",
+    "new": "        Some(name)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a page that declares nothing keys to the vendor's domain alone",
+    "file": "crates/landscape-golden/src/discovery.rs",
+    "old": "            .filter(|name| !name.is_empty())?;",
+    "new": "            .unwrap_or_default();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-golden"
+    ]
+  }
+]

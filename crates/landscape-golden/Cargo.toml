@@ -15,6 +15,8 @@ description = "Fixed pages, known answers, and a score. What constrained decodin
 [dependencies]
 landscape-core.workspace = true
 landscape-extract.workspace = true
+landscape-fetch.workspace = true
+landscape-search.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 

@@ -1027,7 +1027,9 @@ version = "0.1.0"
 dependencies = [
  "landscape-core",
  "landscape-extract",
+ "landscape-fetch",
  "landscape-llm",
+ "landscape-search",
  "serde",
  "serde_json",
  "tokio",

@@ -40,6 +40,7 @@
 //!   cargo test -p landscape-golden -- --ignored --nocapture   # scores a model
 //! ```
 
+pub mod discovery;
 pub mod pages;
 
 use std::path::{Path, PathBuf};
