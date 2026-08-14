@@ -2789,6 +2789,33 @@ rather than the set. Both are the same error as the first: **a check whose scope
 its name**, and in all three cases the fix is to derive the scope from the thing rather than
 restate it.
 
+## 69. The baseline could not see the change it was built to judge
+
+**Found:** by predicting the numbers before running them, on the change itself.
+
+Entry 68 is about a harness that stopped one stage short. This is the same file, one change
+later, failing in the other direction: the harness ran the whole pipeline and **recorded the
+wrong things about it**.
+
+The change makes a candidate a *product* rather than a *domain* — so a suite page and a chat
+page on one vendor's domain stop corroborating each other. Its whole effect is on **which
+company is first** and **what each one is called**. The baseline recorded recall, misses and
+impostors, all keyed on host. Every host in every answer was the same host before and after.
+
+**So the scorecard would have said the change did nothing**, and the honest reading of *nothing*
+is *do not ship it*.
+
+**The shape: a measurement whose unit is coarser than the defect.** Recall is a set question and
+cause 2 is an ordering-and-naming question; no amount of running recall more carefully answers
+it. This is not a bug in the harness — every number it produced was correct — which is what makes
+it hard to notice.
+
+**Ask, before writing a change against a baseline:** *write down the row you expect to move, and
+its new value.* If you cannot name one, the baseline cannot judge this change and needs a new
+column before the change is worth writing. Here that column is the ordered set and the name of
+every member, and adding it took ten minutes; discovering the gap from a merged pull request
+would have cost the argument for the change.
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

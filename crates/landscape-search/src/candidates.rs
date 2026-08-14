@@ -291,6 +291,13 @@ pub struct Found {
     /// becomes the company's name — a reader offered *"Pricing"* as one of three companies to
     /// choose between. The home page is built from [`Self::host`] instead.
     pub shallowest: String,
+    /// What the page at [`Self::shallowest`] calls itself, when it was read before the merge.
+    ///
+    /// `None` is the ordinary case and means *nobody has read a page for this candidate* — a
+    /// domain returned at its own root, a run out of [`crate::products::SPLIT_BUDGET`], or a
+    /// page that came back empty. [`describe`] then does what it always did and reads the front
+    /// page. See [`crate::products`] for why the read has to happen before the grouping.
+    pub declared: Option<crate::products::Declared>,
 }
 
 /// A candidate after its own front page has been read.
@@ -475,6 +482,9 @@ pub fn from_results(results: &[Vec<Hit>], asked: usize) -> Vec<Found> {
             host,
             agreed,
             shallowest,
+            // **Nothing is read here and nothing should be.** This is the pure half and it
+            // groups by domain; [`crate::products::split`] reads a page and regroups by product.
+            declared: None,
         })
         .collect();
     // Highest first, then by host so a tie is stable rather than however the map iterated —
@@ -551,6 +561,23 @@ where
 {
     let mut out = Vec::with_capacity(found.len());
     for (rank, one) in found.iter().enumerate() {
+        // **A page already read is not read again, and is never reported as unread.** When
+        // [`crate::products::split`] identified this candidate, it did so from the page the
+        // search actually returned — which is a better answer to *what is this* than the
+        // domain's front page, and is already paid for.
+        if let Some(declared) = &one.declared {
+            out.push(Described {
+                candidate: Candidate {
+                    name: declared.name.clone(),
+                    canonical_domain: one.host.clone(),
+                    what_it_is: declared.what_it_is.clone(),
+                    confidence: one.confidence,
+                },
+                agreed: one.agreed,
+                shares: Vocabulary::Read(crate::competitors::shared(words, &declared.page)),
+            });
+            continue;
+        }
         // **Every candidate comes back; only the first [`NAMED`] cost somebody a request.** The
         // rest carry [`Vocabulary::NotRequested`] rather than being dropped, because a company
         // that never reaches [`crate::competitors::assemble`] is one nothing can report as
@@ -869,6 +896,12 @@ where
     Fut: std::future::Future<Output = Option<String>>,
 {
     let found = from_results(results, queried.sent());
+    // **The merge happens after a page is read, not before.** This is the inversion PR 3 of
+    // `IMPROVING_PRODUCT_IDEAS_LOGIC_ROADMAP.md` is: a domain that sells four things is not one
+    // candidate that four queries agreed about. Bounded by
+    // [`crate::products::SPLIT_BUDGET`], and a no-op for every domain a search returned at its
+    // own root — which is most of them.
+    let found = crate::products::split(found, queried.sent(), results, &fetch).await;
     let words = crate::competitors::content_words(description);
     let named = describe(&found, &words, fetch).await;
     // **Two consumers, two lists, and the difference is deliberate.** The set gets everything
@@ -921,7 +954,7 @@ fn home_page(host: &str) -> String {
 /// The heading is the name; the first sentence of prose under it is the distinguisher. Both come
 /// from the page, so a reader choosing between two candidates is reading what each company says
 /// about itself rather than what an engine said about them.
-fn naming(host: &str, markdown: &str) -> (String, String) {
+pub(crate) fn naming(host: &str, markdown: &str) -> (String, String) {
     let mut lines = markdown.lines().map(str::trim).filter(|l| !l.is_empty());
     let name = lines
         .by_ref()
@@ -995,7 +1028,7 @@ pub fn registrable(host: &str) -> String {
 ///
 /// Suffix-matched on a label boundary, so `blog.medium.com` is excluded and `mediumroast.com` is
 /// not — the same whole-token rule the trust scanner needed, for the same reason.
-fn is_not_a_company(host: &str) -> bool {
+pub(crate) fn is_not_a_company(host: &str) -> bool {
     // **A raw address is not a company.** Nobody publishes a company at `93.184.216.34`, and
     // offering one as a choice a reader makes between five names is offering nonsense. Keeping
     // them out here rather than in `registrable` also means [`home_page`] never has to decide
@@ -1009,7 +1042,7 @@ fn is_not_a_company(host: &str) -> bool {
 }
 
 /// How many path segments a URL has. `https://a.com/` is 0.
-fn depth(url: &str) -> usize {
+pub(crate) fn depth(url: &str) -> usize {
     let after_scheme = url.split_once("://").map_or(url, |(_, rest)| rest);
     let path = after_scheme
         .split_once('/')
@@ -1234,6 +1267,7 @@ mod tests {
             confidence: 0.9,
             agreed: 3,
             shallowest: "https://usefathom.com/".to_owned(),
+            declared: None,
         }];
         let described = describe(&found, &[], |_url| async {
             Some(
@@ -1293,6 +1327,7 @@ mod tests {
             confidence: 0.5,
             agreed: 1,
             shallowest: "https://unreachable.example/".to_owned(),
+            declared: None,
         }];
         let described = describe(&found, &["analytics".to_owned()], |_url| async { None }).await;
         assert_eq!(described.len(), 1);
@@ -1316,6 +1351,7 @@ mod tests {
                 confidence: 0.5,
                 agreed: 1,
                 shallowest: format!("https://c{i}.example/"),
+                declared: None,
             })
             .collect();
         let fetched = std::sync::Arc::new(std::sync::Mutex::new(0usize));
@@ -1496,6 +1532,7 @@ It does a thing for other companies."
             confidence: 0.9,
             agreed: 3,
             shallowest: "https://usefathom.com/pricing".to_owned(),
+            declared: None,
         }];
         let asked = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
         let seen = std::sync::Arc::clone(&asked);

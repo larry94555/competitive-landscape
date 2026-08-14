@@ -2,8 +2,8 @@
   {
     "name": "the market's own words never reach the fit test",
     "file": "crates/landscape-golden/src/discovery.rs",
-    "old": "    let described = describe(&found, &words, |url| {",
-    "new": "    let described = describe(&found, &[], |url| {",
+    "old": "    let described = describe(&found, &words, fetch).await;",
+    "new": "    let described = describe(&found, &[], fetch).await;",
     "run": [
       "cargo",
       "nextest",
@@ -52,23 +52,10 @@
     ]
   },
   {
-    "name": "the declared identity forgets which vendor declared it",
+    "name": "the scorer never splits a domain into products",
     "file": "crates/landscape-golden/src/discovery.rs",
-    "old": "        Some(format!(\"{host}#{name}\"))",
-    "new": "        Some(name)",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-golden"
-    ]
-  },
-  {
-    "name": "a page that declares nothing keys to the vendor's domain alone",
-    "file": "crates/landscape-golden/src/discovery.rs",
-    "old": "            .filter(|name| !name.is_empty())?;",
-    "new": "            .unwrap_or_default();",
+    "old": "    let found = landscape_search::products::split(found, QUERIES, &market.results, &fetch).await;",
+    "new": "",
     "run": [
       "cargo",
       "nextest",

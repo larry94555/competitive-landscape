@@ -23,6 +23,12 @@ use landscape_search::competitors::Aside;
 /// changes this file claims to catch.
 struct Recorded {
     id: &'static str,
+    /// **In order**, because the order is what a reader reads first. PR 3 changed nothing about
+    /// *which* companies come back for the reported failure and everything about which one is
+    /// first, and a set comparison would have called that no change at all.
+    returned: Vec<&'static str>,
+    /// What each company is **called**, by domain. The number PR 3 moves.
+    named: Vec<(&'static str, &'static str)>,
     found: Vec<&'static str>,
     missed: Vec<&'static str>,
     admitted: Vec<&'static str>,
@@ -51,8 +57,19 @@ fn elsewhere(words: &[&str]) -> Aside {
 /// yet.
 fn baseline() -> Vec<Recorded> {
     vec![
+        // **PR 3 moved this fixture and left recall alone**, which is the case the scorecard
+        // was nearly too coarse to see. Microsoft was first, named *Microsoft*, on three queries
+        // - two Project pages and one Teams page. Read before the merge, Project agreed with two
+        // and Teams with one, so the candidate is Microsoft Project on the agreement Project
+        // earned, and Asana leads.
         Recorded {
             id: "project-management-for-agencies",
+            returned: vec!["asana.com", "projectplusgame.com", "microsoft.com"],
+            named: vec![
+                ("asana.com", "Asana"),
+                ("projectplusgame.com", "Project Plus"),
+                ("microsoft.com", "Microsoft Project"),
+            ],
             found: vec!["asana.com", "microsoft.com"],
             missed: vec!["workamajig.com"],
             admitted: vec!["projectplusgame.com"],
@@ -61,8 +78,15 @@ fn baseline() -> Vec<Recorded> {
                 ("workamajig.com", uncorroborated()),
             ],
         },
+        // Four URL shapes of one product stay one candidate, at the same agreement: this is
+        // the fixture that would catch a rule that split what it was meant to join.
         Recorded {
             id: "one-product-many-urls",
+            returned: vec!["microsoft.com", "google.com"],
+            named: vec![
+                ("microsoft.com", "Microsoft Excel"),
+                ("google.com", "Google Sheets"),
+            ],
             found: vec!["microsoft.com", "google.com"],
             missed: vec!["airtable.com"],
             admitted: vec![],
@@ -76,6 +100,8 @@ fn baseline() -> Vec<Recorded> {
         // the roadmap had — and it leaves PR 4 needing a fixture that survives one shared word.
         Recorded {
             id: "keyword-impostor",
+            returned: vec!["harvestapp.com"],
+            named: vec![("harvestapp.com", "Harvest")],
             found: vec!["harvestapp.com"],
             missed: vec!["toggl.com"],
             admitted: vec![],
@@ -89,6 +115,11 @@ fn baseline() -> Vec<Recorded> {
         },
         Recorded {
             id: "specialist-in-one-article",
+            returned: vec!["freshbooks.com", "intuit.com"],
+            named: vec![
+                ("freshbooks.com", "FreshBooks"),
+                ("intuit.com", "QuickBooks"),
+            ],
             found: vec!["freshbooks.com", "intuit.com"],
             missed: vec!["protemos.com"],
             admitted: vec![],
@@ -96,6 +127,8 @@ fn baseline() -> Vec<Recorded> {
         },
         Recorded {
             id: "publisher-heavy",
+            returned: vec!["zendesk.com"],
+            named: vec![("zendesk.com", "Zendesk")],
             found: vec!["zendesk.com"],
             missed: vec!["helpscout.com"],
             admitted: vec![],
@@ -133,6 +166,9 @@ async fn the_baseline_has_not_changed_by_accident() {
             s.recall() * 100.0,
             s.returned.join(", ")
         );
+        for (host, name) in &s.named {
+            println!("      named      {host}: {name}");
+        }
         for (host, why) in &s.set_aside {
             println!("      set aside  {host}: {}", why.sentence());
         }
@@ -162,6 +198,23 @@ async fn the_baseline_has_not_changed_by_accident() {
             .iter()
             .find(|(_, s)| s.id == want.id)
             .unwrap_or_else(|| panic!("{} is in the baseline and not in the set", want.id));
+        assert_eq!(
+            got.returned, want.returned,
+            "
+{}: a different set came back, or in a different order.",
+            want.id
+        );
+        let named: Vec<(&str, &str)> = got
+            .named
+            .iter()
+            .map(|(host, name)| (host.as_str(), name.as_str()))
+            .collect();
+        assert_eq!(
+            named, want.named,
+            "
+{}: a company is called something else. This is the naming PR 3 changed.",
+            want.id
+        );
         assert_eq!(
             got.found, want.found,
             concat!(

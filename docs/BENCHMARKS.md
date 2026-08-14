@@ -33,6 +33,80 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 52 — a product, not a domain
+
+**Date:** 2026-08-14 — **Where:** this laptop, no engine and no model needed — **Model:** none.
+
+`IMPROVING_PRODUCT_IDEAS_LOGIC_ROADMAP.md` PR 3, and **the first change in that plan a reader can
+see.** Cause 2 of `PRODUCT_IDEA_RESULTS_LOGIC.md` §4: a reader asked for *"project management
+for a small design agency"* and was handed **Microsoft**, first, because three queries returned
+three Microsoft pages and candidates were grouped by registrable domain. Two of those pages were
+Microsoft Project and one was Microsoft Teams, so a chat product's appearance corroborated a
+project-management vendor.
+
+| | Rust tests | frontend tests | catalog |
+|---|---|---|---|
+| before | 1031 | 139 | 5, all caught |
+| after | **1041** | **139** | **12**, all caught |
+
+### What moved
+
+| | Before | After |
+|---|---|---|
+| First company for the reported failure | **Microsoft**, 3 of 3 | **Asana** |
+| What Microsoft is called | *Microsoft* | ***Microsoft Project***, 2 of 3 |
+| `one-product-many-urls` | *Microsoft*, *Google* | ***Microsoft Excel***, ***Google Sheets*** |
+| Mean recall | 60% | 60% |
+| Impostors admitted | 1 | 1 |
+
+**Recall did not move, and this is the run to be careful about.** Cause 2 is about what a company
+is *called* and what its agreement is *for*; every host in every answer is the same host it was.
+A scorecard of recall and impostors — which is what Run 51 recorded — **would have reported this
+change as doing nothing at all**, and the honest reading of *doing nothing* is *do not ship it*.
+
+So `Scored` now records the ordered set and the name of every member, and the baseline asserts
+both. That is the second time in three runs the measurement had to get finer before a change
+could be judged, and both times the direction was the same: **counts hide the thing the change is
+about.**
+
+### The rule, and the four that failed first
+
+Run 51 implemented four path-shaped identity rules and scored them; each one either merges two
+products or splits one. What is left is the vendor's domain plus **the name the page declares
+about itself**, which needs the page *before* the merge — inverting the order the pipeline runs
+in. `landscape_search::products::split` is that inversion.
+
+**The rule moved into the crate it judges, and the golden set now delegates to it.** It was
+implemented in `landscape-golden` first, to find out whether it worked at all before production
+was changed; leaving a copy there would have been a fixture measuring itself, which is the defect
+this whole exercise started from.
+
+### What keeps it from doing harm
+
+**A split is a read, and a read is somebody's server.** `SPLIT_BUDGET = 4` extra page reads per
+analysis, spent in rank order — *extra*, because a domain whose results are all product pages
+costs the read `describe` would have spent on its front page anyway. On the five fixtures the
+whole cost is two extra reads.
+
+| Case | What happens | The test |
+|---|---|---|
+| A search returned the domain's **root** | Never split; the front page is the evidence | `a_front_page_in_the_results_is_the_evidence_already` |
+| A page **could not be read** | Declares nothing, keeps the domain as its key | `a_page_nobody_could_read_cannot_split_anybody` |
+| A domain costs more than the **budget** left | Left whole rather than split on half its evidence | `a_domain_that_would_cost_more_than_the_budget_is_left_whole` |
+| One query returned **two pages of one product** | Corroborates it once | `two_pages_of_one_product_in_one_result_list_agreed_once` |
+
+### What it does not do
+
+**It does not put two products of one vendor in one report.** The strongest product on a domain
+becomes the candidate and the rest stop corroborating it. A set holding *Microsoft Project* and
+*Microsoft Planner* as two rows needs `Candidate` to stop being keyed on a domain, and that is a
+change with a blast radius well outside this one.
+
+**And it does not touch the other three causes.** The first query is still malformed, the ranking
+still measures appearance rather than fit, and the fit test is still one shared word. PRs 4 to 7.
+
+---
+
 ## Run 51 — the first number discovery has ever had
 
 **Date:** 2026-08-14 — **Where:** this laptop, no engine and no model needed — **Model:** none.
@@ -137,7 +211,7 @@ six sections a real company actually produces — needs a model and a network. S
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 50 | 1026 | 139 | no code changed |
-| now | **1031** | **139** | **6**, all caught |
+| now | **1041** | **139** | **12**, all caught |
 
 ---
 

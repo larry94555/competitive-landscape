@@ -1,0 +1,107 @@
+[
+  {
+    "name": "the declared identity forgets which vendor declared it",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "    Some(format!(\"{host}#{name}\"))",
+    "new": "    Some(name)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a page that declares nothing keys to the vendor's domain alone",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        .filter(|name| !name.is_empty())?;",
+    "new": "        .unwrap_or_default();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "two URLs of one product each corroborate it separately",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        for query in &at.queries {\n            if !entry.queries.contains(query) {\n                entry.queries.push(*query);\n            }\n        }",
+    "new": "        entry.queries.extend(at.queries.iter().copied());",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a domain returned at its own front page is split anyway",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        if urls.is_empty() || urls.iter().any(|a| is_root(&a.url)) {",
+    "new": "        if urls.is_empty() {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a domain is split on as much of its evidence as the budget allows",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        if extra > budget {\n            out.push(one);\n            continue;\n        }\n        budget -= extra;",
+    "new": "        budget = budget.saturating_sub(extra);",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "the weakest product on a domain becomes the candidate",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        b.1.queries\n            .len()\n            .cmp(&a.1.queries.len())",
+    "new": "        a.1.queries\n            .len()\n            .cmp(&b.1.queries.len())",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a candidate identified before the merge is reported as unread",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        if let Some(declared) = &one.declared {",
+    "new": "        if let Some(declared) = None::<&crate::products::Declared> {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  }
+]

@@ -35,17 +35,24 @@ is being done about it. This is what is true today.
 | 2 | Ask three templated queries | `landscape_search::candidates::ask` → `for_idea` | What is asked of the engine |
 | 3 | Find the market's own words | `landscape_search::vocabulary::from_titles` | Whether to substitute |
 | 4 | Ask three more, if substituted | `candidates::ask` | The second round |
-| 5 | Group hits into candidates | `candidates::from_results` | **What a candidate is** |
-| 6 | Score and rank | `candidates::score` | **Which candidates win** |
-| 7 | Fetch the top five | `candidates::from_hits` → `describe` | What each is called, **and its words** |
-| 8 | Exclude on shared words | `competitors::assemble` | **Whether it is in this market** |
-| 9 | Admit or refuse | `subject::decide` | Whether to report at all |
-| 10 | Read each company | `landscape_analyze::analyze_many` | The six questions |
+| 5 | Group hits by domain | `candidates::from_results` | A first grouping |
+| 6 | Read the pages a search returned | `products::split` | **What a candidate is** |
+| 7 | Score and rank | `candidates::score` | **Which candidates win** |
+| 8 | Fetch the front pages still unread | `candidates::from_hits` → `describe` | What each is called, **and its words** |
+| 9 | Exclude on shared words | `competitors::assemble` | **Whether it is in this market** |
+| 10 | Admit or refuse | `subject::decide` | Whether to report at all |
+| 11 | Read each company | `landscape_analyze::analyze_many` | The six questions |
 
-**Steps 5 and 6 decide the ranking, and both work on URLs alone.** Agreement across queries and
-the depth of a URL are the whole of it; nothing the engine *said* affects the order.
+**Step 6 is new, and it is why step 5 is no longer the answer to *what a candidate is*.**
+Grouping by domain made *Microsoft* one candidate that three queries agreed about; reading the
+pages those queries returned makes it *Microsoft Project*, agreeing with the two that returned
+Project. See §3.2.
 
-**Step 8 is the only place a page is read for fit**, and it is a lexical test set to one shared
+**The ranking still works on countable things.** Agreement across queries and the depth of a URL
+are the whole of it; nothing the engine *said* affects the order. What changed is **what the
+agreement is counted for**.
+
+**Step 9 is the only place a page is read for fit**, and it is a lexical test set to one shared
 word — §3.4. So it is not true that the pages are discarded, and an earlier draft of this
 document said so: they are read, once, for a name and a weak overlap check. What **is** discarded
 is everything else the engine returned — titles beyond the market label, every snippet, and the
@@ -75,9 +82,34 @@ strongest keywords. The qualifier that made the prompt specific is the first thi
 
 ### 3.2 What counts as a candidate
 
-**The registrable domain.** `from_results` reduces every hit's URL to its registrable domain and
-groups by that. `microsoft.com/microsoft-365/project` and `microsoft.com/microsoft-teams` become
-one candidate.
+**A product, keyed on `domain#the name its page declares`.** `from_results` still groups by
+registrable domain first — that is what makes `/excel`, `/excel/pricing` and a localized variant
+one thing rather than three uncorroborated ones. `products::split` then reads the pages those
+URLs point at and regroups by what each page calls itself, so `microsoft.com/`—`/project/`— and
+`microsoft.com/`—`/teams/`— are two products and only the strongest becomes the candidate.
+
+```
+SPLIT_BUDGET = 4      extra page reads per analysis, spent in rank order
+```
+
+**Four rules were tried before this one and every one of them failed** — each either merges two
+products or splits one; `BENCHMARKS.md` Run 51 has the table. The name a page declares is not a
+URL rule, which is why it works and why it costs a read *before* the grouping.
+
+**Three things keep it from doing harm:**
+
+| Case | What happens |
+|---|---|
+| A domain a search returned at its **root** | Never split. The front page is the evidence, and one name is right. |
+| A page that **could not be read** | Declares no identity, so it keeps the domain as its key. An unreadable page can never split a candidate. |
+| A domain costing more than the **budget** left | Left whole. Half a split attributes the unread appearances to whichever product was fetched first. |
+
+**Agreement is counted once per query per product**, exactly as it was once per query per domain.
+A query that returned a product page and its pricing page corroborated that product once.
+
+**It does not put two products of one domain in the same report.** The strongest becomes the
+candidate; the rest stop corroborating it. Two rows for one vendor needs `Candidate` to stop
+being keyed on a domain, which is a larger change than this one.
 
 **Known publishers are dropped.** `NOT_A_COMPANY` lists review sites, forums and blog hosts —
 `g2.com`, `capterra.com`, `reddit.com`, `medium.com` and the rest. A raw IP address is dropped
@@ -179,12 +211,13 @@ all*. That distinction exists and is enforced; §4 relies on it.
 
 ## 4. Where this produces a wrong answer, and why
 
-**Four independent causes.** Fixing any one alone still leaves a bad answer.
+**Four independent causes, one of them now fixed.** Fixing any one alone still leaves a bad
+answer, which is why the plan is seven pull requests rather than one.
 
 | | Cause | Symptom |
 |---|---|---|
 | 1 | The first query is malformed and the qualifier is dropped | The answer is about a much broader market than the one asked about |
-| 2 | A domain, not a product, is the unit | **Microsoft**, scoring 3 of 3, named from `microsoft.com` |
+| 2 | ~~A domain, not a product, is the unit~~ **Fixed, §3.2** | **Microsoft**, 3 of 3, named from `microsoft.com`. Now *Microsoft Project*, 2 of 3, named from a page a query returned |
 | 3 | Ranking measures appearance, not fit | Household names win; the right specialist scores 0.175 and is refused |
 | 4 | The fit test is one shared content word | **projectplusgame.com** — its page uses *project*, and `SHARED_WORDS = 1` |
 
