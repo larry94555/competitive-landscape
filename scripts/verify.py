@@ -122,6 +122,11 @@ def gates(web: bool) -> list[Gate]:
         # decision was made.
         # american-spelling: on
         Gate("american spelling", [sys.executable, "scripts/american_spelling.py"]),
+        # **Third time, so now there is a check.** A paragraph assembled by a Python heredoc can
+        # leave the heredoc's own source in the file when a concatenation is written wrong, and
+        # nothing else here can see it: it lands inside a comment, where `fmt`, `clippy` and the
+        # markdown gates are all content. It reached a reviewer three separate times.
+        Gate("generator artifacts", [sys.executable, "scripts/no_generator_artifacts.py"]),
         Gate("fmt", ["cargo", "fmt", "--all", "--check"]),
         # `--all-features` and `--all-targets`, because CI uses both and a lint that only fires
         # on a test target is exactly the one a hurried local run misses.

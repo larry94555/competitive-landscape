@@ -47,7 +47,7 @@
   {
     "name": "a domain is split on as much of its evidence as the budget allows",
     "file": "crates/landscape-search/src/products.rs",
-    "old": "        if urls.is_empty() || urls.len() > budget {\n            out.push(one);\n            continue;\n        }\n        budget -= urls.len();",
+    "old": "        if urls.is_empty() || urls.len() > budget {\n            continue;\n        }\n        budget -= urls.len();",
     "new": "        budget = budget.saturating_sub(urls.len());",
     "run": [
       "cargo",
@@ -167,8 +167,23 @@
   {
     "name": "split reads pages describe would never have read",
     "file": "crates/landscape-search/src/products.rs",
-    "old": "        if rank >= crate::candidates::NAMED {\n            out.push(one);\n            continue;\n        }",
+    "old": "        .take(crate::candidates::NAMED)\n",
     "new": "",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "the fetch boundary is decided before splitting moves it",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        .take(crate::candidates::NAMED)\n        .position(|f| !looked_at.contains(&f.host))",
+    "new": "        .position(|f| !looked_at.contains(&f.host) && looked_at.len() < crate::candidates::NAMED)",
     "run": [
       "cargo",
       "nextest",

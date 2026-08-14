@@ -207,25 +207,31 @@ where
 {
     let by_host = appearances(results);
     let mut budget = SPLIT_BUDGET;
-    let mut out: Vec<Found> = Vec::with_capacity(found.len());
+    let mut ranked = found;
+    let mut looked_at: Vec<String> = Vec::new();
 
-    for (rank, one) in found.into_iter().enumerate() {
-        // **Nobody below the fetch budget is read here either.** `describe` stops at `NAMED`,
-        // and a stage that reads pages it does not is a stage that spends strangers' bandwidth
-        // on candidates a reader will never be shown.
-        if rank >= crate::candidates::NAMED {
-            out.push(one);
-            continue;
-        }
-        let Some(urls) = by_host.get(&one.host) else {
-            out.push(one);
+    // **The boundary is re-read after every split, because splitting moves it.** Review found
+    // the first version deciding eligibility from the *incoming* rank: splitting a candidate can
+    // only lower its confidence, so a sixth-placed vendor is promoted into the top `NAMED` by
+    // the candidate above it losing support - and arrived there unsplit, still carrying the
+    // cross-product corroboration this module exists to remove, in a set a reader is shown.
+    //
+    // Each pass takes the highest-ranked candidate nobody has looked at yet, so it terminates:
+    // every pass adds one host to `looked_at` and there are finitely many hosts.
+    while let Some(index) = ranked
+        .iter()
+        .take(crate::candidates::NAMED)
+        .position(|f| !looked_at.contains(&f.host))
+    {
+        looked_at.push(ranked[index].host.clone());
+
+        let Some(urls) = by_host.get(&ranked[index].host) else {
             continue;
         };
         // `k` reads for `k` URLs, charged before any of them happen. A domain that does not
         // fit is left whole: half a split attributes the unread appearances to the wrong
         // product.
         if urls.is_empty() || urls.len() > budget {
-            out.push(one);
             continue;
         }
         budget -= urls.len();
@@ -237,13 +243,13 @@ where
             // registrable host; asking for the returned form would be a second request for the
             // same page, and the refund below assumes there is only one.
             let url = if is_root(&at.url) {
-                crate::candidates::home_page(&one.host)
+                crate::candidates::home_page(&ranked[index].host)
             } else {
                 at.url.clone()
             };
             read.push((at, fetch(url).await));
         }
-        let candidate = strongest(&one, asked, &read);
+        let candidate = strongest(&ranked[index], asked, &read);
         // **The refund, and only now can it be known.** A candidate that came out of there with
         // a name will not have its front page fetched by `describe`, so one of these reads
         // replaced a read rather than adding one. A candidate that did not still costs the
@@ -251,16 +257,18 @@ where
         if candidate.declared.is_some() {
             budget += 1;
         }
-        out.push(candidate);
+        ranked[index] = candidate;
+        // Agreement can only fall here, so this can drop the candidate just read and lift
+        // another into the top `NAMED` - which the next pass will then look at.
+        ranked.sort_by(|a, b| {
+            b.confidence
+                .partial_cmp(&a.confidence)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.host.cmp(&b.host))
+        });
     }
 
-    out.sort_by(|a, b| {
-        b.confidence
-            .partial_cmp(&a.confidence)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| a.host.cmp(&b.host))
-    });
-    out
+    ranked
 }
 
 /// The one product on this domain that the queries agreed about most, when the evidence says
@@ -280,13 +288,13 @@ where
 /// # When it declines to split
 ///
 /// **Fewer than two products is nothing to separate.** A vendor whose results are its front page
-/// and one feature page """ + D + """ `freshbooks.com/` and `freshbooks.com/invoice` """ + D + """ is one company that
+/// and one feature page — `freshbooks.com/` and `freshbooks.com/invoice` — is one company that
 /// sells one thing, and cutting its agreement in half because a feature page has its own heading
 /// would drop it from the answer. It keeps the agreement it had, and takes its name from its
 /// front page when a query returned one.
 ///
 /// **Two products with equal support is a question, not a choice.** Review found the first
-/// version breaking that tie on the identity key, which is alphabetical order of an `h1` """ + D + """ so
+/// version breaking that tie on the identity key, which is alphabetical order of an `h1` — so
 /// whether a vendor survived [`crate::competitors::assemble`] depended on which of two equally
 /// supported products sorted first. It now keeps **no** product: the candidate is the vendor, at
 /// the support the tie actually shows, with no name of its own so
@@ -343,7 +351,7 @@ fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) 
     }
 
     let vendor = by_identity.remove(&one.host);
-    // Most queries wins; then the shallowest URL. The key is last and only for determinism """ + D + """
+    // Most queries wins; then the shallowest URL. The key is last and only for determinism —
     // a tie that reaches it is resolved by declining to split, below.
     let mut products: Vec<(String, Grouped)> = by_identity.into_iter().collect();
     products.sort_by(|a, b| {
@@ -746,6 +754,65 @@ Group chat.",
             answers[0], answers[1],
             "and the result cannot depend on which name sorts first"
         );
+    }
+
+    #[tokio::test]
+    async fn a_vendor_promoted_by_somebody_else_losing_support_is_still_read() {
+        // **Review's finding, and it is the boundary rather than the rule.** Eligibility used to
+        // be decided from the *incoming* rank. Splitting can only lower a candidate's
+        // confidence, so a sixth-placed vendor is promoted into the top `NAMED` by the candidate
+        // above it losing support - and under the old rule it arrived there **unsplit**, still
+        // carrying the cross-product corroboration this module exists to remove, in a set a
+        // reader is shown.
+        //
+        // Four root-only fillers hold the first four places. `top` is a two-product vendor that
+        // falls when it is split; `sixth` is another one, ranked below it to begin with.
+        let fillers: Vec<String> = (0..4).map(|i| format!("https://f{i}.example/")).collect();
+        let top = ["https://top.example/a/one", "https://top.example/a/two"];
+        let sixth = [
+            "https://sixth.example/b/c/one",
+            "https://sixth.example/b/c/two",
+        ];
+
+        let mut results: Vec<Vec<Hit>> = Vec::new();
+        for query in 0..3 {
+            let mut hits: Vec<Hit> = fillers.iter().map(|u| hit(u)).collect();
+            // Both vendors: the first URL in two queries, the second in the third.
+            hits.push(hit(if query < 2 { top[0] } else { top[1] }));
+            hits.push(hit(if query < 2 { sixth[0] } else { sixth[1] }));
+            results.push(hits);
+        }
+
+        let before = from_results(&results, 3);
+        let place = |list: &[Found], host: &str| {
+            list.iter()
+                .position(|f| f.host == host)
+                .expect("a candidate")
+        };
+        assert_eq!(
+            place(&before, "sixth.example"),
+            crate::candidates::NAMED,
+            "sixth.example starts one place below the pages anybody reads"
+        );
+        assert_eq!(before[place(&before, "sixth.example")].agreed, 3);
+
+        let mut known: Vec<(String, &str)> = fillers
+            .iter()
+            .cloned()
+            .map(|url| (url, "# A Filler\n\nSomething else."))
+            .collect();
+        known.push((top[0].to_owned(), "# Top One\n\nThe first thing."));
+        known.push((top[1].to_owned(), "# Top Two\n\nA different thing."));
+        known.push((sixth[0].to_owned(), "# Sixth One\n\nThe first thing."));
+        known.push((sixth[1].to_owned(), "# Sixth Two\n\nA different thing."));
+
+        let after = split(before, 3, &results, &owned_pages(&known)).await;
+        let promoted = &after[place(&after, "sixth.example")];
+        assert_eq!(
+            promoted.agreed, 2,
+            "it was read after the candidate above it fell, and keeps what its product earned"
+        );
+        assert_eq!(promoted.declared.as_ref().expect("named").name, "Sixth One");
     }
 
     #[tokio::test]

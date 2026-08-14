@@ -2816,6 +2816,45 @@ column before the change is worth writing. Here that column is the ordered set a
 every member, and adding it took ten minutes; discovering the gap from a merged pull request
 would have cost the argument for the change.
 
+## 70. A boundary decided before the thing that moves it
+
+**Found:** by review, on the change that moved it.
+
+Only the top `NAMED` candidates have their pages read. The new stage that reads pages before the
+merge honored that — and took the rank from the list it was **handed**. Splitting can only lower
+a candidate's confidence, and the stage re-sorts afterwards, so a sixth-placed vendor is promoted
+into the top five by the candidate above it falling. It arrived there **unsplit**: the one
+candidate in the set most likely to need splitting, shown to a reader with exactly the defect the
+stage exists to remove.
+
+**The shape: a decision read from a snapshot the same function then invalidates.** Both halves
+were right on their own — stopping at `NAMED` is correct, re-sorting is correct — and the order
+between them is what was wrong. It is the same family as *a check placed where it cannot see the
+thing it checks*, with time rather than place as the axis.
+
+**Ask, whenever a function reads a rank, an index or a count and then changes it:** *is the value
+still true at the moment it is used?* If the function's own work invalidates it, the loop has to
+re-read it, and the termination argument has to be stated somewhere a reader can find it — here,
+each pass retires one host and there are finitely many hosts.
+
+### A leak with three occurrences and no gate, until now
+
+Text in this repository is often written by a script, so an em dash survives a shell round trip.
+When one of those concatenations is written wrong, the *script's own source* lands in the file:
+
+<!-- generator-artifacts: off -->
+
+    /// and one feature page """ + D + """ `freshbooks.com/` and ...
+
+<!-- generator-artifacts: on -->
+
+**It reached a reviewer three separate times**, twice in one pull request. Nothing could see it:
+it is inside a comment, so `fmt`, `clippy` and every markdown check are content with it, and it
+is not a spelling. `scripts/no_generator_artifacts.py` is the seventeenth gate.
+
+**The rule this is an instance of:** *a defect that recurs and that no existing check can see is
+a check waiting to be written.* Two occurrences is a coincidence to fix by hand; three is a gate.
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

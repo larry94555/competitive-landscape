@@ -44,10 +44,18 @@ three Microsoft pages and candidates were grouped by registrable domain. Two of 
 Microsoft Project and one was Microsoft Teams, so a chat product's appearance corroborated a
 project-management vendor.
 
-| | Rust tests | frontend tests | catalog |
-|---|---|---|---|
-| before | 1031 | 139 | 5, all caught |
-| after | **1047** | **139** | **17**, all caught |
+| | Rust tests | frontend tests | catalog | gates |
+|---|---|---|---|---|
+| before | 1031 | 139 | 5, all caught | 16 |
+| after | **1048** | **139** | **18**, all caught | **17** |
+
+**The seventeenth gate is a check this run earned three times over.** A paragraph assembled by a
+Python heredoc leaves the heredoc's own source in the file when a concatenation is written wrong,
+and it lands inside a comment — where `fmt`, `clippy` and every markdown check are content with
+it. It reached a reviewer three separate times, twice in this run.
+`scripts/no_generator_artifacts.py` looks for a quoted string operator, which occurs in generator
+source and essentially never in prose, and it is marked off the way `american_spelling.py` is
+when a passage really has to show one.
 
 ### What moved
 
@@ -97,6 +105,7 @@ whole cost is two extra reads.
 | A read that **named nobody** | Charged in full; its front page is still to come | `a_page_that_could_not_be_read_still_costs_its_front_page` |
 | A domain with fewer than **two products** | Nothing to separate; the vendor keeps its agreement | `a_front_page_and_one_feature_page_are_still_one_company` |
 | Two products with **equal support** | A question, not a choice; no product is claimed | `two_products_with_equal_support_are_a_question_rather_than_a_choice` |
+| A vendor **promoted** by somebody above it falling | Read after all, while budget remains | `a_vendor_promoted_by_somebody_else_losing_support_is_still_read` |
 
 **The budget was wrong in the first version of this run, and review caught it.** It charged
 `k - 1` *before* fetching, on the assumption that a product page always replaces the front page
@@ -105,6 +114,14 @@ page therefore cost a read and refunded nothing — and since the arithmetic ran
 **any number of such candidates could each add a request while the budget sat at four**. Reads
 are charged in full now and the front page is refunded once it is genuinely not going to be
 fetched. The counted version is `a_page_that_could_not_be_read_still_costs_its_front_page`.
+
+**The fetch boundary had to be re-read after every split, because splitting moves it.** Reading
+stops at `NAMED`, and the first version decided that from the *incoming* rank — but splitting
+can only lower a candidate's confidence, so a sixth-placed vendor is promoted into the top five
+by the candidate above it losing support. It arrived there **unsplit**, still carrying the
+cross-product corroboration this module removes, in a set a reader is shown. Eligibility now
+follows the post-split order: each pass takes the highest-ranked candidate nobody has looked at
+yet, which terminates because every pass retires one host.
 
 **A front page in the results does not stop a split, and the first version said it did.** That
 was the largest of the four things review found, because it left the reported failure whole: with
@@ -247,7 +264,7 @@ six sections a real company actually produces — needs a model and a network. S
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 50 | 1026 | 139 | no code changed |
-| now | **1047** | **139** | **17**, all caught |
+| now | **1048** | **139** | **18**, all caught |
 
 ---
 
