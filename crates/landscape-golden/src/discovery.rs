@@ -435,6 +435,13 @@ pub async fn score(market: &Market) -> Scored {
         if let Some((_, page)) = market.product_pages.iter().find(|(at, _)| *at == url) {
             return Some((*page).to_owned());
         }
+        // **Only a front page is answered from `pages`, and only for a front-page request.**
+        // Matching every URL on a known host against its front page would hand `split` a page
+        // production would never have for that URL - the fixture answering a question it was
+        // not asked, which is the alibi this file already has a test against.
+        if landscape_search::candidates::depth_of(&url) > 0 {
+            return None;
+        }
         let host = host_of(&url);
         market
             .pages

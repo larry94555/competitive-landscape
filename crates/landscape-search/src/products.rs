@@ -33,6 +33,15 @@
 //! `landscape-golden`'s `the_declared_identity_is_scored_on_fixture_pages` holds the pair that
 //! proves it.
 //!
+//! # A front page is about the vendor, and does not stop a split
+//!
+//! The first version refused to split any domain a search had returned at its root. Review found
+//! that this **kept the reported failure whole**: `[microsoft.com/, /project, /teams]` stayed at
+//! three of three, with Teams still corroborating a project-management vendor. A front page says
+//! what the *company* is — it is no evidence that every other page on the domain is the same
+//! product. It is now one appearance among the others, keyed to the vendor, and its read is the
+//! front-page read [`crate::candidates::describe`] would have made anyway.
+//!
 //! # What this does not do
 //!
 //! **It does not put two products of one domain in one report.** The strongest product becomes
@@ -41,6 +50,9 @@
 //! [`landscape_core::Candidate`] to stop being keyed on a domain, which is a change with a
 //! blast radius well outside this one. What a reader gets today is the right product, named,
 //! with the agreement that product actually earned.
+//!
+//! **And it does not guess between two products the evidence ranks equally.** See [`strongest`]:
+//! a tie keeps the vendor rather than the product whose heading sorts first.
 
 use std::collections::HashMap;
 
@@ -150,10 +162,11 @@ pub fn appearances(results: &[Vec<Hit>]) -> HashMap<String, Vec<Appearance>> {
 
 /// Whether a URL is the domain's own front page.
 ///
-/// **The rule for the root, and it is safe whichever identity rule wins.** When a search returns
-/// `asana.com`, the company and the product are one thing and one name is right; only a non-root
-/// URL can produce *Microsoft Project, by Microsoft*. A host returned at its root anywhere keeps
-/// the front-page path this module is otherwise replacing.
+/// **The rule for the root.** When a search returns `asana.com`, the company and the product are
+/// one thing and one name is right; only a non-root URL can produce *Microsoft Project, by
+/// Microsoft*. So a root appearance is grouped as the **vendor** rather than as a product — and
+/// review found the first version going further than that and refusing to split the domain at
+/// all, which left the reported failure exactly where it was.
 ///
 /// Built on the ranking's own [`depth`], not on a second reading of a URL: how deep a page is
 /// already decides part of its score, and two answers to that would be two answers to *is this a
@@ -171,10 +184,10 @@ fn is_root(url: &str) -> bool {
 /// the inversion the identity rule forces: the merge now happens after a read rather than before
 /// one.
 ///
-/// A domain qualifies when **no query returned its root** — see [`is_root`] — and when reading
-/// all of its URLs fits in what is left of [`SPLIT_BUDGET`]. Everything else is returned
-/// untouched, so a run with no budget left, an unreadable page or a front-page result behaves
-/// exactly as it did before this module existed.
+/// A domain qualifies when it is within the [`crate::candidates::NAMED`] candidates whose pages
+/// are read at all, and when reading all of its URLs fits in what is left of [`SPLIT_BUDGET`].
+/// Everything else is returned untouched, so a run with no budget left or a page nobody could
+/// read behaves exactly as it did before this module existed.
 ///
 /// **Every read is charged, and the front page is refunded only when it is really saved.** See
 /// [`SPLIT_BUDGET`] for what charging `k - 1` up front cost.
@@ -196,21 +209,22 @@ where
     let mut budget = SPLIT_BUDGET;
     let mut out: Vec<Found> = Vec::with_capacity(found.len());
 
-    for one in found {
+    for (rank, one) in found.into_iter().enumerate() {
+        // **Nobody below the fetch budget is read here either.** `describe` stops at `NAMED`,
+        // and a stage that reads pages it does not is a stage that spends strangers' bandwidth
+        // on candidates a reader will never be shown.
+        if rank >= crate::candidates::NAMED {
+            out.push(one);
+            continue;
+        }
         let Some(urls) = by_host.get(&one.host) else {
             out.push(one);
             continue;
         };
-        // A front page among the results is the evidence already, and reading it is what
-        // `describe` is about to do anyway.
-        if urls.is_empty() || urls.iter().any(|a| is_root(&a.url)) {
-            out.push(one);
-            continue;
-        }
         // `k` reads for `k` URLs, charged before any of them happen. A domain that does not
         // fit is left whole: half a split attributes the unread appearances to the wrong
         // product.
-        if urls.len() > budget {
+        if urls.is_empty() || urls.len() > budget {
             out.push(one);
             continue;
         }
@@ -218,7 +232,16 @@ where
 
         let mut read: Vec<(&Appearance, Option<String>)> = Vec::with_capacity(urls.len());
         for at in urls {
-            read.push((at, fetch(at.url.clone()).await));
+            // **A root is read as the front page, at the URL `describe` would have used.** The
+            // engine may return `https://www.example.com/` and the front page is built from the
+            // registrable host; asking for the returned form would be a second request for the
+            // same page, and the refund below assumes there is only one.
+            let url = if is_root(&at.url) {
+                crate::candidates::home_page(&one.host)
+            } else {
+                at.url.clone()
+            };
+            read.push((at, fetch(url).await));
         }
         let candidate = strongest(&one, asked, &read);
         // **The refund, and only now can it be known.** A candidate that came out of there with
@@ -240,13 +263,37 @@ where
     out
 }
 
-/// The one product on this domain that the queries agreed about most.
+/// The one product on this domain that the queries agreed about most, when the evidence says
+/// there is one.
 ///
-/// Appearances whose page declares nothing keep the **domain** as their key, so a host whose
-/// pages could not be read comes out of here identical to what went in. That is the fallback the
-/// whole module rests on: an unreadable page must never be able to split a candidate.
+/// **Three groupings, and only the middle one is a product.**
+///
+/// | An appearance at | Keys to | Because |
+/// |---|---|---|
+/// | The domain's **root** | The vendor | A front page says what the *company* is, not which product |
+/// | A page that **declares a name** | `domain#name` | That is the identity rule |
+/// | A page that declares **nothing** | The vendor | Nothing about it says it is a different product |
+///
+/// So a host whose pages could not be read comes out of here exactly as it went in. That is the
+/// fallback the whole module rests on: **an unreadable page must never split a candidate.**
+///
+/// # When it declines to split
+///
+/// **Fewer than two products is nothing to separate.** A vendor whose results are its front page
+/// and one feature page """ + D + """ `freshbooks.com/` and `freshbooks.com/invoice` """ + D + """ is one company that
+/// sells one thing, and cutting its agreement in half because a feature page has its own heading
+/// would drop it from the answer. It keeps the agreement it had, and takes its name from its
+/// front page when a query returned one.
+///
+/// **Two products with equal support is a question, not a choice.** Review found the first
+/// version breaking that tie on the identity key, which is alphabetical order of an `h1` """ + D + """ so
+/// whether a vendor survived [`crate::competitors::assemble`] depended on which of two equally
+/// supported products sorted first. It now keeps **no** product: the candidate is the vendor, at
+/// the support the tie actually shows, with no name of its own so
+/// [`crate::candidates::describe`] reads the front page. A tie between two one-query products is
+/// a vendor with one query behind it, which is what [`crate::candidates::CORROBORATION`] is for.
 fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) -> Found {
-    /// One product's share of a domain's appearances.
+    /// One identity's share of a domain's appearances.
     ///
     /// **`page` is the page at `shallowest`, and the two move together.** Review found them
     /// moving apart: the page was kept from the first readable appearance and the URL later
@@ -261,14 +308,23 @@ fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) 
 
     let mut by_identity: HashMap<String, Grouped> = HashMap::new();
     for (at, page) in read {
-        let declared = page
-            .as_deref()
-            .and_then(|markdown| declared_for(&at.url, markdown));
+        let home = is_root(&at.url);
+        let declared = if home {
+            None
+        } else {
+            page.as_deref()
+                .and_then(|markdown| declared_for(&at.url, markdown))
+        };
         // **A page that declares nothing is not evidence, even though it arrived.** It keys to
-        // the domain, and it must not become the name either: a readable page with no heading
+        // the vendor, and it must not become the name either: a readable page with no heading
         // would otherwise name the candidate after its own host and skip the front page that
-        // would have named it properly.
-        let evidence = declared.as_ref().and(page.clone());
+        // would have named it properly. A **front** page is evidence about the vendor, which is
+        // the group it lands in.
+        let evidence = if home {
+            page.clone()
+        } else {
+            declared.as_ref().and(page.clone())
+        };
         let key = declared.unwrap_or_else(|| one.host.clone());
         let entry = by_identity.entry(key).or_insert_with(|| Grouped {
             queries: Vec::new(),
@@ -286,8 +342,9 @@ fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) 
         }
     }
 
-    // Most queries wins; then the shallowest URL; then the key, so two products that tie are
-    // ordered the same way on every run rather than however the map iterated.
+    let vendor = by_identity.remove(&one.host);
+    // Most queries wins; then the shallowest URL. The key is last and only for determinism """ + D + """
+    // a tie that reaches it is resolved by declining to split, below.
     let mut products: Vec<(String, Grouped)> = by_identity.into_iter().collect();
     products.sort_by(|a, b| {
         b.1.queries
@@ -299,19 +356,54 @@ fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) 
             })
             .then_with(|| a.0.cmp(&b.0))
     });
-    let Some((_, best)) = products.into_iter().next() else {
-        return one.clone();
+
+    let named = |page: Option<String>| {
+        page.map(|markdown| {
+            let (name, what_it_is) = crate::candidates::naming(&one.host, &markdown);
+            Declared {
+                name,
+                what_it_is,
+                page: markdown,
+            }
+        })
     };
 
+    // **Nothing to separate.** The vendor keeps the agreement it already had, named by its own
+    // front page when a query returned one and by the single product page otherwise.
+    if products.len() < 2 {
+        let evidence = vendor
+            .and_then(|v| v.page)
+            .or_else(|| products.first().and_then(|(_, g)| g.page.clone()));
+        return Found {
+            declared: named(evidence),
+            ..one.clone()
+        };
+    }
+
+    let tied = products[0].1.queries.len() == products[1].1.queries.len()
+        && crate::candidates::depth(&products[0].1.shallowest)
+            == crate::candidates::depth(&products[1].1.shallowest);
+    if tied {
+        // The vendor, at whichever support is larger: its own front page's, or the one a tied
+        // product earned. Never the sum, which is the corroboration this module removes.
+        let agreed = vendor
+            .as_ref()
+            .map_or(0, |v| v.queries.len())
+            .max(products[0].1.queries.len());
+        return Found {
+            confidence: crate::candidates::score(
+                agreed,
+                asked,
+                crate::candidates::depth(&one.shallowest),
+            ),
+            agreed,
+            declared: named(vendor.and_then(|v| v.page)),
+            ..one.clone()
+        };
+    }
+
+    let (_, best) = products.remove(0);
     let agreed = best.queries.len();
-    let declared = best.page.as_deref().map(|markdown| {
-        let (name, what_it_is) = crate::candidates::naming(&one.host, markdown);
-        Declared {
-            name,
-            what_it_is,
-            page: markdown.to_owned(),
-        }
-    });
     Found {
         confidence: crate::candidates::score(
             agreed,
@@ -321,7 +413,7 @@ fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) 
         host: one.host.clone(),
         agreed,
         shallowest: best.shallowest,
-        declared,
+        declared: named(best.page),
     }
 }
 
@@ -521,8 +613,9 @@ Group chat.",
 
     #[tokio::test]
     async fn a_front_page_in_the_results_is_the_evidence_already() {
-        // Nothing is fetched here, and the candidate is unchanged: `describe` is about to read
-        // this company's front page because that is what a search returned.
+        // A use-case page that declares nothing and the company's own front page are one
+        // company. The candidate is unchanged in every way a reader would notice, and the read
+        // it cost is the front-page read `describe` no longer has to make.
         let results = vec![
             vec![hit("https://asana.com/uses/design-teams")],
             vec![hit("https://asana.com/")],
@@ -535,7 +628,124 @@ Group chat.",
             &pages(&[("https://asana.com/", "# Asana\n\nWork management.")]),
         )
         .await;
-        assert_eq!(after, before);
+        assert_eq!(after[0].agreed, before[0].agreed, "still one company");
+        assert_eq!(after[0].shallowest, before[0].shallowest);
+        assert_eq!(after[0].declared.as_ref().expect("named").name, "Asana");
+    }
+
+    #[tokio::test]
+    async fn a_root_result_names_the_vendor_and_does_not_stop_the_split() {
+        // **The reported failure with its front page in the results, which review found still
+        // broken.** The first version refused to split any domain a search had returned at its
+        // root, so `[microsoft.com/, /project, /project, /teams]` kept Microsoft at three of
+        // three and let the Teams appearance corroborate a project-management vendor - cause 2
+        // exactly. A front page says what the *company* is; it is not evidence that every other
+        // page on the domain is the same product.
+        let home = "https://www.microsoft.com/";
+        let results = vec![
+            vec![hit(PROJECT)],
+            vec![hit(home)],
+            vec![hit(PROJECT), hit(TEAMS)],
+        ];
+        let before = from_results(&results, 3);
+        assert_eq!(
+            before[0].agreed, 3,
+            "before: the domain agreed with all three"
+        );
+
+        let after = split(
+            before,
+            3,
+            &results,
+            &pages(&[
+                (
+                    "https://microsoft.com/",
+                    "# Microsoft\n\nCloud, computers and more.",
+                ),
+                (
+                    PROJECT,
+                    "# Microsoft Project\n\nProject management software.",
+                ),
+                (TEAMS, "# Microsoft Teams\n\nGroup chat."),
+            ]),
+        )
+        .await;
+        assert_eq!(after[0].agreed, 2, "Project earned two of the three");
+        assert_eq!(
+            after[0].declared.as_ref().expect("named").name,
+            "Microsoft Project"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_front_page_and_one_feature_page_are_still_one_company() {
+        // **The other half of the same rule.** FreshBooks' front page and its invoicing page are
+        // one company selling one thing; halving its agreement because a feature page carries
+        // its own heading would drop it out of the answer entirely. Fewer than two products is
+        // nothing to separate.
+        let home = "https://www.freshbooks.com/";
+        let invoice = "https://www.freshbooks.com/invoice";
+        let results = vec![vec![hit(home)], vec![hit(invoice)]];
+        let before = from_results(&results, 2);
+        let after = split(
+            before.clone(),
+            2,
+            &results,
+            &pages(&[
+                (
+                    "https://freshbooks.com/",
+                    "# FreshBooks\n\nInvoicing and accounting.",
+                ),
+                (invoice, "# Invoicing\n\nSend an invoice, get paid."),
+            ]),
+        )
+        .await;
+        assert_eq!(after[0].agreed, before[0].agreed, "still two of two");
+        assert_eq!(
+            after[0].declared.as_ref().expect("named").name,
+            "FreshBooks",
+            "and named by its own front page, not by a feature"
+        );
+    }
+
+    #[tokio::test]
+    async fn two_products_with_equal_support_are_a_question_rather_than_a_choice() {
+        // **Review's second finding.** The tie used to be broken on the identity key, which is
+        // alphabetical order of an `h1` - so whether a vendor survived the fit test downstream
+        // depended on which of two equally supported products sorted first. Both orders and both
+        // namings are run here and must agree, and neither product may be presented as the
+        // strongest.
+        let mut answers = Vec::new();
+        for names in [
+            ["# Alpha Board", "# Zeta Board"],
+            ["# Zeta Board", "# Alpha Board"],
+        ] {
+            let one = "https://vendor.example/products/one";
+            let two = "https://vendor.example/products/two";
+            let results = vec![vec![hit(one)], vec![hit(two)]];
+            let after = split(
+                from_results(&results, 2),
+                2,
+                &results,
+                &pages(&[(one, names[0]), (two, names[1])]),
+            )
+            .await;
+            let candidate = after.into_iter().next().expect("one candidate");
+            assert!(
+                candidate.declared.is_none(),
+                "neither product is the vendor's answer: {:?}",
+                candidate.declared
+            );
+            assert_eq!(
+                candidate.agreed, 1,
+                "two one-query products is a vendor with one query behind it"
+            );
+            answers.push(candidate);
+        }
+        assert_eq!(
+            answers[0], answers[1],
+            "and the result cannot depend on which name sorts first"
+        );
     }
 
     #[tokio::test]
@@ -627,10 +837,14 @@ Group chat.",
 
         assert_eq!(
             asked.lock().expect("not poisoned").len(),
-            named.len(),
-            "every one is free: each read replaces the front-page read it saves"
+            crate::candidates::NAMED,
+            "every one is free - each read replaces a front-page read - and reading still stops \
+             where `describe` does"
         );
-        assert!(after.iter().all(|f| f.declared.is_some()));
+        assert_eq!(
+            after.iter().filter(|f| f.declared.is_some()).count(),
+            crate::candidates::NAMED
+        );
     }
 
     #[tokio::test]

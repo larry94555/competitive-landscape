@@ -945,7 +945,7 @@ where
 /// `https`, always: a candidate arrives from a search engine, and asking for a company's home
 /// page over plaintext because a result happened to be `http` is a downgrade nobody asked for.
 /// The fetcher's guard is still what decides whether the URL may be reached at all.
-fn home_page(host: &str) -> String {
+pub(crate) fn home_page(host: &str) -> String {
     format!("https://{host}/")
 }
 
@@ -1039,6 +1039,15 @@ pub(crate) fn is_not_a_company(host: &str) -> bool {
     NOT_A_COMPANY
         .iter()
         .any(|known| host == *known || host.ends_with(&format!(".{known}")))
+}
+
+/// How many path segments a URL has, for callers outside this crate.
+///
+/// **Public so the golden set can ask the real question.** A fixture deciding for itself what
+/// counts as a front page would be a second copy of a rule this file already owns.
+#[must_use]
+pub fn depth_of(url: &str) -> usize {
+    depth(url)
 }
 
 /// How many path segments a URL has. `https://a.com/` is 0.

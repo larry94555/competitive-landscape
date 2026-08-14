@@ -47,7 +47,7 @@ project-management vendor.
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | before | 1031 | 139 | 5, all caught |
-| after | **1044** | **139** | **14**, all caught |
+| after | **1047** | **139** | **17**, all caught |
 
 ### What moved
 
@@ -95,6 +95,8 @@ whole cost is two extra reads.
 | A domain costs more than the **budget** left | Left whole rather than split on half its evidence | `a_domain_that_would_cost_more_than_the_budget_is_left_whole` |
 | One query returned **two pages of one product** | Corroborates it once | `two_pages_of_one_product_in_one_result_list_agreed_once` |
 | A read that **named nobody** | Charged in full; its front page is still to come | `a_page_that_could_not_be_read_still_costs_its_front_page` |
+| A domain with fewer than **two products** | Nothing to separate; the vendor keeps its agreement | `a_front_page_and_one_feature_page_are_still_one_company` |
+| Two products with **equal support** | A question, not a choice; no product is claimed | `two_products_with_equal_support_are_a_question_rather_than_a_choice` |
 
 **The budget was wrong in the first version of this run, and review caught it.** It charged
 `k - 1` *before* fetching, on the assumption that a product page always replaces the front page
@@ -103,6 +105,25 @@ page therefore cost a read and refunded nothing — and since the arithmetic ran
 **any number of such candidates could each add a request while the budget sat at four**. Reads
 are charged in full now and the front page is refunded once it is genuinely not going to be
 fetched. The counted version is `a_page_that_could_not_be_read_still_costs_its_front_page`.
+
+**A front page in the results does not stop a split, and the first version said it did.** That
+was the largest of the four things review found, because it left the reported failure whole: with
+`microsoft.com/` among the results, `[/, /project, /project, /teams]` stayed at three of three and
+Teams went on corroborating a project-management vendor. A front page says what the **company**
+is; it is no evidence that every other page on the domain is the same product. It is one
+appearance among the others now, keyed to the vendor, and its read is the front-page read
+`describe` would have made anyway.
+
+**The other side of that rule is why it is not simply "always split".** `freshbooks.com/` and
+`freshbooks.com/invoice` are one company selling one thing, and halving its agreement because a
+feature page carries its own heading would drop it out of the answer. **Fewer than two products
+is nothing to separate.**
+
+**And a tie is a question rather than a choice.** Two equally supported products used to be
+separated by the identity key — alphabetical order of an `h1` — so whether a vendor survived the
+fit test downstream depended on which heading sorted first. The vendor is kept now, at the
+support the tie actually shows, with no product claimed. Two one-query products is a vendor with
+one query behind it, which is what `CORROBORATION` is for.
 
 **And the page a product is named by is now the page it links to.** The page was kept from the
 first readable appearance while the URL slid to a shallower one, so a product whose pricing page
@@ -226,7 +247,7 @@ six sections a real company actually produces — needs a model and a network. S
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 50 | 1026 | 139 | no code changed |
-| now | **1044** | **139** | **14**, all caught |
+| now | **1047** | **139** | **17**, all caught |
 
 ---
 

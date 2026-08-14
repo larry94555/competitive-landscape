@@ -45,24 +45,9 @@
     ]
   },
   {
-    "name": "a domain returned at its own front page is split anyway",
-    "file": "crates/landscape-search/src/products.rs",
-    "old": "        if urls.is_empty() || urls.iter().any(|a| is_root(&a.url)) {",
-    "new": "        if urls.is_empty() {",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-search",
-      "-p",
-      "landscape-golden"
-    ]
-  },
-  {
     "name": "a domain is split on as much of its evidence as the budget allows",
     "file": "crates/landscape-search/src/products.rs",
-    "old": "        if urls.len() > budget {\n            out.push(one);\n            continue;\n        }\n        budget -= urls.len();",
+    "old": "        if urls.is_empty() || urls.len() > budget {\n            out.push(one);\n            continue;\n        }\n        budget -= urls.len();",
     "new": "        budget = budget.saturating_sub(urls.len());",
     "run": [
       "cargo",
@@ -124,6 +109,66 @@
     "file": "crates/landscape-search/src/products.rs",
     "old": "            entry.shallowest = at.url.clone();\n            entry.page = evidence;",
     "new": "            entry.shallowest = at.url.clone();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a front page among the results stops the vendor being split",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        if urls.is_empty() || urls.len() > budget {",
+    "new": "        if urls.is_empty() || urls.len() > budget || urls.iter().any(|a| is_root(&a.url)) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a root page is treated as one more product",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        let declared = if home {\n            None\n        } else {\n            page.as_deref()\n                .and_then(|markdown| declared_for(&at.url, markdown))\n        };",
+    "new": "        let declared = page\n            .as_deref()\n            .and_then(|markdown| declared_for(&at.url, markdown));",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "two equally supported products are separated by the alphabet",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "    if tied {",
+    "new": "    if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "split reads pages describe would never have read",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        if rank >= crate::candidates::NAMED {\n            out.push(one);\n            continue;\n        }",
+    "new": "",
     "run": [
       "cargo",
       "nextest",

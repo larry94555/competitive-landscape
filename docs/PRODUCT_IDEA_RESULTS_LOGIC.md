@@ -96,12 +96,21 @@ SPLIT_BUDGET = 4      extra page reads per analysis, spent in rank order
 products or splits one; `BENCHMARKS.md` Run 51 has the table. The name a page declares is not a
 URL rule, which is why it works and why it costs a read *before* the grouping.
 
-**Three things keep it from doing harm:**
+**A page is grouped as one of three things, and only the middle one is a product:**
+
+| An appearance at | Keys to | Because |
+|---|---|---|
+| The domain's **root** | The vendor | A front page says what the *company* is, not which product |
+| A page that **declares a name** | `domain#name` | That is the identity rule |
+| A page that declares **nothing** | The vendor | Nothing about it says it is a different product |
+
+**And four things keep it from doing harm:**
 
 | Case | What happens |
 |---|---|
-| A domain a search returned at its **root** | Never split. The front page is the evidence, and one name is right. |
-| A page that **could not be read** | Declares no identity, so it keeps the domain as its key. An unreadable page can never split a candidate. |
+| Fewer than **two products** | Nothing to separate. The vendor keeps the agreement it had, named by its own front page when a query returned one. `freshbooks.com/` plus `freshbooks.com/invoice` is one company. |
+| Two products with **equal support** | A question, not a choice. The vendor is kept, at the support the tie shows, with no product claimed — never the one whose heading sorts first. |
+| A page that **could not be read** | Declares no identity, so it keeps the vendor as its key. An unreadable page can never split a candidate. |
 | A domain costing more than the **budget** left | Left whole. Half a split attributes the unread appearances to whichever product was fetched first. |
 
 **Agreement is counted once per query per product**, exactly as it was once per query per domain.
