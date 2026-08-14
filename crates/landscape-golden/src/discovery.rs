@@ -37,7 +37,7 @@
 //! | `publisher-heavy` | A result set that is almost entirely review sites |
 
 use landscape_search::candidates::{describe, from_results, Found};
-use landscape_search::competitors::assemble;
+use landscape_search::competitors::{assemble, Aside};
 use landscape_search::Hit;
 
 /// How many queries a description sends per round.
@@ -79,6 +79,20 @@ pub struct Market {
     /// A URL absent here is a page that could not be fetched, which is
     /// `Vocabulary::Unreadable` — a state worth having in the set.
     pub pages: Vec<(&'static str, &'static str)>,
+    /// The page behind a **returned URL**, as markdown — the evidence PR 3 needs and today's
+    /// pipeline never sees.
+    ///
+    /// **Kept apart from `pages` because they are read at different moments.** `pages` holds
+    /// front pages, which `describe` fetches *after* candidates have been merged by domain.
+    /// These are the pages of the URLs themselves, which an identity rule has to read *before*
+    /// the merge — the inversion PR 3 has to make. Putting them in one list would hide that the
+    /// order is the hard part.
+    ///
+    /// **Every URL here must appear in `results`**, and
+    /// `no_page_is_evidence_the_engine_never_returned` asserts it. A fixture that supplies a
+    /// page production never fetches is an alibi, which this repository has three register
+    /// entries about.
+    pub product_pages: Vec<(&'static str, &'static str)>,
     /// The market's words, as `assemble` receives them.
     ///
     /// Fixture data, like `expected`: one careful reading of what this market is called, written
@@ -160,6 +174,23 @@ Project management built for a creative design agency."),
 
 Notes, docs and project management in one place."),
             ],
+            // **The three invariants an identity rule has to satisfy, on URLs this market's
+            // queries really returned.** Two locales of one product, and two products of one
+            // suite. No path-shaped rule does both; see the identity test.
+            product_pages: vec![
+                ("https://www.microsoft.com/en-us/microsoft-365/project/project-management-software",
+                 "# Microsoft Project
+
+Project management software."),
+                ("https://www.microsoft.com/en-gb/microsoft-365/project/project-management-software",
+                 "# Microsoft Project
+
+Project management software."),
+                ("https://www.microsoft.com/en-us/microsoft-365/teams/group-chat-software",
+                 "# Microsoft Teams
+
+Group chat and meetings."),
+            ],
         },
         Market {
             id: "one-product-many-urls",
@@ -191,6 +222,19 @@ Sheets is a spreadsheet for teams."),
                 ("https://www.airtable.com/", "# Airtable
 
 A spreadsheet-database for operations and finance."),
+            ],
+            // One product across two locales **and** across its own pricing page - the case
+            // `LastSegment` splits.
+            product_pages: vec![
+                ("https://www.microsoft.com/en-us/microsoft-365/excel", "# Microsoft Excel
+
+The spreadsheet."),
+                ("https://www.microsoft.com/de-de/microsoft-365/excel", "# Microsoft Excel
+
+Die Tabellenkalkulation."),
+                ("https://www.microsoft.com/en-us/microsoft-365/excel/pricing", "# Microsoft Excel
+
+Plans and pricing."),
             ],
         },
         Market {
@@ -227,6 +271,7 @@ Time tracking for teams and consultants."),
 
 A drum machine. Sequencing, kits and swing."),
             ],
+            product_pages: vec![],
         },
         Market {
             id: "specialist-in-one-article",
@@ -260,6 +305,19 @@ Invoicing and books for small business."),
 
 Invoicing and project management for freelance translators."),
             ],
+            // **Two vendors, one product name.** Both pages call the thing they sell
+            // *Invoicing*, and they are two different companies - so a rule that keys on the
+            // declared name alone merges FreshBooks into Intuit. A generic product noun on two
+            // domains is not a contrived case: it is what *Projects*, *Inbox* and *Analytics*
+            // look like across any market.
+            product_pages: vec![
+                ("https://www.freshbooks.com/invoice", "# Invoicing
+
+Send an invoice, get paid."),
+                ("https://quickbooks.intuit.com/invoicing/", "# Invoicing
+
+Create and track invoices."),
+            ],
         },
         Market {
             id: "publisher-heavy",
@@ -292,6 +350,7 @@ Customer support and helpdesk software."),
                 // `Vocabulary::Unreadable`, and a set with no unreadable page in it cannot tell
                 // *we could not check* from *we checked and it failed*.
             ],
+            product_pages: vec![],
         },
     ]
 }
@@ -308,11 +367,16 @@ pub struct Scored {
     pub missed: Vec<&'static str>,
     /// Impostors that came back, with why each is one.
     pub admitted: Vec<(&'static str, &'static str)>,
-    /// Every host that was excluded, with the sentence a reader would be given.
+    /// Every host that was excluded, with **the typed reason**, not its sentence.
     ///
     /// **The half a count cannot show.** Two changes can both raise recall by one and leave the
     /// set aside for entirely different reasons, and only one of them is an improvement.
-    pub set_aside: Vec<(String, String)>,
+    ///
+    /// **Typed, because review found the count version green through a real regression.** An
+    /// expected company moving from `Uncorroborated` to `Unread` is a different defect with a
+    /// different fix, and a length or a sentence hides it — a sentence doubly so, since a
+    /// wording change would then fail a test about discovery.
+    pub set_aside: Vec<(String, Aside)>,
 }
 
 impl Scored {
@@ -334,8 +398,8 @@ impl Scored {
 ///
 /// **The real functions at every stage, not a copy of any of them.** `from_results` ranks,
 /// `describe` reads each candidate's frozen page, and `assemble` admits or excludes on
-/// `SHARED_WORDS`. A scorer that stopped at the ranking """ + D + """ which the first version of this
-/// did """ + D + """ cannot see PR 4 at all, because `SHARED_WORDS` lives in the stage it skipped.
+/// `SHARED_WORDS`. A scorer that stopped at the ranking — which the first version of this
+/// did — cannot see PR 4 at all, because `SHARED_WORDS` lives in the stage it skipped.
 pub async fn score(market: &Market) -> Scored {
     let found: Vec<Found> = from_results(&market.results, QUERIES);
     let words: Vec<String> = market.words.iter().map(|w| (*w).to_owned()).collect();
@@ -389,7 +453,7 @@ pub async fn score(market: &Market) -> Scored {
         set_aside: set
             .set_aside
             .iter()
-            .map(|(c, why)| (c.canonical_domain.clone(), why.sentence()))
+            .map(|(c, why)| (c.canonical_domain.clone(), why.clone()))
             .collect(),
         returned,
     }
@@ -444,21 +508,33 @@ fn is_locale(segment: &str) -> bool {
 }
 
 impl Identity {
-    /// The name a page declares about itself — the roadmap's fifth candidate.
+    /// The vendor's domain **and** the name a page declares about itself — the roadmap's
+    /// fifth candidate, written the way the roadmap words it.
     ///
     /// **Not a URL rule, which is the whole point.** The four rules above are functions of a
-    /// URL and each one either merges two products or splits one; this is a function of the
-    /// *page*, which is why it can do both and why it costs a fetch before the merge.
+    /// URL and each one either merges two products or splits one; this needs the *page*, which
+    /// is why it can do both and why it costs a fetch before the merge.
+    ///
+    /// **The domain is half the key, and dropping it was a real defect.** An earlier version
+    /// returned the bare heading, so two unrelated vendors whose products are both called
+    /// *Invoicing* keyed the same and merged into one company — a worse failure than the
+    /// domain-collapse it was written to fix, since at least that one never crossed a vendor
+    /// boundary. `specialist-in-one-article` now holds exactly that pair.
     ///
     /// The first heading stands in for what production would read — a canonical link, an
-    /// `og:title`, or the `<h1>`. `None` for a page that says nothing, because a page that could
-    /// not be read declares no identity and must not key to the empty string.
+    /// `og:title`, or the `<h1>`. `None` for a page that says nothing or a URL that will not
+    /// parse: a page that could not be read declares no identity, and must not key to a vendor's
+    /// domain alone, which would silently become the rule it is replacing.
     #[must_use]
-    pub fn declared_from(page: &str) -> Option<String> {
-        page.lines()
+    pub fn declared_for(url: &str, page: &str) -> Option<String> {
+        let target = landscape_fetch::Target::parse(url).ok()?;
+        let host = landscape_search::candidates::registrable(&target.host);
+        let name = page
+            .lines()
             .find_map(|line| line.strip_prefix("# "))
             .map(|name| name.trim().to_lowercase())
-            .filter(|name| !name.is_empty())
+            .filter(|name| !name.is_empty())?;
+        Some(format!("{host}#{name}"))
     }
 
     /// The key this rule gives a URL. `None` when the URL cannot be parsed.

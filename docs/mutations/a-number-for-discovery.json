@@ -50,5 +50,31 @@
       "-p",
       "landscape-golden"
     ]
+  },
+  {
+    "name": "the declared identity forgets which vendor declared it",
+    "file": "crates/landscape-golden/src/discovery.rs",
+    "old": "        Some(format!(\"{host}#{name}\"))",
+    "new": "        Some(name)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a page that declares nothing keys to the vendor's domain alone",
+    "file": "crates/landscape-golden/src/discovery.rs",
+    "old": "            .filter(|name| !name.is_empty())?;",
+    "new": "            .unwrap_or_default();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-golden"
+    ]
   }
 ]

@@ -105,8 +105,10 @@ and the four-to-eight-minute wait is unjustifiable either way.
 | `specialist-in-one-article` | 67% | protemos.com — uncorroborated |
 | `publisher-heavy` | 50% | helpscout.com — front page unreadable |
 
-**Mean recall 60%. One impostor admitted.** **Five of the six exclusions are the same cause**: a
-company returned by a single query is `Uncorroborated` and never reaches the reader.
+**Mean recall 60%. One impostor admitted.** **Seven companies were set aside.** One of them is
+`trackingtimemusic.com`, correctly — the fit test caught it. Of the six that should have been in
+an answer, **five are the same cause**: returned by a single query, `Uncorroborated`, never
+reaching the reader. The sixth is `helpscout.com`, `Unread`.
 
 **It corrected its author three times, before PR 3 was written.** That is the argument for the
 sequencing, made by the sequencing:
@@ -186,14 +188,25 @@ The result is not *"one is best"*:
 | Last path segment | **No** — splits `/excel` from `/excel/pricing` | Yes |
 
 **Each one either merges two products or splits one.** That is a result about the approach rather
-than a threshold to tune, and it says the answer is the fifth candidate: **the identity the page
-declares about itself** — a canonical link, an `og:title`, the product name in its own words. That
-cannot be decided from a URL, so PR 3 has to fetch before it merges, which inverts the order the
-pipeline runs in today.
+than a threshold to tune, and it says the answer is the fifth candidate: **the vendor's domain
+plus the identity the page declares about itself** — a canonical link, an `og:title`, the product
+name in its own words. That cannot be decided from a URL, so PR 3 has to fetch before it merges,
+which inverts the order the pipeline runs in today.
+
+**The domain half is not decoration, and leaving it out was a real defect.** `Identity::declared_for`
+first keyed on the declared name alone, and review found what that does: two vendors who both
+call their product *Invoicing* become one company. **That is a wider failure than the
+domain-collapse it replaces** — this one crosses a vendor boundary. `specialist-in-one-article`
+now holds the pair, and the rule is scored on four cases, every one of them a page of a URL the
+fixtures' own queries returned:
+
+| Case | Two locales of one product | Two products of one suite | A product and its pricing page | One name, two vendors |
+|---|---|---|---|---|
+| Required | joined | apart | joined | apart |
 
 **PR 3 is therefore larger than this plan first said, and its shape is now known rather than
-assumed.** The assertions are in `tests/discovery.rs`; a rule that ever passes both columns will
-fail that test and have to be argued for.
+assumed.** The assertions are in `tests/discovery.rs`; a rule that ever passes both columns of
+the table above will fail that test and have to be argued for.
 
 **And a rule for the root, which is safe whichever wins.** When the evidence URL is the domain
 root — `asana.com` — the company and the product are one thing and one name is right. Only a

@@ -54,15 +54,25 @@ runs on a laptop with no `SEARX_URL`; what it measures is **the logic**, not the
 | `specialist-in-one-article` | 67% | protemos.com — uncorroborated |
 | `publisher-heavy` | 50% | helpscout.com — front page unreadable |
 
-**Mean recall 60%. One impostor admitted.** **Five of the six exclusions are the same cause**: a
-company returned by a single query is `Uncorroborated` and never reaches the reader.
+**Mean recall 60%. One impostor admitted.** **Seven companies were set aside.** One of them is
+`trackingtimemusic.com`, correctly — the fit test caught it. Of the six that should have been in
+an answer, **five are the same cause**: returned by a single query, `Uncorroborated`, never
+reaching the reader. The sixth is `helpscout.com`, `Unread`.
 
 **The tests pass while the answer is bad**, deliberately. A red suite is one people learn to
 ignore; what is wanted is a number a pull request has to move and cannot move by accident. The
-baseline is a constant, and changing discovery fails the test until somebody reads the table and
-edits it.
+baseline is recorded in `baseline()`, and changing discovery fails the test until somebody reads
+the table and edits it.
 
-### It corrected its author twice, before the next PR was written
+**What the baseline records is exact, and it took two review rounds to get there.** It began as
+three counts per fixture, which passed when *which* company came back changed. It then recorded
+the found and missed lists and still counted impostors and ignored exclusions — so swapping
+which impostor got in, or an expected company sliding from `Uncorroborated` to `Unread`, stayed
+green. Both are the accidental change this file exists to catch. It now records the exact hosts
+and the **typed** `Aside` for every exclusion — typed rather than its sentence, so a wording
+change cannot fail a test about discovery.
+
+### It corrected its author four times, before the next PR was written
 
 **That is the whole argument for measuring first, made by the measurement.**
 
@@ -96,10 +106,20 @@ URLs are the same product. Four are path-shaped and now implemented as
 containers* and it fails, because `microsoft-365` is a **suite** and suite names —
 `google-workspace`, `adobe-creative-cloud` — are not a list anybody can finish.
 
-So the answer is the fifth candidate: **the identity a page declares about itself**. Review
-pointed out that concluding this by eliminating four is an inference rather than a measurement,
-so it is implemented and scored too: `Identity::declared_from` joins a product's localized pages
-and separates two products in one suite, which no URL rule does.
+So the answer is the fifth candidate: **the vendor's domain plus the identity a page declares
+about itself**. Review corrected this twice. First: concluding it by eliminating four others is
+an inference, not a measurement — so `Identity::declared_for` is implemented and scored.
+Second, and worse: the first implementation keyed on **the declared name alone**, so two vendors
+who both call their product *Invoicing* merged into one company. That is a wider failure than the
+domain-collapse it replaces, because it crosses a vendor boundary, and no fixture could catch it
+while the only pair compared was two Microsoft products on one domain.
+
+Every case is now scored on `Market::product_pages` — pages of URLs the fixtures' own queries
+returned, asserted to be so by `no_page_is_evidence_the_engine_never_returned`:
+
+| Case | Two locales of one product | Two products of one suite | A product and its pricing page | One name, two vendors |
+|---|---|---|---|---|
+| Result | joined | apart | joined | apart |
 
 **Its cost is why it is not free.** It needs the page, and the page is fetched *after* the merge
 today — so PR 3 must invert that order. And only the top `NAMED` candidates are fetched at all,
@@ -117,7 +137,7 @@ six sections a real company actually produces — needs a model and a network. S
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 50 | 1026 | 139 | no code changed |
-| now | **1030** | **139** | **4**, all caught |
+| now | **1031** | **139** | **6**, all caught |
 
 ---
 
