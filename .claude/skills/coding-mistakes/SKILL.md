@@ -2789,6 +2789,72 @@ rather than the set. Both are the same error as the first: **a check whose scope
 its name**, and in all three cases the fix is to derive the scope from the thing rather than
 restate it.
 
+## 69. The baseline could not see the change it was built to judge
+
+**Found:** by predicting the numbers before running them, on the change itself.
+
+Entry 68 is about a harness that stopped one stage short. This is the same file, one change
+later, failing in the other direction: the harness ran the whole pipeline and **recorded the
+wrong things about it**.
+
+The change makes a candidate a *product* rather than a *domain* — so a suite page and a chat
+page on one vendor's domain stop corroborating each other. Its whole effect is on **which
+company is first** and **what each one is called**. The baseline recorded recall, misses and
+impostors, all keyed on host. Every host in every answer was the same host before and after.
+
+**So the scorecard would have said the change did nothing**, and the honest reading of *nothing*
+is *do not ship it*.
+
+**The shape: a measurement whose unit is coarser than the defect.** Recall is a set question and
+cause 2 is an ordering-and-naming question; no amount of running recall more carefully answers
+it. This is not a bug in the harness — every number it produced was correct — which is what makes
+it hard to notice.
+
+**Ask, before writing a change against a baseline:** *write down the row you expect to move, and
+its new value.* If you cannot name one, the baseline cannot judge this change and needs a new
+column before the change is worth writing. Here that column is the ordered set and the name of
+every member, and adding it took ten minutes; discovering the gap from a merged pull request
+would have cost the argument for the change.
+
+## 70. A boundary decided before the thing that moves it
+
+**Found:** by review, on the change that moved it.
+
+Only the top `NAMED` candidates have their pages read. The new stage that reads pages before the
+merge honored that — and took the rank from the list it was **handed**. Splitting can only lower
+a candidate's confidence, and the stage re-sorts afterwards, so a sixth-placed vendor is promoted
+into the top five by the candidate above it falling. It arrived there **unsplit**: the one
+candidate in the set most likely to need splitting, shown to a reader with exactly the defect the
+stage exists to remove.
+
+**The shape: a decision read from a snapshot the same function then invalidates.** Both halves
+were right on their own — stopping at `NAMED` is correct, re-sorting is correct — and the order
+between them is what was wrong. It is the same family as *a check placed where it cannot see the
+thing it checks*, with time rather than place as the axis.
+
+**Ask, whenever a function reads a rank, an index or a count and then changes it:** *is the value
+still true at the moment it is used?* If the function's own work invalidates it, the loop has to
+re-read it, and the termination argument has to be stated somewhere a reader can find it — here,
+each pass retires one host and there are finitely many hosts.
+
+### A leak with three occurrences and no gate, until now
+
+Text in this repository is often written by a script, so an em dash survives a shell round trip.
+When one of those concatenations is written wrong, the *script's own source* lands in the file:
+
+<!-- generator-artifacts: off -->
+
+    /// and one feature page """ + D + """ `freshbooks.com/` and ...
+
+<!-- generator-artifacts: on -->
+
+**It reached a reviewer three separate times**, twice in one pull request. Nothing could see it:
+it is inside a comment, so `fmt`, `clippy` and every markdown check are content with it, and it
+is not a spelling. `scripts/no_generator_artifacts.py` is the seventeenth gate.
+
+**The rule this is an instance of:** *a defect that recurs and that no existing check can see is
+a check waiting to be written.* Two occurrences is a coincidence to fix by hand; three is a gate.
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

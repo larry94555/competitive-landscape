@@ -52,6 +52,13 @@ jobs:
         # american-spelling: on
         run: python3 scripts/american_spelling.py
 
+      - name: Generator artifacts
+        # A paragraph assembled by a script can leave the script's own source in the file when a
+        # concatenation is written wrong. It lands inside a comment, where every other check
+        # here is content with it, and it reached a reviewer three separate times before this
+        # step existed.
+        run: python3 scripts/no_generator_artifacts.py
+
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-nextest,cargo-llvm-cov

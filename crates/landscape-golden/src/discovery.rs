@@ -190,6 +190,11 @@ Project management software."),
                  "# Microsoft Teams
 
 Group chat and meetings."),
+                // The only URL this market returned for Notion, so `split` reads it rather than
+                // the front page - and the candidate is the product, not the company.
+                ("https://www.notion.so/product/projects", "# Notion Projects
+
+Project management inside Notion, for a design agency or any other team."),
             ],
         },
         Market {
@@ -235,6 +240,12 @@ Die Tabellenkalkulation."),
                 ("https://www.microsoft.com/en-us/microsoft-365/excel/pricing", "# Microsoft Excel
 
 Plans and pricing."),
+                ("https://www.google.com/sheets/about/", "# Google Sheets
+
+The spreadsheet finance teams share."),
+                ("https://www.google.com/sheets/about/pricing", "# Google Sheets
+
+Plans and pricing."),
             ],
         },
         Market {
@@ -271,7 +282,12 @@ Time tracking for teams and consultants."),
 
 A drum machine. Sequencing, kits and swing."),
             ],
-            product_pages: vec![],
+            // Toggl's only appearance is a product page, so it is read instead of the front
+            // page. It is `Uncorroborated` either way - one query - and this is the case that
+            // proves reading a product page does not on its own admit anybody.
+            product_pages: vec![("https://toggl.com/track/", "# Toggl Track
+
+Time tracking for teams and consultants.")],
         },
         Market {
             id: "specialist-in-one-article",
@@ -367,6 +383,13 @@ pub struct Scored {
     pub missed: Vec<&'static str>,
     /// Impostors that came back, with why each is one.
     pub admitted: Vec<(&'static str, &'static str)>,
+    /// What each company in the set is **called**, by domain.
+    ///
+    /// **The number PR 3 moves, and recall cannot see it.** Naming a suite *Microsoft* when
+    /// three queries returned two Microsoft Project pages and one Teams page is the second of
+    /// the four causes, and it changes no host in `returned` — so a scorecard of recall and
+    /// impostors would have reported that change as doing nothing at all.
+    pub named: Vec<(String, String)>,
     /// Every host that was excluded, with **the typed reason**, not its sentence.
     ///
     /// **The half a count cannot show.** Two changes can both raise recall by one and leave the
@@ -401,27 +424,35 @@ impl Scored {
 /// `SHARED_WORDS`. A scorer that stopped at the ranking — which the first version of this
 /// did — cannot see PR 4 at all, because `SHARED_WORDS` lives in the stage it skipped.
 pub async fn score(market: &Market) -> Scored {
-    let found: Vec<Found> = from_results(&market.results, QUERIES);
     let words: Vec<String> = market.words.iter().map(|w| (*w).to_owned()).collect();
 
-    let described = describe(&found, &words, |url| {
-        let pages = &market.pages;
-        async move {
-            let host = landscape_fetch::Target::parse(&url)
-                .ok()
-                .map(|t| landscape_search::candidates::registrable(&t.host));
-            pages
-                .iter()
-                .find(|(at, _)| {
-                    landscape_fetch::Target::parse(at)
-                        .ok()
-                        .map(|t| landscape_search::candidates::registrable(&t.host))
-                        == host
-                })
-                .map(|(_, page)| (*page).to_owned())
+    // **One closure, two kinds of page, and the order is the point.** `split` asks for the URL a
+    // query returned; `describe` asks for a domain's front page. An exact URL match answers the
+    // first, and a host match against a root URL answers the second — so a product page can
+    // never be handed back as a front page, which would let the fixture prove a merge on
+    // evidence the pipeline does not have.
+    let fetch = |url: String| async move {
+        if let Some((_, page)) = market.product_pages.iter().find(|(at, _)| *at == url) {
+            return Some((*page).to_owned());
         }
-    })
-    .await;
+        // **Only a front page is answered from `pages`, and only for a front-page request.**
+        // Matching every URL on a known host against its front page would hand `split` a page
+        // production would never have for that URL - the fixture answering a question it was
+        // not asked, which is the alibi this file already has a test against.
+        if landscape_search::candidates::depth_of(&url) > 0 {
+            return None;
+        }
+        let host = host_of(&url);
+        market
+            .pages
+            .iter()
+            .find(|(at, _)| host_of(at) == host)
+            .map(|(_, page)| (*page).to_owned())
+    };
+
+    let found: Vec<Found> = from_results(&market.results, QUERIES);
+    let found = landscape_search::products::split(found, QUERIES, &market.results, &fetch).await;
+    let described = describe(&found, &words, fetch).await;
 
     let set = assemble(described, QUERIES, &words);
     let returned: Vec<String> = set
@@ -455,8 +486,28 @@ pub async fn score(market: &Market) -> Scored {
             .iter()
             .map(|(c, why)| (c.canonical_domain.clone(), why.clone()))
             .collect(),
+        named: set
+            .members
+            .iter()
+            .map(|m| {
+                (
+                    m.candidate.canonical_domain.clone(),
+                    m.candidate.name.clone(),
+                )
+            })
+            .collect(),
         returned,
     }
+}
+
+/// The registrable host of a URL, or the URL itself when it will not parse.
+///
+/// The real rule, so the fixture's page lookup groups the way the pipeline does.
+fn host_of(url: &str) -> String {
+    landscape_fetch::Target::parse(url).ok().map_or_else(
+        || url.to_owned(),
+        |t| landscape_search::candidates::registrable(&t.host),
+    )
 }
 
 /// One way of deciding that two URLs are the same product.
@@ -509,32 +560,22 @@ fn is_locale(segment: &str) -> bool {
 
 impl Identity {
     /// The vendor's domain **and** the name a page declares about itself — the roadmap's
-    /// fifth candidate, written the way the roadmap words it.
+    /// fifth candidate, and now what production runs.
     ///
-    /// **Not a URL rule, which is the whole point.** The four rules above are functions of a
-    /// URL and each one either merges two products or splits one; this needs the *page*, which
-    /// is why it can do both and why it costs a fetch before the merge.
+    /// **One line, because the rule moved into the crate it judges.** This was implemented here
+    /// first, to answer whether it works at all before `landscape-search` was changed. It does,
+    /// so it lives in [`landscape_search::products::declared_for`] and this delegates — a golden
+    /// set carrying its own copy of a rule measures itself, which is the defect that put four
+    /// causes in front of a reader with 1026 tests passing.
     ///
     /// **The domain is half the key, and dropping it was a real defect.** An earlier version
     /// returned the bare heading, so two unrelated vendors whose products are both called
     /// *Invoicing* keyed the same and merged into one company — a worse failure than the
     /// domain-collapse it was written to fix, since at least that one never crossed a vendor
-    /// boundary. `specialist-in-one-article` now holds exactly that pair.
-    ///
-    /// The first heading stands in for what production would read — a canonical link, an
-    /// `og:title`, or the `<h1>`. `None` for a page that says nothing or a URL that will not
-    /// parse: a page that could not be read declares no identity, and must not key to a vendor's
-    /// domain alone, which would silently become the rule it is replacing.
+    /// boundary. `specialist-in-one-article` holds exactly that pair.
     #[must_use]
     pub fn declared_for(url: &str, page: &str) -> Option<String> {
-        let target = landscape_fetch::Target::parse(url).ok()?;
-        let host = landscape_search::candidates::registrable(&target.host);
-        let name = page
-            .lines()
-            .find_map(|line| line.strip_prefix("# "))
-            .map(|name| name.trim().to_lowercase())
-            .filter(|name| !name.is_empty())?;
-        Some(format!("{host}#{name}"))
+        landscape_search::products::declared_for(url, page)
     }
 
     /// The key this rule gives a URL. `None` when the URL cannot be parsed.

@@ -19,13 +19,13 @@
 | | |
 |---|---|
 | **Pull requests in this plan** | **7** |
-| **Done** | **2** |
-| **Remaining** | **5** |
-| **Complete** | **29%** |
+| **Done** | **3** |
+| **Remaining** | **4** |
+| **Complete** | **43%** |
 
-**PR 1 is the two documents; PR 2 is the discovery golden set.** No behavior has changed yet and
-none will until PR 3. The percentage counts pull requests, not effort — PR 7 is larger than PRs
-3 to 6 together.
+**PR 1 is the two documents; PR 2 is the discovery golden set; PR 3 is the first one a reader can
+see.** The percentage counts pull requests, not effort — PR 7 is larger than PRs 4 to 6
+together.
 
 **The baseline, measured rather than guessed:** mean recall **60%** across five fixtures, with
 **1 impostor admitted**, scored end to end through `assemble` rather than at the ranking. Every
@@ -62,7 +62,7 @@ which is the kind of claim that makes a plan look further along than it is.
 |---|---|---|---|
 | 1 | **This document and the logic document** | `docs/` | **Done** |
 | 2 | **A golden set for discovery** | `landscape-golden::discovery` | **Done** |
-| 3 | **Product-level candidates** — identity rule chosen by PR 2 | `candidates::from_results`, `describe` | To do |
+| 3 | **Product-level candidates** — identity rule chosen by PR 2 | new `search::products` | **Done** |
 | 4 | **Raise the fit test above one word** | `competitors::SHARED_WORDS`, `assemble` | To do |
 | 5 | **Candidates from page content** | new `candidates::named_in` | To do |
 | 6 | **Render the reason that already exists** | `Report`, `web/src/App.tsx` | To do |
@@ -207,6 +207,29 @@ fixtures' own queries returned:
 **PR 3 is therefore larger than this plan first said, and its shape is now known rather than
 assumed.** The assertions are in `tests/discovery.rs`; a rule that ever passes both columns of
 the table above will fail that test and have to be argued for.
+
+#### What shipped, and what it moved
+
+`landscape_search::products` reads the pages behind the results and regroups each domain by what
+its pages call themselves. **The rule now lives in the crate it judges and the golden set
+delegates to it**, because a scorer holding its own copy of a rule measures itself.
+
+| | Before | After |
+|---|---|---|
+| The reported failure's first company | **Microsoft**, 3 of 3 | **Asana** |
+| What Microsoft is called | *Microsoft* | ***Microsoft Project***, 2 of 3 |
+| `one-product-many-urls` | *Microsoft*, *Google* | ***Microsoft Excel***, ***Google Sheets*** |
+| Mean recall | 60% | 60% |
+| Impostors admitted | 1 | 1 |
+
+**Recall did not move and was never going to.** Cause 2 is about what a company is *called* and
+what its agreement is *for*, and every host in the answer is the same host. That is why `Scored`
+now records the ordered set and the name of every member: a scorecard of recall and impostors
+would have reported this change as doing nothing at all.
+
+**Three guards, each with a test that fails without it:** a domain returned at its own root is
+never split, an unreadable page can never split anybody, and a domain costing more than
+`SPLIT_BUDGET = 4` extra reads is left whole rather than split on half its evidence.
 
 **And a rule for the root, which is safe whichever wins.** When the evidence URL is the domain
 root — `asana.com` — the company and the product are one thing and one name is right. Only a

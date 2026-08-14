@@ -1,0 +1,197 @@
+[
+  {
+    "name": "the declared identity forgets which vendor declared it",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "    Some(format!(\"{host}#{name}\"))",
+    "new": "    Some(name)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a page that declares nothing keys to the vendor's domain alone",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        .filter(|name| !name.is_empty())?;",
+    "new": "        .unwrap_or_default();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "two URLs of one product each corroborate it separately",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        for query in &at.queries {\n            if !entry.queries.contains(query) {\n                entry.queries.push(*query);\n            }\n        }",
+    "new": "        entry.queries.extend(at.queries.iter().copied());",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a domain is split on as much of its evidence as the budget allows",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        if urls.is_empty() || urls.len() > budget {\n            continue;\n        }\n        budget -= urls.len();",
+    "new": "        budget = budget.saturating_sub(urls.len());",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "the weakest product on a domain becomes the candidate",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        b.1.queries\n            .len()\n            .cmp(&a.1.queries.len())",
+    "new": "        a.1.queries\n            .len()\n            .cmp(&b.1.queries.len())",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a candidate identified before the merge is reported as unread",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        if let Some(declared) = &one.declared {",
+    "new": "        if let Some(declared) = None::<&crate::products::Declared> {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a read that named nobody is refunded anyway",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        if candidate.declared.is_some() {\n            budget += 1;\n        }",
+    "new": "        budget += 1;",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "the page and the URL it links to drift apart",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "            entry.shallowest = at.url.clone();\n            entry.page = evidence;",
+    "new": "            entry.shallowest = at.url.clone();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a front page among the results stops the vendor being split",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        if urls.is_empty() || urls.len() > budget {",
+    "new": "        if urls.is_empty() || urls.len() > budget || urls.iter().any(|a| is_root(&a.url)) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a root page is treated as one more product",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        let declared = if home {\n            None\n        } else {\n            page.as_deref()\n                .and_then(|markdown| declared_for(&at.url, markdown))\n        };",
+    "new": "        let declared = page\n            .as_deref()\n            .and_then(|markdown| declared_for(&at.url, markdown));",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "two equally supported products are separated by the alphabet",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "    if tied {",
+    "new": "    if false {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "split reads pages describe would never have read",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        .take(crate::candidates::NAMED)\n",
+    "new": "",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "the fetch boundary is decided before splitting moves it",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        .take(crate::candidates::NAMED)\n        .position(|f| !looked_at.contains(&f.host))",
+    "new": "        .position(|f| !looked_at.contains(&f.host) && looked_at.len() < crate::candidates::NAMED)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  }
+]
