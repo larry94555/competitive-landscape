@@ -249,10 +249,14 @@ pub async fn analyze_many(
     let (origins, now, today, search, set, interpreted) =
         (*origins, *now, *today, *search, *set, *interpreted);
     // Assembled once, so no call site can pass these three in the wrong order or forget one.
+    // **Computed once, before anything is read.** The set was decided before this function ran;
+    // recomputing it per progress tick would be the same answer arrived at repeatedly.
+    let chosen = set.and_then(|set| chosen_from(set, today));
     let how = Provenance {
         given: Some(given),
         searches: searches.as_ref(),
         interpreted,
+        chosen: chosen.as_ref(),
     };
     let llm = with.llm;
     // The cap is applied here rather than in the parser, so what it costs can be said out
@@ -404,6 +408,67 @@ struct Provenance<'a> {
     searches: Option<&'a landscape_core::Searches>,
     /// What the market calls this, when it turned out to call it something else.
     interpreted: Option<&'a landscape_core::Interpreted>,
+    /// Who is in the comparison, who is not, and why each.
+    ///
+    /// **Rides here for the same reason `interpreted` does.** The partial reports go to a
+    /// reader too, and an argument that appeared only on the finished one would leave somebody
+    /// watching a list of names accumulate with no account of why any of them are there.
+    chosen: Option<&'a landscape_core::Chosen>,
+}
+
+/// Turn the set that was assembled into the argument a reader is shown.
+///
+/// **The sentences are `landscape-search`'s, unchanged.** `Because::sentence` and
+/// `Aside::sentence` are written for a reader and already say the countable thing; rewriting
+/// them here would be a second wording of one decision, which is the mistake this repository
+/// keeps a register of.
+///
+/// **A company the reader named is not in [`landscape_core::Chosen::argued`].**
+/// `Because::Named` reads *"you named it"*, and a page putting that under somebody's own
+/// company argues a decision back at the person who made it.
+///
+/// **`None` only when there is nothing at all to say**, and getting that wrong cost the block
+/// the case it matters most in. The first version returned early when *every member was named*,
+/// as a stand-in for *the reader named the whole set*. It is not one: `competitors::of_company`
+/// assembles a seed's rivals, leaves the rejected ones in `set_aside`, and then inserts the
+/// named seed into `members` — so **a seeded run where every rival was rejected** has one named
+/// member and a full `set_aside`, and the account of why nobody held up disappeared exactly
+/// when a reader needed it.
+///
+/// A genuinely reader-named set never reaches here at all: that path passes `set: None`. So the
+/// test is what there is to show, not what the members look like.
+fn chosen_from(
+    set: &landscape_search::competitors::Set,
+    today: NaiveDate,
+) -> Option<landscape_core::Chosen> {
+    use landscape_search::competitors::Because;
+    let argued: Vec<landscape_core::Reason> = set
+        .members
+        .iter()
+        .filter(|m| !matches!(m.because, Because::Named))
+        .map(|m| landscape_core::Reason {
+            domain: m.candidate.canonical_domain.clone(),
+            name: m.candidate.name.clone(),
+            why: m.because.sentence(),
+        })
+        .collect();
+    let left_out: Vec<landscape_core::Reason> = set
+        .set_aside
+        .iter()
+        .map(|(candidate, why)| landscape_core::Reason {
+            domain: candidate.canonical_domain.clone(),
+            name: candidate.name.clone(),
+            why: why.sentence(),
+        })
+        .collect();
+    if argued.is_empty() && left_out.is_empty() {
+        return None;
+    }
+    Some(landscape_core::Chosen {
+        argued,
+        left_out,
+        decided_on: today,
+    })
 }
 
 /// One report from several, with source labels reassigned so none collides.
@@ -509,6 +574,7 @@ fn joined(
     }
 
     Report {
+        chosen: how.chosen.cloned(),
         subject: origins.join(", "),
         searched_as: origins.join(", "),
         generated_at: now,
@@ -1496,6 +1562,7 @@ fn assemble(
         .collect();
 
     let report = Report {
+        chosen: None,
         subject: origin.to_owned(),
         searched_as: origin.to_owned(),
         generated_at: now,
@@ -1952,6 +2019,7 @@ mod joining {
     /// A one-company report: one source labeled `S1`, one claim citing it.
     fn one_company(origin: &str, says: &str) -> Analysis {
         let report = Report {
+            chosen: None,
             progress: Some(landscape_core::Progress::finished(1)),
             asked: None,
             searches: None,
@@ -3049,6 +3117,200 @@ mod joining {
                 shares: vec!["analytics".to_owned()],
             },
         }
+    }
+
+    #[test]
+    fn the_reason_a_company_is_in_the_set_reaches_the_report() {
+        // **The last thing this product asserted without showing its evidence.** Every claim
+        // inside a report is quoted, dated and cited; the choice of company was computed
+        // correctly and reached the CLI and nobody else.
+        let set = landscape_search::competitors::Set {
+            members: vec![found("Plausible", "plausible.io", 3)],
+            set_aside: vec![(
+                landscape_core::subject::Candidate {
+                    name: "Notion Press".to_owned(),
+                    canonical_domain: "notionpress.example".to_owned(),
+                    what_it_is: "self-publishing".to_owned(),
+                    confidence: 0.9,
+                },
+                landscape_search::competitors::Aside::ElsewhereEntirely {
+                    looked_for: vec!["privacy".to_owned(), "analytics".to_owned()],
+                    used: vec!["analytics".to_owned()],
+                    needed: 1,
+                },
+            )],
+            alone: None,
+        };
+        let today = NaiveDate::from_ymd_opt(2026, 8, 15).expect("a real day");
+        let chosen = chosen_from(&set, today).expect("a set nobody named");
+
+        assert_eq!(chosen.decided_on, today);
+        assert_eq!(chosen.argued.len(), 1);
+        assert_eq!(chosen.argued[0].domain, "plausible.io");
+        assert_eq!(chosen.argued[0].name, "Plausible");
+        // **The sentence is `landscape-search`'s, unchanged.** A second wording here would be
+        // one more place to keep in step with the arithmetic that produced it.
+        assert_eq!(chosen.argued[0].why, set.members[0].because.sentence());
+
+        // **And the other half.** A list of companies with reasons, beside a silence about
+        // everybody else, is the flattering half of the same evidence.
+        assert_eq!(chosen.left_out.len(), 1);
+        assert_eq!(chosen.left_out[0].domain, "notionpress.example");
+        assert_eq!(chosen.left_out[0].why, set.set_aside[0].1.sentence());
+    }
+
+    #[test]
+    fn a_seed_whose_rivals_were_all_rejected_still_says_why_nobody_held_up() {
+        // **Review found the block disappearing exactly where it matters.** `of_company`
+        // assembles a seed's rivals, leaves the rejected ones in `set_aside`, and inserts the
+        // named seed into `members` - so a run where every rival was rejected has one named
+        // member and a full `set_aside`. Returning early on *every member is named* dropped all
+        // of those reasons, and a reader was told nothing about why their comparison had
+        // nobody in it.
+        let set = landscape_search::competitors::Set {
+            members: vec![landscape_search::competitors::Member {
+                candidate: landscape_core::subject::Candidate {
+                    name: "Basecamp".to_owned(),
+                    canonical_domain: "basecamp.com".to_owned(),
+                    what_it_is: "Project management".to_owned(),
+                    confidence: 1.0,
+                },
+                because: landscape_search::competitors::Because::Named,
+            }],
+            set_aside: vec![(
+                landscape_core::subject::Candidate {
+                    name: "One Search".to_owned(),
+                    canonical_domain: "onesearch.example".to_owned(),
+                    what_it_is: "a company".to_owned(),
+                    confidence: 0.175,
+                },
+                landscape_search::competitors::Aside::Uncorroborated {
+                    agreed: 1,
+                    asked: 3,
+                    named_by: 0,
+                    guides: 0,
+                },
+            )],
+            alone: None,
+        };
+        let chosen = chosen_from(
+            &set,
+            NaiveDate::from_ymd_opt(2026, 8, 15).expect("a real day"),
+        )
+        .expect("the rejected rivals still have to be accounted for");
+        assert!(
+            chosen.argued.is_empty(),
+            "the seed is not argued for: {:?}",
+            chosen.argued
+        );
+        assert_eq!(chosen.left_out.len(), 1);
+        assert!(
+            chosen.left_out[0].why.contains("nothing corroborates it"),
+            "{:?}",
+            chosen.left_out[0]
+        );
+    }
+
+    #[test]
+    fn a_set_with_nothing_to_show_carries_nothing() {
+        // `Because::Named` reads *"you named it"*, and a page making that case is answering a
+        // question nobody asked. With nobody set aside either, there is nothing to carry -
+        // which is the test, rather than the shape of the members.
+        let set = landscape_search::competitors::Set {
+            members: vec![landscape_search::competitors::Member {
+                candidate: landscape_core::subject::Candidate {
+                    name: "Basecamp".to_owned(),
+                    canonical_domain: "basecamp.com".to_owned(),
+                    what_it_is: "Project management".to_owned(),
+                    confidence: 1.0,
+                },
+                because: landscape_search::competitors::Because::Named,
+            }],
+            set_aside: Vec::new(),
+            alone: None,
+        };
+        assert_eq!(
+            chosen_from(
+                &set,
+                NaiveDate::from_ymd_opt(2026, 8, 15).expect("a real day")
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn a_seed_and_the_rivals_it_brought_are_still_argued_for() {
+        // The named path's *other* shape: the reader typed one company and the rest were found.
+        // The seed needs no argument and the rivals do, so the set is carried rather than
+        // dropped - `all` is the rule, not `any`.
+        let set = landscape_search::competitors::Set {
+            members: vec![
+                landscape_search::competitors::Member {
+                    candidate: landscape_core::subject::Candidate {
+                        name: "Basecamp".to_owned(),
+                        canonical_domain: "basecamp.com".to_owned(),
+                        what_it_is: "Project management".to_owned(),
+                        confidence: 1.0,
+                    },
+                    because: landscape_search::competitors::Because::Named,
+                },
+                found("Linear", "linear.app", 2),
+            ],
+            set_aside: Vec::new(),
+            alone: None,
+        };
+        let chosen = chosen_from(
+            &set,
+            NaiveDate::from_ymd_opt(2026, 8, 15).expect("a real day"),
+        )
+        .expect("the rivals were found rather than named");
+        // **The seed is not in the argument.** It is in the comparison because somebody typed
+        // it, and a page saying *"you named it"* under their own company argues a decision back
+        // at the person who made it. Review found the first version doing exactly that.
+        assert_eq!(
+            chosen
+                .argued
+                .iter()
+                .map(|r| r.domain.as_str())
+                .collect::<Vec<_>>(),
+            vec!["linear.app"]
+        );
+        assert!(chosen.argued[0].why.contains("2 of the 3 searches"));
+    }
+
+    #[tokio::test]
+    async fn the_report_a_reader_is_handed_carries_the_argument_for_its_set() {
+        // **The conversion is not the delivery.** `chosen_from` producing the right thing and
+        // the report carrying it are two facts, and a test of the first alone passes while the
+        // field is dropped on the way out - which is what the mutation catalog found.
+        let set = landscape_search::competitors::Set {
+            members: vec![found("Plausible", "plausible.io", 3)],
+            set_aside: Vec::new(),
+            alone: None,
+        };
+        let many = unreachable(1);
+        let outcome = analyze_many(
+            &offline(),
+            &landscape_fetch::Budget::for_one_analysis(),
+            &Asked {
+                set: Some(&set),
+                ..named(&many)
+            },
+            &mut |_| Wanted::Yes,
+        )
+        .await;
+
+        let chosen = outcome
+            .report
+            .chosen
+            .as_ref()
+            .expect("the argument for the set reaches the reader");
+        assert_eq!(chosen.argued.len(), 1);
+        assert!(
+            chosen.argued[0].why.contains("3 of the 3 searches"),
+            "{:?}",
+            chosen.argued[0]
+        );
     }
 
     #[tokio::test]

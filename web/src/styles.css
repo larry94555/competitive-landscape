@@ -157,6 +157,17 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 .listing li:last-child { border-bottom: 0; }
 .listing li .name { font-weight: 600; }
+/* The reason wraps under the name rather than beside it: it is a sentence, and a sentence in a
+   flex row either squeezes the name or runs off the edge. Muted, because it is the evidence for
+   the row and not the row. */
+.listing li:has(.why) { flex-wrap: wrap; }
+.listing li .why {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  margin-top: 0.2rem;
+}
 .listing .reveal {
   margin-top: 0.8rem;
   background: none;

@@ -423,6 +423,7 @@ mod tests {
     #[test]
     fn a_report_with_every_section_empty_sends_none_of_them() {
         let report = Report {
+            chosen: None,
             subject: "https://e.com".to_owned(),
             searched_as: "https://e.com".to_owned(),
             generated_at: at(),

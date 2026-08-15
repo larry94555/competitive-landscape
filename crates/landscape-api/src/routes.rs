@@ -439,6 +439,7 @@ mod tests {
             .await
             .expect("enqueued");
         let report = landscape_core::Report {
+            chosen: None,
             progress: None,
             asked: None,
             searches: None,
@@ -550,6 +551,7 @@ mod tests {
             .expect("enqueued");
         store.claim_next().await.expect("claimable");
         let half = landscape_core::Report {
+            chosen: None,
             asked: None,
             searches: None,
             subject: "basecamp.com".to_owned(),

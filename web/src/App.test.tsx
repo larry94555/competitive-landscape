@@ -1594,6 +1594,189 @@ describe("the four blocks", () => {
     });
   });
 
+  describe("why each company is here", () => {
+    /** A set with both halves: one company in, one considered and left out. */
+    const CHOSEN = {
+      argued: [
+        {
+          domain: "asana.com",
+          name: "Asana",
+          why: "2 of the 3 searches returned it, 2 of the 3 buyer's guides we read list it (capterra.com, g2.com), and its own front page uses \"project\"",
+        },
+      ],
+      left_out: [
+        {
+          domain: "projectplusgame.com",
+          name: "Project Plus",
+          why: 'its own front page uses "project" of the 4 words this comparison is built on, and a company in this market uses at least 2',
+        },
+      ],
+      decided_on: "2026-08-15",
+    };
+
+    it("shows the reason under the company rather than behind a click", async () => {
+      // **The evidence for the one editorial decision this page makes.** It was computed,
+      // correct and invisible: `Because` reached the CLI and the report's notes, and never the
+      // page. Evidence a reader has to go looking for is evidence most readers never see.
+      await reportWith({ subjects: ["https://asana.com"], chosen: CHOSEN });
+      const companies = await screen.findByRole("region", { name: "Companies" });
+      expect(
+        within(companies).getByText(/2 of the 3 searches returned it/),
+      ).toBeInTheDocument();
+      expect(
+        within(companies).getByText(/2 of the 3 buyer's guides/),
+      ).toBeInTheDocument();
+    });
+
+    it("shows what was considered and left out, and why", async () => {
+      // **The other half of the same evidence.** Reasons for what got in, beside a silence
+      // about everybody else, is the flattering half.
+      await reportWith({ subjects: ["https://asana.com"], chosen: CHOSEN });
+      const left = await screen.findByRole("region", {
+        name: "Considered and left out",
+      });
+      expect(within(left).getByText("projectplusgame.com")).toBeInTheDocument();
+      expect(
+        within(left).getByText(/a company in this market uses at least 2/),
+      ).toBeInTheDocument();
+      // The day the pages behind the decision were read, so the argument is datable.
+      expect(within(left).getByText(/2026-08-15/)).toBeInTheDocument();
+    });
+
+    it("says nothing at all when nobody was left out", async () => {
+      // An empty *left out* heading would claim we considered and rejected somebody. A silence
+      // is a silence; a heading is an assertion.
+      await reportWith({
+        subjects: ["https://asana.com"],
+        chosen: { ...CHOSEN, left_out: [] },
+      });
+      await screen.findByRole("region", { name: "Companies" });
+      expect(
+        screen.queryByRole("region", { name: "Considered and left out" }),
+      ).toBeNull();
+    });
+
+    it("does not claim a company came back from a search, or was read, when it did not", async () => {
+      // **The preface used to contradict the sentence under it.** A company two buyer's guides
+      // named was never returned by a search; a company whose page could not be read was not
+      // read. "Read 2026-08-15. Each of these came back from the searching" was false about
+      // both, directly above the reason saying so.
+      await reportWith({
+        subjects: ["https://asana.com"],
+        chosen: {
+          ...CHOSEN,
+          left_out: [
+            {
+              domain: "helpscout.com",
+              name: "helpscout.com",
+              why: "we could not read its front page, so we could not check what it does - name the domain yourself and we will read it",
+            },
+            {
+              domain: "sixth.example",
+              name: "sixth.example",
+              why: "it ranked below the 5 companies whose front pages we read, so we never asked for its page",
+            },
+            {
+              domain: "workamajig.com",
+              name: "Workamajig",
+              why: "only 0 of the 3 searches returned it, and only 1 of the 3 buyer's guides we read list it, so nothing corroborates it",
+            },
+          ],
+        },
+      });
+      const left = await screen.findByRole("region", {
+        name: "Considered and left out",
+      });
+      const preface = within(left).getByText(/Considered on/);
+      expect(preface).toHaveTextContent("2026-08-15");
+      expect(preface.textContent ?? "").not.toMatch(/\bRead\b/);
+      expect(preface.textContent ?? "").not.toMatch(
+        /came back from the searching/,
+      );
+      // And every reason is still there, contradicting nothing above it.
+      expect(
+        within(left).getByText(/could not read its front page/),
+      ).toBeInTheDocument();
+      expect(
+        within(left).getByText(/we never asked for its page/),
+      ).toBeInTheDocument();
+      expect(
+        within(left).getByText(/0 of the 3 searches returned it/),
+      ).toBeInTheDocument();
+    });
+
+    it("still says why nobody held up when no rival made it into the set", async () => {
+      // **The case the block used to disappear in.** A reader named one company, every rival
+      // the searching found was rejected, and the page showed a comparison of one with no
+      // account of why. `argued` is empty here and `left_out` is not, and the reasons are the
+      // whole of what there is to say.
+      await reportWith({
+        subjects: ["https://basecamp.com"],
+        chosen: {
+          argued: [],
+          left_out: [
+            {
+              domain: "onesearch.example",
+              name: "One Search",
+              why: "only 1 of the 3 searches returned it, and we read no buyer's guide that might have, so nothing corroborates it",
+            },
+          ],
+          decided_on: "2026-08-15",
+        },
+      });
+      const left = await screen.findByRole("region", {
+        name: "Considered and left out",
+      });
+      expect(within(left).getByText("onesearch.example")).toBeInTheDocument();
+      expect(
+        within(left).getByText(/nothing corroborates it/),
+      ).toBeInTheDocument();
+      // And the company the reader named is still not argued for.
+      const companies = await screen.findByRole("region", { name: "Companies" });
+      expect(within(companies).queryByText(/you named it/)).toBeNull();
+    });
+
+    it("does not argue a seed back at the reader who named it", async () => {
+      // A seeded set is the mixed case: the reader typed one company and the rest were found.
+      // The seed is in the comparison because they said so, and *"you named it"* under their
+      // own company is answering a question they did not ask.
+      await reportWith({
+        subjects: ["https://basecamp.com", "https://linear.app"],
+        chosen: {
+          argued: [
+            {
+              domain: "linear.app",
+              name: "Linear",
+              why: "2 of the 3 searches returned it, and its own front page uses \"project\"",
+            },
+          ],
+          left_out: [],
+          decided_on: "2026-08-15",
+        },
+      });
+      const companies = await screen.findByRole("region", { name: "Companies" });
+      expect(within(companies).getByText("basecamp.com")).toBeInTheDocument();
+      expect(within(companies).queryByText(/you named it/)).toBeNull();
+      expect(
+        within(companies).getByText(/2 of the 3 searches returned it/),
+      ).toBeInTheDocument();
+    });
+
+    it("argues nothing back at a reader who named their own companies", async () => {
+      // `chosen` is absent on that path, because a page making the case for a decision
+      // somebody made themselves is answering a question they did not ask.
+      await reportWith({ subjects: ["https://asana.com"], chosen: null });
+      const companies = await screen.findByRole("region", { name: "Companies" });
+      expect(within(companies).getByText("asana.com")).toBeInTheDocument();
+      expect(
+        within(companies).queryByText(/searches returned it/),
+      ).toBeNull();
+      expect(
+        screen.queryByRole("region", { name: "Considered and left out" }),
+      ).toBeNull();
+    });
+  });
+
   describe("what did not come back", () => {
     /** The one block whose search actually ran. */
     async function companies(): Promise<HTMLElement> {

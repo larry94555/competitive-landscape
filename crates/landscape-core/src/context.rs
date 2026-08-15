@@ -461,6 +461,7 @@ mod tests {
 
     fn two_companies() -> Report {
         Report {
+            chosen: None,
             // A finished report, so it carries a finished run.
             progress: Some(crate::Progress::finished(2)),
             asked: None,

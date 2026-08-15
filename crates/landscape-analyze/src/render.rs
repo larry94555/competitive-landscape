@@ -162,6 +162,7 @@ mod tests {
     fn analysis(sections: Vec<Section>, coverage: Vec<Coverage>, sources: Vec<Source>) -> Analysis {
         Analysis {
             report: Report {
+                chosen: None,
                 subject: "https://e.com".to_owned(),
                 searched_as: "https://e.com".to_owned(),
                 generated_at: at(),

@@ -16,6 +16,7 @@ use crate::Store;
 
 fn sample_report(subject: &str) -> Report {
     Report {
+        chosen: None,
         subject: subject.to_owned(),
         searched_as: "ordering software for small farms".to_owned(),
         generated_at: chrono::Utc::now(),

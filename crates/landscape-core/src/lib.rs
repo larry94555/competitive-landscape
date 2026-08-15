@@ -34,7 +34,7 @@ pub use extract::{
 };
 pub use given::{Given, Searches};
 pub use progress::{Counted, Phase, Progress};
-pub use report::{Claim, Confidence, Interpreted, Report, Section, SectionStatus};
+pub use report::{Chosen, Claim, Confidence, Interpreted, Reason, Report, Section, SectionStatus};
 pub use source::{Disposition, Source};
 pub use subject::{resolve, Candidate, Resolution};
 

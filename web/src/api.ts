@@ -119,6 +119,48 @@ export interface Report {
   readonly asked?: Given | null;
   /** How much of the searching finished. Absent when nothing was searched for. */
   readonly searches?: Searches | null;
+  /**
+   * Which companies were compared, which were not, and why each.
+   *
+   * **The last thing this product asserted without showing its evidence.** Every claim inside a
+   * report is quoted, dated and cited; the choice of company was computed correctly and shown
+   * to nobody. Absent when the reader named their own companies — a page arguing that decision
+   * back at them is answering a question they did not ask.
+   */
+  readonly chosen?: Chosen | null;
+}
+
+/** One company, and the sentence saying why it is where it is. */
+export interface Reason {
+  readonly domain: string;
+  readonly name: string;
+  readonly why: string;
+}
+
+/**
+ * Who is in the comparison, who is not, and why each.
+ *
+ * **Both halves or neither.** Reasons for the companies that got in, beside a silence about
+ * everybody else, is the more flattering half of the same evidence.
+ */
+export interface Chosen {
+  /**
+   * In the comparison **and with an argument to make**.
+   *
+   * A company the reader named is not here: *"you named it"* is a fact rather than a case, and
+   * a page putting it under somebody's own company argues a decision back at the person who
+   * made it.
+   */
+  readonly argued: readonly Reason[];
+  readonly left_out: readonly Reason[];
+  /**
+   * The day this was decided, `YYYY-MM-DD`.
+   *
+   * **Decided, not read.** Two of the five reasons a company is left out are *we could not
+   * read its page* and *we never asked for it*, so a line claiming these pages were read would
+   * sit directly above a sentence saying one of them was not.
+   */
+  readonly decided_on: string;
 }
 
 /** What the reader gave. Mirrors `landscape_core::Given`. */

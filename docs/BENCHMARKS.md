@@ -33,6 +33,87 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 55 — the reason a reader can see
+
+**Date:** 2026-08-15 — **Where:** this laptop, no engine and no model needed — **Model:** none.
+
+`IMPROVING_PRODUCT_IDEAS_LOGIC_ROADMAP.md` PR 6. **Nothing about discovery changed**, which is
+why there is no table of recall below: this run is about a decision that was already correct and
+already invisible.
+
+| | Rust tests | frontend tests | catalog | gates |
+|---|---|---|---|---|
+| before | 1072 | 139 | 45, all caught | 17 |
+| after | **1077** | **146** | **52**, all caught | **17** |
+
+### What was invisible
+
+Every claim *inside* a report is quoted, dated and cited — `FACT_CHECKING.md` is most of this
+repository. The **choice of company** had none of that on the page. `Because::Found` has said
+*"2 of the 3 searches returned it, 2 of the 3 buyer's guides we read list it, and its own front
+page uses 'project'"* since PR 5, and `Aside` has said which of five things happened to every
+company that did not get in. Both reached the command line and the report's notes. The page a
+reader actually looks at showed a column of names.
+
+| | Before | After |
+|---|---|---|
+| Companies | a list of names | each name with the sentence that put it there |
+| Companies found and refused | **not shown at all** | *Considered and left out*, each with its reason |
+| A set the reader named | a list of names | unchanged |
+
+### The sentences are not rewritten
+
+`landscape_core::Chosen` carries a **sentence**, not a structure. The arithmetic behind it lives
+in `landscape-search`, and rendering it a second time on the page would be a second wording to
+keep in step — the duplicated-rule mistake this repository has a register of. A mutation replaces
+the exclusion sentence with *"not included"* and the conversion test fails.
+
+### Two things review found about the wording
+
+**The preface contradicted the sentence under it.** *Considered and left out* said *"Read
+2026-08-15. Each of these came back from the searching"* — and neither half is true of every
+company there. A company two buyer's guides named was never returned by a search; two of the five
+reasons are *we could not read its page* and *we never asked for it*. So `read_on` is now
+`decided_on`, the type says why, and the line reads *"Considered on 2026-08-15. Each of these was
+found and is not in the comparison."*
+
+**And the seed was argued back at the reader.** `chosen_from` skipped the whole block when
+*every* member was `Because::Named`, then rendered every member when one rival had been found —
+so a seeded set put *"you named it"* under the reader's own company. The field is `argued` now
+and a `Named` member is not in it: it is in the comparison because somebody said so, which is a
+fact rather than a case.
+
+**And that early return was wrong a second time, in the case it mattered most.** *Every member is
+named* stood in for *the reader named the whole set*, and it is not the same thing:
+`competitors::of_company` assembles a seed's rivals, leaves the rejected ones in `set_aside`, and
+then inserts the named seed into `members`. **A seeded run where every rival was rejected** has
+one named member and a full `set_aside` — so the account of why nobody held up disappeared exactly
+when a reader had a comparison of one and needed it. A genuinely reader-named set never reaches
+the conversion at all: that path passes `set: None`. The test is now what there is to show rather
+than what the members look like.
+
+### Both halves or neither
+
+Reasons for the companies that got in, beside a silence about everybody else, is the more
+flattering half of the same evidence. *Considered and left out* is the other half.
+
+**And the block disappears when there is nothing in it.** An empty *left out* heading would claim
+we considered and rejected somebody — `PRODUCT_IDEA_RESULTS.md` §2.5's rule pointed inward, where a
+heading is an assertion and a silence is not.
+
+**A reader who named their own companies gets none of it.** `Because::Named` reads *"you named
+it"*, and a page arguing that back is answering a question nobody asked. The rule is `all` rather
+than `any`, because a **seed** brings rivals that were found: the seed needs no argument and they
+do, and a mutation that swaps those catches it.
+
+### What it does not do
+
+**One cause is left, and it is the first one.** The opening query is still malformed — *"best
+project management for a small design agency software"* — and the categories and comparisons on
+the guide pages now being read are still unused. PR 7.
+
+---
+
 ## Run 54 — the market's own writing, read instead of discarded
 
 **Date:** 2026-08-15 — **Where:** this laptop, no engine and no model needed — **Model:** none.
@@ -466,7 +547,7 @@ six sections a real company actually produces — needs a model and a network. S
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 50 | 1026 | 139 | no code changed |
-| now | **1072** | **139** | **45**, all caught |
+| now | **1077** | **146** | **52**, all caught |
 
 ---
 

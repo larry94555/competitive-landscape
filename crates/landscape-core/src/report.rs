@@ -111,6 +111,54 @@ pub struct Interpreted {
     pub hosts: usize,
 }
 
+/// One company, and the sentence saying why it is where it is.
+///
+/// **The reason existed and was invisible.** `competitors::Because` and `competitors::Aside`
+/// have been computed, correct and reachable from the CLI since the set was built; the page a
+/// reader looks at showed a list of names. This is the type that carries the sentence as far as
+/// them.
+///
+/// **A sentence, not a structure.** The arithmetic behind it — how many searches agreed, which
+/// guides list it, which words its page shares — lives in `landscape-search`, and a second
+/// rendering of it here would be a second wording to keep in step. What crosses the boundary is
+/// the sentence that module already writes for a reader.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct Reason {
+    /// The registrable domain, which is how a reader recognizes it.
+    pub domain: String,
+    /// What its own page calls it.
+    pub name: String,
+    /// Why it is in the set, or why it is not.
+    pub why: String,
+}
+
+/// Who is in the comparison, who is not, and why each — with the day it was decided.
+///
+/// **Both halves or neither.** A list of companies with reasons, beside a silence about
+/// everybody else, is the more flattering half of the same evidence. `PRODUCT_IDEA_RESULTS.md`
+/// §2.4 says a category nobody looked in must say so; this is that rule applied to the
+/// companies inside one.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct Chosen {
+    /// In the comparison **and with an argument to make**, in the order the set ranked them.
+    ///
+    /// **A company the reader named is not here.** `Because::Named` reads *"you named it"*,
+    /// which is a fact rather than a case, and a page putting it under somebody's name is
+    /// arguing a decision back at the person who made it. Review found the first version
+    /// rendering it in a seeded set, where the seed sits beside rivals that *were* found.
+    pub argued: Vec<Reason>,
+    /// Found and not in the comparison.
+    pub left_out: Vec<Reason>,
+    /// The day this was decided.
+    ///
+    /// **Decided, not read, and the difference is not pedantry.** Two of the five reasons a
+    /// company is left out are *we could not read its page* and *we never asked for it* — so a
+    /// line saying these pages were read sits directly above a sentence saying one of them was
+    /// not. Review found exactly that. What is true of every company here is that the decision
+    /// was made on this run's day.
+    pub decided_on: chrono::NaiveDate,
+}
+
 /// A finished report.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Report {
@@ -191,6 +239,16 @@ pub struct Report {
     /// `None` when nothing was searched for - a named set - and on older reports.
     #[serde(default)]
     pub searches: Option<crate::Searches>,
+    /// Which companies were compared, which were not, and why each.
+    ///
+    /// **The last thing this product asserted without showing its evidence.** Every claim
+    /// inside a report is quoted, dated and cited; the choice of company was computed
+    /// correctly and shown to nobody.
+    ///
+    /// `None` when nothing was chosen — a reader who named their own companies is not owed an
+    /// argument for a decision they made — and on reports written before this existed.
+    #[serde(default)]
+    pub chosen: Option<Chosen>,
 }
 
 impl Report {
@@ -222,6 +280,9 @@ impl Report {
             notes: Vec::new(),
             asked: None,
             searches: None,
+            // Nothing has been chosen yet, and a run that has not chosen has no argument to
+            // make about it.
+            chosen: None,
             progress: Some(progress),
         }
     }
@@ -290,6 +351,7 @@ mod tests {
 
     fn report_with(claims: Vec<Claim>, sources: Vec<Source>) -> Report {
         Report {
+            chosen: None,
             subject: "an app that helps small farms sell to restaurants".to_owned(),
             searched_as: "ordering software for small farms".to_owned(),
             generated_at: at("2026-08-01T09:14:00Z"),
