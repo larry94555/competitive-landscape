@@ -158,8 +158,8 @@
   {
     "name": "a reason divides by the searches that answered rather than those sent",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "    let sources = crate::candidates::Sources {\n        asked: queried.sent(),\n        guides: crate::literature::read(results),\n    };",
-    "new": "    let sources = crate::candidates::Sources {\n        asked: queried.completed.len(),\n        guides: crate::literature::read(results),\n    };",
+    "old": "    let sources = crate::candidates::Sources {\n        asked: queried.sent(),\n        // **What came back, not what was asked for.** See `literature::Reading::read`.\n        guides: reading.read,\n    };",
+    "new": "    let sources = crate::candidates::Sources {\n        asked: queried.completed.len(),\n        guides: reading.read,\n    };",
     "run": [
       "cargo",
       "nextest",

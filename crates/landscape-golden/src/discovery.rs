@@ -527,12 +527,13 @@ pub async fn score(market: &Market) -> Scored {
     };
 
     let found: Vec<Found> = from_results(&market.results, QUERIES);
+    let reading = landscape_search::literature::named_in(&market.results, &fetch).await;
     let sources = landscape_search::candidates::Sources {
         asked: QUERIES,
-        guides: landscape_search::literature::read(&market.results),
+        // What came back, not what was chosen: a guide nobody could read checked nothing.
+        guides: reading.read,
     };
-    let named = landscape_search::literature::named_in(&market.results, &fetch).await;
-    let found = landscape_search::literature::admit(found, &named, sources);
+    let found = landscape_search::literature::admit(found, &reading, sources);
     let found = landscape_search::products::split(found, sources, &market.results, &fetch).await;
     let described = describe(&found, &words, fetch).await;
 

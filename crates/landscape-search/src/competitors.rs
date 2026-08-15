@@ -823,8 +823,12 @@ pub fn assemble(
         // these is reported by the first one — the reader is told the strongest reason it is
         // absent rather than the last one that happened to be checked.
         // **Two kinds of pointing, one threshold.** A search returning a company and a
-        // publisher listing it are both one independent thing saying it belongs here; see
-        // [`crate::literature::NAMED_BY`] for why they are not two standards.
+        // publisher listing it are both one independent thing saying it belongs here, which is
+        // why [`crate::literature`] has no second constant beside `CORROBORATION`.
+        //
+        // **Publishers, not links**: one guide linking three of a company's pages has said one
+        // thing, and counting three would manufacture the corroboration this asks for.
+        let named_by = crate::literature::publishers(&named_by);
         let aside = if agreed + named_by.len() < CORROBORATION {
             Some(Aside::Uncorroborated {
                 agreed,
@@ -1457,7 +1461,14 @@ Project management built for speed."
         // search is below `CORROBORATION`; two independent guides carry it over, and what a
         // reader is shown has to be those two facts rather than their sum.
         let mut one = described("workamajig.com", 1, 0.7, read(&["analytics"]));
-        one.named_by = vec!["capterra.com".to_owned(), "g2.com".to_owned()];
+        one.named_by = ["capterra.com", "g2.com"]
+            .iter()
+            .map(|by| crate::literature::Endorsement {
+                by: (*by).to_owned(),
+                host: "workamajig.com".to_owned(),
+                at: "https://www.workamajig.com/".to_owned(),
+            })
+            .collect();
         let set = assemble(
             vec![one],
             crate::candidates::Sources {

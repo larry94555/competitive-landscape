@@ -44,7 +44,7 @@ becomes the way to find the market's literature.
 | | Rust tests | frontend tests | catalog | gates |
 |---|---|---|---|---|
 | before | 1053 | 139 | 25, all caught | 17 |
-| after | **1064** | **139** | **32**, all caught | **17** |
+| after | **1069** | **139** | **41**, all caught | **17** |
 
 ### What moved, and it is the reader's own complaint
 
@@ -87,6 +87,29 @@ Both kinds are added for the threshold and kept apart in the sentence:
 Adding them into one number would tell a reader **three searches agreed** about a company one of
 them found. And the exclusion sentence now distinguishes three findings rather than two: no guide
 listed it, no guide was read, or one did — which is `landscape_core::coverage`'s rule again.
+
+### Four things review found, all of them about what counts as evidence
+
+**The divisor counted guides chosen rather than guides read.** Four selected and four fetches
+failing left every candidate rescored as though four guides had looked and found nothing, and an
+exclusion saying *"none of the 4 buyer's guides we read"* about pages nobody read. `named_in`
+returns the count that actually came back.
+
+**A publisher's front page was winning.** Keeping the shallowest URL per host meant `g2.com/`
+arriving beside the page that surveys this market discarded the guide and fetched the front door.
+A root result says the publisher exists. Only a page below the root is a guide, and among a
+publisher's pages the one the most queries returned wins — depth is the tie-breaker, not the rule.
+
+**The link boundary was not enforced.** *A link, and only a link* was the claim, and the code
+scanned for every `http` in the page: a URL quoted in a sentence, an image source or a canonical
+tag was a vendor endorsement. It parses markdown destinations and autolinks now, and `![alt](url)`
+is a picture of a thing rather than a recommendation of it.
+
+**And endorsements attached themselves to whichever product won.** `linked_from` collapsed a link
+to its registrable host, and `products::split` handed the domain's whole set to the strongest
+product — so two guides linking **Microsoft Teams** corroborated **Microsoft Project**. The URL
+is kept now, and an endorsement pointing at a domain root supports no product at all, because
+evidence that attaches to whatever is strongest is not evidence.
 
 ### The cost
 
@@ -430,7 +453,7 @@ six sections a real company actually produces — needs a model and a network. S
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 50 | 1026 | 139 | no code changed |
-| now | **1064** | **139** | **32**, all caught |
+| now | **1069** | **139** | **41**, all caught |
 
 ---
 

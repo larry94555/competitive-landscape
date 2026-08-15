@@ -316,6 +316,9 @@ fn strongest(
         queries: Vec<usize>,
         shallowest: String,
         page: Option<String>,
+        /// Every URL that grouped here, so a publisher's link can be matched to **this**
+        /// product rather than to whichever of a domain's products happened to win.
+        urls: Vec<String>,
     }
 
     let mut by_identity: HashMap<String, Grouped> = HashMap::new();
@@ -342,7 +345,9 @@ fn strongest(
             queries: Vec::new(),
             shallowest: at.url.clone(),
             page: evidence.clone(),
+            urls: Vec::new(),
         });
+        entry.urls.push(at.url.clone());
         for query in &at.queries {
             if !entry.queries.contains(query) {
                 entry.queries.push(*query);
@@ -424,11 +429,19 @@ fn strongest(
         ),
         host: one.host.clone(),
         agreed,
-        shallowest: best.shallowest,
         declared: named(best.page),
-        // **Carried, not recomputed.** Which publishers named this domain is a fact about the
-        // domain, and splitting it into products does not un-name it.
-        named_by: one.named_by.clone(),
+        // **Only the endorsements that pointed at *this* product.** Review found the whole
+        // domain's endorsements handed to whichever product won the split, so two guides linking
+        // Microsoft Teams corroborated Microsoft Project. A guide that linked to the domain root,
+        // or to a page that is not this product's, has said nothing about this product — and
+        // ambiguous evidence supporting whatever happens to be strongest is not evidence.
+        named_by: one
+            .named_by
+            .iter()
+            .filter(|e| best.urls.contains(&e.at))
+            .cloned()
+            .collect(),
+        shallowest: best.shallowest,
     }
 }
 
@@ -825,6 +838,95 @@ Group chat.",
             "it was read after the candidate above it fell, and keeps what its product earned"
         );
         assert_eq!(promoted.declared.as_ref().expect("named").name, "Sixth One");
+    }
+
+    #[tokio::test]
+    async fn a_guide_that_linked_one_product_does_not_corroborate_another() {
+        // **Review's finding, and it crosses two modules.** `literature` collapses a link to its
+        // registrable host; `split` used to hand the whole domain's endorsements to whichever
+        // product won. So two guides linking **Microsoft Teams** corroborated **Microsoft
+        // Project** — evidence attaching itself to whatever happened to be strongest, which is
+        // the opposite of evidence.
+        let results = vec![vec![hit(PROJECT)], vec![hit(TEAMS)], vec![hit(PROJECT)]];
+        let mut before = from_results(&results, 3);
+        before[0].named_by = ["g2.com", "capterra.com"]
+            .iter()
+            .map(|by| crate::literature::Endorsement {
+                by: (*by).to_owned(),
+                host: "microsoft.com".to_owned(),
+                at: TEAMS.to_owned(),
+            })
+            .collect();
+
+        let after = split(
+            before,
+            sources(3),
+            &results,
+            &pages(&[
+                (
+                    PROJECT,
+                    "# Microsoft Project\n\nProject management software.",
+                ),
+                (TEAMS, "# Microsoft Teams\n\nGroup chat."),
+            ]),
+        )
+        .await;
+
+        assert_eq!(
+            after[0].declared.as_ref().expect("named").name,
+            "Microsoft Project",
+            "Project still wins the search-based split"
+        );
+        assert!(
+            after[0].named_by.is_empty(),
+            "and it keeps none of the endorsements that pointed at Teams: {:?}",
+            after[0].named_by
+        );
+    }
+
+    #[tokio::test]
+    async fn a_guide_that_linked_the_winning_product_does_corroborate_it() {
+        // The other half, so the rule above is a rule rather than a refusal to carry evidence.
+        let results = vec![vec![hit(PROJECT)], vec![hit(TEAMS)], vec![hit(PROJECT)]];
+        let mut before = from_results(&results, 3);
+        before[0].named_by = vec![
+            crate::literature::Endorsement {
+                by: "g2.com".to_owned(),
+                host: "microsoft.com".to_owned(),
+                at: PROJECT.to_owned(),
+            },
+            crate::literature::Endorsement {
+                by: "capterra.com".to_owned(),
+                host: "microsoft.com".to_owned(),
+                // The domain root: a guide that linked the vendor rather than the product has
+                // said nothing about which product, and ambiguous evidence is not evidence.
+                at: "https://www.microsoft.com/".to_owned(),
+            },
+        ];
+
+        let after = split(
+            before,
+            sources(3),
+            &results,
+            &pages(&[
+                (
+                    PROJECT,
+                    "# Microsoft Project\n\nProject management software.",
+                ),
+                (TEAMS, "# Microsoft Teams\n\nGroup chat."),
+            ]),
+        )
+        .await;
+
+        assert_eq!(
+            after[0]
+                .named_by
+                .iter()
+                .map(|e| e.by.as_str())
+                .collect::<Vec<_>>(),
+            vec!["g2.com"],
+            "the one that linked this product, and not the one that linked the vendor"
+        );
     }
 
     #[tokio::test]

@@ -157,8 +157,19 @@ refused before anybody saw it. That was cause 3, and `workamajig.com`.
 index of them. They are still never candidates.
 
 **A link, and only a link.** A guide that lists a vendor links to it, and a link is a fact about
-the page rather than a reading of it: no model, nothing asserted that was not read. Its own pages
-and other publishers are dropped, so a guide citing a guide has named nobody.
+the page rather than a reading of it: no model, nothing asserted that was not read. Markdown link
+destinations and autolinks count; **a URL in prose, an image source and a canonical tag do not**.
+Its own pages and other publishers are dropped, so a guide citing a guide has named nobody.
+
+**A publisher's front page is not a guide.** Only a page below the root is read, and among a
+publisher's pages the one the most queries returned wins — depth is the tie-breaker, not the rule.
+
+**The link's URL is kept, not just its host**, because a domain can be several products: a guide
+that linked Microsoft Teams has said nothing about Microsoft Project, and an endorsement pointing
+at a domain root says nothing about which product at all.
+
+**Guides that were read, not guides that were chosen.** A page that could not be fetched checked
+nothing, and is not counted in the divisor or described to a reader as having looked.
 
 **Two independent hosts**, which is `FACT_CHECKING.md` §L6's rule for claims applied to the
 choice of company — and it is `CORROBORATION` itself rather than a second constant beside it.

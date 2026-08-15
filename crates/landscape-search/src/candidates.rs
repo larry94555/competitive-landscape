@@ -319,7 +319,7 @@ pub struct Found {
     /// **The other kind of corroboration.** A company two independent buyer's guides list is a
     /// company the market says is in it, whether or not the queries happened to return its
     /// domain — which is [`crate::literature`], and cause 3 of the logic document.
-    pub named_by: Vec<String>,
+    pub named_by: Vec<crate::literature::Endorsement>,
     /// What the page at [`Self::shallowest`] calls itself, when it was read before the merge.
     ///
     /// `None` is the ordinary case and means *nobody has read a page for this candidate* — a
@@ -342,8 +342,8 @@ pub struct Described {
     /// How many of the differently-worded searches returned this host. Carried through from
     /// [`Found`] because a reader asking *why is this company here* is owed the number.
     pub agreed: usize,
-    /// The publishers that named it, carried through from [`Found`] for the same reason.
-    pub named_by: Vec<String>,
+    /// The links publishers made to it, carried through from [`Found`] for the same reason.
+    pub named_by: Vec<crate::literature::Endorsement>,
     /// What its front page turned out to say, or why nobody knows.
     pub shares: Vocabulary,
 }
@@ -940,12 +940,13 @@ where
     // **The market's literature, read before the ranking is believed.** A company two
     // independent buyer's guides list is corroborated by the market saying so, whatever the
     // queries happened to return - which is cause 3, and `workamajig.com`.
+    let reading = crate::literature::named_in(results, &fetch).await;
     let sources = crate::candidates::Sources {
         asked: queried.sent(),
-        guides: crate::literature::read(results),
+        // **What came back, not what was asked for.** See `literature::Reading::read`.
+        guides: reading.read,
     };
-    let named = crate::literature::named_in(results, &fetch).await;
-    let found = crate::literature::admit(found, &named, sources);
+    let found = crate::literature::admit(found, &reading, sources);
     let found = crate::products::split(found, sources, results, &fetch).await;
     let words = crate::competitors::content_words(description);
     let described = describe(&found, &words, fetch).await;
