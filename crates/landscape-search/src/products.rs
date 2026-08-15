@@ -59,6 +59,7 @@ use std::collections::HashMap;
 use landscape_fetch::Target;
 
 use crate::candidates::{registrable, Found};
+use crate::literature::Endorsement;
 use crate::Hit;
 
 /// How many **extra** page reads one analysis will spend telling products apart.
@@ -197,7 +198,7 @@ fn is_root(url: &str) -> bool {
 /// agreed with one of them.
 pub async fn split<F, Fut>(
     found: Vec<Found>,
-    asked: usize,
+    sources: crate::candidates::Sources,
     results: &[Vec<Hit>],
     fetch: &F,
 ) -> Vec<Found>
@@ -249,7 +250,7 @@ where
             };
             read.push((at, fetch(url).await));
         }
-        let candidate = strongest(&ranked[index], asked, &read);
+        let candidate = strongest(&ranked[index], sources, &read);
         // **The refund, and only now can it be known.** A candidate that came out of there with
         // a name will not have its front page fetched by `describe`, so one of these reads
         // replaced a read rather than adding one. A candidate that did not still costs the
@@ -300,7 +301,11 @@ where
 /// the support the tie actually shows, with no name of its own so
 /// [`crate::candidates::describe`] reads the front page. A tie between two one-query products is
 /// a vendor with one query behind it, which is what [`crate::candidates::CORROBORATION`] is for.
-fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) -> Found {
+fn strongest(
+    one: &Found,
+    sources: crate::candidates::Sources,
+    read: &[(&Appearance, Option<String>)],
+) -> Found {
     /// One identity's share of a domain's appearances.
     ///
     /// **`page` is the page at `shallowest`, and the two move together.** Review found them
@@ -312,6 +317,9 @@ fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) 
         queries: Vec<usize>,
         shallowest: String,
         page: Option<String>,
+        /// Every URL that grouped here, so a publisher's link can be matched to **this**
+        /// product rather than to whichever of a domain's products happened to win.
+        urls: Vec<String>,
     }
 
     let mut by_identity: HashMap<String, Grouped> = HashMap::new();
@@ -338,7 +346,9 @@ fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) 
             queries: Vec::new(),
             shallowest: at.url.clone(),
             page: evidence.clone(),
+            urls: Vec::new(),
         });
+        entry.urls.push(at.url.clone());
         for query in &at.queries {
             if !entry.queries.contains(query) {
                 entry.queries.push(*query);
@@ -376,14 +386,50 @@ fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) 
         })
     };
 
+    // **The endorsements that are about the thing being returned, derived once.** Review found
+    // three ways this went wrong at once: the confidence was computed from the *unfiltered* set,
+    // the count was of links rather than of publishers, and the single-product path did not
+    // filter at all. One list, used for both the number and what a reader is shown.
+    //
+    // `root_is_about_this` is the one subtlety. A guide that linked `microsoft.com/` endorsed
+    // the **vendor**, and that is unambiguous only when there is nothing to be ambiguous
+    // between: when the candidate is the vendor itself, or when the domain turned out to sell
+    // one thing. With two products on a domain, a link to its root supports neither.
+    let applicable = |urls: &[String], root_is_about_this: bool| -> Vec<Endorsement> {
+        one.named_by
+            .iter()
+            .filter(|e| {
+                urls.iter().any(|u| u == &e.at)
+                    || (root_is_about_this && crate::candidates::depth(&e.at) == 0)
+            })
+            .cloned()
+            .collect()
+    };
+    let scored = |agreed: usize, named_by: &[Endorsement], shallowest: &str| {
+        crate::candidates::score(
+            // **Publishers, not links.** One guide linking a product's page and its pricing page
+            // has said one thing, and `Endorsement` is one record per destination.
+            agreed + crate::literature::publishers(named_by).len(),
+            sources.of(),
+            crate::candidates::depth(shallowest),
+        )
+    };
+
     // **Nothing to separate.** The vendor keeps the agreement it already had, named by its own
     // front page when a query returned one and by the single product page otherwise.
     if products.len() < 2 {
+        let mut urls: Vec<String> = vendor.as_ref().map(|v| v.urls.clone()).unwrap_or_default();
+        if let Some((_, only)) = products.first() {
+            urls.extend(only.urls.clone());
+        }
+        let named_by = applicable(&urls, true);
         let evidence = vendor
             .and_then(|v| v.page)
             .or_else(|| products.first().and_then(|(_, g)| g.page.clone()));
         return Found {
+            confidence: scored(one.agreed, &named_by, &one.shallowest),
             declared: named(evidence),
+            named_by,
             ..one.clone()
         };
     }
@@ -398,30 +444,31 @@ fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) 
             .as_ref()
             .map_or(0, |v| v.queries.len())
             .max(products[0].1.queries.len());
+        let urls: Vec<String> = vendor.as_ref().map(|v| v.urls.clone()).unwrap_or_default();
+        // The candidate is the vendor, so a link to the vendor is about it.
+        let named_by = applicable(&urls, true);
         return Found {
-            confidence: crate::candidates::score(
-                agreed,
-                asked,
-                crate::candidates::depth(&one.shallowest),
-            ),
+            confidence: scored(agreed, &named_by, &one.shallowest),
             agreed,
             declared: named(vendor.and_then(|v| v.page)),
+            named_by,
             ..one.clone()
         };
     }
 
     let (_, best) = products.remove(0);
     let agreed = best.queries.len();
+    // **Only the endorsements that pointed at *this* product.** Two guides linking Microsoft
+    // Teams do not corroborate Microsoft Project, and with two products on the domain a link to
+    // its root does not either.
+    let named_by = applicable(&best.urls, false);
     Found {
-        confidence: crate::candidates::score(
-            agreed,
-            asked,
-            crate::candidates::depth(&best.shallowest),
-        ),
+        confidence: scored(agreed, &named_by, &best.shallowest),
         host: one.host.clone(),
         agreed,
-        shallowest: best.shallowest,
         declared: named(best.page),
+        named_by,
+        shallowest: best.shallowest,
     }
 }
 
@@ -430,6 +477,11 @@ fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) 
 mod tests {
     use super::*;
     use crate::candidates::from_results;
+
+    /// Searches only: every test here predates the literature.
+    fn sources(asked: usize) -> crate::candidates::Sources {
+        crate::candidates::Sources { asked, guides: 0 }
+    }
 
     fn hit(url: &str) -> Hit {
         Hit {
@@ -532,7 +584,7 @@ mod tests {
 
         let split = split(
             found,
-            3,
+            sources(3),
             &results,
             &pages(&[
                 (
@@ -561,7 +613,7 @@ mod tests {
         ];
         let split = split(
             from_results(&results, 3),
-            3,
+            sources(3),
             &results,
             &pages(&[
                 (EXCEL, "# Microsoft Excel\n\nThe spreadsheet."),
@@ -589,7 +641,7 @@ mod tests {
         let results = vec![vec![hit(EXCEL), hit(EXCEL_PRICING)], vec![hit(TEAMS)]];
         let split = split(
             from_results(&results, 2),
-            2,
+            sources(2),
             &results,
             &pages(&[
                 (
@@ -631,7 +683,7 @@ Group chat.",
         let before = from_results(&results, 2);
         let after = split(
             before.clone(),
-            2,
+            sources(2),
             &results,
             &pages(&[("https://asana.com/", "# Asana\n\nWork management.")]),
         )
@@ -663,7 +715,7 @@ Group chat.",
 
         let after = split(
             before,
-            3,
+            sources(3),
             &results,
             &pages(&[
                 (
@@ -697,7 +749,7 @@ Group chat.",
         let before = from_results(&results, 2);
         let after = split(
             before.clone(),
-            2,
+            sources(2),
             &results,
             &pages(&[
                 (
@@ -733,7 +785,7 @@ Group chat.",
             let results = vec![vec![hit(one)], vec![hit(two)]];
             let after = split(
                 from_results(&results, 2),
-                2,
+                sources(2),
                 &results,
                 &pages(&[(one, names[0]), (two, names[1])]),
             )
@@ -806,7 +858,7 @@ Group chat.",
         known.push((sixth[0].to_owned(), "# Sixth One\n\nThe first thing."));
         known.push((sixth[1].to_owned(), "# Sixth Two\n\nA different thing."));
 
-        let after = split(before, 3, &results, &owned_pages(&known)).await;
+        let after = split(before, sources(3), &results, &owned_pages(&known)).await;
         let promoted = &after[place(&after, "sixth.example")];
         assert_eq!(
             promoted.agreed, 2,
@@ -815,13 +867,247 @@ Group chat.",
         assert_eq!(promoted.declared.as_ref().expect("named").name, "Sixth One");
     }
 
+    /// A publisher linking one page of one company.
+    fn endorsed(by: &str, at: &str) -> crate::literature::Endorsement {
+        crate::literature::Endorsement {
+            by: by.to_owned(),
+            host: "microsoft.com".to_owned(),
+            at: at.to_owned(),
+        }
+    }
+
+    #[tokio::test]
+    async fn evidence_that_does_not_apply_is_not_in_the_score_either() {
+        // **Review's second round on the same defect.** The first fix filtered `named_by` for
+        // display and computed confidence from the *unfiltered* set, so Project kept the score
+        // two Teams endorsements bought it - and `split` re-sorts on that score while deciding
+        // which candidates spend what is left of the read budget. A list a reader sees and a
+        // number the pipeline acts on cannot disagree about what the evidence was.
+        let results = vec![vec![hit(PROJECT)], vec![hit(TEAMS)], vec![hit(PROJECT)]];
+        let pages = pages(&[
+            (
+                PROJECT,
+                "# Microsoft Project\n\nProject management software.",
+            ),
+            (TEAMS, "# Microsoft Teams\n\nGroup chat."),
+        ]);
+
+        let mut with_teams = from_results(&results, 3);
+        with_teams[0].named_by = vec![endorsed("g2.com", TEAMS), endorsed("capterra.com", TEAMS)];
+        let after = split(with_teams, sources(3), &results, &pages).await;
+
+        let mut with_none = from_results(&results, 3);
+        with_none[0].named_by = Vec::new();
+        let bare = split(with_none, sources(3), &results, &pages).await;
+
+        assert!(after[0].named_by.is_empty());
+        assert!(
+            (after[0].confidence - bare[0].confidence).abs() < f32::EPSILON,
+            "Teams' endorsements must buy Project nothing at all: {} vs {}",
+            after[0].confidence,
+            bare[0].confidence
+        );
+    }
+
+    #[tokio::test]
+    async fn one_publisher_linking_two_pages_is_one_source_in_the_score() {
+        // `Endorsement` is one record per destination, so counting the list would make a guide
+        // that linked a product's two localized pages into two independent publishers. Both
+        // pages have to be ones the searches returned, or the filter above removes them and the
+        // question never arises.
+        let project_gb = "https://www.microsoft.com/en-gb/microsoft-365/project/pm-software";
+        let results = vec![vec![hit(PROJECT)], vec![hit(TEAMS)], vec![hit(project_gb)]];
+        let pages = pages(&[
+            (
+                PROJECT,
+                "# Microsoft Project
+
+Project management software.",
+            ),
+            (
+                project_gb,
+                "# Microsoft Project
+
+Project management software.",
+            ),
+            (
+                TEAMS,
+                "# Microsoft Teams
+
+Group chat.",
+            ),
+        ]);
+        // Three guides read, so one more source would show in the score if it were counted.
+        let sources = crate::candidates::Sources {
+            asked: 3,
+            guides: 3,
+        };
+
+        let mut twice = from_results(&results, 3);
+        twice[0].named_by = vec![endorsed("g2.com", PROJECT), endorsed("g2.com", project_gb)];
+        let mut once = from_results(&results, 3);
+        once[0].named_by = vec![endorsed("g2.com", PROJECT)];
+
+        let two = split(twice, sources, &results, &pages).await;
+        let one = split(once, sources, &results, &pages).await;
+        assert_eq!(two[0].named_by.len(), 2, "both links are kept as evidence");
+        assert!(
+            (two[0].confidence - one[0].confidence).abs() < f32::EPSILON,
+            "and they are one publisher: {} vs {}",
+            two[0].confidence,
+            one[0].confidence
+        );
+    }
+
+    #[tokio::test]
+    async fn a_domain_the_searches_showed_one_product_of_does_not_inherit_another_products_guides()
+    {
+        // **The path with no split to trigger.** Every query returned Microsoft Project, so
+        // there is one product and the early return takes it - and it used to clone the whole
+        // domain's endorsements without filtering. A guide that linked Teams would then be
+        // corroborating a candidate named *Microsoft Project*.
+        let results = vec![vec![hit(PROJECT)], vec![hit(PROJECT)]];
+        let pages = pages(&[(
+            PROJECT,
+            "# Microsoft Project\n\nProject management software.",
+        )]);
+
+        // Two guides were read, so the divisor leaves room for one to matter.
+        let sources = crate::candidates::Sources {
+            asked: 2,
+            guides: 2,
+        };
+        let mut before = from_results(&results, 2);
+        before[0].named_by = vec![endorsed("g2.com", TEAMS), endorsed("capterra.com", TEAMS)];
+        let after = split(before, sources, &results, &pages).await;
+
+        assert_eq!(
+            after[0].declared.as_ref().expect("named").name,
+            "Microsoft Project"
+        );
+        assert!(
+            after[0].named_by.is_empty(),
+            "and Teams' guides said nothing about it: {:?}",
+            after[0].named_by
+        );
+
+        // ...while a link to the vendor's own root is unambiguous here, because the domain
+        // turned out to sell one thing.
+        let mut with_root = from_results(&results, 2);
+        with_root[0].named_by = vec![endorsed("g2.com", "https://www.microsoft.com/")];
+        let kept = split(with_root, sources, &results, &pages).await;
+        assert_eq!(
+            kept[0]
+                .named_by
+                .iter()
+                .map(|e| e.by.as_str())
+                .collect::<Vec<_>>(),
+            vec!["g2.com"]
+        );
+        assert!(
+            kept[0].confidence > after[0].confidence,
+            "and it counts: {} should be above {}",
+            kept[0].confidence,
+            after[0].confidence
+        );
+    }
+
+    #[tokio::test]
+    async fn a_guide_that_linked_one_product_does_not_corroborate_another() {
+        // **Review's finding, and it crosses two modules.** `literature` collapses a link to its
+        // registrable host; `split` used to hand the whole domain's endorsements to whichever
+        // product won. So two guides linking **Microsoft Teams** corroborated **Microsoft
+        // Project** — evidence attaching itself to whatever happened to be strongest, which is
+        // the opposite of evidence.
+        let results = vec![vec![hit(PROJECT)], vec![hit(TEAMS)], vec![hit(PROJECT)]];
+        let mut before = from_results(&results, 3);
+        before[0].named_by = ["g2.com", "capterra.com"]
+            .iter()
+            .map(|by| crate::literature::Endorsement {
+                by: (*by).to_owned(),
+                host: "microsoft.com".to_owned(),
+                at: TEAMS.to_owned(),
+            })
+            .collect();
+
+        let after = split(
+            before,
+            sources(3),
+            &results,
+            &pages(&[
+                (
+                    PROJECT,
+                    "# Microsoft Project\n\nProject management software.",
+                ),
+                (TEAMS, "# Microsoft Teams\n\nGroup chat."),
+            ]),
+        )
+        .await;
+
+        assert_eq!(
+            after[0].declared.as_ref().expect("named").name,
+            "Microsoft Project",
+            "Project still wins the search-based split"
+        );
+        assert!(
+            after[0].named_by.is_empty(),
+            "and it keeps none of the endorsements that pointed at Teams: {:?}",
+            after[0].named_by
+        );
+    }
+
+    #[tokio::test]
+    async fn a_guide_that_linked_the_winning_product_does_corroborate_it() {
+        // The other half, so the rule above is a rule rather than a refusal to carry evidence.
+        let results = vec![vec![hit(PROJECT)], vec![hit(TEAMS)], vec![hit(PROJECT)]];
+        let mut before = from_results(&results, 3);
+        before[0].named_by = vec![
+            crate::literature::Endorsement {
+                by: "g2.com".to_owned(),
+                host: "microsoft.com".to_owned(),
+                at: PROJECT.to_owned(),
+            },
+            crate::literature::Endorsement {
+                by: "capterra.com".to_owned(),
+                host: "microsoft.com".to_owned(),
+                // The domain root: a guide that linked the vendor rather than the product has
+                // said nothing about which product, and ambiguous evidence is not evidence.
+                at: "https://www.microsoft.com/".to_owned(),
+            },
+        ];
+
+        let after = split(
+            before,
+            sources(3),
+            &results,
+            &pages(&[
+                (
+                    PROJECT,
+                    "# Microsoft Project\n\nProject management software.",
+                ),
+                (TEAMS, "# Microsoft Teams\n\nGroup chat."),
+            ]),
+        )
+        .await;
+
+        assert_eq!(
+            after[0]
+                .named_by
+                .iter()
+                .map(|e| e.by.as_str())
+                .collect::<Vec<_>>(),
+            vec!["g2.com"],
+            "the one that linked this product, and not the one that linked the vendor"
+        );
+    }
+
     #[tokio::test]
     async fn a_page_nobody_could_read_cannot_split_anybody() {
         // The fallback the whole module rests on. Two products, neither page readable: the
         // candidate must come out exactly as the domain rule left it.
         let results = vec![vec![hit(PROJECT)], vec![hit(TEAMS)], vec![hit(PROJECT)]];
         let before = from_results(&results, 3);
-        let after = split(before.clone(), 3, &results, &pages(&[])).await;
+        let after = split(before.clone(), sources(3), &results, &pages(&[])).await;
         assert_eq!(after, before);
     }
 
@@ -834,7 +1120,7 @@ Group chat.",
             .collect();
         let results = vec![many];
         let before = from_results(&results, 1);
-        let after = split(before.clone(), 1, &results, &pages(&[])).await;
+        let after = split(before.clone(), sources(1), &results, &pages(&[])).await;
         assert_eq!(after, before);
     }
 
@@ -875,7 +1161,7 @@ Group chat.",
             .collect();
         let results: Vec<Vec<Hit>> = vec![hosts.iter().map(|u| hit(u)).collect()];
         let (fetch, asked) = counting(&[]);
-        let after = split(from_results(&results, 1), 1, &results, &fetch).await;
+        let after = split(from_results(&results, 1), sources(1), &results, &fetch).await;
 
         let reads = asked.lock().expect("not poisoned").len();
         assert!(
@@ -900,7 +1186,7 @@ Group chat.",
             .map(|url| (url, "# A Product\n\nWhat it does."))
             .collect();
         let (fetch, asked) = counting(&known);
-        let after = split(from_results(&results, 1), 1, &results, &fetch).await;
+        let after = split(from_results(&results, 1), sources(1), &results, &fetch).await;
 
         assert_eq!(
             asked.lock().expect("not poisoned").len(),
@@ -927,7 +1213,7 @@ Group chat.",
             let results = vec![vec![hit(order[0])], vec![hit(order[1])]];
             let split = split(
                 from_results(&results, 2),
-                2,
+                sources(2),
                 &results,
                 &pages(&[(EXCEL, product), (EXCEL_PRICING, pricing)]),
             )
@@ -979,7 +1265,7 @@ A product.",
         let sent = results.len();
         let after = split(
             from_results(&results, sent),
-            sent,
+            sources(sent),
             &results,
             &owned_pages(&known),
         )

@@ -64,6 +64,7 @@
 pub mod admit;
 pub mod candidates;
 pub mod competitors;
+pub mod literature;
 pub mod products;
 pub mod provider;
 pub mod queries;

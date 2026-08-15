@@ -176,6 +176,14 @@ pub enum Because {
         agreed: usize,
         /// How many searches were sent. The divisor, not the number that answered.
         asked: usize,
+        /// The publishers that list it in this market, by host.
+        ///
+        /// **Kept apart from [`Self::Found::agreed`] rather than added to it.** *"1 of the 3
+        /// searches returned it"* and *"2 buyer's guides list it"* are two different facts, and
+        /// a reader asking why a company is in their report is owed both rather than a sum.
+        named_by: Vec<String>,
+        /// How many publisher pages were read. The divisor for the fact above.
+        guides: usize,
         /// The words its front page shares with what was asked about.
         shares: Vec<String>,
     },
@@ -190,11 +198,25 @@ impl Because {
             Self::Found {
                 agreed,
                 asked,
+                named_by,
+                guides,
                 shares,
-            } => format!(
-                "{agreed} of the {asked} searches returned it, and its own front page uses {}",
-                quoted(shares)
-            ),
+            } => {
+                let searches = format!("{agreed} of the {asked} searches returned it");
+                let listed = if named_by.is_empty() {
+                    String::new()
+                } else {
+                    format!(
+                        ", {} of the {guides} buyer's guides we read list it ({})",
+                        named_by.len(),
+                        named_by.join(", ")
+                    )
+                };
+                format!(
+                    "{searches}{listed}, and its own front page uses {}",
+                    quoted(shares)
+                )
+            }
         }
     }
 }
@@ -208,8 +230,20 @@ impl Because {
 /// written to stop.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Aside {
-    /// Fewer than [`CORROBORATION`] of the searches returned it.
-    Uncorroborated { agreed: usize, asked: usize },
+    /// Fewer than [`CORROBORATION`] independent things pointed at it.
+    ///
+    /// **Two kinds of pointing, and the sentence says both.** A company one search returned and
+    /// no guide lists, and a company one search returned when no guide was read, are different
+    /// findings: the first was looked for in the literature and not found, the second was not
+    /// looked for. That is [`landscape_core::coverage`]'s rule again.
+    Uncorroborated {
+        agreed: usize,
+        asked: usize,
+        /// How many publishers named it, which is fewer than [`CORROBORATION`] here.
+        named_by: usize,
+        /// How many publisher pages were read at all.
+        guides: usize,
+    },
     /// Corroborated, and still below [`landscape_core::subject::MINIMUM_CONFIDENCE`].
     Unconvincing,
     /// Its front page was read and uses none of the words the comparison is built on.
@@ -255,9 +289,20 @@ impl Aside {
     #[must_use]
     pub fn sentence(&self) -> String {
         match *self {
-            Self::Uncorroborated { agreed, asked } => format!(
-                "only {agreed} of the {asked} searches returned it, so nothing corroborates it"
-            ),
+            Self::Uncorroborated {
+                agreed,
+                asked,
+                named_by,
+                guides,
+            } => {
+                let searches = format!("only {agreed} of the {asked} searches returned it");
+                let literature = match (guides, named_by) {
+                    (0, _) => ", and we read no buyer's guide that might have".to_owned(),
+                    (g, 0) => format!(", and none of the {g} buyer's guides we read list it"),
+                    (g, n) => format!(", and only {n} of the {g} buyer's guides we read list it"),
+                };
+                format!("{searches}{literature}, so nothing corroborates it")
+            }
             Self::Unconvincing => "it scored below the level worth putting in a report".to_owned(),
             Self::ElsewhereEntirely {
                 ref looked_for,
@@ -642,7 +687,20 @@ where
             .collect();
 
     let described = crate::candidates::describe(&found, &words, fetch).await;
-    let mut set = assemble(described, queried.sent(), &words, Evidence::ASeedsOwnPage);
+    // **No literature on this path.** A reader who named a company asked about *that company's*
+    // rivals, and the guides a market's own description surfaces are not what was searched for
+    // here - `for_company` asks about the seed by name. `guides: 0` says so, and the exclusion
+    // sentence says *we read no buyer's guide that might have* rather than implying one was
+    // consulted.
+    let mut set = assemble(
+        described,
+        crate::candidates::Sources {
+            asked: queried.sent(),
+            guides: 0,
+        },
+        &words,
+        Evidence::ASeedsOwnPage,
+    );
 
     // **The seed goes first and is not scored.** It is in the report because somebody typed it,
     // which is a different fact from every other row and outranks all of them.
@@ -748,22 +806,36 @@ pub fn about_a_market(words: &[String]) -> bool {
 #[must_use]
 pub fn assemble(
     described: Vec<Described>,
-    asked: usize,
+    sources: crate::candidates::Sources,
     looked_for: &[String],
     from: Evidence,
 ) -> Set {
+    let crate::candidates::Sources { asked, guides } = sources;
     let mut set = Set::default();
     for one in described {
         let Described {
             candidate,
             agreed,
+            named_by,
             shares,
         } = one;
         // Ordered from the cheapest fact to the most specific, so a company that fails two of
         // these is reported by the first one — the reader is told the strongest reason it is
         // absent rather than the last one that happened to be checked.
-        let aside = if agreed < CORROBORATION {
-            Some(Aside::Uncorroborated { agreed, asked })
+        // **Two kinds of pointing, one threshold.** A search returning a company and a
+        // publisher listing it are both one independent thing saying it belongs here, which is
+        // why [`crate::literature`] has no second constant beside `CORROBORATION`.
+        //
+        // **Publishers, not links**: one guide linking three of a company's pages has said one
+        // thing, and counting three would manufacture the corroboration this asks for.
+        let named_by = crate::literature::publishers(&named_by);
+        let aside = if agreed + named_by.len() < CORROBORATION {
+            Some(Aside::Uncorroborated {
+                agreed,
+                asked,
+                named_by: named_by.len(),
+                guides,
+            })
         } else if candidate.score() < MINIMUM_CONFIDENCE {
             Some(Aside::Unconvincing)
         } else {
@@ -787,6 +859,8 @@ pub fn assemble(
                 because: Because::Found {
                     agreed,
                     asked,
+                    named_by,
+                    guides,
                     shares,
                 },
             }),
@@ -830,6 +904,7 @@ mod tests {
 
     fn described(domain: &str, agreed: usize, confidence: f32, shares: Vocabulary) -> Described {
         Described {
+            named_by: Vec::new(),
             candidate: Candidate {
                 name: domain.to_owned(),
                 canonical_domain: domain.to_owned(),
@@ -882,6 +957,11 @@ mod tests {
             title: String::new(),
             snippet: String::new(),
         }
+    }
+
+    /// Searches only, which is what every test here that predates the literature assumes.
+    fn sources(asked: usize) -> crate::candidates::Sources {
+        crate::candidates::Sources { asked, guides: 0 }
     }
 
     fn seed() -> Seed {
@@ -1376,6 +1456,93 @@ Project management built for speed."
     }
 
     #[test]
+    fn a_company_the_literature_names_is_admitted_and_the_set_says_by_whom() {
+        // **The rule and the sentence, asserted through `assemble` rather than beside it.** One
+        // search is below `CORROBORATION`; two independent guides carry it over, and what a
+        // reader is shown has to be those two facts rather than their sum.
+        let mut one = described("workamajig.com", 1, 0.7, read(&["analytics"]));
+        one.named_by = ["capterra.com", "g2.com"]
+            .iter()
+            .map(|by| crate::literature::Endorsement {
+                by: (*by).to_owned(),
+                host: "workamajig.com".to_owned(),
+                at: "https://www.workamajig.com/".to_owned(),
+            })
+            .collect();
+        let set = assemble(
+            vec![one],
+            crate::candidates::Sources {
+                asked: 3,
+                guides: 3,
+            },
+            &market(),
+            Evidence::ADescribedMarket,
+        );
+
+        assert_eq!(set.members.len(), 1, "{set:#?}");
+        let Because::Found {
+            agreed,
+            ref named_by,
+            guides,
+            ..
+        } = set.members[0].because
+        else {
+            panic!("{:?}", set.members[0].because)
+        };
+        assert_eq!(agreed, 1, "the searches, not the sum");
+        assert_eq!(named_by.len(), 2);
+        assert_eq!(guides, 3);
+    }
+
+    #[test]
+    fn a_reason_keeps_the_searches_and_the_guides_apart() {
+        // **Two facts, not a sum.** *One search returned it* and *two buyer's guides list it*
+        // are different evidence, and adding them would tell a reader three searches agreed
+        // about a company one of them found. That is the collapse `landscape_core::coverage`
+        // exists to stop, applied to why a company is in a report.
+        let because = Because::Found {
+            agreed: 1,
+            asked: 3,
+            named_by: vec!["capterra.com".to_owned(), "g2.com".to_owned()],
+            guides: 3,
+            shares: vec!["project".to_owned()],
+        };
+        let said = because.sentence();
+        assert!(said.contains("1 of the 3 searches"), "{said}");
+        assert!(said.contains("2 of the 3 buyer's guides"), "{said}");
+        assert!(said.contains("capterra.com, g2.com"), "{said}");
+        assert!(!said.contains("3 of the 3 searches"), "{said}");
+    }
+
+    #[test]
+    fn an_exclusion_says_whether_the_literature_was_read_at_all() {
+        // Three findings, not two: nobody listed it, nobody was asked, and one listed it. A
+        // reader acts on each differently, which is the same rule `Vocabulary` follows.
+        let none_read = Aside::Uncorroborated {
+            agreed: 1,
+            asked: 3,
+            named_by: 0,
+            guides: 0,
+        };
+        assert!(
+            none_read.sentence().contains("no buyer's guide"),
+            "{}",
+            none_read.sentence()
+        );
+        let none_listed = Aside::Uncorroborated {
+            agreed: 1,
+            asked: 3,
+            named_by: 0,
+            guides: 4,
+        };
+        assert!(
+            none_listed.sentence().contains("none of the 4"),
+            "{}",
+            none_listed.sentence()
+        );
+    }
+
+    #[test]
     fn a_comparison_is_never_explained_as_an_absence() {
         // Two companies is a comparison, whatever else went wrong on the way to it. The note
         // this drives sits beside "this report compares X and Y", and a reason for having
@@ -1741,7 +1908,7 @@ Project management built for speed."
                 described("unreachable.example", 3, 1.0, Vocabulary::Unreadable),
                 described("weak.example", 2, 0.30, read(&["analytics"])),
             ],
-            3,
+            sources(3),
             &market(),
             Evidence::ADescribedMarket,
         );
@@ -1762,7 +1929,9 @@ Project management built for speed."
                     "onesearch.example",
                     &Aside::Uncorroborated {
                         agreed: 1,
-                        asked: 3
+                        asked: 3,
+                        named_by: 0,
+                        guides: 0
                     }
                 ),
                 (
@@ -1786,7 +1955,7 @@ Project management built for speed."
         // excluded - which is the whole guarantee this module makes.
         let set = assemble(
             vec![described("sixth.example", 3, 1.0, Vocabulary::NotRequested)],
-            3,
+            sources(3),
             &market(),
             Evidence::ADescribedMarket,
         );
@@ -1812,7 +1981,7 @@ Project management built for speed."
                 1.0,
                 Vocabulary::Unreadable,
             )],
-            3,
+            sources(3),
             &market(),
             Evidence::ADescribedMarket,
         );
@@ -1831,7 +2000,7 @@ Project management built for speed."
         // is the fact that decided; reporting the vocabulary would suggest the search agreed.
         let set = assemble(
             vec![described("thin.example", 1, 0.175, read(&[]))],
-            3,
+            sources(3),
             &market(),
             Evidence::ADescribedMarket,
         );
@@ -1839,7 +2008,9 @@ Project management built for speed."
             set.set_aside[0].1,
             Aside::Uncorroborated {
                 agreed: 1,
-                asked: 3
+                asked: 3,
+                named_by: 0,
+                guides: 0
             }
         );
     }
@@ -1852,7 +2023,7 @@ Project management built for speed."
                 described("alpha.example", 3, 0.8, read(&["analytics"])),
                 described("best.example", 3, 1.0, read(&["analytics"])),
             ],
-            3,
+            sources(3),
             &market(),
             Evidence::ADescribedMarket,
         );
@@ -1867,6 +2038,8 @@ Project management built for speed."
     #[test]
     fn a_reason_names_the_numbers_and_the_readers_own_words() {
         let because = Because::Found {
+            named_by: Vec::new(),
+            guides: 0,
             agreed: 3,
             asked: 3,
             shares: vec!["privacy".to_owned(), "analytics".to_owned()],
@@ -1883,7 +2056,7 @@ Project management built for speed."
         // must not read as "1 of the 1 searches returned it".
         let set = assemble(
             vec![described("one.example", 2, 0.53, read(&["analytics"]))],
-            3,
+            sources(3),
             &market(),
             Evidence::ADescribedMarket,
         );

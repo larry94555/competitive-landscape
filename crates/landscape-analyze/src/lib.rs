@@ -3042,6 +3042,8 @@ mod joining {
                 confidence: 0.9,
             },
             because: landscape_search::competitors::Because::Found {
+                named_by: Vec::new(),
+                guides: 0,
                 agreed,
                 asked: 3,
                 shares: vec!["analytics".to_owned()],
@@ -3170,6 +3172,8 @@ mod joining {
                 aside(
                     "one.example",
                     landscape_search::competitors::Aside::Uncorroborated {
+                        named_by: 0,
+                        guides: 0,
                         agreed: 1,
                         asked: 3,
                     },
@@ -3177,6 +3181,8 @@ mod joining {
                 aside(
                     "two.example",
                     landscape_search::competitors::Aside::Uncorroborated {
+                        named_by: 0,
+                        guides: 0,
                         agreed: 1,
                         asked: 3,
                     },

@@ -275,6 +275,29 @@ impl Queried {
     }
 }
 
+/// How many independent things could have pointed at a company, and of which kinds.
+///
+/// **Two kinds, counted apart and divided together.** A search returning a company and a
+/// buyer's guide listing it are both evidence and they are not the same evidence, so a reader is
+/// owed both numbers — *"1 of the 3 searches returned it, and 2 of the 3 guides we read list
+/// it"*. Collapsing them into one score would be the same defect [`landscape_core::coverage`]
+/// exists to stop, one level up.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Sources {
+    /// Searches **sent**, not the number that answered. See [`Queried::sent`].
+    pub asked: usize,
+    /// Publisher pages actually read. See [`crate::literature::read`].
+    pub guides: usize,
+}
+
+impl Sources {
+    /// Everything that had a chance to point here, which is what a score divides by.
+    #[must_use]
+    pub const fn of(self) -> usize {
+        self.asked + self.guides
+    }
+}
+
 /// One company a description might be about, before anybody has read its pages.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Found {
@@ -291,6 +314,12 @@ pub struct Found {
     /// becomes the company's name — a reader offered *"Pricing"* as one of three companies to
     /// choose between. The home page is built from [`Self::host`] instead.
     pub shallowest: String,
+    /// The publishers that named it, by registrable host, sorted.
+    ///
+    /// **The other kind of corroboration.** A company two independent buyer's guides list is a
+    /// company the market says is in it, whether or not the queries happened to return its
+    /// domain — which is [`crate::literature`], and cause 3 of the logic document.
+    pub named_by: Vec<crate::literature::Endorsement>,
     /// What the page at [`Self::shallowest`] calls itself, when it was read before the merge.
     ///
     /// `None` is the ordinary case and means *nobody has read a page for this candidate* — a
@@ -313,6 +342,8 @@ pub struct Described {
     /// How many of the differently-worded searches returned this host. Carried through from
     /// [`Found`] because a reader asking *why is this company here* is owed the number.
     pub agreed: usize,
+    /// The links publishers made to it, carried through from [`Found`] for the same reason.
+    pub named_by: Vec<crate::literature::Endorsement>,
     /// What its front page turned out to say, or why nobody knows.
     pub shares: Vocabulary,
 }
@@ -485,6 +516,8 @@ pub fn from_results(results: &[Vec<Hit>], asked: usize) -> Vec<Found> {
             // **Nothing is read here and nothing should be.** This is the pure half and it
             // groups by domain; [`crate::products::split`] reads a page and regroups by product.
             declared: None,
+            // Filled by [`crate::literature::admit`], from pages nobody has read yet either.
+            named_by: Vec::new(),
         })
         .collect();
     // Highest first, then by host so a tie is stable rather than however the map iterated —
@@ -574,6 +607,7 @@ where
                     confidence: one.confidence,
                 },
                 agreed: one.agreed,
+                named_by: one.named_by.clone(),
                 shares: Vocabulary::Read(crate::competitors::shared(words, &declared.page)),
             });
             continue;
@@ -591,6 +625,7 @@ where
                     confidence: one.confidence,
                 },
                 agreed: one.agreed,
+                named_by: one.named_by.clone(),
                 shares: Vocabulary::NotRequested,
             });
             continue;
@@ -605,6 +640,7 @@ where
         out.push(Described {
             candidate: from_its_own_page(&one.host, page.as_deref(), one.confidence),
             agreed: one.agreed,
+            named_by: one.named_by.clone(),
             shares,
         });
     }
@@ -901,17 +937,27 @@ where
     // candidate that four queries agreed about. Bounded by
     // [`crate::products::SPLIT_BUDGET`], and a no-op for every domain a search returned at its
     // own root — which is most of them.
-    let found = crate::products::split(found, queried.sent(), results, &fetch).await;
+    // **The market's literature, read before the ranking is believed.** A company two
+    // independent buyer's guides list is corroborated by the market saying so, whatever the
+    // queries happened to return - which is cause 3, and `workamajig.com`.
+    let reading = crate::literature::named_in(results, &fetch).await;
+    let sources = crate::candidates::Sources {
+        asked: queried.sent(),
+        // **What came back, not what was asked for.** See `literature::Reading::read`.
+        guides: reading.read,
+    };
+    let found = crate::literature::admit(found, &reading, sources);
+    let found = crate::products::split(found, sources, results, &fetch).await;
     let words = crate::competitors::content_words(description);
-    let named = describe(&found, &words, fetch).await;
+    let described = describe(&found, &words, fetch).await;
     // **Two consumers, two lists, and the difference is deliberate.** The set gets everything
     // that was found, because a company it cannot see is a company nothing can report as
     // excluded. The gate gets only what was *fetched*, because it asks a reader to choose and a
     // candidate with no name of its own is not a choice. Review found each of these in turn,
     // from opposite directions.
     let mut set = crate::competitors::assemble(
-        named.clone(),
-        queried.sent(),
+        described.clone(),
+        sources,
         &words,
         crate::competitors::Evidence::ADescribedMarket,
     );
@@ -925,7 +971,7 @@ where
         crate::competitors::Sought::CompaniesMatchingTheDescription,
         None,
     );
-    let choices: Vec<Candidate> = named
+    let choices: Vec<Candidate> = described
         .into_iter()
         .filter(Described::was_requested)
         .map(|d| d.candidate)
@@ -1282,6 +1328,7 @@ mod tests {
             agreed: 3,
             shallowest: "https://usefathom.com/".to_owned(),
             declared: None,
+            named_by: Vec::new(),
         }];
         let described = describe(&found, &[], |_url| async {
             Some(
@@ -1342,6 +1389,7 @@ mod tests {
             agreed: 1,
             shallowest: "https://unreachable.example/".to_owned(),
             declared: None,
+            named_by: Vec::new(),
         }];
         let described = describe(&found, &["analytics".to_owned()], |_url| async { None }).await;
         assert_eq!(described.len(), 1);
@@ -1366,6 +1414,7 @@ mod tests {
                 agreed: 1,
                 shallowest: format!("https://c{i}.example/"),
                 declared: None,
+                named_by: Vec::new(),
             })
             .collect();
         let fetched = std::sync::Arc::new(std::sync::Mutex::new(0usize));
@@ -1547,6 +1596,7 @@ It does a thing for other companies."
             agreed: 3,
             shallowest: "https://usefathom.com/pricing".to_owned(),
             declared: None,
+            named_by: Vec::new(),
         }];
         let asked = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
         let seen = std::sync::Arc::clone(&asked);
@@ -1899,6 +1949,8 @@ The second of two."
         for m in &derived.set.members {
             let crate::competitors::Because::Found {
                 agreed,
+                named_by: _,
+                guides: _,
                 asked,
                 shares,
             } = &m.because

@@ -36,12 +36,13 @@ is being done about it. This is what is true today.
 | 3 | Find the market's own words | `landscape_search::vocabulary::from_titles` | Whether to substitute |
 | 4 | Ask three more, if substituted | `candidates::ask` | The second round |
 | 5 | Group hits by domain | `candidates::from_results` | A first grouping |
-| 6 | Read the pages a search returned | `products::split` | **What a candidate is** |
-| 7 | Score and rank | `candidates::score` | **Which candidates win** |
-| 8 | Fetch the front pages still unread | `candidates::from_hits` → `describe` | What each is called, **and its words** |
-| 9 | Exclude on shared words | `competitors::assemble` | **Whether it is in this market** |
-| 10 | Admit or refuse | `subject::decide` | Whether to report at all |
-| 11 | Read each company | `landscape_analyze::analyze_many` | The six questions |
+| 6 | Read the market's buyer's guides | `literature::named_in` | **Who the market says is in it** |
+| 7 | Read the pages a search returned | `products::split` | **What a candidate is** |
+| 8 | Score and rank | `candidates::score` | **Which candidates win** |
+| 9 | Fetch the front pages still unread | `candidates::from_hits` → `describe` | What each is called, **and its words** |
+| 10 | Exclude on shared words | `competitors::assemble` | **Whether it is in this market** |
+| 11 | Admit or refuse | `subject::decide` | Whether to report at all |
+| 12 | Read each company | `landscape_analyze::analyze_many` | The six questions |
 
 **Step 6 is new, and it is why step 5 is no longer the answer to *what a candidate is*.**
 Grouping by domain made *Microsoft* one candidate that three queries agreed about; reading the
@@ -126,22 +127,52 @@ too. This is right as far as it goes: they are not companies. **Their contents a
 
 ### 3.3 How a candidate is scored
 
-Two inputs, both countable from a URL:
+Three inputs, all countable:
 
 | Input | Meaning |
 |---|---|
 | **Agreement** | How many of the queries returned this domain — counted once per query, not per hit |
+| **Named by** | How many independent buyer's guides link to it §3.3.1 |
 | **Depth** | How deep the shallowest URL was; a front page scores better than an article |
 
 ```
-CORROBORATION = 2        below this, score is MINIMUM_CONFIDENCE / 2 = 0.175, which the gate refuses
-NAMED         = 5        how many candidates get their page fetched
+CORROBORATION  = 2       independent things that must point at a company, of either kind
+NAMED          = 5       how many candidates get their front page fetched
+READING_BUDGET = 4       how many publisher pages one analysis reads
 ```
 
 **Countable on purpose.** A reader asking *why is this first* gets arithmetic rather than a
-shrug, which was the point. **What it measures is breadth of appearance, not fit** — a household
-name in every adjacent listicle agrees with everything; a specialist named in one article scores
-below the floor and is refused before anybody sees it.
+shrug. **The two kinds are added for the threshold and kept apart in the sentence**: *"1 of the 3
+searches returned it, 2 of the 3 buyer's guides we read list it"*. Adding them into one number
+would tell a reader three searches agreed about a company one of them found.
+
+#### 3.3.1 The market's own writing
+
+**It measured breadth of appearance, not fit** — a household name in every adjacent listicle
+agreed with everything, and a specialist named in one article scored below the floor and was
+refused before anybody saw it. That was cause 3, and `workamajig.com`.
+
+`literature::named_in` reads the pages a search returned that are **not** companies — the same
+`NOT_A_COMPANY` list, inverted from a filter that discarded the market's best sources into an
+index of them. They are still never candidates.
+
+**A link, and only a link.** A guide that lists a vendor links to it, and a link is a fact about
+the page rather than a reading of it: no model, nothing asserted that was not read. Markdown link
+destinations and autolinks count; **a URL in prose, an image source and a canonical tag do not**.
+Its own pages and other publishers are dropped, so a guide citing a guide has named nobody.
+
+**A publisher's front page is not a guide.** Only a page below the root is read, and among a
+publisher's pages the one the most queries returned wins — depth is the tie-breaker, not the rule.
+
+**The link's URL is kept, not just its host**, because a domain can be several products: a guide
+that linked Microsoft Teams has said nothing about Microsoft Project, and an endorsement pointing
+at a domain root says nothing about which product at all.
+
+**Guides that were read, not guides that were chosen.** A page that could not be fetched checked
+nothing, and is not counted in the divisor or described to a reader as having looked.
+
+**Two independent hosts**, which is `FACT_CHECKING.md` §L6's rule for claims applied to the
+choice of company — and it is `CORROBORATION` itself rather than a second constant beside it.
 
 ### 3.4 What a candidate is called, and the fit test that already exists
 
@@ -252,14 +283,14 @@ all*. That distinction exists and is enforced; §4 relies on it.
 
 ## 4. Where this produces a wrong answer, and why
 
-**Four independent causes, two of them now fixed.** Fixing any one alone still leaves a bad
+**Four independent causes, three of them now fixed.** Fixing any one alone still leaves a bad
 answer, which is why the plan is seven pull requests rather than one.
 
 | | Cause | Symptom |
 |---|---|---|
 | 1 | The first query is malformed and the qualifier is dropped | The answer is about a much broader market than the one asked about |
 | 2 | ~~A domain, not a product, is the unit~~ **Fixed, §3.2** | **Microsoft**, 3 of 3, named from `microsoft.com`. Now *Microsoft Project*, 2 of 3, named from a page a query returned |
-| 3 | Ranking measures appearance, not fit | Household names win; the right specialist scores 0.175 and is refused |
+| 3 | ~~Ranking measures appearance, not fit~~ **Fixed, §3.3.1** | Household names won; the right specialist scored 0.175 and was refused. Two buyer's guides now corroborate what one search could not |
 | 4 | ~~The fit test is one shared content word~~ **Fixed, §3.4** | **projectplusgame.com** — its page uses *project* and one word was the bar. The bar is now half the market's words |
 
 **Cause 4 was a threshold, not an absence**, which is the correction review made to this
@@ -269,10 +300,11 @@ half the market's words, and the sentence a reader is shown says which words the
 and how many were wanted — because *uses none of them* and *excluded* stopped being the same
 fact the moment the bar could be cleared by a page that shares something.
 
-**And the best sources are discarded.** Every page a general web answer cites for this question —
-review sites, agency blogs — is on `NOT_A_COMPANY`. They are correctly refused *as candidates*
-and never read *as evidence*, which is where the categories, the comparisons and the reasons
-live. The information needed for a better answer is already arriving and is thrown away at step 5.
+**The best sources were discarded, and are now read.** Every page a general web answer cites for
+this question — review sites, agency blogs — is on `NOT_A_COMPANY`. They are still correctly
+refused *as candidates*, and they are no longer thrown away *as evidence*: §3.3.1. What is still
+unused is everything on them beyond the links — the categories and the comparisons — which is
+PR 7.
 
 See [`BENCHMARKS.md`](BENCHMARKS.md) Run 50 for the full trace.
 

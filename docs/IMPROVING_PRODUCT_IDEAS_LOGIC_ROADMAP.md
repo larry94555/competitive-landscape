@@ -19,17 +19,23 @@
 | | |
 |---|---|
 | **Pull requests in this plan** | **7** |
-| **Done** | **4** |
-| **Remaining** | **3** |
-| **Complete** | **57%** |
+| **Done** | **5** |
+| **Remaining** | **2** |
+| **Complete** | **71%** |
 
 **PR 1 is the two documents; PR 2 is the discovery golden set; PR 3 and PR 4 are the ones a
 reader can see.** The percentage counts pull requests, not effort — PR 7 is larger than PRs 5
 and 6 together.
 
-**Two of the four causes are now closed.** A candidate is a product rather than a domain, and the
-fit test is no longer one shared word. What is left is the ranking measuring appearance rather
-than fit, and the first query being malformed.
+**Three of the four causes are now closed.** A candidate is a product rather than a domain, the
+fit test is no longer one shared word, and the ranking no longer measures appearance alone — the
+market's own buyer's guides are read, and two of them naming a company is corroboration a single
+search could not give. What is left is the first query being malformed, and the structure a
+reader is shown.
+
+**The reported failure is answered.** *"project management for a small design agency"* returned
+**Microsoft** and a board game. On the fixtures it now returns **Asana, Workamajig, Microsoft
+Project and Notion Projects**, with the board game named as excluded and why.
 
 **The baseline, measured rather than guessed:** mean recall **60%** across five fixtures, with
 **1 impostor admitted**, scored end to end through `assemble` rather than at the ranking. Every
@@ -68,7 +74,7 @@ which is the kind of claim that makes a plan look further along than it is.
 | 2 | **A golden set for discovery** | `landscape-golden::discovery` | **Done** |
 | 3 | **Product-level candidates** — identity rule chosen by PR 2 | new `search::products` | **Done** |
 | 4 | **Raise the fit test above one word** | `competitors::enough_words`, `assemble` | **Done** |
-| 5 | **Candidates from page content** | new `candidates::named_in` | To do |
+| 5 | **Candidates from page content** | new `search::literature` | **Done** |
 | 6 | **Render the reason that already exists** | `Report`, `web/src/App.tsx` | To do |
 | 7 | **Breadth, and subcategories** | new `candidates::breadth`, the interface | To do |
 
@@ -299,6 +305,30 @@ A company enters because **two independent hosts name it in this market** — th
 independence rule `FACT_CHECKING.md` §L6 already applies to claims. `NOT_A_COMPANY` inverts from
 a filter that discards our best sources into an index of them: still never candidates, now read
 as evidence.
+
+#### What shipped
+
+`landscape_search::literature` reads the pages a search returned that are **not** companies — the
+`NOT_A_COMPANY` list inverted from a filter into an index — and takes the companies each one
+**links to**. A link is a fact about the page rather than a reading of it, so nothing is asserted
+that was not read and no model is involved.
+
+| | Before | After |
+|---|---|---|
+| The reported failure | asana.com, microsoft.com | **asana.com, workamajig.com, microsoft.com, notion.so** |
+| Its recall | 67% | **100%** |
+| Mean recall | 60% | **67%** |
+| Impostors admitted | 0 | 0 |
+
+**`workamajig.com` is the whole point.** It is the specialist the prompt actually asks for; one
+query out of three returned it; `CORROBORATION` refused it; and every buyer's guide to this
+market lists it. **The market's own word is what corroborates it now.**
+
+**Both kinds of evidence are added for the threshold and kept apart in the sentence** — *"1 of
+the 3 searches returned it, 2 of the 3 buyer's guides we read list it"*. Adding them into one
+number would tell a reader three searches agreed about a company one of them found.
+
+**Bounded at four publisher pages per analysis**, spent on the ones the most queries returned.
 
 *Removes cause 3, and most of cause 1 — a malformed query matters far less when the answer comes
 from what the returned pages say rather than from which domains they were.*

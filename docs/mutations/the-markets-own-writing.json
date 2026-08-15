@@ -1,0 +1,272 @@
+[
+  {
+    "name": "a guide's own pages count as companies it named",
+    "file": "crates/landscape-search/src/literature.rs",
+    "old": "        if host == publisher || crate::candidates::is_not_a_company(&host) {\n            return;\n        }",
+    "new": "",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "the reading of the market's literature is unbounded",
+    "file": "crates/landscape-search/src/literature.rs",
+    "old": "    for guide in guides(results).into_iter().take(READING_BUDGET) {",
+    "new": "    for guide in guides(results) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a company only the literature names never becomes a candidate",
+    "file": "crates/landscape-search/src/literature.rs",
+    "old": "    for (host, by) in named {\n        if out.iter().any(|f| f.host == *host) {\n            continue;\n        }",
+    "new": "    for (host, by) in named {\n        if true {\n            continue;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a publisher naming a company does not corroborate it",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "        let aside = if agreed + named_by.len() < CORROBORATION {",
+    "new": "        let aside = if agreed < CORROBORATION {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "the guides a company was absent from are left out of its score",
+    "file": "crates/landscape-search/src/literature.rs",
+    "old": "                one.confidence = crate::candidates::score(\n                    one.agreed,\n                    sources.of(),\n                    crate::candidates::depth_of(&one.shallowest),\n                );",
+    "new": "                one.confidence = crate::candidates::score(\n                    one.agreed,\n                    sources.asked,\n                    crate::candidates::depth_of(&one.shallowest),\n                );",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a reason adds the searches and the guides into one number",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "                    agreed,\n                    asked,\n                    named_by,\n                    guides,\n                    shares,",
+    "new": "                    agreed: agreed + named_by.len(),\n                    asked,\n                    named_by: Vec::new(),\n                    guides,\n                    shares,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "one guide read twice counts as two publishers",
+    "file": "crates/landscape-search/src/literature.rs",
+    "old": "    for guide in guides(results).into_iter().take(READING_BUDGET) {",
+    "new": "    for guide in guides(results).into_iter().chain(guides(results)).take(READING_BUDGET) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a guide nobody could read still counts as one that looked",
+    "file": "crates/landscape-search/src/literature.rs",
+    "old": "        out.read += 1;",
+    "new": "",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a publisher's front page is read as a guide to this market",
+    "file": "crates/landscape-search/src/literature.rs",
+    "old": "            if crate::candidates::depth_of(&hit.url) == 0 {\n                continue;\n            }",
+    "new": "",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "the shallowest of a publisher's pages wins however few queries returned it",
+    "file": "crates/landscape-search/src/literature.rs",
+    "old": "                b.1.cmp(&a.1)\n                    .then_with(|| {",
+    "new": "                std::cmp::Ordering::Equal\n                    .then_with(|| {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a URL in prose is read as a link",
+    "file": "crates/landscape-search/src/literature.rs",
+    "old": "    for (open, _) in page.match_indices(\"<http\") {",
+    "new": "    for (open, _) in page.match_indices(\"http\") {\n        let rest = &page[open..];\n        let end = rest.find(char::is_whitespace).unwrap_or(rest.len());\n        push(&rest[..end]);\n    }\n    for (open, _) in page.match_indices(\"<http\") {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "an image is read as a recommendation",
+    "file": "crates/landscape-search/src/literature.rs",
+    "old": "        if text_start > 0 && bytes[text_start - 1] == b'!' {\n            continue;\n        }",
+    "new": "",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a domain's endorsements are handed to whichever product wins",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "    let named_by = applicable(&best.urls, false);",
+    "new": "    let named_by = one.named_by.clone();",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "one guide linking three pages counts as three publishers",
+    "file": "crates/landscape-search/src/literature.rs",
+    "old": "        if !out.contains(&one.by) {\n            out.push(one.by.clone());\n        }",
+    "new": "        out.push(one.by.clone());",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a score counts evidence a candidate does not have",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        confidence: scored(agreed, &named_by, &best.shallowest),",
+    "new": "        confidence: scored(agreed, &one.named_by, &best.shallowest),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a score counts links rather than publishers",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "            agreed + crate::literature::publishers(named_by).len(),",
+    "new": "            agreed + named_by.len(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a domain shown as one product inherits another product's guides",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        let named_by = applicable(&urls, true);\n        let evidence = vendor",
+    "new": "        let named_by = one.named_by.clone();\n        let evidence = vendor",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a link to a vendor's root supports whichever product is strongest",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "                    || (root_is_about_this && crate::candidates::depth(&e.at) == 0)",
+    "new": "                    || crate::candidates::depth(&e.at) == 0",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  }
+]
