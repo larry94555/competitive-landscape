@@ -62,7 +62,7 @@
   {
     "name": "a market whose companies sit under one heading is offered anyway",
     "file": "crates/landscape-search/src/breadth.rs",
-    "old": "    !categories\n        .iter()\n        .any(|c| share(c.companies.len()) > CONCENTRATION)",
+    "old": "    !held.iter().any(|n| share(*n) > CONCENTRATION)",
     "new": "    true",
     "run": [
       "cargo",
@@ -77,8 +77,8 @@
   {
     "name": "one category is a question with two answers",
     "file": "crates/landscape-search/src/breadth.rs",
-    "old": "    if categories.len() < 2 || candidates == 0 {",
-    "new": "    if candidates == 0 {",
+    "old": "    if held.len() < 2 {",
+    "new": "    if held.len() < 1 {",
     "run": [
       "cargo",
       "nextest",
@@ -92,8 +92,8 @@
   {
     "name": "a question with several answers is answered anyway",
     "file": "crates/landscape-analyze/src/subject.rs",
-    "old": "        _ if landscape_search::breadth::too_general(&categories, set.members.len()) => {",
-    "new": "        _ if false => {",
+    "old": "        _ if landscape_search::breadth::too_general(\n            &categories,\n            &landscape_search::breadth::admitted(&set),\n        ) =>",
+    "new": "        _ if false =>",
     "run": [
       "cargo",
       "nextest",
@@ -124,6 +124,51 @@
     "file": "crates/landscape-search/src/breadth.rs",
     "old": "            prompt: if c.label.contains(&asked.to_lowercase()) {\n                c.label.clone()\n            } else {\n                format!(\"{asked} {}\", c.label)\n            },",
     "new": "            prompt: c.label.clone(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a vendor's own review is read as a way the market divides",
+    "file": "crates/landscape-search/src/breadth.rs",
+    "old": "            if label.is_empty() || is_one_vendors_review(&heading, &linked) {",
+    "new": "            if label.is_empty() {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the share counts companies who are not in the answer",
+    "file": "crates/landscape-search/src/breadth.rs",
+    "old": "                .filter(|host| admitted.contains(host))\n                .count()",
+    "new": "                .count()",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "one vendor's two products are two companies",
+    "file": "crates/landscape-search/src/breadth.rs",
+    "old": "        if !out.contains(&member.candidate.canonical_domain) {\n            out.push(member.candidate.canonical_domain.clone());\n        }",
+    "new": "        out.push(member.candidate.canonical_domain.clone());",
     "run": [
       "cargo",
       "nextest",

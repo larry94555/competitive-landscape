@@ -129,6 +129,36 @@ pub fn sections(page: &str, publisher: &str) -> Vec<(String, Vec<Endorsement>)> 
     out
 }
 
+/// Whether a section is one vendor's review rather than a way the market divides.
+///
+/// **Buyer's guides are full of `## Asana` and `### Monday.com`.** Review found what that does:
+/// two guides both reviewing Asana under its own name is exact agreement on a "category" with a
+/// company under it, so a perfectly ordinary single market was refused as several and the
+/// **vendors themselves were offered as submarkets**. That is worse than not having this feature,
+/// because it stops a report that would have been right.
+///
+/// **The signal is on the page and needs no model:** a vendor section is headed by the name of
+/// the company it links to. Letters only, so `Monday.com` and `monday.com` are the same word and
+/// punctuation cannot hide a match.
+#[must_use]
+fn is_one_vendors_review(heading: &str, linked: &[Endorsement]) -> bool {
+    let letters = |s: &str| -> String {
+        s.chars()
+            .filter(|c| c.is_alphanumeric())
+            .flat_map(char::to_lowercase)
+            .collect()
+    };
+    let head = letters(heading);
+    if head.is_empty() {
+        return false;
+    }
+    linked.iter().any(|e| {
+        // The registrable host without its suffix: `asana.com` -> `asana`.
+        let name = letters(e.host.split('.').next().unwrap_or(&e.host));
+        !name.is_empty() && (head.contains(&name) || name.contains(&head))
+    })
+}
+
 /// The categories the guides agree on, best supported first.
 ///
 /// A category needs [`NAMED_BY_HOSTS`] independent publishers **and** at least one company under
@@ -144,7 +174,8 @@ pub fn categories(read: &HashMap<String, String>) -> Vec<Category> {
     for (publisher, page) in pages {
         for (heading, linked) in sections(page, publisher) {
             let label = as_category(&heading);
-            if label.is_empty() {
+            // A section headed by the name of the company under it is that company's review.
+            if label.is_empty() || is_one_vendors_review(&heading, &linked) {
                 continue;
             }
             let entry = by_label.entry(label).or_default();
@@ -186,26 +217,62 @@ pub fn of(reading: &Reading) -> Vec<Category> {
 
 /// Whether the question covers several markets rather than one.
 ///
-/// **Two conditions, and the second is the one doing the work.** Any broad market has
-/// subheadings; what makes a question *too general* is that the companies found are spread
-/// across them rather than sitting under one. A reader who asked about project management for
-/// agencies and got mostly agency tools was answered.
+/// **Both sides of the fraction are the companies in the answer**, and review found them being
+/// two different populations. `Category::companies` is everything the guides linked, including
+/// companies that were never candidates, were set aside, or ranked past the fetch budget; the
+/// denominator was the admitted set. Four linked in each of two categories against five admitted
+/// gave `4 / 5` twice, so a question that was genuinely two markets read as concentrated in
+/// both. A share of one universe over the size of another is not a share.
 ///
-/// `candidates` is how many companies the run found in total, which is the denominator
-/// [`CONCENTRATION`] is a fraction of.
+/// `admitted` is the **distinct domains** in the set, which is also what stops one vendor's two
+/// products counting as two companies.
+///
+/// **Two conditions, and the second is the one doing the work.** Any broad market has
+/// subheadings; what makes a question *too general* is that the companies in the answer are
+/// spread across them. A reader who asked about project management for agencies and got mostly
+/// agency tools was answered.
 #[must_use]
-pub fn too_general(categories: &[Category], candidates: usize) -> bool {
-    if categories.len() < 2 || candidates == 0 {
+pub fn too_general(categories: &[Category], admitted: &[String]) -> bool {
+    if admitted.is_empty() {
+        return false;
+    }
+    // Only the categories that hold somebody who is actually in the answer. A heading dividing
+    // companies nobody will be shown divides nothing a reader can see.
+    let held: Vec<usize> = categories
+        .iter()
+        .map(|c| {
+            c.companies
+                .iter()
+                .filter(|host| admitted.contains(host))
+                .count()
+        })
+        .filter(|n| *n > 0)
+        .collect();
+    if held.len() < 2 {
         return false;
     }
     #[expect(
         clippy::cast_precision_loss,
         reason = "counts here are single digits; NAMED caps the candidates at five"
     )]
-    let share = |n: usize| n as f32 / candidates as f32;
-    !categories
-        .iter()
-        .any(|c| share(c.companies.len()) > CONCENTRATION)
+    let share = |n: usize| n as f32 / admitted.len() as f32;
+    !held.iter().any(|n| share(*n) > CONCENTRATION)
+}
+
+/// The distinct domains in a set, which is the universe [`too_general`] divides.
+///
+/// **Distinct, because a vendor with two products is one company on a page.** `Set::members` is
+/// keyed on a domain today and `products::split` can put two products of one vendor in front of
+/// a reader tomorrow; counting rows would make that vendor two.
+#[must_use]
+pub fn admitted(set: &crate::competitors::Set) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for member in &set.members {
+        if !out.contains(&member.candidate.canonical_domain) {
+            out.push(member.candidate.canonical_domain.clone());
+        }
+    }
+    out
 }
 
 /// The categories as something a reader can click.
@@ -325,62 +392,165 @@ mod tests {
     }
 
     #[test]
+    fn two_guides_reviewing_the_same_vendors_have_not_divided_a_market() {
+        // **Review found this stopping reports that would have been right.** Buyer's guides are
+        // full of `## Asana` and `### Monday.com`, one section per vendor. Two guides doing that
+        // is exact agreement on a "category" with a company under it - so an ordinary single
+        // market was refused as several, and the **vendors themselves** were offered to a reader
+        // as submarkets to pick between.
+        let by_vendor = concat!(
+            "# Best project management software\n\n",
+            "## Asana\n\n[Asana](https://asana.com/) is broad.\n\n",
+            "## Monday.com\n\n[Monday](https://monday.com/) is colorful.\n\n",
+            "### Workamajig\n\n[Workamajig](https://www.workamajig.com/) for agencies.\n",
+        );
+        let found = categories(&read(&[("g2.com", by_vendor), ("capterra.com", by_vendor)]));
+        assert!(
+            found.is_empty(),
+            "a vendor's own review is not a way the market divides: {found:#?}"
+        );
+    }
+
+    #[test]
+    fn a_category_named_after_nobody_it_links_to_is_still_a_category() {
+        // The other half, so the rule above is a rule rather than a way of never finding
+        // anything: these headings name a kind of buyer, and the companies under them are not
+        // what they are called.
+        let found = categories(&read(&[("g2.com", G2), ("capterra.com", CAPTERRA)]));
+        assert_eq!(found.len(), 2, "{found:#?}");
+    }
+
+    #[test]
     fn a_heading_with_nobody_under_it_is_a_section_of_prose() {
         let empty = "# A market\n\n## For agencies\n\nWe could not find any.\n";
         let found = categories(&read(&[("g2.com", empty), ("capterra.com", empty)]));
         assert!(found.is_empty(), "{found:#?}");
     }
 
+    fn owned(of: &[&str]) -> Vec<String> {
+        of.iter().map(|s| (*s).to_owned()).collect()
+    }
+
+    fn category(label: &str, companies: &[&str]) -> Category {
+        Category {
+            label: label.to_owned(),
+            named_by: vec!["capterra.com".to_owned(), "g2.com".to_owned()],
+            companies: owned(companies),
+        }
+    }
+
     #[test]
     fn a_question_whose_answers_sit_under_one_heading_was_answered() {
         // **The condition doing the work.** Any broad market has subheadings; what makes a
-        // question too general is the companies being spread across them.
+        // question too general is the companies **in the answer** being spread across them.
         let concentrated = vec![
-            Category {
-                label: "for creative agencies".to_owned(),
-                named_by: vec!["capterra.com".to_owned(), "g2.com".to_owned()],
-                companies: vec![
-                    "a.example".to_owned(),
-                    "b.example".to_owned(),
-                    "c.example".to_owned(),
-                ],
-            },
-            Category {
-                label: "for software teams".to_owned(),
-                named_by: vec!["capterra.com".to_owned(), "g2.com".to_owned()],
-                companies: vec!["d.example".to_owned()],
-            },
+            category(
+                "for creative agencies",
+                &["a.example", "b.example", "c.example"],
+            ),
+            category("for software teams", &["d.example"]),
         ];
         assert!(
-            !too_general(&concentrated, 4),
+            !too_general(
+                &concentrated,
+                &owned(&["a.example", "b.example", "c.example", "d.example"])
+            ),
             "three of four under one heading is an answer, not a question"
         );
 
         let spread = vec![
-            Category {
-                label: "for creative agencies".to_owned(),
-                named_by: vec!["capterra.com".to_owned(), "g2.com".to_owned()],
-                companies: vec!["a.example".to_owned(), "b.example".to_owned()],
-            },
-            Category {
-                label: "for software teams".to_owned(),
-                named_by: vec!["capterra.com".to_owned(), "g2.com".to_owned()],
-                companies: vec!["c.example".to_owned(), "d.example".to_owned()],
-            },
+            category("for creative agencies", &["a.example", "b.example"]),
+            category("for software teams", &["c.example", "d.example"]),
         ];
-        assert!(too_general(&spread, 4), "half and half is two markets");
+        assert!(
+            too_general(
+                &spread,
+                &owned(&["a.example", "b.example", "c.example", "d.example"])
+            ),
+            "half and half is two markets"
+        );
+    }
+
+    #[test]
+    fn the_share_is_of_the_companies_in_the_answer_and_not_of_everything_linked() {
+        // **Review found two populations either side of the fraction.** A category's companies
+        // are everything the guides linked, including candidates set aside or never fetched;
+        // the denominator was the admitted set. Four linked against five admitted gave `4 / 5`
+        // twice, and a question that really was two markets read as concentrated in both.
+        let each_links_four = vec![
+            category(
+                "for creative agencies",
+                &["a.example", "b.example", "gone.example", "unread.example"],
+            ),
+            category(
+                "for software teams",
+                &["c.example", "d.example", "e.example", "budget.example"],
+            ),
+        ];
+        // Two of the first category's four made it in, and three of the second's.
+        let in_the_answer = owned(&[
+            "a.example",
+            "b.example",
+            "c.example",
+            "d.example",
+            "e.example",
+        ]);
+        assert!(
+            too_general(&each_links_four, &in_the_answer),
+            "2/5 and 3/5 is spread; only counting what the guides linked made it 4/5 twice"
+        );
+    }
+
+    #[test]
+    fn a_heading_holding_nobody_in_the_answer_divides_nothing_a_reader_can_see() {
+        let one_real = vec![
+            category("for creative agencies", &["a.example", "b.example"]),
+            category("for construction", &["gone.example", "unread.example"]),
+        ];
+        assert!(
+            !too_general(&one_real, &owned(&["a.example", "b.example"])),
+            "the second category holds nobody who will be shown"
+        );
+    }
+
+    #[test]
+    fn one_vendor_with_two_products_is_one_company_on_both_sides() {
+        // `admitted` is distinct domains, so a vendor whose two products both made it in cannot
+        // make its category look twice as full as it is.
+        let set = crate::competitors::Set {
+            members: vec![
+                member("microsoft.com"),
+                member("microsoft.com"),
+                member("asana.com"),
+            ],
+            set_aside: Vec::new(),
+            alone: None,
+        };
+        assert_eq!(admitted(&set), owned(&["microsoft.com", "asana.com"]));
     }
 
     #[test]
     fn one_category_is_never_a_question() {
-        let only = vec![Category {
-            label: "for creative agencies".to_owned(),
-            named_by: vec!["capterra.com".to_owned(), "g2.com".to_owned()],
-            companies: vec!["a.example".to_owned()],
-        }];
-        assert!(!too_general(&only, 4), "there is nothing to choose between");
-        assert!(!too_general(&[], 4));
+        let only = vec![category("for creative agencies", &["a.example"])];
+        let four = owned(&["a.example", "b.example", "c.example", "d.example"]);
+        assert!(
+            !too_general(&only, &four),
+            "there is nothing to choose between"
+        );
+        assert!(!too_general(&[], &four));
         // And a run that found nobody has no denominator, so there is no share to compare.
-        assert!(!too_general(&only, 0));
+        assert!(!too_general(&only, &[]));
+    }
+
+    fn member(domain: &str) -> crate::competitors::Member {
+        crate::competitors::Member {
+            candidate: landscape_core::subject::Candidate {
+                name: domain.to_owned(),
+                canonical_domain: domain.to_owned(),
+                what_it_is: "a company".to_owned(),
+                confidence: 0.9,
+            },
+            because: crate::competitors::Because::Named,
+        }
     }
 }

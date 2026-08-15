@@ -44,7 +44,7 @@ less than it looks** — what follows includes the part where that is still true
 | | Rust tests | frontend tests | catalog | gates |
 |---|---|---|---|---|
 | before | 1077 | 146 | 52, all caught | 17 |
-| after | **1087** | **146** | **61**, all caught | **17** |
+| after | **1093** | **146** | **64**, all caught | **17** |
 
 ### Where the categories come from
 
@@ -82,6 +82,30 @@ Run 44's fatal bug, arriving a second time from a different direction.
 The chips are the existing ones, in the shape `vocabulary::choices_from` already used for
 competing market names: no domain, the evidence in its place, and **a whole prompt per chip** so
 a click is a new run with its own URL.
+
+### Two things review found, and the first one stopped good reports
+
+**Every `##` with a link under it was a category, and buyer's guides are full of `## Asana`.**
+One section per vendor is how half of them are written — so two guides both reviewing Asana under
+its own name is exact agreement on a "category" with a company in it, and **an ordinary single
+market was refused as several with the vendors themselves offered as submarkets.** That is worse
+than not having the feature: it stops a report that would have been right.
+
+The signal is on the page and needs no model: **a vendor section is headed by the name of the
+company it links to.** Letters only, so `Monday.com` and `monday.com` are one word.
+
+**And the share was taken over two different populations.** A category's companies are everything
+the guides linked — including candidates set aside, never fetched, or never candidates at all —
+while the denominator was the admitted set. Four linked in each of two categories against five
+admitted gives `4 / 5` **twice**, so a question that genuinely was two markets read as
+concentrated in both. Both sides are now the companies in the answer, and `admitted` counts
+distinct domains so one vendor's two products are one company.
+
+**And the regression for the first one was vacuous when written.** Its fixture used a line
+continuation, so every `## Asana` reached the parser indented and no heading was ever seen; the
+test passed with the guard removed. It is a `concat!` of explicit `
+` now, and it fails without
+the guard. **A test that cannot fail is worth less than no test**, because it is counted.
 
 ### What is not measured, and it is the important part
 
@@ -614,7 +638,7 @@ six sections a real company actually produces — needs a model and a network. S
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 50 | 1026 | 139 | no code changed |
-| now | **1087** | **146** | **61**, all caught |
+| now | **1093** | **146** | **64**, all caught |
 
 ---
 

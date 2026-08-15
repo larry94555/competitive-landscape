@@ -327,7 +327,11 @@ pub fn decide(
         // would otherwise have succeeded: a set was assembled, and the market's own guides say
         // it is four markets rather than one. Answering anyway is a confident reply to a
         // question nobody asked, which is where cause 1 ends.
-        _ if landscape_search::breadth::too_general(&categories, set.members.len()) => {
+        _ if landscape_search::breadth::too_general(
+            &categories,
+            &landscape_search::breadth::admitted(&set),
+        ) =>
+        {
             Decided::Refuse(Refusal {
                 why: several_markets(&categories),
                 kind: landscape_core::Failure::TooGeneral,
@@ -712,12 +716,15 @@ mod deciding {
             landscape_search::breadth::Category {
                 label: "for creative agencies".to_owned(),
                 named_by: vec!["capterra.com".to_owned(), "g2.com".to_owned()],
-                companies: vec!["workamajig.com".to_owned()],
+                // **The companies in the answer**, because that is the universe the share is
+                // taken over. Categories full of companies nobody will be shown divide nothing
+                // a reader can see.
+                companies: vec!["alpha.example".to_owned()],
             },
             landscape_search::breadth::Category {
                 label: "for software teams".to_owned(),
                 named_by: vec!["capterra.com".to_owned(), "g2.com".to_owned()],
-                companies: vec!["linear.app".to_owned()],
+                companies: vec!["beta.example".to_owned()],
             },
         ]
     }
@@ -781,7 +788,7 @@ mod deciding {
             landscape_search::breadth::Category {
                 label: "for creative agencies".to_owned(),
                 named_by: vec!["capterra.com".to_owned(), "g2.com".to_owned()],
-                companies: vec!["a.example".to_owned(), "b.example".to_owned()],
+                companies: vec!["alpha.example".to_owned(), "beta.example".to_owned()],
             },
             landscape_search::breadth::Category {
                 label: "for software teams".to_owned(),
@@ -807,6 +814,41 @@ mod deciding {
             matches!(decided, Decided::Analyze(_)),
             "two of two companies under one heading is an answer"
         );
+    }
+
+    #[test]
+    fn a_category_holding_companies_nobody_will_be_shown_divides_nothing() {
+        // **The two populations review found.** A category's companies are everything the
+        // guides linked, including candidates set aside or never fetched; the set is who is in
+        // the report. `alpha.example` and `beta.example` are the whole answer and they sit in
+        // one category, so the second one divides nobody a reader can see.
+        let categories = vec![
+            landscape_search::breadth::Category {
+                label: "for creative agencies".to_owned(),
+                named_by: vec!["capterra.com".to_owned(), "g2.com".to_owned()],
+                companies: vec!["alpha.example".to_owned(), "beta.example".to_owned()],
+            },
+            landscape_search::breadth::Category {
+                label: "for construction".to_owned(),
+                named_by: vec!["capterra.com".to_owned(), "g2.com".to_owned()],
+                companies: vec!["gone.example".to_owned(), "unread.example".to_owned()],
+            },
+        ];
+        let decided = decide(
+            Derived {
+                categories,
+                ..derived(
+                    Resolution::Resolved {
+                        entity: candidate("Alpha", "alpha.example"),
+                    },
+                    two(),
+                    true,
+                )
+            },
+            &all_answered(),
+            "project management software",
+        );
+        assert!(matches!(decided, Decided::Analyze(_)));
     }
 
     #[test]
