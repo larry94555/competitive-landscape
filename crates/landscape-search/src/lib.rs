@@ -62,6 +62,7 @@
 //! [`Disposition::may_set_a_table_value`]: landscape_core::Disposition::may_set_a_table_value
 
 pub mod admit;
+pub mod breadth;
 pub mod candidates;
 pub mod competitors;
 pub mod literature;

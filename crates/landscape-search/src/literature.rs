@@ -235,6 +235,13 @@ pub struct Reading {
     /// That is the same divisor rule [`crate::candidates::Queried::sent`] states for searches,
     /// pointed the other way: a guide that did not arrive checked nothing.
     pub read: usize,
+    /// The pages themselves, by publisher host.
+    ///
+    /// **Kept so nobody fetches them twice.** [`crate::breadth`] reads the same four guides for
+    /// a different question — how this market divides, from their headings — and asking
+    /// somebody's server again for a page we are still holding is the fetch this codebase
+    /// already refuses everywhere else.
+    pub pages: HashMap<String, String>,
 }
 
 /// Read the market's literature.
@@ -259,6 +266,7 @@ where
                 .or_default()
                 .push(endorsement);
         }
+        out.pages.insert(guide.host.clone(), page);
     }
     out
 }
@@ -569,6 +577,7 @@ mod tests {
         // buyer's guides link to it. Before this module the answer was *which domains came
         // back*, so it could not have been in the set at all.
         let reading = Reading {
+            pages: HashMap::new(),
             named: HashMap::from([(
                 "workamajig.com".to_owned(),
                 vec![
@@ -637,6 +646,7 @@ mod tests {
         let with_guides = admit(
             vec![one],
             &Reading {
+                pages: HashMap::new(),
                 named: HashMap::new(),
                 read: 3,
             },

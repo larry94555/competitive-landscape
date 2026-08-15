@@ -27,6 +27,7 @@ export type Failure =
   // which company they meant. Nothing was wrong with their words; nothing is configured here.
   | "no_engine"
   | "ambiguous"
+  | "too_general"
   | "nothing_found"
   | "search_incomplete"
   | "search_refused"
@@ -207,7 +208,8 @@ export interface Analysis {
   /**
    * The companies a reader can pick between, when the run stopped rather than guess.
    *
-   * Empty unless `failure` is `"ambiguous"`. **This is the question**, not decoration on the
+   * Empty unless `failure` is `"ambiguous"` or `"too_general"` — the two refusals a reader
+   * answers in one click. **This is the question**, not decoration on the
    * refusal: without it the page can say a name matched several companies and cannot say
    * which, which leaves the reader guessing at exactly what we declined to guess at.
    *

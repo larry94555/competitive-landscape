@@ -557,6 +557,13 @@ pub struct Derived {
     /// recomputing it from the raw prompt is the second source of truth this codebase keeps
     /// deleting.
     pub about_a_market: bool,
+    /// How the market's own guides divide it, when two of them agree.
+    ///
+    /// **Carried rather than recomputed**, for the reason `about_a_market` is: the pages were
+    /// read here, and a caller asking for them again would be a second fetch of somebody's
+    /// server for text this run is still holding. Empty when nothing was read, when the guides
+    /// have no headings two of them share, or when the reader named their companies.
+    pub categories: Vec<crate::breadth::Category>,
 }
 
 /// The version of the rival query set, stamped on a run.

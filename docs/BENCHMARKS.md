@@ -33,6 +33,126 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 56 — one question, several markets
+
+**Date:** 2026-08-15 — **Where:** this laptop, no engine and no model needed — **Model:** none.
+
+`IMPROVING_PRODUCT_IDEAS_LOGIC_ROADMAP.md` PR 7, the last row in that plan, and the rest of
+cause 1. **The roadmap calls this one a research problem and says it may turn out to be worth
+less than it looks** — what follows includes the part where that is still true.
+
+| | Rust tests | frontend tests | catalog | gates |
+|---|---|---|---|---|
+| before | 1077 | 146 | 52, all caught | 17 |
+| after | **1097** | **146** | **66**, all caught | **17** |
+
+### Where the categories come from
+
+**The headings of the pages already fetched.** A buyer's guide to a broad market is organized by
+category — *Best for creative agencies*, *Best for software teams* — and a heading is structure the
+page wrote, in the same sense a link is something the page did. No model, no summarizing, nothing
+asserted that was not read.
+
+**No breadth query is asked, and the plan said one would be.** The pages that answer *how does
+this market divide* are the same guides `literature` already fetched for *who is in it*; three
+more queries to somebody's engine to reach the same pages would be a cost with no evidence behind
+it. Reading them twice costs nothing because `Reading` keeps them.
+
+### The two decisions, and both numbers are hypotheses
+
+```
+NAMED_BY_HOSTS = CORROBORATION   two independent guides, the same bar a company clears
+CONCENTRATION  = 0.60            one category holding more than this means the question
+                                 was answered rather than too broad
+```
+
+**The second condition is the one doing the work.** Any broad market has subheadings; what makes
+a question *too general* is that the companies found are **spread** across them. A reader who
+asked about project management for agencies and got mostly agency tools was answered, and
+offering to narrow it would be the interrogation `PRODUCT_SPEC.md` §3 warns against.
+
+### A failure kind of its own
+
+`Failure::TooGeneral`, not `Ambiguous`. *Several companies are called this* is about a **name**;
+*project management software is four markets* is about a **subject**, and the reader picks a kind
+of thing rather than a company. Telling somebody whose words were perfectly clear that we could
+not work out which company they meant is the exact wording this enum was split apart to stop —
+Run 44's fatal bug, arriving a second time from a different direction.
+
+The chips are the existing ones, in the shape `vocabulary::choices_from` already used for
+competing market names: no domain, the evidence in its place, and **a whole prompt per chip** so
+a click is a new run with its own URL.
+
+### Two things review found, and the first one stopped good reports
+
+**Every `##` with a link under it was a category, and buyer's guides are full of `## Asana`.**
+One section per vendor is how half of them are written — so two guides both reviewing Asana under
+its own name is exact agreement on a "category" with a company in it, and **an ordinary single
+market was refused as several with the vendors themselves offered as submarkets.** That is worse
+than not having the feature: it stops a report that would have been right.
+
+**The first fix asked whether a heading was the *name* of the company under it, and that leaked
+twice.** `## Jira` links `atlassian.com`; `## Workfront` links `adobe.com`. Neither product is
+named after its corporate domain, so both survived as categories and refused the same reports.
+Review found it, and it is the register's own lesson pointing at me: *not a vendor* was a
+**negative** signal standing in for *is a category*.
+
+The second fix asked whether a heading holds **more than one company**, which killed those — and
+review found the next exception: two guides both running `## Best Overall` and `## Best Value`
+with two winners apiece clear every bar. Two publishers, two companies, no heading that is the
+name of a company under it. **They are selection awards. They rank the same market rather than
+dividing it.**
+
+**Three rules for one question, and the first two were both about what a category is not.** A
+rule made of exclusions is a rule with a next exception, which is the whole of what review kept
+demonstrating. The third one is positive:
+
+```
+a category is OFFERED when
+    its heading describes a kind of buyer or use   `for ...`, `with ...`
+    and it is named on >= NAMED_BY_HOSTS independent hosts
+    and it has >= COMPANIES_PER_CATEGORY companies under it
+```
+
+**A market division is a qualifier, and English marks one with a preposition.** *For creative
+agencies* narrows the market; *Best Overall* ranks it.
+
+**It is deliberately narrow and biased toward saying no.** *Enterprise* and *Agency project
+management* are real category headings this will not recognize, and both are asserted as misses
+in its test. A category missed costs nothing — the gate does not fire and the report is written
+exactly as before. A category invented **stops a report that would have been right**, which
+happened three times in review.
+
+**And the share was taken over two different populations.** A category's companies are everything
+the guides linked — including candidates set aside, never fetched, or never candidates at all —
+while the denominator was the admitted set. Four linked in each of two categories against five
+admitted gives `4 / 5` **twice**, so a question that genuinely was two markets read as
+concentrated in both. Both sides are now the companies in the answer, and `admitted` counts
+distinct domains so one vendor's two products are one company.
+
+**And the regression for the first one was vacuous when written.** Its fixture used a line
+continuation, so every `## Asana` reached the parser indented and no heading was ever seen; the
+test passed with the guard removed. It is a `concat!` of explicit `
+` now, and it fails without
+the guard. **A test that cannot fail is worth less than no test**, because it is counted.
+
+### What is not measured, and it is the important part
+
+**The discovery golden set does not exercise this.** Its five fixtures are markets with one
+answer each, and their guide pages are two lines of links with no headings — so `too_general` is
+false on every one of them, which is correct and is not evidence that the rule works.
+
+What the rule rests on is nine unit tests and a claim about what buyer's guides look like. **A
+sixth fixture with realistic guide structure is the obvious next thing**, and it is left undone
+deliberately rather than by omission: writing the fixture and the rule in the same sitting is how
+a measurement comes to agree with the code it measures. This repository has three register
+entries about exactly that.
+
+**So the honest summary is:** the mechanism is built, bounded, reversible and tested at the unit
+level; whether 0.60 is anywhere near right is unknown, and the roadmap said it would be.
+
+---
+
 ## Run 55 — the reason a reader can see
 
 **Date:** 2026-08-15 — **Where:** this laptop, no engine and no model needed — **Model:** none.
@@ -547,7 +667,7 @@ six sections a real company actually produces — needs a model and a network. S
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 50 | 1026 | 139 | no code changed |
-| now | **1077** | **146** | **52**, all caught |
+| now | **1097** | **146** | **66**, all caught |
 
 ---
 

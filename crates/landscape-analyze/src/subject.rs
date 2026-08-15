@@ -244,17 +244,20 @@ pub struct Refusal {
 /// | Nothing | a search failed | Try again — the searching did not finish |
 /// | Nothing | every search ran | We looked and found nobody |
 /// | Anything else | the set is empty | Say which of them was found and why none are in it |
+/// | Anything else | the guides say this is several markets | Offer them, and write no report |
 /// | Anything else | the set has members | Compare them |
 #[must_use]
 pub fn decide(
     derived: landscape_search::competitors::Derived,
     queried: &landscape_search::candidates::Queried,
+    asked: &str,
 ) -> Decided {
     use landscape_core::subject::Resolution;
     let landscape_search::competitors::Derived {
         verdict,
         set,
         about_a_market,
+        categories,
     } = derived;
     match verdict {
         // **Several candidates and one word typed is the ambiguity the gate exists for.** Three
@@ -319,8 +322,45 @@ pub fn decide(
             kind: landscape_core::Failure::NothingFound,
             choices: Vec::new(),
         }),
+        // **Everything that stops a report has stopped it; now ask whether the question had one
+        // answer.** This arm is last because it is the only refusal that fires on a run which
+        // would otherwise have succeeded: a set was assembled, and the market's own guides say
+        // it is four markets rather than one. Answering anyway is a confident reply to a
+        // question nobody asked, which is where cause 1 ends.
+        _ if landscape_search::breadth::too_general(
+            &categories,
+            &landscape_search::breadth::admitted(&set),
+        ) =>
+        {
+            Decided::Refuse(Refusal {
+                why: several_markets(&categories),
+                kind: landscape_core::Failure::TooGeneral,
+                choices: landscape_search::breadth::choices_from(&categories, asked),
+            })
+        }
         _ => Decided::Analyze(Box::new(set)),
     }
+}
+
+/// What a reader is told when their question turned out to cover several markets.
+///
+/// **Their words are not the problem, and the sentence must not imply they are.** Splitting
+/// [`landscape_core::Failure::TooGeneral`] off `Ambiguous` was worth nothing if the wording
+/// still said *we could not work out what you meant* — we worked it out, and the answer is that
+/// it is four things. The categories are the market's own headings, named so the claim can be
+/// checked rather than taken.
+#[must_use]
+pub fn several_markets(categories: &[landscape_search::breadth::Category]) -> String {
+    let named: Vec<&str> = categories.iter().map(|c| c.label.as_str()).collect();
+    let divided = format!(
+        "The buyer's guides to this divide it into {} markets rather than one - {}",
+        named.len(),
+        named.join(", ")
+    );
+    format!(
+        "{divided} - and the companies we found are spread across them. Picking one gives \
+         you a comparison of that market rather than an average of all of them."
+    )
 }
 
 /// What a reader is told when every company we found was set aside.
@@ -642,6 +682,7 @@ mod deciding {
 
     fn derived(verdict: Resolution, set: Set, about_a_market: bool) -> Derived {
         Derived {
+            categories: Vec::new(),
             verdict,
             set,
             about_a_market,
@@ -669,6 +710,168 @@ mod deciding {
         }
     }
 
+    /// A market the guides divide, with the companies spread across it.
+    fn divided() -> Vec<landscape_search::breadth::Category> {
+        vec![
+            landscape_search::breadth::Category {
+                label: "for creative agencies".to_owned(),
+                named_by: vec!["capterra.com".to_owned(), "g2.com".to_owned()],
+                // **The companies in the answer**, because that is the universe the share is
+                // taken over. Categories full of companies nobody will be shown divide nothing
+                // a reader can see.
+                companies: vec!["alpha.example".to_owned()],
+            },
+            landscape_search::breadth::Category {
+                label: "for software teams".to_owned(),
+                named_by: vec!["capterra.com".to_owned(), "g2.com".to_owned()],
+                companies: vec!["beta.example".to_owned()],
+            },
+        ]
+    }
+
+    #[test]
+    fn a_question_the_guides_say_is_several_markets_is_offered_rather_than_answered() {
+        // **The last arm, and the only refusal that fires on a run which would have
+        // succeeded.** A set was assembled and the market's own buyer's guides say it is two
+        // markets rather than one; answering anyway is a confident reply to a question nobody
+        // asked, which is where cause 1 ends.
+        let decided = decide(
+            Derived {
+                categories: divided(),
+                ..derived(
+                    Resolution::Resolved {
+                        entity: candidate("Alpha", "alpha.example"),
+                    },
+                    two(),
+                    true,
+                )
+            },
+            &all_answered(),
+            "project management software",
+        );
+        let Decided::Refuse(refusal) = decided else {
+            panic!("a question with two answers is not answered")
+        };
+        assert_eq!(refusal.kind, landscape_core::Failure::TooGeneral);
+
+        // **Not `Ambiguous`, and the sentence is why.** That one says *we could not work out
+        // which company you meant*, which is false here and blames a reader whose words were
+        // perfectly clear.
+        assert!(
+            !refusal.why.contains("could not work out"),
+            "{}",
+            refusal.why
+        );
+        assert!(
+            refusal.why.contains("for creative agencies"),
+            "{}",
+            refusal.why
+        );
+
+        // Each chip carries a whole prompt, so a click is a new run rather than a word to
+        // retype.
+        let prompts: Vec<&str> = refusal.choices.iter().map(|c| c.prompt.as_str()).collect();
+        assert_eq!(
+            prompts,
+            vec![
+                "project management software for creative agencies",
+                "project management software for software teams"
+            ]
+        );
+    }
+
+    #[test]
+    fn a_market_whose_companies_sit_under_one_heading_is_answered() {
+        // The other side of the rule that does the work. Any broad market has subheadings;
+        // what makes a question too general is the companies being spread across them.
+        let concentrated = vec![
+            landscape_search::breadth::Category {
+                label: "for creative agencies".to_owned(),
+                named_by: vec!["capterra.com".to_owned(), "g2.com".to_owned()],
+                companies: vec!["alpha.example".to_owned(), "beta.example".to_owned()],
+            },
+            landscape_search::breadth::Category {
+                label: "for software teams".to_owned(),
+                named_by: vec!["capterra.com".to_owned(), "g2.com".to_owned()],
+                companies: vec!["c.example".to_owned()],
+            },
+        ];
+        let decided = decide(
+            Derived {
+                categories: concentrated,
+                ..derived(
+                    Resolution::Resolved {
+                        entity: candidate("Alpha", "alpha.example"),
+                    },
+                    two(),
+                    true,
+                )
+            },
+            &all_answered(),
+            "project management for a small design agency",
+        );
+        assert!(
+            matches!(decided, Decided::Analyze(_)),
+            "two of two companies under one heading is an answer"
+        );
+    }
+
+    #[test]
+    fn a_category_holding_companies_nobody_will_be_shown_divides_nothing() {
+        // **The two populations review found.** A category's companies are everything the
+        // guides linked, including candidates set aside or never fetched; the set is who is in
+        // the report. `alpha.example` and `beta.example` are the whole answer and they sit in
+        // one category, so the second one divides nobody a reader can see.
+        let categories = vec![
+            landscape_search::breadth::Category {
+                label: "for creative agencies".to_owned(),
+                named_by: vec!["capterra.com".to_owned(), "g2.com".to_owned()],
+                companies: vec!["alpha.example".to_owned(), "beta.example".to_owned()],
+            },
+            landscape_search::breadth::Category {
+                label: "for construction".to_owned(),
+                named_by: vec!["capterra.com".to_owned(), "g2.com".to_owned()],
+                companies: vec!["gone.example".to_owned(), "unread.example".to_owned()],
+            },
+        ];
+        let decided = decide(
+            Derived {
+                categories,
+                ..derived(
+                    Resolution::Resolved {
+                        entity: candidate("Alpha", "alpha.example"),
+                    },
+                    two(),
+                    true,
+                )
+            },
+            &all_answered(),
+            "project management software",
+        );
+        assert!(matches!(decided, Decided::Analyze(_)));
+    }
+
+    #[test]
+    fn a_run_that_read_no_guides_answers_as_it_always_did() {
+        // No literature, no headings, nothing to divide a market by. The arm cannot fire, and
+        // a run with no engine-returned guides behaves exactly as it did before this module.
+        let decided = decide(
+            Derived {
+                categories: Vec::new(),
+                ..derived(
+                    Resolution::Resolved {
+                        entity: candidate("Alpha", "alpha.example"),
+                    },
+                    two(),
+                    true,
+                )
+            },
+            &all_answered(),
+            "project management software",
+        );
+        assert!(matches!(decided, Decided::Analyze(_)));
+    }
+
     #[test]
     fn every_refusal_carries_the_situation_a_reader_would_act_on() {
         // **These were one situation and five sentences.** `Failure` had two values, so every
@@ -693,7 +896,7 @@ mod deciding {
         let cases: Vec<(&str, Decided, Failure)> = vec![
             (
                 "a name several products share",
-                decide(derived(tie(), two(), false), &all_answered()),
+                decide(derived(tie(), two(), false), &all_answered(), "a market"),
                 Failure::Ambiguous,
             ),
             (
@@ -707,6 +910,7 @@ mod deciding {
                         true,
                     ),
                     &outage,
+                    "a market",
                 ),
                 Failure::SearchIncomplete,
             ),
@@ -721,6 +925,7 @@ mod deciding {
                         true,
                     ),
                     &all_answered(),
+                    "a market",
                 ),
                 Failure::NothingFound,
             ),
@@ -739,6 +944,7 @@ mod deciding {
                         true,
                     ),
                     &all_answered(),
+                    "a market",
                 ),
                 Failure::NothingFound,
             ),
@@ -758,7 +964,7 @@ mod deciding {
         // Telling somebody a name matched several companies, without saying which, leaves them
         // guessing at exactly what the gate declined to guess at.
         let Decided::Refuse(Refusal { kind, choices, .. }) =
-            decide(derived(tie(), two(), false), &all_answered())
+            decide(derived(tie(), two(), false), &all_answered(), "a market")
         else {
             panic!("a tie about one company is a refusal")
         };
@@ -800,6 +1006,7 @@ mod deciding {
                 true,
             ),
             &all_answered(),
+            "a market",
         );
         let interrupted = decide(
             derived(
@@ -810,6 +1017,7 @@ mod deciding {
                 true,
             ),
             &outage,
+            "a market",
         );
         for (what, decided) in [
             ("a market we looked at and found empty", empty_market),
@@ -956,6 +1164,7 @@ mod deciding {
                     true,
                 ),
                 &queried,
+                "a market",
             );
             let Decided::Refuse(refusal) = decided else {
                 panic!("no set and failed queries is a refusal");
@@ -968,7 +1177,7 @@ mod deciding {
     fn a_market_becomes_the_set_rather_than_a_question() {
         // **The row this change is for.** Three companies every search returned score alike, so
         // the gate calls them tied - and for a description of a market, tied is the answer.
-        let decided = decide(derived(tie(), two(), true), &all_answered());
+        let decided = decide(derived(tie(), two(), true), &all_answered(), "a market");
         let Decided::Analyze(set) = decided else {
             panic!("a market was refused instead of compared")
         };
@@ -983,7 +1192,7 @@ mod deciding {
         // The protection `FACT_CHECKING.md` 3.1 step 4 asks for, unchanged: one word typed and
         // several products matching it is ambiguity, not a market, and one chip click prevents
         // an entire wrong report.
-        let decided = decide(derived(tie(), two(), false), &all_answered());
+        let decided = decide(derived(tie(), two(), false), &all_answered(), "a market");
         let Decided::Refuse(Refusal { why, .. }) = decided else {
             panic!("a shared name was reported on instead of asked about")
         };
@@ -1004,6 +1213,7 @@ mod deciding {
                 true,
             ),
             &all_answered(),
+            "a market",
         );
         let Decided::Analyze(set) = decided else {
             panic!("a resolved subject was refused")
@@ -1029,6 +1239,7 @@ mod deciding {
                     ),
                 ],
             },
+            "a market",
         );
         assert!(
             matches!(decided, Decided::Analyze(_)),
@@ -1047,6 +1258,7 @@ mod deciding {
                 true,
             ),
             &all_answered(),
+            "a market",
         );
         let Decided::Refuse(Refusal { why, .. }) = decided else {
             panic!("nothing found was not a refusal")
@@ -1089,6 +1301,7 @@ mod deciding {
                     true,
                 ),
                 &queried,
+                "a market",
             );
             let Decided::Refuse(Refusal { kind, why, .. }) = decided else {
                 panic!("an empty set was analyzed")
@@ -1128,6 +1341,7 @@ mod deciding {
                     ),
                 ],
             },
+            "a market",
         );
         assert!(
             matches!(decided, Decided::Analyze(_)),
@@ -1163,6 +1377,7 @@ mod deciding {
                     true,
                 ),
                 &queried,
+                "a market",
             );
             let Decided::Refuse(Refusal { why, .. }) = decided else {
                 panic!("nothing found was not a refusal")
@@ -1203,6 +1418,7 @@ mod deciding {
                 true,
             ),
             &all_answered(),
+            "a market",
         );
         let Decided::Refuse(Refusal { why, .. }) = decided else {
             panic!("an empty set was reported on")
@@ -1228,6 +1444,7 @@ mod deciding {
                 true,
             ),
             &all_answered(),
+            "a market",
         );
         assert_eq!(
             decided,

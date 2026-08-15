@@ -283,12 +283,34 @@ all*. That distinction exists and is enforced; §4 relies on it.
 
 ## 4. Where this produces a wrong answer, and why
 
-**Four independent causes, three of them now fixed.** Fixing any one alone still leaves a bad
-answer, which is why the plan is seven pull requests rather than one.
+**Four independent causes.** Three are closed and the fourth is half closed; fixing any one
+alone still left a bad answer, which is why the plan was seven pull requests rather than one.
+
+### 3.8 When a question has several answers
+
+**From the headings of the guides already read.** A buyer's guide to a broad market is organized
+by category, and a heading is structure the page wrote — the same standard as a link being
+something the page did.
+
+```
+a heading must read as a kind of buyer: `for ...`, `with ...`
+NAMED_BY_HOSTS        = CORROBORATION   two independent guides must use the heading
+COMPANIES_PER_CATEGORY = 2              a vendor's review links to that vendor; a
+                                        category lists several
+CONCENTRATION         = 0.60            one category holding more than this is an answer
+```
+
+**Both are starting values and labeled as such**, exactly as `AMBIGUITY_MARGIN` is. The second is
+the one doing the work: any broad market has subheadings, and what makes a question *too general*
+is that the companies found are spread across them.
+
+**`Failure::TooGeneral` is its own kind.** *Several companies are called this* is about a name;
+*project management software is four markets* is about a subject. The reader picks a kind of
+thing, in one click, from chips carrying whole prompts.
 
 | | Cause | Symptom |
 |---|---|---|
-| 1 | The first query is malformed and the qualifier is dropped | The answer is about a much broader market than the one asked about |
+| 1 | ~~The first query is malformed and the qualifier is dropped~~ **Half fixed, §3.8** | The answer is about a much broader market than the one asked about. A question the guides say is several markets is now offered rather than answered; the malformed template itself is unchanged |
 | 2 | ~~A domain, not a product, is the unit~~ **Fixed, §3.2** | **Microsoft**, 3 of 3, named from `microsoft.com`. Now *Microsoft Project*, 2 of 3, named from a page a query returned |
 | 3 | ~~Ranking measures appearance, not fit~~ **Fixed, §3.3.1** | Household names won; the right specialist scored 0.175 and was refused. Two buyer's guides now corroborate what one search could not |
 | 4 | ~~The fit test is one shared content word~~ **Fixed, §3.4** | **projectplusgame.com** — its page uses *project* and one word was the bar. The bar is now half the market's words |
