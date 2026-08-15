@@ -26,7 +26,8 @@
 //! ```text
 //! a category is OFFERED when
 //!     it is named on >= NAMED_BY_HOSTS independent hosts
-//!     and it has >= 1 candidate company under it
+//!     and it has >= COMPANIES_PER_CATEGORY companies under it
+//!     and it is not one vendor's own review
 //!
 //! the question is TOO GENERAL when
 //!     >= 2 categories clear that bar
@@ -56,6 +57,23 @@ pub const NAMED_BY_HOSTS: usize = crate::candidates::CORROBORATION;
 /// *never ask something inferable from the input*. Where exactly "most" sits is a number nobody
 /// has measured, and it is labeled here so the next person moves it deliberately.
 pub const CONCENTRATION: f32 = 0.60;
+
+/// How many companies a heading must hold before it is a way the market divides.
+///
+/// **Two, and this is the rule that does the work — the one before it did not.** The first version
+/// asked only that a heading not be *the name of the company under it*, which is a negative
+/// signal and leaked twice: `## Jira` linking `atlassian.com` and `## Workfront` linking
+/// `adobe.com` are vendor reviews whose product names are nothing like their corporate domains,
+/// and both survived as categories. Two guides doing that refused an ordinary
+/// project-management report and offered *Jira* and *Workfront* as submarkets.
+///
+/// **A vendor's review links to that vendor. A category lists several.** That is a fact about the
+/// page's structure rather than a guess about its words, it needs no model and no list of
+/// product names, and it does not care whether a product is named after its company.
+///
+/// Counted across the guides that use the heading, because a guide naming two examples under a
+/// category and another naming one is still a market two publishers divided the same way.
+pub const COMPANIES_PER_CATEGORY: usize = 2;
 
 /// One way a market divides, as the guides describe it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -129,40 +147,12 @@ pub fn sections(page: &str, publisher: &str) -> Vec<(String, Vec<Endorsement>)> 
     out
 }
 
-/// Whether a section is one vendor's review rather than a way the market divides.
-///
-/// **Buyer's guides are full of `## Asana` and `### Monday.com`.** Review found what that does:
-/// two guides both reviewing Asana under its own name is exact agreement on a "category" with a
-/// company under it, so a perfectly ordinary single market was refused as several and the
-/// **vendors themselves were offered as submarkets**. That is worse than not having this feature,
-/// because it stops a report that would have been right.
-///
-/// **The signal is on the page and needs no model:** a vendor section is headed by the name of
-/// the company it links to. Letters only, so `Monday.com` and `monday.com` are the same word and
-/// punctuation cannot hide a match.
-#[must_use]
-fn is_one_vendors_review(heading: &str, linked: &[Endorsement]) -> bool {
-    let letters = |s: &str| -> String {
-        s.chars()
-            .filter(|c| c.is_alphanumeric())
-            .flat_map(char::to_lowercase)
-            .collect()
-    };
-    let head = letters(heading);
-    if head.is_empty() {
-        return false;
-    }
-    linked.iter().any(|e| {
-        // The registrable host without its suffix: `asana.com` -> `asana`.
-        let name = letters(e.host.split('.').next().unwrap_or(&e.host));
-        !name.is_empty() && (head.contains(&name) || name.contains(&head))
-    })
-}
-
 /// The categories the guides agree on, best supported first.
 ///
-/// A category needs [`NAMED_BY_HOSTS`] independent publishers **and** at least one company under
-/// it. A heading two guides share with nothing beneath it is a section of prose, not a market.
+/// A category needs [`NAMED_BY_HOSTS`] independent publishers, [`COMPANIES_PER_CATEGORY`]
+/// companies under it, and not to be one vendor's own review. A heading two guides share with
+/// nothing beneath it is a section of prose; a heading with one company under it is that
+/// company.
 #[must_use]
 pub fn categories(read: &HashMap<String, String>) -> Vec<Category> {
     // label -> (publishers, companies)
@@ -174,8 +164,7 @@ pub fn categories(read: &HashMap<String, String>) -> Vec<Category> {
     for (publisher, page) in pages {
         for (heading, linked) in sections(page, publisher) {
             let label = as_category(&heading);
-            // A section headed by the name of the company under it is that company's review.
-            if label.is_empty() || is_one_vendors_review(&heading, &linked) {
+            if label.is_empty() {
                 continue;
             }
             let entry = by_label.entry(label).or_default();
@@ -192,7 +181,9 @@ pub fn categories(read: &HashMap<String, String>) -> Vec<Category> {
 
     let mut out: Vec<Category> = by_label
         .into_iter()
-        .filter(|(_, (by, companies))| by.len() >= NAMED_BY_HOSTS && !companies.is_empty())
+        .filter(|(_, (by, companies))| {
+            by.len() >= NAMED_BY_HOSTS && companies.len() >= COMPANIES_PER_CATEGORY
+        })
         .map(|(label, (named_by, companies))| Category {
             label,
             named_by,
@@ -398,6 +389,10 @@ mod tests {
         // is exact agreement on a "category" with a company under it - so an ordinary single
         // market was refused as several, and the **vendors themselves** were offered to a reader
         // as submarkets to pick between.
+        //
+        // The first fix asked whether a heading was the *name* of the company under it, which is
+        // a negative signal and leaked twice; what settles it is that a vendor's review links to
+        // that vendor and a category lists several.
         let by_vendor = concat!(
             "# Best project management software\n\n",
             "## Asana\n\n[Asana](https://asana.com/) is broad.\n\n",
@@ -408,6 +403,31 @@ mod tests {
         assert!(
             found.is_empty(),
             "a vendor's own review is not a way the market divides: {found:#?}"
+        );
+    }
+
+    #[test]
+    fn a_product_whose_name_is_nothing_like_its_domain_is_still_one_vendors_review() {
+        // **Review's second round on the same blocker, and the reason the rule is positive
+        // now.** `## Jira` links `atlassian.com`; `## Workfront` links `adobe.com`. Neither
+        // heading resembles its corporate domain, so asking *is this heading the name of the
+        // company under it* said no to both - and two guides doing that refused an ordinary
+        // project-management report and offered **Jira** and **Workfront** as submarkets.
+        //
+        // What separates them is not their names: a vendor's review links to that vendor, and a
+        // category lists several.
+        let by_product = concat!(
+            "# Best project management software\n\n",
+            "## Jira\n\n[Jira](https://www.atlassian.com/software/jira)\n\n",
+            "## Workfront\n\n[Workfront](https://business.adobe.com/products/workfront)\n",
+        );
+        let found = categories(&read(&[
+            ("g2.com", by_product),
+            ("capterra.com", by_product),
+        ]));
+        assert!(
+            found.is_empty(),
+            "one company under a heading is that company: {found:#?}"
         );
     }
 

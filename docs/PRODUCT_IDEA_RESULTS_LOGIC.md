@@ -293,8 +293,10 @@ by category, and a heading is structure the page wrote — the same standard as 
 something the page did.
 
 ```
-NAMED_BY_HOSTS = CORROBORATION   two independent guides must use the heading
-CONCENTRATION  = 0.60            one category holding more than this is an answer
+NAMED_BY_HOSTS        = CORROBORATION   two independent guides must use the heading
+COMPANIES_PER_CATEGORY = 2              a vendor's review links to that vendor; a
+                                        category lists several
+CONCENTRATION         = 0.60            one category holding more than this is an answer
 ```
 
 **Both are starting values and labeled as such**, exactly as `AMBIGUITY_MARGIN` is. The second is

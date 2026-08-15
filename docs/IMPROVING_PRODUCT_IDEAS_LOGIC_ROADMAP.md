@@ -399,8 +399,10 @@ guides would have been a cost with no evidence behind it.
 Both thresholds are labeled as hypotheses, in the code and here:
 
 ```
-NAMED_BY_HOSTS = CORROBORATION   two independent guides, the same bar companies clear
-CONCENTRATION  = 0.60            one category holding more than this is an answer
+NAMED_BY_HOSTS         = CORROBORATION   two independent guides, the bar companies clear
+COMPANIES_PER_CATEGORY = 2               a vendor's review links to that vendor; a
+                                         category lists several
+CONCENTRATION          = 0.60            one category holding more than this is an answer
 ```
 
 `Failure::TooGeneral` is **its own kind**, not `Ambiguous`. *Several companies are called this*

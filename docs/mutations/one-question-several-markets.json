@@ -2,8 +2,8 @@
   {
     "name": "one guide dividing a market is enough to divide it",
     "file": "crates/landscape-search/src/breadth.rs",
-    "old": "        .filter(|(_, (by, companies))| by.len() >= NAMED_BY_HOSTS && !companies.is_empty())",
-    "new": "        .filter(|(_, (by, companies))| by.len() >= 1 && !companies.is_empty())",
+    "old": "        .filter(|(_, (by, companies))| {\n            by.len() >= NAMED_BY_HOSTS && companies.len() >= COMPANIES_PER_CATEGORY\n        })",
+    "new": "        .filter(|(_, (by, companies))| {\n            by.len() >= 1 && companies.len() >= COMPANIES_PER_CATEGORY\n        })",
     "run": [
       "cargo",
       "nextest",
@@ -17,7 +17,7 @@
   {
     "name": "a heading with nobody under it is a market",
     "file": "crates/landscape-search/src/breadth.rs",
-    "old": "        .filter(|(_, (by, companies))| by.len() >= NAMED_BY_HOSTS && !companies.is_empty())",
+    "old": "        .filter(|(_, (by, companies))| {\n            by.len() >= NAMED_BY_HOSTS && companies.len() >= COMPANIES_PER_CATEGORY\n        })",
     "new": "        .filter(|(_, (by, _companies))| by.len() >= NAMED_BY_HOSTS)",
     "run": [
       "cargo",
@@ -135,21 +135,6 @@
     ]
   },
   {
-    "name": "a vendor's own review is read as a way the market divides",
-    "file": "crates/landscape-search/src/breadth.rs",
-    "old": "            if label.is_empty() || is_one_vendors_review(&heading, &linked) {",
-    "new": "            if label.is_empty() {",
-    "run": [
-      "cargo",
-      "nextest",
-      "run",
-      "-p",
-      "landscape-search",
-      "-p",
-      "landscape-analyze"
-    ]
-  },
-  {
     "name": "the share counts companies who are not in the answer",
     "file": "crates/landscape-search/src/breadth.rs",
     "old": "                .filter(|host| admitted.contains(host))\n                .count()",
@@ -169,6 +154,21 @@
     "file": "crates/landscape-search/src/breadth.rs",
     "old": "        if !out.contains(&member.candidate.canonical_domain) {\n            out.push(member.candidate.canonical_domain.clone());\n        }",
     "new": "        out.push(member.candidate.canonical_domain.clone());",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "one company under a heading makes it a market",
+    "file": "crates/landscape-search/src/breadth.rs",
+    "old": "            by.len() >= NAMED_BY_HOSTS && companies.len() >= COMPANIES_PER_CATEGORY",
+    "new": "            by.len() >= NAMED_BY_HOSTS && !companies.is_empty()",
     "run": [
       "cargo",
       "nextest",

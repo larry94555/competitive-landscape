@@ -44,7 +44,7 @@ less than it looks** — what follows includes the part where that is still true
 | | Rust tests | frontend tests | catalog | gates |
 |---|---|---|---|---|
 | before | 1077 | 146 | 52, all caught | 17 |
-| after | **1093** | **146** | **64**, all caught | **17** |
+| after | **1094** | **146** | **64**, all caught | **17** |
 
 ### Where the categories come from
 
@@ -91,8 +91,17 @@ its own name is exact agreement on a "category" with a company in it, and **an o
 market was refused as several with the vendors themselves offered as submarkets.** That is worse
 than not having the feature: it stops a report that would have been right.
 
-The signal is on the page and needs no model: **a vendor section is headed by the name of the
-company it links to.** Letters only, so `Monday.com` and `monday.com` are one word.
+**The first fix asked whether a heading was the *name* of the company under it, and that leaked
+twice.** `## Jira` links `atlassian.com`; `## Workfront` links `adobe.com`. Neither product is
+named after its corporate domain, so both survived as categories and refused the same reports.
+Review found it, and it is the register's own lesson pointing at me: *not a vendor* was a
+**negative** signal standing in for *is a category*.
+
+What settles it is structural and positive: **a vendor's review links to that vendor; a category
+lists several.** `COMPANIES_PER_CATEGORY = 2`, counted across the guides that use the heading. It
+needs no model, no list of product names, and it does not care whether a product is named after
+its company — and it made the name-matching guard dead code, which the catalog then reported
+as a mutation nothing caught. Deleted.
 
 **And the share was taken over two different populations.** A category's companies are everything
 the guides linked — including candidates set aside, never fetched, or never candidates at all —
@@ -638,7 +647,7 @@ six sections a real company actually produces — needs a model and a network. S
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 50 | 1026 | 139 | no code changed |
-| now | **1093** | **146** | **64**, all caught |
+| now | **1094** | **146** | **64**, all caught |
 
 ---
 
