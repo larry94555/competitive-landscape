@@ -33,6 +33,80 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 54 — the market's own writing, read instead of discarded
+
+**Date:** 2026-08-15 — **Where:** this laptop, no engine and no model needed — **Model:** none.
+
+`IMPROVING_PRODUCT_IDEAS_LOGIC_ROADMAP.md` PR 5, cause 3 of `PRODUCT_IDEA_RESULTS_LOGIC.md` §4,
+and **the largest idea in that plan**: a search engine stops being the source of companies and
+becomes the way to find the market's literature.
+
+| | Rust tests | frontend tests | catalog | gates |
+|---|---|---|---|---|
+| before | 1053 | 139 | 25, all caught | 17 |
+| after | **1064** | **139** | **32**, all caught | **17** |
+
+### What moved, and it is the reader's own complaint
+
+| | Before | After |
+|---|---|---|
+| The reported failure | asana.com, microsoft.com | **asana.com, workamajig.com, microsoft.com, notion.so** |
+| Its recall | 67% | **100%** |
+| Mean recall | 60% | **67%** |
+| Impostors admitted | 0 | 0 |
+
+**`workamajig.com` is the whole point.** It is the specialist *"project management for a small
+design agency"* actually asks for. One query out of three returned it, `CORROBORATION` refused
+it, and every buyer's guide to that market lists it. The ranking measured how widely a company is
+written about; the literature says who is in the market.
+
+**A reader typed that prompt and got Microsoft and a board game.** Three changes later the answer
+is Asana, Workamajig, Microsoft Project and Notion Projects, with the board game named as
+excluded and the reason given.
+
+### What counts as being named
+
+**A link, and only a link.** A guide that lists a vendor links to it, and a link is a fact about
+the page rather than a reading of it — no model, no summarizing, nothing asserted that was not
+read. Its own pages and other publishers are dropped, so a guide citing a guide has named nobody.
+
+**Two independent hosts**, which is `FACT_CHECKING.md` §L6 applied to the choice of company. It
+is `CORROBORATION` itself rather than a second constant beside it: a search returning a company
+and a guide listing it are two kinds of thing pointing at it, not two standards. The first draft
+of this change **did** add a second constant, `NAMED_BY`, and the mutation that set it to `1`
+went uncaught — because nothing read it. **A constant no code consults is a rule nobody
+enforces**, and the harness said so before a reviewer had to.
+
+### Two facts, not a sum
+
+Both kinds are added for the threshold and kept apart in the sentence:
+
+> 1 of the 3 searches returned it, 2 of the 3 buyer's guides we read list it (capterra.com,
+> g2.com), and its own front page uses "project", "management", "design", "agency"
+
+Adding them into one number would tell a reader **three searches agreed** about a company one of
+them found. And the exclusion sentence now distinguishes three findings rather than two: no guide
+listed it, no guide was read, or one did — which is `landscape_core::coverage`'s rule again.
+
+### The cost
+
+**Four publisher pages per analysis**, spent on the ones the most queries returned. A market's
+results are usually more review pages than company pages, and reading all of them would multiply
+the cost of an analysis that already takes minutes.
+
+**And every score moved, including the ones with no guides behind them.** The divisor is now
+searches **plus** guides read: finding a company on none of four guides is a fact about that
+company, and scoring it against a smaller world than the one we looked at would be arithmetic
+about a search that no longer describes what happened.
+
+### What it does not do
+
+**One cause is left.** The first templated query is still malformed — *"best project management
+for a small design agency software"* — and the categories, comparisons and prices on the pages
+now being read are still unused. PRs 6 and 7.
+
+---
+
 ## Run 53 — half the market's words, chosen by measuring four rules
 
 **Date:** 2026-08-14 — **Where:** this laptop, no engine and no model needed — **Model:** none.
@@ -356,7 +430,7 @@ six sections a real company actually produces — needs a model and a network. S
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 50 | 1026 | 139 | no code changed |
-| now | **1053** | **139** | **25**, all caught |
+| now | **1064** | **139** | **32**, all caught |
 
 ---
 

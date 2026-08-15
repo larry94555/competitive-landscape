@@ -2879,6 +2879,37 @@ the set needs a case where they differ before the choice is worth making. Here t
 four-word market and an impostor sharing exactly one word — a case that passes a bar of one and
 fails a bar of two, which is the only shape that separates them.
 
+## 72. A constant that documented a rule nothing read
+
+**Found:** by the mutation catalog, before review.
+
+A new module needed *two independent publishers name it*, so it opened with a named constant and
+a paragraph about why two:
+
+```rust
+pub const NAMED_BY: usize = crate::candidates::CORROBORATION;
+```
+
+**Nothing ever read it.** The threshold is applied one module away, where both kinds of evidence
+are added and compared against `CORROBORATION` once — which is right, and which makes the
+constant a comment wearing a type. The mutation that set it to `1` changed nothing, and the
+harness reported MISSED.
+
+**The shape: a value that names a rule it does not implement.** It is worse than no constant,
+because the next person to change the threshold changes the one with the explanatory paragraph
+attached and nothing happens. Deleted, and the paragraph moved to where the arithmetic is.
+
+**Ask, of any `pub const` added with a change:** *which line reads it?* If the answer is none,
+the rule lives somewhere else and this is documentation pretending to be enforcement. A MISSED
+mutation on a constant is that question being asked automatically.
+
+### And a guard for a case the code above it prevents
+
+The same module deduplicated publishers with `if !by.contains(&guide.host)` — inside a loop over
+`guides()`, which returns one entry per host. The case could not arise, and the mutation removing
+the guard passed. **Two guards where one would do reads as coverage and is not**, which this
+register already has an entry about; the second occurrence was found the same way.
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

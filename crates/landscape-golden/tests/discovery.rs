@@ -39,6 +39,8 @@ struct Recorded {
 
 fn uncorroborated() -> Aside {
     Aside::Uncorroborated {
+        named_by: 0,
+        guides: 0,
         agreed: 1,
         asked: 3,
     }
@@ -62,29 +64,27 @@ const TIME: [&str; 4] = ["time", "tracking", "independent", "consultants"];
 /// yet.
 fn baseline() -> Vec<Recorded> {
     vec![
-        // **PR 3 moved this fixture and left recall alone**, which is the case the scorecard
-        // was nearly too coarse to see. Microsoft was first, named *Microsoft*, on three queries
-        // - two Project pages and one Teams page. Read before the merge, Project agreed with two
-        // and Teams with one, so the candidate is Microsoft Project on the agreement Project
-        // earned, and Asana leads.
+        // **The reported failure, answered.** A reader typed this and got *Microsoft* and a
+        // board game. PR 3 made the candidate a product; PR 4 turned the board game away; PR 5
+        // read the market's own buyer's guides, and `workamajig.com` - the specialist the prompt
+        // actually asks for, returned by one query and refused by `CORROBORATION` - is in the
+        // answer because two independent guides list it.
         Recorded {
             id: "project-management-for-agencies",
-            returned: vec!["asana.com", "microsoft.com"],
+            returned: vec!["asana.com", "workamajig.com", "microsoft.com", "notion.so"],
             named: vec![
                 ("asana.com", "Asana"),
+                ("workamajig.com", "Workamajig"),
                 ("microsoft.com", "Microsoft Project"),
+                ("notion.so", "Notion Projects"),
             ],
-            found: vec!["asana.com", "microsoft.com"],
-            missed: vec!["workamajig.com"],
+            found: vec!["asana.com", "microsoft.com", "workamajig.com"],
+            missed: vec![],
             admitted: vec![],
-            set_aside: vec![
-                ("notion.so", uncorroborated()),
-                (
-                    "projectplusgame.com",
-                    elsewhere(&["project", "management", "design", "agency"], &["project"]),
-                ),
-                ("workamajig.com", uncorroborated()),
-            ],
+            set_aside: vec![(
+                "projectplusgame.com",
+                elsewhere(&["project", "management", "design", "agency"], &["project"]),
+            )],
         },
         // Four URL shapes of one product stay one candidate, at the same agreement: this is
         // the fixture that would catch a rule that split what it was meant to join.
@@ -293,12 +293,31 @@ async fn the_reported_failure_is_reproduced() {
         got.named
     );
 
-    // **And this half is still open.** The specialist the prompt actually asks for came back
-    // from one query, which is below `CORROBORATION` — PRs 5 and 7.
+    // **PR 5 fixed the last of it.** The specialist the prompt actually asks for came back
+    // from one query, which is below `CORROBORATION` — and every buyer's guide to this market
+    // lists it. The market's own word is what corroborates it now.
     assert!(
-        got.missed.contains(&"workamajig.com"),
-        "the specialist is no longer missed, which is PR 5 and 7's job: {:?}",
+        got.returned.iter().any(|h| h == "workamajig.com"),
+        "the specialist is missing again: {:?}",
         got.returned
+    );
+    let workamajig = got
+        .named
+        .iter()
+        .position(|(host, _)| host == "workamajig.com")
+        .expect("in the answer");
+    assert!(
+        workamajig < got.returned.len() - 1,
+        "and it is not last, because two guides is stronger than one search: {:?}",
+        got.returned
+    );
+
+    // **Nothing about the reader's complaint is left.** Recorded as one assertion, so that a
+    // change which brings any of it back fails here rather than only in a table.
+    assert!(
+        got.missed.is_empty(),
+        "the reported failure is fully answered and something has come undone: {:?}",
+        got.missed
     );
 }
 
@@ -404,7 +423,7 @@ fn no_page_is_evidence_the_engine_never_returned() {
             .flatten()
             .map(|h| h.url.as_str())
             .collect();
-        for (url, _) in &market.product_pages {
+        for (url, _) in market.product_pages.iter().chain(market.guide_pages.iter()) {
             assert!(
                 returned.contains(url),
                 "{}: {url} has a frozen page and no query returned it",

@@ -93,6 +93,17 @@ pub struct Market {
     /// page production never fetches is an alibi, which this repository has three register
     /// entries about.
     pub product_pages: Vec<(&'static str, &'static str)>,
+    /// The **publisher** pages a query returned, as markdown, keyed by URL.
+    ///
+    /// **The market's own writing, which the pipeline used to throw away.** These hosts are on
+    /// `NOT_A_COMPANY`: never candidates, and until `landscape_search::literature` never read
+    /// either. What a guide *links to* is what it says is in this market, and two independent
+    /// guides naming a company is the corroboration cross-query agreement cannot give a
+    /// specialist.
+    ///
+    /// Every URL here must appear in `results`, exactly as `product_pages` must, and the same
+    /// test says so.
+    pub guide_pages: Vec<(&'static str, &'static str)>,
     /// The market's words, as `assemble` receives them.
     ///
     /// Fixture data, like `expected`: one careful reading of what this market is called, written
@@ -196,6 +207,19 @@ Group chat and meetings."),
 
 Project management inside Notion, for a design agency or any other team."),
             ],
+            guide_pages: vec![
+                // **What a guide links to is what it says is in this market.** Two of them
+                // name Workamajig - which one query returned, and which the ranking alone
+                // refuses. That is cause 3, and it is the reader's actual complaint.
+                ("https://www.g2.com/categories/project-management", "# Best Project Management Software
+
+1. [Asana](https://asana.com/)
+2. [Workamajig](https://www.workamajig.com/) - for creative agencies
+3. [Microsoft Project](https://www.microsoft.com/en-us/microsoft-365/project/project-management-software)"),
+                ("https://www.capterra.com/project-management-software/", "# Project Management Software
+
+Compare [Asana](https://asana.com/), [Workamajig](https://www.workamajig.com/) and [Notion](https://www.notion.so/), and read [our rivals at G2](https://www.g2.com/categories/project-management)."),
+            ],
         },
         Market {
             id: "one-product-many-urls",
@@ -247,6 +271,7 @@ The spreadsheet finance teams share."),
 
 Plans and pricing."),
             ],
+            guide_pages: vec![],
         },
         Market {
             id: "keyword-impostor",
@@ -308,6 +333,7 @@ What time is it anywhere. Plan a meeting across the world."),
             product_pages: vec![("https://toggl.com/track/", "# Toggl Track
 
 Time tracking for teams and consultants.")],
+            guide_pages: vec![],
         },
         Market {
             id: "specialist-in-one-article",
@@ -354,6 +380,7 @@ Send an invoice, get paid."),
 
 Create and track invoices."),
             ],
+            guide_pages: vec![],
         },
         Market {
             id: "publisher-heavy",
@@ -387,6 +414,21 @@ Customer support and helpdesk software."),
                 // *we could not check* from *we checked and it failed*.
             ],
             product_pages: vec![],
+            guide_pages: vec![
+                // Almost the whole result set is guides. Three agree about Zendesk and two about
+                // Help Scout - whose front page still cannot be read, so it stays `Unread`
+                // rather than being admitted on their word. Being listed is not being legible.
+                ("https://www.g2.com/categories/help-desk", "# Best Help Desk Software
+
+1. [Zendesk](https://www.zendesk.com/)
+2. [Help Scout](https://www.helpscout.com/)"),
+                ("https://www.capterra.com/help-desk-software/", "# Help Desk Software
+
+[Zendesk](https://www.zendesk.com/) and [Help Scout](https://www.helpscout.com/) lead the category."),
+                ("https://www.trustradius.com/help-desk", "# Help Desk | TrustRadius
+
+[Zendesk](https://www.zendesk.com/) is the one most teams start with."),
+            ],
         },
     ]
 }
@@ -461,7 +503,12 @@ pub async fn score(market: &Market) -> Scored {
     // never be handed back as a front page, which would let the fixture prove a merge on
     // evidence the pipeline does not have.
     let fetch = |url: String| async move {
-        if let Some((_, page)) = market.product_pages.iter().find(|(at, _)| *at == url) {
+        if let Some((_, page)) = market
+            .product_pages
+            .iter()
+            .chain(market.guide_pages.iter())
+            .find(|(at, _)| *at == url)
+        {
             return Some((*page).to_owned());
         }
         // **Only a front page is answered from `pages`, and only for a front-page request.**
@@ -480,12 +527,18 @@ pub async fn score(market: &Market) -> Scored {
     };
 
     let found: Vec<Found> = from_results(&market.results, QUERIES);
-    let found = landscape_search::products::split(found, QUERIES, &market.results, &fetch).await;
+    let sources = landscape_search::candidates::Sources {
+        asked: QUERIES,
+        guides: landscape_search::literature::read(&market.results),
+    };
+    let named = landscape_search::literature::named_in(&market.results, &fetch).await;
+    let found = landscape_search::literature::admit(found, &named, sources);
+    let found = landscape_search::products::split(found, sources, &market.results, &fetch).await;
     let described = describe(&found, &words, fetch).await;
 
     let set = assemble(
         described,
-        QUERIES,
+        sources,
         &words,
         landscape_search::competitors::Evidence::ADescribedMarket,
     );

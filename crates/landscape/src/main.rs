@@ -697,9 +697,15 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
     // **What came back, not what was sent.** The list a reader is shown as evidence of the
     // looking has to be the looking that happened.
     let checked = queried.completed.clone();
+    // **This diagnostic does not read the market's literature, and says so.** `landscape
+    // candidates` exists to show what the ranking alone produces; `guides: 0` keeps the
+    // exclusion sentences honest about that rather than implying a guide was consulted.
     let set = landscape_search::competitors::assemble(
         named.clone(),
-        queried.sent(),
+        landscape_search::candidates::Sources {
+            asked: queried.sent(),
+            guides: 0,
+        },
         &words,
         landscape_search::competitors::Evidence::ADescribedMarket,
     );

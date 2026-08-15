@@ -107,7 +107,7 @@
     "name": "the company a reader named is scored as if we had found it",
     "file": "crates/landscape-search/src/competitors.rs",
     "old": "            because: Because::Named,\n        },\n    );",
-    "new": "            because: Because::Found {\n                agreed: queried.sent(),\n                asked: queried.sent(),\n                shares: Vec::new(),\n            },\n        },\n    );",
+    "new": "            because: Because::Found {\n                agreed: queried.sent(),\n                asked: queried.sent(),\n                named_by: Vec::new(),\n                guides: 0,\n                shares: Vec::new(),\n            },\n        },\n    );",
     "run": [
       "cargo",
       "nextest",
@@ -171,8 +171,8 @@
   {
     "name": "a rival search divides by the queries that answered rather than those sent",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "    let mut set = assemble(described, queried.sent(), &words, Evidence::ASeedsOwnPage);",
-    "new": "    let mut set = assemble(\n        described,\n        queried.completed.len(),\n        &words,\n        Evidence::ASeedsOwnPage,\n    );",
+    "old": "    let mut set = assemble(\n        described,\n        crate::candidates::Sources {\n            asked: queried.sent(),\n            guides: 0,\n        },\n        &words,\n        Evidence::ASeedsOwnPage,\n    );",
+    "new": "    let mut set = assemble(\n        described,\n        crate::candidates::Sources {\n            asked: queried.completed.len(),\n            guides: 0,\n        },\n        &words,\n        Evidence::ASeedsOwnPage,\n    );",
     "run": [
       "cargo",
       "nextest",

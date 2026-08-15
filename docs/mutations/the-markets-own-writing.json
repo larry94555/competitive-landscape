@@ -1,0 +1,107 @@
+[
+  {
+    "name": "a guide's own pages count as companies it named",
+    "file": "crates/landscape-search/src/literature.rs",
+    "old": "        if host == publisher || crate::candidates::is_not_a_company(&host) || out.contains(&host) {",
+    "new": "        if out.contains(&host) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "the reading of the market's literature is unbounded",
+    "file": "crates/landscape-search/src/literature.rs",
+    "old": "    for guide in guides(results).into_iter().take(READING_BUDGET) {",
+    "new": "    for guide in guides(results) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a company only the literature names never becomes a candidate",
+    "file": "crates/landscape-search/src/literature.rs",
+    "old": "    for (host, by) in named {\n        if out.iter().any(|f| f.host == *host) {\n            continue;\n        }",
+    "new": "    for (host, by) in named {\n        if true {\n            continue;\n        }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a publisher naming a company does not corroborate it",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "        let aside = if agreed + named_by.len() < CORROBORATION {",
+    "new": "        let aside = if agreed < CORROBORATION {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "the guides a company was absent from are left out of its score",
+    "file": "crates/landscape-search/src/literature.rs",
+    "old": "                one.confidence = crate::candidates::score(\n                    one.agreed,\n                    sources.of(),\n                    crate::candidates::depth_of(&one.shallowest),\n                );",
+    "new": "                one.confidence = crate::candidates::score(\n                    one.agreed,\n                    sources.asked,\n                    crate::candidates::depth_of(&one.shallowest),\n                );",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a reason adds the searches and the guides into one number",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "                    agreed,\n                    asked,\n                    named_by,\n                    guides,\n                    shares,",
+    "new": "                    agreed: agreed + named_by.len(),\n                    asked,\n                    named_by: Vec::new(),\n                    guides,\n                    shares,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "one guide read twice counts as two publishers",
+    "file": "crates/landscape-search/src/literature.rs",
+    "old": "    for guide in guides(results).into_iter().take(READING_BUDGET) {",
+    "new": "    for guide in guides(results).into_iter().chain(guides(results)).take(READING_BUDGET) {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  }
+]

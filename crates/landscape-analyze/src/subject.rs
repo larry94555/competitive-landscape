@@ -624,6 +624,8 @@ mod deciding {
         Member {
             candidate: candidate(name, domain),
             because: Because::Found {
+                named_by: Vec::new(),
+                guides: 0,
                 agreed: 3,
                 asked: 3,
                 shares: vec!["analytics".to_owned()],

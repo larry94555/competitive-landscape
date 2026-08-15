@@ -54,7 +54,7 @@
   {
     "name": "the scorer never splits a domain into products",
     "file": "crates/landscape-golden/src/discovery.rs",
-    "old": "    let found = landscape_search::products::split(found, QUERIES, &market.results, &fetch).await;",
+    "old": "    let found = landscape_search::products::split(found, sources, &market.results, &fetch).await;",
     "new": "",
     "run": [
       "cargo",

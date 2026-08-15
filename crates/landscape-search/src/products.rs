@@ -197,7 +197,7 @@ fn is_root(url: &str) -> bool {
 /// agreed with one of them.
 pub async fn split<F, Fut>(
     found: Vec<Found>,
-    asked: usize,
+    sources: crate::candidates::Sources,
     results: &[Vec<Hit>],
     fetch: &F,
 ) -> Vec<Found>
@@ -249,7 +249,7 @@ where
             };
             read.push((at, fetch(url).await));
         }
-        let candidate = strongest(&ranked[index], asked, &read);
+        let candidate = strongest(&ranked[index], sources, &read);
         // **The refund, and only now can it be known.** A candidate that came out of there with
         // a name will not have its front page fetched by `describe`, so one of these reads
         // replaced a read rather than adding one. A candidate that did not still costs the
@@ -300,7 +300,11 @@ where
 /// the support the tie actually shows, with no name of its own so
 /// [`crate::candidates::describe`] reads the front page. A tie between two one-query products is
 /// a vendor with one query behind it, which is what [`crate::candidates::CORROBORATION`] is for.
-fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) -> Found {
+fn strongest(
+    one: &Found,
+    sources: crate::candidates::Sources,
+    read: &[(&Appearance, Option<String>)],
+) -> Found {
     /// One identity's share of a domain's appearances.
     ///
     /// **`page` is the page at `shallowest`, and the two move together.** Review found them
@@ -400,8 +404,8 @@ fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) 
             .max(products[0].1.queries.len());
         return Found {
             confidence: crate::candidates::score(
-                agreed,
-                asked,
+                agreed + one.named_by.len(),
+                sources.of(),
                 crate::candidates::depth(&one.shallowest),
             ),
             agreed,
@@ -414,14 +418,17 @@ fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) 
     let agreed = best.queries.len();
     Found {
         confidence: crate::candidates::score(
-            agreed,
-            asked,
+            agreed + one.named_by.len(),
+            sources.of(),
             crate::candidates::depth(&best.shallowest),
         ),
         host: one.host.clone(),
         agreed,
         shallowest: best.shallowest,
         declared: named(best.page),
+        // **Carried, not recomputed.** Which publishers named this domain is a fact about the
+        // domain, and splitting it into products does not un-name it.
+        named_by: one.named_by.clone(),
     }
 }
 
@@ -430,6 +437,11 @@ fn strongest(one: &Found, asked: usize, read: &[(&Appearance, Option<String>)]) 
 mod tests {
     use super::*;
     use crate::candidates::from_results;
+
+    /// Searches only: every test here predates the literature.
+    fn sources(asked: usize) -> crate::candidates::Sources {
+        crate::candidates::Sources { asked, guides: 0 }
+    }
 
     fn hit(url: &str) -> Hit {
         Hit {
@@ -532,7 +544,7 @@ mod tests {
 
         let split = split(
             found,
-            3,
+            sources(3),
             &results,
             &pages(&[
                 (
@@ -561,7 +573,7 @@ mod tests {
         ];
         let split = split(
             from_results(&results, 3),
-            3,
+            sources(3),
             &results,
             &pages(&[
                 (EXCEL, "# Microsoft Excel\n\nThe spreadsheet."),
@@ -589,7 +601,7 @@ mod tests {
         let results = vec![vec![hit(EXCEL), hit(EXCEL_PRICING)], vec![hit(TEAMS)]];
         let split = split(
             from_results(&results, 2),
-            2,
+            sources(2),
             &results,
             &pages(&[
                 (
@@ -631,7 +643,7 @@ Group chat.",
         let before = from_results(&results, 2);
         let after = split(
             before.clone(),
-            2,
+            sources(2),
             &results,
             &pages(&[("https://asana.com/", "# Asana\n\nWork management.")]),
         )
@@ -663,7 +675,7 @@ Group chat.",
 
         let after = split(
             before,
-            3,
+            sources(3),
             &results,
             &pages(&[
                 (
@@ -697,7 +709,7 @@ Group chat.",
         let before = from_results(&results, 2);
         let after = split(
             before.clone(),
-            2,
+            sources(2),
             &results,
             &pages(&[
                 (
@@ -733,7 +745,7 @@ Group chat.",
             let results = vec![vec![hit(one)], vec![hit(two)]];
             let after = split(
                 from_results(&results, 2),
-                2,
+                sources(2),
                 &results,
                 &pages(&[(one, names[0]), (two, names[1])]),
             )
@@ -806,7 +818,7 @@ Group chat.",
         known.push((sixth[0].to_owned(), "# Sixth One\n\nThe first thing."));
         known.push((sixth[1].to_owned(), "# Sixth Two\n\nA different thing."));
 
-        let after = split(before, 3, &results, &owned_pages(&known)).await;
+        let after = split(before, sources(3), &results, &owned_pages(&known)).await;
         let promoted = &after[place(&after, "sixth.example")];
         assert_eq!(
             promoted.agreed, 2,
@@ -821,7 +833,7 @@ Group chat.",
         // candidate must come out exactly as the domain rule left it.
         let results = vec![vec![hit(PROJECT)], vec![hit(TEAMS)], vec![hit(PROJECT)]];
         let before = from_results(&results, 3);
-        let after = split(before.clone(), 3, &results, &pages(&[])).await;
+        let after = split(before.clone(), sources(3), &results, &pages(&[])).await;
         assert_eq!(after, before);
     }
 
@@ -834,7 +846,7 @@ Group chat.",
             .collect();
         let results = vec![many];
         let before = from_results(&results, 1);
-        let after = split(before.clone(), 1, &results, &pages(&[])).await;
+        let after = split(before.clone(), sources(1), &results, &pages(&[])).await;
         assert_eq!(after, before);
     }
 
@@ -875,7 +887,7 @@ Group chat.",
             .collect();
         let results: Vec<Vec<Hit>> = vec![hosts.iter().map(|u| hit(u)).collect()];
         let (fetch, asked) = counting(&[]);
-        let after = split(from_results(&results, 1), 1, &results, &fetch).await;
+        let after = split(from_results(&results, 1), sources(1), &results, &fetch).await;
 
         let reads = asked.lock().expect("not poisoned").len();
         assert!(
@@ -900,7 +912,7 @@ Group chat.",
             .map(|url| (url, "# A Product\n\nWhat it does."))
             .collect();
         let (fetch, asked) = counting(&known);
-        let after = split(from_results(&results, 1), 1, &results, &fetch).await;
+        let after = split(from_results(&results, 1), sources(1), &results, &fetch).await;
 
         assert_eq!(
             asked.lock().expect("not poisoned").len(),
@@ -927,7 +939,7 @@ Group chat.",
             let results = vec![vec![hit(order[0])], vec![hit(order[1])]];
             let split = split(
                 from_results(&results, 2),
-                2,
+                sources(2),
                 &results,
                 &pages(&[(EXCEL, product), (EXCEL_PRICING, pricing)]),
             )
@@ -979,7 +991,7 @@ A product.",
         let sent = results.len();
         let after = split(
             from_results(&results, sent),
-            sent,
+            sources(sent),
             &results,
             &owned_pages(&known),
         )

@@ -93,7 +93,7 @@
   {
     "name": "an uncorroborated company joins the comparison",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "        let aside = if agreed < CORROBORATION {",
+    "old": "        let aside = if agreed + named_by.len() < CORROBORATION {",
     "new": "        let aside = if false {",
     "run": [
       "cargo",
@@ -119,8 +119,8 @@
   {
     "name": "the weakest reason for absence is the one a reader is given",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "        let aside = if agreed < CORROBORATION {\n            Some(Aside::Uncorroborated { agreed, asked })\n        } else if candidate.score() < MINIMUM_CONFIDENCE {\n            Some(Aside::Unconvincing)\n        } else {",
-    "new": "        let aside = if candidate.score() < MINIMUM_CONFIDENCE {\n            Some(Aside::Unconvincing)\n        } else if agreed < CORROBORATION {\n            Some(Aside::Uncorroborated { agreed, asked })\n        } else {",
+    "old": "        let aside = if agreed + named_by.len() < CORROBORATION {\n            Some(Aside::Uncorroborated {\n                agreed,\n                asked,\n                named_by: named_by.len(),\n                guides,\n            })\n        } else if candidate.score() < MINIMUM_CONFIDENCE {\n            Some(Aside::Unconvincing)\n        } else {",
+    "new": "        let aside = if candidate.score() < MINIMUM_CONFIDENCE {\n            Some(Aside::Unconvincing)\n        } else if agreed + named_by.len() < CORROBORATION {\n            Some(Aside::Uncorroborated {\n                agreed,\n                asked,\n                named_by: named_by.len(),\n                guides,\n            })\n        } else {",
     "run": [
       "cargo",
       "nextest",
@@ -158,8 +158,8 @@
   {
     "name": "a reason divides by the searches that answered rather than those sent",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "    let mut set = crate::competitors::assemble(\n        named.clone(),\n        queried.sent(),\n        &words,\n        crate::competitors::Evidence::ADescribedMarket,\n    );",
-    "new": "    let mut set = crate::competitors::assemble(\n        named.clone(),\n        queried.completed.len(),\n        &words,\n        crate::competitors::Evidence::ADescribedMarket,\n    );",
+    "old": "    let sources = crate::candidates::Sources {\n        asked: queried.sent(),\n        guides: crate::literature::read(results),\n    };",
+    "new": "    let sources = crate::candidates::Sources {\n        asked: queried.completed.len(),\n        guides: crate::literature::read(results),\n    };",
     "run": [
       "cargo",
       "nextest",
@@ -470,8 +470,8 @@
   {
     "name": "a reader is asked to choose between companies nobody fetched",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "    let choices: Vec<Candidate> = named\n        .into_iter()\n        .filter(Described::was_requested)\n        .map(|d| d.candidate)\n        .collect();",
-    "new": "    let choices: Vec<Candidate> = named.into_iter().map(|d| d.candidate).collect();",
+    "old": "    let choices: Vec<Candidate> = described\n        .into_iter()\n        .filter(Described::was_requested)\n        .map(|d| d.candidate)\n        .collect();",
+    "new": "    let choices: Vec<Candidate> = described.into_iter().map(|d| d.candidate).collect();",
     "run": [
       "cargo",
       "nextest",
@@ -483,8 +483,8 @@
   {
     "name": "the set is bounded by the same list the gate is",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "    let mut set = crate::competitors::assemble(\n        named.clone(),\n        queried.sent(),\n        &words,\n        crate::competitors::Evidence::ADescribedMarket,\n    );",
-    "new": "    let mut set = crate::competitors::assemble(\n        named.iter().filter(|d| d.was_requested()).cloned().collect(),\n        queried.sent(),\n        &words,\n        crate::competitors::Evidence::ADescribedMarket,\n    );",
+    "old": "    let mut set = crate::competitors::assemble(\n        described.clone(),\n        sources,\n        &words,\n        crate::competitors::Evidence::ADescribedMarket,\n    );",
+    "new": "    let mut set = crate::competitors::assemble(\n        described.iter().filter(|d| d.was_requested()).cloned().collect(),\n        sources,\n        &words,\n        crate::competitors::Evidence::ADescribedMarket,\n    );",
     "run": [
       "cargo",
       "nextest",
