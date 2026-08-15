@@ -19,13 +19,17 @@
 | | |
 |---|---|
 | **Pull requests in this plan** | **7** |
-| **Done** | **3** |
-| **Remaining** | **4** |
-| **Complete** | **43%** |
+| **Done** | **4** |
+| **Remaining** | **3** |
+| **Complete** | **57%** |
 
-**PR 1 is the two documents; PR 2 is the discovery golden set; PR 3 is the first one a reader can
-see.** The percentage counts pull requests, not effort — PR 7 is larger than PRs 4 to 6
-together.
+**PR 1 is the two documents; PR 2 is the discovery golden set; PR 3 and PR 4 are the ones a
+reader can see.** The percentage counts pull requests, not effort — PR 7 is larger than PRs 5
+and 6 together.
+
+**Two of the four causes are now closed.** A candidate is a product rather than a domain, and the
+fit test is no longer one shared word. What is left is the ranking measuring appearance rather
+than fit, and the first query being malformed.
 
 **The baseline, measured rather than guessed:** mean recall **60%** across five fixtures, with
 **1 impostor admitted**, scored end to end through `assemble` rather than at the ranking. Every
@@ -63,7 +67,7 @@ which is the kind of claim that makes a plan look further along than it is.
 | 1 | **This document and the logic document** | `docs/` | **Done** |
 | 2 | **A golden set for discovery** | `landscape-golden::discovery` | **Done** |
 | 3 | **Product-level candidates** — identity rule chosen by PR 2 | new `search::products` | **Done** |
-| 4 | **Raise the fit test above one word** | `competitors::SHARED_WORDS`, `assemble` | To do |
+| 4 | **Raise the fit test above one word** | `competitors::enough_words`, `assemble` | **Done** |
 | 5 | **Candidates from page content** | new `candidates::named_in` | To do |
 | 6 | **Render the reason that already exists** | `Report`, `web/src/App.tsx` | To do |
 | 7 | **Breadth, and subcategories** | new `candidates::breadth`, the interface | To do |
@@ -253,18 +257,37 @@ passed.
 
 **The work is the test, not the plumbing:**
 
-**It needs a fixture first.** `keyword-impostor` was written to be this PR's judge and,
-measured, does not admit its impostor; `project-management-for-agencies` does, via
-`projectplusgame.com`. So this PR opens by adding a case that survives one shared word and only
-then moves the threshold — otherwise the number it claims to improve cannot move.
+**It needed a fixture first, and needed it twice over.** `keyword-impostor` was written to be
+this PR's judge and, measured, admitted no impostor at all. Worse, its market was three words
+wide — and the rule that shipped asks for half the market's words, so a three-word market asks
+for one, exactly what it asked for before. **The fixture named as this PR's judge could not have
+moved either way.** It now describes *"time tracking for independent consultants"* and holds
+`timezonecheck.com`, a world clock whose page shares `time` and nothing else: it passes a bar of
+one and fails a bar of two.
 
-- raise `SHARED_WORDS`, or weight words by how much they carry — *project* is a far weaker
-  signal than *design agency*;
-- require a word from the **interpreted market label** rather than from anywhere in the prompt;
-- and settle both against PR 2's golden set rather than by picking a number.
+#### Four rules, scored
+
+`landscape_golden::discovery::Fit` implements all four and the fixtures score them, in the shape
+PR 3's identity comparison took:
+
+| Rule | Impostors admitted | Real companies lost |
+|---|---|---|
+| One word (what ran before) | **2** | 0 |
+| A flat two | 0 | **2** — microsoft.com, intuit.com |
+| Half the market, rounded up | 0 | **1** — intuit.com |
+| **Half the market, rounded down** | **0** | **0** |
+
+**The losses are the point.** A flat two asks a two-word market for all of it, and *"# Microsoft
+Excel / The spreadsheet."* is a terse front page rather than a company in another market.
+Rounding down never asks a short description for all of itself, and a four-word market is the
+first that has to give two.
+
+**Five fixtures is a small set and this number is fitted to them.** Said in the code, in the
+logic document and here, because the next person to move it should know what it rests on.
 
 *Removes cause 4. The cheapest change in the plan, and the one most easily got wrong by guessing
-at a threshold — which is why it comes after the measurement.*
+at a threshold — which is why it came after the measurement, and why the measurement had to be
+widened before it could judge anything.*
 
 ### PR 5 — Candidates from page content
 

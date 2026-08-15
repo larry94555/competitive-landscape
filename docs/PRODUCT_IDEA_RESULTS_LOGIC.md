@@ -153,12 +153,44 @@ of them, as `Aside::ElsewhereEntirely`, and says so in the reader's words: *"its
 uses none of the words this comparison is built on"*.
 
 ```
-SHARED_WORDS = 1     one content word is enough to be admitted
+enough_words(market) = max(market / 2, SHARED_WORDS_FLOOR)   half the words, rounded down
+SHARED_WORDS_FLOOR   = 1                                     never below one
 ```
 
-**One word is the whole test**, and it is why `projectplusgame.com` is in the answer: its page
-uses *project*, the description contains *project*, and one is the bar. So the fit gate is not
-missing — it is a lexical test set to its weakest possible value.
+**The bar scales with how much the reader said.** A two- or three-word market asks for one word,
+as it always did; a four-word market asks for two.
+
+**And only when a reader described a market.** `competitors::Evidence` says which of two things
+the words came from, because there are two paths into this test and only one of them has a
+description behind it:
+
+| The words came from | The bar |
+|---|---|
+| **A market a reader described** | Half of them, rounded down |
+| **A seed company's own front page** — the named path | `SHARED_WORDS_FLOOR`, and it does not scale |
+
+**Scaling the second would be a different claim.** On the named path the words are
+`content_words` over one sentence lifted from the seed's front page, so scaling with its length
+means *the wordier a company's marketing copy, the more of it every rival must repeat verbatim*.
+Review found this shipped in the first version of the change: a seed page reading *"project
+management collaboration tasks teams planning timelines communication"* would have demanded four
+exact words of everybody and excluded Linear for saying *"project management built for speed"*.
+
+| The market | Words it must use |
+|---|---|
+| `spreadsheet finance` | 1 |
+| `time tracking independent consultants` | 2 |
+| `project management design agency` | 2 |
+
+**It was a flat `1` and a board game passed it.** `projectplusgame.com` uses *project*, the
+description contains *project*, and one was the bar — so the fit gate was never missing, it was a
+lexical test set to its weakest possible value.
+
+**Four rules were written and scored rather than a number being picked** —
+`landscape_golden::discovery::Fit`, and `BENCHMARKS.md` Run 53 has the table. A flat two loses
+two real competitors with terse front pages; half the market *rounded up* loses one. Rounded
+down loses nobody and turns both impostors away. **Five fixtures is a small set and the number is
+fitted to them**, which is said here because the next person to change it should know it.
 
 **An earlier draft of this document said the page was consulted only for a name.** That was
 wrong, and review caught it. It matters: *there is no test* and *there is a test that admits
@@ -177,7 +209,7 @@ exclusion is one of them:**
 |---|---|
 | `Uncorroborated { agreed, asked }` | Fewer than `CORROBORATION` queries returned it |
 | `Unconvincing` | It scored below what is worth putting in a report |
-| `ElsewhereEntirely { looked_for }` | Its front page shares none of the market's words |
+| `ElsewhereEntirely { looked_for, used, needed }` | Its front page uses too few of the market's words |
 | `Unread` | Its front page could not be fetched, so nothing could be checked |
 | `BeyondTheFetchBudget { budget }` | It ranked below `NAMED`, so no page was requested |
 
@@ -220,7 +252,7 @@ all*. That distinction exists and is enforced; §4 relies on it.
 
 ## 4. Where this produces a wrong answer, and why
 
-**Four independent causes, one of them now fixed.** Fixing any one alone still leaves a bad
+**Four independent causes, two of them now fixed.** Fixing any one alone still leaves a bad
 answer, which is why the plan is seven pull requests rather than one.
 
 | | Cause | Symptom |
@@ -228,11 +260,14 @@ answer, which is why the plan is seven pull requests rather than one.
 | 1 | The first query is malformed and the qualifier is dropped | The answer is about a much broader market than the one asked about |
 | 2 | ~~A domain, not a product, is the unit~~ **Fixed, §3.2** | **Microsoft**, 3 of 3, named from `microsoft.com`. Now *Microsoft Project*, 2 of 3, named from a page a query returned |
 | 3 | Ranking measures appearance, not fit | Household names win; the right specialist scores 0.175 and is refused |
-| 4 | The fit test is one shared content word | **projectplusgame.com** — its page uses *project*, and `SHARED_WORDS = 1` |
+| 4 | ~~The fit test is one shared content word~~ **Fixed, §3.4** | **projectplusgame.com** — its page uses *project* and one word was the bar. The bar is now half the market's words |
 
-**Cause 4 is a threshold, not an absence**, which is the correction review made to this
-document. The machinery to exclude a company for being in another market is built, tested, and
-reports itself honestly. It is set to admit anything that shares a single word with the prompt.
+**Cause 4 was a threshold, not an absence**, which is the correction review made to this
+document. The machinery to exclude a company for being in another market was built, tested and
+reporting itself honestly; it was set to admit anything sharing a single word. It now asks for
+half the market's words, and the sentence a reader is shown says which words the page did use
+and how many were wanted — because *uses none of them* and *excluded* stopped being the same
+fact the moment the bar could be cleared by a page that shares something.
 
 **And the best sources are discarded.** Every page a general web answer cites for this question —
 review sites, agency blogs — is on `NOT_A_COMPANY`. They are correctly refused *as candidates*

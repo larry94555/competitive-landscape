@@ -58,16 +58,82 @@ use crate::candidates::{Described, NoVocabulary, Queried, Seed, Vocabulary, CORR
 /// here, and the thing that replaces it is a chip, not a bigger number.
 pub const DESCRIBES_A_MARKET: usize = 2;
 
-/// How many of the reader's own words a front page has to use for a company to join the set.
+/// The fewest of the market's words a front page may use and still be in the set.
 ///
-/// **One, and this is a floor rather than a filter.** The claim being made is narrow: a company
-/// whose front page uses *none* of the words somebody typed is not obviously in the market they
-/// described. It is not a claim that a page using one of them is a good competitor — `software`
-/// and `platform` appear on nearly every front page there is, and this rule cannot see that.
+/// **One, and it is the floor rather than the whole test.** A two-word market cannot ask for
+/// more than one word without asking for all of it, and demanding all of a short description is
+/// how a real competitor gets dropped for terse front matter. See [`enough_words`] for the part
+/// that scales.
+pub const SHARED_WORDS_FLOOR: usize = 1;
+
+/// How many of the market's words a front page has to use for a company to join the set.
 ///
-/// It exists for one failure it can see: a search for a market returning a company from a
-/// different one, which then gets compared against companies it has nothing to do with.
-pub const SHARED_WORDS: usize = 1;
+/// **Half of them, rounded down, and never fewer than [`SHARED_WORDS_FLOOR`].** The more a
+/// reader said about the market, the more of it a page has to actually be about.
+///
+/// ```text
+/// spreadsheet finance                        2 words  ->  1
+/// project management design agency           4 words  ->  2
+/// time tracking independent consultants      4 words  ->  2
+/// ```
+///
+/// **It was a flat `1`, and a board game passed it.** *"project management for a small design
+/// agency"* returned `projectplusgame.com`, whose page says *"a board game about project
+/// deadlines"*: one shared word, one word required. The machinery was right and the number was
+/// its weakest possible value.
+///
+/// # Why this shape, and what it cost
+///
+/// **Four rules were written and scored against the discovery golden set** rather than one being
+/// picked — `landscape_golden::discovery::Fit`, and `BENCHMARKS.md` Run 53 has the table. A flat
+/// two loses two real competitors whose front pages are terse; half the market's words *rounded
+/// up* loses one. Rounded down, no fixture loses anybody and the impostor goes.
+///
+/// **Five fixtures is a small set, and this number is fitted to them.** It is a starting value
+/// and labeled as one, exactly as [`DESCRIBES_A_MARKET`] is. What replaces it is a bigger set,
+/// or a signal that is not word counting at all.
+///
+/// **This is the rule for a market somebody described.** [`Evidence`] is what decides when it
+/// applies, and the answer is not *always*.
+#[must_use]
+pub fn enough_words(market: usize) -> usize {
+    (market / 2).max(SHARED_WORDS_FLOOR)
+}
+
+/// Where the words a candidate is judged against came from.
+///
+/// **Two sources, and only one of them is a description.** Review found the scaling rule applied
+/// to both: on the named path the words are [`crate::candidates::Seed::words`], which is
+/// `content_words` over a sentence lifted from the seed company's own front page. Scaling a bar
+/// with the length of *that* means **the wordier a company's marketing copy, the more of it
+/// every rival has to repeat verbatim** — a seed page reading *"project management
+/// collaboration tasks teams planning timelines communication"* would have asked four exact
+/// words of everybody, and excluded Linear for saying *"project management built for speed"*.
+///
+/// The two are different claims. *A reader said four words about a market, so a page in it uses
+/// two of them* is an argument. *A stranger's home page ran to fifteen words, so a rival must
+/// repeat seven* is not.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Evidence {
+    /// The market a reader described, in their words or in the market's own.
+    ADescribedMarket,
+    /// A seed company's front page, on the path where a reader named one company.
+    ASeedsOwnPage,
+}
+
+impl Evidence {
+    /// How many of `words` a front page has to use.
+    #[must_use]
+    pub fn enough_words(self, words: usize) -> usize {
+        match self {
+            Self::ADescribedMarket => enough_words(words),
+            // **The floor, and nothing above it.** The claim available here is the narrow one it
+            // always was: a company with nothing in common with the seed's own page is not
+            // obviously in the same market. There is no reader's description to scale against.
+            Self::ASeedsOwnPage => SHARED_WORDS_FLOOR,
+        }
+    }
+}
 
 /// Words that carry grammar rather than meaning.
 ///
@@ -156,7 +222,18 @@ pub enum Aside {
     /// only a domain. A reader was given a false account of the evidence used to exclude
     /// somebody. Naming them is true on both paths, and lets a reader judge the exclusion
     /// instead of taking it.
-    ElsewhereEntirely { looked_for: Vec<String> },
+    ElsewhereEntirely {
+        looked_for: Vec<String>,
+        /// The ones it did use, which may be some of them rather than none.
+        ///
+        /// **Added when the bar moved off one.** While one word was the whole test, *excluded*
+        /// and *uses none of them* were the same fact and the sentence could say either. They
+        /// are now different: a page can use one of four and still be set aside, and a reader
+        /// told it used *none* would be told something untrue about a page they can open.
+        used: Vec<String>,
+        /// How many it needed, from [`enough_words`].
+        needed: usize,
+    },
     /// Its front page was requested and could not be read, so nothing could be checked.
     ///
     /// **Not the same as [`Self::ElsewhereEntirely`].** One says the company is in another
@@ -182,10 +259,23 @@ impl Aside {
                 "only {agreed} of the {asked} searches returned it, so nothing corroborates it"
             ),
             Self::Unconvincing => "it scored below the level worth putting in a report".to_owned(),
-            Self::ElsewhereEntirely { ref looked_for } => format!(
+            Self::ElsewhereEntirely {
+                ref looked_for,
+                ref used,
+                ..
+            } if used.is_empty() => format!(
                 "its own front page uses none of the words this comparison is built on: {}",
                 quoted(looked_for)
             ),
+            Self::ElsewhereEntirely {
+                ref looked_for,
+                ref used,
+                needed,
+            } => {
+                let (used, all, of) = (quoted(used), looked_for.len(), quoted(looked_for));
+                let uses = format!("its own front page uses {used} of the {all} words");
+                format!("{uses} this comparison is built on ({of}), and a company in this market uses at least {needed}")
+            }
             Self::Unread => {
                 "we could not read its front page, so we could not check what it does - name the \
                  domain yourself and we will read it"
@@ -474,9 +564,10 @@ pub fn for_company(name: &str) -> Vec<Query> {
 /// it"* — two reasons for one company, one of which is circular.
 ///
 /// The words a rival's front page has to share come from the **seed's own front page**, not from
-/// anything a reader typed. That is the same [`SHARED_WORDS`] floor the description path uses,
-/// pointed at the only vocabulary available here, and it does the same narrow job: a company
-/// whose page has nothing in common with the seed's is not obviously in the same market.
+/// anything a reader typed — so the bar is [`SHARED_WORDS_FLOOR`] and does not scale. See
+/// [`Evidence`] for why: the length of a stranger's marketing sentence is not a measure of how
+/// specific a reader was. It does the same narrow job it always did: a company whose page has
+/// nothing in common with the seed's is not obviously in the same market.
 ///
 /// # Errors
 /// Never. A query that fails is counted and the rest carry on; see [`crate::candidates::suggest`].
@@ -551,7 +642,7 @@ where
             .collect();
 
     let described = crate::candidates::describe(&found, &words, fetch).await;
-    let mut set = assemble(described, queried.sent(), &words);
+    let mut set = assemble(described, queried.sent(), &words, Evidence::ASeedsOwnPage);
 
     // **The seed goes first and is not scored.** It is in the report because somebody typed it,
     // which is a different fact from every other row and outranks all of them.
@@ -655,7 +746,12 @@ pub fn about_a_market(words: &[String]) -> bool {
 /// `asked` is how many searches were **sent**, for the same reason [`crate::candidates::score`]
 /// divides by it: a company returned by the one search that came back has agreed with nothing.
 #[must_use]
-pub fn assemble(described: Vec<Described>, asked: usize, looked_for: &[String]) -> Set {
+pub fn assemble(
+    described: Vec<Described>,
+    asked: usize,
+    looked_for: &[String],
+    from: Evidence,
+) -> Set {
     let mut set = Set::default();
     for one in described {
         let Described {
@@ -674,9 +770,11 @@ pub fn assemble(described: Vec<Described>, asked: usize, looked_for: &[String]) 
             match shares {
                 Vocabulary::NotRequested => Some(Aside::BeyondTheFetchBudget { budget: NAMED }),
                 Vocabulary::Unreadable => Some(Aside::Unread),
-                Vocabulary::Read(ref s) if s.len() < SHARED_WORDS => {
+                Vocabulary::Read(ref s) if s.len() < from.enough_words(looked_for.len()) => {
                     Some(Aside::ElsewhereEntirely {
                         looked_for: looked_for.to_vec(),
+                        used: s.clone(),
+                        needed: from.enough_words(looked_for.len()),
                     })
                 }
                 Vocabulary::Read(_) => None,
@@ -1157,10 +1255,30 @@ Project management built for speed."
         // evidence used to exclude somebody. Naming them is true on both paths.
         let aside = Aside::ElsewhereEntirely {
             looked_for: vec!["project".to_owned(), "management".to_owned()],
+            used: Vec::new(),
+            needed: 1,
         };
         let said = aside.sentence();
         assert!(!said.contains("you typed"), "{said}");
         assert!(said.contains("\"project\", \"management\""), "{said}");
+
+        // **And a page that used some of them is not told it used none.** While one word was
+        // the whole test the two were the same fact; they stopped being the same the moment the
+        // bar could be cleared by a page that shares something.
+        let some = Aside::ElsewhereEntirely {
+            looked_for: vec![
+                "project".to_owned(),
+                "management".to_owned(),
+                "design".to_owned(),
+                "agency".to_owned(),
+            ],
+            used: vec!["project".to_owned()],
+            needed: 2,
+        };
+        let said = some.sentence();
+        assert!(!said.contains("none"), "{said}");
+        assert!(said.contains("\"project\""), "{said}");
+        assert!(said.contains(" 2"), "{said}");
     }
 
     #[tokio::test]
@@ -1189,6 +1307,72 @@ Project management built for speed."
             "{:#?}",
             set.members
         );
+    }
+
+    #[tokio::test]
+    async fn a_wordy_seed_page_does_not_raise_the_bar_for_its_rivals() {
+        // **Review found the fit rule scaling off the wrong thing.** `enough_words` scales with
+        // how much a *reader* said about a market. On this path nobody described a market: the
+        // words are `content_words` over a sentence lifted from the seed's own front page, and
+        // scaling with that means **the wordier a company's marketing copy, the more of it every
+        // rival has to repeat verbatim**.
+        //
+        // This seed's sentence carries eight content words, which the described-market rule
+        // would turn into a demand for four. Linear says *"project management built for speed"*
+        // and shares two. It was in the set before this pull request and has to stay in it.
+        let wordy = Seed {
+            candidate: Candidate {
+                name: "Basecamp".to_owned(),
+                canonical_domain: "basecamp.com".to_owned(),
+                what_it_is: "Project management collaboration tasks teams planning timelines \
+                             communication"
+                    .to_owned(),
+                confidence: 1.0,
+            },
+            read: true,
+        };
+        assert_eq!(
+            wordy.words().expect("a readable seed").len(),
+            8,
+            "the fixture only means something while the sentence is long"
+        );
+        assert_eq!(
+            Evidence::ADescribedMarket.enough_words(8),
+            4,
+            "and while the other rule would ask for four of them"
+        );
+
+        let all = vec![hit("https://linear.app/")];
+        let engine = Canned {
+            per_query: vec![Ok(all.clone()), Ok(all.clone()), Ok(all)],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (set, _) = of_company(&engine, &wordy, |_url| async {
+            Some("# Linear\n\nProject management built for speed.".to_owned())
+        })
+        .await;
+
+        let compared: Vec<&str> = set
+            .members
+            .iter()
+            .map(|m| m.candidate.canonical_domain.as_str())
+            .collect();
+        assert_eq!(
+            compared,
+            vec!["basecamp.com", "linear.app"],
+            "a rival sharing the two words that matter is still a rival: {:#?}",
+            set.set_aside
+        );
+    }
+
+    #[test]
+    fn the_two_kinds_of_evidence_are_not_the_same_claim() {
+        // A reader who said four words about a market is asking for two of them back. A
+        // stranger's home page running to fourteen words is not asking for anything.
+        assert_eq!(Evidence::ADescribedMarket.enough_words(4), 2);
+        assert_eq!(Evidence::ADescribedMarket.enough_words(14), 7);
+        assert_eq!(Evidence::ASeedsOwnPage.enough_words(4), SHARED_WORDS_FLOOR);
+        assert_eq!(Evidence::ASeedsOwnPage.enough_words(14), SHARED_WORDS_FLOOR);
     }
 
     #[test]
@@ -1559,6 +1743,7 @@ Project management built for speed."
             ],
             3,
             &market(),
+            Evidence::ADescribedMarket,
         );
 
         assert_eq!(set.members.len(), 1, "{set:#?}");
@@ -1583,7 +1768,9 @@ Project management built for speed."
                 (
                     "notionpress.example",
                     &Aside::ElsewhereEntirely {
-                        looked_for: vec!["analytics".to_owned()]
+                        looked_for: vec!["analytics".to_owned()],
+                        used: Vec::new(),
+                        needed: 1
                     }
                 ),
                 ("unreachable.example", &Aside::Unread),
@@ -1601,6 +1788,7 @@ Project management built for speed."
             vec![described("sixth.example", 3, 1.0, Vocabulary::NotRequested)],
             3,
             &market(),
+            Evidence::ADescribedMarket,
         );
         assert!(set.members.is_empty());
         assert_eq!(
@@ -1626,6 +1814,7 @@ Project management built for speed."
             )],
             3,
             &market(),
+            Evidence::ADescribedMarket,
         );
         assert_eq!(set.set_aside.len(), 1);
         assert_eq!(set.set_aside[0].1, Aside::Unread);
@@ -1644,6 +1833,7 @@ Project management built for speed."
             vec![described("thin.example", 1, 0.175, read(&[]))],
             3,
             &market(),
+            Evidence::ADescribedMarket,
         );
         assert_eq!(
             set.set_aside[0].1,
@@ -1664,6 +1854,7 @@ Project management built for speed."
             ],
             3,
             &market(),
+            Evidence::ADescribedMarket,
         );
         let order: Vec<&str> = set
             .members
@@ -1694,6 +1885,7 @@ Project management built for speed."
             vec![described("one.example", 2, 0.53, read(&["analytics"]))],
             3,
             &market(),
+            Evidence::ADescribedMarket,
         );
         assert!(set.members[0].because.sentence().contains("2 of the 3"));
     }

@@ -3068,6 +3068,8 @@ mod joining {
                 },
                 landscape_search::competitors::Aside::ElsewhereEntirely {
                     looked_for: vec!["analytics".to_owned()],
+                    used: Vec::new(),
+                    needed: 1,
                 },
             )],
             alone: None,
@@ -3279,6 +3281,8 @@ mod joining {
                 },
                 landscape_search::competitors::Aside::ElsewhereEntirely {
                     looked_for: vec!["project".to_owned(), "management".to_owned()],
+                    used: Vec::new(),
+                    needed: 1,
                 },
             )],
             alone: None,
