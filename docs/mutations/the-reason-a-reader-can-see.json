@@ -45,10 +45,10 @@
     ]
   },
   {
-    "name": "a report is dated with a day nobody read anything on",
+    "name": "a report is dated with a day nothing was decided on",
     "file": "crates/landscape-analyze/src/lib.rs",
-    "old": "        read_on: today,",
-    "new": "        read_on: NaiveDate::default(),",
+    "old": "        decided_on: today,",
+    "new": "        decided_on: NaiveDate::default(),",
     "run": [
       "cargo",
       "nextest",
@@ -64,6 +64,21 @@
     "file": "crates/landscape-analyze/src/lib.rs",
     "old": "                why: why.sentence(),",
     "new": "                why: String::from(\"not included\"),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a company the reader named is argued back at them",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "            .filter(|m| !matches!(m.because, Because::Named))\n",
+    "new": "",
     "run": [
       "cargo",
       "nextest",

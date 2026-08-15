@@ -144,10 +144,23 @@ export interface Reason {
  * everybody else, is the more flattering half of the same evidence.
  */
 export interface Chosen {
-  readonly included: readonly Reason[];
+  /**
+   * In the comparison **and with an argument to make**.
+   *
+   * A company the reader named is not here: *"you named it"* is a fact rather than a case, and
+   * a page putting it under somebody's own company argues a decision back at the person who
+   * made it.
+   */
+  readonly argued: readonly Reason[];
   readonly left_out: readonly Reason[];
-  /** The day these pages were read, `YYYY-MM-DD`. */
-  readonly read_on: string;
+  /**
+   * The day this was decided, `YYYY-MM-DD`.
+   *
+   * **Decided, not read.** Two of the five reasons a company is left out are *we could not
+   * read its page* and *we never asked for it*, so a line claiming these pages were read would
+   * sit directly above a sentence saying one of them was not.
+   */
+  readonly decided_on: string;
 }
 
 /** What the reader gave. Mirrors `landscape_core::Given`. */

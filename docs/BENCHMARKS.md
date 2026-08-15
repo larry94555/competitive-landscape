@@ -44,7 +44,7 @@ already invisible.
 | | Rust tests | frontend tests | catalog | gates |
 |---|---|---|---|---|
 | before | 1072 | 139 | 45, all caught | 17 |
-| after | **1076** | **143** | **50**, all caught | **17** |
+| after | **1076** | **145** | **51**, all caught | **17** |
 
 ### What was invisible
 
@@ -67,6 +67,21 @@ reader actually looks at showed a column of names.
 in `landscape-search`, and rendering it a second time on the page would be a second wording to
 keep in step — the duplicated-rule mistake this repository has a register of. A mutation replaces
 the exclusion sentence with *"not included"* and the conversion test fails.
+
+### Two things review found about the wording
+
+**The preface contradicted the sentence under it.** *Considered and left out* said *"Read
+2026-08-15. Each of these came back from the searching"* — and neither half is true of every
+company there. A company two buyer's guides named was never returned by a search; two of the five
+reasons are *we could not read its page* and *we never asked for it*. So `read_on` is now
+`decided_on`, the type says why, and the line reads *"Considered on 2026-08-15. Each of these was
+found and is not in the comparison."*
+
+**And the seed was argued back at the reader.** `chosen_from` skipped the whole block when
+*every* member was `Because::Named`, then rendered every member when one rival had been found —
+so a seeded set put *"you named it"* under the reader's own company. The field is `argued` now
+and a `Named` member is not in it: it is in the comparison because somebody said so, which is a
+fact rather than a case.
 
 ### Both halves or neither
 
@@ -523,7 +538,7 @@ six sections a real company actually produces — needs a model and a network. S
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 50 | 1026 | 139 | no code changed |
-| now | **1076** | **143** | **50**, all caught |
+| now | **1076** | **145** | **51**, all caught |
 
 ---
 

@@ -438,9 +438,14 @@ fn chosen_from(
         return None;
     }
     Some(landscape_core::Chosen {
-        included: set
+        // **The seed is skipped, not given a reason.** `Because::Named` is a fact about what
+        // the reader typed; rendering *"you named it"* under their own company argues a
+        // decision back at the person who made it. Review found the first version doing it in
+        // a seeded set, where the seed sits beside rivals that were found.
+        argued: set
             .members
             .iter()
+            .filter(|m| !matches!(m.because, Because::Named))
             .map(|m| landscape_core::Reason {
                 domain: m.candidate.canonical_domain.clone(),
                 name: m.candidate.name.clone(),
@@ -456,7 +461,7 @@ fn chosen_from(
                 why: why.sentence(),
             })
             .collect(),
-        read_on: today,
+        decided_on: today,
     })
 }
 
@@ -3133,13 +3138,13 @@ mod joining {
         let today = NaiveDate::from_ymd_opt(2026, 8, 15).expect("a real day");
         let chosen = chosen_from(&set, today).expect("a set nobody named");
 
-        assert_eq!(chosen.read_on, today);
-        assert_eq!(chosen.included.len(), 1);
-        assert_eq!(chosen.included[0].domain, "plausible.io");
-        assert_eq!(chosen.included[0].name, "Plausible");
+        assert_eq!(chosen.decided_on, today);
+        assert_eq!(chosen.argued.len(), 1);
+        assert_eq!(chosen.argued[0].domain, "plausible.io");
+        assert_eq!(chosen.argued[0].name, "Plausible");
         // **The sentence is `landscape-search`'s, unchanged.** A second wording here would be
         // one more place to keep in step with the arithmetic that produced it.
-        assert_eq!(chosen.included[0].why, set.members[0].because.sentence());
+        assert_eq!(chosen.argued[0].why, set.members[0].because.sentence());
 
         // **And the other half.** A list of companies with reasons, beside a silence about
         // everybody else, is the flattering half of the same evidence.
@@ -3200,9 +3205,18 @@ mod joining {
             NaiveDate::from_ymd_opt(2026, 8, 15).expect("a real day"),
         )
         .expect("the rivals were found rather than named");
-        assert_eq!(chosen.included.len(), 2);
-        assert_eq!(chosen.included[0].why, "you named it");
-        assert!(chosen.included[1].why.contains("2 of the 3 searches"));
+        // **The seed is not in the argument.** It is in the comparison because somebody typed
+        // it, and a page saying *"you named it"* under their own company argues a decision back
+        // at the person who made it. Review found the first version doing exactly that.
+        assert_eq!(
+            chosen
+                .argued
+                .iter()
+                .map(|r| r.domain.as_str())
+                .collect::<Vec<_>>(),
+            vec!["linear.app"]
+        );
+        assert!(chosen.argued[0].why.contains("2 of the 3 searches"));
     }
 
     #[tokio::test]
@@ -3232,11 +3246,11 @@ mod joining {
             .chosen
             .as_ref()
             .expect("the argument for the set reaches the reader");
-        assert_eq!(chosen.included.len(), 1);
+        assert_eq!(chosen.argued.len(), 1);
         assert!(
-            chosen.included[0].why.contains("3 of the 3 searches"),
+            chosen.argued[0].why.contains("3 of the 3 searches"),
             "{:?}",
-            chosen.included[0]
+            chosen.argued[0]
         );
     }
 

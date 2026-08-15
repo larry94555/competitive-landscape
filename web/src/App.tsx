@@ -626,7 +626,7 @@ function AnalysisView({
             heading="Companies"
             items={analyzed.map(withoutScheme)}
             note={missed(report.searches)}
-            why={reasons(report.chosen?.included)}
+            why={reasons(report.chosen?.argued)}
           />
           {/*
             **The other half of the same evidence.** A list of companies with reasons, beside a
@@ -1400,9 +1400,15 @@ function LeftOut({
         <h2>Considered and left out</h2>
         <span className="of">{chosen.left_out.length} found</span>
       </header>
+      {/*
+        **True of every one of them, which the first version was not.** It said these had come
+        back from the searching and been read on a date: a company two buyer's guides named was
+        never returned by a search, and two of the five reasons here are *we could not read its
+        page* and *we never asked for it*. A preface contradicting the sentence directly below
+        it is worse than no preface.
+      */}
       <p className="note">
-        Read {chosen.read_on}. Each of these came back from the searching and is not in the
-        comparison.
+        Considered on {chosen.decided_on}. Each of these was found and is not in the comparison.
       </p>
       <ul>
         {visible.map((one) => (

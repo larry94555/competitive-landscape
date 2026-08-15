@@ -140,16 +140,23 @@ pub struct Reason {
 /// companies inside one.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct Chosen {
-    /// In the comparison, in the order the set ranked them.
-    pub included: Vec<Reason>,
+    /// In the comparison **and with an argument to make**, in the order the set ranked them.
+    ///
+    /// **A company the reader named is not here.** `Because::Named` reads *"you named it"*,
+    /// which is a fact rather than a case, and a page putting it under somebody's name is
+    /// arguing a decision back at the person who made it. Review found the first version
+    /// rendering it in a seeded set, where the seed sits beside rivals that *were* found.
+    pub argued: Vec<Reason>,
     /// Found and not in the comparison.
     pub left_out: Vec<Reason>,
-    /// The day these pages were read.
+    /// The day this was decided.
     ///
-    /// **The run's day, and it is honest at that resolution.** Every front page behind this
-    /// decision was fetched during this analysis, so the run's date is when they were read. A
-    /// per-company timestamp would be a more precise number about the same minute.
-    pub read_on: chrono::NaiveDate,
+    /// **Decided, not read, and the difference is not pedantry.** Two of the five reasons a
+    /// company is left out are *we could not read its page* and *we never asked for it* — so a
+    /// line saying these pages were read sits directly above a sentence saying one of them was
+    /// not. Review found exactly that. What is true of every company here is that the decision
+    /// was made on this run's day.
+    pub decided_on: chrono::NaiveDate,
 }
 
 /// A finished report.

@@ -246,9 +246,15 @@ reachable from the command line, and shown to nobody. The sentence is
 `landscape_search::competitors::Because`'s own, unchanged: a second wording on this page would
 be a second thing to keep in step with the arithmetic behind it.
 
-**Both halves or neither.** *Considered and left out* names every company the searching found
-and the set refused, each with its reason — one of five, never a shrug. Reasons for what got in,
-beside a silence about everybody else, is the flattering half of the same evidence.
+**Both halves or neither.** *Considered and left out* names every company that was found and
+refused, each with its reason — one of five, never a shrug. Reasons for what got in, beside a
+silence about everybody else, is the flattering half of the same evidence.
+
+**Its preface says *considered*, not *read*.** Two of the five reasons are *we could not read its
+page* and *we never asked for it*, and a company two buyer's guides named was never returned by a
+search at all — so a line claiming these came back from the searching and were read would
+contradict the sentence directly under it. What is true of all of them is the day the set was
+decided.
 
 **And nothing at all when there is nothing to say.** An empty *left out* heading would claim we
 considered and rejected somebody, which is §2.5's rule pointed inward: a heading is an assertion
