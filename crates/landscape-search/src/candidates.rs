@@ -909,7 +909,12 @@ where
     // excluded. The gate gets only what was *fetched*, because it asks a reader to choose and a
     // candidate with no name of its own is not a choice. Review found each of these in turn,
     // from opposite directions.
-    let mut set = crate::competitors::assemble(named.clone(), queried.sent(), &words);
+    let mut set = crate::competitors::assemble(
+        named.clone(),
+        queried.sent(),
+        &words,
+        crate::competitors::Evidence::ADescribedMarket,
+    );
     // **A description that produced one company is the same shape from a reader's side as a
     // named company nobody could be found for**: one company, in a tool that promises a
     // comparison. Same function, so the two paths cannot come to different conclusions about
@@ -2143,6 +2148,64 @@ The second of two."
 
         assert!(!derived.about_a_market, "one word read as a market");
         assert!(matches!(derived.verdict, Resolution::Ambiguous { .. }));
+    }
+
+    #[tokio::test]
+    async fn a_described_market_asks_for_more_than_one_of_its_words() {
+        // **Which rule this path uses, asserted at the path rather than at the rule.** Review
+        // found the scaling rule applied to the seeded path, where the words are a stranger's
+        // marketing sentence; the fix gives the two paths different evidence, and the choice is
+        // made here. A test on `enough_words` alone cannot see which of them a caller passes.
+        //
+        // `privacy-friendly website analytics` is four content words, so a page in this market
+        // uses two. A shop builder uses one of them.
+        let all = vec![
+            hit("https://plausible.io/"),
+            hit("https://shopwebsites.example/"),
+        ];
+        let engine = Canned {
+            per_query: vec![Ok(all.clone()), Ok(all.clone()), Ok(all)],
+            asked: std::sync::Mutex::new(Vec::new()),
+        };
+        let (derived, _) = for_description(
+            &engine,
+            "privacy-friendly website analytics",
+            |url| async move {
+                Some(if url.contains("shop") {
+                    "# Shop Websites\nBuild a website for your shop.".to_owned()
+                } else {
+                    "# Plausible\nPrivacy-first website analytics.".to_owned()
+                })
+            },
+        )
+        .await;
+
+        let compared: Vec<&str> = derived
+            .set
+            .members
+            .iter()
+            .map(|m| m.candidate.canonical_domain.as_str())
+            .collect();
+        assert_eq!(
+            compared,
+            vec!["plausible.io"],
+            "one shared word is not enough for a four-word market: {:#?}",
+            derived.set
+        );
+        let (candidate, why) = derived
+            .set
+            .set_aside
+            .iter()
+            .find(|(c, _)| c.canonical_domain == "shopwebsites.example")
+            .expect("named rather than dropped in silence");
+        let crate::competitors::Aside::ElsewhereEntirely {
+            ref used, needed, ..
+        } = *why
+        else {
+            panic!("{why:?}")
+        };
+        assert_eq!(used, &vec!["website".to_owned()], "{candidate:?}");
+        assert_eq!(needed, 2);
     }
 
     #[tokio::test]

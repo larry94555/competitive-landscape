@@ -80,7 +80,7 @@
   {
     "name": "a company whose page shares nothing joins the comparison anyway",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "                Vocabulary::Read(ref s) if s.len() < enough_words(looked_for.len()) => {",
+    "old": "                Vocabulary::Read(ref s) if s.len() < from.enough_words(looked_for.len()) => {",
     "new": "                Vocabulary::Read(ref s) if s.len() < 0 => {",
     "run": [
       "cargo",
@@ -158,8 +158,8 @@
   {
     "name": "a reason divides by the searches that answered rather than those sent",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "    let mut set = crate::competitors::assemble(named.clone(), queried.sent(), &words);",
-    "new": "    let mut set =\n        crate::competitors::assemble(named.clone(), queried.completed.len(), &words);",
+    "old": "    let mut set = crate::competitors::assemble(\n        named.clone(),\n        queried.sent(),\n        &words,\n        crate::competitors::Evidence::ADescribedMarket,\n    );",
+    "new": "    let mut set = crate::competitors::assemble(\n        named.clone(),\n        queried.completed.len(),\n        &words,\n        crate::competitors::Evidence::ADescribedMarket,\n    );",
     "run": [
       "cargo",
       "nextest",
@@ -483,8 +483,8 @@
   {
     "name": "the set is bounded by the same list the gate is",
     "file": "crates/landscape-search/src/candidates.rs",
-    "old": "    let mut set = crate::competitors::assemble(named.clone(), queried.sent(), &words);",
-    "new": "    let mut set = crate::competitors::assemble(\n        named.iter().filter(|d| d.was_requested()).cloned().collect(),\n        queried.sent(),\n        &words,\n    );",
+    "old": "    let mut set = crate::competitors::assemble(\n        named.clone(),\n        queried.sent(),\n        &words,\n        crate::competitors::Evidence::ADescribedMarket,\n    );",
+    "new": "    let mut set = crate::competitors::assemble(\n        named.iter().filter(|d| d.was_requested()).cloned().collect(),\n        queried.sent(),\n        &words,\n        crate::competitors::Evidence::ADescribedMarket,\n    );",
     "run": [
       "cargo",
       "nextest",

@@ -36,8 +36,8 @@
   {
     "name": "the fit test counts the market's words rather than the page's",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "                Vocabulary::Read(ref s) if s.len() < enough_words(looked_for.len()) => {",
-    "new": "                Vocabulary::Read(ref s) if looked_for.len() < enough_words(s.len()) => {",
+    "old": "                Vocabulary::Read(ref s) if s.len() < from.enough_words(looked_for.len()) => {",
+    "new": "                Vocabulary::Read(ref s) if looked_for.len() < from.enough_words(s.len()) => {",
     "run": [
       "cargo",
       "nextest",
@@ -72,6 +72,40 @@
     "file": "crates/landscape-search/src/competitors.rs",
     "old": "                        used: s.clone(),",
     "new": "                        used: Vec::new(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a seed's own front page scales the bar for its rivals",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "            Self::ASeedsOwnPage => SHARED_WORDS_FLOOR,",
+    "new": "            Self::ASeedsOwnPage => enough_words(words),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a market a reader described is judged as if it were a seed's page",
+    "file": "crates/landscape-search/src/candidates.rs",
+    "old": "        crate::competitors::Evidence::ADescribedMarket,",
+    "new": "        crate::competitors::Evidence::ASeedsOwnPage,",
     "run": [
       "cargo",
       "nextest",

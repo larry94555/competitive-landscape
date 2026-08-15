@@ -483,7 +483,12 @@ pub async fn score(market: &Market) -> Scored {
     let found = landscape_search::products::split(found, QUERIES, &market.results, &fetch).await;
     let described = describe(&found, &words, fetch).await;
 
-    let set = assemble(described, QUERIES, &words);
+    let set = assemble(
+        described,
+        QUERIES,
+        &words,
+        landscape_search::competitors::Evidence::ADescribedMarket,
+    );
     let returned: Vec<String> = set
         .members
         .iter()

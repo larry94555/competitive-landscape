@@ -160,6 +160,22 @@ SHARED_WORDS_FLOOR   = 1                                     never below one
 **The bar scales with how much the reader said.** A two- or three-word market asks for one word,
 as it always did; a four-word market asks for two.
 
+**And only when a reader described a market.** `competitors::Evidence` says which of two things
+the words came from, because there are two paths into this test and only one of them has a
+description behind it:
+
+| The words came from | The bar |
+|---|---|
+| **A market a reader described** | Half of them, rounded down |
+| **A seed company's own front page** — the named path | `SHARED_WORDS_FLOOR`, and it does not scale |
+
+**Scaling the second would be a different claim.** On the named path the words are
+`content_words` over one sentence lifted from the seed's front page, so scaling with its length
+means *the wordier a company's marketing copy, the more of it every rival must repeat verbatim*.
+Review found this shipped in the first version of the change: a seed page reading *"project
+management collaboration tasks teams planning timelines communication"* would have demanded four
+exact words of everybody and excluded Linear for saying *"project management built for speed"*.
+
 | The market | Words it must use |
 |---|---|
 | `spreadsheet finance` | 1 |

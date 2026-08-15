@@ -45,7 +45,7 @@ reader's words. One shared word was the whole bar.
 | | Rust tests | frontend tests | catalog | gates |
 |---|---|---|---|---|
 | before | 1048 | 139 | 18, all caught | 17 |
-| after | **1050** | **139** | **23**, all caught | **17** |
+| after | **1053** | **139** | **25**, all caught | **17** |
 
 ### The measurement came first, and it had to be widened before it could judge anything
 
@@ -99,6 +99,23 @@ fact. They stopped being the same the moment the bar could be cleared by a page 
 something: `projectplusgame.com` uses **one** of the four, and a reader told it used *none* would
 be told something untrue about a page they can open. `Aside::ElsewhereEntirely` now carries what
 the page used and how many were wanted, and the sentence says both.
+
+### The rule applies to a described market, and to nothing else
+
+**Review caught the first version applying it to both paths.** When a reader names one company,
+the words a rival is judged against are `content_words` over a sentence lifted from *the seed's
+own front page*. Scaling a bar with the length of that means **the wordier a company's marketing
+copy, the more of it every rival has to repeat verbatim** — a seed page reading *"project
+management collaboration tasks teams planning timelines communication"* would have asked four
+exact words of everybody, and excluded Linear for saying *"project management built for speed"*.
+
+The two are different claims. *A reader said four words about a market, so a page in it uses two
+of them* is an argument. *A stranger's home page ran to eight words, so a rival must repeat four*
+is not. `competitors::Evidence` names the two sources and the seeded one keeps the floor.
+
+**The four-rule comparison could not have found this**, because it scores the description
+fixtures only — the named path has no golden set. That is worth saying plainly: this change was
+measured on one of the two paths it touched.
 
 ### What it does not do
 
@@ -339,7 +356,7 @@ six sections a real company actually produces — needs a model and a network. S
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 50 | 1026 | 139 | no code changed |
-| now | **1050** | **139** | **23**, all caught |
+| now | **1053** | **139** | **25**, all caught |
 
 ---
 

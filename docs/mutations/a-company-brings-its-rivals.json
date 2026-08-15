@@ -171,8 +171,8 @@
   {
     "name": "a rival search divides by the queries that answered rather than those sent",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "    let mut set = assemble(described, queried.sent(), &words);",
-    "new": "    let mut set = assemble(described, queried.completed.len(), &words);",
+    "old": "    let mut set = assemble(described, queried.sent(), &words, Evidence::ASeedsOwnPage);",
+    "new": "    let mut set = assemble(\n        described,\n        queried.completed.len(),\n        &words,\n        Evidence::ASeedsOwnPage,\n    );",
     "run": [
       "cargo",
       "nextest",
