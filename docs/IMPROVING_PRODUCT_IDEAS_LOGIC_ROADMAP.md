@@ -19,9 +19,9 @@
 | | |
 |---|---|
 | **Pull requests in this plan** | **7** |
-| **Done** | **5** |
-| **Remaining** | **2** |
-| **Complete** | **71%** |
+| **Done** | **6** |
+| **Remaining** | **1** |
+| **Complete** | **86%** |
 
 **PR 1 is the two documents; PR 2 is the discovery golden set; PR 3 and PR 4 are the ones a
 reader can see.** The percentage counts pull requests, not effort — PR 7 is larger than PRs 5
@@ -75,7 +75,7 @@ which is the kind of claim that makes a plan look further along than it is.
 | 3 | **Product-level candidates** — identity rule chosen by PR 2 | new `search::products` | **Done** |
 | 4 | **Raise the fit test above one word** | `competitors::enough_words`, `assemble` | **Done** |
 | 5 | **Candidates from page content** | new `search::literature` | **Done** |
-| 6 | **Render the reason that already exists** | `Report`, `web/src/App.tsx` | To do |
+| 6 | **Render the reason that already exists** | `Report`, `web/src/App.tsx` | **Done** |
 | 7 | **Breadth, and subcategories** | new `candidates::breadth`, the interface | To do |
 
 **The comparison matrix is not in this list.** It is already a row in
@@ -349,6 +349,23 @@ company with the date the page was read.
 **This is the last place something is asserted without its evidence being shown.** The claims
 inside a report are quoted, dated and cited. The reason a company is in the set is computed,
 correct, and invisible.
+
+#### What shipped
+
+`landscape_core::Chosen` carries both halves and the day the pages were read; `landscape-analyze`
+fills it from the set that was already assembled, and the page renders the sentence under each
+company. **The sentences are `landscape-search`'s own, unchanged** — a second wording on the page
+would be a second thing to keep in step with the arithmetic behind it.
+
+| | Before | After |
+|---|---|---|
+| Companies | a list of names | each name with the sentence that put it there |
+| Companies found and refused | not shown at all | **Considered and left out**, each with its reason |
+| A set the reader named | a list of names | unchanged: `Because::Named` is not an argument to make |
+
+**Both halves or neither.** Reasons for what got in, beside a silence about everybody else, is
+the flattering half of the same evidence. And the block disappears entirely when nothing was set
+aside, because an empty *left out* heading would claim we considered and rejected somebody.
 
 ### PR 7 — Breadth, and subcategories
 

@@ -1,0 +1,77 @@
+[
+  {
+    "name": "a set the reader named is argued back at them",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "    if set\n        .members\n        .iter()\n        .all(|m| matches!(m.because, Because::Named))\n    {\n        return None;\n    }",
+    "new": "    if set\n        .members\n        .iter()\n        .any(|m| matches!(m.because, Because::Named))\n    {\n        return None;\n    }",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the reason a company is in the set never reaches the report",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        chosen: how.chosen.cloned(),",
+    "new": "        chosen: None,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the companies that were left out are left out of the argument too",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        left_out: set\n            .set_aside\n            .iter()",
+    "new": "        left_out: set\n            .set_aside\n            .iter()\n            .take(0)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a report is dated with a day nobody read anything on",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "        read_on: today,",
+    "new": "        read_on: NaiveDate::default(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "the page writes its own wording for an exclusion",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "                why: why.sentence(),",
+    "new": "                why: String::from(\"not included\"),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze",
+      "-p",
+      "landscape-core"
+    ]
+  }
+]

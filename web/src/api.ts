@@ -119,6 +119,35 @@ export interface Report {
   readonly asked?: Given | null;
   /** How much of the searching finished. Absent when nothing was searched for. */
   readonly searches?: Searches | null;
+  /**
+   * Which companies were compared, which were not, and why each.
+   *
+   * **The last thing this product asserted without showing its evidence.** Every claim inside a
+   * report is quoted, dated and cited; the choice of company was computed correctly and shown
+   * to nobody. Absent when the reader named their own companies — a page arguing that decision
+   * back at them is answering a question they did not ask.
+   */
+  readonly chosen?: Chosen | null;
+}
+
+/** One company, and the sentence saying why it is where it is. */
+export interface Reason {
+  readonly domain: string;
+  readonly name: string;
+  readonly why: string;
+}
+
+/**
+ * Who is in the comparison, who is not, and why each.
+ *
+ * **Both halves or neither.** Reasons for the companies that got in, beside a silence about
+ * everybody else, is the more flattering half of the same evidence.
+ */
+export interface Chosen {
+  readonly included: readonly Reason[];
+  readonly left_out: readonly Reason[];
+  /** The day these pages were read, `YYYY-MM-DD`. */
+  readonly read_on: string;
 }
 
 /** What the reader gave. Mirrors `landscape_core::Given`. */

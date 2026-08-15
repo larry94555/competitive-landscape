@@ -48,6 +48,7 @@ fn at() -> chrono::DateTime<chrono::Utc> {
 /// A report whose pricing section says one thing, so two runs can be told apart.
 fn report_saying(text: &str) -> Report {
     Report {
+        chosen: None,
         progress: None,
         asked: None,
         searches: None,

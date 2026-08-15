@@ -224,13 +224,38 @@ searches answered — `failed` and `sent`, already on the variant — which is w
 
 ### 2.4 The three lists
 
-Three blocks with identical mechanics and different contents.
+Three blocks with identical mechanics and different contents, and a fourth that appears only
+when there is something in it.
 
 | Heading | Holds up to | Shows at first |
 |---|---|---|
 | **Companies** | 25 | 5 |
 | **Open source projects** | 25 | 5 |
 | **Discussions** | 25 | 5 |
+| **Considered and left out** | all of them | 5 |
+
+#### Why each company is here
+
+**Under the name, in the reader's words.** Each company in **Companies** carries the sentence
+that put it there — *"2 of the 3 searches returned it, 2 of the 3 buyer's guides we read list it
+(capterra.com, g2.com), and its own front page uses 'project'"*.
+
+**This was the last thing the product asserted without showing its evidence.** Every claim
+*inside* a report is quoted, dated and cited; the choice of company was computed correctly,
+reachable from the command line, and shown to nobody. The sentence is
+`landscape_search::competitors::Because`'s own, unchanged: a second wording on this page would
+be a second thing to keep in step with the arithmetic behind it.
+
+**Both halves or neither.** *Considered and left out* names every company the searching found
+and the set refused, each with its reason — one of five, never a shrug. Reasons for what got in,
+beside a silence about everybody else, is the flattering half of the same evidence.
+
+**And nothing at all when there is nothing to say.** An empty *left out* heading would claim we
+considered and rejected somebody, which is §2.5's rule pointed inward: a heading is an assertion
+and a silence is not.
+
+**A reader who named their own companies gets none of this.** `Because::Named` reads *"you named
+it"*, and a page arguing that decision back at them is answering a question they did not ask.
 
 **The heading is the noun and nothing else.** *"Here are the…"* three times running is the same
 three words asking to be read three times, and once the heading carries real weight the noun

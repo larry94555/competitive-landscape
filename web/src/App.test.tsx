@@ -1594,6 +1594,83 @@ describe("the four blocks", () => {
     });
   });
 
+  describe("why each company is here", () => {
+    /** A set with both halves: one company in, one considered and left out. */
+    const CHOSEN = {
+      included: [
+        {
+          domain: "asana.com",
+          name: "Asana",
+          why: "2 of the 3 searches returned it, 2 of the 3 buyer's guides we read list it (capterra.com, g2.com), and its own front page uses \"project\"",
+        },
+      ],
+      left_out: [
+        {
+          domain: "projectplusgame.com",
+          name: "Project Plus",
+          why: 'its own front page uses "project" of the 4 words this comparison is built on, and a company in this market uses at least 2',
+        },
+      ],
+      read_on: "2026-08-15",
+    };
+
+    it("shows the reason under the company rather than behind a click", async () => {
+      // **The evidence for the one editorial decision this page makes.** It was computed,
+      // correct and invisible: `Because` reached the CLI and the report's notes, and never the
+      // page. Evidence a reader has to go looking for is evidence most readers never see.
+      await reportWith({ subjects: ["https://asana.com"], chosen: CHOSEN });
+      const companies = await screen.findByRole("region", { name: "Companies" });
+      expect(
+        within(companies).getByText(/2 of the 3 searches returned it/),
+      ).toBeInTheDocument();
+      expect(
+        within(companies).getByText(/2 of the 3 buyer's guides/),
+      ).toBeInTheDocument();
+    });
+
+    it("shows what was considered and left out, and why", async () => {
+      // **The other half of the same evidence.** Reasons for what got in, beside a silence
+      // about everybody else, is the flattering half.
+      await reportWith({ subjects: ["https://asana.com"], chosen: CHOSEN });
+      const left = await screen.findByRole("region", {
+        name: "Considered and left out",
+      });
+      expect(within(left).getByText("projectplusgame.com")).toBeInTheDocument();
+      expect(
+        within(left).getByText(/a company in this market uses at least 2/),
+      ).toBeInTheDocument();
+      // The day the pages behind the decision were read, so the argument is datable.
+      expect(within(left).getByText(/2026-08-15/)).toBeInTheDocument();
+    });
+
+    it("says nothing at all when nobody was left out", async () => {
+      // An empty *left out* heading would claim we considered and rejected somebody. A silence
+      // is a silence; a heading is an assertion.
+      await reportWith({
+        subjects: ["https://asana.com"],
+        chosen: { ...CHOSEN, left_out: [] },
+      });
+      await screen.findByRole("region", { name: "Companies" });
+      expect(
+        screen.queryByRole("region", { name: "Considered and left out" }),
+      ).toBeNull();
+    });
+
+    it("argues nothing back at a reader who named their own companies", async () => {
+      // `chosen` is absent on that path, because a page making the case for a decision
+      // somebody made themselves is answering a question they did not ask.
+      await reportWith({ subjects: ["https://asana.com"], chosen: null });
+      const companies = await screen.findByRole("region", { name: "Companies" });
+      expect(within(companies).getByText("asana.com")).toBeInTheDocument();
+      expect(
+        within(companies).queryByText(/searches returned it/),
+      ).toBeNull();
+      expect(
+        screen.queryByRole("region", { name: "Considered and left out" }),
+      ).toBeNull();
+    });
+  });
+
   describe("what did not come back", () => {
     /** The one block whose search actually ran. */
     async function companies(): Promise<HTMLElement> {

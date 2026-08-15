@@ -238,6 +238,7 @@ mod tests {
     /// A report whose only section is named, so the order writes landed in is readable.
     fn report_titled(title: &str) -> Report {
         Report {
+            chosen: None,
             progress: None,
             asked: None,
             searches: None,

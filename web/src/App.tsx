@@ -13,8 +13,10 @@ import {
   watchAnalysis,
   type Analysis,
   type AnalysisStatus,
+  type Chosen,
   type Examples,
   type Progress,
+  type Reason,
   type Searches,
   type Section,
 } from "./api";
@@ -624,7 +626,14 @@ function AnalysisView({
             heading="Companies"
             items={analyzed.map(withoutScheme)}
             note={missed(report.searches)}
+            why={reasons(report.chosen?.included)}
           />
+          {/*
+            **The other half of the same evidence.** A list of companies with reasons, beside a
+            silence about everybody else, is the flattering half: it shows the argument for what
+            got in and hides the argument for what did not. `PRODUCT_IDEA_RESULTS.md` §2.4.
+          */}
+          <LeftOut chosen={report.chosen} />
           {/*
             **Two headings with nothing under them, on purpose.** Neither search exists —
             `PRODUCT_IDEA_RESULTS.md` §4.1 — and §2.5 asks that a category nobody looked in say
@@ -1348,14 +1357,87 @@ function missed(searches: Searches | null | undefined): string | undefined {
  * visible now — a control that promises more than it delivers is checkable by the person
  * reading it, and wrong.
  */
+/**
+ * The reasons, keyed the way the list is: by domain without its scheme.
+ *
+ * **One rule for the key, and it is the list's rule.** `Listing` shows `basecamp.com` because a
+ * column of `https://` is noise; a map keyed on the origin would silently match nothing, and a
+ * reason that quietly fails to appear is worse than one that was never built.
+ */
+function reasons(
+  of: readonly Reason[] | undefined,
+): ReadonlyMap<string, string> | undefined {
+  if (of === undefined || of.length === 0) return undefined;
+  return new Map(of.map((one) => [withoutScheme(one.domain), one.why]));
+}
+
+/**
+ * The companies that were found and are not in the comparison, and why each.
+ *
+ * **The half a set is usually silent about.** Every exclusion here was already computed and
+ * already had a sentence — `Uncorroborated`, `Unconvincing`, `ElsewhereEntirely`, `Unread`,
+ * `BeyondTheFetchBudget`, one of five and never a shrug — and none of it reached a reader.
+ *
+ * **Nothing at all when nothing was set aside.** An empty *left out* heading would say we
+ * considered and rejected nobody, which is a claim rather than a silence, and the page already
+ * has a rule for headings with no pipeline behind them.
+ */
+function LeftOut({
+  chosen,
+}: {
+  chosen?: Chosen | null | undefined;
+}): React.JSX.Element | null {
+  const [all, setAll] = useState(false);
+  if (chosen === null || chosen === undefined || chosen.left_out.length === 0) {
+    return null;
+  }
+  const visible = all ? chosen.left_out : chosen.left_out.slice(0, SHOWN);
+  const hidden = chosen.left_out.length - visible.length;
+
+  return (
+    <section className="listing" aria-label="Considered and left out">
+      <header>
+        <h2>Considered and left out</h2>
+        <span className="of">{chosen.left_out.length} found</span>
+      </header>
+      <p className="note">
+        Read {chosen.read_on}. Each of these came back from the searching and is not in the
+        comparison.
+      </p>
+      <ul>
+        {visible.map((one) => (
+          <li key={one.domain}>
+            <span className="name">{withoutScheme(one.domain)}</span>
+            <span className="why">{one.why}</span>
+          </li>
+        ))}
+      </ul>
+      {hidden > 0 && (
+        <button type="button" className="reveal" onClick={() => setAll(true)}>
+          …more ({hidden})
+        </button>
+      )}
+    </section>
+  );
+}
+
 function Listing({
   heading,
   items,
   note,
+  why,
 }: {
   heading: string;
   items: readonly string[];
   note?: string | undefined;
+  /**
+   * The sentence saying why each company is here, by domain.
+   *
+   * **Optional, because two of the three lists have no argument to make.** *Open source
+   * projects* and *Discussions* are not searched for at all, and a named set is the reader's
+   * own decision — `PRODUCT_IDEA_RESULTS.md` §2.4.
+   */
+  why?: ReadonlyMap<string, string> | undefined;
 }): React.JSX.Element {
   const [all, setAll] = useState(false);
   const held = items.slice(0, CAP);
@@ -1383,6 +1465,14 @@ function Listing({
           {visible.map((item) => (
             <li key={item}>
               <span className="name">{item}</span>
+              {/*
+                **Under the name, not behind a click.** The reason is the evidence for the one
+                editorial decision this page makes, and evidence a reader has to go looking for
+                is evidence most readers never see.
+              */}
+              {why?.get(item) !== undefined && (
+                <span className="why">{why.get(item)}</span>
+              )}
             </li>
           ))}
         </ul>
