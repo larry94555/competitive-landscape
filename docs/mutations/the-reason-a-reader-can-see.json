@@ -1,9 +1,9 @@
 [
   {
-    "name": "a set the reader named is argued back at them",
+    "name": "a set with nothing to show carries something anyway",
     "file": "crates/landscape-analyze/src/lib.rs",
-    "old": "    if set\n        .members\n        .iter()\n        .all(|m| matches!(m.because, Because::Named))\n    {\n        return None;\n    }",
-    "new": "    if set\n        .members\n        .iter()\n        .any(|m| matches!(m.because, Because::Named))\n    {\n        return None;\n    }",
+    "old": "    if argued.is_empty() && left_out.is_empty() {\n        return None;\n    }",
+    "new": "    if !argued.is_empty() {\n        return None;\n    }",
     "run": [
       "cargo",
       "nextest",
@@ -32,8 +32,8 @@
   {
     "name": "the companies that were left out are left out of the argument too",
     "file": "crates/landscape-analyze/src/lib.rs",
-    "old": "        left_out: set\n            .set_aside\n            .iter()",
-    "new": "        left_out: set\n            .set_aside\n            .iter()\n            .take(0)",
+    "old": "    let left_out: Vec<landscape_core::Reason> = set\n        .set_aside\n        .iter()",
+    "new": "    let left_out: Vec<landscape_core::Reason> = set\n        .set_aside\n        .iter()\n        .take(0)",
     "run": [
       "cargo",
       "nextest",
@@ -62,8 +62,8 @@
   {
     "name": "the page writes its own wording for an exclusion",
     "file": "crates/landscape-analyze/src/lib.rs",
-    "old": "                why: why.sentence(),",
-    "new": "                why: String::from(\"not included\"),",
+    "old": "            why: why.sentence(),",
+    "new": "            why: String::from(\"not included\"),",
     "run": [
       "cargo",
       "nextest",
@@ -77,8 +77,23 @@
   {
     "name": "a company the reader named is argued back at them",
     "file": "crates/landscape-analyze/src/lib.rs",
-    "old": "            .filter(|m| !matches!(m.because, Because::Named))\n",
+    "old": "        .filter(|m| !matches!(m.because, Because::Named))\n",
     "new": "",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-analyze",
+      "-p",
+      "landscape-core"
+    ]
+  },
+  {
+    "name": "a seed whose rivals were all rejected says nothing about them",
+    "file": "crates/landscape-analyze/src/lib.rs",
+    "old": "    if argued.is_empty() && left_out.is_empty() {",
+    "new": "    if argued.is_empty() {",
     "run": [
       "cargo",
       "nextest",

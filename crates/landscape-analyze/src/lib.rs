@@ -423,44 +423,50 @@ struct Provenance<'a> {
 /// them here would be a second wording of one decision, which is the mistake this repository
 /// keeps a register of.
 ///
-/// `None` for a set a reader named themselves. `Because::Named` reads *"you named it"*, and a
-/// page arguing that back at somebody is answering a question they did not ask.
+/// **A company the reader named is not in [`landscape_core::Chosen::argued`].**
+/// `Because::Named` reads *"you named it"*, and a page putting that under somebody's own
+/// company argues a decision back at the person who made it.
+///
+/// **`None` only when there is nothing at all to say**, and getting that wrong cost the block
+/// the case it matters most in. The first version returned early when *every member was named*,
+/// as a stand-in for *the reader named the whole set*. It is not one: `competitors::of_company`
+/// assembles a seed's rivals, leaves the rejected ones in `set_aside`, and then inserts the
+/// named seed into `members` — so **a seeded run where every rival was rejected** has one named
+/// member and a full `set_aside`, and the account of why nobody held up disappeared exactly
+/// when a reader needed it.
+///
+/// A genuinely reader-named set never reaches here at all: that path passes `set: None`. So the
+/// test is what there is to show, not what the members look like.
 fn chosen_from(
     set: &landscape_search::competitors::Set,
     today: NaiveDate,
 ) -> Option<landscape_core::Chosen> {
     use landscape_search::competitors::Because;
-    if set
+    let argued: Vec<landscape_core::Reason> = set
         .members
         .iter()
-        .all(|m| matches!(m.because, Because::Named))
-    {
+        .filter(|m| !matches!(m.because, Because::Named))
+        .map(|m| landscape_core::Reason {
+            domain: m.candidate.canonical_domain.clone(),
+            name: m.candidate.name.clone(),
+            why: m.because.sentence(),
+        })
+        .collect();
+    let left_out: Vec<landscape_core::Reason> = set
+        .set_aside
+        .iter()
+        .map(|(candidate, why)| landscape_core::Reason {
+            domain: candidate.canonical_domain.clone(),
+            name: candidate.name.clone(),
+            why: why.sentence(),
+        })
+        .collect();
+    if argued.is_empty() && left_out.is_empty() {
         return None;
     }
     Some(landscape_core::Chosen {
-        // **The seed is skipped, not given a reason.** `Because::Named` is a fact about what
-        // the reader typed; rendering *"you named it"* under their own company argues a
-        // decision back at the person who made it. Review found the first version doing it in
-        // a seeded set, where the seed sits beside rivals that were found.
-        argued: set
-            .members
-            .iter()
-            .filter(|m| !matches!(m.because, Because::Named))
-            .map(|m| landscape_core::Reason {
-                domain: m.candidate.canonical_domain.clone(),
-                name: m.candidate.name.clone(),
-                why: m.because.sentence(),
-            })
-            .collect(),
-        left_out: set
-            .set_aside
-            .iter()
-            .map(|(candidate, why)| landscape_core::Reason {
-                domain: candidate.canonical_domain.clone(),
-                name: candidate.name.clone(),
-                why: why.sentence(),
-            })
-            .collect(),
+        argued,
+        left_out,
         decided_on: today,
     })
 }
@@ -3154,9 +3160,62 @@ mod joining {
     }
 
     #[test]
-    fn a_set_the_reader_named_is_not_argued_back_at_them() {
+    fn a_seed_whose_rivals_were_all_rejected_still_says_why_nobody_held_up() {
+        // **Review found the block disappearing exactly where it matters.** `of_company`
+        // assembles a seed's rivals, leaves the rejected ones in `set_aside`, and inserts the
+        // named seed into `members` - so a run where every rival was rejected has one named
+        // member and a full `set_aside`. Returning early on *every member is named* dropped all
+        // of those reasons, and a reader was told nothing about why their comparison had
+        // nobody in it.
+        let set = landscape_search::competitors::Set {
+            members: vec![landscape_search::competitors::Member {
+                candidate: landscape_core::subject::Candidate {
+                    name: "Basecamp".to_owned(),
+                    canonical_domain: "basecamp.com".to_owned(),
+                    what_it_is: "Project management".to_owned(),
+                    confidence: 1.0,
+                },
+                because: landscape_search::competitors::Because::Named,
+            }],
+            set_aside: vec![(
+                landscape_core::subject::Candidate {
+                    name: "One Search".to_owned(),
+                    canonical_domain: "onesearch.example".to_owned(),
+                    what_it_is: "a company".to_owned(),
+                    confidence: 0.175,
+                },
+                landscape_search::competitors::Aside::Uncorroborated {
+                    agreed: 1,
+                    asked: 3,
+                    named_by: 0,
+                    guides: 0,
+                },
+            )],
+            alone: None,
+        };
+        let chosen = chosen_from(
+            &set,
+            NaiveDate::from_ymd_opt(2026, 8, 15).expect("a real day"),
+        )
+        .expect("the rejected rivals still have to be accounted for");
+        assert!(
+            chosen.argued.is_empty(),
+            "the seed is not argued for: {:?}",
+            chosen.argued
+        );
+        assert_eq!(chosen.left_out.len(), 1);
+        assert!(
+            chosen.left_out[0].why.contains("nothing corroborates it"),
+            "{:?}",
+            chosen.left_out[0]
+        );
+    }
+
+    #[test]
+    fn a_set_with_nothing_to_show_carries_nothing() {
         // `Because::Named` reads *"you named it"*, and a page making that case is answering a
-        // question nobody asked. Nothing to show, so nothing is carried.
+        // question nobody asked. With nobody set aside either, there is nothing to carry -
+        // which is the test, rather than the shape of the members.
         let set = landscape_search::competitors::Set {
             members: vec![landscape_search::competitors::Member {
                 candidate: landscape_core::subject::Candidate {

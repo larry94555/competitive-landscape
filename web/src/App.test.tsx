@@ -1705,6 +1705,37 @@ describe("the four blocks", () => {
       ).toBeInTheDocument();
     });
 
+    it("still says why nobody held up when no rival made it into the set", async () => {
+      // **The case the block used to disappear in.** A reader named one company, every rival
+      // the searching found was rejected, and the page showed a comparison of one with no
+      // account of why. `argued` is empty here and `left_out` is not, and the reasons are the
+      // whole of what there is to say.
+      await reportWith({
+        subjects: ["https://basecamp.com"],
+        chosen: {
+          argued: [],
+          left_out: [
+            {
+              domain: "onesearch.example",
+              name: "One Search",
+              why: "only 1 of the 3 searches returned it, and we read no buyer's guide that might have, so nothing corroborates it",
+            },
+          ],
+          decided_on: "2026-08-15",
+        },
+      });
+      const left = await screen.findByRole("region", {
+        name: "Considered and left out",
+      });
+      expect(within(left).getByText("onesearch.example")).toBeInTheDocument();
+      expect(
+        within(left).getByText(/nothing corroborates it/),
+      ).toBeInTheDocument();
+      // And the company the reader named is still not argued for.
+      const companies = await screen.findByRole("region", { name: "Companies" });
+      expect(within(companies).queryByText(/you named it/)).toBeNull();
+    });
+
     it("does not argue a seed back at the reader who named it", async () => {
       // A seeded set is the mixed case: the reader typed one company and the rest were found.
       // The seed is in the comparison because they said so, and *"you named it"* under their

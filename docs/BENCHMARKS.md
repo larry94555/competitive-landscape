@@ -44,7 +44,7 @@ already invisible.
 | | Rust tests | frontend tests | catalog | gates |
 |---|---|---|---|---|
 | before | 1072 | 139 | 45, all caught | 17 |
-| after | **1076** | **145** | **51**, all caught | **17** |
+| after | **1077** | **146** | **52**, all caught | **17** |
 
 ### What was invisible
 
@@ -82,6 +82,15 @@ found and is not in the comparison."*
 so a seeded set put *"you named it"* under the reader's own company. The field is `argued` now
 and a `Named` member is not in it: it is in the comparison because somebody said so, which is a
 fact rather than a case.
+
+**And that early return was wrong a second time, in the case it mattered most.** *Every member is
+named* stood in for *the reader named the whole set*, and it is not the same thing:
+`competitors::of_company` assembles a seed's rivals, leaves the rejected ones in `set_aside`, and
+then inserts the named seed into `members`. **A seeded run where every rival was rejected** has
+one named member and a full `set_aside` — so the account of why nobody held up disappeared exactly
+when a reader had a comparison of one and needed it. A genuinely reader-named set never reaches
+the conversion at all: that path passes `set: None`. The test is now what there is to show rather
+than what the members look like.
 
 ### Both halves or neither
 
@@ -538,7 +547,7 @@ six sections a real company actually produces — needs a model and a network. S
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 50 | 1026 | 139 | no code changed |
-| now | **1076** | **145** | **51**, all caught |
+| now | **1077** | **146** | **52**, all caught |
 
 ---
 
