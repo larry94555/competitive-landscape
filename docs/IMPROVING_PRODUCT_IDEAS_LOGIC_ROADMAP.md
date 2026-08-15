@@ -19,9 +19,9 @@
 | | |
 |---|---|
 | **Pull requests in this plan** | **7** |
-| **Done** | **6** |
-| **Remaining** | **1** |
-| **Complete** | **86%** |
+| **Done** | **7** |
+| **Remaining** | **0** |
+| **Complete** | **100%** |
 
 **PR 1 is the two documents; PR 2 is the discovery golden set; PR 3 and PR 4 are the ones a
 reader can see.** The percentage counts pull requests, not effort — PR 7 is larger than PRs 5
@@ -76,7 +76,7 @@ which is the kind of claim that makes a plan look further along than it is.
 | 4 | **Raise the fit test above one word** | `competitors::enough_words`, `assemble` | **Done** |
 | 5 | **Candidates from page content** | new `search::literature` | **Done** |
 | 6 | **Render the reason that already exists** | `Report`, `web/src/App.tsx` | **Done** |
-| 7 | **Breadth, and subcategories** | new `candidates::breadth`, the interface | To do |
+| 7 | **Breadth, and subcategories** | new `search::breadth`, the interface | **Done** |
 
 **The comparison matrix is not in this list.** It is already a row in
 [`Full_Feature_List.md`](Full_Feature_List.md) under S3, and it is the largest single thing that
@@ -386,6 +386,31 @@ Both thresholds are starting points and must be labeled as such, exactly as
 `MINIMUM_CONFIDENCE` and `AMBIGUITY_MARGIN` are. When it is several, the reader is offered the
 categories and picks — reusing the ambiguity chips exactly as they are, each carrying a whole
 prompt so a click is a new run with its own URL.
+
+#### What shipped, and where it departs from the plan above
+
+`landscape_search::breadth` takes the categories from **the headings of the guides
+[`literature`] already fetched** — a heading is structure the page wrote, in the same sense a
+link is something the page did. **No breadth query is asked.** The plan opened with *ask a
+breadth question before shopping for vendors*; the pages that answer it are the ones a market's
+own search results already contain, and three more queries to somebody's engine to reach the same
+guides would have been a cost with no evidence behind it.
+
+Both thresholds are labeled as hypotheses, in the code and here:
+
+```
+NAMED_BY_HOSTS = CORROBORATION   two independent guides, the same bar companies clear
+CONCENTRATION  = 0.60            one category holding more than this is an answer
+```
+
+`Failure::TooGeneral` is **its own kind**, not `Ambiguous`. *Several companies are called this*
+is about a name; *project management software is four markets* is about a subject, and telling
+somebody whose words were perfectly clear that we could not work out which company they meant is
+the wording this enum was split apart to stop once already.
+
+**The chips are the existing ones**, in the shape `vocabulary::choices_from` already used for
+competing market names: no domain, the evidence in its place, and a whole prompt per chip so a
+click is a new run with its own URL.
 
 *Removes the rest of cause 1.*
 

@@ -986,6 +986,8 @@ where
             verdict,
             set,
             about_a_market: crate::competitors::about_a_market(&words),
+            // From the guides this run already read; see `crate::breadth`.
+            categories: crate::breadth::of(&reading),
         },
         queried.clone(),
     )

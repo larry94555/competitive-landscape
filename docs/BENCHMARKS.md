@@ -33,6 +33,73 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 56 — one question, several markets
+
+**Date:** 2026-08-15 — **Where:** this laptop, no engine and no model needed — **Model:** none.
+
+`IMPROVING_PRODUCT_IDEAS_LOGIC_ROADMAP.md` PR 7, the last row in that plan, and the rest of
+cause 1. **The roadmap calls this one a research problem and says it may turn out to be worth
+less than it looks** — what follows includes the part where that is still true.
+
+| | Rust tests | frontend tests | catalog | gates |
+|---|---|---|---|---|
+| before | 1077 | 146 | 52, all caught | 17 |
+| after | **1087** | **146** | **61**, all caught | **17** |
+
+### Where the categories come from
+
+**The headings of the pages already fetched.** A buyer's guide to a broad market is organized by
+category — *Best for creative agencies*, *Best for software teams* — and a heading is structure the
+page wrote, in the same sense a link is something the page did. No model, no summarizing, nothing
+asserted that was not read.
+
+**No breadth query is asked, and the plan said one would be.** The pages that answer *how does
+this market divide* are the same guides `literature` already fetched for *who is in it*; three
+more queries to somebody's engine to reach the same pages would be a cost with no evidence behind
+it. Reading them twice costs nothing because `Reading` keeps them.
+
+### The two decisions, and both numbers are hypotheses
+
+```
+NAMED_BY_HOSTS = CORROBORATION   two independent guides, the same bar a company clears
+CONCENTRATION  = 0.60            one category holding more than this means the question
+                                 was answered rather than too broad
+```
+
+**The second condition is the one doing the work.** Any broad market has subheadings; what makes
+a question *too general* is that the companies found are **spread** across them. A reader who
+asked about project management for agencies and got mostly agency tools was answered, and
+offering to narrow it would be the interrogation `PRODUCT_SPEC.md` §3 warns against.
+
+### A failure kind of its own
+
+`Failure::TooGeneral`, not `Ambiguous`. *Several companies are called this* is about a **name**;
+*project management software is four markets* is about a **subject**, and the reader picks a kind
+of thing rather than a company. Telling somebody whose words were perfectly clear that we could
+not work out which company they meant is the exact wording this enum was split apart to stop —
+Run 44's fatal bug, arriving a second time from a different direction.
+
+The chips are the existing ones, in the shape `vocabulary::choices_from` already used for
+competing market names: no domain, the evidence in its place, and **a whole prompt per chip** so
+a click is a new run with its own URL.
+
+### What is not measured, and it is the important part
+
+**The discovery golden set does not exercise this.** Its five fixtures are markets with one
+answer each, and their guide pages are two lines of links with no headings — so `too_general` is
+false on every one of them, which is correct and is not evidence that the rule works.
+
+What the rule rests on is nine unit tests and a claim about what buyer's guides look like. **A
+sixth fixture with realistic guide structure is the obvious next thing**, and it is left undone
+deliberately rather than by omission: writing the fixture and the rule in the same sitting is how
+a measurement comes to agree with the code it measures. This repository has three register
+entries about exactly that.
+
+**So the honest summary is:** the mechanism is built, bounded, reversible and tested at the unit
+level; whether 0.60 is anywhere near right is unknown, and the roadmap said it would be.
+
+---
+
 ## Run 55 — the reason a reader can see
 
 **Date:** 2026-08-15 — **Where:** this laptop, no engine and no model needed — **Model:** none.
@@ -547,7 +614,7 @@ six sections a real company actually produces — needs a model and a network. S
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 50 | 1026 | 139 | no code changed |
-| now | **1077** | **146** | **52**, all caught |
+| now | **1087** | **146** | **61**, all caught |
 
 ---
 

@@ -549,7 +549,8 @@ function AnalysisView({
   // invite a reader to re-run something they can already read. The server clears it for the
   // same reason — `analysis_from_row` — and neither side relies on the other having done so.
   const choices =
-    analysis.status === "failed" && analysis.failure === "ambiguous"
+    analysis.status === "failed" &&
+    (analysis.failure === "ambiguous" || analysis.failure === "too_general")
       ? analysis.choices
       : [];
   const several =
@@ -1825,6 +1826,14 @@ function describe(
           return offered > 0
             ? "That name matches more than one company, and we will not guess between them. Pick the one you meant:"
             : "That name matches more than one company, and we will not guess between them. Name the one you mean — a website works.";
+        case "too_general":
+          // **Their words are not the problem, and the sentence must not imply they are.** The
+          // question was understood; the answer is that it is several markets, which the
+          // guides to it say themselves. Telling somebody to reword a perfectly clear question
+          // is the wording this failure kind was split off `ambiguous` to stop.
+          return offered > 0
+            ? "The guides to this divide it into several markets, and the companies we found are spread across them. Pick the one you meant:"
+            : "The guides to this divide it into several markets rather than one. Narrowing the idea gives you a comparison of one of them rather than an average of all.";
         case "nothing_found":
           return "We searched and found no company we could stand behind. Try naming a website, or describing the product in the words a vendor would use.";
         case "search_incomplete":

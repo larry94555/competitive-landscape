@@ -1,0 +1,137 @@
+[
+  {
+    "name": "one guide dividing a market is enough to divide it",
+    "file": "crates/landscape-search/src/breadth.rs",
+    "old": "        .filter(|(_, (by, companies))| by.len() >= NAMED_BY_HOSTS && !companies.is_empty())",
+    "new": "        .filter(|(_, (by, companies))| by.len() >= 1 && !companies.is_empty())",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a heading with nobody under it is a market",
+    "file": "crates/landscape-search/src/breadth.rs",
+    "old": "        .filter(|(_, (by, companies))| by.len() >= NAMED_BY_HOSTS && !companies.is_empty())",
+    "new": "        .filter(|(_, (by, _companies))| by.len() >= NAMED_BY_HOSTS)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a page's own title is one of the markets it divides",
+    "file": "crates/landscape-search/src/breadth.rs",
+    "old": "        if hashes >= 2 && line.starts_with('#') {",
+    "new": "        if hashes >= 1 && line.starts_with('#') {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "every link on a guide belongs to every heading on it",
+    "file": "crates/landscape-search/src/breadth.rs",
+    "old": "        body.clear();",
+    "new": "",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a market whose companies sit under one heading is offered anyway",
+    "file": "crates/landscape-search/src/breadth.rs",
+    "old": "    !categories\n        .iter()\n        .any(|c| share(c.companies.len()) > CONCENTRATION)",
+    "new": "    true",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "one category is a question with two answers",
+    "file": "crates/landscape-search/src/breadth.rs",
+    "old": "    if categories.len() < 2 || candidates == 0 {",
+    "new": "    if candidates == 0 {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a question with several answers is answered anyway",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "        _ if landscape_search::breadth::too_general(&categories, set.members.len()) => {",
+    "new": "        _ if false => {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a broad question is blamed on the reader's words",
+    "file": "crates/landscape-analyze/src/subject.rs",
+    "old": "                kind: landscape_core::Failure::TooGeneral,",
+    "new": "                kind: landscape_core::Failure::Ambiguous,",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a category chip sends a word rather than a whole prompt",
+    "file": "crates/landscape-search/src/breadth.rs",
+    "old": "            prompt: if c.label.contains(&asked.to_lowercase()) {\n                c.label.clone()\n            } else {\n                format!(\"{asked} {}\", c.label)\n            },",
+    "new": "            prompt: c.label.clone(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-analyze"
+    ]
+  }
+]

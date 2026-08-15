@@ -2910,6 +2910,33 @@ The same module deduplicated publishers with `if !by.contains(&guide.host)` — 
 the guard passed. **Two guards where one would do reads as coverage and is not**, which this
 register already has an entry about; the second occurrence was found the same way.
 
+## 73. A rule stated correctly in prose and implemented as a proxy for itself
+
+**Found:** three times in one pull request, by the same reviewer, on three different lines.
+
+The pull request that put the reason a company is in the set onto the page was written with its
+rules spelled out. Each one was then coded as something *nearby* that happened to agree on the
+case in front of me:
+
+| The rule, as written | What the code tested | Where they part |
+|---|---|---|
+| *The reader named the whole set* | Every member is `Because::Named` | A **seed** whose rivals were all rejected: one named member, a full `set_aside` |
+| *These pages were read* | `read_on`, printed above every exclusion | Two of the five reasons are *we could not read it* and *we never asked* |
+| *The seed needs no argument, the rivals do* | Skip the block when **all** are named | A seed beside one found rival renders *"you named it"* |
+
+**Every one of them was true of the case I had in mind and false of a case the system produces.**
+That is what makes the class hard to see: the proxy is not a mistake in reasoning, it is a
+*correct observation about the example* promoted to a rule.
+
+**Ask, of any condition written next to a sentence explaining it:** *name a state where the
+sentence and the condition disagree.* If none comes to mind in a minute, look for the state the
+sentence is about and check what the condition returns there — here, *what the reader typed* is
+knowable directly (`Given`, or the fact that the named path passes no set at all), and the code
+was inferring it from the shape of the output instead.
+
+**And the general form:** when a rule is about an **input**, testing an **output** for a
+fingerprint of that input is a proxy. The input is usually still in scope, or one parameter away.
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

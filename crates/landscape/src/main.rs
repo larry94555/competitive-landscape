@@ -732,8 +732,13 @@ Set SEARX_URL to run the queries; without it the queries are printed and nothing
             verdict,
             set,
             about_a_market: landscape_search::competitors::about_a_market(&words),
+            // **This diagnostic reads no guides**, so it has no headings to divide a market by
+            // and never offers subcategories. `landscape candidates` shows what the ranking
+            // alone produces; saying so is the same rule that gives it `guides: 0`.
+            categories: Vec::new(),
         },
         &queried,
+        description,
     ) {
         landscape_analyze::subject::Decided::Analyze(set) => {
             for line in set_as_printed(&set) {
@@ -1650,7 +1655,7 @@ async fn resolve_from_description(
     }
     Read {
         searches: read.queried.coverage(),
-        decided: landscape_analyze::subject::decide(derived, &read.queried),
+        decided: landscape_analyze::subject::decide(derived, &read.queried, prompt),
         // **Only when something was actually substituted.** A market whose name is what the
         // reader already typed is not an interpretation, and a line saying so would be noise
         // over the top of the one case the line exists for. `for_market` decided it, so this
@@ -2346,6 +2351,7 @@ Project management software built for speed."
         // waiting rather than *"we searched and found nobody"*.
         let decided = landscape_analyze::subject::decide(
             landscape_search::competitors::Derived {
+                categories: Vec::new(),
                 verdict: landscape_core::subject::Resolution::Resolved {
                     entity: landscape_core::subject::Candidate {
                         name: "Alpha".to_owned(),
@@ -2364,6 +2370,7 @@ Project management software built for speed."
                     landscape_search::Condition::NoAnswer,
                 )],
             },
+            "a market",
         );
         let landscape_analyze::subject::Decided::Refuse(refusal) = decided else {
             panic!("an empty set was analyzed")
@@ -2397,6 +2404,7 @@ Project management software built for speed."
         // work out what we would not.
         let decided = landscape_analyze::subject::decide(
             landscape_search::competitors::Derived {
+                categories: Vec::new(),
                 verdict: landscape_core::subject::Resolution::Ambiguous {
                     question: "which one?".to_owned(),
                     candidates: vec![
@@ -2421,6 +2429,7 @@ Project management software built for speed."
                 completed: vec!["q1".to_owned(), "q2".to_owned(), "q3".to_owned()],
                 failed: Vec::new(),
             },
+            "a market",
         );
         let landscape_analyze::subject::Decided::Refuse(refusal) = decided else {
             panic!("a tie about one company is a refusal")

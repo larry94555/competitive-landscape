@@ -80,7 +80,7 @@
   {
     "name": "a finished report offers a question an earlier attempt asked",
     "file": "web/src/App.tsx",
-    "old": "  const choices =\n    analysis.status === \"failed\" && analysis.failure === \"ambiguous\"\n      ? analysis.choices\n      : [];",
+    "old": "  const choices =\n    analysis.status === \"failed\" &&\n    (analysis.failure === \"ambiguous\" || analysis.failure === \"too_general\")\n      ? analysis.choices\n      : [];",
     "new": "  const choices = analysis.choices;",
     "run": [
       "npx",
@@ -116,8 +116,8 @@
   {
     "name": "a reader is told to type a website while the websites are buttons",
     "file": "web/src/App.tsx",
-    "old": "          return offered > 0",
-    "new": "          return offered < 0",
+    "old": "          return offered > 0\n            ? \"That name matches more than one company, and we will not guess between them. Pick the one you meant:\"",
+    "new": "          return offered < 0\n            ? \"That name matches more than one company, and we will not guess between them. Pick the one you meant:\"",
     "run": [
       "npx",
       "vitest",

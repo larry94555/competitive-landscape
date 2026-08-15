@@ -132,6 +132,18 @@ pub enum Failure {
     /// The reader answers it in one word, which is why it cannot share a sentence with the
     /// three below: every one of those tells them to do something that would not help.
     Ambiguous,
+    /// The question covers several markets, and the market's own guides say which.
+    ///
+    /// **Not [`Self::Ambiguous`], and the difference is who is being asked what.** *Several
+    /// companies are called this* is about a name; *project management software is four
+    /// markets* is about a subject, and the reader picks a **kind of thing** rather than a
+    /// company. Collapsing them would tell somebody whose words were perfectly clear that we
+    /// could not work out which company they meant, which is the fatal wording this enum was
+    /// split apart to stop once already.
+    ///
+    /// **The reader fixes this in one click**, exactly as they fix `Ambiguous`: each choice
+    /// carries a whole prompt.
+    TooGeneral,
     /// We searched, and found no company we could stand behind.
     ///
     /// About the world rather than about us. Rewording helps; naming a domain helps; waiting
@@ -167,6 +179,7 @@ impl Failure {
             Self::NoSubject => "no_subject",
             Self::NoEngine => "no_engine",
             Self::Ambiguous => "ambiguous",
+            Self::TooGeneral => "too_general",
             Self::NothingFound => "nothing_found",
             Self::SearchIncomplete => "search_incomplete",
             Self::SearchRefused => "search_refused",
@@ -184,6 +197,7 @@ impl Failure {
             "no_subject" => Self::NoSubject,
             "no_engine" => Self::NoEngine,
             "ambiguous" => Self::Ambiguous,
+            "too_general" => Self::TooGeneral,
             "nothing_found" => Self::NothingFound,
             "search_incomplete" => Self::SearchIncomplete,
             "search_refused" => Self::SearchRefused,
