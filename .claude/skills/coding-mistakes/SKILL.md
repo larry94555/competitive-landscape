@@ -2855,6 +2855,30 @@ is not a spelling. `scripts/no_generator_artifacts.py` is the seventeenth gate.
 **The rule this is an instance of:** *a defect that recurs and that no existing check can see is
 a check waiting to be written.* Two occurrences is a coincidence to fix by hand; three is a gate.
 
+## 71. The fixture named as the judge could not have judged it, twice
+
+**Found:** by predicting what each candidate rule would score, before choosing one.
+
+The plan named one fixture as the case that would decide a threshold change. Entry 68 records the
+first time it could not: the harness stopped one stage short of the code the change touches. That
+was fixed, and the fixture still could not judge it — for a different reason.
+
+The rule that shipped asks for **half the market's words**, and that fixture's market was three
+words wide. Half of three, rounded down, is one — **exactly what the old rule asked for.** Every
+rule under consideration would have scored that fixture identically. It was not a bad
+measurement; it was a measurement with no leverage on this question.
+
+**The shape: a case chosen for its subject rather than for its sensitivity.** *A fixture about
+keyword impostors* sounds like the right judge for *a change to the keyword test*, and the naming
+is what makes it hard to doubt. What decides whether a case can judge a change is not what it is
+about, it is whether the candidate answers differ on it.
+
+**Ask, before trusting a fixture to settle a choice:** *compute what each candidate would score
+on it.* If two candidates give the same answer, that fixture is not evidence between them, and
+the set needs a case where they differ before the choice is worth making. Here that meant a
+four-word market and an impostor sharing exactly one word — a case that passes a bar of one and
+fails a bar of two, which is the only shape that separates them.
+
 ## Before a PR: two commands and eight questions
 
 **The commands come first, because they are the part that does not depend on remembering.**

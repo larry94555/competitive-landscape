@@ -55,7 +55,7 @@
     "name": "a page nobody could read is reported as a page about another market",
     "file": "crates/landscape-search/src/competitors.rs",
     "old": "                Vocabulary::Unreadable => Some(Aside::Unread),",
-    "new": "                Vocabulary::Unreadable => Some(Aside::ElsewhereEntirely {\n                    looked_for: looked_for.to_vec(),\n                }),",
+    "new": "                Vocabulary::Unreadable => Some(Aside::ElsewhereEntirely {\n                    looked_for: looked_for.to_vec(),\n                    used: Vec::new(),\n                    needed: enough_words(looked_for.len()),\n                }),",
     "run": [
       "cargo",
       "nextest",
@@ -80,7 +80,7 @@
   {
     "name": "a company whose page shares nothing joins the comparison anyway",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "                Vocabulary::Read(ref s) if s.len() < SHARED_WORDS => {",
+    "old": "                Vocabulary::Read(ref s) if s.len() < enough_words(looked_for.len()) => {",
     "new": "                Vocabulary::Read(ref s) if s.len() < 0 => {",
     "run": [
       "cargo",

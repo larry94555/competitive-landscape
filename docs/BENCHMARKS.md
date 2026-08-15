@@ -33,6 +33,81 @@ cargo run -p landscape -- gap docs/js-gap-sample.txt
 
 ---
 
+## Run 53 — half the market's words, chosen by measuring four rules
+
+**Date:** 2026-08-14 — **Where:** this laptop, no engine and no model needed — **Model:** none.
+
+`IMPROVING_PRODUCT_IDEAS_LOGIC_ROADMAP.md` PR 4, and cause 4 of `PRODUCT_IDEA_RESULTS_LOGIC.md`
+§4: the fit test existed and was set to its weakest possible value. `projectplusgame.com` sells a
+board game, its page says *"a board game about project deadlines"*, and *project* is one of the
+reader's words. One shared word was the whole bar.
+
+| | Rust tests | frontend tests | catalog | gates |
+|---|---|---|---|---|
+| before | 1048 | 139 | 18, all caught | 17 |
+| after | **1050** | **139** | **23**, all caught | **17** |
+
+### The measurement came first, and it had to be widened before it could judge anything
+
+**`keyword-impostor` is the fixture the roadmap named as this PR's judge, and it could not have
+judged it.** Run 51 already found that it admits no impostor at all. This run found the second
+half: its market was **three words** wide, and the rule that shipped asks for half the market
+rounded down — so a three-word market asks for one, exactly what it asked for before. The
+fixture would have scored identically under every rule considered.
+
+It now describes *"time tracking for independent consultants"* and holds `timezonecheck.com`, a
+world clock whose front page shares `time` and nothing else. **It passes a bar of one and fails a
+bar of two**, which is the only shape that can tell these rules apart.
+
+### Four rules, scored
+
+`landscape_golden::discovery::Fit` implements all four; the fixtures score them.
+
+| Rule | Impostors admitted | Real companies lost |
+|---|---|---|
+| One word — what ran before | **2** | 0 |
+| A flat two | 0 | **2** — microsoft.com, intuit.com |
+| Half the market, rounded up | 0 | **1** — intuit.com |
+| **Half the market, rounded down** | **0** | **0** |
+
+**The losses are the finding.** A flat two asks a two-word market for all of it, and
+*"# Microsoft Excel / The spreadsheet."* is a terse front page rather than a company in another
+market. Rounding up asks a three-word market for two and costs QuickBooks, which is a defensible
+answer for *"invoicing software for freelance translators"*. Rounding down never asks a short
+description for all of itself: a four-word market is the first that has to give two.
+
+**Five fixtures is a small set and this number is fitted to them.** It is recorded in the code,
+in the logic document and here, because a number chosen by measuring five cases is a starting
+value however carefully it was chosen.
+
+### What moved
+
+| | Before | After |
+|---|---|---|
+| `project-management-for-agencies` | asana.com, **projectplusgame.com**, microsoft.com | asana.com, microsoft.com |
+| Impostors admitted, whole set | **1** | **0** |
+| Mean recall | 60% | 60% |
+
+**Recall did not move, again, and this time that is the whole point.** The change removes
+companies that should never have been there; a rule that also removed a real one would show up as
+recall falling, and the four-rule table is what makes that visible rather than a matter of trust.
+
+### The sentence had to change with the number
+
+While one word was the whole test, *excluded for fit* and *uses none of your words* were the same
+fact. They stopped being the same the moment the bar could be cleared by a page that shares
+something: `projectplusgame.com` uses **one** of the four, and a reader told it used *none* would
+be told something untrue about a page they can open. `Aside::ElsewhereEntirely` now carries what
+the page used and how many were wanted, and the sentence says both.
+
+### What it does not do
+
+**Two causes are left.** The ranking still measures appearance rather than fit — `workamajig.com`
+is still missed, from a single query — and the first templated query is still malformed. PRs 5
+to 7.
+
+---
+
 ## Run 52 — a product, not a domain
 
 **Date:** 2026-08-14 — **Where:** this laptop, no engine and no model needed — **Model:** none.
@@ -264,7 +339,7 @@ six sections a real company actually produces — needs a model and a network. S
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 50 | 1026 | 139 | no code changed |
-| now | **1048** | **139** | **18**, all caught |
+| now | **1050** | **139** | **23**, all caught |
 
 ---
 

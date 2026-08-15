@@ -58,16 +58,44 @@ use crate::candidates::{Described, NoVocabulary, Queried, Seed, Vocabulary, CORR
 /// here, and the thing that replaces it is a chip, not a bigger number.
 pub const DESCRIBES_A_MARKET: usize = 2;
 
-/// How many of the reader's own words a front page has to use for a company to join the set.
+/// The fewest of the market's words a front page may use and still be in the set.
 ///
-/// **One, and this is a floor rather than a filter.** The claim being made is narrow: a company
-/// whose front page uses *none* of the words somebody typed is not obviously in the market they
-/// described. It is not a claim that a page using one of them is a good competitor — `software`
-/// and `platform` appear on nearly every front page there is, and this rule cannot see that.
+/// **One, and it is the floor rather than the whole test.** A two-word market cannot ask for
+/// more than one word without asking for all of it, and demanding all of a short description is
+/// how a real competitor gets dropped for terse front matter. See [`enough_words`] for the part
+/// that scales.
+pub const SHARED_WORDS_FLOOR: usize = 1;
+
+/// How many of the market's words a front page has to use for a company to join the set.
 ///
-/// It exists for one failure it can see: a search for a market returning a company from a
-/// different one, which then gets compared against companies it has nothing to do with.
-pub const SHARED_WORDS: usize = 1;
+/// **Half of them, rounded down, and never fewer than [`SHARED_WORDS_FLOOR`].** The more a
+/// reader said about the market, the more of it a page has to actually be about.
+///
+/// ```text
+/// spreadsheet finance                        2 words  ->  1
+/// project management design agency           4 words  ->  2
+/// time tracking independent consultants      4 words  ->  2
+/// ```
+///
+/// **It was a flat `1`, and a board game passed it.** *"project management for a small design
+/// agency"* returned `projectplusgame.com`, whose page says *"a board game about project
+/// deadlines"*: one shared word, one word required. The machinery was right and the number was
+/// its weakest possible value.
+///
+/// # Why this shape, and what it cost
+///
+/// **Four rules were written and scored against the discovery golden set** rather than one being
+/// picked — `landscape_golden::discovery::Fit`, and `BENCHMARKS.md` Run 53 has the table. A flat
+/// two loses two real competitors whose front pages are terse; half the market's words *rounded
+/// up* loses one. Rounded down, no fixture loses anybody and the impostor goes.
+///
+/// **Five fixtures is a small set, and this number is fitted to them.** It is a starting value
+/// and labeled as one, exactly as [`DESCRIBES_A_MARKET`] is. What replaces it is a bigger set,
+/// or a signal that is not word counting at all.
+#[must_use]
+pub fn enough_words(market: usize) -> usize {
+    (market / 2).max(SHARED_WORDS_FLOOR)
+}
 
 /// Words that carry grammar rather than meaning.
 ///
@@ -156,7 +184,18 @@ pub enum Aside {
     /// only a domain. A reader was given a false account of the evidence used to exclude
     /// somebody. Naming them is true on both paths, and lets a reader judge the exclusion
     /// instead of taking it.
-    ElsewhereEntirely { looked_for: Vec<String> },
+    ElsewhereEntirely {
+        looked_for: Vec<String>,
+        /// The ones it did use, which may be some of them rather than none.
+        ///
+        /// **Added when the bar moved off one.** While one word was the whole test, *excluded*
+        /// and *uses none of them* were the same fact and the sentence could say either. They
+        /// are now different: a page can use one of four and still be set aside, and a reader
+        /// told it used *none* would be told something untrue about a page they can open.
+        used: Vec<String>,
+        /// How many it needed, from [`enough_words`].
+        needed: usize,
+    },
     /// Its front page was requested and could not be read, so nothing could be checked.
     ///
     /// **Not the same as [`Self::ElsewhereEntirely`].** One says the company is in another
@@ -182,10 +221,23 @@ impl Aside {
                 "only {agreed} of the {asked} searches returned it, so nothing corroborates it"
             ),
             Self::Unconvincing => "it scored below the level worth putting in a report".to_owned(),
-            Self::ElsewhereEntirely { ref looked_for } => format!(
+            Self::ElsewhereEntirely {
+                ref looked_for,
+                ref used,
+                ..
+            } if used.is_empty() => format!(
                 "its own front page uses none of the words this comparison is built on: {}",
                 quoted(looked_for)
             ),
+            Self::ElsewhereEntirely {
+                ref looked_for,
+                ref used,
+                needed,
+            } => {
+                let (used, all, of) = (quoted(used), looked_for.len(), quoted(looked_for));
+                let uses = format!("its own front page uses {used} of the {all} words");
+                format!("{uses} this comparison is built on ({of}), and a company in this market uses at least {needed}")
+            }
             Self::Unread => {
                 "we could not read its front page, so we could not check what it does - name the \
                  domain yourself and we will read it"
@@ -474,7 +526,7 @@ pub fn for_company(name: &str) -> Vec<Query> {
 /// it"* — two reasons for one company, one of which is circular.
 ///
 /// The words a rival's front page has to share come from the **seed's own front page**, not from
-/// anything a reader typed. That is the same [`SHARED_WORDS`] floor the description path uses,
+/// anything a reader typed. That is the same [`enough_words`] test the description path uses,
 /// pointed at the only vocabulary available here, and it does the same narrow job: a company
 /// whose page has nothing in common with the seed's is not obviously in the same market.
 ///
@@ -674,9 +726,11 @@ pub fn assemble(described: Vec<Described>, asked: usize, looked_for: &[String]) 
             match shares {
                 Vocabulary::NotRequested => Some(Aside::BeyondTheFetchBudget { budget: NAMED }),
                 Vocabulary::Unreadable => Some(Aside::Unread),
-                Vocabulary::Read(ref s) if s.len() < SHARED_WORDS => {
+                Vocabulary::Read(ref s) if s.len() < enough_words(looked_for.len()) => {
                     Some(Aside::ElsewhereEntirely {
                         looked_for: looked_for.to_vec(),
+                        used: s.clone(),
+                        needed: enough_words(looked_for.len()),
                     })
                 }
                 Vocabulary::Read(_) => None,
@@ -1157,10 +1211,30 @@ Project management built for speed."
         // evidence used to exclude somebody. Naming them is true on both paths.
         let aside = Aside::ElsewhereEntirely {
             looked_for: vec!["project".to_owned(), "management".to_owned()],
+            used: Vec::new(),
+            needed: 1,
         };
         let said = aside.sentence();
         assert!(!said.contains("you typed"), "{said}");
         assert!(said.contains("\"project\", \"management\""), "{said}");
+
+        // **And a page that used some of them is not told it used none.** While one word was
+        // the whole test the two were the same fact; they stopped being the same the moment the
+        // bar could be cleared by a page that shares something.
+        let some = Aside::ElsewhereEntirely {
+            looked_for: vec![
+                "project".to_owned(),
+                "management".to_owned(),
+                "design".to_owned(),
+                "agency".to_owned(),
+            ],
+            used: vec!["project".to_owned()],
+            needed: 2,
+        };
+        let said = some.sentence();
+        assert!(!said.contains("none"), "{said}");
+        assert!(said.contains("\"project\""), "{said}");
+        assert!(said.contains(" 2"), "{said}");
     }
 
     #[tokio::test]
@@ -1583,7 +1657,9 @@ Project management built for speed."
                 (
                     "notionpress.example",
                     &Aside::ElsewhereEntirely {
-                        looked_for: vec!["analytics".to_owned()]
+                        looked_for: vec!["analytics".to_owned()],
+                        used: Vec::new(),
+                        needed: 1
                     }
                 ),
                 ("unreachable.example", &Aside::Unread),

@@ -1,0 +1,87 @@
+[
+  {
+    "name": "the fit test is a flat one word again",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    (market / 2).max(SHARED_WORDS_FLOOR)",
+    "new": "    SHARED_WORDS_FLOOR",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a two-word market is asked for both of its words",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "    (market / 2).max(SHARED_WORDS_FLOOR)",
+    "new": "    market.div_ceil(2).max(SHARED_WORDS_FLOOR)",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the fit test counts the market's words rather than the page's",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "                Vocabulary::Read(ref s) if s.len() < enough_words(looked_for.len()) => {",
+    "new": "                Vocabulary::Read(ref s) if looked_for.len() < enough_words(s.len()) => {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a page that used some of the words is told it used none",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "            } if used.is_empty() => format!(",
+    "new": "            } if true => format!(",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "the exclusion does not say which words the page did use",
+    "file": "crates/landscape-search/src/competitors.rs",
+    "old": "                        used: s.clone(),",
+    "new": "                        used: Vec::new(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden",
+      "-p",
+      "landscape-analyze"
+    ]
+  }
+]

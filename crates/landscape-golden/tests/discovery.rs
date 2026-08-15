@@ -10,7 +10,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use landscape_golden::discovery::{markets, score, Identity, Market, Scored};
+use landscape_golden::discovery::{markets, score, under, Fit, Identity, Market, Scored};
 use landscape_search::competitors::Aside;
 
 /// What one fixture scores today, exactly.
@@ -44,11 +44,16 @@ fn uncorroborated() -> Aside {
     }
 }
 
-fn elsewhere(words: &[&str]) -> Aside {
+fn elsewhere(words: &[&str], used: &[&str]) -> Aside {
     Aside::ElsewhereEntirely {
         looked_for: words.iter().map(|w| (*w).to_owned()).collect(),
+        used: used.iter().map(|w| (*w).to_owned()).collect(),
+        needed: landscape_search::competitors::enough_words(words.len()),
     }
 }
+
+/// The market of `keyword-impostor`, written once because three exclusions quote it.
+const TIME: [&str; 4] = ["time", "tracking", "independent", "consultants"];
 
 /// The baseline, as of `BENCHMARKS.md` Run 51.
 ///
@@ -64,17 +69,20 @@ fn baseline() -> Vec<Recorded> {
         // earned, and Asana leads.
         Recorded {
             id: "project-management-for-agencies",
-            returned: vec!["asana.com", "projectplusgame.com", "microsoft.com"],
+            returned: vec!["asana.com", "microsoft.com"],
             named: vec![
                 ("asana.com", "Asana"),
-                ("projectplusgame.com", "Project Plus"),
                 ("microsoft.com", "Microsoft Project"),
             ],
             found: vec!["asana.com", "microsoft.com"],
             missed: vec!["workamajig.com"],
-            admitted: vec!["projectplusgame.com"],
+            admitted: vec![],
             set_aside: vec![
                 ("notion.so", uncorroborated()),
+                (
+                    "projectplusgame.com",
+                    elsewhere(&["project", "management", "design", "agency"], &["project"]),
+                ),
                 ("workamajig.com", uncorroborated()),
             ],
         },
@@ -106,11 +114,9 @@ fn baseline() -> Vec<Recorded> {
             missed: vec!["toggl.com"],
             admitted: vec![],
             set_aside: vec![
+                ("timezonecheck.com", elsewhere(&TIME, &["time"])),
                 ("toggl.com", uncorroborated()),
-                (
-                    "trackingtimemusic.com",
-                    elsewhere(&["time", "tracking", "consultants"]),
-                ),
+                ("trackingtimemusic.com", elsewhere(&TIME, &[])),
             ],
         },
         Recorded {
@@ -251,31 +257,139 @@ async fn the_baseline_has_not_changed_by_accident() {
 #[tokio::test]
 async fn the_reported_failure_is_reproduced() {
     // **The specific answer a reader got**, held as a test rather than as a story in a
-    // benchmark. If a change makes this fixture pass, that is the thing to celebrate; if it
-    // makes it pass *and* nothing else moves, it is worth suspecting.
+    // benchmark. It said *Microsoft* and *projectplusgame.com*, and each half is now a
+    // different assertion: the half a change fixed, and the half still waiting for one.
     let market = markets()
         .into_iter()
         .find(|m| m.id == "project-management-for-agencies")
         .expect("the reported failure is in the set");
     let got = score(&market).await;
 
+    // **PR 4 fixed this half.** The board game shares `project` with the prompt and nothing
+    // else, and one shared word used to be the whole test.
     assert!(
-        got.admitted
-            .iter()
-            .any(|(h, _)| *h == "projectplusgame.com"),
-        "the impostor no longer gets in, which is PR 4's job: {:?}",
+        !got.returned.iter().any(|h| h == "projectplusgame.com"),
+        "the board game is back in the answer: {:?}",
         got.returned
     );
+    assert!(
+        got.set_aside
+            .iter()
+            .any(|(host, why)| host == "projectplusgame.com"
+                && matches!(why, Aside::ElsewhereEntirely { .. })),
+        "and it should be excluded for what its page says, not for something else: {:?}",
+        got.set_aside
+    );
+
+    // **PR 3 fixed this half.** The reader was shown *Microsoft*; they are now shown the
+    // product that earned the agreement.
+    assert_eq!(
+        got.named
+            .iter()
+            .find(|(host, _)| host == "microsoft.com")
+            .map(|(_, name)| name.as_str()),
+        Some("Microsoft Project"),
+        "{:?}",
+        got.named
+    );
+
+    // **And this half is still open.** The specialist the prompt actually asks for came back
+    // from one query, which is below `CORROBORATION` — PRs 5 and 7.
     assert!(
         got.missed.contains(&"workamajig.com"),
-        "the specialist is no longer missed, which is PR 3 and 5's job: {:?}",
+        "the specialist is no longer missed, which is PR 5 and 7's job: {:?}",
         got.returned
     );
+}
+
+/// The four fit rules, scored against the set rather than one of them being picked.
+///
+/// **The roadmap says to settle this against the golden set rather than by choosing a number**,
+/// and this is that, in the same shape PR 3's identity comparison took. It prints the table and
+/// asserts the two things that are decidable without an opinion: what the old rule cost, and
+/// that exactly one of the four turns away every impostor while keeping every real company.
+#[tokio::test]
+async fn the_fit_rules_are_compared_rather_than_chosen() {
+    let results = scored().await;
+
+    println!("\nWHAT EACH FIT RULE WOULD DO\n");
+    let mut totals: Vec<(Fit, usize, usize)> = Vec::new();
+    for rule in Fit::all() {
+        let (mut admitted, mut lost) = (Vec::new(), Vec::new());
+        for (market, s) in &results {
+            let (a, l) = under(rule, market, s);
+            admitted.extend(a);
+            lost.extend(l);
+        }
+        println!(
+            "{rule:?}  ->  impostors admitted {}, real companies lost {}",
+            admitted.len(),
+            lost.len()
+        );
+        for host in admitted.iter().chain(lost.iter()) {
+            println!("      {host}");
+        }
+        totals.push((rule, admitted.len(), lost.len()));
+    }
+    println!();
+
+    let count = |rule: Fit| {
+        totals
+            .iter()
+            .find(|(r, _, _)| *r == rule)
+            .map(|(_, a, l)| (*a, *l))
+            .expect("every rule is scored")
+    };
+
+    // **What one word cost, which is the whole reason for this change.** A board game and a
+    // world clock, both admitted to comparisons they have nothing to do with.
+    assert_eq!(
+        count(Fit::AnyWord),
+        (2, 0),
+        "the old rule should still admit both impostors"
+    );
+
+    // **And what the obvious replacement costs.** A flat two asks a two-word market for all of
+    // it, and terse front matter is not a reason to drop a real competitor.
+    let (admitted, lost) = count(Fit::TwoWords);
+    assert_eq!(admitted, 0, "a flat two does turn the impostors away");
     assert!(
-        got.returned.iter().any(|h| h == "microsoft.com"),
-        "microsoft.com is the domain-collapse defect and should still be here until PR 3: {:?}",
-        got.returned
+        lost > 0,
+        "a flat two should cost real companies - if it stopped, the fixtures changed"
     );
+
+    // Rounding up is the same trade in miniature: it asks a three-word market for two.
+    let (admitted, lost_up) = count(Fit::HalfRoundedUp);
+    assert_eq!(admitted, 0);
+    assert!(lost_up > 0, "rounding up should still cost somebody");
+
+    // **The one that is chosen, and it is chosen by being the only one that costs nothing.**
+    assert_eq!(
+        count(Fit::HalfRoundedDown),
+        (0, 0),
+        "the rule in production should turn away every impostor and lose nobody"
+    );
+
+    // **Five fixtures is a small set and this is a fitted number.** Said here as well as in the
+    // documentation, because a reader of this test is exactly the person who should know it.
+    assert_eq!(results.len(), 5, "the set this was fitted to");
+}
+
+/// The bar scales with how much a reader said, and never below one.
+#[test]
+fn a_short_description_is_never_asked_for_all_of_itself() {
+    use landscape_search::competitors::enough_words;
+    // A market nobody could describe in two words still has to admit somebody.
+    assert_eq!(enough_words(0), 1);
+    assert_eq!(enough_words(1), 1);
+    assert_eq!(
+        enough_words(2),
+        1,
+        "two words asked for both is asked for all of it"
+    );
+    assert_eq!(enough_words(3), 1);
+    assert_eq!(enough_words(4), 2);
+    assert_eq!(enough_words(7), 3);
 }
 
 #[test]

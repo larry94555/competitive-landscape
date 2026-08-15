@@ -1190,6 +1190,8 @@ mod deciding {
                             candidate("Alpha", "alpha.example"),
                             Aside::ElsewhereEntirely {
                                 looked_for: vec!["analytics".to_owned()],
+                                used: Vec::new(),
+                                needed: 1,
                             },
                         ),
                         (candidate("Beta", "beta.example"), Aside::Unread),

@@ -2189,7 +2189,7 @@ The second of two."
         assert_eq!(compared, vec!["plausible.io"], "{:#?}", derived.set);
         assert_eq!(derived.set.set_aside.len(), 1);
         assert_eq!(derived.set.set_aside[0].0.name, "Notion Press");
-        let crate::competitors::Aside::ElsewhereEntirely { ref looked_for } =
+        let crate::competitors::Aside::ElsewhereEntirely { ref looked_for, .. } =
             derived.set.set_aside[0].1
         else {
             panic!("{:?}", derived.set.set_aside[0].1)

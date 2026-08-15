@@ -250,7 +250,12 @@ Plans and pricing."),
         },
         Market {
             id: "keyword-impostor",
-            prompt: "time tracking for consultants",
+            // **Four words, because three could not judge the change this fixture is for.**
+            // `enough_words` asks for half the market rounded down, so a three-word market asks
+            // for one - exactly what it asked for before PR 4. The fixture the roadmap named as
+            // that PR's judge could not have moved, which is the same defect PR 2 was corrected
+            // for: a case that cannot fail is not a measurement.
+            prompt: "time tracking for independent consultants",
             results: vec![
                 vec![
                     hit("https://www.harvestapp.com/", "Harvest - time tracking"),
@@ -259,18 +264,30 @@ Plans and pricing."),
                 vec![
                     hit("https://www.harvestapp.com/pricing", "Harvest pricing"),
                     hit("https://trackingtimemusic.com/kits", "TrackingTime kits"),
+                    hit("https://timezonecheck.com/", "Timezone Check"),
                 ],
                 vec![
                     hit("https://toggl.com/track/", "Toggl Track"),
                     hit("https://www.harvestapp.com/", "Harvest - time tracking"),
+                    hit("https://timezonecheck.com/", "Timezone Check"),
                 ],
             ],
             expected: vec!["harvestapp.com", "toggl.com"],
-            impostors: vec![(
-                "trackingtimemusic.com",
-                "a drum machine; shares tracking and time, sells neither",
-            )],
-            words: vec!["time", "tracking", "consultants"],
+            impostors: vec![
+                (
+                    "trackingtimemusic.com",
+                    "a drum machine; shares tracking and time, sells neither",
+                ),
+                // **The case this PR needed and the set did not have.** It shares exactly one
+                // word - `time` - so it passes a bar of one and fails a bar of two. Without it
+                // the only impostor here shares nothing, and a rule that moves the bar from one
+                // to two would have had nothing to prove itself against.
+                (
+                    "timezonecheck.com",
+                    "a world clock; shares time and nothing else",
+                ),
+            ],
+            words: vec!["time", "tracking", "independent", "consultants"],
             pages: vec![
                 ("https://www.harvestapp.com/", "# Harvest
 
@@ -281,6 +298,9 @@ Time tracking for teams and consultants."),
                 ("https://trackingtimemusic.com/", "# TrackingTime
 
 A drum machine. Sequencing, kits and swing."),
+                ("https://timezonecheck.com/", "# Timezone Check
+
+What time is it anywhere. Plan a meeting across the world."),
             ],
             // Toggl's only appearance is a product page, so it is read instead of the front
             // page. It is `Uncorroborated` either way - one query - and this is the case that
@@ -383,6 +403,15 @@ pub struct Scored {
     pub missed: Vec<&'static str>,
     /// Impostors that came back, with why each is one.
     pub admitted: Vec<(&'static str, &'static str)>,
+    /// Every candidate that reached the **fit test**, and how many of the market's words its
+    /// page used.
+    ///
+    /// **The input to PR 4's question, kept apart from its answer.** A candidate excluded for
+    /// being uncorroborated never reaches the fit test at all, so counting it against a fit rule
+    /// would score the rule for a decision some other rule made. These are the ones the rule
+    /// actually decides, taken from the set: a member's `Because::Found { shares }` and an
+    /// `Aside::ElsewhereEntirely { used }` are the same number on either side of the bar.
+    pub at_the_fit_test: Vec<(String, usize)>,
     /// What each company in the set is **called**, by domain.
     ///
     /// **The number PR 3 moves, and recall cannot see it.** Naming a suite *Microsoft* when
@@ -486,6 +515,22 @@ pub async fn score(market: &Market) -> Scored {
             .iter()
             .map(|(c, why)| (c.canonical_domain.clone(), why.clone()))
             .collect(),
+        at_the_fit_test: set
+            .members
+            .iter()
+            .filter_map(|m| match &m.because {
+                landscape_search::competitors::Because::Found { shares, .. } => {
+                    Some((m.candidate.canonical_domain.clone(), shares.len()))
+                }
+                landscape_search::competitors::Because::Named => None,
+            })
+            .chain(set.set_aside.iter().filter_map(|(c, why)| match why {
+                Aside::ElsewhereEntirely { used, .. } => {
+                    Some((c.canonical_domain.clone(), used.len()))
+                }
+                _ => None,
+            }))
+            .collect(),
         named: set
             .members
             .iter()
@@ -508,6 +553,82 @@ fn host_of(url: &str) -> String {
         || url.to_owned(),
         |t| landscape_search::candidates::registrable(&t.host),
     )
+}
+
+/// One way of deciding a company is in the market a reader described.
+///
+/// **PR 4's open question, made runnable, exactly as [`Identity`] was PR 3's.** The roadmap
+/// offers three ways to move the fit test off one word and says to settle them against this set
+/// rather than by picking a number. These are the four that were written down; `Fit::needed` is
+/// each one's answer to *how many of the market's words must a front page use*.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Fit {
+    /// What ran before PR 4: one word, whatever the market.
+    AnyWord,
+    /// A flat two.
+    TwoWords,
+    /// Half the market's words, rounded **up**.
+    HalfRoundedUp,
+    /// Half the market's words, rounded **down**, never below one. What runs now.
+    HalfRoundedDown,
+}
+
+impl Fit {
+    /// How many of the market's words this rule asks a front page to use.
+    #[must_use]
+    pub fn needed(self, market: usize) -> usize {
+        match self {
+            Self::AnyWord => 1,
+            Self::TwoWords => 2,
+            Self::HalfRoundedUp => market.div_ceil(2).max(1),
+            // The real rule, called rather than copied: a golden set carrying its own version of
+            // the thing it scores measures itself.
+            Self::HalfRoundedDown => landscape_search::competitors::enough_words(market),
+        }
+    }
+
+    /// Every rule, so a test cannot score three of four and call it a comparison.
+    #[must_use]
+    pub fn all() -> Vec<Self> {
+        vec![
+            Self::AnyWord,
+            Self::TwoWords,
+            Self::HalfRoundedUp,
+            Self::HalfRoundedDown,
+        ]
+    }
+}
+
+/// What one rule would do to one market: the impostors it admits and the expected companies it
+/// loses.
+///
+/// **Only candidates that reached the fit test are counted.** A company excluded for having one
+/// query behind it is not a company any fit rule turned away, and charging it to one would make
+/// every rule look equally bad at a job none of them were doing.
+#[must_use]
+pub fn under(rule: Fit, market: &Market, scored: &Scored) -> (Vec<String>, Vec<String>) {
+    let needed = rule.needed(market.words.len());
+    let passes = |host: &str| {
+        scored
+            .at_the_fit_test
+            .iter()
+            .find(|(h, _)| h == host)
+            .is_some_and(|(_, used)| *used >= needed)
+    };
+    let reached = |host: &str| scored.at_the_fit_test.iter().any(|(h, _)| h == host);
+    let admitted = market
+        .impostors
+        .iter()
+        .map(|(host, _)| (*host).to_owned())
+        .filter(|host| passes(host))
+        .collect();
+    let lost = market
+        .expected
+        .iter()
+        .map(|host| (*host).to_owned())
+        .filter(|host| reached(host) && !passes(host))
+        .collect();
+    (admitted, lost)
 }
 
 /// One way of deciding that two URLs are the same product.

@@ -288,8 +288,8 @@
   {
     "name": "an exclusion blames the reader for words we chose ourselves",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "            Self::ElsewhereEntirely { ref looked_for } => format!(\n                \"its own front page uses none of the words this comparison is built on: {}\",\n                quoted(looked_for)\n            ),",
-    "new": "            Self::ElsewhereEntirely { .. } => {\n                \"its own front page uses none of the words you typed\".to_owned()\n            }",
+    "old": "            } if used.is_empty() => format!(\n                \"its own front page uses none of the words this comparison is built on: {}\",\n                quoted(looked_for)\n            ),",
+    "new": "            } if used.is_empty() => {\n                \"its own front page uses none of the words you typed\".to_owned()\n            }",
     "run": [
       "cargo",
       "nextest",
@@ -301,8 +301,8 @@
   {
     "name": "an exclusion names words other than the ones it judged against",
     "file": "crates/landscape-search/src/competitors.rs",
-    "old": "                    Some(Aside::ElsewhereEntirely {\n                        looked_for: looked_for.to_vec(),\n                    })",
-    "new": "                    Some(Aside::ElsewhereEntirely {\n                        looked_for: Vec::new(),\n                    })",
+    "old": "                    Some(Aside::ElsewhereEntirely {\n                        looked_for: looked_for.to_vec(),",
+    "new": "                    Some(Aside::ElsewhereEntirely {\n                        looked_for: Vec::new(),",
     "run": [
       "cargo",
       "nextest",
