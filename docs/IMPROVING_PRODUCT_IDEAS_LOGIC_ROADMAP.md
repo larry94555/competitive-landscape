@@ -399,6 +399,7 @@ guides would have been a cost with no evidence behind it.
 Both thresholds are labeled as hypotheses, in the code and here:
 
 ```
+a heading must read as a kind of buyer: `for ...`, `with ...`
 NAMED_BY_HOSTS         = CORROBORATION   two independent guides, the bar companies clear
 COMPANIES_PER_CATEGORY = 2               a vendor's review links to that vendor; a
                                          category lists several

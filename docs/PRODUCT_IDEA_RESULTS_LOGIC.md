@@ -293,6 +293,7 @@ by category, and a heading is structure the page wrote — the same standard as 
 something the page did.
 
 ```
+a heading must read as a kind of buyer: `for ...`, `with ...`
 NAMED_BY_HOSTS        = CORROBORATION   two independent guides must use the heading
 COMPANIES_PER_CATEGORY = 2              a vendor's review links to that vendor; a
                                         category lists several

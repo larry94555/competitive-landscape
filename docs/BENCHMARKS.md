@@ -44,7 +44,7 @@ less than it looks** — what follows includes the part where that is still true
 | | Rust tests | frontend tests | catalog | gates |
 |---|---|---|---|---|
 | before | 1077 | 146 | 52, all caught | 17 |
-| after | **1094** | **146** | **64**, all caught | **17** |
+| after | **1097** | **146** | **66**, all caught | **17** |
 
 ### Where the categories come from
 
@@ -97,11 +97,31 @@ named after its corporate domain, so both survived as categories and refused the
 Review found it, and it is the register's own lesson pointing at me: *not a vendor* was a
 **negative** signal standing in for *is a category*.
 
-What settles it is structural and positive: **a vendor's review links to that vendor; a category
-lists several.** `COMPANIES_PER_CATEGORY = 2`, counted across the guides that use the heading. It
-needs no model, no list of product names, and it does not care whether a product is named after
-its company — and it made the name-matching guard dead code, which the catalog then reported
-as a mutation nothing caught. Deleted.
+The second fix asked whether a heading holds **more than one company**, which killed those — and
+review found the next exception: two guides both running `## Best Overall` and `## Best Value`
+with two winners apiece clear every bar. Two publishers, two companies, no heading that is the
+name of a company under it. **They are selection awards. They rank the same market rather than
+dividing it.**
+
+**Three rules for one question, and the first two were both about what a category is not.** A
+rule made of exclusions is a rule with a next exception, which is the whole of what review kept
+demonstrating. The third one is positive:
+
+```
+a category is OFFERED when
+    its heading describes a kind of buyer or use   `for ...`, `with ...`
+    and it is named on >= NAMED_BY_HOSTS independent hosts
+    and it has >= COMPANIES_PER_CATEGORY companies under it
+```
+
+**A market division is a qualifier, and English marks one with a preposition.** *For creative
+agencies* narrows the market; *Best Overall* ranks it.
+
+**It is deliberately narrow and biased toward saying no.** *Enterprise* and *Agency project
+management* are real category headings this will not recognize, and both are asserted as misses
+in its test. A category missed costs nothing — the gate does not fire and the report is written
+exactly as before. A category invented **stops a report that would have been right**, which
+happened three times in review.
 
 **And the share was taken over two different populations.** A category's companies are everything
 the guides linked — including candidates set aside, never fetched, or never candidates at all —
@@ -647,7 +667,7 @@ six sections a real company actually produces — needs a model and a network. S
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 50 | 1026 | 139 | no code changed |
-| now | **1094** | **146** | **64**, all caught |
+| now | **1097** | **146** | **66**, all caught |
 
 ---
 

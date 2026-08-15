@@ -178,5 +178,35 @@
       "-p",
       "landscape-analyze"
     ]
+  },
+  {
+    "name": "an award is read as a way the market divides",
+    "file": "crates/landscape-search/src/breadth.rs",
+    "old": "            if !describes_a_kind_of_buyer(&label) {",
+    "new": "            if label.is_empty() {",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-analyze"
+    ]
+  },
+  {
+    "name": "a preposition on its own qualifies a market",
+    "file": "crates/landscape-search/src/breadth.rs",
+    "old": "        && label.split_whitespace().count() >= 2",
+    "new": "",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-analyze"
+    ]
   }
 ]

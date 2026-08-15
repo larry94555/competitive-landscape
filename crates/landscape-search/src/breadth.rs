@@ -25,9 +25,9 @@
 //!
 //! ```text
 //! a category is OFFERED when
-//!     it is named on >= NAMED_BY_HOSTS independent hosts
+//!     its heading describes a kind of buyer or use  (`for ...`, `with ...`)
+//!     and it is named on >= NAMED_BY_HOSTS independent hosts
 //!     and it has >= COMPANIES_PER_CATEGORY companies under it
-//!     and it is not one vendor's own review
 //!
 //! the question is TOO GENERAL when
 //!     >= 2 categories clear that bar
@@ -109,6 +109,37 @@ pub fn as_category(heading: &str) -> String {
     words.join(" ")
 }
 
+/// The words a heading must start with to be describing a **kind of buyer or use**.
+///
+/// **A market division is a qualifier, and English marks one with a preposition.** *For creative
+/// agencies*, *for software teams*, *with a free tier* — each one narrows the market the guide is
+/// about. *Best Overall*, *Best Value*, *Editor's Choice* and *Runner Up* are selection awards:
+/// they rank the same market rather than dividing it.
+///
+/// **This is the third rule this module has had for the same question, and the first positive
+/// one.** The first asked *is this heading the name of the company under it*; the second asked
+/// *does it hold more than one company*. Both are things a category is **not**, and review found
+/// a case each rule let through — `## Jira` linking `atlassian.com`, then `## Best Overall` and
+/// `## Best Value` linking two winners apiece. A rule made of exclusions is a rule with a next
+/// exception.
+const QUALIFIERS: [&str; 3] = ["for", "with", "without"];
+
+/// Whether a heading describes a kind of buyer or use rather than a place in a ranking.
+///
+/// **Deliberately narrow, and biased toward saying no.** A category this misses costs nothing: the
+/// gate does not fire and the report is written exactly as it was before this module existed. A
+/// category this invents **stops a report that would have been right**, which is what happened
+/// three times in review. *Agency project management* and *Enterprise* are real headings this
+/// will not recognize, and that is the trade taken on purpose.
+#[must_use]
+pub fn describes_a_kind_of_buyer(label: &str) -> bool {
+    label
+        .split_whitespace()
+        .next()
+        .is_some_and(|first| QUALIFIERS.contains(&first))
+        && label.split_whitespace().count() >= 2
+}
+
 /// Split a guide into its sections: each heading, and the links that follow it.
 ///
 /// **The links under a heading, not the links on the page.** A guide's first heading is its
@@ -164,7 +195,9 @@ pub fn categories(read: &HashMap<String, String>) -> Vec<Category> {
     for (publisher, page) in pages {
         for (heading, linked) in sections(page, publisher) {
             let label = as_category(&heading);
-            if label.is_empty() {
+            // **A positive signal, and it is the point.** Everything before this asked what a
+            // category is not; this asks what one is. See `describes_a_kind_of_buyer`.
+            if !describes_a_kind_of_buyer(&label) {
                 continue;
             }
             let entry = by_label.entry(label).or_default();
@@ -429,6 +462,67 @@ mod tests {
             found.is_empty(),
             "one company under a heading is that company: {found:#?}"
         );
+    }
+
+    #[test]
+    fn a_qualifier_with_one_company_under_it_is_still_thin() {
+        // **The company bar is reachable and was untested**, which the catalog said before a
+        // reviewer had to: with the heading rule in place, nothing exercised
+        // `COMPANIES_PER_CATEGORY` any more. It is not dead - a heading two guides use, phrased
+        // as a kind of buyer, with one company under it, clears every other bar. One company is
+        // thin evidence for a division, and the safe direction here is not to fire.
+        let one_each = concat!(
+            "# Best project management software\n\n",
+            "## Best for creative agencies\n\n[Workamajig](https://www.workamajig.com/)\n\n",
+            "## Best for software teams\n\n[Linear](https://linear.app/)\n",
+        );
+        let found = categories(&read(&[("g2.com", one_each), ("capterra.com", one_each)]));
+        assert!(found.is_empty(), "{found:#?}");
+    }
+
+    #[test]
+    fn an_award_is_a_place_in_a_ranking_rather_than_a_market() {
+        // **Review's third round on the same question, and the reason the rule is positive at
+        // last.** Two guides both running `## Best Overall` and `## Best Value` with two winners
+        // apiece cleared every bar this module had: two publishers, two companies, no heading
+        // that is the name of a company under it. So an ordinary project-management report was
+        // refused and *overall* and *value* were offered to a reader as markets.
+        //
+        // They are selection awards. They rank the same market rather than dividing it.
+        let a = concat!(
+            "# Best project management software\n\n",
+            "## Best Overall\n\n[Asana](https://asana.com/)\n\n",
+            "## Best Value\n\n[ClickUp](https://clickup.com/)\n",
+        );
+        let b = concat!(
+            "# Project management software\n\n",
+            "## Best Overall\n\n[Monday](https://monday.com/)\n\n",
+            "## Best Value\n\n[Wrike](https://www.wrike.com/)\n",
+        );
+        let found = categories(&read(&[("g2.com", a), ("capterra.com", b)]));
+        assert!(
+            found.is_empty(),
+            "an award ranks a market rather than dividing it: {found:#?}"
+        );
+    }
+
+    #[test]
+    fn what_a_category_is_rather_than_what_it_is_not() {
+        // The rule stated directly, so the next person changing it can see its shape and its
+        // cost: it says yes to a qualifier and no to everything else, including real headings.
+        assert!(describes_a_kind_of_buyer("for creative agencies"));
+        assert!(describes_a_kind_of_buyer("with a free tier"));
+        assert!(!describes_a_kind_of_buyer("overall"));
+        assert!(!describes_a_kind_of_buyer("value"));
+        assert!(!describes_a_kind_of_buyer("jira"));
+        assert!(
+            !describes_a_kind_of_buyer("for"),
+            "a preposition alone qualifies nothing"
+        );
+        // **The cost, asserted rather than admitted.** These are real category headings this
+        // will not recognize, and missing one only means the gate does not fire.
+        assert!(!describes_a_kind_of_buyer("enterprise"));
+        assert!(!describes_a_kind_of_buyer("agency project management"));
     }
 
     #[test]
