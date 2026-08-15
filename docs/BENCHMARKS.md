@@ -44,7 +44,7 @@ becomes the way to find the market's literature.
 | | Rust tests | frontend tests | catalog | gates |
 |---|---|---|---|---|
 | before | 1053 | 139 | 25, all caught | 17 |
-| after | **1069** | **139** | **41**, all caught | **17** |
+| after | **1072** | **139** | **45**, all caught | **17** |
 
 ### What moved, and it is the reader's own complaint
 
@@ -105,7 +105,20 @@ scanned for every `http` in the page: a URL quoted in a sentence, an image sourc
 tag was a vendor endorsement. It parses markdown destinations and autolinks now, and `![alt](url)`
 is a picture of a thing rather than a recommendation of it.
 
-**And endorsements attached themselves to whichever product won.** `linked_from` collapsed a link
+**And endorsements attached themselves to whichever product won** — which took two rounds to
+fix, because the first attempt filtered the list a reader sees and left the **number the pipeline
+acts on** computed from the unfiltered set. `split` re-sorts on that number while deciding which
+candidates spend the remaining read budget, so stale evidence still changed which companies were
+examined. It also counted *links* rather than publishers, and the path where a domain shows only
+one product returned early without filtering at all. The applicable endorsements are derived once
+now and used for both.
+
+**A link to a vendor's root is the subtlety.** It endorses the company, which is unambiguous
+only when there is nothing to be ambiguous between: when the candidate *is* the vendor, or when
+the domain turned out to sell one thing. With two products on a domain, a link to its root
+supports neither.
+
+**The original finding:** `linked_from` collapsed a link
 to its registrable host, and `products::split` handed the domain's whole set to the strongest
 product — so two guides linking **Microsoft Teams** corroborated **Microsoft Project**. The URL
 is kept now, and an endorsement pointing at a domain root supports no product at all, because
@@ -453,7 +466,7 @@ six sections a real company actually produces — needs a model and a network. S
 | | Rust tests | frontend tests | catalog |
 |---|---|---|---|
 | Run 50 | 1026 | 139 | no code changed |
-| now | **1069** | **139** | **41**, all caught |
+| now | **1072** | **139** | **45**, all caught |
 
 ---
 

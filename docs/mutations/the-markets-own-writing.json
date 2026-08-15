@@ -182,8 +182,8 @@
   {
     "name": "a domain's endorsements are handed to whichever product wins",
     "file": "crates/landscape-search/src/products.rs",
-    "old": "        named_by: one\n            .named_by\n            .iter()\n            .filter(|e| best.urls.contains(&e.at))\n            .cloned()\n            .collect(),",
-    "new": "        named_by: one.named_by.clone(),",
+    "old": "    let named_by = applicable(&best.urls, false);",
+    "new": "    let named_by = one.named_by.clone();",
     "run": [
       "cargo",
       "nextest",
@@ -199,6 +199,66 @@
     "file": "crates/landscape-search/src/literature.rs",
     "old": "        if !out.contains(&one.by) {\n            out.push(one.by.clone());\n        }",
     "new": "        out.push(one.by.clone());",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a score counts evidence a candidate does not have",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        confidence: scored(agreed, &named_by, &best.shallowest),",
+    "new": "        confidence: scored(agreed, &one.named_by, &best.shallowest),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a score counts links rather than publishers",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "            agreed + crate::literature::publishers(named_by).len(),",
+    "new": "            agreed + named_by.len(),",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a domain shown as one product inherits another product's guides",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "        let named_by = applicable(&urls, true);\n        let evidence = vendor",
+    "new": "        let named_by = one.named_by.clone();\n        let evidence = vendor",
+    "run": [
+      "cargo",
+      "nextest",
+      "run",
+      "-p",
+      "landscape-search",
+      "-p",
+      "landscape-golden"
+    ]
+  },
+  {
+    "name": "a link to a vendor's root supports whichever product is strongest",
+    "file": "crates/landscape-search/src/products.rs",
+    "old": "                    || (root_is_about_this && crate::candidates::depth(&e.at) == 0)",
+    "new": "                    || crate::candidates::depth(&e.at) == 0",
     "run": [
       "cargo",
       "nextest",
